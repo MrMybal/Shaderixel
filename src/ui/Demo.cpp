@@ -300,6 +300,7 @@ void App::DemoTick() {
     if (demoMode == 12 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 18 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 11 && v && frameCounter == 7) ImGui::SetWindowFocus("Éditeur d'effets");
+    if (demoMode == 27 && v && frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
     if (demoMode == 14 && v && v->mesh) {
         if (frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
         if (frameCounter == 8) {
@@ -627,6 +628,18 @@ void App::RunDemo() {
     }
     if (demoMode == 14) {
         AttachMesh(v, MakeSphere());
+        tool = Tool::Brush;
+    }
+    if (demoMode == 27) {
+        // glTF: embedded (.gltf, base64) and binary (.glb) versions of the same scene.
+        for (const char* f : {"test.gltf", "test.glb"}) {
+            MeshData m;
+            std::string err;
+            bool ok = LoadMesh(f, m, &err);
+            Log("[gltf] %s: %s %zu vertices, %zu triangles, bounds (%.2f %.2f %.2f)-(%.2f %.2f %.2f)", f, ok ? "ok" : err.c_str(), m.vertices.size(),
+                m.indices.size() / 3, m.boundsMin.x, m.boundsMin.y, m.boundsMin.z, m.boundsMax.x, m.boundsMax.y, m.boundsMax.z);
+            if (ok && std::string(f) == "test.glb") AttachMesh(v, std::move(m));
+        }
         tool = Tool::Brush;
     }
     if (demoMode == 20) {

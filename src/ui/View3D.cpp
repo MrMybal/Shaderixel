@@ -29,13 +29,13 @@ void App::DrawView3D() {
     ImGui::SameLine();
     if (ImGui::SmallButton("Plan")) AttachMesh(*v, MakePlane());
     ImGui::SameLine();
-    if (ImGui::SmallButton("Ouvrir OBJ...")) {
-        std::string path = platform::OpenFileDialog(hwnd, L"Maillage OBJ (*.obj)\0*.obj\0");
+    if (ImGui::SmallButton("Ouvrir un maillage...")) {
+        std::string path = platform::OpenFileDialog(hwnd, L"Maillages (*.obj, *.gltf, *.glb)\0*.obj;*.gltf;*.glb\0");
         if (!path.empty()) {
             MeshData m;
             std::string err;
-            if (LoadObj(path, m, &err)) AttachMesh(*v, std::move(m));
-            else Status("OBJ : " + err);
+            if (LoadMesh(path, m, &err)) AttachMesh(*v, std::move(m));
+            else Status("Maillage : " + err);
         }
     }
     if (v->mesh) {

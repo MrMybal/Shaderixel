@@ -50,7 +50,7 @@
 - Fusionner vers le bas / les calques visibles / aplatir : **fait**
 
 ### 3D
-- glTF / FBX, plusieurs matériaux
+- Import glTF 2.0 (.gltf / .glb) : **fait** ; reste : FBX, plusieurs matériaux / UDIM
 - Canaux PBR liés (rugosité, métal, normale, hauteur) et rendu PBR
 - Pinceau en espace UV / triplanar, masquage par ID de matériau
 

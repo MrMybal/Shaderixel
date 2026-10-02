@@ -44,6 +44,9 @@ struct MeshData {
 };
 
 bool LoadObj(const std::string& path, MeshData& out, std::string* error);
+bool LoadGltf(const std::string& path, MeshData& out, std::string* error);  // .gltf / .glb
+// By extension (.obj, .gltf, .glb).
+bool LoadMesh(const std::string& path, MeshData& out, std::string* error);
 MeshData MakeSphere(int segments = 64, int rings = 32);
 MeshData MakeCube();
 MeshData MakePlane();
