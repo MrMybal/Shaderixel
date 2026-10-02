@@ -1,0 +1,5 @@
+build/
+external/
+*.log
+shadercache/
+shaderixel_layout.ini

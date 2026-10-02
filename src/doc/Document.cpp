@@ -1,0 +1,517 @@
+#include "doc/Document.h"
+
+#include <functional>
+#include <set>
+
+namespace sx {
+
+namespace {
+const char* kBlendNames[] = {
+    "Normal", "Produit", "Superposition (écran)", "Incrustation", "Densité linéaire - (Ajout)", "Soustraction",
+    "Obscurcir", "Éclaircir", "Différence", "Densité couleur -", "Densité couleur +", "Lumière crue",
+    "Lumière tamisée", "Fondu", "Densité linéaire +", "Lumière vive", "Lumière linéaire", "Lumière ponctuelle",
+    "Mélange maximal", "Exclusion", "Division", "Teinte", "Saturation", "Couleur", "Luminosité",
+    "Couleur plus foncée", "Couleur plus claire"};
+
+constexpr Id kOutputId = 1;
+constexpr Id kGenBase = 0x40000000u;
+Id GenId(Id layer, u32 role) { return kGenBase | (layer << 5) | role; }
+enum Role : u32 { RoleSource = 0, RoleFilter = 1, RoleAdjust = 16, RoleBlend = 17, RoleMask = 18 };
+}  // namespace
+
+const int kBlendMenuOrder[] = {0, 13, -1, 6, 1, 10, 14, 25, -1, 7, 2, 9, 4, 26, -1, 3, 12, 11, 15, 16, 17, 18, -1, 8, 19, 5, 20, -1, 21, 22, 23, 24};
+const int kBlendMenuCount = (int)(sizeof(kBlendMenuOrder) / sizeof(int));
+
+const char* BlendModeName(BlendMode m) {
+    int i = (int)m;
+    return i >= 0 && i < (int)BlendMode::Count ? kBlendNames[i] : "?";
+}
+
+gpu::Format SurfaceFormat(Precision p) {
+    return p == Precision::Float32 ? gpu::Format::RGBA32F : gpu::Format::RGBA16F;
+}
+
+EffectDefPtr EffectInstance::Def() const {
+    if (!customCode.empty()) {
+        if (!cachedDef || cachedCode != customCode) {
+            cachedDef = ParseEffect("", customCode);
+            cachedCode = customCode;
+        }
+        return cachedDef;
+    }
+    return Effects().Find(effectId);
+}
+
+int NodeInputCount(const Node& n) {
+    switch (n.kind) {
+        case NodeKind::Output: return 1;
+        case NodeKind::Surface: return 0;
+        case NodeKind::Blend: return 3;
+        case NodeKind::Effect: {
+            auto d = n.fx.Def();
+            return d ? (int)d->inputs.size() : (int)n.inputs.size();
+        }
+    }
+    return 0;
+}
+
+std::string NodeInputName(const Node& n, int i) {
+    switch (n.kind) {
+        case NodeKind::Output: return "Image";
+        case NodeKind::Blend: return i == 0 ? "Fond" : i == 1 ? "Calque" : "Masque";
+        case NodeKind::Effect: {
+            auto d = n.fx.Def();
+            if (d && i < (int)d->inputs.size()) return d->inputs[i];
+            return "Entrée";
+        }
+        default: return "";
+    }
+}
+
+Node* Graph::Find(Id id) {
+    for (auto& n : nodes) if (n.id == id) return &n;
+    return nullptr;
+}
+const Node* Graph::Find(Id id) const {
+    for (auto& n : nodes) if (n.id == id) return &n;
+    return nullptr;
+}
+
+bool Graph::WouldCycle(Id from, Id to) const {
+    // Linking from -> to creates a cycle if `to` is reachable upstream of `from`.
+    std::vector<Id> stack{from};
+    std::set<Id> seen;
+    while (!stack.empty()) {
+        Id cur = stack.back();
+        stack.pop_back();
+        if (cur == to) return true;
+        if (!seen.insert(cur).second) continue;
+        if (auto* n = Find(cur))
+            for (Id in : n->inputs) if (in) stack.push_back(in);
+    }
+    return false;
+}
+
+// ------------------------------------------------------------------ document
+
+Document::Document(u32 w, u32 h, Precision p, DocMode mode, const std::string& name_)
+    : width(w), height(h), precision(p), name(name_) {
+    state.mode = mode;
+    Node out;
+    out.id = kOutputId;
+    out.kind = NodeKind::Output;
+    out.name = "Sortie";
+    out.inputs = {0};
+    state.graph.nodes.push_back(out);
+    state.graph.output = kOutputId;
+}
+
+Id Document::CreateSurface(const float4& clear) {
+    Id id = NewId();
+    Surface s;
+    s.tex = gpu::Dev().CreateTexture(width, height, SurfaceFormat(precision), "Surface");
+    s.version = ++versionCounter;
+    state.surfaces[id] = s;
+    pendingClears.push_back({id, clear});
+    return id;
+}
+
+Surface* Document::GetSurface(Id id) {
+    auto it = state.surfaces.find(id);
+    return it == state.surfaces.end() ? nullptr : &it->second;
+}
+
+void Document::TouchSurface(Id id) {
+    if (auto* s = GetSurface(id)) s->version = ++versionCounter;
+    dirty = true;
+}
+
+void Document::InvalidateSurfaces() {
+    for (auto& [id, s] : state.surfaces) s.version = ++versionCounter;
+}
+
+Layer* Document::FindLayer(Id id) {
+    for (auto& l : state.layers) if (l.id == id) return &l;
+    return nullptr;
+}
+
+int Document::LayerIndex(Id id) const {
+    for (size_t i = 0; i < state.layers.size(); ++i) if (state.layers[i].id == id) return (int)i;
+    return -1;
+}
+
+static int InsertIndex(const DocState& s, int index) {
+    if (index >= 0) return std::min(index, (int)s.layers.size());
+    // Default: above the active layer, like Photoshop.
+    for (size_t i = 0; i < s.layers.size(); ++i)
+        if (s.layers[i].id == s.activeLayer) return (int)i + 1;
+    return (int)s.layers.size();
+}
+
+Layer& Document::AddPixelLayer(const std::string& lname, int index) {
+    Layer l;
+    l.id = NewId();
+    l.name = lname;
+    l.kind = LayerKind::Pixel;
+    l.surface = CreateSurface({0, 0, 0, 0});
+    int at = InsertIndex(state, index);
+    state.layers.insert(state.layers.begin() + at, l);
+    state.activeLayer = l.id;
+    state.editMask = false;
+    SyncGraph();
+    return state.layers[at];
+}
+
+Layer& Document::AddEffectLayer(LayerKind kind, const std::string& effectId, int index) {
+    Layer l;
+    l.id = NewId();
+    l.kind = kind;
+    l.effect.effectId = effectId;
+    auto def = Effects().Find(effectId);
+    l.name = def ? def->name : effectId;
+    if (def) l.effect.params = def->DefaultParams();
+    int at = InsertIndex(state, index);
+    state.layers.insert(state.layers.begin() + at, l);
+    state.activeLayer = l.id;
+    state.editMask = false;
+    SyncGraph();
+    return state.layers[at];
+}
+
+void Document::RemoveLayer(Id id) {
+    int i = LayerIndex(id);
+    if (i < 0) return;
+    state.layers.erase(state.layers.begin() + i);
+    if (state.activeLayer == id)
+        state.activeLayer = state.layers.empty() ? 0 : state.layers[std::max(0, i - 1)].id;
+    state.editMask = false;
+    SyncGraph();
+}
+
+void Document::MoveLayer(Id id, int newIndex) {
+    int i = LayerIndex(id);
+    if (i < 0) return;
+    newIndex = std::clamp(newIndex, 0, (int)state.layers.size() - 1);
+    Layer l = state.layers[i];
+    state.layers.erase(state.layers.begin() + i);
+    state.layers.insert(state.layers.begin() + newIndex, l);
+    SyncGraph();
+}
+
+Layer& Document::DuplicateLayer(Id id) {
+    int i = LayerIndex(id);
+    Layer copy = state.layers[i];
+    copy.id = NewId();
+    copy.name += " copie";
+    if (copy.surface) {
+        Id src = copy.surface;
+        copy.surface = CreateSurface({0, 0, 0, 0});
+        pendingCopies.push_back({copy.surface, src});
+    }
+    if (copy.mask) {
+        Id src = copy.mask;
+        copy.mask = CreateSurface({1, 1, 1, 1});
+        pendingCopies.push_back({copy.mask, src});
+    }
+    state.layers.insert(state.layers.begin() + i + 1, copy);
+    state.activeLayer = copy.id;
+    SyncGraph();
+    return state.layers[i + 1];
+}
+
+void Document::AddMask(Id layerId) {
+    if (auto* l = FindLayer(layerId)) {
+        if (!l->mask) l->mask = CreateSurface({1, 1, 1, 1});
+        l->maskEnabled = true;
+        state.editMask = true;
+        SyncGraph();
+    }
+}
+
+void Document::SyncGraph() {
+    if (state.mode == DocMode::Layers) RebuildFromLayers();
+    dirty = true;
+}
+
+void Document::RebuildFromLayers() {
+    Graph g;
+    Node out;
+    out.id = kOutputId;
+    out.kind = NodeKind::Output;
+    out.name = "Sortie";
+    out.inputs = {0};
+    Id prev = 0;
+    float x = 0;
+    for (const Layer& l : state.layers) {
+        x += 240.0f;
+        Id src = 0;
+        float y = 0;
+        if (l.kind == LayerKind::Pixel) {
+            Node n;
+            n.id = GenId(l.id, RoleSource);
+            n.kind = NodeKind::Surface;
+            n.name = l.name;
+            n.surface = l.surface;
+            n.pos = {x, y};
+            n.layer = l.id;
+            g.nodes.push_back(n);
+            src = n.id;
+        } else {
+            Node n;
+            n.id = GenId(l.id, l.kind == LayerKind::Adjustment ? RoleAdjust : RoleSource);
+            n.kind = NodeKind::Effect;
+            n.name = l.name;
+            n.fx = l.effect;
+            n.pos = {x, y};
+            n.layer = l.id;
+            int nin = NodeInputCount(n);
+            n.inputs.assign(nin, 0);
+            if (l.kind == LayerKind::Adjustment && nin > 0) n.inputs[0] = prev;
+            g.nodes.push_back(n);
+            src = n.id;
+        }
+        u32 fi = 0;
+        for (const auto& f : l.filters) {
+            if (fi >= 15) break;
+            y += 170.0f;
+            Node n;
+            n.id = GenId(l.id, RoleFilter + fi++);
+            n.kind = NodeKind::Effect;
+            auto def = f.Def();
+            n.name = def ? def->name : "Filtre";
+            n.fx = f;
+            n.bypass = !f.enabled;
+            n.pos = {x, y};
+            n.layer = l.id;
+            n.inputs.assign(std::max(NodeInputCount(n), 1), 0);
+            n.inputs[0] = src;
+            g.nodes.push_back(n);
+            src = n.id;
+        }
+        Id maskNode = 0;
+        if (l.mask && l.maskEnabled) {
+            Node m;
+            m.id = GenId(l.id, RoleMask);
+            m.kind = NodeKind::Surface;
+            m.name = l.name + " (masque)";
+            m.surface = l.mask;
+            m.pos = {x - 120.0f, y + 170.0f};
+            m.layer = l.id;
+            g.nodes.push_back(m);
+            maskNode = m.id;
+        }
+        Node b;
+        b.id = GenId(l.id, RoleBlend);
+        b.kind = NodeKind::Blend;
+        b.name = "Fusion " + l.name;
+        b.blend = l.blend;
+        b.opacity = l.opacity;
+        b.bypass = !l.visible;
+        b.inputs = {prev, src, maskNode};
+        b.pos = {x + 40.0f, y + 340.0f};
+        b.layer = l.id;
+        g.nodes.push_back(b);
+        prev = b.id;
+    }
+    out.inputs[0] = prev;
+    out.pos = {x + 300.0f, 340.0f + 170.0f};
+    g.nodes.push_back(out);
+    g.output = kOutputId;
+    state.graph = std::move(g);
+    state.activeNode = 0;
+}
+
+void Document::ConvertToNodes() {
+    if (state.mode == DocMode::Nodes) return;
+    RebuildFromLayers();
+    state.mode = DocMode::Nodes;
+    // Select the node of the active layer.
+    for (auto& n : state.graph.nodes)
+        if (n.layer == state.activeLayer && (n.kind == NodeKind::Surface || n.kind == NodeKind::Effect)) { state.activeNode = n.id; break; }
+    dirty = true;
+}
+
+// Try to read the graph back as a linear layer stack.
+static bool ExtractLayers(const Graph& g, std::vector<Layer>& out, std::string* why) {
+    auto fail = [&](const std::string& msg) { if (why) *why = msg; return false; };
+    // Count consumers: every node must feed at most one input.
+    std::unordered_map<Id, int> uses;
+    for (auto& n : g.nodes) for (Id in : n.inputs) if (in) uses[in]++;
+    for (auto& [id, c] : uses) {
+        const Node* n = g.Find(id);
+        // A fusion may feed both the next fusion and an adjustment effect.
+        if (c > 1 && !(n && n->kind == NodeKind::Blend && c == 2)) return fail("un nœud alimente plusieurs entrées (branche)");
+    }
+
+    const Node* outNode = g.Find(g.output);
+    if (!outNode) return fail("pas de nœud de sortie");
+    std::vector<const Node*> blends;
+    Id cur = outNode->inputs.empty() ? 0 : outNode->inputs[0];
+    while (cur) {
+        const Node* n = g.Find(cur);
+        if (!n || n->kind != NodeKind::Blend) return fail("la chaîne principale doit être composée de nœuds de fusion");
+        blends.push_back(n);
+        cur = n->inputs[0];
+    }
+    std::reverse(blends.begin(), blends.end());
+    std::set<Id> used;
+    Id prevBlend = 0;
+    for (const Node* b : blends) {
+        Layer l;
+        l.id = b->layer ? b->layer : b->id;
+        l.blend = b->blend;
+        l.opacity = b->opacity;
+        l.visible = !b->bypass;
+        used.insert(b->id);
+        // Mask
+        if (b->inputs.size() > 2 && b->inputs[2]) {
+            const Node* m = g.Find(b->inputs[2]);
+            if (!m || m->kind != NodeKind::Surface) return fail("un masque doit être une surface");
+            l.mask = m->surface;
+            used.insert(m->id);
+        }
+        // Content chain: filters... -> source
+        std::vector<const Node*> chain;
+        Id c = b->inputs.size() > 1 ? b->inputs[1] : 0;
+        if (!c) return fail("une fusion n'a pas de calque");
+        bool adjustment = false;
+        while (c) {
+            const Node* n = g.Find(c);
+            if (!n) return fail("lien invalide");
+            if (n->kind == NodeKind::Surface) { chain.push_back(n); break; }
+            if (n->kind != NodeKind::Effect) return fail("nœud non supporté dans un calque");
+            chain.push_back(n);
+            int nin = NodeInputCount(*n);
+            for (int i = 1; i < (int)n->inputs.size(); ++i)
+                if (n->inputs[i]) return fail("effet à plusieurs entrées");
+            Id up = nin > 0 && !n->inputs.empty() ? n->inputs[0] : 0;
+            if (nin > 0 && up == prevBlend) { adjustment = true; break; }
+            if (nin > 0 && !up) return fail("effet sans entrée");
+            c = up;
+        }
+        std::reverse(chain.begin(), chain.end());
+        const Node* src = chain.front();
+        if (src->kind == NodeKind::Surface) {
+            l.kind = LayerKind::Pixel;
+            l.surface = src->surface;
+        } else {
+            l.kind = adjustment ? LayerKind::Adjustment : LayerKind::Fill;
+            l.effect = src->fx;
+        }
+        l.name = src->name;
+        for (size_t i = 1; i < chain.size(); ++i) {
+            EffectInstance f = chain[i]->fx;
+            f.enabled = !chain[i]->bypass;
+            l.filters.push_back(f);
+        }
+        for (auto* n : chain) used.insert(n->id);
+        out.push_back(l);
+        prevBlend = b->id;
+    }
+    // Unused nodes would be lost.
+    for (auto& n : g.nodes)
+        if (n.id != g.output && !used.count(n.id)) return fail("des nœuds ne sont pas connectés à la sortie (" + n.name + ")");
+    return true;
+}
+
+bool Document::CanConvertToLayers(std::string* why) const {
+    if (state.mode == DocMode::Layers) return false;
+    std::vector<Layer> tmp;
+    return ExtractLayers(state.graph, tmp, why);
+}
+
+bool Document::ConvertToLayers() {
+    std::vector<Layer> layers;
+    if (!ExtractLayers(state.graph, layers, nullptr)) return false;
+    // Layer ids must be unique: re-id any collisions.
+    std::set<Id> ids;
+    for (auto& l : layers) if (!ids.insert(l.id).second || l.id >= kGenBase) l.id = NewId();
+    state.layers = layers;
+    state.mode = DocMode::Layers;
+    state.activeLayer = layers.empty() ? 0 : layers.back().id;
+    RebuildFromLayers();
+    dirty = true;
+    return true;
+}
+
+// ------------------------------------------------------------------ node mode
+
+Node& Document::AddNode(NodeKind kind, float2 pos) {
+    Node n;
+    n.id = NewId();
+    n.kind = kind;
+    n.pos = pos;
+    switch (kind) {
+        case NodeKind::Surface:
+            n.name = "Calque pixel";
+            n.surface = CreateSurface({0, 0, 0, 0});
+            break;
+        case NodeKind::Blend:
+            n.name = "Fusion";
+            n.inputs = {0, 0, 0};
+            break;
+        default: n.name = "Nœud"; break;
+    }
+    state.graph.nodes.push_back(n);
+    state.activeNode = n.id;
+    dirty = true;
+    return state.graph.nodes.back();
+}
+
+Node& Document::AddEffectNode(const std::string& effectId, const std::string& customCode, float2 pos) {
+    Node n;
+    n.id = NewId();
+    n.kind = NodeKind::Effect;
+    n.pos = pos;
+    n.fx.effectId = effectId;
+    n.fx.customCode = customCode;
+    auto def = n.fx.Def();
+    n.name = def ? def->name : "Effet";
+    if (def) n.fx.params = def->DefaultParams();
+    n.inputs.assign(NodeInputCount(n), 0);
+    state.graph.nodes.push_back(n);
+    state.activeNode = n.id;
+    dirty = true;
+    return state.graph.nodes.back();
+}
+
+void Document::RemoveNode(Id id) {
+    if (id == state.graph.output) return;
+    auto& nodes = state.graph.nodes;
+    nodes.erase(std::remove_if(nodes.begin(), nodes.end(), [&](const Node& n) { return n.id == id; }), nodes.end());
+    for (auto& n : nodes)
+        for (auto& in : n.inputs) if (in == id) in = 0;
+    if (state.activeNode == id) state.activeNode = 0;
+    dirty = true;
+}
+
+bool Document::Link(Id from, Id to, int input) {
+    Node* dst = state.graph.Find(to);
+    if (!dst || !state.graph.Find(from) || from == to) return false;
+    if (state.graph.WouldCycle(from, to)) return false;
+    if ((int)dst->inputs.size() <= input) dst->inputs.resize(input + 1, 0);
+    dst->inputs[input] = from;
+    dirty = true;
+    return true;
+}
+
+void Document::Unlink(Id to, int input) {
+    if (Node* dst = state.graph.Find(to))
+        if (input < (int)dst->inputs.size()) dst->inputs[input] = 0;
+    dirty = true;
+}
+
+Id Document::PaintTarget() const {
+    if (state.mode == DocMode::Layers) {
+        for (auto& l : state.layers)
+            if (l.id == state.activeLayer) {
+                if (state.editMask && l.mask) return l.mask;
+                return l.kind == LayerKind::Pixel && !l.locked ? l.surface : 0;
+            }
+        return 0;
+    }
+    const Node* n = state.graph.Find(state.activeNode);
+    return n && n->kind == NodeKind::Surface ? n->surface : 0;
+}
+
+}  // namespace sx

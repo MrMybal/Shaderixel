@@ -1,0 +1,321 @@
+// Canvas viewport, toolbar and painting tools.
+#include "ui/App.h"
+#include "ui/Theme.h"
+
+#include <imgui_internal.h>
+
+namespace sx {
+
+namespace {
+struct ToolInfo { Tool tool; int icon; const char* tip; };
+const ToolInfo kTools[] = {
+    {Tool::Brush, ui::IconBrush, "Pinceau (B)"},
+    {Tool::Eraser, ui::IconEraser, "Gomme (E)"},
+    {Tool::Gradient, ui::IconGradient, "Dégradé (G)"},
+    {Tool::Bucket, ui::IconBucket, "Pot de peinture - remplit le calque (K)"},
+    {Tool::Picker, ui::IconPicker, "Pipette (I) - Alt+clic avec le pinceau"},
+    {Tool::Hand, ui::IconHand, "Main (H) - Espace ou clic molette"},
+    {Tool::Zoom, ui::IconZoom, "Zoom (Z) - Alt+clic pour dézoomer, molette"},
+};
+}  // namespace
+
+void App::DrawToolbar() {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6 * dpi, 8 * dpi));
+    if (ImGui::Begin("Outils", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar)) {
+        float size = std::min(ImGui::GetContentRegionAvail().x, 40.0f * dpi);
+        for (auto& t : kTools) {
+            if (ui::IconButton(t.tip, t.icon, tool == t.tool, size, t.tip)) tool = t.tool;
+        }
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        // Foreground / background swatches (Photoshop style).
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        float sw = size * 0.62f;
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImVec2 bgMin(p.x + size - sw, p.y + size - sw);
+        dl->AddRectFilled(bgMin, ImVec2(bgMin.x + sw, bgMin.y + sw), ImGui::ColorConvertFloat4ToU32(ImVec4(bg.x, bg.y, bg.z, 1)), 3);
+        dl->AddRect(bgMin, ImVec2(bgMin.x + sw, bgMin.y + sw), ui::col::Border, 3);
+        dl->AddRectFilled(p, ImVec2(p.x + sw, p.y + sw), ImGui::ColorConvertFloat4ToU32(ImVec4(fg.x, fg.y, fg.z, 1)), 3);
+        dl->AddRect(p, ImVec2(p.x + sw, p.y + sw), IM_COL32(200, 200, 210, 255), 3);
+        ImGui::SetCursorScreenPos(p);
+        if (ImGui::InvisibleButton("##fg", ImVec2(sw, sw))) { editBg = false; ImGui::SetWindowFocus("Couleur"); }
+        ui::HelpTooltip("Couleur de premier plan");
+        ImGui::SetCursorScreenPos(bgMin);
+        if (ImGui::InvisibleButton("##bg", ImVec2(sw, sw))) { editBg = true; ImGui::SetWindowFocus("Couleur"); }
+        ui::HelpTooltip("Couleur d'arrière-plan");
+        ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + size + 4));
+        if (ui::IconButton("swap", ui::IconSwap, false, size * 0.5f, "Permuter (X)")) std::swap(fg, bg);
+    }
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
+float2 App::ScreenToDoc(const DocView& v, ImVec2 canvasMin, ImVec2 p) const {
+    return {(p.x - canvasMin.x - v.pan.x) / v.zoom, (p.y - canvasMin.y - v.pan.y) / v.zoom};
+}
+
+void App::FitView(DocView& v, ImVec2 avail) {
+    float z = std::min(avail.x / v.doc->Width(), avail.y / v.doc->Height()) * 0.92f;
+    v.zoom = std::clamp(z, 0.01f, 64.0f);
+    v.pan = {(avail.x - v.doc->Width() * v.zoom) * 0.5f, (avail.y - v.doc->Height() * v.zoom) * 0.5f};
+}
+
+void App::DrawCanvas() {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    bool visible = ImGui::Begin("Canevas", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoTitleBar);
+    ImGui::PopStyleVar();
+    DocView* v = Active();
+    if (!visible || !v) {
+        if (visible) {
+            ImVec2 a = ImGui::GetContentRegionAvail();
+            const char* msg = "Ctrl+N : nouveau document    Ctrl+O : ouvrir une image";
+            ImVec2 ts = ImGui::CalcTextSize(msg);
+            ImGui::SetCursorPos(ImVec2((a.x - ts.x) * 0.5f, a.y * 0.5f));
+            ImGui::TextDisabled("%s", msg);
+        }
+        ImGui::End();
+        return;
+    }
+    Document& doc = *v->doc;
+    ImVec2 canvasMin = ImGui::GetCursorScreenPos();
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    u32 vw = (u32)std::max(1.0f, avail.x), vh = (u32)std::max(1.0f, avail.y);
+    if (v->fitPending) {
+        FitView(*v, avail);
+        v->fitPending = false;
+    }
+
+    // Interaction first so this frame's dabs are visible this frame.
+    ImGui::InvisibleButton("##canvas", avail, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
+    bool hovered = ImGui::IsItemHovered();
+    v->renderer.Prepare(doc, *ctx);
+    CanvasInput(*v, canvasMin, avail, hovered);
+
+    gpu::Texture* image = v->renderer.Evaluate(doc, *ctx);
+    v->lastImage = image;
+    if (!v->viewTex || v->viewTex->Width() != vw || v->viewTex->Height() != vh)
+        v->viewTex = gpu::Dev().CreateTexture(vw, vh, gpu::Format::RGBA8, "Viewport");
+    ViewParams vp;
+    vp.origin = {-v->pan.x / v->zoom, -v->pan.y / v->zoom};
+    vp.invZoom = 1.0f / v->zoom;
+    vp.viewW = vw;
+    vp.viewH = vh;
+    vp.nearest = v->zoom >= 2.0f;
+    v->renderer.Display(*ctx, image, doc.Width(), doc.Height(), vp, v->viewTex.get());
+
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(v->viewTex.get()), canvasMin, ImVec2(canvasMin.x + vw, canvasMin.y + vh));
+
+    // Document border
+    ImVec2 d0(canvasMin.x + v->pan.x, canvasMin.y + v->pan.y);
+    ImVec2 d1(d0.x + doc.Width() * v->zoom, d0.y + doc.Height() * v->zoom);
+    dl->AddRect(ImVec2(d0.x - 1, d0.y - 1), ImVec2(d1.x + 1, d1.y + 1), IM_COL32(0, 0, 0, 120));
+
+    // Overlays
+    ImVec2 mouse = ImGui::GetMousePos();
+    cursorDoc = ScreenToDoc(*v, canvasMin, mouse);
+    cursorInDoc = hovered && cursorDoc.x >= 0 && cursorDoc.y >= 0 && cursorDoc.x < doc.Width() && cursorDoc.y < doc.Height();
+    bool panMode = tool == Tool::Hand || spaceHeld || panning;
+    if (hovered && !panMode && (tool == Tool::Brush || tool == Tool::Eraser) && !ImGui::GetIO().KeyAlt) {
+        const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
+        float r = std::max(b.size * 0.5f * v->zoom, 1.0f);
+        dl->AddCircle(mouse, r + 1, IM_COL32(0, 0, 0, 160), 0, 1.5f);
+        dl->AddCircle(mouse, r, IM_COL32(255, 255, 255, 220), 0, 1.0f);
+        if (b.hardness < 0.95f) dl->AddCircle(mouse, r * std::max(b.hardness, 0.05f), IM_COL32(255, 255, 255, 70), 0, 1.0f);
+        if (r < 4) {
+            dl->AddLine(ImVec2(mouse.x - 6, mouse.y), ImVec2(mouse.x + 6, mouse.y), IM_COL32_WHITE);
+            dl->AddLine(ImVec2(mouse.x, mouse.y - 6), ImVec2(mouse.x, mouse.y + 6), IM_COL32_WHITE);
+        }
+        ImGui::SetMouseCursor(ImGuiMouseCursor_None);
+    } else if (hovered && panMode) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+    }
+    if (gradientDrag) {
+        ImVec2 a(canvasMin.x + v->pan.x + gradientStart.x * v->zoom, canvasMin.y + v->pan.y + gradientStart.y * v->zoom);
+        ImVec2 b(canvasMin.x + v->pan.x + gradientEnd.x * v->zoom, canvasMin.y + v->pan.y + gradientEnd.y * v->zoom);
+        dl->AddLine(a, b, IM_COL32(0, 0, 0, 160), 3);
+        dl->AddLine(a, b, IM_COL32_WHITE, 1.5f);
+        dl->AddCircleFilled(a, 4, IM_COL32_WHITE);
+        dl->AddCircleFilled(b, 4, ui::col::Accent);
+    }
+    // Paint-target hint
+    if (hovered && (tool == Tool::Brush || tool == Tool::Eraser || tool == Tool::Gradient || tool == Tool::Bucket) && !doc.PaintTarget()) {
+        const char* msg = doc.Mode() == DocMode::Layers ? "Sélectionnez un calque de pixels (non verrouillé)" : "Sélectionnez un nœud « Calque pixel »";
+        ImVec2 ts = ImGui::CalcTextSize(msg);
+        ImVec2 p(mouse.x + 16, mouse.y + 16);
+        dl->AddRectFilled(ImVec2(p.x - 6, p.y - 4), ImVec2(p.x + ts.x + 6, p.y + ts.y + 4), IM_COL32(20, 20, 24, 230), 4);
+        dl->AddText(p, IM_COL32(255, 200, 120, 255), msg);
+    }
+    if (doc.Mode() == DocMode::Layers && doc.S().editMask) {
+        dl->AddText(ImVec2(canvasMin.x + 10, canvasMin.y + 8), IM_COL32(255, 255, 255, 200), "Édition du masque de fusion");
+    }
+    ImGui::End();
+}
+
+void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hovered) {
+    ImGuiIO& io = ImGui::GetIO();
+    Document& doc = *v.doc;
+    ImVec2 mouse = io.MousePos;
+    std::vector<PointerSample> samples = platform::TakeSamples();
+
+    // Zoom with the wheel around the cursor.
+    if (hovered && io.MouseWheel != 0.0f) {
+        float factor = std::pow(1.2f, io.MouseWheel);
+        float nz = std::clamp(v.zoom * factor, 0.01f, 128.0f);
+        float2 local = {mouse.x - canvasMin.x, mouse.y - canvasMin.y};
+        v.pan = local - (local - v.pan) * (nz / v.zoom);
+        v.zoom = nz;
+    }
+
+    // Panning: middle mouse, space, hand tool.
+    bool wantPan = (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) ||
+                   (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && (tool == Tool::Hand || spaceHeld));
+    if (wantPan && !stroking) panning = true;
+    if (panning) {
+        v.pan = v.pan + float2{io.MouseDelta.x, io.MouseDelta.y};
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Middle) && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) panning = false;
+        return;
+    }
+
+    float2 dp = ScreenToDoc(v, canvasMin, mouse);
+    bool click = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    bool alt = io.KeyAlt;
+
+    // Eyedropper (also Alt with paint tools)
+    bool picker = tool == Tool::Picker || (alt && (tool == Tool::Brush || tool == Tool::Gradient || tool == Tool::Bucket));
+    if (picker && !stroking) {
+        if (hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left) && v.lastImage && !pickReadback &&
+            dp.x >= 0 && dp.y >= 0 && dp.x < doc.Width() && dp.y < doc.Height())
+            pickReadback = v.renderer.ReadPixel(*ctx, v.lastImage, (int)dp.x, (int)dp.y);
+        return;
+    }
+
+    if (tool == Tool::Zoom && click) {
+        float factor = alt ? 0.5f : 2.0f;
+        float nz = std::clamp(v.zoom * factor, 0.01f, 128.0f);
+        float2 local = {mouse.x - canvasMin.x, mouse.y - canvasMin.y};
+        v.pan = local - (local - v.pan) * (nz / v.zoom);
+        v.zoom = nz;
+        return;
+    }
+
+    Id target = doc.PaintTarget();
+    if (tool == Tool::Bucket && click && target) {
+        v.renderer.ApplyGradient(doc, *ctx, v.history, target, {0, 0}, {1, 0}, 0, LinearColor(fg), LinearColor(fg), 1.0f, "Pot de peinture");
+        return;
+    }
+
+    if (tool == Tool::Gradient) {
+        if (click && target) {
+            gradientDrag = true;
+            gradientStart = gradientEnd = dp;
+        }
+        if (gradientDrag) {
+            gradientEnd = dp;
+            if (io.KeyShift) {  // constrain to 45 degrees
+                float2 d = gradientEnd - gradientStart;
+                float a = std::round(std::atan2(d.y, d.x) / (3.14159265f / 4)) * (3.14159265f / 4);
+                float len = Length(d);
+                gradientEnd = gradientStart + float2{std::cos(a), std::sin(a)} * len;
+            }
+            if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                gradientDrag = false;
+                if (target && Length(gradientEnd - gradientStart) > 1.0f)
+                    v.renderer.ApplyGradient(doc, *ctx, v.history, target, gradientStart, gradientEnd, gradientShape,
+                                             LinearColor(fg), LinearColor(bg), gradientOpacity, "Dégradé");
+            }
+        }
+        return;
+    }
+
+    if (tool != Tool::Brush && tool != Tool::Eraser) return;
+
+    if (click && target && !stroking) {
+        if (v.renderer.BeginStroke(doc, *ctx, target)) {
+            stroking = true;
+            strokeErase = tool == Tool::Eraser;
+            if (!samples.empty() && samples.back().pen && samples.back().eraser) strokeErase = true;
+            float pressure = platform::PenActive() ? platform::LastPressure() : 1.0f;
+            float2 start = dp;
+            if (io.KeyShift && haveStrokeEnd) start = lastStrokeEnd;  // Shift+click: straight line
+            smoothPos = lastDabPos = start;
+            lastPressure = pressure;
+            dabRemainder = 0;
+            // First dab
+            std::vector<PointerSample> first{{mouse.x, mouse.y, pressure, platform::PenActive(), false}};
+            const BrushSettings& b = strokeErase ? eraser : brush;
+            std::vector<Dab> dabs;
+            float rad = b.size * 0.5f * (b.pressureSize ? std::max(pressure, 0.05f) : 1.0f);
+            float alpha = b.flow * (b.pressureOpacity ? pressure : 1.0f);
+            dabs.push_back({start.x, start.y, rad, alpha});
+            float4 color = LinearColor(fg);
+            if (doc.S().editMask) { float l = 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z; color = {l, l, l, 1}; }
+            v.renderer.StrokeDabs(doc, *ctx, dabs, b, color, strokeErase);
+            if (io.KeyShift && haveStrokeEnd) {
+                samples.insert(samples.begin(), first.begin(), first.end());
+                smoothPos = start;
+            }
+        }
+    }
+    if (stroking) {
+        bool release = !ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        if (samples.empty()) samples.push_back({mouse.x, mouse.y, platform::PenActive() ? platform::LastPressure() : 1.0f, platform::PenActive(), false});
+        PaintSamples(v, canvasMin, samples, release);
+        if (release) {
+            v.renderer.EndStroke(doc, *ctx, v.history, strokeErase ? "Gomme" : "Pinceau");
+            stroking = false;
+            lastStrokeEnd = lastDabPos;
+            haveStrokeEnd = true;
+        }
+    }
+}
+
+void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSample>& samples, bool release) {
+    Document& doc = *v.doc;
+    const BrushSettings& b = strokeErase ? eraser : brush;
+    std::vector<Dab> dabs;
+    float smooth = std::clamp(b.smoothing, 0.0f, 0.98f);
+    auto emitTo = [&](float2 target, float pressure) {
+        float2 d = target - lastDabPos;
+        float len = Length(d);
+        float spacing = std::max(1.0f, b.size * std::max(b.spacing, 0.01f) * (b.pressureSize ? std::max(pressure, 0.1f) : 1.0f));
+        float t = spacing - dabRemainder;
+        while (t <= len) {
+            float k = t / std::max(len, 1e-5f);
+            float2 p = lastDabPos + d * k;
+            float pr = lastPressure + (pressure - lastPressure) * k;
+            float rad = b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f);
+            float alpha = b.flow * (b.pressureOpacity ? pr : 1.0f);
+            dabs.push_back({p.x, p.y, rad, alpha});
+            t += spacing;
+        }
+        dabRemainder = len - (t - spacing);
+        if (dabRemainder < 0) dabRemainder = 0;
+        // Advance anchor to target while keeping remainder for next segment.
+        if (len > 0) {
+            lastDabPos = target;
+            lastPressure = pressure;
+        }
+    };
+    for (const auto& s : samples) {
+        float2 p = ScreenToDoc(v, canvasMin, ImVec2(s.x, s.y));
+        float pressure = s.pen ? s.pressure : 1.0f;
+        // Exponential smoothing (lazy brush).
+        smoothPos = smoothPos + (p - smoothPos) * (1.0f - smooth);
+        emitTo(smoothPos, pressure);
+    }
+    if (release && smooth > 0) {
+        float2 p = ScreenToDoc(v, canvasMin, ImGui::GetIO().MousePos);
+        emitTo(p, lastPressure);
+    }
+    if (dabs.empty()) return;
+    float4 color = LinearColor(fg);
+    if (doc.S().editMask) {
+        float l = 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z;
+        color = {l, l, l, 1};
+    }
+    v.renderer.StrokeDabs(doc, *ctx, dabs, b, color, strokeErase);
+}
+
+}  // namespace sx
