@@ -132,6 +132,8 @@ public:
     Id NewId() { return state.nextId++; }
     Id CreateSurface(const float4& clear);  // premultiplied linear clear value
     Id CreateSurfaceRaw(gpu::Format f, const char* name);  // contents written by the caller
+    void CreateSurfaceWithId(Id id, gpu::Format f);       // loading
+    void SetName(const std::string& n) { name = n; }
     Surface* Selection() { return state.selection ? GetSurface(state.selection) : nullptr; }
     Surface* GetSurface(Id id);
     void TouchSurface(Id id);

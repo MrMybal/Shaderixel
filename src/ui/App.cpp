@@ -35,7 +35,7 @@ std::string ShaderDir() {
     return SX_SHADER_DIR;
 }
 
-const wchar_t* kImageFilter = L"Images\0*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.hdr;*.gif\0Tous les fichiers\0*.*\0";
+const wchar_t* kImageFilter = L"Documents et images\0*.sxl;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.hdr;*.gif\0Documents Shaderixel (*.sxl)\0*.sxl\0Images\0*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.hdr;*.gif\0Tous les fichiers\0*.*\0";
 }  // namespace
 
 // ------------------------------------------------------------------ lifecycle
@@ -50,7 +50,18 @@ int App::Run() {
             DispatchMessageW(&msg);
             if (msg.message == WM_QUIT) quit = true;
         }
-        if (quit || platform::IsQuitRequested()) break;
+        if (platform::IsQuitRequested()) {
+            platform::ClearQuitRequest();
+            quitting = true;
+        }
+        if (quitting) {
+            // Ask about each unsaved document, then leave once all are handled and saves finished.
+            int dirtyIdx = -1;
+            for (int i = 0; i < (int)docs.size(); ++i) if (docs[i]->doc->dirty) { dirtyIdx = i; break; }
+            if (dirtyIdx >= 0 && closePrompt == -1) { activeDoc = dirtyIdx; focusDocRequest = dirtyIdx; closePrompt = dirtyIdx; }
+            if (dirtyIdx < 0 && saves.empty()) quit = true;
+        }
+        if (quit) break;
         if (IsIconic(hwnd)) { Sleep(16); continue; }
         Frame();
     }
@@ -66,7 +77,7 @@ void App::ParseCommandLine() {
         if (a == "--test-effects") testEffects = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -197,6 +208,9 @@ void App::Frame() {
     DrawSelectionDialog();
     if (showDemo) ImGui::ShowDemoWindow(&showDemo);
 
+    DrawClosePrompt();
+    UpdateSaves();
+    UpdateTitle();
     if (!pendingDrop.empty()) {
         OpenImage(pendingDrop, false);
         pendingDrop.clear();
@@ -272,8 +286,14 @@ void App::NewDocument(u32 w, u32 h, Precision p, DocMode mode, int background, c
     focusDocRequest = activeDoc;
 }
 
-void App::CloseDocument(int index) {
+void App::CloseDocument(int index, bool force) {
     if (index < 0 || index >= (int)docs.size()) return;
+    if (!force && docs[index]->doc->dirty) {
+        closePrompt = index;
+        return;
+    }
+    if (xf.active && xf.view == docs[index].get()) xf = TransformState{};
+    if (wand.view == docs[index].get()) wand = WandRequest{};
     gpu::Dev().WaitIdle();
     docs.erase(docs.begin() + index);
     activeDoc = std::min(activeDoc, (int)docs.size() - 1);
@@ -281,6 +301,14 @@ void App::CloseDocument(int index) {
 
 void App::OpenImage(const std::string& path, bool asLayer) {
     if (path.empty() || !ctx) return;
+    {
+        std::string ext = Narrow(Utf8Path(path).extension().wstring());
+        for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
+        if (ext == ".sxl") {
+            LoadSxl(path);
+            return;
+        }
+    }
     FILE* f = nullptr;
     _wfopen_s(&f, Widen(path).c_str(), L"rb");
     if (!f) { Status("Impossible d'ouvrir " + path); return; }
@@ -381,6 +409,9 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Nouveau...", "Ctrl+N")) showNewDoc = true;
         if (ImGui::MenuItem("Ouvrir une image...", "Ctrl+O")) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
         if (ImGui::MenuItem("Importer comme calque...", "Ctrl+Shift+O", false, v != nullptr)) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), true);
+        ImGui::Separator();
+        if (ImGui::MenuItem("Enregistrer", "Ctrl+S", false, v != nullptr)) SaveCurrent(false);
+        if (ImGui::MenuItem("Enregistrer sous...", "Ctrl+Maj+S", false, v != nullptr)) SaveCurrent(true);
         ImGui::Separator();
         if (ImGui::MenuItem("Exporter...", "Ctrl+Shift+E", false, v != nullptr))
             ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
@@ -598,6 +629,7 @@ void App::HandleShortcuts() {
     if (ctrl && shift && pressed(ImGuiKey_O) && v) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), true);
     if (ctrl && shift && pressed(ImGuiKey_E) && v) ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0", L"png"));
     if (ctrl && pressed(ImGuiKey_W) && v) { CloseDocument(activeDoc); return; }
+    if (ctrl && pressed(ImGuiKey_S) && v) { SaveCurrent(shift); return; }
     if (!v) return;
     Document& d = *v->doc;
     if (ctrl && pressed(ImGuiKey_0)) v->fitPending = true;
@@ -815,6 +847,149 @@ void App::DrawHistory() {
 
 float4 App::LinearColor(const float4& c) const {
     return {SrgbToLinear(c.x), SrgbToLinear(c.y), SrgbToLinear(c.z), c.w};
+}
+
+// ------------------------------------------------------------------ native documents
+
+void App::SaveCurrent(bool saveAs) {
+    DocView* v = Active();
+    if (!v) return;
+    if (xf.active && xf.view == v) TransformCommit(*v);
+    std::string path = v->doc->path;
+    std::string ext = Narrow(Utf8Path(path).extension().wstring());
+    for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
+    if (saveAs || path.empty() || ext != ".sxl") {
+        path = platform::SaveFileDialog(hwnd, L"Document Shaderixel (*.sxl)\0*.sxl\0", L"sxl");
+        if (path.empty()) return;
+    }
+    SaveDocument(*v, path);
+}
+
+void App::SaveDocument(DocView& v, const std::string& path) {
+    Document& d = *v.doc;
+    auto job = std::make_unique<PendingSave>();
+    job->path = path;
+    job->meta = SerializeDocument(d);
+    for (Id id : ReferencedSurfaces(d)) {
+        Surface* s = d.GetSurface(id);
+        SurfaceBlob b;
+        b.id = id;
+        b.width = s->tex->Width();
+        b.height = s->tex->Height();
+        b.format = s->tex->GetFormat();
+        job->blobs.push_back(std::move(b));
+        job->readbacks.push_back(ctx->ReadbackTexture(s->tex.get()));
+    }
+    d.path = path;
+    d.SetName(Narrow(Utf8Path(path).filename().wstring()));
+    d.dirty = false;
+    saves.push_back(std::move(job));
+    Status("Enregistrement de " + path + "...");
+}
+
+void App::UpdateSaves() {
+    for (size_t i = 0; i < saves.size();) {
+        PendingSave& s = *saves[i];
+        if (!s.started) {
+            bool ready = std::all_of(s.readbacks.begin(), s.readbacks.end(), [](auto& r) { return r && r->ready; });
+            if (ready) {
+                for (size_t k = 0; k < s.blobs.size(); ++k) s.blobs[k].data = std::move(s.readbacks[k]->data);
+                s.readbacks.clear();
+                s.started = true;
+                PendingSave* p = &s;
+                s.writing = std::async(std::launch::async, [p] {
+                    std::string err;
+                    return WriteSxl(p->path, p->meta, p->blobs, &err) ? std::string() : err;
+                });
+            }
+            ++i;
+            continue;
+        }
+        if (s.writing.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            std::string err = s.writing.get();
+            Status(err.empty() ? "Enregistré : " + s.path : "Échec de l'enregistrement : " + err);
+            saves.erase(saves.begin() + i);
+        } else {
+            ++i;
+        }
+    }
+}
+
+bool App::LoadSxl(const std::string& path) {
+    Json meta;
+    std::vector<SurfaceBlob> blobs;
+    std::string err;
+    if (!ReadSxl(path, meta, blobs, &err)) {
+        Status("Ouverture impossible : " + err);
+        return false;
+    }
+    auto doc = DeserializeDocument(meta, blobs, &err);
+    if (!doc) {
+        Status("Document invalide : " + err);
+        return false;
+    }
+    for (auto& b : blobs) {
+        Surface* s = doc->GetSurface(b.id);
+        if (!s || !s->tex || s->tex->Width() != b.width || s->tex->Height() != b.height || s->tex->GetFormat() != b.format) continue;
+        if (b.data.size() < (size_t)b.width * b.height * gpu::BytesPerPixel(b.format)) continue;
+        ctx->Upload(s->tex.get(), b.data.data(), b.width * gpu::BytesPerPixel(b.format));
+        doc->TouchSurface(b.id);
+    }
+    doc->path = path;
+    doc->SetName(Narrow(Utf8Path(path).filename().wstring()));
+    doc->dirty = false;
+    auto view = std::make_unique<DocView>();
+    view->doc = std::move(doc);
+    docs.push_back(std::move(view));
+    activeDoc = (int)docs.size() - 1;
+    focusDocRequest = activeDoc;
+    Status("Ouvert : " + path);
+    return true;
+}
+
+void App::DrawClosePrompt() {
+    if (closePrompt >= (int)docs.size()) closePrompt = -1;
+    if (closePrompt >= 0 && !ImGui::IsPopupOpen("##closeprompt")) ImGui::OpenPopup("##closeprompt");
+    if (!ImGui::BeginPopupModal("##closeprompt", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar)) return;
+    if (closePrompt < 0) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    DocView& v = *docs[closePrompt];
+    ImGui::Text("Enregistrer les modifications de « %s » ?", v.doc->Name().c_str());
+    ImGui::TextDisabled("Sinon, elles seront perdues.");
+    ImGui::Spacing();
+    int idx = closePrompt;
+    if (ImGui::Button("Enregistrer", ImVec2(130 * dpi, 0))) {
+        activeDoc = idx;
+        SaveCurrent(false);
+        if (!v.doc->dirty) CloseDocument(idx, true);  // dialog not cancelled
+        closePrompt = -1;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Ne pas enregistrer", ImVec2(150 * dpi, 0))) {
+        CloseDocument(idx, true);
+        closePrompt = -1;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Annuler", ImVec2(110 * dpi, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        closePrompt = -1;
+        quitting = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
+void App::UpdateTitle() {
+    DocView* v = Active();
+    std::string t = v ? v->doc->Name() + (v->doc->dirty ? " *" : "") + " - Shaderixel" : "Shaderixel";
+    if (t != lastTitle) {
+        platform::SetTitle(hwnd, t);
+        lastTitle = t;
+    }
 }
 
 }  // namespace sx

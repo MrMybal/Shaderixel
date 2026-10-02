@@ -27,6 +27,7 @@ bool PenActive();
 void SetResizeCallback(std::function<void(u32, u32)> cb);
 void SetDropCallback(std::function<void(const std::string&)> cb);
 bool IsQuitRequested();
+void ClearQuitRequest();
 
 std::string OpenFileDialog(HWND owner, const wchar_t* filter);
 std::string SaveFileDialog(HWND owner, const wchar_t* filter, const wchar_t* defExt);

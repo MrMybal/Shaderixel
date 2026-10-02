@@ -5,6 +5,9 @@
 #include "doc/History.h"
 #include "render/Renderer.h"
 #include "platform/Platform.h"
+#include "doc/DocFile.h"
+
+#include <future>
 
 #include <imgui.h>
 #include <memory>
@@ -87,7 +90,13 @@ private:
     void NewDocument(u32 w, u32 h, Precision p, DocMode mode, int background, const std::string& name);
     void OpenImage(const std::string& path, bool asLayer);
     void ExportImage(const std::string& path);
-    void CloseDocument(int index);
+    void CloseDocument(int index, bool force = false);
+    void SaveDocument(DocView& v, const std::string& path);
+    void SaveCurrent(bool saveAs);
+    bool LoadSxl(const std::string& path);
+    void UpdateSaves();
+    void DrawClosePrompt();
+    void UpdateTitle();
     void FitView(DocView& v, ImVec2 avail);
 
     // UI
@@ -227,6 +236,19 @@ private:
     gpu::ReadbackPtr pickReadback;
     struct PendingExport { std::string path; gpu::ReadbackPtr rb; };
     std::vector<PendingExport> exports;
+    struct PendingSave {
+        std::string path;
+        Json meta;
+        std::vector<SurfaceBlob> blobs;
+        std::vector<gpu::ReadbackPtr> readbacks;
+        std::future<std::string> writing;  // error message ("" = ok)
+        bool started = false;
+    };
+    std::vector<std::unique_ptr<PendingSave>> saves;
+    int closePrompt = -1;        // document index awaiting save/discard, -2 = quitting
+    bool quitAfterPrompt = false;
+    bool quitting = false;
+    std::string lastTitle;
 
     // dialogs / panels
     bool showNewDoc = false;

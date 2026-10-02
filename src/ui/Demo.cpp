@@ -8,6 +8,15 @@ namespace sx {
 
 void App::DemoTick() {
     DocView* v = Active();
+    if (demoMode == 8 && v) {
+        if (frameCounter == 10) SaveDocument(*v, "demo_save.sxl");
+        if (frameCounter == 24) {
+            std::error_code ec;
+            Log("[demo] saved file size: %llu bytes", (unsigned long long)std::filesystem::file_size("demo_save.sxl", ec));
+            LoadSxl("demo_save.sxl");
+        }
+        return;
+    }
     if (!v || (demoMode != 4 && demoMode != 5)) return;
     Document& d = *v->doc;
     if (frameCounter == 6) {
@@ -162,7 +171,7 @@ void App::RunDemo() {
         wand.surface = bucketSurface;
         tool = Tool::Smudge;
     }
-    if (demoMode == 7) {
+    if (demoMode == 7 || demoMode == 8) {
         // Clipping: a rainbow gradient clipped to the paint strokes; then group paint+glow
         // and apply a group opacity; a hidden noise layer inside a collapsed group.
         d.S().activeLayer = paintId;

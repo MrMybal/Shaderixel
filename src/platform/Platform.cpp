@@ -106,6 +106,7 @@ bool PenActive() { return g_penActive; }
 void SetResizeCallback(std::function<void(u32, u32)> cb) { g_onResize = std::move(cb); }
 void SetDropCallback(std::function<void(const std::string&)> cb) { g_onDrop = std::move(cb); }
 bool IsQuitRequested() { return g_quit; }
+void ClearQuitRequest() { g_quit = false; }
 
 std::string OpenFileDialog(HWND owner, const wchar_t* filter) {
     wchar_t file[MAX_PATH] = {};

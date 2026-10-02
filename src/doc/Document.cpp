@@ -125,6 +125,14 @@ Id Document::CreateSurfaceRaw(gpu::Format f, const char* tname) {
     return id;
 }
 
+void Document::CreateSurfaceWithId(Id id, gpu::Format f) {
+    Surface s;
+    s.tex = gpu::Dev().CreateTexture(width, height, f, "Surface");
+    s.version = ++versionCounter;
+    state.surfaces[id] = s;
+    state.nextId = std::max(state.nextId, id + 1);
+}
+
 Surface* Document::GetSurface(Id id) {
     auto it = state.surfaces.find(id);
     return it == state.surfaces.end() ? nullptr : &it->second;
