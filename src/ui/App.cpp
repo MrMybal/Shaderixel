@@ -1,6 +1,7 @@
 #include "ui/App.h"
 #include "ui/Theme.h"
 #include "gpu/ShaderSystem.h"
+#include "io/PsdImport.h"
 
 #include <shellapi.h>
 #include <imgui_internal.h>
@@ -307,6 +308,24 @@ void App::OpenImage(const std::string& path, bool asLayer) {
         if (ext == ".sxl") {
             LoadSxl(path);
             return;
+        }
+        if (ext == ".psd" && !asLayer) {
+            auto view = std::make_unique<DocView>();
+            PsdImportReport rep;
+            std::string err;
+            view->doc = ImportPsd(path, view->renderer, *ctx, rep, &err);
+            if (view->doc) {
+                view->doc->path = path;
+                docs.push_back(std::move(view));
+                activeDoc = (int)docs.size() - 1;
+                focusDocRequest = activeDoc;
+                for (auto& w : rep.warnings) Log("PSD: %s", w.c_str());
+                Status("PSD importé : " + std::to_string(rep.layers) + " calques, " + std::to_string(rep.groups) + " groupes, " +
+                       std::to_string(rep.adjustments) + " réglages, " + std::to_string(rep.masks) + " masques" +
+                       (rep.warnings.empty() ? "" : " (" + std::to_string(rep.warnings.size()) + " avertissements, voir le journal)"));
+                return;
+            }
+            Log("PSD layered import failed (%s), falling back to the flattened image", err.c_str());
         }
     }
     FILE* f = nullptr;
