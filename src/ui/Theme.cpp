@@ -299,6 +299,15 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             dl->AddRectFilled(P(-0.75f, -0.5f), P(0.75f, 0.6f), col, s * 0.12f);
             for (int i = 0; i < 3; ++i) dl->AddCircleFilled(P(-0.4f + i * 0.4f, 0.05f + (i % 2) * 0.2f - 0.1f), s * 0.08f, IM_COL32(30, 31, 36, 255));
             break;
+        case IconQuickSelect: {
+            // Dashed circle (selection) with a brush tip.
+            for (int i = 0; i < 8; ++i) {
+                float a0 = i * 0.785f, a1 = a0 + 0.45f;
+                dl->AddLine(P(-0.2f + std::cos(a0) * 0.55f, -0.2f + std::sin(a0) * 0.55f), P(-0.2f + std::cos(a1) * 0.55f, -0.2f + std::sin(a1) * 0.55f), col, t * 1.2f);
+            }
+            dl->AddLine(P(0.25f, 0.25f), P(0.85f, 0.85f), col, t * 2.2f);
+            break;
+        }
         case IconLiquify: {
             // Spiral.
             dl->PathClear();

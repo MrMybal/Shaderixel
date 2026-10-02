@@ -885,6 +885,15 @@ void App::DrawBrush() {
             if (ImGui::Button("Intervertir")) v->renderer.SelectionFilter(*v->doc, *ctx, v->history, 3, 0, "Intervertir");
         }
         ImGui::Checkbox("Mode masque (Q)", &quickMask);
+    } else if (tool == Tool::QuickSelect) {
+        ImGui::SeparatorText("Sélection rapide");
+        ImGui::SliderFloat("Taille", &qselSize, 2, 500, "%.0f px", ImGuiSliderFlags_Logarithmic);
+        ImGui::SliderFloat("Tolérance", &qselTolerance, 5, 150, "%.0f");
+        ImGui::Checkbox("Échantillonner tous les calques", &qselMerged);
+        ImGui::TextDisabled("Peignez sur la zone : la sélection s'étend jusqu'aux bords. Alt : soustraire. [ ] : taille.");
+        if (v && v->doc->S().selection) {
+            if (ImGui::Button("Désélectionner (Ctrl+D)")) v->renderer.Deselect(*v->doc, v->history);
+        }
     } else if (tool == Tool::Gradient) {
         ImGui::SeparatorText("Dégradé");
         ImGui::Combo("Style", &gradientShape, "Linéaire\0" "Radial\0" "Angle\0" "Réfléchi\0" "Losange\0");

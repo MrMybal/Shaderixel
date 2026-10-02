@@ -27,7 +27,7 @@ namespace sx {
 enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
-    Picker, Hand, Zoom, Crop, Text, Shape, Count
+    Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Count
 };
 inline bool IsRetouchTool(Tool t) { return t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket; }
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
@@ -230,6 +230,20 @@ private:
     void DrawSelectionOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     void FinishPolygon(DocView& v);
     void UpdateWand(DocView& v);
+    void QuickSelectInput(DocView& v, ImVec2 canvasMin, bool hovered, const std::vector<PointerSample>& samples);
+    void UpdateQuickSelect(DocView& v);
+    void DrawQuickSelectOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    struct QuickSelState {
+        gpu::ReadbackPtr rb;       // analyzed image (RGBA8), cached while unchanged
+        const void* view = nullptr;
+        Id source = 0;             // 0 = merged image
+        u64 version = 0;
+        std::vector<float2> pts;   // current stroke (document pixels)
+        bool painting = false, pending = false;
+        SelMode mode = SelMode::Replace;
+    } qsel;
+    float qselSize = 40, qselTolerance = 40;
+    bool qselMerged = true;
     bool TransformBegin(DocView& v, bool moveOnly);
     bool TransformSelectionBegin(DocView& v);
     void TransformInput(DocView& v, ImVec2 canvasMin, bool hovered);

@@ -73,6 +73,26 @@ void App::DemoTick() {
         if (frameCounter == 42) d.forceTiled = true;
         return;
     }
+    if (demoMode == 22 && v) {
+        // Quick selection: "paint" along the middle (orange) stroke, then along part of the top one (add).
+        Document& d = *v->doc;
+        tool = Tool::QuickSelect;
+        auto stroke = [&](float y0, float amp, float xa, float xb, SelMode mode) {
+            qsel.rb = v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx));
+            qsel.view = v;
+            qsel.pts.clear();
+            for (float x = xa; x <= xb; x += 15) {
+                float t = (x - 120) / 1360.0f;
+                qsel.pts.push_back({x, y0 + std::sin(t * 9.0f) * amp});
+            }
+            qsel.mode = mode;
+            qsel.pending = true;
+        };
+        qselSize = 30;
+        if (frameCounter == 6) stroke(500, 90, 300, 1300, SelMode::Replace);
+        if (frameCounter == 14) stroke(300, 120, 400, 800, SelMode::Add);
+        return;
+    }
     if (demoMode == 21 && v) {
         // Selection outline move: ellipse, then offset (drag result) and undo/redo.
         Document& d = *v->doc;

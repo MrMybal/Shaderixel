@@ -15,6 +15,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Lasso, ui::IconLasso, "Lasso", "L"},
     {Tool::PolyLasso, ui::IconPolyLasso, "Lasso polygonal", "L"},
     {Tool::Wand, ui::IconWand, "Baguette magique", "W"},
+    {Tool::QuickSelect, ui::IconQuickSelect, "Sélection rapide", "W"},
     {Tool::Brush, ui::IconBrush, "Pinceau", "B"},
     {Tool::Eraser, ui::IconEraser, "Gomme", "E"},
     {Tool::Clone, ui::IconStamp, "Tampon de duplication", "S"},
@@ -41,7 +42,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Move},
     {Tool::RectSelect, Tool::EllipseSelect},
     {Tool::Lasso, Tool::PolyLasso},
-    {Tool::Wand},
+    {Tool::QuickSelect, Tool::Wand},
     {Tool::Crop},
     {Tool::Brush},
     {Tool::Eraser},
@@ -186,6 +187,7 @@ void App::DrawCanvas() {
     SyncTextLayers(*v);
     if (xf.active && xf.view != v) TransformCancel(*xf.view);
     UpdateWand(*v);
+    UpdateQuickSelect(*v);
     CanvasInput(*v, canvasMin, avail, hovered);
     TransformApply(*v);
 
@@ -225,7 +227,14 @@ void App::DrawCanvas() {
     cursorDoc = ScreenToDoc(*v, canvasMin, mouse);
     cursorInDoc = hovered && cursorDoc.x >= 0 && cursorDoc.y >= 0 && cursorDoc.x < doc.Width() && cursorDoc.y < doc.Height();
     bool panMode = tool == Tool::Hand || spaceHeld || panning;
-    if (hovered && !panMode && IsPaintTool(tool) && !(ImGui::GetIO().KeyAlt && tool == Tool::Brush)) {
+    if (hovered && !panMode && tool == Tool::QuickSelect) {
+        float r = std::max(qselSize * 0.5f * v->zoom, 1.0f);
+        dl->AddCircle(mouse, r + 1, IM_COL32(0, 0, 0, 160), 0, 1.5f);
+        dl->AddCircle(mouse, r, IM_COL32(255, 255, 255, 220), 0, 1.0f);
+        const char* sign = ImGui::GetIO().KeyAlt ? "-" : (doc.Selection() ? "+" : "");
+        if (*sign) dl->AddText(ImVec2(mouse.x + 4, mouse.y - 16), IM_COL32_WHITE, sign);
+        ImGui::SetMouseCursor(ImGuiMouseCursor_None);
+    } else if (hovered && !panMode && IsPaintTool(tool) && !(ImGui::GetIO().KeyAlt && tool == Tool::Brush)) {
         const BrushSettings& b = CurrentBrush();
         float r = std::max(b.size * 0.5f * v->zoom, 1.0f);
         dl->AddCircle(mouse, r + 1, IM_COL32(0, 0, 0, 160), 0, 1.5f);
@@ -240,6 +249,7 @@ void App::DrawCanvas() {
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     }
     DrawSelectionOverlay(*v, canvasMin, dl);
+    DrawQuickSelectOverlay(*v, canvasMin, dl);
     CropOverlay(*v, canvasMin, avail, dl);
     TextOverlay(*v, canvasMin, dl);
     TransformDrawOverlay(*v, canvasMin, dl);
@@ -321,6 +331,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || tool == Tool::PolyLasso || tool == Tool::Wand) {
         SelectionToolInput(v, canvasMin, hovered, samples);
+        return;
+    }
+    if (tool == Tool::QuickSelect) {
+        QuickSelectInput(v, canvasMin, hovered, samples);
         return;
     }
 
