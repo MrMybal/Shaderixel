@@ -97,6 +97,32 @@ void Renderer::Prepare(Document& doc, gpu::CommandContext& ctx) {
     doc.pendingCopies.clear();
 }
 
+void Renderer::BindLuts(gpu::CommandContext& ctx, gpu::DispatchDesc& d, const EffectDef& def, const EffectInstance& fx) {
+    int k = 0;
+    for (size_t i = 0; i < def.params.size() && k < kMaxLutParams; ++i) {
+        if (def.params[i].type != ParamType::Lut) continue;
+        const Lut3D* l = i < fx.luts.size() ? fx.luts[i].get() : nullptr;
+        gpu::Texture* tex = nullptr;
+        if (l) {
+            auto& t = lutTextures[l->hash];
+            if (!t) {
+                const int n = l->size;
+                t = gpu::Dev().CreateTexture((u32)(n * n), (u32)n, gpu::Format::RGBA32F, "LUT");
+                std::vector<float4> px((size_t)n * n * n);
+                for (int b = 0; b < n; ++b)
+                    for (int g = 0; g < n; ++g)
+                        for (int r = 0; r < n; ++r) {
+                            const float* s = &l->rgb[((size_t)b * n * n + (size_t)g * n + r) * 3];
+                            px[(size_t)g * n * n + (size_t)b * n + r] = {s[0], s[1], s[2], 1};
+                        }
+                if (t) ctx.Upload(t.get(), px.data(), (u32)(n * n * sizeof(float4)));
+            }
+            tex = t.get();
+        }
+        d.srv[5 + k++] = tex;
+    }
+}
+
 gpu::ProgramPtr Renderer::ProgramFor(const EffectDefPtr& def) {
     if (Effects().Generation() != effectGeneration) {
         programs.clear();
@@ -256,7 +282,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
             Hasher h;
             h.Pod(u8(2));
             h.Pod(prog->hash);
-            auto packed = PackParams(*def, n->fx.params, &n->fx.curves);
+            auto packed = PackParams(*def, n->fx.params, &n->fx.curves, &n->fx.luts);
             h.Bytes(packed.data(), packed.size() * sizeof(float4));
             for (int i = 0; i < nin && i < 4; ++i) h.Pod(in[i].hash);
             h.Pod(W);
@@ -283,6 +309,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
                     d.pipeline = prog->pipeline.get();
                     for (int i = 0; i < 4; ++i) d.srv[i] = i < nin ? in[i].tex : nullptr;
                     d.srv[4] = p > 0 ? prev : nullptr;
+                BindLuts(ctx, d, *def, n->fx);
                     d.uav[0] = dst;
                     SetConstants(d, EffectRoot{W, H, 0, 0, W, H, (u32)p, mask, {0, 0, 0, 0, 0, 0, 0, 0}});
                     d.cbData = packed.data();

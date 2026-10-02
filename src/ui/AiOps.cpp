@@ -37,6 +37,7 @@ Json ParamValueJson(const ParamDef& p, const float4& v) {
         case ParamType::Float2: return Arr({v.x, v.y});
         case ParamType::Bool: return Json(v.x > 0.5f);
         case ParamType::Curve: return Json("curve");
+        case ParamType::Lut: return Json("lut");
         default: return Json(v.x);
     }
 }
@@ -60,7 +61,8 @@ bool ApplyParamValue(const ParamDef& p, const Json& j, float4& v) {
             }
             v.x = j.F();
             return true;
-        case ParamType::Curve: return false;
+        case ParamType::Curve:
+        case ParamType::Lut: return false;
         default: v.x = j.F(); return true;
     }
 }

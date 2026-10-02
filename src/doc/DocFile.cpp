@@ -1,4 +1,5 @@
 #include "doc/DocFile.h"
+#include "ai/Net.h"  // Base64
 
 #include <windows.h>
 #include <compressapi.h>
@@ -35,6 +36,17 @@ Json EffectToJson(const EffectInstance& fx) {
         }
         j["curves"] = cs;
     }
+    Json ls = Json::Array();
+    for (size_t i = 0; i < fx.luts.size(); ++i) {
+        if (!fx.luts[i]) continue;
+        Json l = Json::Object();
+        l["param"] = (int)i;
+        l["name"] = fx.luts[i]->name;
+        l["size"] = fx.luts[i]->size;
+        l["data"] = net::Base64Encode(fx.luts[i]->rgb.data(), fx.luts[i]->rgb.size() * sizeof(float));
+        ls.Push(l);
+    }
+    if (ls.Size()) j["luts"] = ls;
     return j;
 }
 
@@ -49,6 +61,16 @@ EffectInstance EffectFromJson(const Json& j) {
         CurvePoints pts;
         for (auto& p : c.Elements()) pts.push_back(Float2FromJson(p));
         fx.curves.push_back(pts);
+    }
+    for (auto& l : j["luts"].Elements()) {
+        int idx = l["param"].I();
+        int size = l["size"].I();
+        std::vector<u8> raw = net::Base64Decode(l["data"].S(""));
+        if (idx < 0 || idx > 64 || size < 2 || raw.size() != (size_t)size * size * size * 3 * sizeof(float)) continue;
+        std::vector<float> rgb(raw.size() / sizeof(float));
+        memcpy(rgb.data(), raw.data(), raw.size());
+        if (fx.luts.size() <= (size_t)idx) fx.luts.resize(idx + 1);
+        fx.luts[idx] = MakeLut(l["name"].S(""), size, std::move(rgb));
     }
     return fx;
 }

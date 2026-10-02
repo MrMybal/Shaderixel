@@ -66,7 +66,7 @@ u64 Renderer::StructHash(Document& doc, Id id, std::unordered_map<Id, u64>& memo
                 auto prog = ProgramFor(def);
                 if (prog->state.load() == gpu::Program::State::Pending) compiling = true;
                 h.Pod(prog->hash);
-                auto packed = PackParams(*def, n->fx.params, &n->fx.curves);
+                auto packed = PackParams(*def, n->fx.params, &n->fx.curves, &n->fx.luts);
                 h.Bytes(packed.data(), packed.size() * sizeof(float4));
                 if (!n->bypass) {
                     int halo = EffectHalo(*def, n->fx.params);
@@ -149,7 +149,7 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
                     in[i] = EvalTile(doc, ctx, n->inputs[i], area, depth + 1);
                 }
             }
-            auto packed = PackParams(*def, n->fx.params, &n->fx.curves);
+            auto packed = PackParams(*def, n->fx.params, &n->fx.curves, &n->fx.luts);
             u32 mask = 0;
             for (int i = 0; i < 4; ++i) if (in[i].tex) mask |= 1u << i;
             gpu::Texture* a = PoolGet((u32)area.Width(), (u32)area.Height(), fmt);
@@ -162,6 +162,7 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
                 d.pipeline = prog->pipeline.get();
                 for (int i = 0; i < 4; ++i) d.srv[i] = in[i].tex;
                 d.srv[4] = p > 0 ? prev : nullptr;
+                BindLuts(ctx, d, *def, n->fx);
                 d.uav[0] = dst;
                 EffectRootT root = {(u32)area.Width(), (u32)area.Height(), area.x0, area.y0, (u32)W, (u32)H, (u32)p, mask,
                                     {in[0].origin.x, in[0].origin.y, in[1].origin.x, in[1].origin.y, in[2].origin.x, in[2].origin.y, in[3].origin.x, in[3].origin.y}};

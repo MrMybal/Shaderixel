@@ -10,7 +10,9 @@
 //   //@premultiplied               work on premultiplied colors (blurs, distortions)
 //   //@param <id> <type> <default...> [min max] ["Label"]
 //        types: float, int (min max), bool, color (r g b a), float2 (x y),
-//               enum <default> "A|B|C", curve (tone curve, shader gets <id>_eval(x))
+//               enum <default> "A|B|C", curve (tone curve, shader gets <id>_eval(x)),
+//               lut (3D color lookup loaded from a .cube file, shader gets
+//               float3 <id>_sample(float3 rgb01) and <id>.x = size, 0 if none)
 //
 // The same format is used by library files (shaders/effects/*.slang), by custom
 // HLSL nodes stored inside documents, and (later) by the visual effect editor,
@@ -23,7 +25,19 @@
 
 namespace sx {
 
-enum class ParamType : u8 { Float, Int, Bool, Color, Float2, Enum, Curve };
+enum class ParamType : u8 { Float, Int, Bool, Color, Float2, Enum, Curve, Lut };
+
+// 3D color lookup table (.cube), embedded in documents.
+struct Lut3D {
+    std::string name;
+    int size = 0;
+    std::vector<float> rgb;  // size^3 * 3, red fastest
+    u64 hash = 0;
+};
+using Lut3DPtr = std::shared_ptr<const Lut3D>;
+Lut3DPtr LoadCubeLut(const std::string& path, std::string* error);
+Lut3DPtr MakeLut(std::string name, int size, std::vector<float> rgb);
+constexpr int kMaxLutParams = 3;  // bound at t5..t7
 
 // Tone curve control points (x, y in 0..1, sorted by x).
 using CurvePoints = std::vector<float2>;
@@ -71,7 +85,8 @@ std::string BuildEffectSource(const EffectDef& def);
 
 // Pack parameter values into the cbuffer layout used by BuildEffectSource
 // (one float4 slot per param; int/bool/enum written as int bits).
-std::vector<float4> PackParams(const EffectDef& def, const std::vector<float4>& values, const std::vector<CurvePoints>* curves = nullptr);
+std::vector<float4> PackParams(const EffectDef& def, const std::vector<float4>& values, const std::vector<CurvePoints>* curves = nullptr,
+                               const std::vector<Lut3DPtr>* luts = nullptr);
 
 class EffectLibrary {
 public:

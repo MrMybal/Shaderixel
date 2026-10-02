@@ -65,16 +65,19 @@ void EffectInstance::SyncParams(const EffectDefPtr& oldDef) {
     if (!nd) return;
     std::vector<float4> np = nd->DefaultParams();
     std::vector<CurvePoints> nc(nd->params.size());
+    std::vector<Lut3DPtr> nl(nd->params.size());
     for (size_t i = 0; i < nd->params.size(); ++i) {
         if (!oldDef) continue;
         for (size_t k = 0; k < oldDef->params.size(); ++k) {
             if (oldDef->params[k].id != nd->params[i].id || oldDef->params[k].type != nd->params[i].type) continue;
             if (k < params.size()) np[i] = params[k];
             if (k < curves.size()) nc[i] = curves[k];
+            if (k < luts.size()) nl[i] = luts[k];
         }
     }
     params = np;
     curves = nc;
+    luts = nl;
 }
 
 int NodeInputCount(const Node& n) {

@@ -73,6 +73,22 @@ void App::DemoTick() {
         if (frameCounter == 42) d.forceTiled = true;
         return;
     }
+    if (demoMode == 20 && v) {
+        // .sxl round trip with an embedded LUT.
+        static gpu::ReadbackPtr a, b;
+        if (frameCounter == 6) ImGui::SetWindowFocus("Propriétés");
+        if (frameCounter == 8) a = v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(*v->doc, *ctx));
+        if (frameCounter == 10) SaveDocument(*v, "demo_lut.sxl");
+        if (frameCounter == 20) LoadSxl("demo_lut.sxl");
+        if (frameCounter == 30) b = Active()->renderer.ExportRGBA8(*ctx, Active()->renderer.EvaluateComplete(*Active()->doc, *ctx));
+        if (frameCounter == 34 && a && b && a->ready && b->ready) {
+            CompareReadbacks("LUT before save vs after load", *a, *b, 0);
+            Hasher h;
+            h.Bytes(a->data.data(), a->data.size());
+            Log("[lut] image checksum %016llx", (unsigned long long)h.h);
+        }
+        return;
+    }
     if (demoMode == 17) {
         // PSD round trip: export with layers, re-import, compare composites.
         static gpu::ReadbackPtr orig, back;
@@ -449,6 +465,33 @@ void App::RunDemo() {
     if (demoMode == 14) {
         AttachMesh(v, MakeSphere());
         tool = Tool::Brush;
+    }
+    if (demoMode == 20) {
+        // Write a teal & orange grading LUT, then apply it with a Color Lookup adjustment.
+        {
+            const int n = 17;
+            std::ofstream f("demo_grade.cube");
+            f << "TITLE \"Sarcelle et orange\"\nLUT_3D_SIZE " << n << "\n";
+            for (int b = 0; b < n; ++b)
+                for (int g = 0; g < n; ++g)
+                    for (int r = 0; r < n; ++r) {
+                        float R = r / (n - 1.0f), G = g / (n - 1.0f), B = b / (n - 1.0f);
+                        float y = 0.299f * R + 0.587f * G + 0.114f * B;
+                        float t = std::clamp((y - 0.5f) * 2.0f, -1.0f, 1.0f);  // -1 shadows .. 1 highlights
+                        float3 tint = t < 0 ? float3{-0.10f, 0.05f, 0.10f} * -t : float3{0.12f, 0.03f, -0.10f} * t;
+                        float s = 1.15f;
+                        float3 c = {y + (R - y) * s + tint.x, y + (G - y) * s + tint.y, y + (B - y) * s + tint.z};
+                        f << std::clamp(c.x, 0.0f, 1.0f) << " " << std::clamp(c.y, 0.0f, 1.0f) << " " << std::clamp(c.z, 0.0f, 1.0f) << "\n";
+                    }
+        }
+        Layer& lk = d.AddEffectLayer(LayerKind::Adjustment, "color_lookup");
+        std::string err;
+        if (auto def = Effects().Find("color_lookup")) {
+            lk.effect.luts.resize(def->params.size());
+            lk.effect.luts[0] = LoadCubeLut("demo_grade.cube", &err);
+        }
+        if (!err.empty()) Log("[lut] %s", err.c_str());
+        d.SyncGraph();
     }
     if (demoMode == 19) {
         // Liquify: push across the strokes, twirl, bloat.

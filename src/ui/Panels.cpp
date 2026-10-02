@@ -233,6 +233,26 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
                 break;
             }
             case ParamType::Float2: c = ImGui::SliderFloat2(p.label.c_str(), &val.x, p.min, p.max, "%.3f"); break;
+            case ParamType::Lut: {
+                if (fx.luts.size() < def->params.size()) fx.luts.resize(def->params.size());
+                const Lut3D* l = fx.luts[i].get();
+                if (l) ImGui::Text("%s  (%d³)", l->name.c_str(), l->size);
+                else ImGui::TextDisabled("Aucune LUT chargée");
+                if (ImGui::Button("Charger un fichier .cube...")) {
+                    std::string path = platform::OpenFileDialog(hwnd, L"LUT 3D (*.cube)\0*.cube\0");
+                    if (!path.empty()) {
+                        std::string err;
+                        if (auto lut = LoadCubeLut(path, &err)) {
+                            fx.luts[i] = lut;
+                            c = true;
+                            if (Active()) Active()->history.PushState(p.label, frameBefore, Active()->doc->S());
+                        } else {
+                            Status("LUT invalide : " + err);
+                        }
+                    }
+                }
+                break;
+            }
             case ParamType::Enum: {
                 int iv = (int)std::lround(val.x);
                 const char* cur = iv >= 0 && iv < (int)p.enumItems.size() ? p.enumItems[iv].c_str() : "?";
@@ -245,7 +265,7 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
                 break;
             }
         }
-        if (p.type != ParamType::Enum) {
+        if (p.type != ParamType::Enum && p.type != ParamType::Lut) {
             if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0) && p.type != ParamType::Bool) {
                 val = p.def;  // double-click resets
                 c = true;

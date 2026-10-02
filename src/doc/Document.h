@@ -46,6 +46,7 @@ struct EffectInstance {
     std::string graph;       // non-empty => visual effect graph (JSON), compiled to HLSL
     std::vector<float4> params;
     std::vector<CurvePoints> curves;  // per param index (curve params only)
+    std::vector<Lut3DPtr> luts;       // per param index (lut params only)
     bool enabled = true;
     EffectDefPtr Def() const;  // resolves library / parses custom code (cached)
     // Keep parameter values aligned with a (new) definition, matching by id.

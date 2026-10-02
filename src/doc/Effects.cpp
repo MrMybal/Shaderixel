@@ -1,4 +1,7 @@
 #include "doc/Effects.h"
+
+#include <fstream>
+#include <sstream>
 #include "gpu/ShaderSystem.h"
 
 #include <filesystem>
@@ -154,6 +157,8 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
                 p.min = num(2, 0); p.max = num(3, 1);
             } else if (type == "curve") {
                 p.type = ParamType::Curve;
+            } else if (type == "lut") {
+                p.type = ParamType::Lut;
             } else if (type == "enum") {
                 p.type = ParamType::Enum;
                 p.def = {num(0, 0), 0, 0, 0};
@@ -197,6 +202,7 @@ std::string BuildEffectSource(const EffectDef& def) {
             case ParamType::Color: s += "    float4 " + p.id + ";\n"; break;
             case ParamType::Float2: s += "    float2 " + p.id + "; float2 _pad" + std::to_string(pad++) + ";\n"; break;
             case ParamType::Curve: s += "    float4 " + p.id + "[" + std::to_string(kCurveSlots) + "];\n"; break;
+            case ParamType::Lut: s += "    float4 " + p.id + ";\n"; break;
         }
     }
     if (def.params.empty()) s += "    float4 _unused;\n";
@@ -208,6 +214,22 @@ std::string BuildEffectSource(const EffectDef& def) {
              "    uint i = min((uint)f, 254u);\n"
              "    uint j = i + 1;\n"
              "    return lerp(" + p.id + "[i >> 2][i & 3], " + p.id + "[j >> 2][j & 3], f - i);\n}\n";
+    }
+    int lutIndex = 0;
+    for (auto& p : def.params) {
+        if (p.type != ParamType::Lut || lutIndex >= kMaxLutParams) continue;
+        // LUT stored as a (n*n) x n texture: x = r + b*n, y = g. Trilinear = 2 bilinear taps.
+        std::string t = p.id + "_tex";
+        s += "Texture2D<float4> " + t + " : register(t" + std::to_string(5 + lutIndex++) + ");\n";
+        s += "float3 " + p.id + "_sample(float3 c)\n{\n"
+             "    float n = " + p.id + ".x;\n"
+             "    if (n < 2.0) return c;\n"
+             "    float3 g = saturate(c) * (n - 1.0);\n"
+             "    float b0 = floor(g.b), b1 = min(b0 + 1.0, n - 1.0);\n"
+             "    float w = n * n;\n"
+             "    float3 a = " + t + ".SampleLevel(sLinearClamp, float2((b0 * n + g.r + 0.5) / w, (g.g + 0.5) / n), 0).rgb;\n"
+             "    float3 b = " + t + ".SampleLevel(sLinearClamp, float2((b1 * n + g.r + 0.5) / w, (g.g + 0.5) / n), 0).rgb;\n"
+             "    return lerp(a, b, g.b - b0);\n}\n";
     }
     s += "#line 1\n";
     s += def.body;
@@ -226,7 +248,8 @@ std::string BuildEffectSource(const EffectDef& def) {
     return s;
 }
 
-std::vector<float4> PackParams(const EffectDef& def, const std::vector<float4>& values, const std::vector<CurvePoints>* curves) {
+std::vector<float4> PackParams(const EffectDef& def, const std::vector<float4>& values, const std::vector<CurvePoints>* curves,
+                               const std::vector<Lut3DPtr>* luts) {
     std::vector<float4> out;
     out.reserve(def.params.size() + 4);
     for (size_t i = 0; i < def.params.size(); ++i) {
@@ -249,11 +272,80 @@ std::vector<float4> PackParams(const EffectDef& def, const std::vector<float4>& 
                 for (int k = 0; k < kCurveSlots; ++k) out.push_back({lut[k * 4], lut[k * 4 + 1], lut[k * 4 + 2], lut[k * 4 + 3]});
                 break;
             }
+            case ParamType::Lut: {
+                // size, loaded, content hash (makes render caches see LUT changes).
+                const Lut3D* l = luts && i < luts->size() ? luts->at(i).get() : nullptr;
+                float4 slot = {l ? (float)l->size : 0.0f, l ? 1.0f : 0.0f, 0, 0};
+                u64 h = l ? l->hash : 0;
+                u32 lo = (u32)h, hi = (u32)(h >> 32);
+                memcpy(&slot.z, &lo, 4);
+                memcpy(&slot.w, &hi, 4);
+                out.push_back(slot);
+                break;
+            }
             default: out.push_back(v); break;
         }
     }
     if (out.empty()) out.push_back({});
     return out;
+}
+
+Lut3DPtr MakeLut(std::string name, int size, std::vector<float> rgb) {
+    auto l = std::make_shared<Lut3D>();
+    l->name = std::move(name);
+    l->size = size;
+    l->rgb = std::move(rgb);
+    Hasher h;
+    h.Pod(size);
+    h.Bytes(l->rgb.data(), l->rgb.size() * sizeof(float));
+    l->hash = h.h;
+    return l;
+}
+
+Lut3DPtr LoadCubeLut(const std::string& path, std::string* error) {
+    std::ifstream f(Utf8Path(path));
+    if (!f) { if (error) *error = "fichier introuvable"; return nullptr; }
+    std::string line, title;
+    int size = 0;
+    float dmin[3] = {0, 0, 0}, dmax[3] = {1, 1, 1};
+    std::vector<float> rgb;
+    while (std::getline(f, line)) {
+        size_t a = line.find_first_not_of(" \t\r");
+        if (a == std::string::npos || line[a] == '#') continue;
+        std::istringstream ss(line.substr(a));
+        std::string key;
+        if (std::isalpha((unsigned char)line[a])) {
+            ss >> key;
+            if (key == "TITLE") {
+                size_t q0 = line.find('"'), q1 = line.rfind('"');
+                if (q0 != std::string::npos && q1 > q0) title = line.substr(q0 + 1, q1 - q0 - 1);
+            } else if (key == "LUT_3D_SIZE") {
+                ss >> size;
+            } else if (key == "LUT_1D_SIZE") {
+                if (error) *error = "LUT 1D non supportée";
+                return nullptr;
+            } else if (key == "DOMAIN_MIN") {
+                ss >> dmin[0] >> dmin[1] >> dmin[2];
+            } else if (key == "DOMAIN_MAX") {
+                ss >> dmax[0] >> dmax[1] >> dmax[2];
+            }
+            continue;
+        }
+        float r, g, b;
+        if (ss >> r >> g >> b) { rgb.push_back(r); rgb.push_back(g); rgb.push_back(b); }
+    }
+    if (size < 2 || size > 128 || rgb.size() != (size_t)size * size * size * 3) {
+        if (error) *error = "taille de LUT invalide";
+        return nullptr;
+    }
+    // Normalize outputs from a non-unit domain.
+    for (size_t i = 0; i < rgb.size(); ++i) {
+        int c = (int)(i % 3);
+        float span = dmax[c] - dmin[c];
+        if (span > 0 && (dmin[c] != 0 || dmax[c] != 1)) rgb[i] = (rgb[i] - dmin[c]) / span;
+    }
+    if (title.empty()) title = Narrow(Utf8Path(path).stem().wstring());
+    return MakeLut(title, size, std::move(rgb));
 }
 
 float EvalCurve(const CurvePoints& pts, float x) {

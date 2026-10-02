@@ -203,6 +203,9 @@ private:
     void MarkImageChanged(const Rect& r) { imageDirty.Merge(r); ++imageVersion; }
     gpu::Texture* Ensure(gpu::TexturePtr& t, u32 w, u32 h, gpu::Format f, const char* name);
     gpu::ProgramPtr ProgramFor(const EffectDefPtr& def);
+    // Bind the LUT textures of lut params at t5.. (uploaded once per LUT content).
+    void BindLuts(gpu::CommandContext& ctx, gpu::DispatchDesc& d, const EffectDef& def, const EffectInstance& fx);
+    std::unordered_map<u64, gpu::TexturePtr> lutTextures;
 
     std::unordered_map<Id, NodeCache> cache;
     std::unordered_map<Id, EvalResult> frameEval;
