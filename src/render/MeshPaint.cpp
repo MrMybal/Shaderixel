@@ -38,7 +38,7 @@ struct ViewCB {
     float vp[16];
     float4 camPos, lightDir;
     u32 flags;
-    float envIntensity, envRotation, pad;
+    float envIntensity, envRotation, viewMode;
 };
 struct BrushRootM {
     u32 dw, dh, vw, vh, count;
@@ -137,6 +137,7 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     if (s.envAtlas) cb.flags |= 128;
     cb.envIntensity = s.envIntensity;
     cb.envRotation = s.envRotation;
+    cb.viewMode = (float)s.viewChannel;
     gpu::DrawDesc d;
     d.pipeline = p;
     for (int c = 0; c < (int)PbrChannel::Count; ++c) {

@@ -12,7 +12,7 @@ cbuffer View : register(b1)
     uint gFlags;       // bit i: channel i present, bit 7: HDRI environment
     float gEnvIntensity;
     float gEnvRotation; // radians around the vertical axis
-    float _pad;
+    float gViewMode;    // 0 PBR, k > 0: show channel k-1 alone (visual values)
 };
 
 Texture2D<float4> gBase : register(t0);
@@ -177,5 +177,19 @@ float4 psMain(VSOut i, bool front : SV_IsFrontFace) : SV_Target0
     }
     col += emissive;
     col = col / (1.0 + col * 0.15);  // gentle highlight compression
+    int vm = (int)(gViewMode + 0.5);
+    if (vm > 0)
+    {
+        // Single-channel inspection (unlit, as painted).
+        float3 o;
+        if (vm == 1) o = LinearToSrgb(saturate(base));
+        else if (vm == 2) o = float3(rough, rough, rough);
+        else if (vm == 3) o = float3(metal, metal, metal);
+        else if (vm == 4) o = (gFlags & 8) ? Data(gNormal, i.uv, float3(0.5, 0.5, 1.0)) : float3(0.5, 0.5, 1.0);
+        else if (vm == 5) o = LinearToSrgb(saturate(emissive));
+        else if (vm == 6) o = float3(ao, ao, ao);
+        else o = (gFlags & 64) ? Data(gHeight, i.uv, 0.5).rrr : float3(0.5, 0.5, 0.5);
+        return float4(o, 1.0);
+    }
     return float4(LinearToSrgb(saturate(col)), 1.0);
 }

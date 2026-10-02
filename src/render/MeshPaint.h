@@ -31,6 +31,7 @@ struct MeshScene {
     u32 envW = 0, envH = 0;
     std::string envName;
     float envIntensity = 1.0f, envRotation = 0.0f;
+    int viewChannel = 0;  // 0 = PBR, k = PbrChannel k-1 alone
     void UpdateCamera(float aspect);
 };
 

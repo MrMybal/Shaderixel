@@ -78,6 +78,13 @@ void App::DrawView3D() {
             if (ImGui::SliderFloat("##envR", &deg, -180, 180, "Rotation %.0f°")) v->mesh->envRotation = deg / 57.29578f;
             if (button("Sans HDRI")) v->mesh->envAtlas.reset();
         }
+        {
+            static const char* modes = "Rendu PBR\0Couleur de base\0Rugosité\0Métal\0Normale\0Émissif\0Occlusion\0Hauteur\0";
+            flow(140 * dpi);
+            ImGui::SetNextItemWidth(140 * dpi);
+            ImGui::Combo("##viewch", &v->mesh->viewChannel, modes);
+            ui::HelpTooltip("Afficher un canal seul (tel que peint)");
+        }
         char info[160];
         snprintf(info, sizeof(info), "%s - %zu triangles", v->mesh->data.name.c_str(), v->mesh->data.indices.size() / 3);
         flow(ImGui::CalcTextSize(info).x + 20 * dpi);

@@ -389,6 +389,7 @@ void App::DemoTick() {
         if (frameCounter == 9) paintIn(PbrChannel::Metallic, 1.0f, 650, 1000);
         if (frameCounter == 10) paintIn(PbrChannel::Height, 1.0f, 120, 300);  // raised band (bump)
         if (frameCounter == 14) ExportPbrTextures(*v, "pbr_test.png");
+        if (frameCounter == 20 && v->mesh) v->mesh->viewChannel = 2;  // roughness alone
         if (frameCounter == 24) {
             std::error_code ec;
             for (const char* f : {"pbr_test_BaseColor.png", "pbr_test_Roughness.png", "pbr_test_Metallic.png", "pbr_test_Normal.png", "pbr_test_AO.png",
