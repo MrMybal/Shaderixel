@@ -31,7 +31,7 @@
 ## Prochaines étapes
 
 ### Performance / grands formats
-- Rendu par tuiles + ressources réservées D3D12 pour le 16K (aujourd'hui chaque nœud mis en cache occupe une texture pleine taille)
+- Rendu par tuiles : **fait** (au-delà de ~36 MP : tuiles 512 px, halos d'effets, zones modifiées, rendu progressif visible d'abord ; identique au pixel près au rendu complet). Reste : surfaces creuses (ressources réservées D3D12), historique de peinture hors VRAM, aperçus de nœuds en mode tuiles
 - Recalcul limité aux régions modifiées
 - Mipmaps d'affichage, histogramme GPU
 - Mode 8 bits natif

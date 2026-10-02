@@ -68,9 +68,16 @@ public:
 
     // Evaluate the graph; returns the final image (or nullptr if nothing renders yet).
     gpu::Texture* Evaluate(Document& doc, gpu::CommandContext& ctx);
+    // Like Evaluate but never returns a partially rendered image (tiled mode
+    // finishes all remaining tiles); use for export, sampling and selections.
+    gpu::Texture* EvaluateComplete(Document& doc, gpu::CommandContext& ctx);
     gpu::Texture* NodeOutput(Id node) const;
     bool NodeFailed(Id node, std::string* errors = nullptr) const;
     bool AnyPending() const { return pending; }
+    // Tiled mode (very large documents): remaining tiles to render, view rect for priority.
+    int TilesPending() const { return tilesPending; }
+    int TilesTotal() const { return tilesX * tilesY; }
+    void SetVisibleRect(const Rect& r) { visibleRect = r; hasVisible = true; }
 
     void Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, u32 docH, const ViewParams& v, gpu::Texture* target);
     // Small preview texture for a panel; regenerated when `hash` changes (throttled).
@@ -147,6 +154,32 @@ private:
     };
 
     EvalResult Eval(Document& doc, gpu::CommandContext& ctx, Id id, int depth);
+
+    // Tiled evaluation (TiledEval.cpp)
+    struct TileRes {
+        gpu::Texture* tex = nullptr;
+        int2 origin;  // document pixel of texel (0,0)
+    };
+    struct PoolEntry {
+        gpu::TexturePtr tex;
+        bool used = false;
+    };
+    static constexpr int kTileSize = 512;
+    gpu::Texture* EvaluateTiled(Document& doc, gpu::CommandContext& ctx, const Rect* visible, int budget);
+    TileRes EvalTile(Document& doc, gpu::CommandContext& ctx, Id id, const Rect& need, int depth);
+    u64 StructHash(Document& doc, Id id, std::unordered_map<Id, u64>& memo, int& maxHalo, bool& compiling);
+    gpu::Texture* PoolGet(u32 w, u32 h, gpu::Format f);
+    void PoolReset(bool trim);
+    gpu::TexturePtr tiledOut;
+    std::vector<u8> tileDirty;
+    int tilesX = 0, tilesY = 0, tilesPending = 0;
+    u64 tiledStruct = 0;
+    std::unordered_map<Id, u64> tiledVersions;
+    std::unordered_map<u64, TileRes> tileMemo;
+    std::vector<PoolEntry> pool;
+    Rect visibleRect;
+    bool hasVisible = false;
+    bool wasTiled = false;
     gpu::Texture* Ensure(gpu::TexturePtr& t, u32 w, u32 h, gpu::Format f, const char* name);
     gpu::ProgramPtr ProgramFor(const EffectDefPtr& def);
 

@@ -92,3 +92,16 @@ Shaderixel.exe --demo [nodes|select|transform|retouch|groups|save|image|curves|e
 Shaderixel.exe --ai-test                    démarre le compagnon IA et autorise l'écriture (tests)
 Shaderixel.exe image.png                    ouvre une image
 ```
+
+## Rendu par tuiles (grands documents)
+
+Au-delà de ~36 MP (`Document::tiled`), `Renderer::Evaluate` passe par `TiledEval.cpp` :
+pas de cache plein format par nœud, seule l'image finale est conservée. Chaque tuile de
+512 px est évaluée récursivement avec des textures transitoires ; un effet demande ses
+entrées sur la tuile élargie de son halo (`//@halo`), les noyaux travaillant en
+coordonnées absolues du document (origines passées en constantes). Un effet `full`
+reçoit ses entrées du chemin classique (cache plein format).
+Invalidation : hash de structure (graphe + paramètres) → toutes les tuiles ; sinon les
+`dirtyRects` des surfaces élargis du halo cumulé. Budget de 16 tuiles par frame, zone
+visible en premier ; `EvaluateComplete` force la fin (export, pipette, sélections).
+Vérification : `--demo tiles` (comparaison tuiles / complet), `--demo 16k`.

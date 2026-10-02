@@ -248,7 +248,7 @@ void App::SelectionToolInput(DocView& v, ImVec2 canvasMin, bool hovered, const s
         if (!wandSampleMerged) {
             if (Surface* s = doc.GetSurface(doc.PaintTarget())) src = s->tex.get();
         }
-        if (!src) src = v.lastImage;
+        if (!src) src = v.renderer.EvaluateComplete(doc, *ctx);
         if (!src) return;
         wand.rb = v.renderer.ExportRGBA8(*ctx, src);
         wand.x = x;
@@ -770,7 +770,7 @@ void App::DrawSelectionDialog() {
             else if (selDialog == 2) v->renderer.SelectionFilter(d, *ctx, v->history, 1, selDialogValue, "Dilater");
             else if (selDialog == 3) v->renderer.SelectionFilter(d, *ctx, v->history, 2, selDialogValue, "Contracter");
             else if (selDialog == 4)
-                v->renderer.SelectFrom(d, *ctx, v->history, v->lastImage, SelSource::ColorRange, ModeFromModifiers(), fg, selDialogValue / 255.0f, "Plage de couleurs");
+                v->renderer.SelectFrom(d, *ctx, v->history, v->renderer.EvaluateComplete(d, *ctx), SelSource::ColorRange, ModeFromModifiers(), fg, selDialogValue / 255.0f, "Plage de couleurs");
         }
         selDialog = 0;
         ImGui::CloseCurrentPopup();

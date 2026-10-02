@@ -163,7 +163,11 @@ public:
     void SetName(const std::string& n) { name = n; }
     Surface* Selection() { return state.selection ? GetSurface(state.selection) : nullptr; }
     Surface* GetSurface(Id id);
-    void TouchSurface(Id id);
+    // Mark a surface changed (whole surface, or only `rect`, used by tiled rendering).
+    void TouchSurface(Id id, const Rect* rect = nullptr);
+    std::unordered_map<Id, Rect> dirtyRects;  // accumulated since the renderer last consumed them
+    bool tiled = false;                       // tiled rendering (very large documents)
+    bool forceTiled = false;                  // tiled rendering at any size (tests)
     // Give every surface a fresh version (after undo/redo swapped the state).
     void InvalidateSurfaces();
     std::vector<std::pair<Id, float4>> pendingClears;  // consumed by renderer

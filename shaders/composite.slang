@@ -8,6 +8,7 @@ cbuffer Root : register(b0)
     uint gMode;
     float gOpacity;
     uint gFlags;    // 1 = has mask, 2 = blend in gamma (Photoshop-like), 4 = has top, 8 = has base, 16 = clip to base alpha
+    uint gPad;          // keeps the int2 fields 16-byte-register aligned
     int2 gOutOrigin;    // document pixel of thread (0,0) (tiled rendering)
     int2 gBaseOrigin;   // document pixel of texel (0,0) of each input texture
     int2 gTopOrigin;

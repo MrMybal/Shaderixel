@@ -9,8 +9,58 @@
 
 namespace sx {
 
+namespace {
+// Compare two RGBA8 readbacks: max channel difference and pixels differing by more than `tol`.
+void CompareReadbacks(const char* what, const gpu::Readback& a, const gpu::Readback& b, int tol) {
+    if (a.width != b.width || a.height != b.height) { Log("[tiles] %s: size mismatch", what); return; }
+    int maxd = 0;
+    size_t bad = 0;
+    int bx = -1, by = -1;
+    for (size_t i = 0; i < a.data.size(); ++i) {
+        int dd = std::abs((int)a.data[i] - (int)b.data[i]);
+        if (dd > maxd) { maxd = dd; bx = (int)((i / 4) % a.width); by = (int)((i / 4) / a.width); }
+        if (dd > tol) ++bad;
+    }
+    Log("[tiles] %s: max diff %d at (%d,%d), %zu channels > %d", what, maxd, bx, by, bad, tol);
+}
+}  // namespace
+
 void App::DemoTick() {
     DocView* v = Active();
+    if (demoMode == 15 && v) {
+        // Tiled vs full rendering must match (halo correctness, no seams), including after an incremental stroke.
+        static gpu::ReadbackPtr rb[4];
+        Document& d = *v->doc;
+        auto grab = [&](int i, bool tiledMode) {
+            d.forceTiled = tiledMode;
+            rb[i] = v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx));
+        };
+        if (frameCounter == 8) grab(0, false);
+        if (frameCounter == 12) grab(1, true);
+        if (frameCounter == 16 && rb[0] && rb[1] && rb[0]->ready && rb[1]->ready) CompareReadbacks("full vs tiled", *rb[0], *rb[1], 1);
+        if (frameCounter == 18) {
+            // Small stroke while tiled: only the touched tiles (+ halo) are recomputed.
+            Id target = d.PaintTarget();
+            if (target && v->renderer.BeginStroke(d, *ctx, target)) {
+                std::vector<Dab> dabs;
+                for (int i = 0; i < 60; ++i) dabs.push_back({500.0f + i * 4, 480.0f + std::sin(i * 0.2f) * 30, 14, 1});
+                v->renderer.StrokeDabs(d, *ctx, dabs, brush, LinearColor({0.1f, 1, 0.3f, 1}), false);
+                v->renderer.EndStroke(d, *ctx, v->history, "Pinceau");
+            }
+        }
+        if (frameCounter == 20) Log("[tiles] tiles pending after stroke: %d / %d", v->renderer.TilesPending(), v->renderer.TilesTotal());
+        if (frameCounter == 22) grab(2, true);
+        if (frameCounter == 26) grab(3, false);
+        if (frameCounter == 30 && rb[2] && rb[3] && rb[2]->ready && rb[3]->ready) CompareReadbacks("incremental tiled vs full", *rb[2], *rb[3], 1);
+        if (frameCounter == 32) d.forceTiled = true;
+        return;
+    }
+    if (demoMode == 16 && v) {
+        if (frameCounter % 10 == 0)
+            Log("[16k] frame %llu: tiles pending %d / %d, VRAM %.0f MB", (unsigned long long)frameCounter, v->renderer.TilesPending(),
+                v->renderer.TilesTotal(), gpu::Dev().VideoMemoryUsage() / 1048576.0);
+        return;
+    }
     if (demoMode == 8 && v) {
         if (frameCounter == 10) SaveDocument(*v, "demo_save.sxl");
         if (frameCounter == 24) {
@@ -93,6 +143,10 @@ void App::RunDemo() {
     for (const char* s : {"composite.slang", "display.slang", "brush.slang", "clear.slang", "clear_r.slang", "gradient.slang"})
         gpu::Shaders().CompileNow(s, gpu::Shaders().File(s));
 
+    if (demoMode == 16) {
+        RunDemo16k();
+        return;
+    }
     NewDocument(1600, 1000, Precision::Half16, DocMode::Layers, 0, "Démo");
     DocView& v = *Active();
     Document& d = *v.doc;
@@ -305,7 +359,7 @@ void App::RunDemo() {
         d.S().activeLayer = tid;
         tool = Tool::Text;
     }
-    if (demoMode == 13) {
+    if (demoMode == 13 || demoMode == 15) {
         // Shape layers + layer styles (filters).
         auto shape = [&](int type, float4 r, float4 fill, bool stroke, float radius, int sides) -> Layer& {
             ShapeStyle s;
@@ -357,6 +411,43 @@ void App::RunDemo() {
         nodeEd.pan = {40, 30};
     }
     Status("Scène de démonstration créée");
+}
+
+void App::RunDemo16k() {
+    // 16384 x 16384 half float: 2 GB per surface, tiled evaluation keeps only the output.
+    NewDocument(16384, 16384, Precision::Half16, DocMode::Layers, 0, "Démo 16K");
+    DocView& v = *Active();
+    Document& d = *v.doc;
+    Layer& fill = d.AddEffectLayer(LayerKind::Fill, "gradient_fill");
+    fill.effect.params[0] = {0.02f, 0.01f, 0.06f, 1};
+    fill.effect.params[1] = {0.20f, 0.08f, 0.55f, 1};
+    fill.effect.params[2] = {1, 0, 0, 0};
+    d.SyncGraph();
+    Layer& paint = d.AddPixelLayer("Peinture");
+    Id surf = paint.surface;
+    v.renderer.Prepare(d, *ctx);
+    BrushSettings b = brush;
+    b.size = 600;
+    b.hardness = 0.6f;
+    if (v.renderer.BeginStroke(d, *ctx, surf)) {
+        std::vector<Dab> dabs;
+        for (float x = 1000; x < 15400; x += 40) dabs.push_back({x, 8192 + std::sin(x * 0.0007f) * 4000, 300, 1});
+        v.renderer.StrokeDabs(d, *ctx, dabs, b, LinearColor({1.0f, 0.45f, 0.25f, 1}), false);
+        v.renderer.EndStroke(d, *ctx, v.history, "Pinceau");
+    }
+    EffectInstance blur;
+    blur.effectId = "gaussian_blur";
+    blur.params = {{40, 0, 0, 0}};
+    d.ActiveLayer()->filters.push_back(blur);
+    if (auto def = Effects().Find("style_drop_shadow")) {
+        EffectInstance fx;
+        fx.effectId = "style_drop_shadow";
+        fx.params = def->DefaultParams();
+        d.ActiveLayer()->filters.push_back(fx);
+    }
+    d.SyncGraph();
+    FitView(v, ImVec2(1200, 800));
+    Status("Démo 16K créée");
 }
 
 }  // namespace sx

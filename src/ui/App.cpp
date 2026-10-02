@@ -80,7 +80,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -391,8 +391,10 @@ void App::OpenImage(const std::string& path, bool asLayer) {
 
 void App::ExportImage(const std::string& path) {
     DocView* v = Active();
-    if (!v || !v->lastImage || path.empty()) return;
-    auto rb = v->renderer.ExportRGBA8(*ctx, v->lastImage);
+    if (!v || path.empty()) return;
+    gpu::Texture* img = v->renderer.EvaluateComplete(*v->doc, *ctx);
+    if (!img) return;
+    auto rb = v->renderer.ExportRGBA8(*ctx, img);
     if (rb) exports.push_back({path, rb});
 }
 
@@ -817,7 +819,12 @@ void App::DrawStatusBar() {
                 if (cursorInDoc) ImGui::Text("X %d  Y %d", (int)cursorDoc.x, (int)cursorDoc.y);
                 else ImGui::TextDisabled("X -  Y -");
                 ImGui::Separator();
-                if (v->renderer.AnyPending()) ImGui::TextColored(ImVec4(1, 0.8f, 0.3f, 1), "Compilation des shaders...");
+                if (int left = v->renderer.TilesPending(); left > 0 && v->doc->tiled) {
+                    int total = std::max(1, v->renderer.TilesTotal());
+                    ImGui::TextColored(ImVec4(0.5f, 0.8f, 1, 1), "Rendu %d %%", (int)(100.0f * (total - left) / total));
+                    ImGui::SameLine();
+                    ImGui::ProgressBar((float)(total - left) / total, ImVec2(90, 0), "");
+                } else if (v->renderer.AnyPending()) ImGui::TextColored(ImVec4(1, 0.8f, 0.3f, 1), "Compilation des shaders...");
             }
             if (!statusMsg.empty() && Now() - statusTime < 6.0) {
                 ImGui::Separator();

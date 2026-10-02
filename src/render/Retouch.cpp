@@ -30,6 +30,7 @@ void Renderer::RetouchDabs(Document& doc, gpu::CommandContext& ctx, const std::v
     auto* k = Kernel("retouch.slang");
     if (!s || !k) return;
     const int W = (int)s->tex->Width(), H = (int)s->tex->Height();
+    Rect touched;
     Surface* sel = doc.Selection();
     for (size_t start = 0; start < dabs.size(); start += 4096) {
         size_t count = std::min<size_t>(4096, dabs.size() - start);
@@ -41,6 +42,7 @@ void Renderer::RetouchDabs(Document& doc, gpu::CommandContext& ctx, const std::v
         r = r.Clipped(W, H);
         if (r.Empty()) continue;
         strokeRect.Merge(r);
+        touched.Merge(r);
         gpu::DispatchDesc d;
         d.pipeline = k;
         d.srv[0] = strokePre.get();
@@ -53,7 +55,7 @@ void Renderer::RetouchDabs(Document& doc, gpu::CommandContext& ctx, const std::v
         d.cbSize = count * sizeof(Dab);
         Dispatch2D(ctx, d, (u32)r.Width(), (u32)r.Height());
     }
-    doc.TouchSurface(strokeSurface);
+    doc.TouchSurface(strokeSurface, &touched);
 }
 
 void Renderer::SmudgeDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, float strength) {
@@ -62,6 +64,7 @@ void Renderer::SmudgeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
     auto* k = Kernel("smudge.slang");
     if (!s || !k) return;
     const int W = (int)s->tex->Width(), H = (int)s->tex->Height();
+    Rect touched;
     Ensure(smudgeSnap, (u32)W, (u32)H, s->tex->GetFormat(), "SmudgeSnap");
     Surface* sel = doc.Selection();
     for (const Dab& dab : dabs) {
@@ -77,6 +80,7 @@ void Renderer::SmudgeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
         Rect r = Rect{(int)std::floor(c.x - reach), (int)std::floor(c.y - reach), (int)std::ceil(c.x + reach), (int)std::ceil(c.y + reach)}.Clipped(W, H);
         if (r.Empty()) continue;
         strokeRect.Merge(r);
+        touched.Merge(r);
         ctx.CopyRegion(smudgeSnap.get(), r.x0, r.y0, s->tex.get(), r);
         gpu::DispatchDesc d;
         d.pipeline = k;
@@ -87,7 +91,7 @@ void Renderer::SmudgeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
                                    strength * dab.alpha, sel ? 1u : 0u});
         Dispatch2D(ctx, d, (u32)r.Width(), (u32)r.Height());
     }
-    doc.TouchSurface(strokeSurface);
+    doc.TouchSurface(strokeSurface, &touched);
 }
 
 }  // namespace sx

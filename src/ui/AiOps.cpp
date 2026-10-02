@@ -229,7 +229,7 @@ void App::RegisterAiOps() {
                          AiResult e;
                          DocView* v = need(e);
                          if (!v) return e;
-                         gpu::Texture* img = v->lastImage ? v->lastImage : v->renderer.Evaluate(*v->doc, *ctx);
+                         gpu::Texture* img = v->renderer.EvaluateComplete(*v->doc, *ctx);
                          if (!img) return AiResult::Fail("NotReady", "Le rendu n'est pas encore prêt, réessayez");
                          auto rb = v->renderer.ExportRGBA8(*ctx, img);
                          std::string name = p["file"].S("render.png");

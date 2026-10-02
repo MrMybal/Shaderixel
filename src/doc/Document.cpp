@@ -133,6 +133,7 @@ Document::Document(u32 w, u32 h, Precision p, DocMode mode, const std::string& n
     : precision(p), name(name_) {
     state.width = w;
     state.height = h;
+    tiled = (u64)w * h > 6000ull * 6000ull;  // ~36 MP: switch to tiled rendering
     state.mode = mode;
     Node out;
     out.id = kOutputId;
@@ -175,8 +176,10 @@ Surface* Document::GetSurface(Id id) {
     return it == state.surfaces.end() ? nullptr : &it->second;
 }
 
-void Document::TouchSurface(Id id) {
+void Document::TouchSurface(Id id, const Rect* rect) {
     if (auto* s = GetSurface(id)) s->version = ++versionCounter;
+    Rect r = rect ? rect->Clipped((int)Width(), (int)Height()) : Rect{0, 0, (int)Width(), (int)Height()};
+    dirtyRects[id].Merge(r);
     dirty = true;
 }
 

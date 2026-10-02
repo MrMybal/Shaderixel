@@ -58,7 +58,7 @@ static void ApplyPaint(Document& doc, gpu::CommandContext& ctx, Id surface, cons
     Surface* s = doc.GetSurface(surface);
     if (!s || !pixels) return;
     ctx.CopyRegion(s->tex.get(), r.x0, r.y0, pixels, {0, 0, r.Width(), r.Height()});
-    doc.TouchSurface(surface);
+    doc.TouchSurface(surface, &r);
 }
 
 void History::UndoOne(Document& doc, gpu::CommandContext& ctx) {

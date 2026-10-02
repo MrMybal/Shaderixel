@@ -14,7 +14,7 @@ void SetConstants(gpu::DispatchDesc& d, const T& v) {
     d.numConstants = sizeof(T) / 4;
 }
 
-struct CompositeRoot { u32 w, h, mode; float opacity; u32 flags; i32 ox = 0, oy = 0, bx = 0, by = 0, tx = 0, ty = 0, mx = 0, my = 0; };
+struct CompositeRoot { u32 w, h, mode; float opacity; u32 flags, pad = 0; i32 ox = 0, oy = 0, bx = 0, by = 0, tx = 0, ty = 0, mx = 0, my = 0; };
 struct EffectRoot { u32 w, h; i32 ox, oy; u32 dw, dh, pass, inputMask; i32 in[8]; };
 struct ClearRoot { i32 x, y; u32 w, h; float4 value; };
 struct ClearRRoot { u32 w, h; float value; };
@@ -62,6 +62,12 @@ void Renderer::Reset() {
     thumbs.clear();
     failed.clear();
     strokeSurface = 0;
+    tiledOut.reset();
+    pool.clear();
+    tileDirty.clear();
+    tiledVersions.clear();
+    tiledStruct = 0;
+    tilesX = tilesY = tilesPending = 0;
 }
 
 void Renderer::Prepare(Document& doc, gpu::CommandContext& ctx) {
@@ -108,6 +114,18 @@ gpu::ProgramPtr Renderer::ProgramFor(const EffectDefPtr& def) {
 }
 
 gpu::Texture* Renderer::Evaluate(Document& doc, gpu::CommandContext& ctx) {
+    doc.tiled = doc.forceTiled || (u64)doc.Width() * doc.Height() > 6000ull * 6000ull;
+    if (doc.tiled) {
+        if (!wasTiled) cache.clear();  // full-size node caches are what tiling avoids
+        wasTiled = true;
+        gpu::Texture* t = EvaluateTiled(doc, ctx, hasVisible ? &visibleRect : nullptr, 16);
+        hasVisible = false;
+        return t;
+    }
+    wasTiled = false;
+    tiledOut.reset();
+    pool.clear();
+    doc.dirtyRects.clear();
     frameEval.clear();
     pending = false;
     EvalResult r = Eval(doc, ctx, doc.S().graph.output, 0);
@@ -119,6 +137,14 @@ gpu::Texture* Renderer::Evaluate(Document& doc, gpu::CommandContext& ctx) {
         }
     }
     return r.tex;
+}
+
+gpu::Texture* Renderer::EvaluateComplete(Document& doc, gpu::CommandContext& ctx) {
+    doc.tiled = doc.forceTiled || (u64)doc.Width() * doc.Height() > 6000ull * 6000ull;
+    if (!doc.tiled) return Evaluate(doc, ctx);
+    if (!wasTiled) cache.clear();
+    wasTiled = true;
+    return EvaluateTiled(doc, ctx, nullptr, 1 << 30);
 }
 
 gpu::Texture* Renderer::NodeOutput(Id node) const {
@@ -347,6 +373,7 @@ void Renderer::StrokeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
     auto* p = Shaders().Builtin("brush.slang");
     if (!s || !p) return;
     const int W = (int)s->tex->Width(), H = (int)s->tex->Height();
+    Rect touched;
     for (size_t start = 0; start < dabs.size(); start += 4096) {
         size_t count = std::min<size_t>(4096, dabs.size() - start);
         Rect r;
@@ -359,6 +386,7 @@ void Renderer::StrokeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
         r = r.Clipped(W, H);
         if (r.Empty()) continue;
         strokeRect.Merge(r);
+        touched.Merge(r);
         gpu::DispatchDesc d;
         d.pipeline = p;
         d.srv[0] = strokePre.get();
@@ -375,7 +403,7 @@ void Renderer::StrokeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
         d.threadsY = r.Height();
         ctx.Dispatch(d);
     }
-    doc.TouchSurface(strokeSurface);
+    doc.TouchSurface(strokeSurface, &touched);
 }
 
 void Renderer::EndStroke(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label) {
@@ -392,6 +420,12 @@ void Renderer::EndStroke(Document& doc, gpu::CommandContext& ctx, History& hist,
         }
     }
     strokeSurface = 0;
+    if (doc.tiled) {
+        // Very large documents: release the full-size stroke scratch buffers between strokes.
+        strokePre.reset();
+        strokeMask.reset();
+        smudgeSnap.reset();
+    }
 }
 
 void Renderer::ApplyGradient(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, float2 a, float2 b,
@@ -434,7 +468,8 @@ void Renderer::Import(Document& doc, gpu::CommandContext& ctx, Id surface, const
     d.threadsX = w;
     d.threadsY = h;
     ctx.Dispatch(d);
-    doc.TouchSurface(surface);
+    Rect r{offset.x, offset.y, offset.x + (int)w, offset.y + (int)h};
+    doc.TouchSurface(surface, &r);
 }
 
 gpu::ReadbackPtr Renderer::ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* image) {

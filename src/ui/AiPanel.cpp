@@ -387,7 +387,7 @@ void App::DrawImageGenPanel() {
             });
         };
         if (refPng == "pending") {
-            auto rb = Active()->renderer.ExportRGBA8(*ctx, Active()->lastImage);
+            auto rb = Active()->renderer.ExportRGBA8(*ctx, Active()->renderer.EvaluateComplete(*Active()->doc, *ctx));
             genRefReadback = rb;
             genPendingLaunch = launch;
         } else {

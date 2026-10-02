@@ -188,6 +188,12 @@ void App::DrawCanvas() {
     CanvasInput(*v, canvasMin, avail, hovered);
     TransformApply(*v);
 
+    {
+        // Tiled mode renders the visible area first.
+        float iz = 1.0f / v->zoom;
+        float x0 = -v->pan.x * iz, y0 = -v->pan.y * iz;
+        v->renderer.SetVisibleRect({(int)std::floor(x0), (int)std::floor(y0), (int)std::ceil(x0 + vw * iz), (int)std::ceil(y0 + vh * iz)});
+    }
     gpu::Texture* image = v->renderer.Evaluate(doc, *ctx);
     v->lastImage = image;
     if (!v->viewTex || v->viewTex->Width() != vw || v->viewTex->Height() != vh)
@@ -346,7 +352,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     if (tool == Tool::Bucket && click && target && !wand.rb) {
         int x = (int)std::floor(dp.x), y = (int)std::floor(dp.y);
         if (x < 0 || y < 0 || x >= (int)doc.Width() || y >= (int)doc.Height()) return;
-        gpu::Texture* src = bucketSampleMerged ? v.lastImage : doc.GetSurface(target)->tex.get();
+        gpu::Texture* src = bucketSampleMerged ? v.renderer.EvaluateComplete(doc, *ctx) : doc.GetSurface(target)->tex.get();
         if (!src) return;
         wand.rb = v.renderer.ExportRGBA8(*ctx, src);
         wand.x = x;
