@@ -116,6 +116,7 @@ void App::DemoTick() {
         return;
     }
     if (demoMode == 10 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
+    if (demoMode == 10 && v && frameCounter == 6) ImGui::SetWindowFocus("Histogramme");
     if (demoMode == 11 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 12 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 18 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");

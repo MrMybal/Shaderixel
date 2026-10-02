@@ -533,6 +533,28 @@ gpu::ReadbackPtr Renderer::ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* i
     return ctx.ReadbackTexture(tmp.get());
 }
 
+gpu::ReadbackPtr Renderer::Histogram(gpu::CommandContext& ctx, gpu::Texture* image) {
+    auto* k = Kernel("histogram.slang");
+    if (!image || !k) return nullptr;
+    Ensure(histoTex, 256, 4, gpu::Format::R32U, "Histogram");
+    struct { u32 w, h, step, clear; } root = {image->Width(), image->Height(), 1, 1};
+    // At most ~4M samples: bounded cost and no 32-bit overflow (255 per sample).
+    while ((u64)(root.w / root.step) * (root.h / root.step) > (4u << 20)) ++root.step;
+    gpu::DispatchDesc c;
+    c.pipeline = k;
+    c.uav[0] = histoTex.get();
+    SetConstants(c, root);
+    Dispatch2D(ctx, c, 256, 4);
+    root.clear = 0;
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = image;
+    d.uav[0] = histoTex.get();
+    SetConstants(d, root);
+    Dispatch2D(ctx, d, (root.w + root.step - 1) / root.step, (root.h + root.step - 1) / root.step);
+    return ctx.ReadbackTexture(histoTex.get());
+}
+
 gpu::ReadbackPtr Renderer::ReadPixel(gpu::CommandContext& ctx, gpu::Texture* image, int x, int y) {
     if (!image) return nullptr;
     Rect r{x, y, x + 1, y + 1};

@@ -11,7 +11,7 @@ namespace sx {
 namespace {
 // Interactive tone-curve editor. Returns true while points changed this frame.
 // `active` reports whether the widget is being dragged (for undo grouping).
-bool CurveEditor(const char* id, CurvePoints& pts, ImU32 color, float size, bool& activated, bool& released) {
+bool CurveEditor(const char* id, CurvePoints& pts, ImU32 color, float size, bool& activated, bool& released, const float* histogram = nullptr) {
     activated = released = false;
     if (pts.size() < 2) pts = {{0, 0}, {1, 1}};
     ImGui::PushID(id);
@@ -27,6 +27,13 @@ bool CurveEditor(const char* id, CurvePoints& pts, ImU32 color, float size, bool
     auto toCurve = [&](ImVec2 s) { return float2{std::clamp((s.x - p0.x) / size, 0.0f, 1.0f), std::clamp((p1.y - s.y) / size, 0.0f, 1.0f)}; };
 
     dl->AddRectFilled(p0, p1, IM_COL32(18, 18, 22, 255), 4);
+    if (histogram) {
+        // Image histogram behind the curve (like Photoshop).
+        for (int i = 0; i < 256; ++i) {
+            float x = p0.x + size * (i + 0.5f) / 256.0f, h = histogram[i] * size * 0.9f;
+            dl->AddLine(ImVec2(x, p1.y), ImVec2(x, p1.y - h), IM_COL32(150, 150, 160, 70), std::max(1.0f, size / 256.0f));
+        }
+    }
     for (int i = 1; i < 4; ++i) {
         float t = i / 4.0f;
         dl->AddLine(ImVec2(p0.x + size * t, p0.y), ImVec2(p0.x + size * t, p1.y), IM_COL32(255, 255, 255, 18));
@@ -262,7 +269,8 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
         float edSize = std::min(ImGui::GetContentRegionAvail().x, 320.0f);
         bool act = false, rel = false;
         DocView* v = Active();
-        if (CurveEditor(def->params[pi].id.c_str(), fx.curves[pi], colors[std::min<size_t>(chan, 3)], edSize, act, rel)) changed = true;
+        const float* hist = histo.valid ? histo.norm[std::min<size_t>(chan, 3)] : nullptr;
+        if (CurveEditor(def->params[pi].id.c_str(), fx.curves[pi], colors[std::min<size_t>(chan, 3)], edSize, act, rel, hist)) changed = true;
         if (act && v) editBefore = frameBefore;
         if (rel && v && editBefore) {
             v->history.PushState("Courbes", *editBefore, v->doc->S());

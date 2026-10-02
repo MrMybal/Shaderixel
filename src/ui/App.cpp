@@ -125,7 +125,7 @@ bool App::Init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout_v5.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v6.ini";
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
     ui::LoadFonts(dpi);
@@ -225,6 +225,8 @@ void App::Frame() {
     DrawColor();
     DrawBrush();
     DrawHistory();
+    UpdateHistogram();
+    DrawHistogram();
     DrawNewDocDialog();
     DrawShaderErrors();
     DrawSelectionDialog();
@@ -473,6 +475,7 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("Éditeur d'effets", bottom);
     ImGui::DockBuilderDockWindow("Couleur", rightTop);
     ImGui::DockBuilderDockWindow("Options", rightTop);
+    ImGui::DockBuilderDockWindow("Histogramme", rightTop);
     ImGui::DockBuilderDockWindow("Propriétés", rightMid);
     ImGui::DockBuilderDockWindow("Historique", rightMid);
     ImGui::DockBuilderDockWindow("Assistant IA", rightMid);
@@ -937,6 +940,97 @@ void App::DrawShaderErrors() {
     }
     ImGui::End();
 }
+
+// ------------------------------------------------------------------ histogram
+
+void App::UpdateHistogram() {
+    DocView* v = Active();
+    if (!v) { histo.valid = false; return; }
+    if (histo.rb && histo.rb->ready) {
+        const u32* p = (const u32*)histo.rb->data.data();
+        for (int c = 0; c < 4; ++c) {
+            u64 peak = 1;
+            for (int i = 0; i < 256; ++i) {
+                histo.bins[c][i] = p[c * 256 + i];
+                if (i > 0 && i < 255) peak = std::max(peak, histo.bins[c][i]);
+            }
+            // Scale on the inner bins so pure black/white spikes don't flatten the rest.
+            for (int i = 0; i < 256; ++i) histo.norm[c][i] = std::min(1.0f, (float)histo.bins[c][i] / (float)peak);
+        }
+        histo.valid = true;
+        histo.rb.reset();
+    }
+    u64 frame = gpu::Dev().FrameNumber();
+    bool stale = histo.view != v || histo.version != v->renderer.ImageVersion();
+    if (!histo.rb && stale && v->lastImage && frame - histo.frame >= 8) {
+        histo.rb = v->renderer.Histogram(*ctx, v->lastImage);
+        histo.view = v;
+        histo.version = v->renderer.ImageVersion();
+        histo.frame = frame;
+    }
+}
+
+void App::DrawHistogram() {
+    if (!ImGui::Begin("Histogramme")) { ImGui::End(); return; }
+    const char* channels[] = {"Couleurs", "Luminosité", "Rouge", "Vert", "Bleu"};
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
+    ImGui::Combo("Couche", &histoChannel, channels, IM_ARRAYSIZE(channels));
+    if (!histo.valid) {
+        ImGui::TextDisabled("Aucune image");
+        ImGui::End();
+        return;
+    }
+    float w = ImGui::GetContentRegionAvail().x, h = std::clamp(ImGui::GetContentRegionAvail().y - 70 * dpi, 60 * dpi, 220 * dpi);
+    ImVec2 p0 = ImGui::GetCursorScreenPos(), p1(p0.x + w, p0.y + h);
+    ImGui::InvisibleButton("##histo", ImVec2(w, h));
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddRectFilled(p0, p1, IM_COL32(18, 18, 22, 255), 3);
+    auto plot = [&](int c, ImU32 col) {
+        for (int i = 0; i < 256; ++i) {
+            float x0 = p0.x + w * i / 256.0f, x1 = p0.x + w * (i + 1) / 256.0f;
+            dl->AddRectFilled(ImVec2(x0, p1.y - histo.norm[c][i] * (h - 2)), ImVec2(std::max(x1, x0 + 1), p1.y), col);
+        }
+    };
+    int stat = 0;  // channel the statistics refer to
+    if (histoChannel == 0) {
+        // Additive RGB overlay (white where all three overlap).
+        dl->PushClipRect(p0, p1, true);
+        plot(1, IM_COL32(230, 60, 60, 110));
+        plot(2, IM_COL32(60, 210, 80, 110));
+        plot(3, IM_COL32(70, 110, 240, 110));
+        dl->PopClipRect();
+    } else {
+        stat = histoChannel - 1;
+        static const ImU32 cols[] = {IM_COL32(200, 200, 210, 220), IM_COL32(230, 70, 70, 220), IM_COL32(70, 210, 90, 220), IM_COL32(80, 120, 245, 220)};
+        plot(stat, cols[stat]);
+    }
+    dl->AddRect(p0, p1, IM_COL32(70, 72, 84, 255), 3);
+    // Statistics (weights are alpha x255).
+    double total = 0, sum = 0, sum2 = 0;
+    for (int i = 0; i < 256; ++i) {
+        double n = (double)histo.bins[stat][i];
+        total += n;
+        sum += n * i;
+        sum2 += n * i * i;
+    }
+    double mean = total > 0 ? sum / total : 0, sd = total > 0 ? std::sqrt(std::max(0.0, sum2 / total - mean * mean)) : 0;
+    int median = 0;
+    for (double acc = 0; median < 256; ++median) {
+        acc += (double)histo.bins[stat][median];
+        if (acc >= total * 0.5) break;
+    }
+    if (ImGui::IsItemHovered()) {
+        int lvl = std::clamp((int)((ImGui::GetIO().MousePos.x - p0.x) / w * 256.0f), 0, 255);
+        dl->AddLine(ImVec2(p0.x + w * (lvl + 0.5f) / 256.0f, p0.y), ImVec2(p0.x + w * (lvl + 0.5f) / 256.0f, p1.y), IM_COL32(255, 255, 255, 90));
+        ImGui::SetTooltip("Niveau %d\nNombre %.0f\nPourcentage %.2f %%", lvl, histo.bins[stat][lvl] / 255.0,
+                          total > 0 ? 100.0 * histo.bins[stat][lvl] / total : 0.0);
+    }
+    ImGui::Text("Moyenne %.2f   Écart type %.2f", mean, sd);
+    ImGui::Text("Médiane %d   Pixels %.0f", std::min(median, 255), total / 255.0);
+    if (histoChannel == 0) ImGui::TextDisabled("Statistiques : luminosité");
+    ImGui::End();
+}
+
 
 void App::DrawHistory() {
     if (!ImGui::Begin("Historique")) { ImGui::End(); return; }

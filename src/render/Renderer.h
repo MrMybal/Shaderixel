@@ -105,6 +105,9 @@ public:
     gpu::Texture* EvaluateNode(Document& doc, gpu::CommandContext& ctx, Id node) { return Eval(doc, ctx, node, 0).tex; }
     // Release full-size node caches created by EvaluateNode in tiled mode.
     void DropNodeCaches(const Document& doc) { if (doc.tiled) cache.clear(); }
+    // Async 4 x 256 histogram (luminance, R, G, B; u32, alpha-weighted x255).
+    gpu::ReadbackPtr Histogram(gpu::CommandContext& ctx, gpu::Texture* image);
+    u64 ImageVersion() const { return imageVersion; }
     gpu::ReadbackPtr ReadPixel(gpu::CommandContext& ctx, gpu::Texture* image, int x, int y);
 
     // Selections (Selection.cpp). Each operation creates a new selection surface
@@ -191,7 +194,7 @@ private:
     u64 imageVersion = 1, lastOutHash = 0;
     gpu::Texture* lastOut = nullptr;
     Rect imageDirty;
-    gpu::TexturePtr reduced;
+    gpu::TexturePtr reduced, histoTex;
     u32 reducedFactor = 0;
     u64 reducedVersion = 0;
     gpu::Texture* reducedFor = nullptr;

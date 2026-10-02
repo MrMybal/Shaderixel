@@ -176,6 +176,17 @@ private:
     Rect CropRect() const;
     void DrawSelectionDialog();
     void DrawHistory();
+    void DrawHistogram();
+    void UpdateHistogram();
+    struct HistogramState {
+        gpu::ReadbackPtr rb;
+        const void* view = nullptr;
+        u64 version = 0, frame = 0;
+        bool valid = false;
+        u64 bins[4][256] = {};
+        float norm[4][256] = {};  // 0..1 for drawing (curves background)
+    } histo;
+    int histoChannel = 0;
     void DrawStatusBar();
     void DrawNewDocDialog();
     void DrawShaderErrors();
