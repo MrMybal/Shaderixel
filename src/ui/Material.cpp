@@ -13,12 +13,12 @@
 namespace sx {
 
 const char* PbrChannelName(PbrChannel c) {
-    static const char* names[] = {"Couleur de base", "Rugosité", "Métal", "Normale", "Émissif", "Occlusion"};
+    static const char* names[] = {"Couleur de base", "Rugosité", "Métal", "Normale", "Émissif", "Occlusion", "Hauteur"};
     return names[(int)c];
 }
 
 const char* PbrChannelSuffix(PbrChannel c) {
-    static const char* names[] = {"BaseColor", "Roughness", "Metallic", "Normal", "Emissive", "AO"};
+    static const char* names[] = {"BaseColor", "Roughness", "Metallic", "Normal", "Emissive", "AO", "Height"};
     return names[(int)c];
 }
 
@@ -66,7 +66,7 @@ void App::CreatePbrChannels(DocView& v) {
     struct Def { PbrChannel c; float3 value; bool fill; };
     const Def defs[] = {{PbrChannel::Roughness, {0.5f, 0.5f, 0.5f}, true}, {PbrChannel::Metallic, {0, 0, 0}, true},
                         {PbrChannel::Normal, {0.5f, 0.5f, 1.0f}, true},    {PbrChannel::Emissive, {0, 0, 0}, false},
-                        {PbrChannel::Occlusion, {1, 1, 1}, true}};
+                        {PbrChannel::Occlusion, {1, 1, 1}, true},          {PbrChannel::Height, {0.5f, 0.5f, 0.5f}, true}};
     auto solid = Effects().Find("solid_color");
     Id paintLayer = 0;
     for (const Def& df : defs) {
@@ -106,8 +106,15 @@ void App::ExportPbrTextures(DocView& v, const std::string& pngBasePath) {
     std::string stem = Narrow(p.stem().wstring());
     std::vector<std::pair<PbrChannel, std::string>> written;
     v.renderer.EvaluateComplete(d, *ctx);
+    gpu::TexturePtr baked;
+    {
+        gpu::Texture* n = ChannelTexture(v, PbrChannel::Normal);
+        gpu::Texture* h = ChannelTexture(v, PbrChannel::Height);
+        if (h) baked = v.renderer.BakeNormal(*ctx, n, h, d.Width(), d.Height());
+    }
     for (int c = 0; c < (int)PbrChannel::Count; ++c) {
         gpu::Texture* t = ChannelTexture(v, (PbrChannel)c);
+        if ((PbrChannel)c == PbrChannel::Normal && baked) t = baked.get();  // normal map with the height baked in
         if (!t) continue;
         std::string file = Narrow((p.parent_path() / Utf8Path(stem + "_" + PbrChannelSuffix((PbrChannel)c) + ".png")).wstring());
         if (auto rb = v.renderer.ExportRGBA8(*ctx, t)) {
@@ -161,7 +168,8 @@ void App::ExportPbrTextures(DocView& v, const std::string& pngBasePath) {
         const char* prop = c == PbrChannel::BaseColor ? "MP_BASE_COLOR" : c == PbrChannel::Roughness ? "MP_ROUGHNESS" : c == PbrChannel::Metallic ? "MP_METALLIC"
                            : c == PbrChannel::Normal ? "MP_NORMAL" : c == PbrChannel::Emissive ? "MP_EMISSIVE_COLOR" : "MP_AMBIENT_OCCLUSION";
         const char* out = color || c == PbrChannel::Normal ? "RGB" : "R";
-        py += "mel.connect_material_property(s_" + std::string(PbrChannelSuffix(c)) + ", '" + out + "', unreal.MaterialProperty." + prop + ")\n\n";
+        if (c == PbrChannel::Height) py += "# Height is already baked into the normal map; kept for displacement / parallax setups.\n\n";
+        else py += "mel.connect_material_property(s_" + std::string(PbrChannelSuffix(c)) + ", '" + out + "', unreal.MaterialProperty." + prop + ")\n\n";
         y += 260;
     }
     py += "mel.recompile_material(mat)\nunreal.EditorAssetLibrary.save_asset(path + '/' + mat_name)\n";

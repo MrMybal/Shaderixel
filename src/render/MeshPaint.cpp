@@ -95,6 +95,21 @@ bool Renderer::MeshPrepare(Document& doc, gpu::CommandContext& ctx, MeshScene& s
     return true;
 }
 
+gpu::TexturePtr Renderer::BakeNormal(gpu::CommandContext& ctx, gpu::Texture* normal, gpu::Texture* height, u32 w, u32 h) {
+    auto* k = Kernel("bake_normal.slang");
+    if (!k) return nullptr;
+    auto out = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA16F, "BakedNormal");
+    struct { u32 w, h, flags; float strength; } root = {w, h, (normal ? 1u : 0u) | (height ? 2u : 0u), 32.0f};
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = normal;
+    d.srv[1] = height;
+    d.uav[0] = out.get();
+    SetConstants(d, root);
+    Dispatch2D(ctx, d, w, h);
+    return out;
+}
+
 gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const MeshMaterial& material, u32 w, u32 h) {
     if (!s.vb || w == 0 || h == 0) return nullptr;
     if (!s.color || s.color->Width() != w || s.color->Height() != h) {

@@ -40,9 +40,12 @@ void App::DrawView3D() {
     }
     if (v->mesh) {
         ImGui::SameLine();
-        if (!FindChannelGroup(doc, PbrChannel::Roughness)) {
-            if (ImGui::SmallButton("Créer les canaux PBR")) CreatePbrChannels(*v);
-        } else if (ImGui::SmallButton("Exporter les textures PBR...")) {
+        bool missing = false;
+        for (int c = 1; c < (int)PbrChannel::Count; ++c) if (!FindChannelGroup(doc, (PbrChannel)c)) missing = true;
+        if (missing && ImGui::SmallButton(FindChannelGroup(doc, PbrChannel::Roughness) ? "Compléter les canaux PBR" : "Créer les canaux PBR"))
+            CreatePbrChannels(*v);
+        if (FindChannelGroup(doc, PbrChannel::Roughness)) ImGui::SameLine();
+        if (FindChannelGroup(doc, PbrChannel::Roughness) && ImGui::SmallButton("Exporter les textures PBR...")) {
             ExportPbrTextures(*v, platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png"));
         }
         ImGui::SameLine();

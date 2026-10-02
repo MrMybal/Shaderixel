@@ -7,7 +7,7 @@
 namespace sx {
 
 // PBR material channels (shader slots t0..t5).
-enum class PbrChannel : int { BaseColor, Roughness, Metallic, Normal, Emissive, Occlusion, Count };
+enum class PbrChannel : int { BaseColor, Roughness, Metallic, Normal, Emissive, Occlusion, Height, Count };
 const char* PbrChannelName(PbrChannel c);    // group name in the document
 const char* PbrChannelSuffix(PbrChannel c);  // file / Unreal suffix
 struct MeshMaterial {

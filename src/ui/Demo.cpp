@@ -327,11 +327,12 @@ void App::DemoTick() {
         };
         if (frameCounter == 8) paintIn(PbrChannel::Roughness, 0.08f, 380, 620);
         if (frameCounter == 9) paintIn(PbrChannel::Metallic, 1.0f, 650, 1000);
+        if (frameCounter == 10) paintIn(PbrChannel::Height, 1.0f, 120, 300);  // raised band (bump)
         if (frameCounter == 14) ExportPbrTextures(*v, "pbr_test.png");
         if (frameCounter == 24) {
             std::error_code ec;
             for (const char* f : {"pbr_test_BaseColor.png", "pbr_test_Roughness.png", "pbr_test_Metallic.png", "pbr_test_Normal.png", "pbr_test_AO.png",
-                                  "pbr_test_Emissive.png", "pbr_test_unreal_material.py"})
+                                  "pbr_test_Emissive.png", "pbr_test_Height.png", "pbr_test_unreal_material.py"})
                 Log("[pbr] %s: %llu bytes", f, (unsigned long long)std::filesystem::file_size(f, ec));
         }
         return;

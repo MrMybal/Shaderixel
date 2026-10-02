@@ -19,6 +19,9 @@ Texture2D<float4> gMetal : register(t2);
 Texture2D<float4> gNormal : register(t3);
 Texture2D<float4> gEmissive : register(t4);
 Texture2D<float4> gAO : register(t5);
+Texture2D<float4> gHeight : register(t6);
+
+static const float kBumpStrength = 32.0;  // tangent tilt per unit of height change per texel (same as bake_normal)
 
 struct VSIn
 {
@@ -99,10 +102,20 @@ float4 psMain(VSOut i, bool front : SV_IsFrontFace) : SV_Target0
         float4 c = gEmissive.SampleLevel(sLinearWrap, i.uv, 0);
         emissive = c.rgb;  // premultiplied linear = color * coverage
     }
-    if (gFlags & 8)
+    if (gFlags & (8 | 64))
     {
         // Tangent frame from screen-space derivatives (no vertex tangents needed).
-        float3 tn = Data(gNormal, i.uv, float3(0.5, 0.5, 1.0)) * 2.0 - 1.0;
+        float3 tn = (gFlags & 8) ? Data(gNormal, i.uv, float3(0.5, 0.5, 1.0)) * 2.0 - 1.0 : float3(0, 0, 1);
+        if (gFlags & 64)
+        {
+            // Height: central differences one texel apart, added to the normal's slope.
+            uint hw, hh;
+            gHeight.GetDimensions(hw, hh);
+            float2 t = 1.0 / float2(hw, hh);
+            float dhdu = (Data(gHeight, i.uv + float2(t.x, 0), 0.5).r - Data(gHeight, i.uv - float2(t.x, 0), 0.5).r) * 0.5;
+            float dhdv = (Data(gHeight, i.uv + float2(0, t.y), 0.5).r - Data(gHeight, i.uv - float2(0, t.y), 0.5).r) * 0.5;
+            tn = normalize(float3(tn.xy - float2(dhdu, dhdv) * kBumpStrength * tn.z, tn.z));
+        }
         float3 dp1 = ddx(i.world), dp2 = ddy(i.world);
         float2 duv1 = ddx(i.uv), duv2 = ddy(i.uv);
         float3 dp2perp = cross(dp2, n), dp1perp = cross(n, dp1);

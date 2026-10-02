@@ -153,6 +153,8 @@ public:
                         const std::string& label);
     // 3D painting (MeshPaint.cpp)
     bool MeshPrepare(Document& doc, gpu::CommandContext& ctx, MeshScene& s);
+    // Normal channel with the Height channel baked in (either may be null), for export.
+    gpu::TexturePtr BakeNormal(gpu::CommandContext& ctx, gpu::Texture* normal, gpu::Texture* height, u32 w, u32 h);
     gpu::Texture* MeshRender(gpu::CommandContext& ctx, MeshScene& s, const MeshMaterial& material, u32 w, u32 h);
     void MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
                         float4 colorLinear, bool erase);
