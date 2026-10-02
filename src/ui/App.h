@@ -7,6 +7,9 @@
 #include "platform/Platform.h"
 #include "doc/DocFile.h"
 #include "doc/EffectGraph.h"
+#include "ai/Bridge.h"
+
+#include <mutex>
 
 #include <future>
 
@@ -95,6 +98,28 @@ struct EffectEditorState {
     std::optional<DocState> pendingBefore;
 };
 
+struct AssistantState {
+    struct Msg {
+        bool user;
+        std::string text;
+    };
+    std::string sessionId, conversationId, input;
+    std::vector<Msg> log;
+    bool busy = false;
+    std::mutex streamMutex;
+    std::string streaming;
+    long long eventCursor = 0;
+    void Reset() {
+        sessionId.clear();
+        conversationId.clear();
+        log.clear();
+        busy = false;
+        std::lock_guard lock(streamMutex);
+        streaming.clear();
+        eventCursor = 0;
+    }
+};
+
 class App {
 public:
     int Run();
@@ -148,6 +173,14 @@ private:
     void DrawNewDocDialog();
     void DrawShaderErrors();
     void DrawEffectEditor();
+    // AI (AiOps.cpp / AiPanel.cpp)
+    void RegisterAiOps();
+    void LoadAiSettings();
+    void SaveAiSettings();
+    void AiAsync(std::function<std::function<void()>()> fn);
+    void PollAiJobs();
+    void DrawAiPanel();
+    void DrawImageGenPanel();
     EffectInstance* EditedEffect(DocView& v, std::string* where);
     void HandleShortcuts();
 
@@ -196,6 +229,7 @@ private:
     void RunDemo();
     void DemoTick();
     bool testEffects = false;
+    bool aiTest = false;  // --ai-test: start the companion and allow writes (automation)
     int demoMode = 0;              // 0 none, 1 layers, 2 nodes, 3 selection, 4 transform
     std::string capturePath;
     int captureFrame = 30;
@@ -313,6 +347,16 @@ private:
     bool frameBeforeValid = false;
     NodeEditorState nodeEd;
     EffectEditorState efEd;
+    AiBridge bridge;
+    AiSettings aiSettings;
+    std::string settingsPath;
+    AssistantState assistant;
+    std::vector<std::future<std::function<void()>>> aiJobs;
+    std::string genPrompt;
+    int genSize = 0;
+    bool genUseImage = false, genNewDoc = false, genBusy = false;
+    gpu::ReadbackPtr genRefReadback;
+    std::function<void(std::string)> genPendingLaunch;
     std::string statusMsg;
     double statusTime = 0;
     std::string pendingDrop;

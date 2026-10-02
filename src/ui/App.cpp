@@ -76,6 +76,7 @@ void App::ParseCommandLine() {
     for (int i = 1; i < argc; ++i) {
         std::string a = Narrow(argv[i]);
         if (a == "--test-effects") testEffects = true;
+        else if (a == "--ai-test") aiTest = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
             demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : 1;
@@ -122,7 +123,7 @@ bool App::Init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout_v3.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v4.ini";
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
     ui::LoadFonts(dpi);
@@ -140,6 +141,14 @@ bool App::Init() {
 
     eraser = brush;
     eraser.hardness = 0.9f;
+    settingsPath = ExeDir() + "/shaderixel_settings.json";
+    LoadAiSettings();
+    RegisterAiOps();
+    if (aiTest) bridge.allowWrites = true;
+    if (bridge.Start(ExeDir() + "/Shaderixel") && (aiSettings.autoStart || aiTest)) {
+        std::string err;
+        if (!bridge.LaunchCompanion(aiSettings, &err)) Log("Companion: %s", err.c_str());
+    }
     ShowWindow(hwnd, SW_SHOWMAXIMIZED);
     UpdateWindow(hwnd);
     if (!demoMode) NewDocument(1920, 1080, Precision::Half16, DocMode::Layers, 0, "Sans titre");
@@ -147,6 +156,8 @@ bool App::Init() {
 }
 
 void App::Shutdown() {
+    bridge.Shutdown();
+    for (auto& j : aiJobs) j.wait();
     gpu::Dev().WaitIdle();
     docs.clear();
     ImGui_ImplDX12_Shutdown();
@@ -196,12 +207,16 @@ void App::Frame() {
         PostMessageW(hwnd, WM_CLOSE, 0, 0);
     }
 
+    bridge.Pump();
+    PollAiJobs();
     HandleShortcuts();
     DrawToolbar();
     DrawCanvas();
     DrawLayers();
     DrawNodeEditor();
     DrawEffectEditor();
+    DrawAiPanel();
+    DrawImageGenPanel();
     DrawProperties();
     DrawColor();
     DrawBrush();
@@ -421,6 +436,8 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("Options", rightTop);
     ImGui::DockBuilderDockWindow("Propriétés", rightMid);
     ImGui::DockBuilderDockWindow("Historique", rightMid);
+    ImGui::DockBuilderDockWindow("Assistant IA", rightMid);
+    ImGui::DockBuilderDockWindow("Génération IA", rightMid);
     ImGui::DockBuilderDockWindow("Calques", rightBottom);
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(left)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoResizeX;
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(center)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;

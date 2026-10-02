@@ -1,0 +1,107 @@
+#pragma once
+// Host side of the CyToolsCore integration (same protocol as CyTexture's
+// Unreal bridge): a loopback HTTP endpoint answering `describe`, `invoke`
+// (idempotent per callId) and `ack`, plus the companion process
+// (CyUEMCPSDK `run.py --editor <connection.json>`) which turns these host
+// operations into an MCP server and provides the in-app assistant.
+//
+// Operations always execute on the main thread (GPU + document access): the
+// HTTP thread queues the call and the app pumps the queue once per frame.
+
+#include "ai/Net.h"
+#include "core/Json.h"
+
+#include <deque>
+#include <future>
+#include <mutex>
+#include <unordered_map>
+
+namespace sx {
+
+struct AiResult {
+    bool done = true;
+    Json result;
+    std::string errorCode, errorMessage;
+    std::function<bool(AiResult&)> poll;  // for async work: return true when finished
+    static AiResult Ok(Json j) { AiResult r; r.result = std::move(j); return r; }
+    static AiResult Fail(const std::string& code, const std::string& msg) { AiResult r; r.errorCode = code; r.errorMessage = msg; return r; }
+};
+
+struct AiOperation {
+    std::string id;
+    std::string description;
+    Json inputSchema;       // JSON schema of parameters
+    bool write = false;     // modifies the document (gated by the user)
+    std::vector<std::string> inputFiles;  // parameter paths the companion copies in
+    std::function<AiResult(const Json& params, const std::string& workspace)> run;
+};
+
+struct AiSettings {
+    std::string python = "python";
+    std::string companionScript;  // CyUEMCPSDK Bridge/run.py
+    bool autoStart = false;
+    bool allowWrites = false;
+    std::string imageProvider = "openai";
+    std::string openaiEndpoint = "https://api.openai.com/v1";
+    std::string openaiModel = "gpt-image-1";
+    std::string openaiKeyEnv = "OPENAI_API_KEY";
+    std::string geminiEndpoint = "https://generativelanguage.googleapis.com/v1beta";
+    std::string geminiModel = "gemini-2.5-flash-image";
+    std::string geminiKeyEnv = "GEMINI_API_KEY";
+    std::string comfyEndpoint = "http://127.0.0.1:8188";
+    std::string assistantConnector = "codex";
+    std::string assistantModel;
+    Json ToJson() const;
+    void FromJson(const Json& j);
+};
+
+class AiBridge {
+public:
+    ~AiBridge() { Shutdown(); }
+    void Register(AiOperation op) { ops.push_back(std::move(op)); }
+    bool Start(const std::string& projectHint);  // HTTP endpoint + connection file
+    void Shutdown();
+    void Pump();                                  // main thread, once per frame
+
+    bool LaunchCompanion(const AiSettings& s, std::string* error);
+    void StopCompanion();
+    bool CompanionRunning() const;
+    // Companion service endpoint (after it published <connection>.service.json).
+    bool ServiceReady() const { return !serviceUrl.empty(); }
+    const std::string& ServiceUrl() const { return serviceUrl; }
+    const std::string& ServiceToken() const { return serviceToken; }
+
+    bool Running() const { return server.Running(); }
+    int Port() const { return server.Port(); }
+    const std::string& ConnectionFile() const { return connectionFile; }
+    std::atomic<bool> allowWrites{false};
+    std::atomic<int> callsServed{0};
+    std::string lastOperation;
+
+private:
+    struct Call {
+        std::string callId, op, workspace;
+        Json params;
+        std::shared_ptr<std::promise<std::string>> promise;
+    };
+    struct Pending {
+        Call call;
+        AiResult result;
+    };
+    int Handle(const net::Request& req, std::string& out);
+    std::string Describe() const;
+    std::string Finish(const Call& c, const AiResult& r);
+
+    net::LoopbackServer server;
+    std::string token, connectionFile, serviceFile, project;
+    std::vector<AiOperation> ops;
+    std::mutex mutex;
+    std::deque<Call> queue;
+    std::vector<Pending> pending;
+    std::unordered_map<std::string, std::shared_future<std::string>> calls;  // callId -> response
+    void* companion = nullptr;  // process handle
+    std::string serviceUrl, serviceToken;
+    double lastServiceCheck = 0;
+};
+
+}  // namespace sx
