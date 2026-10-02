@@ -80,7 +80,8 @@ public:
     int TilesTotal() const { return tilesX * tilesY; }
     void SetVisibleRect(const Rect& r) { visibleRect = r; hasVisible = true; }
 
-    void Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, u32 docH, const ViewParams& v, gpu::Texture* target);
+    // Returns false when nothing was drawn (display kernel still compiling).
+    bool Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, u32 docH, const ViewParams& v, gpu::Texture* target);
     // Image to display for the evaluated document at this zoom: the image itself,
     // or a box-reduced copy (kept up to date incrementally) when strongly zoomed out.
     gpu::Texture* DisplaySource(gpu::CommandContext& ctx, gpu::Texture* image, float invZoom);

@@ -328,9 +328,9 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
     return result;
 }
 
-void Renderer::Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, u32 docH, const ViewParams& v, gpu::Texture* target) {
+bool Renderer::Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, u32 docH, const ViewParams& v, gpu::Texture* target) {
     auto* p = Shaders().Builtin("display.slang");
-    if (!p || !target) return;
+    if (!p || !target) return false;
     DisplayCB cb = {};
     cb.origin = v.origin;
     cb.invZoom = v.invZoom;
@@ -354,6 +354,7 @@ void Renderer::Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, 
     d.threadsX = v.viewW;
     d.threadsY = v.viewH;
     ctx.Dispatch(d);
+    return true;
 }
 
 void Renderer::Composite(Document& doc, gpu::CommandContext& ctx, gpu::Texture* dst, gpu::Texture* base, gpu::Texture* top, gpu::Texture* mask,
@@ -466,9 +467,10 @@ gpu::Texture* Renderer::Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Textur
         v.nearest = false;
         v.checker = 4;
         v.outside = {0.16f, 0.16f, 0.18f, 1};
-        Display(ctx, src, (u32)docW, (u32)docH, v, t.tex.get());
-        t.hash = hash;
-        t.frame = frame;
+        if (Display(ctx, src, (u32)docW, (u32)docH, v, t.tex.get())) {  // retry next frame if the kernel isn't ready
+            t.hash = hash;
+            t.frame = frame;
+        }
     }
     return t.tex.get();
 }

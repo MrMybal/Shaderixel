@@ -321,7 +321,8 @@ private:
     bool aiTest = false;  // --ai-test: start the companion and allow writes (automation)
     void RunDemo16k();
     int demoMode = 0;              // 0 none, 1 layers, 2 nodes, 3 selection, 4 transform
-    std::string capturePath, dumpPath;
+    std::string capturePath, dumpPath, cliSavePath;
+    bool autoQuit = false;
     std::vector<std::string> focusAtStart;
     gpu::ReadbackPtr dumpRb;
     int captureFrame = 30;

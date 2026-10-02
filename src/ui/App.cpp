@@ -84,6 +84,7 @@ void App::ParseCommandLine() {
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
         else if (a == "--focus" && i + 1 < argc) focusAtStart.push_back(Narrow(argv[++i]));  // panel to bring forward (captures)
+        else if (a == "--save" && i + 1 < argc) cliSavePath = Narrow(argv[++i]);  // save the active document at the capture frame
         else if (a == "--dump-image" && i + 1 < argc) dumpPath = Narrow(argv[++i]);  // document composite at the capture frame
         else if (a == "--sparse-threshold" && i + 1 < argc) gpu::Dev().SetSparseThreshold((u64)_wtoi64(argv[++i]));
         else if (a == "--frames" && i + 1 < argc) captureFrame = std::max(3, _wtoi(argv[++i]));
@@ -98,7 +99,8 @@ bool App::Init() {
     dpi = ImGui_ImplWin32_GetDpiScaleForMonitor(MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY));
     hwnd = platform::CreateMainWindow(L"Shaderixel", (int)(1600 * dpi), (int)(960 * dpi));
     if (!gpu::Dev().Init(hwnd)) {
-        MessageBoxW(hwnd, L"Impossible d'initialiser Direct3D 12.", L"Shaderixel", MB_ICONERROR);
+        MessageBoxW(hwnd, gpu::BackendName() == std::string("Vulkan") ? L"Impossible d'initialiser Vulkan 1.3 (pilote graphique à jour ?)."
+                                                                    : L"Impossible d'initialiser Direct3D 12.", L"Shaderixel", MB_ICONERROR);
         return false;
     }
     platform::SetResizeCallback([](u32 w, u32 h) { gpu::Dev().Resize(w, h); });
@@ -147,7 +149,7 @@ bool App::Init() {
     }
     ShowWindow(hwnd, SW_SHOWMAXIMIZED);
     UpdateWindow(hwnd);
-    if (!demoMode) NewDocument(1920, 1080, Precision::Half16, DocMode::Layers, 0, "Sans titre");
+    if (!demoMode && pendingDrop.empty()) NewDocument(1920, 1080, Precision::Half16, DocMode::Layers, 0, "Sans titre");
     return true;
 }
 
@@ -195,6 +197,10 @@ void App::Frame() {
     if (demoMode) DemoTick();
     if (frameCounter >= 4 && frameCounter - 4 < focusAtStart.size()) ImGui::SetWindowFocus(focusAtStart[frameCounter - 4].c_str());
     if (!capturePath.empty() && frameCounter == (u64)captureFrame) captureRb = gpu::Dev().CaptureNextFrame();
+    if (!cliSavePath.empty() && frameCounter == (u64)captureFrame && Active()) {
+        SaveDocument(*Active(), cliSavePath);
+        cliSavePath.clear();
+    }
     if (!dumpPath.empty() && frameCounter == (u64)captureFrame && Active())
         dumpRb = Active()->renderer.ExportRGBA8(*ctx, Active()->renderer.EvaluateComplete(*Active()->doc, *ctx));
     if (dumpRb && dumpRb->ready) {
@@ -208,8 +214,13 @@ void App::Frame() {
         Log("Captured %ux%u to %s", captureRb->width, captureRb->height, capturePath.c_str());
         captureRb.reset();
         capturePath.clear();
-        for (auto& dv : docs) dv->doc->dirty = false;  // automated run: never prompt
+        autoQuit = true;
+    }
+    // Automated runs quit once pending saves / exports are written.
+    if (autoQuit && saves.empty() && !psdExport && !dumpRb) {
+        for (auto& dv : docs) dv->doc->dirty = false;  // never prompt
         PostMessageW(hwnd, WM_CLOSE, 0, 0);
+        autoQuit = false;
     }
 
     bridge.Pump();
