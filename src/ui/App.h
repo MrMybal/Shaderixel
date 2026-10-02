@@ -70,6 +70,8 @@ struct DocView {
     float zoom = 1.0f;
     float2 pan;               // screen offset (canvas-local) of document origin
     bool fitPending = true;
+    int fitHold = 0;          // frames during which a fit follows canvas resizes (dock layout settling)
+    float fitW = 0, fitH = 0;
     gpu::TexturePtr viewTex;
     gpu::Texture* lastImage = nullptr;
     std::unordered_map<Id, u64> textHashes;   // surface -> rasterized style hash
@@ -320,6 +322,7 @@ private:
     void RunDemo16k();
     int demoMode = 0;              // 0 none, 1 layers, 2 nodes, 3 selection, 4 transform
     std::string capturePath, dumpPath;
+    std::vector<std::string> focusAtStart;
     gpu::ReadbackPtr dumpRb;
     int captureFrame = 30;
     u64 frameCounter = 0;
@@ -352,6 +355,9 @@ private:
     float4 fg = {0.05f, 0.05f, 0.06f, 1};  // sRGB straight
     float4 bg = {1, 1, 1, 1};
     bool editBg = false;
+    std::vector<float4> recentColors;  // most recent first (sRGB)
+    int colorSliderMode = 0;           // 0 RGB, 1 HSV
+    void PushRecentColor(float4 c);
     int gradientShape = 0;
     // selection options
     int selModeOption = 0;          // 0 new, 1 add, 2 subtract, 3 intersect

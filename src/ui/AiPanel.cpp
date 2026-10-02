@@ -305,7 +305,8 @@ void App::DrawImageGenPanel() {
     } else {
         ImGui::TextDisabled("ComfyUI : prévu (workflow API).");
     }
-    ImGui::InputTextMultiline("Prompt", &genPrompt, ImVec2(-1, 100 * dpi));
+    ImGui::TextUnformatted("Prompt");
+    ImGui::InputTextMultiline("##prompt", &genPrompt, ImVec2(-1, 100 * dpi));
     ImGui::Combo("Format", &genSize, "1024 x 1024\0" "1536 x 1024 (paysage)\0" "1024 x 1536 (portrait)\0");
     if (provider == 1) ImGui::Checkbox("Envoyer l'image actuelle comme référence", &genUseImage);
     ImGui::Checkbox("Nouveau document", &genNewDoc);

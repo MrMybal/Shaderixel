@@ -185,10 +185,14 @@ void App::DrawCanvas() {
         ImGui::SetCursorScreenPos(canvasMin);
     }
     u32 vw = (u32)std::max(1.0f, avail.x), vh = (u32)std::max(1.0f, avail.y);
-    if (v->fitPending) {
+    if (v->fitPending || (v->fitHold > 0 && (std::abs(avail.x - v->fitW) > 1 || std::abs(avail.y - v->fitH) > 1))) {
+        if (v->fitPending) v->fitHold = 30;
         FitView(*v, avail);
         v->fitPending = false;
+        v->fitW = avail.x;
+        v->fitH = avail.y;
     }
+    if (v->fitHold > 0) --v->fitHold;
 
     // Interaction first so this frame's dabs are visible this frame.
     ImGui::InvisibleButton("##canvas", avail, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);

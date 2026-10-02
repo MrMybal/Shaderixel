@@ -779,14 +779,196 @@ void App::DrawProperties() {
 
 // ------------------------------------------------------------------ color & brush
 
+void App::PushRecentColor(float4 c) {
+    c.w = 1;
+    std::erase_if(recentColors, [&](const float4& r) { return std::abs(r.x - c.x) + std::abs(r.y - c.y) + std::abs(r.z - c.z) < 1.5f / 255.0f; });
+    recentColors.insert(recentColors.begin(), c);
+    if (recentColors.size() > 24) recentColors.resize(24);
+}
+
+// Compact Photoshop-like color panel: fg/bg swatches, saturation/value square +
+// hue bar sized to the space available, hex field, RGB/HSV sliders, recent colors.
 void App::DrawColor() {
     if (!ImGui::Begin("Couleur")) { ImGui::End(); return; }
-    ImGui::RadioButton("Premier plan", !editBg) ? editBg = false : 0;
-    ImGui::SameLine();
-    if (ImGui::RadioButton("Arrière-plan", editBg)) editBg = true;
     float4& c = editBg ? bg : fg;
-    ImGui::SetNextItemWidth(-1);
-    ImGui::ColorPicker4("##picker", &c.x, ImGuiColorEditFlags_PickerHueWheel | ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_DisplayRGB | ImGuiColorEditFlags_DisplayHex);
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const ImGuiStyle& st = ImGui::GetStyle();
+    const float fh = ImGui::GetFrameHeight();
+
+    // HSV kept across frames so the hue survives gray / black colors.
+    static float hue = 0, sat = 0, val = 0;
+    static float4 last = {-1, -1, -1, -1};
+    if (std::abs(last.x - c.x) + std::abs(last.y - c.y) + std::abs(last.z - c.z) > 1e-5f) {
+        float h, s, v;
+        ImGui::ColorConvertRGBtoHSV(c.x, c.y, c.z, h, s, v);
+        if (s > 1e-4f && v > 1e-4f) hue = h;
+        if (v > 1e-4f) sat = s;
+        val = v;
+    }
+    bool edited = false, released = false;
+
+    // Header: swatches, swap / default, hex.
+    {
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        float sw = fh * 1.15f, off = sw * 0.45f;
+        ImVec2 bgMin(p.x + off, p.y + off);
+        auto swatch = [&](ImVec2 a, const float4& col, bool active) {
+            dl->AddRectFilled(a, ImVec2(a.x + sw, a.y + sw), ImGui::ColorConvertFloat4ToU32(ImVec4(col.x, col.y, col.z, 1)), 3);
+            dl->AddRect(a, ImVec2(a.x + sw, a.y + sw), active ? ui::col::Accent : IM_COL32(120, 122, 135, 255), 3, 0, active ? 2.0f : 1.0f);
+        };
+        swatch(bgMin, bg, editBg);
+        swatch(p, fg, !editBg);
+        ImGui::SetCursorScreenPos(bgMin);
+        if (ImGui::InvisibleButton("##bgsw", ImVec2(sw, sw))) editBg = true;
+        ui::HelpTooltip("Arrière-plan");
+        ImGui::SetCursorScreenPos(p);
+        if (ImGui::InvisibleButton("##fgsw", ImVec2(sw, sw))) editBg = false;
+        ui::HelpTooltip("Premier plan");
+        ImGui::SetCursorScreenPos(ImVec2(p.x + sw + off + st.ItemSpacing.x * 2, p.y));
+        if (ui::IconButton("swap", ui::IconSwap, false, fh, "Permuter (X)")) std::swap(fg, bg);
+        ImGui::SameLine();
+        if (ImGui::Button("D", ImVec2(fh, fh))) { fg = {0, 0, 0, 1}; bg = {1, 1, 1, 1}; }
+        ui::HelpTooltip("Couleurs par défaut (D)");
+        ImGui::SameLine();
+        ImGui::TextDisabled("#");
+        ImGui::SameLine(0, 2);
+        char hex[16];
+        snprintf(hex, sizeof(hex), "%02X%02X%02X", (int)std::lround(c.x * 255), (int)std::lround(c.y * 255), (int)std::lround(c.z * 255));
+        ImGui::SetNextItemWidth(std::min(fh * 3.6f, ImGui::GetContentRegionAvail().x));
+        if (ImGui::InputText("##hex", hex, sizeof(hex), ImGuiInputTextFlags_CharsHexadecimal | ImGuiInputTextFlags_CharsUppercase | ImGuiInputTextFlags_EnterReturnsTrue)) {
+            unsigned v = 0;
+            if (sscanf_s(hex, "%x", &v) == 1) {
+                c = {((v >> 16) & 255) / 255.0f, ((v >> 8) & 255) / 255.0f, (v & 255) / 255.0f, 1};
+                PushRecentColor(c);
+            }
+        }
+        ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + sw + off + st.ItemSpacing.y));
+    }
+
+    // Square + hue bar sized to fit, keeping room for the sliders and recent colors when possible.
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    const float barW = std::round(fh * 0.7f), gap = st.ItemSpacing.x;
+    const float sideW = 170 * dpi;  // sliders column when placed beside the square
+    // Wide panel: sliders beside the square (square uses the full height); otherwise stacked.
+    float sqSide = std::min(avail.y - st.ItemSpacing.y, 420 * dpi);
+    bool side = avail.x - sqSide - barW - gap * 3 >= sideW;
+    float below = side ? 0 : (fh + st.ItemSpacing.y) * 5 + st.ItemSpacing.y;
+    float sq = side ? sqSide : std::min(avail.x - barW - gap, avail.y - below);
+    if (!side && sq < 90 * dpi) {  // short panel: the square gets priority over the sliders
+        below = 0;
+        sq = std::min(avail.x - barW - gap, avail.y - st.ItemSpacing.y);
+    }
+    sq = std::clamp(sq, 40 * dpi, 420 * dpi);
+    bool showSliders = side || below > 0;
+    ImVec2 p0 = ImGui::GetCursorScreenPos();
+    {
+        float r, g, b;
+        ImGui::ColorConvertHSVtoRGB(hue, 1, 1, r, g, b);
+        ImU32 hueCol = ImGui::ColorConvertFloat4ToU32(ImVec4(r, g, b, 1));
+        ImVec2 p1(p0.x + sq, p0.y + sq);
+        dl->AddRectFilledMultiColor(p0, p1, IM_COL32_WHITE, hueCol, hueCol, IM_COL32_WHITE);
+        dl->AddRectFilledMultiColor(p0, p1, IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0), IM_COL32_BLACK, IM_COL32_BLACK);
+        dl->AddRect(p0, p1, ui::col::Border);
+        ImGui::InvisibleButton("##sv", ImVec2(sq, sq));
+        if (ImGui::IsItemActive()) {
+            ImVec2 m = ImGui::GetIO().MousePos;
+            sat = std::clamp((m.x - p0.x) / sq, 0.0f, 1.0f);
+            val = 1.0f - std::clamp((m.y - p0.y) / sq, 0.0f, 1.0f);
+            edited = true;
+        }
+        if (ImGui::IsItemDeactivated()) released = true;
+        ImVec2 mk(p0.x + sat * sq, p0.y + (1 - val) * sq);
+        dl->AddCircle(mk, 6.0f * dpi, IM_COL32_BLACK, 0, 2.5f);
+        dl->AddCircle(mk, 6.0f * dpi, IM_COL32_WHITE, 0, 1.5f);
+        // Hue bar (6 gradient segments).
+        ImVec2 h0(p1.x + gap, p0.y);
+        for (int i = 0; i < 6; ++i) {
+            float ra, ga, ba, rb, gb, bb;
+            ImGui::ColorConvertHSVtoRGB(i / 6.0f, 1, 1, ra, ga, ba);
+            ImGui::ColorConvertHSVtoRGB((i + 1) / 6.0f, 1, 1, rb, gb, bb);
+            ImU32 ca = ImGui::ColorConvertFloat4ToU32(ImVec4(ra, ga, ba, 1)), cb = ImGui::ColorConvertFloat4ToU32(ImVec4(rb, gb, bb, 1));
+            dl->AddRectFilledMultiColor(ImVec2(h0.x, h0.y + sq * i / 6), ImVec2(h0.x + barW, h0.y + sq * (i + 1) / 6), ca, ca, cb, cb);
+        }
+        dl->AddRect(h0, ImVec2(h0.x + barW, h0.y + sq), ui::col::Border);
+        ImGui::SetCursorScreenPos(h0);
+        ImGui::InvisibleButton("##hue", ImVec2(barW, sq));
+        if (ImGui::IsItemActive()) {
+            hue = std::clamp((ImGui::GetIO().MousePos.y - h0.y) / sq, 0.0f, 0.9999f);
+            edited = true;
+        }
+        if (ImGui::IsItemDeactivated()) released = true;
+        float hy = h0.y + hue * sq;
+        dl->AddRect(ImVec2(h0.x - 2, hy - 3), ImVec2(h0.x + barW + 2, hy + 3), IM_COL32_WHITE, 2, 0, 1.5f);
+        ImGui::SetCursorScreenPos(ImVec2(p0.x, p0.y + sq + st.ItemSpacing.y));
+    }
+    if (edited) {
+        float r, g, b;
+        ImGui::ColorConvertHSVtoRGB(hue, sat, val, r, g, b);
+        c = {r, g, b, 1};
+    }
+
+    float colX = p0.x + sq + barW + gap * 3;
+    if (side) {
+        ImGui::SetCursorScreenPos(ImVec2(colX, p0.y));
+        ImGui::BeginGroup();
+    }
+    if (showSliders) {
+        // Sliders: RGB 0-255 or HSV.
+        ImGui::SetNextItemWidth(fh * 3.4f);
+        ImGui::Combo("##smode", &colorSliderMode, "RVB\0TSV\0");
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", editBg ? "Arrière-plan" : "Premier plan");
+        float w = side ? std::min(ImGui::GetContentRegionAvail().x, 260 * dpi) : std::min(sq + barW + gap, ImGui::GetContentRegionAvail().x);
+        ImGui::PushItemWidth(w - ImGui::CalcTextSize("M ").x);
+        if (colorSliderMode == 0) {
+            int rgb[3] = {(int)std::lround(c.x * 255), (int)std::lround(c.y * 255), (int)std::lround(c.z * 255)};
+            const char* names[] = {"R", "V", "B"};
+            for (int i = 0; i < 3; ++i) {
+                if (ImGui::SliderInt(names[i], &rgb[i], 0, 255)) c = {rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f, 1};
+                if (ImGui::IsItemDeactivatedAfterEdit()) released = true;
+            }
+        } else {
+            float hsv[3] = {hue * 360.0f, sat * 100.0f, val * 100.0f};
+            bool ch = ImGui::SliderFloat("T", &hsv[0], 0, 359.9f, "%.0f°");
+            released |= ImGui::IsItemDeactivatedAfterEdit();
+            ch |= ImGui::SliderFloat("S", &hsv[1], 0, 100, "%.0f %%");
+            released |= ImGui::IsItemDeactivatedAfterEdit();
+            ch |= ImGui::SliderFloat("V", &hsv[2], 0, 100, "%.0f %%");
+            released |= ImGui::IsItemDeactivatedAfterEdit();
+            if (ch) {
+                hue = std::min(hsv[0] / 360.0f, 0.9999f);
+                sat = hsv[1] / 100.0f;
+                val = hsv[2] / 100.0f;
+                float r, g, b;
+                ImGui::ColorConvertHSVtoRGB(hue, sat, val, r, g, b);
+                c = {r, g, b, 1};
+            }
+        }
+        ImGui::PopItemWidth();
+    }
+    if (released) PushRecentColor(c);
+    last = c;
+
+    // Recent colors (click to use).
+    if (!recentColors.empty() && (side || ImGui::GetContentRegionAvail().y > fh * 0.6f)) {
+        float s = std::round(fh * 0.75f);
+        float xmax = side ? colX + std::min(ImGui::GetContentRegionAvail().x, 260 * dpi) : ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+        if (side) ImGui::Spacing();
+        for (size_t i = 0; i < recentColors.size(); ++i) {
+            ImVec2 q = ImGui::GetCursorScreenPos();
+            if (q.x + s > xmax) break;
+            const float4 rc = recentColors[i];
+            dl->AddRectFilled(q, ImVec2(q.x + s, q.y + s), ImGui::ColorConvertFloat4ToU32(ImVec4(rc.x, rc.y, rc.z, 1)), 2);
+            dl->AddRect(q, ImVec2(q.x + s, q.y + s), ui::col::Border, 2);
+            ImGui::PushID((int)i);
+            if (ImGui::InvisibleButton("##rc", ImVec2(s, s))) c = rc;
+            ui::HelpTooltip("Couleur récente");
+            ImGui::PopID();
+            ImGui::SameLine(0, 3);
+        }
+        ImGui::NewLine();
+    }
+    if (side) ImGui::EndGroup();
     ImGui::End();
 }
 
