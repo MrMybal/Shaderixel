@@ -80,6 +80,9 @@ public:
     void SetVisibleRect(const Rect& r) { visibleRect = r; hasVisible = true; }
 
     void Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, u32 docH, const ViewParams& v, gpu::Texture* target);
+    // Image to display for the evaluated document at this zoom: the image itself,
+    // or a box-reduced copy (kept up to date incrementally) when strongly zoomed out.
+    gpu::Texture* DisplaySource(gpu::CommandContext& ctx, gpu::Texture* image, float invZoom);
     // Small preview texture for a panel; regenerated when `hash` changes (throttled).
     gpu::Texture* Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Texture* src, u64 hash, u32 w, u32 h);
     u64 NodeHash(Id node) const;
@@ -180,6 +183,15 @@ private:
     Rect visibleRect;
     bool hasVisible = false;
     bool wasTiled = false;
+    // Change tracking of the evaluated image (display reduction).
+    u64 imageVersion = 1, lastOutHash = 0;
+    gpu::Texture* lastOut = nullptr;
+    Rect imageDirty;
+    gpu::TexturePtr reduced;
+    u32 reducedFactor = 0;
+    u64 reducedVersion = 0;
+    gpu::Texture* reducedFor = nullptr;
+    void MarkImageChanged(const Rect& r) { imageDirty.Merge(r); ++imageVersion; }
     gpu::Texture* Ensure(gpu::TexturePtr& t, u32 w, u32 h, gpu::Format f, const char* name);
     gpu::ProgramPtr ProgramFor(const EffectDefPtr& def);
 

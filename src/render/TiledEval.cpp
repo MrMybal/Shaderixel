@@ -251,6 +251,7 @@ gpu::Texture* Renderer::EvaluateTiled(Document& doc, gpu::CommandContext& ctx, c
             Dispatch2D(ctx, d, (u32)tile.Width(), (u32)tile.Height());
         }
         tileDirty[i] = 0;
+        MarkImageChanged(tile);
         ++done;
     }
     tileMemo.clear();

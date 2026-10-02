@@ -208,7 +208,7 @@ void App::DrawCanvas() {
     vp.selection = (sel && !(xf.active && !xf.moveOnly)) ? sel->tex.get() : nullptr;
     vp.quickMask = quickMask;
     vp.time = (float)ImGui::GetTime();
-    v->renderer.Display(*ctx, image, doc.Width(), doc.Height(), vp, v->viewTex.get());
+    v->renderer.Display(*ctx, v->renderer.DisplaySource(*ctx, image, vp.invZoom), doc.Width(), doc.Height(), vp, v->viewTex.get());
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(v->viewTex.get()), canvasMin, ImVec2(canvasMin.x + vw, canvasMin.y + vh));

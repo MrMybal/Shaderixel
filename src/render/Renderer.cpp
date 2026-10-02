@@ -63,6 +63,8 @@ void Renderer::Reset() {
     tiledVersions.clear();
     tiledStruct = 0;
     tilesX = tilesY = tilesPending = 0;
+    reduced.reset();
+    reducedFor = lastOut = nullptr;
 }
 
 void Renderer::Prepare(Document& doc, gpu::CommandContext& ctx) {
@@ -125,6 +127,11 @@ gpu::Texture* Renderer::Evaluate(Document& doc, gpu::CommandContext& ctx) {
     frameEval.clear();
     pending = false;
     EvalResult r = Eval(doc, ctx, doc.S().graph.output, 0);
+    if (r.tex != lastOut || r.hash != lastOutHash || !r.hash) {
+        if (r.tex) MarkImageChanged({0, 0, (int)r.tex->Width(), (int)r.tex->Height()});
+        lastOut = r.tex;
+        lastOutHash = r.hash;
+    }
     // Garbage-collect caches of deleted nodes.
     if (gpu::Dev().FrameNumber() % 120 == 0) {
         for (auto it = cache.begin(); it != cache.end();) {
@@ -315,6 +322,40 @@ void Renderer::Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, 
     d.threadsX = v.viewW;
     d.threadsY = v.viewH;
     ctx.Dispatch(d);
+}
+
+gpu::Texture* Renderer::DisplaySource(gpu::CommandContext& ctx, gpu::Texture* image, float invZoom) {
+    if (!image) return image;
+    // The display shader averages up to 4x4 taps per view pixel; reduce beyond that.
+    u32 factor = 1;
+    while (invZoom / factor > 4.0f && factor < 64) factor *= 2;
+    if (factor == 1) return image;
+    auto* k = Kernel("downsample.slang");
+    if (!k) return image;
+    u32 w = (image->Width() + factor - 1) / factor, h = (image->Height() + factor - 1) / factor;
+    Rect dirty;
+    if (!reduced || reducedFactor != factor || reducedFor != image || reduced->Width() != w || reduced->Height() != h) {
+        Ensure(reduced, w, h, image->GetFormat(), "DisplayReduced");
+        reducedFactor = factor;
+        reducedFor = image;
+        dirty = {0, 0, (int)w, (int)h};
+    } else if (reducedVersion != imageVersion) {
+        int f = (int)factor;
+        dirty = Rect{imageDirty.x0 / f, imageDirty.y0 / f, (imageDirty.x1 + f - 1) / f, (imageDirty.y1 + f - 1) / f}.Clipped((int)w, (int)h);
+    }
+    reducedVersion = imageVersion;
+    imageDirty = {};
+    if (!dirty.Empty()) {
+        struct { u32 sw, sh; i32 ox, oy; u32 w, h, f; } root = {image->Width(), image->Height(), dirty.x0, dirty.y0,
+                                                                 (u32)dirty.Width(), (u32)dirty.Height(), factor};
+        gpu::DispatchDesc d;
+        d.pipeline = k;
+        d.srv[0] = image;
+        d.uav[0] = reduced.get();
+        SetConstants(d, root);
+        Dispatch2D(ctx, d, (u32)dirty.Width(), (u32)dirty.Height());
+    }
+    return reduced.get();
 }
 
 gpu::Texture* Renderer::Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Texture* src, u64 hash, u32 w, u32 h) {
