@@ -24,6 +24,29 @@ void App::DemoTick() {
     if (demoMode == 11 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 12 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 11 && v && frameCounter == 7) ImGui::SetWindowFocus("Éditeur d'effets");
+    if (demoMode == 14 && v && v->mesh) {
+        if (frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 8) {
+            // Paint a ring around the sphere as seen from the camera.
+            Document& d = *v->doc;
+            Id target = d.PaintTarget();
+            MeshScene& s = *v->mesh;
+            if (target && s.depth && v->renderer.BeginStroke(d, *ctx, target)) {
+                std::vector<Dab> dabs;
+                float cx = s.depth->Width() * 0.5f, cy = s.depth->Height() * 0.5f, r = std::min(cx, cy) * 0.45f;
+                for (int i = 0; i <= 400; ++i) {
+                    float a = i / 400.0f * 6.2831853f;
+                    dabs.push_back({cx + std::cos(a) * r, cy + std::sin(a) * r * 0.6f, 18, 1});
+                }
+                BrushSettings b = brush;
+                b.hardness = 0.7f;
+                v->renderer.MeshStrokeDabs(d, *ctx, s, dabs, b, LinearColor({1, 0.85f, 0.1f, 1}), false);
+                v->renderer.EndStroke(d, *ctx, v->history, "Peinture 3D");
+            }
+        }
+        if (frameCounter == 12) v->mesh->yaw += 0.9f;
+        if (frameCounter == 16 && meshDebugCanvas) ImGui::SetWindowFocus("Canevas");
+    }
     if (demoMode == 9 && v) {
         Document& d = *v->doc;
         if (frameCounter == 6) RotateCanvas(*v, 0);
@@ -313,6 +336,10 @@ void App::RunDemo() {
         addStyle(ln, "style_outer_glow");
         d.SyncGraph();
         tool = Tool::Shape;
+    }
+    if (demoMode == 14) {
+        AttachMesh(v, MakeSphere());
+        tool = Tool::Brush;
     }
     if (demoMode == 2) {
         d.ConvertToNodes();

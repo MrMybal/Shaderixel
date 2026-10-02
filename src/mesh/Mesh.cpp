@@ -1,0 +1,192 @@
+#include "mesh/Mesh.h"
+
+#include <fstream>
+#include <sstream>
+#include <unordered_map>
+
+namespace sx {
+
+Mat4 Mat4::Identity() {
+    Mat4 r;
+    for (int i = 0; i < 4; ++i) r.m[i][i] = 1;
+    return r;
+}
+
+Mat4 Mat4::LookAtLH(float3 eye, float3 at, float3 up) {
+    float3 z = Normalize(at - eye);
+    float3 x = Normalize(Cross(up, z));
+    float3 y = Cross(z, x);
+    Mat4 r = Identity();
+    r.m[0][0] = x.x; r.m[0][1] = x.y; r.m[0][2] = x.z; r.m[0][3] = -Dot(x, eye);
+    r.m[1][0] = y.x; r.m[1][1] = y.y; r.m[1][2] = y.z; r.m[1][3] = -Dot(y, eye);
+    r.m[2][0] = z.x; r.m[2][1] = z.y; r.m[2][2] = z.z; r.m[2][3] = -Dot(z, eye);
+    return r;
+}
+
+Mat4 Mat4::PerspectiveLH(float fovY, float aspect, float zn, float zf) {
+    float f = 1.0f / std::tan(fovY * 0.5f);
+    Mat4 r;
+    r.m[0][0] = f / aspect;
+    r.m[1][1] = f;
+    r.m[2][2] = zf / (zf - zn);
+    r.m[2][3] = -zn * zf / (zf - zn);
+    r.m[3][2] = 1;
+    return r;
+}
+
+Mat4 Mat4::operator*(const Mat4& b) const {
+    Mat4 r;
+    for (int i = 0; i < 4; ++i)
+        for (int j = 0; j < 4; ++j)
+            for (int k = 0; k < 4; ++k) r.m[i][j] += m[i][k] * b.m[k][j];
+    return r;
+}
+
+float4 Mat4::Transform(float4 v) const {
+    float4 r;
+    for (int i = 0; i < 4; ++i) r[i] = m[i][0] * v.x + m[i][1] * v.y + m[i][2] * v.z + m[i][3] * v.w;
+    return r;
+}
+
+static void ComputeBounds(MeshData& m) {
+    m.boundsMin = {1e30f, 1e30f, 1e30f};
+    m.boundsMax = {-1e30f, -1e30f, -1e30f};
+    for (auto& v : m.vertices) {
+        m.boundsMin = {std::min(m.boundsMin.x, v.pos.x), std::min(m.boundsMin.y, v.pos.y), std::min(m.boundsMin.z, v.pos.z)};
+        m.boundsMax = {std::max(m.boundsMax.x, v.pos.x), std::max(m.boundsMax.y, v.pos.y), std::max(m.boundsMax.z, v.pos.z)};
+    }
+}
+
+void NormalizeMesh(MeshData& m) {
+    ComputeBounds(m);
+    float3 c = (m.boundsMin + m.boundsMax) * 0.5f;
+    float r = 0;
+    for (auto& v : m.vertices) r = std::max(r, Length(v.pos - c));
+    float s = r > 0 ? 1.0f / r : 1.0f;
+    for (auto& v : m.vertices) v.pos = (v.pos - c) * s;
+    ComputeBounds(m);
+}
+
+bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
+    std::ifstream f(Utf8Path(path));
+    if (!f) { if (error) *error = "fichier introuvable"; return false; }
+    std::vector<float3> pos, nrm;
+    std::vector<float2> uvs;
+    std::unordered_map<u64, u32> dedup;
+    out = MeshData{};
+    out.name = Narrow(Utf8Path(path).stem().wstring());
+    bool hasNormals = false;
+    std::string line;
+    auto key = [](int a, int b, int c) { return ((u64)(u32)a << 42) ^ ((u64)(u32)b << 21) ^ (u64)(u32)c; };
+    while (std::getline(f, line)) {
+        if (line.size() < 2) continue;
+        std::istringstream s(line);
+        std::string tag;
+        s >> tag;
+        if (tag == "v") { float3 p; s >> p.x >> p.y >> p.z; pos.push_back({p.x, p.y, -p.z}); }  // RH -> LH
+        else if (tag == "vt") { float2 t; s >> t.x >> t.y; uvs.push_back({t.x, 1.0f - t.y}); }
+        else if (tag == "vn") { float3 n; s >> n.x >> n.y >> n.z; nrm.push_back({n.x, n.y, -n.z}); }
+        else if (tag == "f") {
+            std::vector<u32> poly;
+            std::string tok;
+            while (s >> tok) {
+                int vi = 0, ti = 0, ni = 0;
+                size_t a = tok.find('/');
+                vi = std::atoi(tok.substr(0, a).c_str());
+                if (a != std::string::npos) {
+                    size_t b = tok.find('/', a + 1);
+                    std::string t = tok.substr(a + 1, b == std::string::npos ? std::string::npos : b - a - 1);
+                    if (!t.empty()) ti = std::atoi(t.c_str());
+                    if (b != std::string::npos) ni = std::atoi(tok.substr(b + 1).c_str());
+                }
+                if (vi < 0) vi = (int)pos.size() + vi + 1;
+                if (ti < 0) ti = (int)uvs.size() + ti + 1;
+                if (ni < 0) ni = (int)nrm.size() + ni + 1;
+                u64 k = key(vi, ti, ni);
+                auto it = dedup.find(k);
+                if (it == dedup.end()) {
+                    MeshVertex v;
+                    if (vi > 0 && vi <= (int)pos.size()) v.pos = pos[vi - 1];
+                    if (ti > 0 && ti <= (int)uvs.size()) v.uv = uvs[ti - 1];
+                    if (ni > 0 && ni <= (int)nrm.size()) { v.normal = nrm[ni - 1]; hasNormals = true; }
+                    it = dedup.emplace(k, (u32)out.vertices.size()).first;
+                    out.vertices.push_back(v);
+                }
+                poly.push_back(it->second);
+            }
+            // Reverse winding together with the Z flip so faces stay front-facing.
+            for (size_t i = 1; i + 1 < poly.size(); ++i) {
+                out.indices.push_back(poly[0]);
+                out.indices.push_back(poly[i + 1]);
+                out.indices.push_back(poly[i]);
+            }
+        }
+    }
+    if (out.indices.empty()) { if (error) *error = "aucune face"; return false; }
+    if (uvs.empty()) { if (error) *error = "le maillage n'a pas de coordonnées UV"; return false; }
+    if (!hasNormals) {
+        for (auto& v : out.vertices) v.normal = {};
+        for (size_t i = 0; i + 2 < out.indices.size(); i += 3) {
+            MeshVertex &a = out.vertices[out.indices[i]], &b = out.vertices[out.indices[i + 1]], &c = out.vertices[out.indices[i + 2]];
+            float3 n = Cross(b.pos - a.pos, c.pos - a.pos);
+            a.normal = a.normal + n; b.normal = b.normal + n; c.normal = c.normal + n;
+        }
+        for (auto& v : out.vertices) v.normal = Normalize(v.normal);
+    }
+    NormalizeMesh(out);
+    return true;
+}
+
+MeshData MakeSphere(int seg, int rings) {
+    MeshData m;
+    m.name = "Sphère";
+    for (int r = 0; r <= rings; ++r) {
+        float v = (float)r / rings, phi = v * 3.14159265f;
+        for (int s = 0; s <= seg; ++s) {
+            float u = (float)s / seg, th = u * 6.2831853f;
+            float3 n = {std::sin(phi) * std::cos(th), std::cos(phi), std::sin(phi) * std::sin(th)};
+            m.vertices.push_back({n, n, {u, v}});
+        }
+    }
+    for (int r = 0; r < rings; ++r)
+        for (int s = 0; s < seg; ++s) {
+            u32 a = r * (seg + 1) + s, b = a + seg + 1;
+            m.indices.insert(m.indices.end(), {a, a + 1, b, a + 1, b + 1, b});
+        }
+    NormalizeMesh(m);
+    return m;
+}
+
+MeshData MakeCube() {
+    MeshData m;
+    m.name = "Cube";
+    // Each face gets its own cell of a 3x2 UV atlas.
+    const float3 dirs[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+    for (int f = 0; f < 6; ++f) {
+        float3 n = dirs[f];
+        float3 up = std::abs(n.y) > 0.5f ? float3{0, 0, 1} : float3{0, 1, 0};
+        float3 right = Cross(up, n);
+        float cu = (f % 3) / 3.0f, cv = (f / 3) / 2.0f;
+        u32 base = (u32)m.vertices.size();
+        for (int k = 0; k < 4; ++k) {
+            float a = (k == 1 || k == 2) ? 1.0f : -1.0f, b = (k >= 2) ? 1.0f : -1.0f;
+            float3 p = n + right * a + up * b;
+            float2 uv = {cu + (a * 0.5f + 0.5f) / 3.0f * 0.96f + 0.0066f, cv + (0.5f - b * 0.5f) / 2.0f * 0.96f + 0.01f};
+            m.vertices.push_back({p * 0.6f, n, uv});
+        }
+        m.indices.insert(m.indices.end(), {base, base + 2, base + 1, base, base + 3, base + 2});
+    }
+    NormalizeMesh(m);
+    return m;
+}
+
+MeshData MakePlane() {
+    MeshData m;
+    m.name = "Plan";
+    m.vertices = {{{-1, 0, -1}, {0, 1, 0}, {0, 1}}, {{1, 0, -1}, {0, 1, 0}, {1, 1}}, {{1, 0, 1}, {0, 1, 0}, {1, 0}}, {{-1, 0, 1}, {0, 1, 0}, {0, 0}}};
+    m.indices = {0, 2, 1, 0, 3, 2};
+    NormalizeMesh(m);
+    return m;
+}
+
+}  // namespace sx

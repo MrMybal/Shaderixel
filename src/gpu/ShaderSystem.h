@@ -22,6 +22,8 @@ struct Program {
     std::string name;
     std::string errors;
     std::string source;
+    bool graphics = false;          // vsMain + psMain instead of a compute `main`
+    std::vector<u8> vs, ps;         // graphics bytecode
     u64 hash = 0;
 };
 using ProgramPtr = std::shared_ptr<Program>;
@@ -46,6 +48,8 @@ public:
 
     // Synchronous compile; used where a result is needed immediately (tests/tools).
     ProgramPtr CompileNow(const std::string& name, const std::string& source);
+    // Graphics program (entry points vsMain / psMain), compiled synchronously and cached.
+    ProgramPtr CompileGraphicsNow(const std::string& name, const std::string& source);
 
     const std::string& ShaderDir() const { return shaderDir; }
     u64 FileGeneration() const { return fileGeneration; }

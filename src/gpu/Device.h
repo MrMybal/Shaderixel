@@ -25,7 +25,8 @@ constexpr u32 kMaxSrv = 8;
 constexpr u32 kMaxUav = 4;
 constexpr u32 kRootConstants = 16;
 
-enum class Format : u8 { RGBA8, RGBA16F, RGBA32F, R8, R16F, R32F, R32U };
+enum class Format : u8 { RGBA8, RGBA16F, RGBA32F, R8, R16F, R32F, R32U, D32F };
+enum TextureUsage : u32 { UsageRenderTarget = 1, UsageDepth = 2 };
 DXGI_FORMAT ToDxgi(Format f);
 u32 BytesPerPixel(Format f);
 
@@ -48,6 +49,53 @@ private:
     D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
     int srvCpu = -1, uavCpu = -1;  // staging heap slots
     int uiSlot = -1;               // persistent shader-visible SRV (for ImGui)
+    int rtv = -1, dsv = -1;        // render target / depth views (graphics)
+};
+
+class Buffer {
+public:
+    ~Buffer();
+    D3D12_GPU_VIRTUAL_ADDRESS Address() const { return res ? res->GetGPUVirtualAddress() : 0; }
+    u64 Size() const { return size; }
+private:
+    friend class Device;
+    friend class CommandContext;
+    ComPtr<ID3D12Resource> res;
+    u64 size = 0;
+};
+using BufferPtr = std::shared_ptr<Buffer>;
+
+struct GraphicsPipeline {
+    ComPtr<ID3D12PipelineState> pso;
+};
+using GraphicsPipelinePtr = std::shared_ptr<GraphicsPipeline>;
+
+// Graphics pipeline options. Vertex layout is fixed for meshes:
+// POSITION float3, NORMAL float3, TEXCOORD float2 (32 bytes), or none.
+struct GraphicsDesc {
+    std::vector<Format> colorFormats;
+    Format depthFormat = Format::D32F;
+    bool useDepth = true;
+    bool depthWrite = true;
+    bool meshLayout = true;
+    bool cullBack = false;
+};
+
+struct DrawDesc {
+    const GraphicsPipeline* pipeline = nullptr;
+    Texture* srv[kMaxSrv] = {};
+    Texture* rt[4] = {};
+    Texture* depth = nullptr;
+    bool clearColor = false, clearDepth = false;
+    float4 clearValue;
+    u32 constants[kRootConstants] = {};
+    u32 numConstants = 0;
+    const void* cbData = nullptr;
+    size_t cbSize = 0;
+    Buffer* vertices = nullptr;
+    u32 vertexStride = 32;
+    Buffer* indices = nullptr;  // u32 indices
+    u32 count = 0;              // index (or vertex) count
 };
 using TexturePtr = std::shared_ptr<Texture>;
 
@@ -89,6 +137,7 @@ public:
     // Copy src rect into dst at (dx,dy).
     void CopyRegion(Texture* dst, int dx, int dy, Texture* src, const Rect& srcRect);
     void Upload(Texture* dst, const void* pixels, u32 srcRowPitch);
+    void Draw(const DrawDesc& d);
     ReadbackPtr ReadbackTexture(Texture* src, const Rect* region = nullptr);
 
 private:
@@ -108,7 +157,9 @@ public:
     void EndFrame(const std::function<void(ID3D12GraphicsCommandList*)>& drawUi);
     void WaitIdle();
 
-    TexturePtr CreateTexture(u32 w, u32 h, Format f, const char* debugName = nullptr);
+    TexturePtr CreateTexture(u32 w, u32 h, Format f, const char* debugName = nullptr, u32 usage = 0);
+    BufferPtr CreateBuffer(CommandContext& ctx, const void* data, size_t size, const char* debugName = nullptr);
+    GraphicsPipelinePtr CreateGraphicsPipeline(const void* vs, size_t vsSize, const void* ps, size_t psSize, const GraphicsDesc& desc);
     PipelinePtr CreatePipeline(const void* dxil, size_t size, u32 groupX, u32 groupY);
 
     // Persistent shader-visible SRV for ImGui::Image. Textures used this frame are
@@ -128,6 +179,7 @@ public:
 
 private:
     friend class Texture;
+    friend class Buffer;
     friend class CommandContext;
 
     struct FreeList {
@@ -147,7 +199,7 @@ private:
         size_t uploadOffset = 0;
         u32 ringStart = 0, ringOffset = 0;
     };
-    struct Deferred { u64 frame; ComPtr<ID3D12Resource> res; int srvCpu, uavCpu, uiSlot; };
+    struct Deferred { u64 frame; ComPtr<ID3D12Resource> res; int srvCpu, uavCpu, uiSlot; int rtv = -1, dsv = -1; };
 
     void CreateBackBuffers();
     void ReleaseBackBuffers();
@@ -166,7 +218,9 @@ private:
     ComPtr<ID3D12CommandQueue> queue;
     ComPtr<IDXGISwapChain3> swapchain;
     HANDLE swapWaitable = nullptr;
-    ComPtr<ID3D12DescriptorHeap> rtvHeap, cpuHeap, gpuHeap;
+    ComPtr<ID3D12DescriptorHeap> rtvHeap, cpuHeap, gpuHeap, texRtvHeap, dsvHeap;
+    FreeList rtvSlots, dsvSlots;
+    u32 dsvInc = 0;
     ComPtr<ID3D12Resource> backBuffers[kFramesInFlight];
     ComPtr<ID3D12RootSignature> rootSig;
     ComPtr<ID3D12Fence> fence;

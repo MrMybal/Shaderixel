@@ -14,6 +14,8 @@
 
 namespace sx {
 
+struct MeshScene;
+
 struct ViewParams {
     float2 origin;          // document pixel at the top-left of the view
     float invZoom = 1;      // document pixels per view pixel
@@ -114,6 +116,11 @@ public:
     // Rebuild every surface at a new size: dst pixel -> src pixel = (m0 x + m1 y + m2, m3 x + m4 y + m5).
     bool ResampleCanvas(Document& doc, gpu::CommandContext& ctx, History& hist, u32 newW, u32 newH, const float m[6], int interp,
                         const std::string& label);
+    // 3D painting (MeshPaint.cpp)
+    bool MeshPrepare(Document& doc, gpu::CommandContext& ctx, MeshScene& s);
+    gpu::Texture* MeshRender(gpu::CommandContext& ctx, MeshScene& s, gpu::Texture* albedo, u32 w, u32 h);
+    void MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
+                        float4 colorLinear, bool erase);
     void RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, const ShapeStyle& s);
     void TransformPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection,
                           const TransformParams& t);

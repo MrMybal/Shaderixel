@@ -77,9 +77,10 @@ void App::ParseCommandLine() {
         std::string a = Narrow(argv[i]);
         if (a == "--test-effects") testEffects = true;
         else if (a == "--ai-test") aiTest = true;
+        else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -123,7 +124,7 @@ bool App::Init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout_v4.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v5.ini";
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
     ui::LoadFonts(dpi);
@@ -214,6 +215,7 @@ void App::Frame() {
     DrawCanvas();
     DrawLayers();
     DrawNodeEditor();
+    DrawView3D();
     DrawEffectEditor();
     DrawAiPanel();
     DrawImageGenPanel();
@@ -430,6 +432,7 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderSplitNode(rightMid, ImGuiDir_Down, 0.50f, &rightBottom, &rightMid);
     ImGui::DockBuilderDockWindow("Outils", left);
     ImGui::DockBuilderDockWindow("Canevas", center);
+    ImGui::DockBuilderDockWindow("Vue 3D", center);
     ImGui::DockBuilderDockWindow("Graphe", bottom);
     ImGui::DockBuilderDockWindow("Éditeur d'effets", bottom);
     ImGui::DockBuilderDockWindow("Couleur", rightTop);
@@ -440,7 +443,6 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("Génération IA", rightMid);
     ImGui::DockBuilderDockWindow("Calques", rightBottom);
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(left)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoResizeX;
-    if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(center)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
     ImGui::DockBuilderFinish(dock);
 }
 

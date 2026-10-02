@@ -8,6 +8,7 @@
 #include "doc/DocFile.h"
 #include "doc/EffectGraph.h"
 #include "ai/Bridge.h"
+#include "render/MeshPaint.h"
 
 #include <mutex>
 
@@ -68,6 +69,7 @@ struct DocView {
     gpu::Texture* lastImage = nullptr;
     std::unordered_map<Id, u64> textHashes;   // surface -> rasterized style hash
     std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
+    std::unique_ptr<MeshScene> mesh;          // 3D painting scene (optional)
 };
 
 struct NodeEditorState {
@@ -181,6 +183,9 @@ private:
     void PollAiJobs();
     void DrawAiPanel();
     void DrawImageGenPanel();
+    void DrawView3D();
+    void AttachMesh(DocView& v, MeshData data);
+    void MeshPrepare3D(DocView& v);
     EffectInstance* EditedEffect(DocView& v, std::string* where);
     void HandleShortcuts();
 
@@ -347,6 +352,10 @@ private:
     bool frameBeforeValid = false;
     NodeEditorState nodeEd;
     EffectEditorState efEd;
+    bool meshStroking = false;
+    bool meshDebugCanvas = false;
+    float2 meshLastDab;
+    float meshDabRemainder = 0;
     AiBridge bridge;
     AiSettings aiSettings;
     std::string settingsPath;

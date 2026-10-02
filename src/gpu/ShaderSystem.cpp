@@ -185,7 +185,68 @@ void ShaderSystem::Worker() {
     globalSession = nullptr;
 }
 
+ProgramPtr ShaderSystem::CompileGraphicsNow(const std::string& name, const std::string& source) {
+    u64 h = HashStr("GFX:" + source);
+    ProgramPtr p;
+    {
+        std::lock_guard lock(mutex);
+        auto it = programs.find(h);
+        if (it != programs.end()) p = it->second;
+        else {
+            p = std::make_shared<Program>();
+            p->name = name;
+            p->source = source;
+            p->hash = h;
+            p->graphics = true;
+            programs[h] = p;
+            queue.push_front(p);
+            cv.notify_one();
+        }
+    }
+    while (p->state.load() == Program::State::Pending) std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    return p;
+}
+
 void ShaderSystem::Compile(Program& p) {
+    if (p.graphics) {
+        auto* gs = static_cast<slang::IGlobalSession*>(globalSession);
+        if (!gs) { p.errors = "Slang unavailable"; p.state = Program::State::Failed; return; }
+        slang::TargetDesc target = {};
+        target.format = SLANG_DXIL;
+        target.profile = gs->findProfile("sm_6_5");
+        slang::SessionDesc sd = {};
+        sd.targets = &target;
+        sd.targetCount = 1;
+        Slang::ComPtr<slang::ISession> session;
+        gs->createSession(sd, session.writeRef());
+        Slang::ComPtr<slang::IBlob> diag;
+        std::string modName = "g" + std::to_string(p.hash);
+        slang::IModule* mod = session ? session->loadModuleFromSourceString(modName.c_str(), (p.name + ".slang").c_str(), p.source.c_str(), diag.writeRef()) : nullptr;
+        Slang::ComPtr<slang::IEntryPoint> vsE, psE;
+        if (!mod || SLANG_FAILED(mod->findAndCheckEntryPoint("vsMain", SLANG_STAGE_VERTEX, vsE.writeRef(), diag.writeRef())) ||
+            SLANG_FAILED(mod->findAndCheckEntryPoint("psMain", SLANG_STAGE_FRAGMENT, psE.writeRef(), diag.writeRef()))) {
+            p.errors = diag ? (const char*)diag->getBufferPointer() : "vsMain/psMain introuvables";
+            Log("Shader '%s' failed: %s", p.name.c_str(), p.errors.c_str());
+            p.state = Program::State::Failed;
+            return;
+        }
+        slang::IComponentType* parts[] = {mod, vsE, psE};
+        Slang::ComPtr<slang::IComponentType> composite, linked;
+        session->createCompositeComponentType(parts, 3, composite.writeRef(), diag.writeRef());
+        Slang::ComPtr<slang::IBlob> v, f;
+        if (!composite || SLANG_FAILED(composite->link(linked.writeRef(), diag.writeRef())) ||
+            SLANG_FAILED(linked->getEntryPointCode(0, 0, v.writeRef(), diag.writeRef())) || SLANG_FAILED(linked->getEntryPointCode(1, 0, f.writeRef(), diag.writeRef()))) {
+            p.errors = diag ? (const char*)diag->getBufferPointer() : "échec de compilation graphique";
+            Log("Shader '%s' failed: %s", p.name.c_str(), p.errors.c_str());
+            p.state = Program::State::Failed;
+            return;
+        }
+        p.vs.assign((const u8*)v->getBufferPointer(), (const u8*)v->getBufferPointer() + v->getBufferSize());
+        p.ps.assign((const u8*)f->getBufferPointer(), (const u8*)f->getBufferPointer() + f->getBufferSize());
+        Log("Compiled graphics '%s'", p.name.c_str());
+        p.state = Program::State::Ready;
+        return;
+    }
     // Disk cache: <hash>.dxil with a 8-byte header (group sizes).
     char fname[64];
     snprintf(fname, sizeof(fname), "%016llx.dxil", (unsigned long long)p.hash);
