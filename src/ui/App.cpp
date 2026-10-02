@@ -195,6 +195,7 @@ void App::Frame() {
     }
 
     ++frameCounter;
+    if (frameCounter == 2) ImGui::SetWindowFocus("Canevas");  // Canvas is the default center tab
     if (demoMode && frameCounter == 3) RunDemo();
     if (demoMode) DemoTick();
     if (!capturePath.empty() && frameCounter == (u64)captureFrame) captureRb = gpu::Dev().CaptureNextFrame();

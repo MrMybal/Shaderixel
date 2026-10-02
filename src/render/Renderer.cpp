@@ -14,8 +14,8 @@ void SetConstants(gpu::DispatchDesc& d, const T& v) {
     d.numConstants = sizeof(T) / 4;
 }
 
-struct CompositeRoot { u32 w, h, mode; float opacity; u32 flags; };
-struct EffectRoot { u32 w, h, pass, inputMask, seed; float time; };
+struct CompositeRoot { u32 w, h, mode; float opacity; u32 flags; i32 ox = 0, oy = 0, bx = 0, by = 0, tx = 0, ty = 0, mx = 0, my = 0; };
+struct EffectRoot { u32 w, h; i32 ox, oy; u32 dw, dh, pass, inputMask; i32 in[8]; };
 struct ClearRoot { i32 x, y; u32 w, h; float4 value; };
 struct ClearRRoot { u32 w, h; float value; };
 struct BrushRoot { i32 rx, ry; u32 rw, rh, dw, dh, count; float hardness, opacity; u32 mode, flags; float pad; float4 color; };
@@ -250,7 +250,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
                     for (int i = 0; i < 4; ++i) d.srv[i] = i < nin ? in[i].tex : nullptr;
                     d.srv[4] = p > 0 ? prev : nullptr;
                     d.uav[0] = dst;
-                    SetConstants(d, EffectRoot{W, H, (u32)p, mask, (u32)id, 0.0f});
+                    SetConstants(d, EffectRoot{W, H, 0, 0, W, H, (u32)p, mask, {0, 0, 0, 0, 0, 0, 0, 0}});
                     d.cbData = packed.data();
                     d.cbSize = packed.size() * sizeof(float4);
                     d.threadsX = W;

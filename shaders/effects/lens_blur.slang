@@ -1,5 +1,6 @@
 //@name Flou de l'objectif
 //@category Flou
+//@halo radius 1 2
 //@premultiplied
 //@param radius float 6 0 64 "Rayon (px)"
 //@param samples int 48 8 256 "Échantillons"

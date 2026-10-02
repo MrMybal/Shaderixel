@@ -1,5 +1,6 @@
 //@name Biseautage et estampage
 //@category Styles de calque
+//@halo size 1.5 4
 //@premultiplied
 //@param depth float 3 0 20 "Profondeur"
 //@param size float 6 1 40 "Taille (px)"

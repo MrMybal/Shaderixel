@@ -1,5 +1,6 @@
 //@name Mosaïque
 //@category Pixellisation
+//@halo cell 1 1
 //@premultiplied
 //@param cell int 16 2 256 "Taille de cellule"
 float4 Effect(EffectContext ctx)

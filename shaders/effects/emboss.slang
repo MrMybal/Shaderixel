@@ -1,5 +1,6 @@
 //@name Estampage
 //@category Esthétiques
+//@halo height 1 2
 //@param angle float 135 -180 180 "Angle"
 //@param height float 2 0 10 "Hauteur"
 //@param amount float 1 0 5 "Quantité"

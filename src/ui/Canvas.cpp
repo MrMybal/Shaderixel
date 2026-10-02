@@ -152,6 +152,12 @@ void App::DrawCanvas() {
     bool visible = ImGui::Begin("Canevas", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoTitleBar);
     ImGui::PopStyleVar();
     DocView* v = Active();
+    if (!visible && v) {
+        // Hidden canvas (other tab active): keep the document evaluated for previews and the 3D view.
+        v->renderer.Prepare(*v->doc, *ctx);
+        SyncTextLayers(*v);
+        v->lastImage = v->renderer.Evaluate(*v->doc, *ctx);
+    }
     if (!visible || !v) {
         if (visible) {
             ImVec2 a = ImGui::GetContentRegionAvail();

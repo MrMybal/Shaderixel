@@ -1,5 +1,6 @@
 //@name Ondulation
 //@category Déformation
+//@halo amplitude 1 2
 //@premultiplied
 //@param amplitude float 10 0 200 "Amplitude (px)"
 //@param wavelength float 80 2 2000 "Longueur d'onde (px)"

@@ -62,6 +62,17 @@ const char* kCustomEffectTemplate =
     "    return float4(lerp(c.rgb, tinted, amount), c.a);\n"
     "}\n";
 
+int EffectHalo(const EffectDef& def, const std::vector<float4>& values) {
+    if (def.inputs.empty()) return 0;  // generators never read inputs
+    if (def.haloFull) return -1;
+    if (!def.haloDeclared) return def.id.empty() ? -1 : 0;  // custom code: assume global
+    float h = def.haloOffset;
+    for (auto& [pid, scale] : def.haloTerms)
+        for (size_t i = 0; i < def.params.size(); ++i)
+            if (def.params[i].id == pid) h += std::abs(i < values.size() ? values[i].x : def.params[i].def.x) * scale;
+    return (int)std::ceil(std::max(h, 0.0f));
+}
+
 std::vector<float4> EffectDef::DefaultParams() const {
     std::vector<float4> v;
     for (auto& p : params) v.push_back(p.def);
@@ -99,6 +110,17 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
         else if (key == "category") def->category = rest(1);
         else if (key == "generator") generator = true;
         else if (key == "premultiplied") def->premultiplied = true;
+        else if (key == "halo" && t.size() > 1) {
+            // //@halo full | //@halo <px> | //@halo <param> <scale> [<param> <scale>...] [<offset>]
+            def->haloTerms.clear();
+            def->haloFull = t[1] == "full";
+            def->haloOffset = 0;
+            for (size_t i = 1; i < t.size() && !def->haloFull;) {
+                if (IsNumber(t[i])) { def->haloOffset = ToF(t[i]); ++i; }
+                else { def->haloTerms.push_back({t[i], i + 1 < t.size() ? ToF(t[i + 1], 1) : 1.0f}); i += 2; }
+            }
+            def->haloDeclared = true;
+        }
         else if (key == "passes" && t.size() > 1) def->passes = std::clamp((int)ToF(t[1], 1), 1, 16);
         else if (key == "input" && t.size() > 1) {
             explicitInputs = true;
@@ -194,10 +216,10 @@ std::string BuildEffectSource(const EffectDef& def) {
          "{\n"
          "    if (any(id.xy >= gSize)) return;\n"
          "    EffectContext ctx;\n"
-         "    ctx.px = int2(id.xy);\n"
-         "    ctx.size = float2(gSize);\n"
+         "    ctx.px = gOrigin + int2(id.xy);\n"
+         "    ctx.size = float2(gDocSize);\n"
          "    ctx.texel = 1.0 / ctx.size;\n"
-         "    ctx.uv = (float2(id.xy) + 0.5) * ctx.texel;\n"
+         "    ctx.uv = (float2(ctx.px) + 0.5) * ctx.texel;\n"
          "    ctx.pass = gPass;\n"
          "    gOut[id.xy] = ToStorage(Effect(ctx));\n"
          "}\n";

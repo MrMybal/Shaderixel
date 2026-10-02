@@ -428,6 +428,11 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
     if (g.inputs == 0) s += "//@generator\n";
     for (int i = 0; i < g.inputs; ++i) s += "//@input " + std::string(i == 0 ? "Image" : "Image " + std::to_string(i + 1)) + "\n";
     if (g.premultiplied) s += "//@premultiplied\n";
+    {
+        bool global = false;
+        for (auto& n : g.nodes) if (n.op == "sample" || n.op == "custom") global = true;
+        s += global ? "//@halo full\n" : "//@halo 0\n";
+    }
     for (auto& n : g.nodes) {
         auto it = gen.paramNames.find(n.id);
         if (it == gen.paramNames.end()) continue;

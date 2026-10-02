@@ -1,5 +1,6 @@
 //@name Netteté (masque flou)
 //@category Netteté
+//@halo radius 2 2
 //@premultiplied
 //@param amount float 1 0 5 "Gain"
 //@param radius float 1.5 0.5 10 "Rayon (px)"

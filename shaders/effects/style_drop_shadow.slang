@@ -1,5 +1,6 @@
 //@name Ombre portée
 //@category Styles de calque
+//@halo size 1.5 dist 1 4
 //@passes 2
 //@premultiplied
 //@param color color 0 0 0 1 "Couleur"

@@ -51,6 +51,10 @@ struct EffectDef {
     int passes = 1;
     bool premultiplied = false;
     std::string body;      // code after metadata (the Effect function)
+    // Neighborhood read by the effect (tiled rendering): offset + sum(param * scale), or full image.
+    bool haloDeclared = false, haloFull = false;
+    float haloOffset = 0;
+    std::vector<std::pair<std::string, float>> haloTerms;
     std::string error;     // metadata parse error
     std::vector<float4> DefaultParams() const;
 };
@@ -58,6 +62,9 @@ using EffectDefPtr = std::shared_ptr<const EffectDef>;
 
 // Parse metadata + body. `id` is stored as-is.
 EffectDefPtr ParseEffect(const std::string& id, const std::string& text);
+
+// Pixels of input needed around each output pixel; -1 = the whole image.
+int EffectHalo(const EffectDef& def, const std::vector<float4>& values);
 
 // Complete Slang source for an effect: prelude + generated params cbuffer + body + entry.
 std::string BuildEffectSource(const EffectDef& def);

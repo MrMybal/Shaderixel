@@ -1,5 +1,6 @@
 //@name Contours (Sobel)
 //@category Esthétiques
+//@halo 2
 //@param strength float 1 0 10 "Intensité"
 //@param invert bool 0 "Inverser"
 float4 Effect(EffectContext ctx)

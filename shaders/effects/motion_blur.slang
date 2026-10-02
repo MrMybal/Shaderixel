@@ -1,5 +1,6 @@
 //@name Flou directionnel
 //@category Flou
+//@halo dist 0.5 2
 //@premultiplied
 //@param angle float 0 -180 180 "Angle"
 //@param dist float 20 0 500 "Distance (px)"

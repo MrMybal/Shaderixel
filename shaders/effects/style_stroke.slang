@@ -1,5 +1,6 @@
 //@name Contour
 //@category Styles de calque
+//@halo width 1 3
 //@premultiplied
 //@param color color 1 1 1 1 "Couleur"
 //@param width float 4 0.5 64 "Taille (px)"

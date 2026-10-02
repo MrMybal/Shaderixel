@@ -1,5 +1,6 @@
 //@name Lueur externe
 //@category Styles de calque
+//@halo size 1.5 4
 //@passes 2
 //@premultiplied
 //@param color color 1 0.9 0.45 1 "Couleur"

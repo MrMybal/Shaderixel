@@ -1,5 +1,6 @@
 //@name Flou gaussien
 //@category Flou
+//@halo radius 3 2
 //@passes 2
 //@premultiplied
 //@param radius float 4 0 250 "Rayon (px)"

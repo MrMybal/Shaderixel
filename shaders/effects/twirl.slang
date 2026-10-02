@@ -1,5 +1,6 @@
 //@name Tourbillon
 //@category Déformation
+//@halo full
 //@premultiplied
 //@param angle float 180 -999 999 "Angle"
 //@param radius float 0.5 0.01 1.5 "Rayon"
