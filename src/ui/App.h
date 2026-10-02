@@ -18,7 +18,7 @@ namespace sx {
 enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge,
-    Picker, Hand, Zoom, Count
+    Picker, Hand, Zoom, Crop, Count
 };
 inline bool IsRetouchTool(Tool t) { return t >= Tool::Clone && t <= Tool::Sponge && t != Tool::Gradient && t != Tool::Bucket; }
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
@@ -110,6 +110,14 @@ private:
     void DrawColor();
     void DrawBrush();
     void DrawSelectionMenu();
+    void DrawImageMenu();
+    void DrawImageDialogs();
+    void ApplyCanvasOp(DocView& v, u32 w, u32 h, const float m[6], int interp, const char* label);
+    void RotateCanvas(DocView& v, int op);
+    void ApplyCrop(DocView& v, Rect r);
+    void CropInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void CropOverlay(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, ImDrawList* dl);
+    Rect CropRect() const;
     void DrawSelectionDialog();
     void DrawHistory();
     void DrawStatusBar();
@@ -214,6 +222,13 @@ private:
     int selDialog = 0;              // 1 feather, 2 expand, 3 contract, 4 color range
     float selDialogValue = 4;
     TransformState xf;
+    int imageDialog = 0;            // 1 image size, 2 canvas size
+    int dlgW = 0, dlgH = 0, dlgAnchor = 4, dlgInterp = 2;
+    bool dlgKeepRatio = true;
+    bool cropActive = false, cropDragging = false;
+    float2 cropStart, cropEnd;
+    gpu::ReadbackPtr cropBoundsRb;
+    DocView* cropBoundsView = nullptr;
     gpu::TexturePtr clipboard;
     float gradientOpacity = 1.0f;
 

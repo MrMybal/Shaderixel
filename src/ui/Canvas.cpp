@@ -30,6 +30,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Picker, ui::IconPicker, "Pipette", "I"},
     {Tool::Hand, ui::IconHand, "Main", "H / Espace"},
     {Tool::Zoom, ui::IconZoom, "Zoom", "Z"},
+    {Tool::Crop, ui::IconCrop, "Recadrage", "C"},
 };
 
 // Toolbar slots; tools sharing a slot appear in a flyout (right-click).
@@ -38,6 +39,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::RectSelect, Tool::EllipseSelect},
     {Tool::Lasso, Tool::PolyLasso},
     {Tool::Wand},
+    {Tool::Crop},
     {Tool::Brush},
     {Tool::Eraser},
     {Tool::Clone},
@@ -63,7 +65,7 @@ void App::DrawToolbar() {
         float size = std::min(ImGui::GetContentRegionAvail().x, 38.0f * dpi);
         for (size_t g = 0; g < kGroups.size(); ++g) {
             const auto& group = kGroups[g];
-            if (g == 1 || g == 4 || g == 11) {
+            if (g == 1 || g == 5 || g == 12) {
                 ImVec2 c = ImGui::GetCursorScreenPos();
                 ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);
                 ImGui::Dummy(ImVec2(size, 3 * dpi));
@@ -219,6 +221,7 @@ void App::DrawCanvas() {
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     }
     DrawSelectionOverlay(*v, canvasMin, dl);
+    CropOverlay(*v, canvasMin, avail, dl);
     TransformDrawOverlay(*v, canvasMin, dl);
     if ((tool == Tool::Clone || tool == Tool::Heal) && cloneSourceSet) {
         float2 src = cloneSource;
@@ -285,6 +288,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (tool == Tool::Move) {
         if (click && TransformBegin(v, true)) TransformInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::Crop) {
+        CropInput(v, canvasMin, hovered);
         return;
     }
     if (tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || tool == Tool::PolyLasso || tool == Tool::Wand) {

@@ -78,7 +78,7 @@ void App::ParseCommandLine() {
         if (a == "--test-effects") testEffects = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -192,6 +192,7 @@ void App::Frame() {
         Log("Captured %ux%u to %s", captureRb->width, captureRb->height, capturePath.c_str());
         captureRb.reset();
         capturePath.clear();
+        for (auto& dv : docs) dv->doc->dirty = false;  // automated run: never prompt
         PostMessageW(hwnd, WM_CLOSE, 0, 0);
     }
 
@@ -207,6 +208,7 @@ void App::Frame() {
     DrawNewDocDialog();
     DrawShaderErrors();
     DrawSelectionDialog();
+    DrawImageDialogs();
     if (showDemo) ImGui::ShowDemoWindow(&showDemo);
 
     DrawClosePrompt();
@@ -385,13 +387,17 @@ void App::Undo() {
     DocView* v = Active();
     if (!v || stroking) return;
     if (xf.active) { TransformCancel(*v); return; }
+    u32 w = v->doc->Width(), h = v->doc->Height();
     v->history.Undo(*v->doc, *ctx);
+    if (w != v->doc->Width() || h != v->doc->Height()) v->fitPending = true;
 }
 
 void App::Redo() {
     DocView* v = Active();
     if (!v || stroking || xf.active) return;
+    u32 w = v->doc->Width(), h = v->doc->Height();
     v->history.Redo(*v->doc, *ctx);
+    if (w != v->doc->Width() || h != v->doc->Height()) v->fitPending = true;
 }
 
 // ------------------------------------------------------------------ layout & menus
@@ -460,6 +466,7 @@ void App::DrawMenuBar() {
         LayerMenuItems();
         ImGui::EndMenu();
     }
+    DrawImageMenu();
     DrawSelectionMenu();
     if (ImGui::BeginMenu("Filtre", v != nullptr)) {
         Document& d = *v->doc;
@@ -635,6 +642,10 @@ void App::HandleShortcuts() {
         if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) { TransformCommit(*xf.view); return; }
         if (pressed(ImGuiKey_Escape)) { TransformCancel(*xf.view); return; }
     }
+    if (cropActive && v && tool == Tool::Crop) {
+        if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) { ApplyCrop(*v, CropRect()); cropActive = false; return; }
+        if (pressed(ImGuiKey_Escape)) { cropActive = false; return; }
+    }
     if (polyActive && v) {
         if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) { FinishPolygon(*v); return; }
         if (pressed(ImGuiKey_Escape)) { polyActive = false; lassoPts.clear(); return; }
@@ -662,6 +673,8 @@ void App::HandleShortcuts() {
     if (ctrl && shift && pressed(ImGuiKey_I)) v->renderer.SelectionFilter(d, *ctx, v->history, 3, 0, "Intervertir");
     if (shift && pressed(ImGuiKey_F6) && d.S().selection) { selDialog = 1; selDialogValue = 8; }
     if (ctrl && !shift && pressed(ImGuiKey_T)) TransformBegin(*v, false);
+    if (ctrl && alt && pressed(ImGuiKey_I)) { imageDialog = 1; dlgW = (int)d.Width(); dlgH = (int)d.Height(); }
+    if (ctrl && alt && pressed(ImGuiKey_C)) { imageDialog = 2; dlgW = (int)d.Width(); dlgH = (int)d.Height(); dlgAnchor = 4; }
 
     // Clipboard & layer via copy
     if (ctrl && !shift && pressed(ImGuiKey_C)) CopyToClipboard(*v, false);
@@ -711,6 +724,7 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_M)) setTool(shift ? (tool == Tool::RectSelect ? Tool::EllipseSelect : Tool::RectSelect) : Tool::RectSelect);
     if (pressed(ImGuiKey_L)) setTool(shift ? Tool::PolyLasso : Tool::Lasso);
     if (pressed(ImGuiKey_W)) setTool(Tool::Wand);
+    if (pressed(ImGuiKey_C)) setTool(Tool::Crop);
     if (pressed(ImGuiKey_B)) setTool(Tool::Brush);
     if (pressed(ImGuiKey_S)) setTool(Tool::Clone);
     if (pressed(ImGuiKey_J)) setTool(Tool::Heal);

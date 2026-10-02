@@ -241,7 +241,7 @@ void Renderer::CopySelected(Document& doc, gpu::CommandContext& ctx, gpu::Textur
     Dispatch2D(ctx, d, dst->Width(), dst->Height());
 }
 
-gpu::ReadbackPtr Renderer::ComputeBounds(gpu::CommandContext& ctx, gpu::Texture* image, gpu::Texture* selection, bool imageIsMask) {
+gpu::ReadbackPtr Renderer::ComputeBounds(gpu::CommandContext& ctx, gpu::Texture* image, gpu::Texture* selection, bool imageIsMask, bool useRed) {
     if (!image) return nullptr;
     Ensure(boundsTex, 4, 1, gpu::Format::R32U, "Bounds");
     gpu::DispatchDesc init;
@@ -255,7 +255,7 @@ gpu::ReadbackPtr Renderer::ComputeBounds(gpu::CommandContext& ctx, gpu::Texture*
     d.srv[0] = image;
     d.srv[1] = selection;
     d.uav[0] = boundsTex.get();
-    SetConstants(d, BoundsRoot{image->Width(), image->Height(), (selection ? 1u : 0u) | (imageIsMask ? 2u : 0u)});
+    SetConstants(d, BoundsRoot{image->Width(), image->Height(), (selection ? 1u : 0u) | (imageIsMask ? 2u : 0u) | (useRed ? 4u : 0u)});
     Dispatch2D(ctx, d, image->Width(), image->Height());
     return ctx.ReadbackTexture(boundsTex.get());
 }

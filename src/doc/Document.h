@@ -101,6 +101,7 @@ struct Graph {
 
 // Everything except pixels; copied whole for structural undo.
 struct DocState {
+    u32 width = 1, height = 1;  // in the state so canvas size/crop can be undone
     DocMode mode = DocMode::Layers;
     std::vector<Layer> layers;  // [0] = bottom
     Graph graph;
@@ -117,8 +118,8 @@ class Document {
 public:
     Document(u32 w, u32 h, Precision p, DocMode mode, const std::string& name);
 
-    u32 Width() const { return width; }
-    u32 Height() const { return height; }
+    u32 Width() const { return state.width; }
+    u32 Height() const { return state.height; }
     Precision GetPrecision() const { return precision; }
     const std::string& Name() const { return name; }
     std::string path;
@@ -183,7 +184,6 @@ public:
 
 private:
     void RebuildFromLayers();
-    u32 width, height;
     u64 versionCounter = 1;
     Precision precision;
     std::string name;

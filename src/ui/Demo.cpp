@@ -17,6 +17,22 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 9 && v) {
+        Document& d = *v->doc;
+        if (frameCounter == 6) RotateCanvas(*v, 0);
+        if (frameCounter == 9) {
+            float m[6] = {1, 0, -100, 0, 1, -100};
+            ApplyCanvasOp(*v, d.Width() + 200, d.Height() + 200, m, 0, "Taille de la zone de travail");
+        }
+        if (frameCounter == 12) ApplyCrop(*v, {50, 300, (int)d.Width() - 50, (int)d.Height() - 300});
+        if (frameCounter == 15) {
+            float m[6] = {2, 0, 0, 0, 2, 0};
+            ApplyCanvasOp(*v, d.Width() / 2, d.Height() / 2, m, 2, "Taille de l'image");
+        }
+        if (frameCounter == 18) Undo();
+        if (frameCounter == 20) Log("[demo] size after undo %ux%u", d.Width(), d.Height());
+        return;
+    }
     if (!v || (demoMode != 4 && demoMode != 5)) return;
     Document& d = *v->doc;
     if (frameCounter == 6) {
@@ -171,7 +187,7 @@ void App::RunDemo() {
         wand.surface = bucketSurface;
         tool = Tool::Smudge;
     }
-    if (demoMode == 7 || demoMode == 8) {
+    if (demoMode == 7 || demoMode == 8 || demoMode == 9) {
         // Clipping: a rainbow gradient clipped to the paint strokes; then group paint+glow
         // and apply a group opacity; a hidden noise layer inside a collapsed group.
         d.S().activeLayer = paintId;

@@ -95,7 +95,9 @@ bool Graph::WouldCycle(Id from, Id to) const {
 // ------------------------------------------------------------------ document
 
 Document::Document(u32 w, u32 h, Precision p, DocMode mode, const std::string& name_)
-    : width(w), height(h), precision(p), name(name_) {
+    : precision(p), name(name_) {
+    state.width = w;
+    state.height = h;
     state.mode = mode;
     Node out;
     out.id = kOutputId;
@@ -109,7 +111,7 @@ Document::Document(u32 w, u32 h, Precision p, DocMode mode, const std::string& n
 Id Document::CreateSurface(const float4& clear) {
     Id id = NewId();
     Surface s;
-    s.tex = gpu::Dev().CreateTexture(width, height, SurfaceFormat(precision), "Surface");
+    s.tex = gpu::Dev().CreateTexture(state.width, state.height, SurfaceFormat(precision), "Surface");
     s.version = ++versionCounter;
     state.surfaces[id] = s;
     pendingClears.push_back({id, clear});
@@ -119,7 +121,7 @@ Id Document::CreateSurface(const float4& clear) {
 Id Document::CreateSurfaceRaw(gpu::Format f, const char* tname) {
     Id id = NewId();
     Surface s;
-    s.tex = gpu::Dev().CreateTexture(width, height, f, tname);
+    s.tex = gpu::Dev().CreateTexture(state.width, state.height, f, tname);
     s.version = ++versionCounter;
     state.surfaces[id] = s;
     return id;
@@ -127,7 +129,7 @@ Id Document::CreateSurfaceRaw(gpu::Format f, const char* tname) {
 
 void Document::CreateSurfaceWithId(Id id, gpu::Format f) {
     Surface s;
-    s.tex = gpu::Dev().CreateTexture(width, height, f, "Surface");
+    s.tex = gpu::Dev().CreateTexture(state.width, state.height, f, "Surface");
     s.version = ++versionCounter;
     state.surfaces[id] = s;
     state.nextId = std::max(state.nextId, id + 1);

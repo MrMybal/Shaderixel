@@ -299,6 +299,12 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             dl->AddRectFilled(P(-0.75f, -0.5f), P(0.75f, 0.6f), col, s * 0.12f);
             for (int i = 0; i < 3; ++i) dl->AddCircleFilled(P(-0.4f + i * 0.4f, 0.05f + (i % 2) * 0.2f - 0.1f), s * 0.08f, IM_COL32(30, 31, 36, 255));
             break;
+        case IconCrop:
+            dl->AddLine(P(-0.5f, -0.9f), P(-0.5f, 0.5f), col, t * 1.4f);
+            dl->AddLine(P(-0.5f, 0.5f), P(0.9f, 0.5f), col, t * 1.4f);
+            dl->AddLine(P(-0.9f, -0.5f), P(0.5f, -0.5f), col, t * 1.4f);
+            dl->AddLine(P(0.5f, -0.5f), P(0.5f, 0.9f), col, t * 1.4f);
+            break;
         case IconFolder:
             dl->AddRectFilled(P(-0.85f, -0.6f), P(-0.15f, -0.35f), col, s * 0.06f);
             dl->AddRectFilled(P(-0.85f, -0.4f), P(0.85f, 0.65f), col, s * 0.08f);

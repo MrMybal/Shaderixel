@@ -579,6 +579,16 @@ void App::DrawBrush() {
         if (ImGui::Button("Valider (Entrée)") && xf.view) TransformCommit(*xf.view);
         ImGui::SameLine();
         if (ImGui::Button("Annuler (Échap)") && xf.view) TransformCancel(*xf.view);
+    } else if (tool == Tool::Crop) {
+        ImGui::SeparatorText("Recadrage");
+        ImGui::TextWrapped("Tracez le cadre (Maj : carré), puis Entrée ou double-clic pour recadrer. Échap : annuler. Le cadre peut dépasser l'image pour agrandir la zone de travail.");
+        if (cropActive && v) {
+            Rect r = CropRect();
+            ImGui::Text("%d x %d px", r.Width(), r.Height());
+            if (ImGui::Button("Recadrer (Entrée)")) { ApplyCrop(*v, r); cropActive = false; }
+            ImGui::SameLine();
+            if (ImGui::Button("Annuler")) cropActive = false;
+        }
     } else if (tool == Tool::Move) {
         ImGui::SeparatorText("Déplacement");
         ImGui::TextWrapped("Glissez pour déplacer le calque actif (ou la sélection). Flèches : 1 px, Maj+flèches : 10 px. Ctrl+T : transformation manuelle.");

@@ -2,7 +2,7 @@
 cbuffer Root : register(b0)
 {
     uint2 gSize;
-    uint gFlags;    // 1 = has selection, 2 = image is a single-channel mask
+    uint gFlags;    // 1 = has selection, 2 = ignore alpha (mask), 4 = use red channel (selection)
 };
 
 Texture2D<float4> gImage : register(t0);
@@ -17,7 +17,7 @@ void main(uint3 id : SV_DispatchThreadID)
     if (inside)
     {
         float4 c = gImage.Load(int3(id.xy, 0));
-        v = (gFlags & 2) ? 1.0 : c.a;
+        v = (gFlags & 4) ? c.r : (gFlags & 2) ? 1.0 : c.a;
         if (gFlags & 1) v *= gSel.Load(int3(id.xy, 0));
     }
     bool hit = inside && v > (1.0 / 512.0);
