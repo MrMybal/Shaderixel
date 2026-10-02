@@ -286,7 +286,8 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
         }
         st->SetInt(chanKey, chan);
         size_t pi = curveParams[chan];
-        float edSize = std::min(ImGui::GetContentRegionAvail().x, 320.0f);
+        // Square editor: as wide as the panel, but leave the rest of the properties visible.
+        float edSize = std::clamp(std::min(ImGui::GetContentRegionAvail().x, ImGui::GetWindowHeight() * 0.55f), 120 * dpi, 300 * dpi);
         bool act = false, rel = false;
         DocView* v = Active();
         const float* hist = histo.valid ? histo.norm[std::min<size_t>(chan, 3)] : nullptr;
@@ -1103,20 +1104,9 @@ void App::DrawBrush() {
             }
             ImGui::Separator();
         }
-        ImGui::SliderFloat("Taille", &b.size, 1, 2000, "%.0f px", ImGuiSliderFlags_Logarithmic);
-        ImGui::SliderFloat("Dureté", &b.hardness, 0, 1, "%.2f");
-        ImGui::SliderFloat("Opacité", &b.opacity, 0, 1, "%.2f");
-        ImGui::SliderFloat("Flux", &b.flow, 0.01f, 1, "%.2f");
-        ImGui::SliderFloat("Espacement", &b.spacing, 0.01f, 2.0f, "%.2f");
-        ImGui::SliderFloat("Lissage", &b.smoothing, 0, 0.95f, "%.2f");
-        ImGui::SeparatorText("Tablette");
-        ImGui::Checkbox("Pression -> taille", &b.pressureSize);
-        ImGui::Checkbox("Pression -> flux", &b.pressureOpacity);
-        ImGui::TextDisabled(platform::PenActive() ? "Stylet détecté (pression %.2f)" : "Souris", platform::LastPressure());
         // Live preview of the dab profile.
-        ImGui::Spacing();
         ImVec2 p = ImGui::GetCursorScreenPos();
-        float w = ImGui::GetContentRegionAvail().x, h = 40 * dpi;
+        float w = ImGui::GetContentRegionAvail().x, h = 30 * dpi;
         ImDrawList* dl = ImGui::GetWindowDrawList();
         dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), IM_COL32(20, 20, 24, 255), 4);
         const int N = 48;
@@ -1131,6 +1121,16 @@ void App::DrawBrush() {
             dl->AddRectFilled(ImVec2(x0, p.y + h - 4 - bh), ImVec2(x0 + (w - 8) / N, p.y + h - 4), ui::col::Accent);
         }
         ImGui::Dummy(ImVec2(w, h));
+        ImGui::SliderFloat("Taille", &b.size, 1, 2000, "%.0f px", ImGuiSliderFlags_Logarithmic);
+        ImGui::SliderFloat("Dureté", &b.hardness, 0, 1, "%.2f");
+        ImGui::SliderFloat("Opacité", &b.opacity, 0, 1, "%.2f");
+        ImGui::SliderFloat("Flux", &b.flow, 0.01f, 1, "%.2f");
+        ImGui::SliderFloat("Espacement", &b.spacing, 0.01f, 2.0f, "%.2f");
+        ImGui::SliderFloat("Lissage", &b.smoothing, 0, 0.95f, "%.2f");
+        ImGui::SeparatorText("Tablette");
+        ImGui::Checkbox("Pression -> taille", &b.pressureSize);
+        ImGui::Checkbox("Pression -> flux", &b.pressureOpacity);
+        ImGui::TextDisabled(platform::PenActive() ? "Stylet détecté (pression %.2f)" : "Souris", platform::LastPressure());
     } else if (tool == Tool::Bucket) {
         ImGui::SeparatorText("Pot de peinture");
         ImGui::SliderFloat("Tolérance", &bucketTolerance, 0, 255, "%.0f");

@@ -126,7 +126,7 @@ bool App::Init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout_v7.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v8.ini";
     LoadRecent();
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
@@ -496,8 +496,8 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.035f, &left, &rest);
     ImGui::DockBuilderSplitNode(rest, ImGuiDir_Right, 0.24f, &right, &center);
     ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.32f, &bottom, &center);
-    ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.30f, &rightTop, &rightMid);
-    ImGui::DockBuilderSplitNode(rightMid, ImGuiDir_Down, 0.50f, &rightBottom, &rightMid);
+    ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.33f, &rightTop, &rightMid);
+    ImGui::DockBuilderSplitNode(rightMid, ImGuiDir_Down, 0.44f, &rightBottom, &rightMid);
     ImGui::DockBuilderDockWindow("Outils", left);
     ImGui::DockBuilderDockWindow("Canevas", center);
     ImGui::DockBuilderDockWindow("Vue 3D", center);
