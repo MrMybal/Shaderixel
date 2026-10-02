@@ -220,7 +220,7 @@ void App::ShapePropertiesUI(DocView& v, Layer& l) {
     Document& d = *v.doc;
     ShapeStyle& s = l.shape;
     ImGui::SeparatorText("Forme");
-    if (ImGui::Combo("Type", &s.type, "Rectangle Ellipse Ligne Polygone Étoile ")) v.history.PushState("Type de forme", frameBefore, d.S());
+    if (ImGui::Combo("Type", &s.type, "Rectangle\0Ellipse\0Ligne\0Polygone\0Étoile\0")) v.history.PushState("Type de forme", frameBefore, d.S());
     if (ImGui::DragFloat4("Cadre", &s.rect.x, 1.0f, -100000, 100000, "%.0f")) d.dirty = true;
     TrackUndo("Cadre de la forme");
     if (s.type == 0) { ImGui::SliderFloat("Rayon des coins", &s.radius, 0, 1000, "%.0f px"); TrackUndo("Rayon"); }
