@@ -118,6 +118,7 @@ void App::DemoTick() {
     if (demoMode == 10 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 11 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 12 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
+    if (demoMode == 18 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 11 && v && frameCounter == 7) ImGui::SetWindowFocus("Éditeur d'effets");
     if (demoMode == 14 && v && v->mesh) {
         if (frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
@@ -336,6 +337,14 @@ void App::RunDemo() {
         if (Layer* g = d.FindLayer(gid)) { g->name = "Groupe peinture"; g->opacity = 0.85f; }
         d.SyncGraph();
         d.S().activeLayer = gid;
+    }
+    if (demoMode == 17 || demoMode == 18) {
+        // Blend If: the glow only over dark areas, the paint fades out in its darks.
+        for (auto& l : d.S().layers) {
+            if (l.name == "Lueur") { l.blendIf.under[2] = 70; l.blendIf.under[3] = 150; d.S().activeLayer = l.id; }
+            if (l.name == "Peinture") { l.blendIf.self[0] = 30; l.blendIf.self[1] = 110; }
+        }
+        d.SyncGraph();
     }
     if (demoMode == 10) {
         Layer& c = d.AddEffectLayer(LayerKind::Adjustment, "curves");

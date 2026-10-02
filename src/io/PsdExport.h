@@ -21,6 +21,7 @@ struct PsdExportLayer {
     bool passThrough = false;
     u8 opacity = 255;
     bool visible = true, clipped = false, maskDisabled = false;
+    BlendIf blendIf;
     gpu::ReadbackPtr pixels;  // RGBA8 straight sRGB, document size
     gpu::ReadbackPtr mask;    // RGBA8, R = mask value
 };

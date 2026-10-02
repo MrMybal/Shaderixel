@@ -15,6 +15,20 @@ cbuffer Root : register(b0)
     int2 gMaskOrigin;
 };
 
+cbuffer BlendIfCB : register(b1)
+{
+    float4 gSelfRange;   // lo0, lo1, hi0, hi1 (0-1, sRGB gray)
+    float4 gUnderRange;
+};
+
+// Weight of a gray value inside a Blend If range (ramps between the split handles).
+float RangeWeight(float y, float4 r)
+{
+    float up = r.y > r.x ? saturate((y - r.x) / (r.y - r.x)) : (y >= r.x ? 1.0 : 0.0);
+    float down = r.w > r.z ? saturate((r.w - y) / (r.w - r.z)) : (y <= r.w ? 1.0 : 0.0);
+    return up * down;
+}
+
 Texture2D<float4> gBase : register(t0);
 Texture2D<float4> gTop : register(t1);
 Texture2D<float4> gMask : register(t2);
@@ -36,6 +50,11 @@ void main(uint3 id : SV_DispatchThreadID)
 
     float3 cs = Unpremultiply(top).rgb;
     float3 cb = Unpremultiply(base).rgb;
+    if (gFlags & 32)
+    {
+        const float3 w = float3(0.299, 0.587, 0.114);
+        as *= RangeWeight(dot(LinearToSrgb(saturate(cs)), w), gSelfRange) * RangeWeight(dot(LinearToSrgb(saturate(cb)), w), gUnderRange);
+    }
     float3 mixed;
     if (gFlags & 2)
         mixed = SrgbToLinear(BlendColor(LinearToSrgb(cb), LinearToSrgb(cs), gMode));

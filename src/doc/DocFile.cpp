@@ -167,6 +167,12 @@ Json SerializeDocument(const Document& doc) {
         if (l.mask) { o["mask"] = l.mask; o["maskEnabled"] = l.maskEnabled; }
         if (l.parent) o["parent"] = l.parent;
         if (l.clipped) o["clipped"] = true;
+        if (l.blendIf.Active()) {
+            Json b = Json::Array();
+            for (u8 x : l.blendIf.self) b.Push((int)x);
+            for (u8 x : l.blendIf.under) b.Push((int)x);
+            o["blendIf"] = b;
+        }
         if (l.kind == LayerKind::Group) { o["passThrough"] = l.passThrough; o["collapsed"] = l.collapsed; }
         if (l.kind == LayerKind::Shape) {
             Json t = Json::Object();
@@ -256,6 +262,15 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         l.maskEnabled = o["maskEnabled"].B(true);
         l.parent = o["parent"].U();
         l.clipped = o["clipped"].B(false);
+        if (o.Has("blendIf")) {
+            int i = 0;
+            for (auto& x : o["blendIf"].Elements()) {
+                u8 v = (u8)std::clamp(x.I(), 0, 255);
+                if (i < 4) l.blendIf.self[i] = v;
+                else if (i < 8) l.blendIf.under[i - 4] = v;
+                ++i;
+            }
+        }
         l.passThrough = o["passThrough"].B(true);
         l.collapsed = o["collapsed"].B(false);
         if (o.Has("shape")) {

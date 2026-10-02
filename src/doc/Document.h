@@ -76,6 +76,16 @@ struct ShapeStyle {
     }
 };
 
+// Photoshop "Blend If" (gray): the layer shows where its own luminance and the
+// underlying luminance fall inside [lo0..lo1 ramp up, hi0..hi1 ramp down] (0-255, sRGB).
+struct BlendIf {
+    u8 self[4] = {0, 0, 255, 255};
+    u8 under[4] = {0, 0, 255, 255};
+    bool Active() const {
+        return self[0] || self[1] || self[2] != 255 || self[3] != 255 || under[0] || under[1] || under[2] != 255 || under[3] != 255;
+    }
+};
+
 struct Layer {
     Id id = 0;
     std::string name;
@@ -85,6 +95,7 @@ struct Layer {
     std::vector<EffectInstance> filters;  // non-destructive filters on the layer content
     BlendMode blend = BlendMode::Normal;
     float opacity = 1.0f;
+    BlendIf blendIf;
     bool visible = true;
     bool locked = false;
     Id mask = 0;              // mask surface (0 = none)
@@ -110,6 +121,7 @@ struct Node {
     float opacity = 1.0f;
     bool bypass = false;
     bool clip = false;        // Blend: keep the base alpha (clipping mask)
+    BlendIf blendIf;          // Blend: conditional blending
     std::vector<Id> inputs;   // per input pin, 0 = unconnected
     Id layer = 0;             // generated from this layer (layer mode)
 };

@@ -44,6 +44,7 @@ struct PsdLayer {
     std::string name;
     std::string blend = "norm";
     u8 opacity = 255, clipping = 0, flags = 0;
+    u8 blendSrc[4] = {0, 0, 255, 255}, blendDst[4] = {0, 0, 255, 255};  // composite gray blending ranges
     u32 section = 0;
     std::vector<Channel> channels;
     std::string adjKey;
@@ -308,7 +309,15 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
             L.maskDefault = r.U8(); L.maskFlags = r.U8();
         }
         r.Seek(std::min(maskEnd, extraEnd));
-        r.Skip(r.U32());  // blending ranges
+        {
+            u32 rangesLen = r.U32();
+            size_t rangesEnd = r.pos + rangesLen;
+            if (rangesLen >= 8) {
+                for (auto& x : L.blendSrc) x = r.U8();
+                for (auto& x : L.blendDst) x = r.U8();
+            }
+            r.Seek(std::min(rangesEnd, extraEnd));
+        }
         L.name = ReadPascal(r);
         while (r.ok && r.pos + 12 <= extraEnd) {
             std::string sig = r.Tag(), key = r.Tag();
@@ -360,6 +369,8 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
         l.opacity = s.opacity / 255.0f;
         l.visible = (s.flags & 0x02) == 0;
         l.clipped = s.clipping != 0;
+        memcpy(l.blendIf.self, s.blendSrc, 4);
+        memcpy(l.blendIf.under, s.blendDst, 4);
         l.parent = groupStack.empty() ? 0 : groupStack.back();
         if (s.styles) report.warnings.push_back("styles de calque ignorés : " + s.name);
         if ((Plane(s, -2) || Plane(s, -3)) && s.mright > s.mleft && s.mbottom > s.mtop) {

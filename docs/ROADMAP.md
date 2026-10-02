@@ -39,7 +39,7 @@
 
 ### Photoshop
 - Déplacer/transformer le contour de sélection seul, sélection rapide
-- Blend-If (options de fusion)
+- Blend-If (options de fusion) : **fait** (gris, poignées séparables, import/export PSD) ; reste : par canal R/V/B
 - Tracés vectoriels (plume), formes personnalisées
 - LUT 3D (.cube), filtres « Fluidité » et déformation
 - Export PSD avec calques : **fait** (8 bits RLE, groupes, masques, écrêtage, modes ; réglages/remplissages/filtres rastérisés). Reste : PSB (> 30000 px), 16 bits, calques de réglage natifs

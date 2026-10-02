@@ -144,6 +144,7 @@ bool StartPsdExport(Document& doc, Renderer& r, gpu::CommandContext& ctx, PsdExp
             e.opacity = (u8)std::clamp((int)std::lround(l.opacity * 255.0f), 0, 255);
             e.visible = l.visible;
             e.clipped = l.clipped;
+            e.blendIf = l.blendIf;
             e.maskDisabled = !l.maskEnabled;
             if (l.mask)
                 if (Surface* m = doc.GetSurface(l.mask)) e.mask = r.ExportRGBA8(ctx, m->tex.get(), false);
@@ -259,7 +260,11 @@ bool WritePsd(const PsdExportJob& job, std::string* error) {
         } else {
             w.U32(0);
         }
-        w.U32(0);  // blending ranges
+        // Blending ranges: composite gray (source, destination), then R, G, B (full range).
+        w.U32(32);
+        w.Bytes(l.blendIf.self, 4);
+        w.Bytes(l.blendIf.under, 4);
+        for (int c = 0; c < 6; ++c) { w.U8(0); w.U8(0); w.U8(255); w.U8(255); }
         PascalName(w, l.name);
         Luni(w, l.name);
         if (l.kind != PsdExportLayer::Pixels) {

@@ -458,6 +458,7 @@ struct GraphBuilder {
         b.opacity = opacity;
         b.clip = clip;
         b.bypass = bypass;
+        b.blendIf = l.blendIf;
         b.inputs = {base, top, mask};
         b.pos = pos;
         b.layer = l.id;
