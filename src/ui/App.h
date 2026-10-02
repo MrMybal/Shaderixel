@@ -26,10 +26,10 @@ namespace sx {
 
 enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
-    Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge,
+    Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, Count
 };
-inline bool IsRetouchTool(Tool t) { return t >= Tool::Clone && t <= Tool::Sponge && t != Tool::Gradient && t != Tool::Bucket; }
+inline bool IsRetouchTool(Tool t) { return t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket; }
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
 
 struct DocView;
@@ -272,6 +272,7 @@ private:
     float retouchStrength = 0.5f;
     int dodgeRange = 1;
     bool spongeSaturate = false;
+    int liquifyMode = 0;  // 0 push, 1 twirl cw, 2 twirl ccw, 3 pucker, 4 bloat, 5 reconstruct
     bool cloneAligned = true;
     bool cloneSourceSet = false;
     float2 cloneSource;

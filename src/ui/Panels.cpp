@@ -873,11 +873,15 @@ void App::DrawBrush() {
     } else if (IsPaintTool(tool)) {
         BrushSettings& b = CurrentBrush();
         static const char* titles[] = {"", "", "", "", "", "", "Pinceau", "Gomme", "Tampon de duplication", "Correcteur", "", "",
-                                       "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge"};
+                                       "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge", "Fluidité"};
         ImGui::SeparatorText(titles[(int)tool]);
         if (IsRetouchTool(tool)) {
             ImGui::SliderFloat(tool == Tool::Clone || tool == Tool::Heal ? "Intensité (inutilisée)" : "Intensité", &retouchStrength, 0.01f, 1, "%.2f");
             if (tool == Tool::Dodge || tool == Tool::Burn) ImGui::Combo("Plage", &dodgeRange, "Tons foncés\0Tons moyens\0Tons clairs\0");
+            if (tool == Tool::Liquify) {
+                ImGui::Combo("Mode", &liquifyMode, "Déformation avant\0Tourbillon horaire\0Tourbillon antihoraire\0Contraction\0Dilatation\0Reconstruction\0");
+                ImGui::TextDisabled("Chaque trait se reconstruit depuis l'image d'origine (pas de flou cumulé).");
+            }
             if (tool == Tool::Sponge) {
                 int m = spongeSaturate ? 1 : 0;
                 if (ImGui::Combo("Mode", &m, "Désaturer\0Saturer\0")) spongeSaturate = m == 1;

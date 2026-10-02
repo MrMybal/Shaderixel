@@ -27,6 +27,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Dodge, ui::IconDodge, "Densité -", "O"},
     {Tool::Burn, ui::IconBurn, "Densité +", "O"},
     {Tool::Sponge, ui::IconSponge, "Éponge", "O"},
+    {Tool::Liquify, ui::IconLiquify, "Fluidité", "R"},
     {Tool::Picker, ui::IconPicker, "Pipette", "I"},
     {Tool::Hand, ui::IconHand, "Main", "H / Espace"},
     {Tool::Zoom, ui::IconZoom, "Zoom", "Z"},
@@ -49,7 +50,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Text},
     {Tool::Shape},
     {Tool::Gradient, Tool::Bucket},
-    {Tool::Blur, Tool::Sharpen, Tool::Smudge},
+    {Tool::Blur, Tool::Sharpen, Tool::Smudge, Tool::Liquify},
     {Tool::Dodge, Tool::Burn, Tool::Sponge},
     {Tool::Picker},
     {Tool::Hand},
@@ -429,9 +430,9 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         PaintSamples(v, canvasMin, samples, release);
         if (release) {
             static const char* names[] = {"", "", "", "", "", "", "Pinceau", "Gomme", "Tampon de duplication", "Correcteur", "", "",
-                                          "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge"};
+                                          "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge", "Fluidité"};
             int ti = (int)tool;
-            v.renderer.EndStroke(doc, *ctx, v.history, strokeErase ? "Gomme" : (ti < 18 && names[ti][0] ? names[ti] : "Pinceau"));
+            v.renderer.EndStroke(doc, *ctx, v.history, strokeErase ? "Gomme" : (ti < 19 && names[ti][0] ? names[ti] : "Pinceau"));
             stroking = false;
             lastStrokeEnd = lastDabPos;
             haveStrokeEnd = true;
@@ -476,6 +477,11 @@ void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSa
         float2 p = ScreenToDoc(v, canvasMin, ImGui::GetIO().MousePos);
         emitTo(p, lastPressure);
     }
+    if (tool == Tool::Liquify && liquifyMode >= 1 && liquifyMode <= 4) {
+        // Twirl / pucker / bloat act continuously while the button is held: one dab per frame.
+        dabs.clear();
+        dabs.push_back({smoothPos.x, smoothPos.y, b.size * 0.5f, b.flow});
+    }
     if (dabs.empty()) return;
     EmitDabs(v, dabs);
 }
@@ -493,6 +499,10 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs) {
     }
     if (tool == Tool::Smudge) {
         v.renderer.SmudgeDabs(doc, *ctx, dabs, retouch, retouchStrength);
+        return;
+    }
+    if (tool == Tool::Liquify) {
+        v.renderer.LiquifyDabs(doc, *ctx, dabs, retouch, liquifyMode, retouchStrength);
         return;
     }
     RetouchParams rp;

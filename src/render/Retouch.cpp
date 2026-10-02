@@ -15,6 +15,14 @@ struct RetouchRoot {
     u32 range;
     float pad;
 };
+struct LiquifyRoot {
+    i32 rx, ry;
+    u32 rw, rh, dw, dh;
+    float2 center, delta;
+    float radius, hardness, strength;
+    u32 mode, flags;
+};
+struct ClearRoot { i32 x, y; u32 w, h; float4 value; };
 struct SmudgeRoot {
     i32 rx, ry;
     u32 rw, rh, dw, dh;
@@ -91,6 +99,58 @@ void Renderer::SmudgeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
         d.uavRect[0] = r;
         SetConstants(d, SmudgeRoot{r.x0, r.y0, (u32)r.Width(), (u32)r.Height(), (u32)W, (u32)H, c, delta, dab.radius, b.hardness,
                                    strength * dab.alpha, sel ? 1u : 0u});
+        Dispatch2D(ctx, d, (u32)r.Width(), (u32)r.Height());
+    }
+    doc.TouchSurface(strokeSurface, &touched);
+}
+
+void Renderer::LiquifyDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, int mode, float strength) {
+    if (!strokeSurface || dabs.empty()) return;
+    Surface* s = doc.GetSurface(strokeSurface);
+    auto* k = Kernel("liquify.slang");
+    auto* clear = Kernel("clear.slang");
+    if (!s || !k || !clear) return;
+    const int W = (int)s->tex->Width(), H = (int)s->tex->Height();
+    if (!liqActive) {
+        // Fresh displacement field for this stroke (sparse on large documents).
+        Ensure(liqDisp, (u32)W, (u32)H, gpu::Format::RGBA32F, "LiquifyField");
+        gpu::DispatchDesc c;
+        c.pipeline = clear;
+        c.uav[0] = liqDisp.get();
+        c.uavNoMap = 1;
+        SetConstants(c, ClearRoot{0, 0, (u32)W, (u32)H, {0, 0, 0, 0}});
+        Dispatch2D(ctx, c, (u32)W, (u32)H);
+        liqActive = true;
+        haveLiq = false;
+    }
+    Surface* sel = doc.Selection();
+    Rect touched;
+    for (const Dab& dab : dabs) {
+        float2 c = {dab.x, dab.y};
+        float2 delta = haveLiq ? c - lastLiq : float2{0, 0};
+        lastLiq = c;
+        haveLiq = true;
+        if (mode == 0 && Length(delta) < 0.01f) continue;
+        float reach = dab.radius * 1.1f + Length(delta) + 3;
+        Rect r = Rect{(int)std::floor(c.x - reach), (int)std::floor(c.y - reach), (int)std::ceil(c.x + reach), (int)std::ceil(c.y + reach)}.Clipped(W, H);
+        if (r.Empty()) continue;
+        if (!liqSnap || liqSnap->Width() < (u32)r.Width() || liqSnap->Height() < (u32)r.Height()) {
+            u32 sw = std::max<u32>(liqSnap ? liqSnap->Width() : 0, (u32)r.Width()), sh = std::max<u32>(liqSnap ? liqSnap->Height() : 0, (u32)r.Height());
+            liqSnap = gpu::Dev().CreateTexture(sw, sh, gpu::Format::RGBA32F, "LiquifySnap");
+        }
+        ctx.CopyRegion(liqSnap.get(), 0, 0, liqDisp.get(), r);
+        strokeRect.Merge(r);
+        touched.Merge(r);
+        gpu::DispatchDesc d;
+        d.pipeline = k;
+        d.srv[0] = strokePre.get();
+        d.srv[1] = liqSnap.get();
+        d.srv[2] = sel ? sel->tex.get() : nullptr;
+        d.uav[0] = liqDisp.get();
+        d.uav[1] = s->tex.get();
+        d.uavRect[0] = d.uavRect[1] = r;
+        SetConstants(d, LiquifyRoot{r.x0, r.y0, (u32)r.Width(), (u32)r.Height(), (u32)W, (u32)H, c, delta, dab.radius, b.hardness,
+                                    strength * dab.alpha, (u32)mode, sel ? 1u : 0u});
         Dispatch2D(ctx, d, (u32)r.Width(), (u32)r.Height());
     }
     doc.TouchSurface(strokeSurface, &touched);

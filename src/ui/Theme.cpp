@@ -299,6 +299,16 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             dl->AddRectFilled(P(-0.75f, -0.5f), P(0.75f, 0.6f), col, s * 0.12f);
             for (int i = 0; i < 3; ++i) dl->AddCircleFilled(P(-0.4f + i * 0.4f, 0.05f + (i % 2) * 0.2f - 0.1f), s * 0.08f, IM_COL32(30, 31, 36, 255));
             break;
+        case IconLiquify: {
+            // Spiral.
+            dl->PathClear();
+            for (int i = 0; i <= 28; ++i) {
+                float a = i * 0.42f, r = 0.08f + i * 0.028f;
+                dl->PathLineTo(P(std::cos(a) * r, std::sin(a) * r));
+            }
+            dl->PathStroke(col, 0, t * 1.5f);
+            break;
+        }
         case IconShape:
             dl->AddRectFilled(P(-0.85f, -0.2f), P(0.15f, 0.8f), col, 2);
             dl->AddCircle(P(0.35f, -0.35f), s * 0.25f, col, 0, t * 1.2f);

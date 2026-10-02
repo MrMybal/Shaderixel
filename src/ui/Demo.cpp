@@ -450,6 +450,25 @@ void App::RunDemo() {
         AttachMesh(v, MakeSphere());
         tool = Tool::Brush;
     }
+    if (demoMode == 19) {
+        // Liquify: push across the strokes, twirl, bloat.
+        d.S().activeLayer = paintId;
+        v.renderer.Prepare(d, *ctx);
+        auto liq = [&](int mode, std::vector<Dab> dabs, float size) {
+            BrushSettings b = retouch;
+            b.size = size;
+            b.hardness = 0.3f;
+            if (!v.renderer.BeginStroke(d, *ctx, paintSurface)) return;
+            v.renderer.LiquifyDabs(d, *ctx, dabs, b, mode, 0.8f);
+            v.renderer.EndStroke(d, *ctx, v.history, "Fluidité");
+        };
+        std::vector<Dab> push;
+        for (int i = 0; i <= 40; ++i) push.push_back({350.0f + i * 4.0f, 250.0f + i * 7.0f, 90, 1});
+        liq(0, push, 180);
+        liq(1, std::vector<Dab>(40, Dab{800, 500, 130, 1}), 260);
+        liq(4, std::vector<Dab>(25, Dab{1250, 330, 110, 1}), 220);
+        tool = Tool::Liquify;
+    }
     if (demoMode == 2) {
         d.ConvertToNodes();
         // Add a custom HLSL node between the output and its input.

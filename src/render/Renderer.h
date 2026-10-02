@@ -95,6 +95,8 @@ public:
     // Retouch brushes (Retouch.cpp); call between BeginStroke/EndStroke.
     void RetouchDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, const RetouchParams& p);
     void SmudgeDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, float strength);
+    // Liquify brush (mode: 0 push, 1 twirl cw, 2 twirl ccw, 3 pucker, 4 bloat, 5 reconstruct).
+    void LiquifyDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, int mode, float strength);
 
     void ApplyGradient(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, float2 a, float2 b,
                        int shape, float4 colorA, float4 colorB, float opacity, const std::string& label);
@@ -216,6 +218,9 @@ private:
     gpu::TexturePtr strokePre, strokeMask;
     Rect strokeRect;
     gpu::TexturePtr smudgeSnap;
+    gpu::TexturePtr liqDisp, liqSnap;  // stroke displacement field, per-dab snapshot
+    bool liqActive = false, haveLiq = false;
+    float2 lastLiq;
     float2 lastSmudge;
     bool haveSmudge = false;
 };

@@ -465,6 +465,8 @@ void Renderer::EndStroke(Document& doc, gpu::CommandContext& ctx, History& hist,
         }
     }
     strokeSurface = 0;
+    liqActive = false;
+    if (doc.tiled) liqDisp.reset();
     if (doc.tiled) {
         // Very large documents: release the full-size stroke scratch buffers between strokes.
         strokePre.reset();
