@@ -162,6 +162,27 @@ void App::RunDemo() {
         wand.surface = bucketSurface;
         tool = Tool::Smudge;
     }
+    if (demoMode == 7) {
+        // Clipping: a rainbow gradient clipped to the paint strokes; then group paint+glow
+        // and apply a group opacity; a hidden noise layer inside a collapsed group.
+        d.S().activeLayer = paintId;
+        Layer& rainbow = d.AddEffectLayer(LayerKind::Fill, "gradient_fill");
+        rainbow.name = "Dégradé écrêté";
+        rainbow.effect.params[0] = {1.0f, 0.1f, 0.05f, 1};
+        rainbow.effect.params[1] = {0.1f, 0.3f, 1.0f, 1};
+        rainbow.effect.params[3] = {0, 0, 0, 0};
+        rainbow.clipped = true;
+        d.SyncGraph();
+        Layer& grp = d.GroupLayer(paintId);
+        Id gid = grp.id;
+        // Move the clipped gradient into the group, above the paint layer.
+        Id rid = 0;
+        for (auto& l : d.S().layers) if (l.name == "Dégradé écrêté") rid = l.id;
+        d.MoveLayerTo(rid, paintId, false);
+        if (Layer* g = d.FindLayer(gid)) { g->name = "Groupe peinture"; g->opacity = 0.85f; }
+        d.SyncGraph();
+        d.S().activeLayer = gid;
+    }
     if (demoMode == 2) {
         d.ConvertToNodes();
         // Add a custom HLSL node between the output and its input.

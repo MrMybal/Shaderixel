@@ -175,6 +175,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
             h.Pod(u8(1));
             h.Pod(n->blend);
             h.Pod(n->opacity);
+            h.Pod(n->clip);
             h.Pod(doc.blendInGamma);
             for (auto& r : in) h.Pod(r.hash);
             h.Pod(W);
@@ -194,7 +195,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
                 d.srv[1] = in[1].tex;
                 d.srv[2] = in[2].tex;
                 d.uav[0] = c.tex.get();
-                u32 flags = (in[2].tex ? 1u : 0u) | (doc.blendInGamma ? 2u : 0u) | 4u | (in[0].tex ? 8u : 0u);
+                u32 flags = (in[2].tex ? 1u : 0u) | (doc.blendInGamma ? 2u : 0u) | 4u | (in[0].tex ? 8u : 0u) | (n->clip ? 16u : 0u);
                 SetConstants(d, CompositeRoot{W, H, (u32)n->blend, n->opacity, flags});
                 d.threadsX = W;
                 d.threadsY = H;

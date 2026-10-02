@@ -7,7 +7,7 @@ cbuffer Root : register(b0)
     uint2 gSize;
     uint gMode;
     float gOpacity;
-    uint gFlags;    // 1 = has mask, 2 = blend in gamma (Photoshop-like), 4 = has top, 8 = has base
+    uint gFlags;    // 1 = has mask, 2 = blend in gamma (Photoshop-like), 4 = has top, 8 = has base, 16 = clip to base alpha
 };
 
 Texture2D<float4> gBase : register(t0);
@@ -40,5 +40,11 @@ void main(uint3 id : SV_DispatchThreadID)
     // W3C compositing: separable blend then source-over, premultiplied result.
     float3 rgb = as * (1.0 - ab) * cs + as * ab * mixed + (1.0 - as) * ab * cb;
     float a = as + ab * (1.0 - as);
+    if (gFlags & 16)
+    {
+        // Clipping mask: the top only shows where the base exists; base alpha is kept.
+        rgb = as * ab * mixed + (1.0 - as) * ab * cb;
+        a = ab;
+    }
     gOut[id.xy] = float4(rgb, a);
 }

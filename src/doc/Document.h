@@ -50,7 +50,7 @@ private:
     mutable std::string cachedCode;
 };
 
-enum class LayerKind : u8 { Pixel, Fill, Adjustment };
+enum class LayerKind : u8 { Pixel, Fill, Adjustment, Group };
 
 struct Layer {
     Id id = 0;
@@ -65,6 +65,10 @@ struct Layer {
     bool locked = false;
     Id mask = 0;              // mask surface (0 = none)
     bool maskEnabled = true;
+    Id parent = 0;            // enclosing group (0 = root)
+    bool clipped = false;     // clipping mask: clipped to the layer below
+    bool passThrough = true;  // groups: blend children straight into the parent stack
+    bool collapsed = false;   // groups: UI state
 };
 
 enum class NodeKind : u8 { Output, Surface, Effect, Blend };
@@ -79,6 +83,7 @@ struct Node {
     BlendMode blend = BlendMode::Normal;  // Blend nodes
     float opacity = 1.0f;
     bool bypass = false;
+    bool clip = false;        // Blend: keep the base alpha (clipping mask)
     std::vector<Id> inputs;   // per input pin, 0 = unconnected
     Id layer = 0;             // generated from this layer (layer mode)
 };
@@ -145,6 +150,13 @@ public:
     Layer& AddEffectLayer(LayerKind kind, const std::string& effectId, int index = -1);
     void RemoveLayer(Id id);
     void MoveLayer(Id id, int newIndex);
+    void MoveLayerSibling(Id id, int dir);           // +1 up, -1 down among siblings
+    void MoveLayerTo(Id id, Id target, bool into);   // above target, or into a group
+    Layer& GroupLayer(Id id);                         // wrap a layer in a new group
+    void Ungroup(Id groupId);
+    bool IsDescendant(Id layer, Id group) const;
+    int LayerDepth(Id id) const;
+    int BlockStart(Id id) const;                      // first index of a layer's block
     Layer& DuplicateLayer(Id id);
     void AddMask(Id layerId);
     std::vector<std::pair<Id, Id>> pendingCopies;  // (dst surface, src surface)

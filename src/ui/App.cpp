@@ -66,7 +66,7 @@ void App::ParseCommandLine() {
         if (a == "--test-effects") testEffects = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -511,6 +511,23 @@ void App::LayerMenuItems() {
             d.RemoveLayer(l->id);
             e.Commit();
         }
+        if (ImGui::MenuItem("Grouper", "Ctrl+G", false, l != nullptr)) {
+            Edit e(d, v->history, "Grouper");
+            d.GroupLayer(l->id);
+            e.Commit();
+        }
+        if (ImGui::MenuItem("Dissocier", "Ctrl+Maj+G", false, l && l->kind == LayerKind::Group)) {
+            Edit e(d, v->history, "Dissocier");
+            d.Ungroup(l->id);
+            e.Commit();
+        }
+        if (ImGui::MenuItem("Masque d'écrêtage", "Ctrl+Alt+G", l && l->clipped, l && l->kind != LayerKind::Group)) {
+            Edit e(d, v->history, "Masque d'écrêtage");
+            l->clipped = !l->clipped;
+            d.SyncGraph();
+            e.Commit();
+        }
+        ImGui::Separator();
         if (ImGui::MenuItem("Ajouter un masque de fusion", nullptr, false, l && !l->mask)) {
             Edit e(d, v->history, "Ajouter un masque");
             MaskFromSelection(*v, l->id, true);
@@ -605,6 +622,25 @@ void App::HandleShortcuts() {
             d.AddPixelLayer("Calque " + std::to_string(d.S().layers.size() + 1));
             e.Commit();
         }
+        Layer* al = d.ActiveLayer();
+        if (al && ctrl && !alt && pressed(ImGuiKey_G)) {
+            Edit e(d, v->history, shift ? "Dissocier" : "Grouper");
+            if (shift) d.Ungroup(al->id); else d.GroupLayer(al->id);
+            e.Commit();
+            al = nullptr;
+        }
+        if (al && ctrl && alt && pressed(ImGuiKey_G) && al->kind != LayerKind::Group) {
+            Edit e(d, v->history, "Masque d'écrêtage");
+            al->clipped = !al->clipped;
+            d.SyncGraph();
+            e.Commit();
+            al = nullptr;
+        }
+        if (al && ctrl && (pressed(ImGuiKey_RightBracket) || pressed(ImGuiKey_LeftBracket))) {
+            Edit e(d, v->history, "Déplacer le calque");
+            d.MoveLayerSibling(al->id, pressed(ImGuiKey_RightBracket) ? 1 : -1);
+            e.Commit();
+        }
         if (ctrl && pressed(ImGuiKey_J) && d.ActiveLayer()) {
             if (d.S().selection || shift) LayerViaCopy(*v, shift);
             else {
@@ -614,7 +650,7 @@ void App::HandleShortcuts() {
             }
         }
     }
-    if (alt && (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_Backspace))) FillOrErase(*v, false);
+    if (alt && !ctrl && (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_Backspace))) FillOrErase(*v, false);
     if (ctrl || alt) return;
 
     if (pressed(ImGuiKey_Delete) && d.S().selection && d.PaintTarget()) FillOrErase(*v, true);

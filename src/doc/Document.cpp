@@ -149,11 +149,52 @@ int Document::LayerIndex(Id id) const {
     return -1;
 }
 
-static int InsertIndex(const DocState& s, int index) {
+// Layer list layout: bottom -> top. A group entry comes right AFTER (above) its
+// contiguous block of descendants, like Photoshop's panel read upside down.
+
+bool Document::IsDescendant(Id layer, Id group) const {
+    const Layer* l = nullptr;
+    for (auto& x : state.layers) if (x.id == layer) l = &x;
+    while (l && l->parent) {
+        if (l->parent == group) return true;
+        const Layer* p = nullptr;
+        for (auto& x : state.layers) if (x.id == l->parent) p = &x;
+        l = p;
+    }
+    return false;
+}
+
+int Document::LayerDepth(Id id) const {
+    int d = 0;
+    const Layer* l = nullptr;
+    for (auto& x : state.layers) if (x.id == id) l = &x;
+    while (l && l->parent) {
+        ++d;
+        const Layer* p = nullptr;
+        for (auto& x : state.layers) if (x.id == l->parent) p = &x;
+        l = p;
+    }
+    return d;
+}
+
+int Document::BlockStart(Id id) const {
+    int i = LayerIndex(id);
+    if (i < 0) return -1;
+    int s = i;
+    if (state.layers[i].kind == LayerKind::Group)
+        while (s > 0 && IsDescendant(state.layers[s - 1].id, id)) --s;
+    return s;
+}
+
+static int InsertIndex(Document& d, int index, Id* parent) {
+    const DocState& s = d.S();
     if (index >= 0) return std::min(index, (int)s.layers.size());
-    // Default: above the active layer, like Photoshop.
+    // Default: above the active layer (or its whole group block), same parent.
     for (size_t i = 0; i < s.layers.size(); ++i)
-        if (s.layers[i].id == s.activeLayer) return (int)i + 1;
+        if (s.layers[i].id == s.activeLayer) {
+            if (parent) *parent = s.layers[i].parent;
+            return (int)i + 1;
+        }
     return (int)s.layers.size();
 }
 
@@ -163,7 +204,7 @@ Layer& Document::AddPixelLayer(const std::string& lname, int index) {
     l.name = lname;
     l.kind = LayerKind::Pixel;
     l.surface = CreateSurface({0, 0, 0, 0});
-    int at = InsertIndex(state, index);
+    int at = InsertIndex(*this, index, &l.parent);
     state.layers.insert(state.layers.begin() + at, l);
     state.activeLayer = l.id;
     state.editMask = false;
@@ -179,7 +220,7 @@ Layer& Document::AddEffectLayer(LayerKind kind, const std::string& effectId, int
     auto def = Effects().Find(effectId);
     l.name = def ? def->name : effectId;
     if (def) l.effect.params = def->DefaultParams();
-    int at = InsertIndex(state, index);
+    int at = InsertIndex(*this, index, &l.parent);
     state.layers.insert(state.layers.begin() + at, l);
     state.activeLayer = l.id;
     state.editMask = false;
@@ -187,19 +228,92 @@ Layer& Document::AddEffectLayer(LayerKind kind, const std::string& effectId, int
     return state.layers[at];
 }
 
+Layer& Document::GroupLayer(Id id) {
+    int i = LayerIndex(id);
+    int s = BlockStart(id);
+    Layer g;
+    g.id = NewId();
+    g.kind = LayerKind::Group;
+    g.name = "Groupe " + std::to_string(std::count_if(state.layers.begin(), state.layers.end(), [](const Layer& x) { return x.kind == LayerKind::Group; }) + 1);
+    g.parent = state.layers[i].parent;
+    for (int k = s; k <= i; ++k)
+        if (state.layers[k].parent == g.parent) state.layers[k].parent = g.id;
+    state.layers[i].clipped = false;
+    state.layers.insert(state.layers.begin() + i + 1, g);
+    state.activeLayer = g.id;
+    state.editMask = false;
+    SyncGraph();
+    return state.layers[i + 1];
+}
+
+void Document::Ungroup(Id groupId) {
+    int i = LayerIndex(groupId);
+    if (i < 0 || state.layers[i].kind != LayerKind::Group) return;
+    Id parent = state.layers[i].parent;
+    for (auto& l : state.layers) if (l.parent == groupId) l.parent = parent;
+    state.layers.erase(state.layers.begin() + i);
+    if (state.activeLayer == groupId) state.activeLayer = i > 0 ? state.layers[i - 1].id : 0;
+    SyncGraph();
+}
+
 void Document::RemoveLayer(Id id) {
     int i = LayerIndex(id);
     if (i < 0) return;
-    state.layers.erase(state.layers.begin() + i);
-    if (state.activeLayer == id)
-        state.activeLayer = state.layers.empty() ? 0 : state.layers[std::max(0, i - 1)].id;
+    int s = BlockStart(id);
+    state.layers.erase(state.layers.begin() + s, state.layers.begin() + i + 1);
+    if (state.activeLayer == id || !FindLayer(state.activeLayer))
+        state.activeLayer = state.layers.empty() ? 0 : state.layers[std::clamp(s - 1, 0, (int)state.layers.size() - 1)].id;
     state.editMask = false;
     SyncGraph();
 }
 
-void Document::MoveLayer(Id id, int newIndex) {
+// Move a layer (with its block) among its siblings: dir = +1 up, -1 down.
+void Document::MoveLayerSibling(Id id, int dir) {
     int i = LayerIndex(id);
     if (i < 0) return;
+    Id parent = state.layers[i].parent;
+    int s = BlockStart(id);
+    auto& L = state.layers;
+    if (dir > 0) {
+        int k = i + 1;
+        while (k < (int)L.size() && L[k].parent != parent) {
+            if (L[k].id == parent) return;  // reached our group's entry: already on top
+            ++k;
+        }
+        if (k >= (int)L.size()) return;
+        std::rotate(L.begin() + s, L.begin() + i + 1, L.begin() + k + 1);
+    } else {
+        if (s == 0 || L[s - 1].parent != parent) return;
+        int bs = BlockStart(L[s - 1].id);
+        std::rotate(L.begin() + bs, L.begin() + s, L.begin() + i + 1);
+    }
+    SyncGraph();
+}
+
+// Move a layer block above `target` (same parent as target), or inside it when it is a group.
+void Document::MoveLayerTo(Id id, Id target, bool into) {
+    if (id == target || IsDescendant(target, id)) return;
+    int i = LayerIndex(id);
+    int s = BlockStart(id);
+    if (i < 0 || LayerIndex(target) < 0) return;
+    std::vector<Layer> block(state.layers.begin() + s, state.layers.begin() + i + 1);
+    state.layers.erase(state.layers.begin() + s, state.layers.begin() + i + 1);
+    int t = LayerIndex(target);
+    Layer& top = block.back();
+    if (into && state.layers[t].kind == LayerKind::Group) {
+        top.parent = target;
+        state.layers.insert(state.layers.begin() + t, block.begin(), block.end());  // just below the group entry = top child
+    } else {
+        top.parent = state.layers[t].parent;
+        state.layers.insert(state.layers.begin() + t + 1, block.begin(), block.end());
+    }
+    SyncGraph();
+}
+
+void Document::MoveLayer(Id id, int newIndex) {
+    // Legacy flat move (root-level documents).
+    int i = LayerIndex(id);
+    if (i < 0 || state.layers[i].kind == LayerKind::Group) return;
     newIndex = std::clamp(newIndex, 0, (int)state.layers.size() - 1);
     Layer l = state.layers[i];
     state.layers.erase(state.layers.begin() + i);
@@ -209,23 +323,30 @@ void Document::MoveLayer(Id id, int newIndex) {
 
 Layer& Document::DuplicateLayer(Id id) {
     int i = LayerIndex(id);
-    Layer copy = state.layers[i];
-    copy.id = NewId();
-    copy.name += " copie";
-    if (copy.surface) {
-        Id src = copy.surface;
-        copy.surface = CreateSurface({0, 0, 0, 0});
-        pendingCopies.push_back({copy.surface, src});
+    int s = BlockStart(id);
+    std::vector<Layer> block(state.layers.begin() + s, state.layers.begin() + i + 1);
+    std::unordered_map<Id, Id> remap;
+    for (auto& l : block) remap[l.id] = NewId();
+    for (auto& l : block) {
+        l.id = remap[l.id];
+        if (remap.count(l.parent)) l.parent = remap[l.parent];
+        if (l.surface) {
+            Id src = l.surface;
+            l.surface = CreateSurface({0, 0, 0, 0});
+            pendingCopies.push_back({l.surface, src});
+        }
+        if (l.mask) {
+            Id src = l.mask;
+            l.mask = CreateSurface({1, 1, 1, 1});
+            pendingCopies.push_back({l.mask, src});
+        }
     }
-    if (copy.mask) {
-        Id src = copy.mask;
-        copy.mask = CreateSurface({1, 1, 1, 1});
-        pendingCopies.push_back({copy.mask, src});
-    }
-    state.layers.insert(state.layers.begin() + i + 1, copy);
-    state.activeLayer = copy.id;
+    block.back().name += " copie";
+    state.layers.insert(state.layers.begin() + i + 1, block.begin(), block.end());
+    int ni = i + (int)block.size();
+    state.activeLayer = state.layers[ni].id;
     SyncGraph();
-    return state.layers[i + 1];
+    return state.layers[ni];
 }
 
 void Document::AddMask(Id layerId) {
@@ -242,19 +363,46 @@ void Document::SyncGraph() {
     dirty = true;
 }
 
-void Document::RebuildFromLayers() {
+namespace {
+struct GraphBuilder {
+    Document& doc;
     Graph g;
-    Node out;
-    out.id = kOutputId;
-    out.kind = NodeKind::Output;
-    out.name = "Sortie";
-    out.inputs = {0};
-    Id prev = 0;
     float x = 0;
-    for (const Layer& l : state.layers) {
+
+    Id Blend(const Layer& l, Id base, Id top, Id mask, BlendMode mode, float opacity, bool clip, bool bypass, float2 pos, u32 role) {
+        Node b;
+        b.id = GenId(l.id, role);
+        b.kind = NodeKind::Blend;
+        b.name = "Fusion " + l.name;
+        b.blend = mode;
+        b.opacity = opacity;
+        b.clip = clip;
+        b.bypass = bypass;
+        b.inputs = {base, top, mask};
+        b.pos = pos;
+        b.layer = l.id;
+        g.nodes.push_back(b);
+        return b.id;
+    }
+
+    Id MaskNode(const Layer& l, float2 pos) {
+        if (!l.mask || !l.maskEnabled) return 0;
+        Node m;
+        m.id = GenId(l.id, RoleMask);
+        m.kind = NodeKind::Surface;
+        m.name = l.name + " (masque)";
+        m.surface = l.mask;
+        m.pos = pos;
+        m.layer = l.id;
+        g.nodes.push_back(m);
+        return m.id;
+    }
+
+    // Content of a non-group layer (source + filters). Adjustments read `base`.
+    Id Content(const Layer& l, Id base, float& y) {
         x += 240.0f;
-        Id src = 0;
-        float y = 0;
+        y = 0;
+        Id src;
         if (l.kind == LayerKind::Pixel) {
             Node n;
             n.id = GenId(l.id, RoleSource);
@@ -275,7 +423,7 @@ void Document::RebuildFromLayers() {
             n.layer = l.id;
             int nin = NodeInputCount(n);
             n.inputs.assign(nin, 0);
-            if (l.kind == LayerKind::Adjustment && nin > 0) n.inputs[0] = prev;
+            if (l.kind == LayerKind::Adjustment && nin > 0) n.inputs[0] = base;
             g.nodes.push_back(n);
             src = n.id;
         }
@@ -297,36 +445,61 @@ void Document::RebuildFromLayers() {
             g.nodes.push_back(n);
             src = n.id;
         }
-        Id maskNode = 0;
-        if (l.mask && l.maskEnabled) {
-            Node m;
-            m.id = GenId(l.id, RoleMask);
-            m.kind = NodeKind::Surface;
-            m.name = l.name + " (masque)";
-            m.surface = l.mask;
-            m.pos = {x - 120.0f, y + 170.0f};
-            m.layer = l.id;
-            g.nodes.push_back(m);
-            maskNode = m.id;
-        }
-        Node b;
-        b.id = GenId(l.id, RoleBlend);
-        b.kind = NodeKind::Blend;
-        b.name = "Fusion " + l.name;
-        b.blend = l.blend;
-        b.opacity = l.opacity;
-        b.bypass = !l.visible;
-        b.inputs = {prev, src, maskNode};
-        b.pos = {x + 40.0f, y + 340.0f};
-        b.layer = l.id;
-        g.nodes.push_back(b);
-        prev = b.id;
+        return src;
     }
-    out.inputs[0] = prev;
-    out.pos = {x + 300.0f, 340.0f + 170.0f};
-    g.nodes.push_back(out);
-    g.output = kOutputId;
-    state.graph = std::move(g);
+
+    Id Stack(Id parent, Id base) {
+        const auto& layers = doc.S().layers;
+        std::vector<const Layer*> kids;
+        for (auto& l : layers) if (l.parent == parent) kids.push_back(&l);
+        for (size_t i = 0; i < kids.size(); ++i) {
+            const Layer& l = *kids[i];
+            // Clipped layers directly above l (l itself may not be clipped).
+            size_t j = i + 1;
+            while (j < kids.size() && kids[j]->clipped && kids[j]->kind != LayerKind::Group) ++j;
+            float y = 0;
+            Id content;
+            if (l.kind == LayerKind::Group) {
+                if (l.passThrough && j == i + 1) {
+                    Id inner = Stack(l.id, base);
+                    bool needsBlend = l.opacity < 0.999f || (l.mask && l.maskEnabled) || !l.visible;
+                    if (needsBlend && inner)
+                        base = Blend(l, base, inner, MaskNode(l, {x, 520}), BlendMode::Normal, l.opacity, false, !l.visible, {x + 40, 520}, RoleBlend);
+                    else if (inner)
+                        base = inner;
+                    continue;
+                }
+                content = Stack(l.id, 0);
+                y = 340;
+            } else {
+                content = Content(l, base, y);
+            }
+            for (size_t k = i + 1; k < j; ++k) {
+                const Layer& c = *kids[k];
+                float cy = 0;
+                Id cc = Content(c, content, cy);
+                content = Blend(c, content, cc, MaskNode(c, {x - 120, cy + 170}), c.blend, c.opacity, true, !c.visible, {x + 40, cy + 340}, RoleBlend);
+            }
+            base = Blend(l, base, content, MaskNode(l, {x - 120, y + 170}), l.blend, l.opacity, false, !l.visible, {x + 40, y + 340}, RoleBlend);
+            i = j - 1;
+        }
+        return base;
+    }
+};
+}  // namespace
+
+void Document::RebuildFromLayers() {
+    GraphBuilder b{*this};
+    Id result = b.Stack(0, 0);
+    Node out;
+    out.id = kOutputId;
+    out.kind = NodeKind::Output;
+    out.name = "Sortie";
+    out.inputs = {result};
+    out.pos = {b.x + 300.0f, 510.0f};
+    b.g.nodes.push_back(out);
+    b.g.output = kOutputId;
+    state.graph = std::move(b.g);
     state.activeNode = 0;
 }
 

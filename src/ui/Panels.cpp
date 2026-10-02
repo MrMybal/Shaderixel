@@ -110,12 +110,20 @@ void App::DrawLayers() {
     // Blend + opacity of the active layer (Photoshop header).
     ImGui::BeginDisabled(!active);
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.55f);
-    if (ImGui::BeginCombo("##blend", active ? BlendModeName(active->blend) : "Normal")) {
+    bool isGroup = active && active->kind == LayerKind::Group;
+    const char* curBlend = !active ? "Normal" : (isGroup && active->passThrough) ? "Traverser" : BlendModeName(active->blend);
+    if (ImGui::BeginCombo("##blend", curBlend)) {
+        if (isGroup && ImGui::Selectable("Traverser", active->passThrough)) {
+            active->passThrough = true;
+            d.SyncGraph();
+            v->history.PushState("Mode de fusion", frameBefore, d.S());
+        }
         for (int i = 0; i < kBlendMenuCount; ++i) {
             int m = kBlendMenuOrder[i];
             if (m < 0) { ImGui::Separator(); continue; }
-            if (ImGui::Selectable(BlendModeName((BlendMode)m), active && (int)active->blend == m)) {
+            if (ImGui::Selectable(BlendModeName((BlendMode)m), active && (int)active->blend == m && !(isGroup && active->passThrough))) {
                 active->blend = (BlendMode)m;
+                active->passThrough = false;
                 d.SyncGraph();
                 v->history.PushState("Mode de fusion", frameBefore, d.S());
             }
@@ -132,38 +140,57 @@ void App::DrawLayers() {
     TrackUndo("Opacité");
     ImGui::EndDisabled();
 
-    // Layer list, top layer first.
+    // Layer list, top layer first; children of collapsed groups are hidden.
     float thumb = 38.0f * dpi;
     ImGui::BeginChild("##layerlist", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() - 4), ImGuiChildFlags_Borders);
     auto& layers = d.S().layers;
-    int moveFrom = -1, moveTo = -1;
+    Id dragId = 0, dropTarget = 0;
+    bool dropInto = false;
+    auto hiddenByCollapse = [&](const Layer& l) {
+        Id p = l.parent;
+        while (p) {
+            Layer* g = d.FindLayer(p);
+            if (!g) break;
+            if (g->collapsed) return true;
+            p = g->parent;
+        }
+        return false;
+    };
     for (int i = (int)layers.size() - 1; i >= 0; --i) {
         Layer& l = layers[i];
+        if (hiddenByCollapse(l)) continue;
         ImGui::PushID((int)l.id);
         bool selected = l.id == d.S().activeLayer;
+        bool group = l.kind == LayerKind::Group;
+        int depth = d.LayerDepth(l.id);
+        float indent = depth * 16.0f * dpi + (l.clipped ? 14.0f * dpi : 0.0f);
         ImVec2 rowMin = ImGui::GetCursorScreenPos();
-        float rowH = thumb + 8;
+        float rowH = group ? ImGui::GetFrameHeight() + 8 : thumb + 8;
         float w = ImGui::GetContentRegionAvail().x;
-        if (ImGui::Selectable("##row", selected, ImGuiSelectableFlags_AllowOverlap, ImVec2(w, rowH))) {
+        if (ImGui::Selectable("##row", selected, ImGuiSelectableFlags_AllowOverlap | ImGuiSelectableFlags_AllowDoubleClick, ImVec2(w, rowH))) {
             ImGuiIO& io = ImGui::GetIO();
-            if (io.KeyCtrl) {  // Ctrl+click: load layer pixels as selection
+            if (io.KeyCtrl && !group) {  // Ctrl+click: load layer pixels as selection
                 SelMode m = io.KeyShift && io.KeyAlt ? SelMode::Intersect : io.KeyShift ? SelMode::Add : io.KeyAlt ? SelMode::Subtract : SelMode::Replace;
                 SelectFromLayer(*v, l, m);
             } else {
                 d.S().activeLayer = l.id;
                 d.S().editMask = false;
+                if (group && ImGui::IsMouseDoubleClicked(0)) l.collapsed = !l.collapsed;
             }
         }
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) ImGui::SetTooltip("Ctrl+clic : sélectionner les pixels du calque");
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) && !group) ImGui::SetTooltip("Ctrl+clic : sélectionner les pixels du calque");
         if (ImGui::BeginDragDropSource()) {
-            ImGui::SetDragDropPayload("SX_LAYER", &i, sizeof(int));
+            Id id = l.id;
+            ImGui::SetDragDropPayload("SX_LAYER", &id, sizeof(Id));
             ImGui::Text("%s", l.name.c_str());
             ImGui::EndDragDropSource();
         }
         if (ImGui::BeginDragDropTarget()) {
             if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload("SX_LAYER")) {
-                moveFrom = *(const int*)p->Data;
-                moveTo = i;
+                dragId = *(const Id*)p->Data;
+                dropTarget = l.id;
+                // Dropping on the lower half of a group row puts the layer inside it.
+                dropInto = group && ImGui::GetMousePos().y > rowMin.y + rowH * 0.5f;
             }
             ImGui::EndDragDropTarget();
         }
@@ -181,52 +208,73 @@ void App::DrawLayers() {
             d.SyncGraph();
             v->history.PushState(l.visible ? "Afficher le calque" : "Masquer le calque", before, d.S());
         }
-        // Thumbnail(s)
-        ImVec2 tp(rowMin.x + 30 * dpi, rowMin.y + 4);
-        gpu::Texture* src = nullptr;
-        u64 hash = 0;
-        if (l.kind == LayerKind::Pixel) {
-            if (Surface* s = d.GetSurface(l.surface)) { src = s->tex.get(); hash = s->version; }
+        float x0 = rowMin.x + 30 * dpi + indent;
+        if (l.clipped) {  // clipping arrow
+            float cx = x0 - 9 * dpi, cy = rowMin.y + rowH * 0.5f;
+            dl->AddLine(ImVec2(cx, cy - 8 * dpi), ImVec2(cx, cy + 4 * dpi), ui::col::TextDim, 1.5f);
+            dl->AddTriangleFilled(ImVec2(cx - 4 * dpi, cy + 3 * dpi), ImVec2(cx + 4 * dpi, cy + 3 * dpi), ImVec2(cx, cy + 8 * dpi), ui::col::TextDim);
+        }
+        float textX;
+        if (group) {
+            // Collapse arrow + folder icon
+            float h = rowH;
+            ImGui::SetCursorScreenPos(ImVec2(x0, rowMin.y + (h - 18 * dpi) * 0.5f));
+            if (ImGui::InvisibleButton("##fold", ImVec2(16 * dpi, 18 * dpi))) l.collapsed = !l.collapsed;
+            ImVec2 c(x0 + 8 * dpi, rowMin.y + h * 0.5f);
+            float a = 4.5f * dpi;
+            if (l.collapsed) dl->AddTriangleFilled(ImVec2(c.x - a * 0.6f, c.y - a), ImVec2(c.x + a, c.y), ImVec2(c.x - a * 0.6f, c.y + a), ui::col::Text);
+            else dl->AddTriangleFilled(ImVec2(c.x - a, c.y - a * 0.6f), ImVec2(c.x + a, c.y - a * 0.6f), ImVec2(c.x, c.y + a), ui::col::Text);
+            ui::DrawIcon(dl, ui::IconFolder, ImVec2(x0 + 30 * dpi, c.y), 18 * dpi, l.passThrough ? ui::col::TextDim : ui::col::Accent2);
+            textX = x0 + 46 * dpi;
         } else {
-            for (auto& n : d.S().graph.nodes)
-                if (n.layer == l.id && n.kind == NodeKind::Effect) {
-                    src = v->renderer.NodeOutput(n.id);
-                    hash = v->renderer.NodeHash(n.id);
-                    break;
+            // Thumbnail(s)
+            ImVec2 tp(x0, rowMin.y + 4);
+            gpu::Texture* src = nullptr;
+            u64 hash = 0;
+            if (l.kind == LayerKind::Pixel) {
+                if (Surface* s = d.GetSurface(l.surface)) { src = s->tex.get(); hash = s->version; }
+            } else {
+                for (auto& n : d.S().graph.nodes)
+                    if (n.layer == l.id && n.kind == NodeKind::Effect) {
+                        src = v->renderer.NodeOutput(n.id);
+                        hash = v->renderer.NodeHash(n.id);
+                        break;
+                    }
+            }
+            if (src) {
+                gpu::Texture* t = v->renderer.Thumbnail(*ctx, ((u64)l.id << 1), src, hash, (u32)thumb, (u32)thumb);
+                dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), tp, ImVec2(tp.x + thumb, tp.y + thumb));
+            }
+            if (l.kind != LayerKind::Pixel) ui::DrawIcon(dl, ui::IconFx, ImVec2(tp.x + thumb * 0.5f, tp.y + thumb * 0.5f), thumb * 0.5f, IM_COL32(255, 255, 255, 200));
+            bool contentSel = selected && !d.S().editMask;
+            dl->AddRect(ImVec2(tp.x - 1, tp.y - 1), ImVec2(tp.x + thumb + 1, tp.y + thumb + 1), contentSel ? ui::col::Accent2 : ui::col::Border, 0, 0, contentSel ? 2.0f : 1.0f);
+            textX = tp.x + thumb + 8;
+            if (l.mask) {
+                ImVec2 mp(textX, tp.y);
+                if (Surface* s = d.GetSurface(l.mask)) {
+                    gpu::Texture* t = v->renderer.Thumbnail(*ctx, ((u64)l.id << 1) | 1, s->tex.get(), s->version, (u32)thumb, (u32)thumb);
+                    dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), mp, ImVec2(mp.x + thumb, mp.y + thumb));
                 }
-        }
-        if (src) {
-            gpu::Texture* t = v->renderer.Thumbnail(*ctx, ((u64)l.id << 1), src, hash, (u32)thumb, (u32)thumb);
-            dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), tp, ImVec2(tp.x + thumb, tp.y + thumb));
-        }
-        if (l.kind != LayerKind::Pixel) ui::DrawIcon(dl, ui::IconFx, ImVec2(tp.x + thumb * 0.5f, tp.y + thumb * 0.5f), thumb * 0.5f, IM_COL32(255, 255, 255, 200));
-        bool contentSel = selected && !d.S().editMask;
-        dl->AddRect(ImVec2(tp.x - 1, tp.y - 1), ImVec2(tp.x + thumb + 1, tp.y + thumb + 1), contentSel ? ui::col::Accent2 : ui::col::Border, 0, 0, contentSel ? 2.0f : 1.0f);
-        float textX = tp.x + thumb + 8;
-        if (l.mask) {
-            ImVec2 mp(textX, tp.y);
-            if (Surface* s = d.GetSurface(l.mask)) {
-                gpu::Texture* t = v->renderer.Thumbnail(*ctx, ((u64)l.id << 1) | 1, s->tex.get(), s->version, (u32)thumb, (u32)thumb);
-                dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), mp, ImVec2(mp.x + thumb, mp.y + thumb));
+                bool maskSel = selected && d.S().editMask;
+                dl->AddRect(ImVec2(mp.x - 1, mp.y - 1), ImVec2(mp.x + thumb + 1, mp.y + thumb + 1), maskSel ? ui::col::Accent2 : ui::col::Border, 0, 0, maskSel ? 2.0f : 1.0f);
+                if (!l.maskEnabled) dl->AddLine(mp, ImVec2(mp.x + thumb, mp.y + thumb), ui::col::Error, 2);
+                ImGui::SetCursorScreenPos(mp);
+                if (ImGui::InvisibleButton("##mask", ImVec2(thumb, thumb))) {
+                    d.S().activeLayer = l.id;
+                    d.S().editMask = true;
+                }
+                ui::HelpTooltip("Clic : éditer le masque");
+                ImGui::SetCursorScreenPos(tp);
+                if (ImGui::InvisibleButton("##content", ImVec2(thumb, thumb))) {
+                    d.S().activeLayer = l.id;
+                    d.S().editMask = false;
+                }
+                textX += thumb + 8;
             }
-            bool maskSel = selected && d.S().editMask;
-            dl->AddRect(ImVec2(mp.x - 1, mp.y - 1), ImVec2(mp.x + thumb + 1, mp.y + thumb + 1), maskSel ? ui::col::Accent2 : ui::col::Border, 0, 0, maskSel ? 2.0f : 1.0f);
-            if (!l.maskEnabled) dl->AddLine(mp, ImVec2(mp.x + thumb, mp.y + thumb), ui::col::Error, 2);
-            ImGui::SetCursorScreenPos(mp);
-            if (ImGui::InvisibleButton("##mask", ImVec2(thumb, thumb))) {
-                d.S().activeLayer = l.id;
-                d.S().editMask = true;
-            }
-            ui::HelpTooltip("Clic : éditer le masque");
-            ImGui::SetCursorScreenPos(tp);
-            if (ImGui::InvisibleButton("##content", ImVec2(thumb, thumb))) {
-                d.S().activeLayer = l.id;
-                d.S().editMask = false;
-            }
-            textX += thumb + 8;
         }
         ImVec2 tpos(textX, rowMin.y + (rowH - ImGui::GetFontSize()) * 0.5f);
         dl->AddText(tpos, l.visible ? ui::col::Text : ui::col::TextDim, l.name.c_str());
+        if (l.clipped) dl->AddLine(ImVec2(tpos.x, tpos.y + ImGui::GetFontSize() + 1), ImVec2(tpos.x + ImGui::CalcTextSize(l.name.c_str()).x, tpos.y + ImGui::GetFontSize() + 1), ui::col::TextDim);
         if (l.locked) ui::DrawIcon(dl, ui::IconLock, ImVec2(rowMin.x + w - 14 * dpi, rowMin.y + rowH * 0.5f), 12 * dpi, ui::col::TextDim);
         if (l.filters.size()) {
             char fx[16];
@@ -238,9 +286,9 @@ void App::DrawLayers() {
     }
     ImGui::Dummy(ImVec2(1, 1));
     ImGui::EndChild();
-    if (moveFrom >= 0 && moveTo >= 0 && moveFrom != moveTo) {
+    if (dragId && dropTarget && dragId != dropTarget) {
         Edit e(d, v->history, "Déplacer le calque");
-        d.MoveLayer(layers[moveFrom].id, moveTo);
+        d.MoveLayerTo(dragId, dropTarget, dropInto);
         e.Commit();
     }
 
@@ -249,6 +297,12 @@ void App::DrawLayers() {
     if (ui::IconButton("new", ui::IconPlus, false, bs, "Nouveau calque (Ctrl+Maj+N)")) {
         Edit e(d, v->history, "Nouveau calque");
         d.AddPixelLayer("Calque " + std::to_string(layers.size() + 1));
+        e.Commit();
+    }
+    ImGui::SameLine();
+    if (ui::IconButton("grp", ui::IconFolder, false, bs, "Grouper le calque (Ctrl+G)") && active) {
+        Edit e(d, v->history, "Grouper");
+        d.GroupLayer(active->id);
         e.Commit();
     }
     ImGui::SameLine();
@@ -278,16 +332,15 @@ void App::DrawLayers() {
         e.Commit();
     }
     ImGui::SameLine();
-    int ai = active ? d.LayerIndex(active->id) : -1;
-    if (ui::IconButton("up", ui::IconUp, false, bs, "Monter") && active && ai + 1 < (int)layers.size()) {
+    if (ui::IconButton("up", ui::IconUp, false, bs, "Monter (Ctrl+])") && active) {
         Edit e(d, v->history, "Monter le calque");
-        d.MoveLayer(active->id, ai + 1);
+        d.MoveLayerSibling(active->id, +1);
         e.Commit();
     }
     ImGui::SameLine();
-    if (ui::IconButton("down", ui::IconDown, false, bs, "Descendre") && active && ai > 0) {
+    if (ui::IconButton("down", ui::IconDown, false, bs, "Descendre (Ctrl+[)") && active) {
         Edit e(d, v->history, "Descendre le calque");
-        d.MoveLayer(active->id, ai - 1);
+        d.MoveLayerSibling(active->id, -1);
         e.Commit();
     }
     ImGui::SameLine();
@@ -318,7 +371,7 @@ void App::DrawProperties() {
             ImGui::InputText("Nom", &l->name);
             TrackUndo("Renommer");
             if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
-            const char* kinds[] = {"Calque de pixels", "Calque de remplissage", "Calque de réglage"};
+            const char* kinds[] = {"Calque de pixels", "Calque de remplissage", "Calque de réglage", "Groupe"};
             ImGui::TextDisabled("%s", kinds[(int)l->kind]);
             if (ImGui::Checkbox("Visible", &l->visible)) changed = true;
             TrackUndo("Visibilité");
