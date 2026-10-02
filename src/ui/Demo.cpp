@@ -73,6 +73,18 @@ void App::DemoTick() {
         if (frameCounter == 42) d.forceTiled = true;
         return;
     }
+    if (demoMode == 26 && v) {
+        // Edit > Stroke: outside (white), center (yellow), inside (red) on a new layer.
+        Document& d = *v->doc;
+        if (frameCounter == 6) {
+            d.AddPixelLayer("Contours");
+            v->renderer.SelectShape(d, *ctx, v->history, SelShape::Ellipse, {500, 250, 1100, 750}, SelMode::Replace, true, 0, "Ellipse");
+        }
+        if (frameCounter == 9) v->renderer.StrokeSelection(d, *ctx, v->history, d.PaintTarget(), 14, 2, LinearColor({1, 1, 1, 1}), 1);
+        if (frameCounter == 10) v->renderer.StrokeSelection(d, *ctx, v->history, d.PaintTarget(), 8, 1, LinearColor({1, 0.9f, 0.1f, 1}), 1);
+        if (frameCounter == 11) v->renderer.StrokeSelection(d, *ctx, v->history, d.PaintTarget(), 10, 0, LinearColor({0.9f, 0.1f, 0.15f, 1}), 1);
+        return;
+    }
     if (demoMode == 25 && v) {
         // Guides, grid and snapping.
         Document& d = *v->doc;

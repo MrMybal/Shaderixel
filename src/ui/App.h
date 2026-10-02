@@ -143,6 +143,13 @@ private:
     void ExportImage(const std::string& path);
     void ExportPsd(const std::string& path);
     void MergeDown(DocView& v);
+    // Recent files (stored next to the executable).
+    std::vector<std::string> recentFiles;
+    void LoadRecent();
+    void AddRecent(const std::string& path);
+    float strokeWidth = 4;
+    int strokePosition = 1;
+    float strokeOpacity = 1;
     // Rulers, guides, grid, snapping (Guides.cpp)
     float RulerSize() const;
     float2 Snap(const DocView& v, float2 p) const;

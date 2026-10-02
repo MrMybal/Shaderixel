@@ -137,7 +137,11 @@ public:
     void SelectionToMask(Document& doc, gpu::CommandContext& ctx, Id maskSurface, bool invert);
     // Fill (mode 0), erase (1) or keep-only-selected (2) on a surface, honoring the selection.
     void FillSelection(Document& doc, gpu::CommandContext& ctx, History* hist, Id surface, int mode, float4 colorLinear,
-                       float opacity, const std::string& label, gpu::Texture* source = nullptr, gpu::Texture* coverage = nullptr);
+                       float opacity, const std::string& label, gpu::Texture* source = nullptr, gpu::Texture* coverage = nullptr,
+                       bool useSelection = true);
+    // Edit > Stroke: paint a band along the selection edge (position 0 inside, 1 center, 2 outside).
+    bool StrokeSelection(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, float width, int position, float4 colorLinear,
+                         float opacity);
     // Async bounding box of visible pixels (optionally restricted to the selection).
     // Result: 4 x u32 {x0, y0, x1, y1}; x0 > x1 means empty.
     // dst = src * selection (or src when there is no selection).

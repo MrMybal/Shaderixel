@@ -80,7 +80,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -126,6 +126,7 @@ bool App::Init() {
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
     io.ConfigWindowsMoveFromTitleBarOnly = true;
     static std::string iniPath = ExeDir() + "/shaderixel_layout_v7.ini";
+    LoadRecent();
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
     ui::LoadFonts(dpi);
@@ -326,8 +327,34 @@ void App::CloseDocument(int index, bool force) {
     activeDoc = std::min(activeDoc, (int)docs.size() - 1);
 }
 
+void App::LoadRecent() {
+    recentFiles.clear();
+    FILE* f = nullptr;
+    if (_wfopen_s(&f, Widen(ExeDir() + "/recent.txt").c_str(), L"rb") != 0 || !f) return;
+    char line[4096];
+    while (fgets(line, sizeof(line), f)) {
+        std::string s = line;
+        while (!s.empty() && (s.back() == '\n' || s.back() == '\r')) s.pop_back();
+        if (!s.empty()) recentFiles.push_back(s);
+    }
+    fclose(f);
+}
+
+void App::AddRecent(const std::string& path) {
+    if (!path.empty()) {  // empty: just rewrite the list (after clearing it)
+        std::erase(recentFiles, path);
+        recentFiles.insert(recentFiles.begin(), path);
+        if (recentFiles.size() > 12) recentFiles.resize(12);
+    }
+    FILE* f = nullptr;
+    if (_wfopen_s(&f, Widen(ExeDir() + "/recent.txt").c_str(), L"wb") != 0 || !f) return;
+    for (auto& r : recentFiles) fprintf(f, "%s\n", r.c_str());
+    fclose(f);
+}
+
 void App::OpenImage(const std::string& path, bool asLayer) {
     if (path.empty() || !ctx) return;
+    if (!asLayer && !demoMode) AddRecent(path);
     {
         std::string ext = Narrow(Utf8Path(path).extension().wstring());
         for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
@@ -496,6 +523,21 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Nouveau...", "Ctrl+N")) showNewDoc = true;
         if (ImGui::MenuItem("Ouvrir une image...", "Ctrl+O")) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
         if (ImGui::MenuItem("Importer comme calque...", "Ctrl+Shift+O", false, v != nullptr)) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), true);
+        if (ImGui::BeginMenu("Ouvrir les fichiers récents", !recentFiles.empty())) {
+            std::string open;
+            for (auto& r : recentFiles) {
+                std::string name = Narrow(Utf8Path(r).filename().wstring());
+                if (ImGui::MenuItem((name + "##" + r).c_str())) open = r;
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", r.c_str());
+            }
+            ImGui::Separator();
+            if (ImGui::MenuItem("Effacer la liste")) {
+                recentFiles.clear();
+                AddRecent("");
+            }
+            ImGui::EndMenu();
+            if (!open.empty()) OpenImage(open, false);
+        }
         ImGui::Separator();
         if (ImGui::MenuItem("Enregistrer", "Ctrl+S", false, v != nullptr)) SaveCurrent(false);
         if (ImGui::MenuItem("Enregistrer sous...", "Ctrl+Maj+S", false, v != nullptr)) SaveCurrent(true);
@@ -520,6 +562,7 @@ void App::DrawMenuBar() {
         ImGui::Separator();
         if (ImGui::MenuItem("Remplir avec la couleur de premier plan", "Alt+Retour", false, canFill)) FillOrErase(*v, false);
         if (ImGui::MenuItem("Effacer", "Suppr", false, canFill)) FillOrErase(*v, true);
+        if (ImGui::MenuItem("Contour...", nullptr, false, canFill && v->doc->Selection() != nullptr)) selDialog = 5;
         ImGui::Separator();
         if (ImGui::MenuItem("Transformation manuelle", "Ctrl+T", false, canFill)) TransformBegin(*v, false);
         ImGui::Separator();
@@ -1125,6 +1168,7 @@ void App::SaveCurrent(bool saveAs) {
 
 void App::SaveDocument(DocView& v, const std::string& path) {
     Document& d = *v.doc;
+    if (!demoMode) AddRecent(path);
     auto job = std::make_unique<PendingSave>();
     job->path = path;
     job->meta = SerializeDocument(d);

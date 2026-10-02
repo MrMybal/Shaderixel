@@ -849,15 +849,20 @@ void App::DrawSelectionMenu() {
 }
 
 void App::DrawSelectionDialog() {
-    static const char* titles[] = {"", "Contour progressif", "Dilater la sélection", "Contracter la sélection", "Plage de couleurs"};
+    static const char* titles[] = {"", "Contour progressif", "Dilater la sélection", "Contracter la sélection", "Plage de couleurs", "Contour"};
     if (selDialog) {
         ImGui::OpenPopup("##seldialog");
     }
     if (!ImGui::BeginPopupModal("##seldialog", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar)) return;
     DocView* v = Active();
-    ImGui::TextUnformatted(titles[std::clamp(selDialog, 0, 4)]);
+    ImGui::TextUnformatted(titles[std::clamp(selDialog, 0, 5)]);
     ImGui::Separator();
-    if (selDialog == 4) ImGui::SliderFloat("Tolérance", &selDialogValue, 0, 255, "%.0f");
+    if (selDialog == 5) {
+        ImGui::SliderFloat("Épaisseur (px)", &strokeWidth, 1, 250, "%.0f", ImGuiSliderFlags_Logarithmic);
+        ImGui::Combo("Position", &strokePosition, "Intérieur\0Centre\0Extérieur\0");
+        ImGui::SliderFloat("Opacité", &strokeOpacity, 0, 1, "%.2f");
+        ImGui::TextDisabled("Couleur : premier plan");
+    } else if (selDialog == 4) ImGui::SliderFloat("Tolérance", &selDialogValue, 0, 255, "%.0f");
     else ImGui::SliderFloat("Rayon (px)", &selDialogValue, 0.5f, 250, "%.1f", ImGuiSliderFlags_Logarithmic);
     if (ImGui::Button("OK", ImVec2(100 * dpi, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
         if (v) {
@@ -865,6 +870,8 @@ void App::DrawSelectionDialog() {
             if (selDialog == 1) v->renderer.SelectionFilter(d, *ctx, v->history, 0, selDialogValue, "Contour progressif");
             else if (selDialog == 2) v->renderer.SelectionFilter(d, *ctx, v->history, 1, selDialogValue, "Dilater");
             else if (selDialog == 3) v->renderer.SelectionFilter(d, *ctx, v->history, 2, selDialogValue, "Contracter");
+            else if (selDialog == 5)
+                v->renderer.StrokeSelection(d, *ctx, v->history, d.PaintTarget(), strokeWidth, strokePosition, LinearColor(fg), strokeOpacity);
             else if (selDialog == 4)
                 v->renderer.SelectFrom(d, *ctx, v->history, v->renderer.EvaluateComplete(d, *ctx), SelSource::ColorRange, ModeFromModifiers(), fg, selDialogValue / 255.0f, "Plage de couleurs");
         }

@@ -236,14 +236,14 @@ void Renderer::SelectionToMask(Document& doc, gpu::CommandContext& ctx, Id maskS
 }
 
 void Renderer::FillSelection(Document& doc, gpu::CommandContext& ctx, History* hist, Id surface, int mode, float4 color,
-                             float opacity, const std::string& label, gpu::Texture* source, gpu::Texture* coverage) {
+                             float opacity, const std::string& label, gpu::Texture* source, gpu::Texture* coverage, bool useSelection) {
     Surface* s = doc.GetSurface(surface);
     if (!s) return;
     const u32 W = s->tex->Width(), H = s->tex->Height();
     auto before = gpu::Dev().CreateTexture(W, H, s->tex->GetFormat(), "UndoBefore");
     if (!before) return;
     ctx.CopyTexture(before.get(), s->tex.get());
-    Surface* sel = doc.Selection();
+    Surface* sel = useSelection ? doc.Selection() : nullptr;
     gpu::DispatchDesc d;
     d.pipeline = Kernel("fill_sel.slang");
     d.srv[0] = source ? source : before.get();
@@ -258,6 +258,35 @@ void Renderer::FillSelection(Document& doc, gpu::CommandContext& ctx, History* h
         hist->PushPaint(label, surface, {0, 0, (int)W, (int)H}, before, after);
     }
     doc.TouchSurface(surface);
+}
+
+bool Renderer::StrokeSelection(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, float width, int position, float4 color,
+                               float opacity) {
+    Surface* sel = doc.Selection();
+    if (!sel || !doc.GetSurface(surface) || width <= 0) return false;
+    const u32 W = doc.Width(), H = doc.Height();
+    Ensure(selTmp[0], W, H, gpu::Format::R8, "SelTmp0");
+    Ensure(selTmp[1], W, H, gpu::Format::R8, "SelTmp1");
+    auto outer = gpu::Dev().CreateTexture(W, H, gpu::Format::R8, "StrokeOuter");
+    auto inner = gpu::Dev().CreateTexture(W, H, gpu::Format::R8, "StrokeInner");
+    auto ring = gpu::Dev().CreateTexture(W, H, gpu::Format::R8, "StrokeRing");
+    gpu::Texture* src = sel->tex.get();
+    float outR = position == 0 ? 0 : position == 1 ? width * 0.5f : width;
+    float inR = position == 0 ? width : position == 1 ? width * 0.5f : 0;
+    if (outR > 0) SelFilter(ctx, 1, outR, src, selTmp[0].get(), outer.get());
+    else ctx.CopyTexture(outer.get(), src);
+    if (inR > 0) SelFilter(ctx, 2, inR, src, selTmp[1].get(), inner.get());
+    else ctx.CopyTexture(inner.get(), src);
+    gpu::DispatchDesc d;
+    d.pipeline = Kernel("sel_subtract.slang");
+    d.srv[0] = outer.get();
+    d.srv[1] = inner.get();
+    d.uav[0] = ring.get();
+    struct { u32 w, h; } root = {W, H};
+    SetConstants(d, root);
+    Dispatch2D(ctx, d, W, H);
+    FillSelection(doc, ctx, &hist, surface, 0, color, opacity, "Contour", nullptr, ring.get(), false);
+    return true;
 }
 
 void Renderer::CopySelected(Document& doc, gpu::CommandContext& ctx, gpu::Texture* src, gpu::Texture* dst) {
