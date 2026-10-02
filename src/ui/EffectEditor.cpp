@@ -92,7 +92,7 @@ void App::DrawEffectEditor() {
     auto& ed = efEd;
 
     if (!fx || fx->graph.empty()) {
-        ImGui::SetCursorPos(ImVec2(16, 16));
+        ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + 16 * dpi, ImGui::GetCursorPosY() + 12 * dpi));
         ImGui::BeginGroup();
         ImGui::TextWrapped("Sélectionnez un effet basé sur un graphe (nœud, calque de réglage ou de remplissage).");
         ImGui::Spacing();

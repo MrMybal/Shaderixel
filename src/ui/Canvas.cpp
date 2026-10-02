@@ -167,7 +167,8 @@ void App::DrawCanvas() {
             ImVec2 a = ImGui::GetContentRegionAvail();
             const char* msg = "Ctrl+N : nouveau document    Ctrl+O : ouvrir une image";
             ImVec2 ts = ImGui::CalcTextSize(msg);
-            ImGui::SetCursorPos(ImVec2((a.x - ts.x) * 0.5f, a.y * 0.5f));
+            ImVec2 s0 = ImGui::GetCursorPos();
+            ImGui::SetCursorPos(ImVec2(s0.x + (a.x - ts.x) * 0.5f, s0.y + a.y * 0.5f));
             ImGui::TextDisabled("%s", msg);
         }
         ImGui::End();
