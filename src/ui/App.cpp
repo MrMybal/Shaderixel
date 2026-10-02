@@ -5,7 +5,6 @@
 
 #include <shellapi.h>
 #include <imgui_internal.h>
-#include <imgui_impl_dx12.h>
 #include <imgui_impl_win32.h>
 #include <stb_image.h>
 #include <stb_image_write.h>
@@ -132,15 +131,7 @@ bool App::Init() {
     ui::LoadFonts(dpi);
 
     ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX12_InitInfo init;
-    init.Device = gpu::Dev().D3D();
-    init.CommandQueue = gpu::Dev().Queue();
-    init.NumFramesInFlight = gpu::kFramesInFlight;
-    init.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
-    init.SrvDescriptorHeap = gpu::Dev().GpuHeap();
-    init.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* c, D3D12_GPU_DESCRIPTOR_HANDLE* g) { gpu::Dev().AllocPersistentSrv(c, g); };
-    init.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE g) { gpu::Dev().FreePersistentSrv(g); };
-    ImGui_ImplDX12_Init(&init);
+    gpu::Dev().InitImGui();
 
     eraser = brush;
     eraser.hardness = 0.9f;
@@ -163,7 +154,7 @@ void App::Shutdown() {
     for (auto& j : aiJobs) j.wait();
     gpu::Dev().WaitIdle();
     docs.clear();
-    ImGui_ImplDX12_Shutdown();
+    gpu::Dev().ShutdownImGui();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
     gpu::Shaders().Shutdown();
@@ -175,7 +166,7 @@ void App::Frame() {
     Effects().ReloadIfChanged();
     ctx = &gpu::Dev().BeginFrame();
 
-    ImGui_ImplDX12_NewFrame();
+    gpu::Dev().ImGuiNewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
 
@@ -280,7 +271,7 @@ void App::Frame() {
     }
 
     ImGui::Render();
-    gpu::Dev().EndFrame([](ID3D12GraphicsCommandList* list) { ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), list); });
+    gpu::Dev().EndFrame();
     ctx = nullptr;
 }
 

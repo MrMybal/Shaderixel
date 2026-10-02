@@ -1,24 +1,32 @@
 #pragma once
-// Thin D3D12 layer for Shaderixel. Everything image-related runs as compute
-// dispatches through one universal root signature:
-//   b0 : 16 root constants         (small per-dispatch data)
-//   b1 : root CBV from upload ring  (params, brush dabs, up to 64 KB)
-//   t0..t7 : SRV table, u0..u3 : UAV table
+// Thin GPU layer for Shaderixel (D3D12 or Vulkan, chosen at build time with
+// SX_VULKAN). Everything image-related runs as compute dispatches through one
+// universal binding layout:
+//   b0 : 16 root/push constants     (small per-dispatch data)
+//   b1 : constant buffer from the per-frame upload ring (params, brush dabs, up to 64 KB)
+//   t0..t7 : sampled textures, u0..u3 : storage textures
 //   s0 point-clamp, s1 linear-clamp, s2 linear-wrap (static samplers)
-// The backend is isolated here so Vulkan/Metal can be added behind the same API.
+// Vulkan maps the HLSL registers to bindings t:0+, u:16+, b:32+, s:48+ (set 0,
+// push descriptors) and b0 to push constants; shaders are shared.
 
 #include "core/Common.h"
 
+#ifdef SX_VULKAN
+#include <volk.h>
+#else
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
+#endif
 #include <functional>
 #include <memory>
 #include <deque>
 
 namespace sx::gpu {
 
+#ifndef SX_VULKAN
 using Microsoft::WRL::ComPtr;
+#endif
 
 constexpr u32 kFramesInFlight = 2;
 constexpr u32 kMaxSrv = 8;
@@ -27,8 +35,8 @@ constexpr u32 kRootConstants = 16;
 
 enum class Format : u8 { RGBA8, RGBA16F, RGBA32F, R8, R16F, R32F, R32U, D32F };
 enum TextureUsage : u32 { UsageRenderTarget = 1, UsageDepth = 2 };
-DXGI_FORMAT ToDxgi(Format f);
 u32 BytesPerPixel(Format f);
+const char* BackendName();
 
 class Device;
 
@@ -38,7 +46,6 @@ public:
     u32 Width() const { return width; }
     u32 Height() const { return height; }
     Format GetFormat() const { return format; }
-    ID3D12Resource* Resource() const { return res.Get(); }
     // Sparse (reserved) textures: 64 KB tiles are backed by memory only once written.
     // Unbacked areas read as zero.
     bool Sparse() const { return sparse; }
@@ -50,35 +57,53 @@ public:
 private:
     friend class Device;
     friend class CommandContext;
-    ComPtr<ID3D12Resource> res;
     u32 width = 0, height = 0;
     Format format = Format::RGBA16F;
-    D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
-    D3D12_RESOURCE_STATES frameStartState = D3D12_RESOURCE_STATE_COMMON;  // state when this frame's list begins
-    u64 stateFrame = ~0ull;
     bool sparse = false;
     u32 tileW = 0, tileH = 0, tilesX = 0, tilesY = 0, mappedTiles = 0;
     std::vector<int> tiles;  // heap slot per tile, -1 = unmapped
+#ifdef SX_VULKAN
+    VkImage image = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkImageView view = VK_NULL_HANDLE;
+    VkDescriptorSet uiSet = VK_NULL_HANDLE;  // ImGui texture id
+    bool initialized = false;                // layout moved to GENERAL
+    u32 usage = 0;
+#else
+    ComPtr<ID3D12Resource> res;
+    D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_RESOURCE_STATES frameStartState = D3D12_RESOURCE_STATE_COMMON;  // state when this frame's list begins
+    u64 stateFrame = ~0ull;
     int srvCpu = -1, uavCpu = -1;  // staging heap slots
     int uiSlot = -1;               // persistent shader-visible SRV (for ImGui)
     int rtv = -1, dsv = -1;        // render target / depth views (graphics)
+#endif
 };
 
 class Buffer {
 public:
     ~Buffer();
-    D3D12_GPU_VIRTUAL_ADDRESS Address() const { return res ? res->GetGPUVirtualAddress() : 0; }
     u64 Size() const { return size; }
 private:
     friend class Device;
     friend class CommandContext;
-    ComPtr<ID3D12Resource> res;
     u64 size = 0;
+#ifdef SX_VULKAN
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+#else
+    ComPtr<ID3D12Resource> res;
+#endif
 };
 using BufferPtr = std::shared_ptr<Buffer>;
 
 struct GraphicsPipeline {
+#ifdef SX_VULKAN
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    ~GraphicsPipeline();
+#else
     ComPtr<ID3D12PipelineState> pso;
+#endif
 };
 using GraphicsPipelinePtr = std::shared_ptr<GraphicsPipeline>;
 
@@ -112,7 +137,12 @@ struct DrawDesc {
 using TexturePtr = std::shared_ptr<Texture>;
 
 struct ComputePipeline {
+#ifdef SX_VULKAN
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    ~ComputePipeline();
+#else
     ComPtr<ID3D12PipelineState> pso;
+#endif
     u32 groupX = 8, groupY = 8;
 };
 using PipelinePtr = std::shared_ptr<ComputePipeline>;
@@ -139,16 +169,19 @@ struct Readback {
     u32 width = 0, height = 0, rowPitch = 0;
     Format format = Format::RGBA8;
     std::vector<u8> data;  // tightly packed rows after resolve
-    ComPtr<ID3D12Resource> buffer;
     u64 fence = 0;
+    bool swapRB = false;   // swapchain capture in BGRA order
+#ifdef SX_VULKAN
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+#else
+    ComPtr<ID3D12Resource> buffer;
+#endif
 };
 using ReadbackPtr = std::shared_ptr<Readback>;
 
 class CommandContext {
 public:
-    ID3D12GraphicsCommandList* List() const { return list.Get(); }
-    void Transition(Texture* t, D3D12_RESOURCE_STATES s);
-    void UavBarrier(Texture* t);
     void Dispatch(const DispatchDesc& d);
     void CopyTexture(Texture* dst, Texture* src);
     // Copy src rect into dst at (dx,dy).
@@ -159,8 +192,16 @@ public:
 
 private:
     friend class Device;
-    ComPtr<ID3D12GraphicsCommandList> list;
     Device* dev = nullptr;
+#ifdef SX_VULKAN
+    VkCommandBuffer cmd = VK_NULL_HANDLE;
+    void Prepare(Texture* t);  // first use: layout to GENERAL
+    void Barrier();            // full memory dependency between consecutive GPU operations
+#else
+    void Transition(Texture* t, D3D12_RESOURCE_STATES s);
+    void UavBarrier(Texture* t);
+    ComPtr<ID3D12GraphicsCommandList> list;
+#endif
 };
 
 class Device {
@@ -169,25 +210,26 @@ public:
     void Shutdown();
     void Resize(u32 w, u32 h);
 
-    // Frame lifecycle. BeginFrame returns the context all work is recorded into.
+    // ImGui renderer backend (the platform backend is set up by the app).
+    bool InitImGui();
+    void ImGuiNewFrame();
+    void ShutdownImGui();
+
+    // Frame lifecycle. BeginFrame returns the context all work is recorded into;
+    // EndFrame renders ImGui's draw data on top and presents.
     CommandContext& BeginFrame();
-    void EndFrame(const std::function<void(ID3D12GraphicsCommandList*)>& drawUi);
+    void EndFrame();
     void WaitIdle();
 
     TexturePtr CreateTexture(u32 w, u32 h, Format f, const char* debugName = nullptr, u32 usage = 0);
     BufferPtr CreateBuffer(CommandContext& ctx, const void* data, size_t size, const char* debugName = nullptr);
+    // Shader bytecode: DXIL (D3D12) or SPIR-V (Vulkan).
     GraphicsPipelinePtr CreateGraphicsPipeline(const void* vs, size_t vsSize, const void* ps, size_t psSize, const GraphicsDesc& desc);
-    PipelinePtr CreatePipeline(const void* dxil, size_t size, u32 groupX, u32 groupY);
+    PipelinePtr CreatePipeline(const void* code, size_t size, u32 groupX, u32 groupY);
 
-    // Persistent shader-visible SRV for ImGui::Image. Textures used this frame are
-    // transitioned to shader-resource state before the UI pass.
+    // ImGui::Image id for a texture (valid for this frame's UI).
     u64 UiTextureId(Texture* t);
 
-    ID3D12Device* D3D() const { return device.Get(); }
-    ID3D12CommandQueue* Queue() const { return queue.Get(); }
-    ID3D12DescriptorHeap* GpuHeap() const { return gpuHeap.Get(); }
-    void AllocPersistentSrv(D3D12_CPU_DESCRIPTOR_HANDLE* cpu, D3D12_GPU_DESCRIPTOR_HANDLE* gpu);
-    void FreePersistentSrv(D3D12_GPU_DESCRIPTOR_HANDLE gpu);
     u64 FrameNumber() const { return frameNumber; }
     std::string AdapterName() const { return adapterName; }
     u64 VideoMemoryUsage() const;
@@ -204,7 +246,66 @@ private:
     friend class Texture;
     friend class Buffer;
     friend class CommandContext;
+    friend struct GraphicsPipeline;
+    friend struct ComputePipeline;
 
+    u64 frameNumber = 0;
+    u32 frameIndex = 0;
+    CommandContext ctx;
+    std::vector<ReadbackPtr> pendingReadbacks;
+    ReadbackPtr captureRequest;
+    std::string adapterName;
+    u32 tilesInUse = 0;
+    bool sparseSupported = false;
+    u64 sparseThreshold = 6000ull * 6000ull;
+    void ResolveReadbacks();
+
+#ifdef SX_VULKAN
+    struct Frame {
+        VkCommandPool pool = VK_NULL_HANDLE;
+        VkCommandBuffer cmd = VK_NULL_HANDLE;
+        VkFence fence = VK_NULL_HANDLE;
+        VkSemaphore acquired = VK_NULL_HANDLE;
+        VkBuffer upload = VK_NULL_HANDLE;
+        VkDeviceMemory uploadMem = VK_NULL_HANDLE;
+        u8* uploadPtr = nullptr;
+        size_t uploadOffset = 0;
+        u64 submitted = 0;  // frame number submitted with this slot
+    };
+    u32 FindMemory(u32 typeBits, VkMemoryPropertyFlags props) const;
+    bool CreateSwapchain(u32 w, u32 h);
+    void DestroySwapchain();
+    // Host-visible scratch for this frame (ring, or a dedicated buffer released later).
+    VkBuffer AllocUpload(size_t size, size_t align, void** cpu, VkDeviceSize* offset);
+    void Defer(std::function<void()> destroy);
+    void ProcessDeferred(bool all);
+    void DestroyTexture(Texture& t);
+
+    HWND hwnd = nullptr;
+    VkInstance instance = VK_NULL_HANDLE;
+    VkPhysicalDevice physical = VK_NULL_HANDLE;
+    VkDevice device = VK_NULL_HANDLE;
+    VkQueue queue = VK_NULL_HANDLE;
+    u32 queueFamily = 0;
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+    VkFormat swapFormat = VK_FORMAT_B8G8R8A8_UNORM;
+    VkExtent2D swapExtent = {};
+    std::vector<VkImage> swapImages;
+    std::vector<VkImageView> swapViews;
+    std::vector<VkSemaphore> renderDone;  // per swapchain image
+    u32 swapIndex = 0;
+    bool swapchainOk = false;
+    VkPhysicalDeviceMemoryProperties memProps = {};
+    VkDeviceSize uboAlign = 256;
+    VkDescriptorSetLayout setLayout = VK_NULL_HANDLE;
+    VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
+    VkSampler samplers[3] = {};
+    VkDescriptorPool imguiPool = VK_NULL_HANDLE;
+    Frame frames[kFramesInFlight];
+    std::deque<std::pair<u64, std::function<void()>>> deferred;
+    std::vector<Texture*> uiTexturesThisFrame;
+#else
     struct FreeList {
         std::vector<int> free;
         int next = 0, capacity = 0;
@@ -227,6 +328,8 @@ private:
     void FlushDebugMessages();  // log debug-layer warnings/errors (SX_D3D12_DEBUG=1)
     ComPtr<ID3D12InfoQueue> infoQueue;
     ID3D12GraphicsCommandList* PreList();
+    void AllocPersistentSrv(D3D12_CPU_DESCRIPTOR_HANDLE* cpu, D3D12_GPU_DESCRIPTOR_HANDLE* gpu);
+    void FreePersistentSrv(D3D12_GPU_DESCRIPTOR_HANDLE gpu);
 
     void CreateBackBuffers();
     void ReleaseBackBuffers();
@@ -237,7 +340,6 @@ private:
     D3D12_GPU_DESCRIPTOR_HANDLE GpuHeapGpu(u32 i) const;
     u32 AllocRing(u32 count);
     D3D12_GPU_VIRTUAL_ADDRESS AllocUpload(size_t size, size_t align, void** cpu);
-    void ResolveReadbacks();
 
     ComPtr<IDXGIFactory6> factory;
     ComPtr<IDXGIAdapter1> adapter;
@@ -254,28 +356,20 @@ private:
     HANDLE fenceEvent = nullptr;
     u64 fenceValue = 0;
     Frame frames[kFramesInFlight];
-    u32 frameIndex = 0;
-    u64 frameNumber = 0;
-    CommandContext ctx;
     u32 rtvInc = 0, srvInc = 0;
     FreeList cpuSlots, persistentSlots;
     int nullSrv = -1, nullUav = -1;
     std::deque<Deferred> deferred;
     std::vector<Texture*> uiTexturesThisFrame;
-    std::vector<ReadbackPtr> pendingReadbacks;
-    ReadbackPtr captureRequest;
-    std::string adapterName;
     bool tearing = false;
     // Sparse texture memory: heaps of 64 KB tiles shared by all reserved textures.
     std::vector<ComPtr<ID3D12Heap>> tileHeaps;
     std::vector<int> freeTiles;
-    u32 tilesInUse = 0;
-    bool sparseSupported = false;
-    u64 sparseThreshold = 6000ull * 6000ull;
     // Executed before the frame's main list (zeroing newly backed tiles).
     ComPtr<ID3D12CommandAllocator> preAlloc[kFramesInFlight];
     ComPtr<ID3D12GraphicsCommandList> preList;
     bool preOpen = false;
+#endif
 };
 
 Device& Dev();  // global device instance

@@ -1,5 +1,8 @@
 #include "gpu/Device.h"
 
+#include <imgui.h>
+#include <imgui_impl_dx12.h>
+
 #include <algorithm>
 #include <cassert>
 #include <cstring>
@@ -37,7 +40,9 @@ D3D12_RESOURCE_DESC BufferDesc(size_t size) {
 
 Device& Dev() { return g_device; }
 
-DXGI_FORMAT ToDxgi(Format f) {
+const char* BackendName() { return "D3D12"; }
+
+static DXGI_FORMAT ToDxgi(Format f) {
     switch (f) {
         case Format::RGBA8: return DXGI_FORMAT_R8G8B8A8_UNORM;
         case Format::RGBA16F: return DXGI_FORMAT_R16G16B16A16_FLOAT;
@@ -279,7 +284,22 @@ CommandContext& Device::BeginFrame() {
     return ctx;
 }
 
-void Device::EndFrame(const std::function<void(ID3D12GraphicsCommandList*)>& drawUi) {
+bool Device::InitImGui() {
+    ImGui_ImplDX12_InitInfo init;
+    init.Device = device.Get();
+    init.CommandQueue = queue.Get();
+    init.NumFramesInFlight = kFramesInFlight;
+    init.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+    init.SrvDescriptorHeap = gpuHeap.Get();
+    init.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE* c, D3D12_GPU_DESCRIPTOR_HANDLE* g) { Dev().AllocPersistentSrv(c, g); };
+    init.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE g) { Dev().FreePersistentSrv(g); };
+    return ImGui_ImplDX12_Init(&init);
+}
+
+void Device::ImGuiNewFrame() { ImGui_ImplDX12_NewFrame(); }
+void Device::ShutdownImGui() { ImGui_ImplDX12_Shutdown(); }
+
+void Device::EndFrame() {
     auto* list = ctx.list.Get();
     for (Texture* t : uiTexturesThisFrame) ctx.Transition(t, D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
 
@@ -299,7 +319,7 @@ void Device::EndFrame(const std::function<void(ID3D12GraphicsCommandList*)>& dra
     list->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
     ID3D12DescriptorHeap* heaps[] = {gpuHeap.Get()};
     list->SetDescriptorHeaps(1, heaps);
-    drawUi(list);
+    ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), list);
 
     std::swap(b.Transition.StateBefore, b.Transition.StateAfter);
     if (captureRequest) {
@@ -871,11 +891,11 @@ void CommandContext::Draw(const DrawDesc& d) {
     list->SetGraphicsRootDescriptorTable(3, dev->GpuHeapGpu(base + kMaxSrv));
     list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     if (d.vertices) {
-        D3D12_VERTEX_BUFFER_VIEW vbv = {d.vertices->Address(), (UINT)d.vertices->Size(), d.vertexStride};
+        D3D12_VERTEX_BUFFER_VIEW vbv = {d.vertices->res->GetGPUVirtualAddress(), (UINT)d.vertices->Size(), d.vertexStride};
         list->IASetVertexBuffers(0, 1, &vbv);
     }
     if (d.indices) {
-        D3D12_INDEX_BUFFER_VIEW ibv = {d.indices->Address(), (UINT)d.indices->Size(), DXGI_FORMAT_R32_UINT};
+        D3D12_INDEX_BUFFER_VIEW ibv = {d.indices->res->GetGPUVirtualAddress(), (UINT)d.indices->Size(), DXGI_FORMAT_R32_UINT};
         list->IASetIndexBuffer(&ibv);
         list->DrawIndexedInstanced(d.count, 1, 0, 0, 0);
     } else {
