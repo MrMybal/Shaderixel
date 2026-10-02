@@ -1,6 +1,9 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
 #include "ui/App.h"
 #include "gpu/ShaderSystem.h"
+#include "doc/EffectGraph.h"
+
+#include <fstream>
 
 #include <cmath>
 
@@ -18,6 +21,8 @@ void App::DemoTick() {
         return;
     }
     if (demoMode == 10 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
+    if (demoMode == 11 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
+    if (demoMode == 11 && v && frameCounter == 7) ImGui::SetWindowFocus("Éditeur d'effets");
     if (demoMode == 9 && v) {
         Document& d = *v->doc;
         if (frameCounter == 6) RotateCanvas(*v, 0);
@@ -215,6 +220,36 @@ void App::RunDemo() {
         c.effect.curves[0] = {{0, 0}, {0.25f, 0.12f}, {0.7f, 0.85f}, {1, 1}};
         c.effect.curves[1] = {{0, 0.1f}, {0.5f, 0.6f}, {1, 1}};
         d.SyncGraph();
+    }
+    if (demoMode == 11) {
+        // Visual effect graph: tint the image through a noise mask, plus Unreal export.
+        EffectGraph g = EffectGraph::Default();
+        g.name = "Teinte bruitée";
+        Id in = g.nodes[0].id, out = g.nodes[1].id;
+        auto add = [&](const char* op, float2 pos) { EGNode n; n.id = g.nextId++; n.op = op; n.pos = pos; n.inputs.resize(FindOp(op)->inputs.size()); g.nodes.push_back(n); return n.id; };
+        Id nz = add("noise", {40, 220});
+        Id scale = add("const", {-160, 260});
+        g.Find(scale)->value = {6, 0, 0, 0};
+        Id tint = add("paramcolor", {40, 360});
+        g.Find(tint)->name = "Teinte";
+        g.Find(tint)->value = {0.2f, 0.7f, 1.0f, 1};
+        Id mul = add("mul", {260, 200});
+        Id lerp = add("lerp", {460, 120});
+        g.Find(nz)->inputs[1] = {scale, 0};
+        g.Find(mul)->inputs = {{in, 0}, {tint, 0}};
+        g.Find(lerp)->inputs = {{in, 0}, {mul, 0}, {nz, 0}};
+        g.Find(out)->inputs[0] = {lerp, 0};
+        g.Find(out)->pos = {680, 120};
+        Edit e(d, v.history, "Effet visuel");
+        Layer& l = d.AddEffectLayer(LayerKind::Adjustment, "");
+        l.name = "Teinte bruitée";
+        l.effect.graph = g.Serialize();
+        l.effect.SyncParams(nullptr);
+        d.SyncGraph();
+        e.Commit();
+        EGUnrealExport ex = ExportEffectGraphToUnreal(g, "M_SX_TeinteBruitee", "/Game/Shaderixel");
+        std::ofstream("demo_unreal_export.py", std::ios::binary) << ex.python;
+        Log("[demo] graph compile: %s", CompileEffectGraph(g).error.empty() ? "ok" : CompileEffectGraph(g).error.c_str());
     }
     if (demoMode == 2) {
         d.ConvertToNodes();

@@ -78,7 +78,7 @@ void App::ParseCommandLine() {
         if (a == "--test-effects") testEffects = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -122,7 +122,7 @@ bool App::Init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout_v2.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v3.ini";
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
     ui::LoadFonts(dpi);
@@ -201,6 +201,7 @@ void App::Frame() {
     DrawCanvas();
     DrawLayers();
     DrawNodeEditor();
+    DrawEffectEditor();
     DrawProperties();
     DrawColor();
     DrawBrush();
@@ -415,6 +416,7 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("Outils", left);
     ImGui::DockBuilderDockWindow("Canevas", center);
     ImGui::DockBuilderDockWindow("Graphe", bottom);
+    ImGui::DockBuilderDockWindow("Éditeur d'effets", bottom);
     ImGui::DockBuilderDockWindow("Couleur", rightTop);
     ImGui::DockBuilderDockWindow("Options", rightTop);
     ImGui::DockBuilderDockWindow("Propriétés", rightMid);
@@ -547,6 +549,15 @@ void App::LayerMenuItems() {
                 e.Commit();
             }, true, false);
             ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem("Nouveau calque « Effet visuel » (graphe)")) {
+            Edit e(d, v->history, "Effet visuel");
+            Layer& l = d.AddEffectLayer(LayerKind::Adjustment, "");
+            l.name = "Effet visuel";
+            l.effect.graph = EffectGraph::Default().Serialize();
+            d.SyncGraph();
+            e.Commit();
+            ImGui::SetWindowFocus("Éditeur d'effets");
         }
         if (ImGui::BeginMenu("Nouveau calque de réglage")) {
             EffectMenu([&](const std::string& id) {

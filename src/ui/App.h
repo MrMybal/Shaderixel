@@ -6,6 +6,7 @@
 #include "render/Renderer.h"
 #include "platform/Platform.h"
 #include "doc/DocFile.h"
+#include "doc/EffectGraph.h"
 
 #include <future>
 
@@ -76,6 +77,21 @@ struct NodeEditorState {
     char search[64] = {};
 };
 
+struct EffectEditorState {
+    float2 pan = {30, 50};
+    float zoom = 1.0f;
+    Id selected = 0, dragNode = 0;
+    bool moved = false;
+    bool dragLink = false;
+    Id linkFrom = 0, linkTo = 0;
+    int linkFromOut = 0, linkToIn = 0;
+    float2 ctxPos;
+    char search[64] = {};
+    std::string cachedJson;
+    EffectGraph graph;
+    std::optional<DocState> pendingBefore;
+};
+
 class App {
 public:
     int Run();
@@ -123,6 +139,8 @@ private:
     void DrawStatusBar();
     void DrawNewDocDialog();
     void DrawShaderErrors();
+    void DrawEffectEditor();
+    EffectInstance* EditedEffect(DocView& v, std::string* where);
     void HandleShortcuts();
 
     // Property editing helpers (undo-aware)
@@ -277,6 +295,7 @@ private:
     DocState frameBefore;                // properties panel state at frame start
     bool frameBeforeValid = false;
     NodeEditorState nodeEd;
+    EffectEditorState efEd;
     std::string statusMsg;
     double statusTime = 0;
     std::string pendingDrop;

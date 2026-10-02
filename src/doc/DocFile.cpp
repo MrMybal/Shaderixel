@@ -19,6 +19,7 @@ Json EffectToJson(const EffectInstance& fx) {
     Json j = Json::Object();
     if (!fx.effectId.empty()) j["effect"] = fx.effectId;
     if (!fx.customCode.empty()) j["code"] = fx.customCode;
+    if (!fx.graph.empty()) j["graph"] = fx.graph;
     Json p = Json::Array();
     for (auto& v : fx.params) p.Push(ToJson(v));
     j["params"] = p;
@@ -41,6 +42,7 @@ EffectInstance EffectFromJson(const Json& j) {
     EffectInstance fx;
     fx.effectId = j["effect"].S("");
     fx.customCode = j["code"].S("");
+    fx.graph = j["graph"].S("");
     for (auto& p : j["params"].Elements()) fx.params.push_back(Float4FromJson(p));
     fx.enabled = j["enabled"].B(true);
     for (auto& c : j["curves"].Elements()) {

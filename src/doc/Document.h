@@ -42,10 +42,13 @@ struct Surface {
 struct EffectInstance {
     std::string effectId;
     std::string customCode;  // non-empty => custom HLSL effect
+    std::string graph;       // non-empty => visual effect graph (JSON), compiled to HLSL
     std::vector<float4> params;
     std::vector<CurvePoints> curves;  // per param index (curve params only)
     bool enabled = true;
     EffectDefPtr Def() const;  // resolves library / parses custom code (cached)
+    // Keep parameter values aligned with a (new) definition, matching by id.
+    void SyncParams(const EffectDefPtr& oldDef);
 private:
     mutable EffectDefPtr cachedDef;
     mutable std::string cachedCode;

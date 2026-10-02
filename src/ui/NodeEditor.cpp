@@ -1,6 +1,7 @@
 // Node graph editor (custom ImDrawList widget): pan/zoom, links, live thumbnails.
 #include "ui/App.h"
 #include "ui/Theme.h"
+#include "doc/EffectGraph.h"
 
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
@@ -284,6 +285,15 @@ void App::DrawNodeEditor() {
             add([&] { d.AddNode(NodeKind::Surface, ed.contextPos); }, "Ajouter un calque pixel");
         if (match("fusion blend") && ImGui::MenuItem("Fusion (mode de fusion)"))
             add([&] { d.AddNode(NodeKind::Blend, ed.contextPos); }, "Ajouter une fusion");
+        if (match("effet visuel graphe") && ImGui::MenuItem("Effet visuel (graphe)"))
+            add([&] {
+                Node& nn = d.AddEffectNode("", "", ed.contextPos);
+                nn.fx.graph = EffectGraph::Default().Serialize();
+                nn.name = "Effet visuel";
+                nn.fx.params.clear();
+                nn.inputs.assign(NodeInputCount(nn), 0);
+                ImGui::SetWindowFocus("Éditeur d'effets");
+            }, "Ajouter un effet visuel");
         if (match("hlsl personnalisé custom code") && ImGui::MenuItem("HLSL personnalisé"))
             add([&] { d.AddEffectNode("", kCustomEffectTemplate, ed.contextPos); }, "Ajouter un nœud HLSL");
         ImGui::Separator();

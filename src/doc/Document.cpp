@@ -1,4 +1,5 @@
 #include "doc/Document.h"
+#include "doc/EffectGraph.h"
 
 #include <functional>
 #include <set>
@@ -32,6 +33,23 @@ gpu::Format SurfaceFormat(Precision p) {
 }
 
 EffectDefPtr EffectInstance::Def() const {
+    if (!graph.empty()) {
+        if (!cachedDef || cachedCode != graph) {
+            EffectGraph g;
+            if (EffectGraph::Deserialize(graph, g)) {
+                EGCompileResult r = CompileEffectGraph(g);
+                auto def = std::make_shared<EffectDef>(*ParseEffect("", r.code));
+                if (!r.error.empty()) def->error = r.error;
+                cachedDef = def;
+            } else {
+                auto def = std::make_shared<EffectDef>();
+                def->error = "graphe illisible";
+                cachedDef = def;
+            }
+            cachedCode = graph;
+        }
+        return cachedDef;
+    }
     if (!customCode.empty()) {
         if (!cachedDef || cachedCode != customCode) {
             cachedDef = ParseEffect("", customCode);
@@ -40,6 +58,23 @@ EffectDefPtr EffectInstance::Def() const {
         return cachedDef;
     }
     return Effects().Find(effectId);
+}
+
+void EffectInstance::SyncParams(const EffectDefPtr& oldDef) {
+    EffectDefPtr nd = Def();
+    if (!nd) return;
+    std::vector<float4> np = nd->DefaultParams();
+    std::vector<CurvePoints> nc(nd->params.size());
+    for (size_t i = 0; i < nd->params.size(); ++i) {
+        if (!oldDef) continue;
+        for (size_t k = 0; k < oldDef->params.size(); ++k) {
+            if (oldDef->params[k].id != nd->params[i].id || oldDef->params[k].type != nd->params[i].type) continue;
+            if (k < params.size()) np[i] = params[k];
+            if (k < curves.size()) nc[i] = curves[k];
+        }
+    }
+    params = np;
+    curves = nc;
 }
 
 int NodeInputCount(const Node& n) {
