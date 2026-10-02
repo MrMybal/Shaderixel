@@ -122,6 +122,46 @@ void App::RunDemo() {
         v.renderer.FillSelection(d, *ctx, &v.history, fillSurface, 0, LinearColor({1.0f, 0.75f, 0.2f, 1}), 0.55f, "Remplir");
         tool = Tool::RectSelect;
     }
+    if (demoMode == 6) {
+        // Retouch tools on the paint layer: clone, blur, smudge, dodge, burn, sponge.
+        auto line = [&](RetouchMode mode, bool smudge, float x0, float x1, float y, float size, float strength, int2 off) {
+            if (!v.renderer.BeginStroke(d, *ctx, paintSurface)) return;
+            BrushSettings b = brush;
+            b.size = size;
+            b.hardness = 0.5f;
+            std::vector<Dab> dabs;
+            for (float x = x0; x <= x1; x += size * 0.1f) dabs.push_back({x, y + std::sin(x * 0.02f) * 30, size * 0.5f, 1.0f});
+            if (smudge) v.renderer.SmudgeDabs(d, *ctx, dabs, b, strength);
+            else {
+                RetouchParams rp;
+                rp.mode = mode;
+                rp.strength = strength;
+                rp.srcOffset = off;
+                v.renderer.RetouchDabs(d, *ctx, dabs, b, rp);
+            }
+            v.renderer.EndStroke(d, *ctx, v.history, "Retouche");
+        };
+        line(RetouchMode::Clone, false, 200, 700, 880, 120, 1, {0, -580});
+        line(RetouchMode::Blur, false, 900, 1400, 300, 140, 1, {});
+        line(RetouchMode::Burn, false, 200, 600, 500, 160, 0.8f, {});
+        line(RetouchMode::Dodge, false, 900, 1400, 720, 160, 0.8f, {});
+        line(RetouchMode::Desaturate, false, 650, 900, 500, 200, 1, {});
+        line(RetouchMode::Clone, true, 1050, 1450, 500, 90, 0.9f, {});
+        // Bucket fill (contiguous, all layers) on a new layer.
+        Edit e(d, v.history, "Nouveau calque");
+        Id bucketSurface = d.AddPixelLayer("Pot de peinture").surface;
+        e.Commit();
+        v.renderer.Prepare(d, *ctx);
+        fg = {1.0f, 0.9f, 0.2f, 1};
+        bucketTolerance = 18;
+        wand.rb = v.renderer.ExportRGBA8(*ctx, v.lastImage ? v.lastImage : v.renderer.Evaluate(d, *ctx));
+        wand.x = 800;
+        wand.y = 520;
+        wand.view = &v;
+        wand.fill = true;
+        wand.surface = bucketSurface;
+        tool = Tool::Smudge;
+    }
     if (demoMode == 2) {
         d.ConvertToNodes();
         // Add a custom HLSL node between the output and its input.

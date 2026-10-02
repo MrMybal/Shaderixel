@@ -558,9 +558,24 @@ void App::DrawBrush() {
         ImGui::Combo("Style", &gradientShape, "Linéaire\0" "Radial\0" "Angle\0" "Réfléchi\0" "Losange\0");
         ImGui::SliderFloat("Opacité", &gradientOpacity, 0, 1);
         ImGui::TextDisabled("Premier plan -> arrière-plan. Maj : 45°.");
-    } else if (tool == Tool::Brush || tool == Tool::Eraser) {
-        BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
-        ImGui::SeparatorText(tool == Tool::Eraser ? "Gomme" : "Pinceau");
+    } else if (IsPaintTool(tool)) {
+        BrushSettings& b = CurrentBrush();
+        static const char* titles[] = {"", "", "", "", "", "", "Pinceau", "Gomme", "Tampon de duplication", "Correcteur", "", "",
+                                       "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge"};
+        ImGui::SeparatorText(titles[(int)tool]);
+        if (IsRetouchTool(tool)) {
+            ImGui::SliderFloat(tool == Tool::Clone || tool == Tool::Heal ? "Intensité (inutilisée)" : "Intensité", &retouchStrength, 0.01f, 1, "%.2f");
+            if (tool == Tool::Dodge || tool == Tool::Burn) ImGui::Combo("Plage", &dodgeRange, "Tons foncés\0Tons moyens\0Tons clairs\0");
+            if (tool == Tool::Sponge) {
+                int m = spongeSaturate ? 1 : 0;
+                if (ImGui::Combo("Mode", &m, "Désaturer\0Saturer\0")) spongeSaturate = m == 1;
+            }
+            if (tool == Tool::Clone || tool == Tool::Heal) {
+                ImGui::Checkbox("Aligné", &cloneAligned);
+                ImGui::TextDisabled(cloneSourceSet ? "Source définie (Alt+clic pour changer)" : "Alt+clic pour définir la source");
+            }
+            ImGui::Separator();
+        }
         ImGui::SliderFloat("Taille", &b.size, 1, 2000, "%.0f px", ImGuiSliderFlags_Logarithmic);
         ImGui::SliderFloat("Dureté", &b.hardness, 0, 1, "%.2f");
         ImGui::SliderFloat("Opacité", &b.opacity, 0, 1, "%.2f");
@@ -591,7 +606,10 @@ void App::DrawBrush() {
         ImGui::Dummy(ImVec2(w, h));
     } else if (tool == Tool::Bucket) {
         ImGui::SeparatorText("Pot de peinture");
-        ImGui::TextWrapped("Remplit la sélection (ou tout le calque) avec la couleur de premier plan.");
+        ImGui::SliderFloat("Tolérance", &bucketTolerance, 0, 255, "%.0f");
+        ImGui::Checkbox("Pixels contigus", &bucketContiguous);
+        ImGui::Checkbox("Tous les calques", &bucketSampleMerged);
+        ImGui::TextDisabled("Respecte la sélection. Alt+Retour : remplir toute la sélection.");
     } else {
         ImGui::TextDisabled("Aucune option pour cet outil.");
     }

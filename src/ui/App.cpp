@@ -66,7 +66,7 @@ void App::ParseCommandLine() {
         if (a == "--test-effects") testEffects = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -625,9 +625,13 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_L)) setTool(shift ? Tool::PolyLasso : Tool::Lasso);
     if (pressed(ImGuiKey_W)) setTool(Tool::Wand);
     if (pressed(ImGuiKey_B)) setTool(Tool::Brush);
+    if (pressed(ImGuiKey_S)) setTool(Tool::Clone);
+    if (pressed(ImGuiKey_J)) setTool(Tool::Heal);
+    if (pressed(ImGuiKey_O)) setTool(shift ? (tool == Tool::Dodge ? Tool::Burn : tool == Tool::Burn ? Tool::Sponge : Tool::Dodge) : Tool::Dodge);
+    if (pressed(ImGuiKey_R)) setTool(shift ? (tool == Tool::Blur ? Tool::Sharpen : tool == Tool::Sharpen ? Tool::Smudge : Tool::Blur) : Tool::Blur);
     if (pressed(ImGuiKey_E)) setTool(Tool::Eraser);
     if (pressed(ImGuiKey_I)) setTool(Tool::Picker);
-    if (pressed(ImGuiKey_G)) setTool(Tool::Gradient);
+    if (pressed(ImGuiKey_G)) setTool(shift && tool == Tool::Gradient ? Tool::Bucket : Tool::Gradient);
     if (pressed(ImGuiKey_K)) setTool(Tool::Bucket);
     if (pressed(ImGuiKey_H)) setTool(Tool::Hand);
     if (pressed(ImGuiKey_Z)) setTool(Tool::Zoom);
@@ -643,7 +647,7 @@ void App::HandleShortcuts() {
         if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) Nudge(*v, 0, step);
     }
 
-    BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
+    BrushSettings& b = CurrentBrush();
     if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) {
         if (shift) b.hardness = std::max(0.0f, b.hardness - 0.1f);
         else b.size = std::max(1.0f, b.size * 0.85f - 1);

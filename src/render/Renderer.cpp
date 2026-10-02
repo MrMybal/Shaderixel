@@ -336,6 +336,7 @@ bool Renderer::BeginStroke(Document& doc, gpu::CommandContext& ctx, Id surface) 
     ctx.Dispatch(d);
     strokeSurface = surface;
     strokeRect = {};
+    haveSmudge = false;
     return true;
 }
 

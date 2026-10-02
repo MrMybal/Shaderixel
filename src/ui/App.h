@@ -12,7 +12,13 @@
 
 namespace sx {
 
-enum class Tool { Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand, Brush, Eraser, Gradient, Bucket, Picker, Hand, Zoom, Count };
+enum class Tool {
+    Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
+    Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge,
+    Picker, Hand, Zoom, Count
+};
+inline bool IsRetouchTool(Tool t) { return t >= Tool::Clone && t <= Tool::Sponge && t != Tool::Gradient && t != Tool::Bucket; }
+inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
 
 struct DocView;
 
@@ -111,6 +117,8 @@ private:
     // Canvas interaction
     void CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hovered);
     void PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSample>& samples, bool release);
+    void EmitDabs(DocView& v, const std::vector<Dab>& dabs);
+    BrushSettings& CurrentBrush() { return tool == Tool::Eraser ? eraser : IsRetouchTool(tool) ? retouch : brush; }
     float2 ScreenToDoc(const DocView& v, ImVec2 canvasMin, ImVec2 p) const;
     float4 LinearColor(const float4& srgb) const;
     void Undo();
@@ -161,6 +169,19 @@ private:
     Tool tool = Tool::Brush;
     BrushSettings brush;
     BrushSettings eraser;
+    BrushSettings retouch;
+    float retouchStrength = 0.5f;
+    int dodgeRange = 1;
+    bool spongeSaturate = false;
+    bool cloneAligned = true;
+    bool cloneSourceSet = false;
+    float2 cloneSource;
+    bool cloneOffsetValid = false;
+    int2 cloneOffset;
+    float bucketTolerance = 32;
+    bool bucketContiguous = true;
+    bool bucketSampleMerged = false;
+    Tool toolGroupChoice[32] = {};
     float4 fg = {0.05f, 0.05f, 0.06f, 1};  // sRGB straight
     float4 bg = {1, 1, 1, 1};
     bool editBg = false;
@@ -179,7 +200,7 @@ private:
     float2 selStart, selEnd;
     std::vector<float2> lassoPts;
     bool polyActive = false;
-    struct WandRequest { gpu::ReadbackPtr rb; int x = 0, y = 0; SelMode mode = SelMode::Replace; DocView* view = nullptr; };
+    struct WandRequest { gpu::ReadbackPtr rb; int x = 0, y = 0; SelMode mode = SelMode::Replace; DocView* view = nullptr; bool fill = false; Id surface = 0; };
     WandRequest wand;
     int selDialog = 0;              // 1 feather, 2 expand, 3 contract, 4 color range
     float selDialogValue = 4;

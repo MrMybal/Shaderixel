@@ -7,40 +7,106 @@
 namespace sx {
 
 namespace {
-struct ToolInfo { Tool tool; int icon; const char* tip; };
-const ToolInfo kTools[] = {
-    {Tool::Move, ui::IconMove, "Déplacement (V) - flèches : décaler"},
-    {Tool::RectSelect, ui::IconRectSel, "Rectangle de sélection (M)"},
-    {Tool::EllipseSelect, ui::IconEllipseSel, "Ellipse de sélection (Maj+M)"},
-    {Tool::Lasso, ui::IconLasso, "Lasso (L)"},
-    {Tool::PolyLasso, ui::IconPolyLasso, "Lasso polygonal (Maj+L)"},
-    {Tool::Wand, ui::IconWand, "Baguette magique (W)"},
-    {Tool::Brush, ui::IconBrush, "Pinceau (B)"},
-    {Tool::Eraser, ui::IconEraser, "Gomme (E)"},
-    {Tool::Gradient, ui::IconGradient, "Dégradé (G)"},
-    {Tool::Bucket, ui::IconBucket, "Pot de peinture - remplit le calque (K)"},
-    {Tool::Picker, ui::IconPicker, "Pipette (I) - Alt+clic avec le pinceau"},
-    {Tool::Hand, ui::IconHand, "Main (H) - Espace ou clic molette"},
-    {Tool::Zoom, ui::IconZoom, "Zoom (Z) - Alt+clic pour dézoomer, molette"},
+struct ToolInfo { Tool tool; int icon; const char* name; const char* key; };
+const ToolInfo kToolInfo[] = {
+    {Tool::Move, ui::IconMove, "Déplacement", "V"},
+    {Tool::RectSelect, ui::IconRectSel, "Rectangle de sélection", "M"},
+    {Tool::EllipseSelect, ui::IconEllipseSel, "Ellipse de sélection", "M"},
+    {Tool::Lasso, ui::IconLasso, "Lasso", "L"},
+    {Tool::PolyLasso, ui::IconPolyLasso, "Lasso polygonal", "L"},
+    {Tool::Wand, ui::IconWand, "Baguette magique", "W"},
+    {Tool::Brush, ui::IconBrush, "Pinceau", "B"},
+    {Tool::Eraser, ui::IconEraser, "Gomme", "E"},
+    {Tool::Clone, ui::IconStamp, "Tampon de duplication", "S"},
+    {Tool::Heal, ui::IconHeal, "Correcteur", "J"},
+    {Tool::Gradient, ui::IconGradient, "Dégradé", "G"},
+    {Tool::Bucket, ui::IconBucket, "Pot de peinture", "G / K"},
+    {Tool::Blur, ui::IconDrop, "Goutte (flou)", "R"},
+    {Tool::Sharpen, ui::IconSharpen, "Netteté", "R"},
+    {Tool::Smudge, ui::IconFinger, "Doigt", "R"},
+    {Tool::Dodge, ui::IconDodge, "Densité -", "O"},
+    {Tool::Burn, ui::IconBurn, "Densité +", "O"},
+    {Tool::Sponge, ui::IconSponge, "Éponge", "O"},
+    {Tool::Picker, ui::IconPicker, "Pipette", "I"},
+    {Tool::Hand, ui::IconHand, "Main", "H / Espace"},
+    {Tool::Zoom, ui::IconZoom, "Zoom", "Z"},
 };
+
+// Toolbar slots; tools sharing a slot appear in a flyout (right-click).
+const std::vector<std::vector<Tool>> kGroups = {
+    {Tool::Move},
+    {Tool::RectSelect, Tool::EllipseSelect},
+    {Tool::Lasso, Tool::PolyLasso},
+    {Tool::Wand},
+    {Tool::Brush},
+    {Tool::Eraser},
+    {Tool::Clone},
+    {Tool::Heal},
+    {Tool::Gradient, Tool::Bucket},
+    {Tool::Blur, Tool::Sharpen, Tool::Smudge},
+    {Tool::Dodge, Tool::Burn, Tool::Sponge},
+    {Tool::Picker},
+    {Tool::Hand},
+    {Tool::Zoom},
+};
+
+const ToolInfo& Info(Tool t) {
+    for (auto& i : kToolInfo) if (i.tool == t) return i;
+    return kToolInfo[0];
+}
 }  // namespace
 
 void App::DrawToolbar() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6 * dpi, 8 * dpi));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4 * dpi, 3 * dpi));
     if (ImGui::Begin("Outils", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar)) {
-        float size = std::min(ImGui::GetContentRegionAvail().x, 40.0f * dpi);
-        for (auto& t : kTools) {
-            if (t.tool == Tool::Brush || t.tool == Tool::Hand) {
-                ImGui::Dummy(ImVec2(size, 2 * dpi));
-                ImGui::GetWindowDrawList()->AddLine(ImGui::GetCursorScreenPos() - ImVec2(0, 4 * dpi), ImGui::GetCursorScreenPos() + ImVec2(size, -4 * dpi), ui::col::Border);
+        float size = std::min(ImGui::GetContentRegionAvail().x, 38.0f * dpi);
+        for (size_t g = 0; g < kGroups.size(); ++g) {
+            const auto& group = kGroups[g];
+            if (g == 1 || g == 4 || g == 11) {
+                ImVec2 c = ImGui::GetCursorScreenPos();
+                ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);
+                ImGui::Dummy(ImVec2(size, 3 * dpi));
             }
-            if (ui::IconButton(t.tip, t.icon, tool == t.tool, size, t.tip)) {
+            Tool shown = group[0];
+            bool inGroup = std::find(group.begin(), group.end(), tool) != group.end();
+            if (inGroup) toolGroupChoice[g] = tool;
+            if (toolGroupChoice[g] != Tool::Move || g == 0) {
+                if (std::find(group.begin(), group.end(), toolGroupChoice[g]) != group.end()) shown = toolGroupChoice[g];
+            }
+            const ToolInfo& info = Info(shown);
+            char tip[128];
+            snprintf(tip, sizeof(tip), "%s (%s)%s", info.name, info.key, group.size() > 1 ? "\nClic droit : autres outils" : "");
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            ImGui::PushID((int)g);
+            if (ui::IconButton("t", info.icon, inGroup, size, tip)) {
                 if (xf.active && xf.view) TransformCommit(*xf.view);
-                tool = t.tool;
+                tool = shown;
             }
+            if (group.size() > 1) {
+                ImGui::GetWindowDrawList()->AddTriangleFilled(ImVec2(pos.x + size - 2, pos.y + size - 7), ImVec2(pos.x + size - 2, pos.y + size - 2),
+                                                              ImVec2(pos.x + size - 7, pos.y + size - 2), ui::col::TextDim);
+                if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) ImGui::OpenPopup("##flyout");
+                if (ImGui::BeginPopup("##flyout")) {
+                    for (Tool t : group) {
+                        const ToolInfo& ti = Info(t);
+                        ImVec2 ip = ImGui::GetCursorScreenPos();
+                        float h = ImGui::GetFrameHeight();
+                        char label[96];
+                        snprintf(label, sizeof(label), "      %s", ti.name);
+                        if (ImGui::Selectable(label, tool == t, 0, ImVec2(220 * dpi, h))) {
+                            if (xf.active && xf.view) TransformCommit(*xf.view);
+                            tool = t;
+                        }
+                        ui::DrawIcon(ImGui::GetWindowDrawList(), ti.icon, ImVec2(ip.x + h * 0.5f, ip.y + h * 0.5f), h * 0.6f, ui::col::Text);
+                        ImGui::SameLine(200 * dpi);
+                        ImGui::TextDisabled("%s", ti.key);
+                    }
+                    ImGui::EndPopup();
+                }
+            }
+            ImGui::PopID();
         }
-        ImGui::Spacing();
-        ImGui::Separator();
         ImGui::Spacing();
         // Foreground / background swatches (Photoshop style).
         ImVec2 p = ImGui::GetCursorScreenPos();
@@ -61,8 +127,9 @@ void App::DrawToolbar() {
         if (ui::IconButton("swap", ui::IconSwap, false, size * 0.5f, "Permuter (X)")) std::swap(fg, bg);
     }
     ImGui::End();
-    ImGui::PopStyleVar();
+    ImGui::PopStyleVar(2);
 }
+
 
 float2 App::ScreenToDoc(const DocView& v, ImVec2 canvasMin, ImVec2 p) const {
     return {(p.x - canvasMin.x - v.pan.x) / v.zoom, (p.y - canvasMin.y - v.pan.y) / v.zoom};
@@ -137,8 +204,8 @@ void App::DrawCanvas() {
     cursorDoc = ScreenToDoc(*v, canvasMin, mouse);
     cursorInDoc = hovered && cursorDoc.x >= 0 && cursorDoc.y >= 0 && cursorDoc.x < doc.Width() && cursorDoc.y < doc.Height();
     bool panMode = tool == Tool::Hand || spaceHeld || panning;
-    if (hovered && !panMode && (tool == Tool::Brush || tool == Tool::Eraser) && !ImGui::GetIO().KeyAlt) {
-        const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
+    if (hovered && !panMode && IsPaintTool(tool) && !(ImGui::GetIO().KeyAlt && tool == Tool::Brush)) {
+        const BrushSettings& b = CurrentBrush();
         float r = std::max(b.size * 0.5f * v->zoom, 1.0f);
         dl->AddCircle(mouse, r + 1, IM_COL32(0, 0, 0, 160), 0, 1.5f);
         dl->AddCircle(mouse, r, IM_COL32(255, 255, 255, 220), 0, 1.0f);
@@ -153,6 +220,14 @@ void App::DrawCanvas() {
     }
     DrawSelectionOverlay(*v, canvasMin, dl);
     TransformDrawOverlay(*v, canvasMin, dl);
+    if ((tool == Tool::Clone || tool == Tool::Heal) && cloneSourceSet) {
+        float2 src = cloneSource;
+        if (stroking && cloneOffsetValid) src = cursorDoc + float2{(float)cloneOffset.x, (float)cloneOffset.y};
+        ImVec2 s(canvasMin.x + v->pan.x + src.x * v->zoom, canvasMin.y + v->pan.y + src.y * v->zoom);
+        dl->AddCircle(s, std::max(CurrentBrush().size * 0.5f * v->zoom, 3.0f), IM_COL32(255, 255, 255, 140));
+        dl->AddLine(ImVec2(s.x - 7, s.y), ImVec2(s.x + 7, s.y), IM_COL32_WHITE);
+        dl->AddLine(ImVec2(s.x, s.y - 7), ImVec2(s.x, s.y + 7), IM_COL32_WHITE);
+    }
     if (gradientDrag) {
         ImVec2 a(canvasMin.x + v->pan.x + gradientStart.x * v->zoom, canvasMin.y + v->pan.y + gradientStart.y * v->zoom);
         ImVec2 b(canvasMin.x + v->pan.x + gradientEnd.x * v->zoom, canvasMin.y + v->pan.y + gradientEnd.y * v->zoom);
@@ -162,7 +237,7 @@ void App::DrawCanvas() {
         dl->AddCircleFilled(b, 4, ui::col::Accent);
     }
     // Paint-target hint
-    if (hovered && (tool == Tool::Brush || tool == Tool::Eraser || tool == Tool::Gradient || tool == Tool::Bucket || tool == Tool::Move) && !doc.PaintTarget()) {
+    if (hovered && (IsPaintTool(tool) || tool == Tool::Gradient || tool == Tool::Bucket || tool == Tool::Move) && !doc.PaintTarget()) {
         const char* msg = doc.Mode() == DocMode::Layers ? "Sélectionnez un calque de pixels (non verrouillé)" : "Sélectionnez un nœud « Calque pixel »";
         ImVec2 ts = ImGui::CalcTextSize(msg);
         ImVec2 p(mouse.x + 16, mouse.y + 16);
@@ -217,6 +292,14 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         return;
     }
 
+    // Clone / heal source (Alt+click)
+    if ((tool == Tool::Clone || tool == Tool::Heal) && alt && click) {
+        cloneSource = dp;
+        cloneSourceSet = true;
+        cloneOffsetValid = false;
+        Status("Source du tampon définie");
+        return;
+    }
     // Eyedropper (also Alt with paint tools)
     bool picker = tool == Tool::Picker || (alt && (tool == Tool::Brush || tool == Tool::Gradient || tool == Tool::Bucket));
     if (picker && !stroking) {
@@ -236,8 +319,17 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
 
     Id target = doc.PaintTarget();
-    if (tool == Tool::Bucket && click && target) {
-        FillOrErase(v, false);
+    if (tool == Tool::Bucket && click && target && !wand.rb) {
+        int x = (int)std::floor(dp.x), y = (int)std::floor(dp.y);
+        if (x < 0 || y < 0 || x >= (int)doc.Width() || y >= (int)doc.Height()) return;
+        gpu::Texture* src = bucketSampleMerged ? v.lastImage : doc.GetSurface(target)->tex.get();
+        if (!src) return;
+        wand.rb = v.renderer.ExportRGBA8(*ctx, src);
+        wand.x = x;
+        wand.y = y;
+        wand.view = &v;
+        wand.fill = true;
+        wand.surface = target;
         return;
     }
 
@@ -264,12 +356,22 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         return;
     }
 
-    if (tool != Tool::Brush && tool != Tool::Eraser) return;
+    if (!IsPaintTool(tool)) return;
+    if ((tool == Tool::Clone || tool == Tool::Heal) && click && !cloneSourceSet) {
+        Status("Alt+clic pour définir la source du tampon");
+        return;
+    }
 
     if (click && target && !stroking) {
         if (v.renderer.BeginStroke(doc, *ctx, target)) {
             stroking = true;
             strokeErase = tool == Tool::Eraser;
+            if (tool == Tool::Clone || tool == Tool::Heal) {
+                if (!cloneOffsetValid || !cloneAligned) {
+                    cloneOffset = {(int)std::lround(cloneSource.x - dp.x), (int)std::lround(cloneSource.y - dp.y)};
+                    cloneOffsetValid = true;
+                }
+            }
             if (!samples.empty() && samples.back().pen && samples.back().eraser) strokeErase = true;
             float pressure = platform::PenActive() ? platform::LastPressure() : 1.0f;
             float2 start = dp;
@@ -279,14 +381,12 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
             dabRemainder = 0;
             // First dab
             std::vector<PointerSample> first{{mouse.x, mouse.y, pressure, platform::PenActive(), false}};
-            const BrushSettings& b = strokeErase ? eraser : brush;
+            const BrushSettings& b = strokeErase ? eraser : CurrentBrush();
             std::vector<Dab> dabs;
             float rad = b.size * 0.5f * (b.pressureSize ? std::max(pressure, 0.05f) : 1.0f);
             float alpha = b.flow * (b.pressureOpacity ? pressure : 1.0f);
             dabs.push_back({start.x, start.y, rad, alpha});
-            float4 color = LinearColor(fg);
-            if (doc.S().editMask) { float l = 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z; color = {l, l, l, 1}; }
-            v.renderer.StrokeDabs(doc, *ctx, dabs, b, color, strokeErase);
+            EmitDabs(v, dabs);
             if (io.KeyShift && haveStrokeEnd) {
                 samples.insert(samples.begin(), first.begin(), first.end());
                 smoothPos = start;
@@ -298,7 +398,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         if (samples.empty()) samples.push_back({mouse.x, mouse.y, platform::PenActive() ? platform::LastPressure() : 1.0f, platform::PenActive(), false});
         PaintSamples(v, canvasMin, samples, release);
         if (release) {
-            v.renderer.EndStroke(doc, *ctx, v.history, strokeErase ? "Gomme" : "Pinceau");
+            static const char* names[] = {"", "", "", "", "", "", "Pinceau", "Gomme", "Tampon de duplication", "Correcteur", "", "",
+                                          "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge"};
+            int ti = (int)tool;
+            v.renderer.EndStroke(doc, *ctx, v.history, strokeErase ? "Gomme" : (ti < 18 && names[ti][0] ? names[ti] : "Pinceau"));
             stroking = false;
             lastStrokeEnd = lastDabPos;
             haveStrokeEnd = true;
@@ -307,8 +410,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
 }
 
 void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSample>& samples, bool release) {
-    Document& doc = *v.doc;
-    const BrushSettings& b = strokeErase ? eraser : brush;
+    const BrushSettings& b = strokeErase ? eraser : CurrentBrush();
     std::vector<Dab> dabs;
     float smooth = std::clamp(b.smoothing, 0.0f, 0.98f);
     auto emitTo = [&](float2 target, float pressure) {
@@ -345,12 +447,38 @@ void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSa
         emitTo(p, lastPressure);
     }
     if (dabs.empty()) return;
-    float4 color = LinearColor(fg);
-    if (doc.S().editMask) {
-        float l = 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z;
-        color = {l, l, l, 1};
+    EmitDabs(v, dabs);
+}
+
+void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs) {
+    Document& doc = *v.doc;
+    if (strokeErase || tool == Tool::Brush || tool == Tool::Eraser) {
+        float4 color = LinearColor(fg);
+        if (doc.S().editMask) {
+            float l = 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z;
+            color = {l, l, l, 1};
+        }
+        v.renderer.StrokeDabs(doc, *ctx, dabs, strokeErase ? eraser : brush, color, strokeErase);
+        return;
     }
-    v.renderer.StrokeDabs(doc, *ctx, dabs, b, color, strokeErase);
+    if (tool == Tool::Smudge) {
+        v.renderer.SmudgeDabs(doc, *ctx, dabs, retouch, retouchStrength);
+        return;
+    }
+    RetouchParams rp;
+    rp.strength = retouchStrength;
+    rp.srcOffset = cloneOffset;
+    rp.range = dodgeRange;
+    switch (tool) {
+        case Tool::Clone: rp.mode = RetouchMode::Clone; break;
+        case Tool::Heal: rp.mode = RetouchMode::Heal; break;
+        case Tool::Blur: rp.mode = RetouchMode::Blur; break;
+        case Tool::Sharpen: rp.mode = RetouchMode::Sharpen; break;
+        case Tool::Dodge: rp.mode = RetouchMode::Dodge; break;
+        case Tool::Burn: rp.mode = RetouchMode::Burn; break;
+        default: rp.mode = spongeSaturate ? RetouchMode::Saturate : RetouchMode::Desaturate; break;
+    }
+    v.renderer.RetouchDabs(doc, *ctx, dabs, retouch, rp);
 }
 
 }  // namespace sx

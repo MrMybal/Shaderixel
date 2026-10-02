@@ -1,5 +1,6 @@
 // Selection operations and transforms (GPU side).
 #include "render/Renderer.h"
+#include "render/Dispatch.h"
 
 #include <cstring>
 
@@ -8,13 +9,6 @@ namespace sx {
 using gpu::Shaders;
 
 namespace {
-template <class T>
-void SetConstants(gpu::DispatchDesc& d, const T& v) {
-    static_assert(sizeof(T) % 4 == 0 && sizeof(T) <= gpu::kRootConstants * 4, "root constants too large");
-    memcpy(d.constants, &v, sizeof(T));
-    d.numConstants = sizeof(T) / 4;
-}
-
 struct ShapeRoot { u32 w, h, shape, mode; float4 bounds; i32 ox, oy; u32 flags; };
 struct FilterRoot { u32 w, h, op, pass; float radius; };
 struct FromRoot { u32 w, h, op, mode; float4 color; float tolerance; u32 flags; };
@@ -27,19 +21,7 @@ struct TransformCB {
     u32 w, h, interp, flags;
 };
 
-// Compile-on-demand: builtin kernels are tiny, compiling synchronously the first
-// time keeps the operations immediate.
-const gpu::ComputePipeline* Kernel(const char* name) {
-    if (auto* p = Shaders().Builtin(name)) return p;
-    return Shaders().CompileNow(name, Shaders().File(name))->pipeline.get();
-}
 }  // namespace
-
-static void Dispatch2D(gpu::CommandContext& ctx, gpu::DispatchDesc& d, u32 w, u32 h) {
-    d.threadsX = w;
-    d.threadsY = h;
-    ctx.Dispatch(d);
-}
 
 // Run a separable selection filter (ops 0..2) or a single-pass op (3 invert) from src into dst.
 static void SelFilter(gpu::CommandContext& ctx, int op, float radius, gpu::Texture* src, gpu::Texture* tmp, gpu::Texture* dst) {
@@ -224,7 +206,7 @@ void Renderer::SelectionToMask(Document& doc, gpu::CommandContext& ctx, Id maskS
 }
 
 void Renderer::FillSelection(Document& doc, gpu::CommandContext& ctx, History* hist, Id surface, int mode, float4 color,
-                             float opacity, const std::string& label, gpu::Texture* source) {
+                             float opacity, const std::string& label, gpu::Texture* source, gpu::Texture* coverage) {
     Surface* s = doc.GetSurface(surface);
     if (!s) return;
     const u32 W = s->tex->Width(), H = s->tex->Height();
@@ -236,8 +218,9 @@ void Renderer::FillSelection(Document& doc, gpu::CommandContext& ctx, History* h
     d.pipeline = Kernel("fill_sel.slang");
     d.srv[0] = source ? source : before.get();
     d.srv[1] = sel ? sel->tex.get() : nullptr;
+    d.srv[2] = coverage;
     d.uav[0] = s->tex.get();
-    SetConstants(d, FillRoot{W, H, (u32)mode, sel ? 1u : 0u, color, opacity});
+    SetConstants(d, FillRoot{W, H, (u32)mode, (sel ? 1u : 0u) | (coverage ? 2u : 0u), color, opacity});
     Dispatch2D(ctx, d, W, H);
     if (hist) {
         auto after = gpu::Dev().CreateTexture(W, H, s->tex->GetFormat(), "UndoAfter");

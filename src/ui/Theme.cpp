@@ -261,6 +261,44 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
                 dl->AddLine(P(0.5f, -0.5f), P(0.5f + std::cos(a) * 0.38f, -0.5f + std::sin(a) * 0.38f), col, t);
             }
             break;
+        case IconStamp:
+            dl->AddRectFilled(P(-0.75f, 0.45f), P(0.75f, 0.8f), col, 2);
+            dl->AddRectFilled(P(-0.2f, -0.2f), P(0.2f, 0.45f), col);
+            dl->AddCircleFilled(P(0, -0.5f), s * 0.18f, col);
+            break;
+        case IconHeal: {
+            // diagonal bandage
+            ImVec2 q[4] = {P(-0.85f, 0.35f), P(0.35f, -0.85f), P(0.85f, -0.35f), P(-0.35f, 0.85f)};
+            dl->AddPolyline(q, 4, col, ImDrawFlags_Closed, t);
+            dl->AddQuadFilled(P(-0.25f, -0.25f), P(0.0f, -0.5f), P(0.5f, 0.0f), P(0.25f, 0.25f), col);
+            break;
+        }
+        case IconDrop:
+            dl->PathArcTo(P(0, 0.25f), s * 0.28f, 0.0f - 0.35f, 3.14159f + 0.35f);
+            dl->PathLineTo(P(0, -0.85f));
+            dl->PathFillConvex(col);
+            break;
+        case IconSharpen:
+            dl->AddTriangleFilled(P(0, -0.85f), P(0.6f, 0.8f), P(-0.6f, 0.8f), col);
+            break;
+        case IconFinger:
+            dl->AddLine(P(0.2f, -0.85f), P(0.2f, 0.2f), col, t * 2.4f);
+            dl->AddCircleFilled(P(0.05f, 0.45f), s * 0.24f, col);
+            dl->AddLine(P(-0.6f, 0.1f), P(-0.25f, 0.45f), col, t * 2.0f);
+            break;
+        case IconDodge:
+            dl->AddCircle(P(0.2f, -0.35f), s * 0.25f, col, 0, t * 1.2f);
+            dl->AddLine(P(0.0f, -0.15f), P(-0.7f, 0.85f), col, t * 1.4f);
+            break;
+        case IconBurn:
+            dl->AddCircleFilled(P(-0.05f, 0.1f), s * 0.38f, col);
+            dl->AddCircleFilled(P(0.18f, 0.1f), s * 0.16f, IM_COL32(30, 31, 36, 255));
+            dl->AddLine(P(-0.6f, -0.2f), P(-0.6f, -0.8f), col, t * 1.6f);
+            break;
+        case IconSponge:
+            dl->AddRectFilled(P(-0.75f, -0.5f), P(0.75f, 0.6f), col, s * 0.12f);
+            for (int i = 0; i < 3; ++i) dl->AddCircleFilled(P(-0.4f + i * 0.4f, 0.05f + (i % 2) * 0.2f - 0.1f), s * 0.08f, IM_COL32(30, 31, 36, 255));
+            break;
         case IconSwap:
             dl->AddBezierQuadratic(P(-0.6f, 0.4f), P(-0.6f, -0.6f), P(0.4f, -0.6f), col, t);
             dl->AddTriangleFilled(P(0.3f, -0.85f), P(0.75f, -0.6f), P(0.3f, -0.35f), col);

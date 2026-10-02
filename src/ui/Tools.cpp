@@ -255,6 +255,7 @@ void App::SelectionToolInput(DocView& v, ImVec2 canvasMin, bool hovered, const s
         wand.y = y;
         wand.mode = ModeFromModifiers();
         wand.view = &v;
+        wand.fill = false;
     }
 }
 
@@ -284,6 +285,14 @@ void App::UpdateWand(DocView& v) {
     int W = (int)rb->width, H = (int)rb->height;
     if (wand.x >= W || wand.y >= H) return;
     std::vector<u8> mask;
+    if (wand.fill) {
+        WandMask(rb->data, W, H, wand.x, wand.y, (int)bucketTolerance, bucketContiguous, mask);
+        auto cov = gpu::Dev().CreateTexture((u32)W, (u32)H, gpu::Format::R8, "BucketCoverage");
+        if (!cov || !doc.GetSurface(wand.surface)) return;
+        ctx->Upload(cov.get(), mask.data(), (u32)W);
+        v.renderer.FillSelection(doc, *ctx, &v.history, wand.surface, 0, LinearColor(fg), 1.0f, "Pot de peinture", nullptr, cov.get());
+        return;
+    }
     WandMask(rb->data, W, H, wand.x, wand.y, (int)wandTolerance, wandContiguous, mask);
     v.renderer.SelectCoverage(doc, *ctx, v.history, mask, {0, 0, W, H}, wand.mode, selFeather + (selAntialias ? 0.6f : 0.0f), "Baguette magique");
 }

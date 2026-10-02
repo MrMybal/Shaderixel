@@ -51,6 +51,14 @@ struct BrushSettings {
 
 struct Dab { float x, y, radius, alpha; };
 
+enum class RetouchMode : u8 { Clone, Heal, Blur, Sharpen, Dodge, Burn, Saturate, Desaturate };
+struct RetouchParams {
+    RetouchMode mode = RetouchMode::Clone;
+    float strength = 0.5f;
+    int2 srcOffset;
+    int range = 1;  // dodge/burn: 0 shadows, 1 midtones, 2 highlights
+};
+
 class Renderer {
 public:
     // Process queued surface clears/copies; call once per frame before evaluation.
@@ -72,6 +80,9 @@ public:
     void StrokeDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, float4 colorLinear, bool erase);
     void EndStroke(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label);
     bool Stroking() const { return strokeSurface != 0; }
+    // Retouch brushes (Retouch.cpp); call between BeginStroke/EndStroke.
+    void RetouchDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, const RetouchParams& p);
+    void SmudgeDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, float strength);
 
     void ApplyGradient(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, float2 a, float2 b,
                        int shape, float4 colorA, float4 colorB, float opacity, const std::string& label);
@@ -94,7 +105,7 @@ public:
     void SelectionToMask(Document& doc, gpu::CommandContext& ctx, Id maskSurface, bool invert);
     // Fill (mode 0), erase (1) or keep-only-selected (2) on a surface, honoring the selection.
     void FillSelection(Document& doc, gpu::CommandContext& ctx, History* hist, Id surface, int mode, float4 colorLinear,
-                       float opacity, const std::string& label, gpu::Texture* source = nullptr);
+                       float opacity, const std::string& label, gpu::Texture* source = nullptr, gpu::Texture* coverage = nullptr);
     // Async bounding box of visible pixels (optionally restricted to the selection).
     // Result: 4 x u32 {x0, y0, x1, y1}; x0 > x1 means empty.
     // dst = src * selection (or src when there is no selection).
@@ -141,6 +152,9 @@ private:
     Id strokeSurface = 0;
     gpu::TexturePtr strokePre, strokeMask;
     Rect strokeRect;
+    gpu::TexturePtr smudgeSnap;
+    float2 lastSmudge;
+    bool haveSmudge = false;
 };
 
 float HalfToFloat(u16 h);
