@@ -33,7 +33,7 @@ struct Reader {
 
 struct Channel {
     i16 id = 0;
-    u32 length = 0;
+    u64 length = 0;
     std::vector<u8> plane;
 };
 
@@ -110,7 +110,7 @@ bool DecodeRle(Reader& r, size_t rowEnd, size_t expected, std::vector<u8>& out) 
     return r.ok;
 }
 
-bool DecodePlane(Reader& r, Channel& c, int w, int h, int depth) {
+bool DecodePlane(Reader& r, Channel& c, int w, int h, int depth, bool psb) {
     size_t start = r.pos, end = start + c.length;
     if (c.length < 2 || end > r.b.size()) { r.Seek(std::min(end, r.b.size())); return w <= 0 || h <= 0; }
     if (w <= 0 || h <= 0) { r.Seek(end); return true; }
@@ -124,8 +124,8 @@ bool DecodePlane(Reader& r, Channel& c, int w, int h, int depth) {
         if (r.pos + expected > end) ok = false;
         else c.plane.assign(r.b.begin() + r.pos, r.b.begin() + r.pos + expected);
     } else if (comp == 1) {
-        std::vector<u16> lens(h);
-        for (auto& l : lens) l = r.U16();
+        std::vector<u32> lens(h);
+        for (auto& l : lens) l = psb ? r.U32() : r.U16();
         for (int y = 0; ok && y < h; ++y) ok = DecodeRle(r, r.pos + lens[y], rowBytes, c.plane);
     } else if (comp == 2 || comp == 3) {
         c.plane.resize(expected);
@@ -271,20 +271,23 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
     if (!f) return fail("fichier introuvable");
     std::vector<u8> data((std::istreambuf_iterator<char>(f)), {});
     Reader r{data};
-    if (r.Tag() != "8BPS" || r.U16() != 1) return fail("seuls les PSD version 1 sont supportés (pas les PSB)");
+    if (r.Tag() != "8BPS") return fail("fichier PSD invalide");
+    const u16 version = r.U16();
+    if (version != 1 && version != 2) return fail("version de PSD inconnue");
+    const bool psb = version == 2;  // large document format: 64-bit section lengths
     r.Skip(6);
     int channels = r.U16();
     int H = r.S32(), W = r.S32();
     int depth = r.U16(), mode = r.U16();
-    if (!r.ok || W <= 0 || H <= 0 || W > 16384 || H > 16384 || (depth != 8 && depth != 16 && depth != 32) || (mode != 1 && mode != 3) || channels <= 0)
+    if (!r.ok || W <= 0 || H <= 0 || W > 300000 || H > 300000 || (depth != 8 && depth != 16 && depth != 32) || (mode != 1 && mode != 3) || channels <= 0)
         return fail("PSD RVB ou niveaux de gris 8/16/32 bits uniquement");
     r.Skip(r.U32());  // color mode data
     r.Skip(r.U32());  // image resources
-    u32 lmLen = r.U32();
-    size_t lmEnd = r.pos + lmLen;
+    u64 lmLen = psb ? r.U64() : r.U32();
+    size_t lmEnd = r.pos + (size_t)lmLen;
     if (!r.ok || lmLen < 4 || lmEnd > data.size()) return fail("aucun calque");
-    u32 liLen = r.U32();
-    size_t liEnd = r.pos + liLen;
+    u64 liLen = psb ? r.U64() : r.U32();
+    size_t liEnd = r.pos + (size_t)liLen;
     if (liLen < 2 || liEnd > lmEnd) return fail("aucun calque");
     int count = std::abs((int)r.S16());
     if (count <= 0 || count > 32768) return fail("aucun calque");
@@ -295,7 +298,7 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
         int nc = r.U16();
         if (nc > 64) { r.ok = false; break; }
         L.channels.resize(nc);
-        for (auto& c : L.channels) { c.id = r.S16(); c.length = r.U32(); }
+        for (auto& c : L.channels) { c.id = r.S16(); c.length = psb ? r.U64() : r.U32(); }
         if (r.Tag() != "8BIM") { r.ok = false; break; }
         L.blend = r.Tag();
         L.opacity = r.U8(); L.clipping = r.U8(); L.flags = r.U8(); r.Skip(1);
@@ -321,7 +324,11 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
         L.name = ReadPascal(r);
         while (r.ok && r.pos + 12 <= extraEnd) {
             std::string sig = r.Tag(), key = r.Tag();
-            u64 len = sig == "8B64" ? r.U64() : r.U32();
+            // PSB: a few keys carry 64-bit lengths.
+            static const char* longKeys[] = {"LMsk", "Lr16", "Lr32", "Layr", "Mt16", "Mt32", "Mtrn", "Alph", "FMsk", "lnk2", "FEid", "FXid", "PxSD"};
+            bool longLen = sig == "8B64";
+            if (psb) for (auto* k : longKeys) if (key == k) longLen = true;
+            u64 len = longLen ? r.U64() : r.U32();
             size_t ds = r.pos, de = ds + (size_t)len;
             if ((sig != "8BIM" && sig != "8B64") || de > extraEnd) { r.ok = false; break; }
             if (key == "luni") {
@@ -349,7 +356,7 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
             bool isMask = c.id == -2 || c.id == -3;
             int cw = isMask && L.mright > L.mleft ? L.mright - L.mleft : L.W();
             int chh = isMask && L.mbottom > L.mtop ? L.mbottom - L.mtop : L.H();
-            if (!DecodePlane(r, c, cw, chh, depth)) report.warnings.push_back("canal non décodé : " + L.name);
+            if (!DecodePlane(r, c, cw, chh, depth, psb)) report.warnings.push_back("canal non décodé : " + L.name);
         }
     if (!r.ok) return fail("données de canaux invalides");
 

@@ -34,7 +34,7 @@ constexpr u32 kMaxSrv = 8;
 constexpr u32 kMaxUav = 4;
 constexpr u32 kRootConstants = 16;
 
-enum class Format : u8 { RGBA8, RGBA16F, RGBA32F, R8, R16F, R32F, R32U, D32F };
+enum class Format : u8 { RGBA8, RGBA16F, RGBA32F, R8, R16F, R32F, R32U, D32F, RGBA16 };  // RGBA16: unorm (exports)
 enum TextureUsage : u32 { UsageRenderTarget = 1, UsageDepth = 2 };
 u32 BytesPerPixel(Format f);
 const char* BackendName();

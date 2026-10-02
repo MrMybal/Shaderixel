@@ -143,7 +143,7 @@ private:
     void NewDocument(u32 w, u32 h, Precision p, DocMode mode, int background, const std::string& name);
     void OpenImage(const std::string& path, bool asLayer);
     void ExportImage(const std::string& path);
-    void ExportPsd(const std::string& path);
+    void ExportPsd(const std::string& path, int depth = 8);
     void MergeDown(DocView& v);
     // PBR material channels (Material.cpp)
     Id FindChannelGroup(Document& d, PbrChannel c);

@@ -28,6 +28,8 @@ struct PsdExportLayer {
 
 struct PsdExportJob {
     std::string path;
+    int depth = 8;     // 8 or 16 bits per channel
+    bool psb = false;  // large document format (also chosen automatically above 30000 px)
     u32 width = 0, height = 0;
     std::vector<PsdExportLayer> layers;  // bottom to top, groups bracketed
     gpu::ReadbackPtr composite;

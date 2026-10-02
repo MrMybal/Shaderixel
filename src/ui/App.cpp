@@ -35,7 +35,7 @@ std::string ShaderDir() {
     return SX_SHADER_DIR;
 }
 
-const wchar_t* kImageFilter = L"Documents et images\0*.sxl;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.hdr;*.gif\0Documents Shaderixel (*.sxl)\0*.sxl\0Images\0*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.hdr;*.gif\0Tous les fichiers\0*.*\0";
+const wchar_t* kImageFilter = L"Documents et images\0*.sxl;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif\0Documents Shaderixel (*.sxl)\0*.sxl\0Images\0*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif\0Tous les fichiers\0*.*\0";
 }  // namespace
 
 // ------------------------------------------------------------------ lifecycle
@@ -79,7 +79,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -364,7 +364,7 @@ void App::OpenImage(const std::string& path, bool asLayer) {
             LoadSxl(path);
             return;
         }
-        if (ext == ".psd" && !asLayer) {
+        if ((ext == ".psd" || ext == ".psb") && !asLayer) {
             auto view = std::make_unique<DocView>();
             PsdImportReport rep;
             std::string err;
@@ -423,12 +423,19 @@ void App::OpenImage(const std::string& path, bool asLayer) {
     Status("Ouvert : " + path);
 }
 
-void App::ExportPsd(const std::string& path) {
+void App::ExportPsd(const std::string& path, int depth) {
     DocView* v = Active();
     if (!v || path.empty()) return;
     if (psdExport) { Status("Un export PSD est déjà en cours"); return; }
     auto st = std::make_shared<PsdExportState>();
     st->job.path = path;
+    st->job.depth = depth;
+    {
+        std::string ext = Narrow(Utf8Path(path).extension().wstring());
+        for (auto& c : ext) c = (char)tolower((unsigned char)c);
+        st->job.psb = ext == ".psb" || v->doc->Width() > 30000 || v->doc->Height() > 30000;
+        if (st->job.psb && ext != ".psb") st->job.path = Narrow(Utf8Path(path).replace_extension(".psb").wstring());
+    }
     if (!StartPsdExport(*v->doc, v->renderer, *ctx, st->job)) { Status("Échec de l'export PSD"); return; }
     psdExport = st;
     Status("Export PSD en cours...");
@@ -546,8 +553,11 @@ void App::DrawMenuBar() {
         ImGui::Separator();
         if (ImGui::MenuItem("Exporter...", "Ctrl+Alt+Maj+W", false, v != nullptr))
             ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
-        if (ImGui::MenuItem("Exporter en PSD (calques)...", nullptr, false, v != nullptr))
-            ExportPsd(platform::SaveFileDialog(hwnd, L"Photoshop (*.psd)\0*.psd\0", L"psd"));
+        if (ImGui::BeginMenu("Exporter en PSD (calques)", v != nullptr)) {
+            if (ImGui::MenuItem("8 bits par couche...")) ExportPsd(platform::SaveFileDialog(hwnd, L"Photoshop (*.psd)\0*.psd\0Grand format (*.psb)\0*.psb\0", L"psd"), 8);
+            if (ImGui::MenuItem("16 bits par couche...")) ExportPsd(platform::SaveFileDialog(hwnd, L"Photoshop (*.psd)\0*.psd\0Grand format (*.psb)\0*.psb\0", L"psd"), 16);
+            ImGui::EndMenu();
+        }
         ImGui::Separator();
         if (ImGui::MenuItem("Fermer", "Ctrl+W", false, v != nullptr)) CloseDocument(activeDoc);
         if (ImGui::MenuItem("Quitter", "Alt+F4")) PostMessageW(hwnd, WM_CLOSE, 0, 0);

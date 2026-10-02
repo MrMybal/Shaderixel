@@ -1,7 +1,9 @@
 #include "io/PsdExport.h"
 #include "render/Renderer.h"
+#include "core/Deflate.h"
 
 #include <cstdio>
+#include <fstream>
 #include <cstring>
 #include <functional>
 
@@ -51,41 +53,77 @@ void PackRow(const u8* p, int n, std::vector<u8>& out) {
     }
 }
 
-// RLE-compressed channel block: u16 compression, row lengths, data.
-std::vector<u8> EncodeChannel(const std::vector<u8>& plane, int w, int h) {
+// Channel value (8-bit data: RGBA8; 16-bit data: little-endian RGBA16).
+inline u32 Sample(const gpu::Readback& rb, size_t pixel, int channel, int bpc) {
+    if (bpc == 1) return rb.data[pixel * 4 + channel];
+    const u8* p = &rb.data[(pixel * 4 + channel) * 2];
+    return (u32)p[0] | ((u32)p[1] << 8);
+}
+
+// ZIP with prediction (compression 3, what Photoshop uses for 16-bit): per-row
+// delta of big-endian 16-bit samples, then zlib.
+std::vector<u8> ZipPredicted(std::vector<u8> plane, int rowBytes, int h) {
+    for (int y = 0; y < h; ++y) {
+        u8* row = &plane[(size_t)y * rowBytes];
+        for (int x = rowBytes / 2 - 1; x >= 1; --x) {
+            u16 a = (u16)((row[x * 2] << 8) | row[x * 2 + 1]), b = (u16)((row[x * 2 - 2] << 8) | row[x * 2 - 1]);
+            u16 d = (u16)(a - b);
+            row[x * 2] = (u8)(d >> 8);
+            row[x * 2 + 1] = (u8)d;
+        }
+    }
+    return deflate::ZlibCompress(plane.data(), plane.size(), 6);
+}
+
+// Channel block: u16 compression + data. 8-bit: RLE (row byte counts are 2 bytes,
+// 4 for PSB); 16-bit: ZIP with prediction.
+std::vector<u8> EncodeChannel(const std::vector<u8>& plane, int rowBytes, int h, bool psb, int bpc = 1) {
     std::vector<u8> out;
     out.push_back(0);
-    out.push_back(1);
-    if (w <= 0 || h <= 0) return out;
+    out.push_back(bpc == 2 ? 3 : 1);
+    if (rowBytes <= 0 || h <= 0) return out;
+    if (bpc == 2) {
+        std::vector<u8> z = ZipPredicted(plane, rowBytes, h);
+        out.insert(out.end(), z.begin(), z.end());
+        return out;
+    }
     std::vector<u8> data;
-    std::vector<u16> lens(h);
+    std::vector<u32> lens(h);
     for (int y = 0; y < h; ++y) {
         size_t before = data.size();
-        PackRow(&plane[(size_t)y * w], w, data);
-        lens[y] = (u16)(data.size() - before);
+        PackRow(&plane[(size_t)y * rowBytes], rowBytes, data);
+        lens[y] = (u32)(data.size() - before);
     }
-    for (u16 l : lens) { out.push_back((u8)(l >> 8)); out.push_back((u8)l); }
+    for (u32 l : lens) {
+        if (psb) { out.push_back((u8)(l >> 24)); out.push_back((u8)(l >> 16)); }
+        out.push_back((u8)(l >> 8));
+        out.push_back((u8)l);
+    }
     out.insert(out.end(), data.begin(), data.end());
     return out;
 }
 
-Rect AlphaBounds(const gpu::Readback& rb, int channel, u8 background) {
+Rect AlphaBounds(const gpu::Readback& rb, int channel, u32 background, int bpc) {
     Rect r{(int)rb.width, (int)rb.height, 0, 0};
-    for (u32 y = 0; y < rb.height; ++y) {
-        const u8* row = &rb.data[(size_t)y * rb.width * 4];
+    for (u32 y = 0; y < rb.height; ++y)
         for (u32 x = 0; x < rb.width; ++x)
-            if (row[x * 4 + channel] != background) {
+            if (Sample(rb, (size_t)y * rb.width + x, channel, bpc) != background) {
                 r.x0 = std::min(r.x0, (int)x); r.x1 = std::max(r.x1, (int)x + 1);
                 r.y0 = std::min(r.y0, (int)y); r.y1 = std::max(r.y1, (int)y + 1);
             }
-    }
     return r.Empty() ? Rect{} : r;
 }
 
-std::vector<u8> Plane(const gpu::Readback& rb, const Rect& r, int channel) {
-    std::vector<u8> p((size_t)r.Width() * r.Height());
+// One channel of a rectangle as big-endian samples.
+std::vector<u8> Plane(const gpu::Readback& rb, const Rect& r, int channel, int bpc) {
+    std::vector<u8> p((size_t)r.Width() * r.Height() * bpc);
+    size_t k = 0;
     for (int y = 0; y < r.Height(); ++y)
-        for (int x = 0; x < r.Width(); ++x) p[(size_t)y * r.Width() + x] = rb.data[((size_t)(r.y0 + y) * rb.width + r.x0 + x) * 4 + channel];
+        for (int x = 0; x < r.Width(); ++x) {
+            u32 v = Sample(rb, (size_t)(r.y0 + y) * rb.width + r.x0 + x, channel, bpc);
+            if (bpc == 2) p[k++] = (u8)(v >> 8);
+            p[k++] = (u8)v;
+        }
     return p;
 }
 
@@ -118,7 +156,8 @@ bool StartPsdExport(Document& doc, Renderer& r, gpu::CommandContext& ctx, PsdExp
     job.width = doc.Width();
     job.height = doc.Height();
     job.layers.clear();
-    job.composite = r.ExportRGBA8(ctx, r.EvaluateComplete(doc, ctx));
+    auto exportImg = [&](gpu::Texture* t, bool srgb) { return job.depth == 16 ? r.ExportRGBA16(ctx, t, srgb) : r.ExportRGBA8(ctx, t, srgb); };
+    job.composite = exportImg(r.EvaluateComplete(doc, ctx), true);
     if (!job.composite) return false;
     const auto& S = doc.S();
     if (S.mode != DocMode::Layers) {
@@ -147,7 +186,7 @@ bool StartPsdExport(Document& doc, Renderer& r, gpu::CommandContext& ctx, PsdExp
             e.blendIf = l.blendIf;
             e.maskDisabled = !l.maskEnabled;
             if (l.mask)
-                if (Surface* m = doc.GetSurface(l.mask)) e.mask = r.ExportRGBA8(ctx, m->tex.get(), false);
+                if (Surface* m = doc.GetSurface(l.mask)) e.mask = exportImg(m->tex.get(), false);
             if (l.kind == LayerKind::Group) {
                 PsdExportLayer end;
                 end.kind = PsdExportLayer::GroupEnd;
@@ -160,7 +199,7 @@ bool StartPsdExport(Document& doc, Renderer& r, gpu::CommandContext& ctx, PsdExp
                 continue;
             }
             if (Id c = contentOf(l.id))
-                if (gpu::Texture* t = r.EvaluateNode(doc, ctx, c)) e.pixels = r.ExportRGBA8(ctx, t);
+                if (gpu::Texture* t = r.EvaluateNode(doc, ctx, c)) e.pixels = exportImg(t, true);
             job.layers.push_back(e);
         }
     };
@@ -180,26 +219,39 @@ bool PsdExportReady(const PsdExportJob& job) {
 
 bool WritePsd(const PsdExportJob& job, std::string* error) {
     const int W = (int)job.width, H = (int)job.height;
-    if (W > 30000 || H > 30000) {
-        if (error) *error = "PSD limité à 30000 px";
+    const bool psb = job.psb;
+    const int bpc = job.depth == 16 ? 2 : 1;
+    const u32 maxVal = bpc == 2 ? 65535u : 255u;
+    if (!psb && (W > 30000 || H > 30000)) {
+        if (error) *error = "PSD limité à 30000 px : utilisez le format PSB";
+        return false;
+    }
+    if (W > 300000 || H > 300000) {
+        if (error) *error = "dimensions hors limites (300000 px)";
         return false;
     }
     Writer w;
+    // Section lengths: 4 bytes (PSD) or 8 bytes (PSB).
+    auto reserveLen = [&] { size_t at = w.b.size(); if (psb) w.U32(0); w.U32(0); return at; };
+    auto patchLen = [&](size_t at, u64 v) {
+        if (psb) { w.Patch32(at, (u32)(v >> 32)); w.Patch32(at + 4, (u32)v); }
+        else w.Patch32(at, (u32)v);
+    };
     w.Tag("8BPS");
-    w.U16(1);
+    w.U16(psb ? 2 : 1);
     for (int i = 0; i < 6; ++i) w.U8(0);
     w.U16(4);  // RGB + transparency
     w.U32((u32)H);
     w.U32((u32)W);
-    w.U16(8);
+    w.U16((u16)job.depth);
     w.U16(3);  // RGB
     w.U32(0);  // color mode data
     w.U32(0);  // image resources
 
     // Layer and mask information.
-    size_t lmiLen = w.Reserve32();
+    size_t lmiLen = reserveLen();
     size_t lmiStart = w.b.size();
-    size_t liLen = w.Reserve32();
+    size_t liLen = reserveLen();
     size_t liStart = w.b.size();
     w.U16((u16)(-(i16)job.layers.size()));  // negative: merged image has transparency
 
@@ -211,18 +263,18 @@ bool WritePsd(const PsdExportJob& job, std::string* error) {
     for (size_t i = 0; i < job.layers.size(); ++i) {
         const auto& l = job.layers[i];
         Encoded& e = enc[i];
-        if (l.kind == PsdExportLayer::Pixels && l.pixels && l.pixels->width == (u32)W) e.r = AlphaBounds(*l.pixels, 3, 0);
+        if (l.kind == PsdExportLayer::Pixels && l.pixels && l.pixels->width == (u32)W) e.r = AlphaBounds(*l.pixels, 3, 0, bpc);
         const int cw = e.r.Width(), ch = e.r.Height();
         static const int order[4] = {3, 0, 1, 2};
         static const i16 ids[4] = {-1, 0, 1, 2};
         for (int c = 0; c < 4; ++c) {
-            std::vector<u8> plane = e.r.Empty() ? std::vector<u8>{} : Plane(*l.pixels, e.r, order[c]);
-            e.channels.push_back({ids[c], EncodeChannel(plane, cw, ch)});
+            std::vector<u8> plane = e.r.Empty() ? std::vector<u8>{} : Plane(*l.pixels, e.r, order[c], bpc);
+            e.channels.push_back({ids[c], EncodeChannel(plane, cw * bpc, ch, psb, bpc)});
         }
         if (l.mask && l.mask->width == (u32)W) {
-            e.mr = AlphaBounds(*l.mask, 0, 255);
-            std::vector<u8> plane = e.mr.Empty() ? std::vector<u8>{} : Plane(*l.mask, e.mr, 0);
-            e.channels.push_back({-2, EncodeChannel(plane, e.mr.Width(), e.mr.Height())});
+            e.mr = AlphaBounds(*l.mask, 0, maxVal, bpc);
+            std::vector<u8> plane = e.mr.Empty() ? std::vector<u8>{} : Plane(*l.mask, e.mr, 0, bpc);
+            e.channels.push_back({-2, EncodeChannel(plane, e.mr.Width() * bpc, e.mr.Height(), psb, bpc)});
         }
     }
     for (size_t i = 0; i < job.layers.size(); ++i) {
@@ -235,6 +287,7 @@ bool WritePsd(const PsdExportJob& job, std::string* error) {
         w.U16((u16)e.channels.size());
         for (auto& [id, data] : e.channels) {
             w.U16((u16)id);
+            if (psb) w.U32((u32)((u64)data.size() >> 32));
             w.U32((u32)data.size());
         }
         w.Tag("8BIM");
@@ -254,8 +307,8 @@ bool WritePsd(const PsdExportJob& job, std::string* error) {
             w.I32(e.mr.x0);
             w.I32(e.mr.y1);
             w.I32(e.mr.x1);
-            w.U8(255);                        // default color outside the rect
-            w.U8(l.maskDisabled ? 2 : 0);     // flags
+            w.U8(255);                     // default color outside the rect
+            w.U8(l.maskDisabled ? 2 : 0);  // flags
             w.U16(0);
         } else {
             w.U32(0);
@@ -280,37 +333,57 @@ bool WritePsd(const PsdExportJob& job, std::string* error) {
     for (auto& e : enc)
         for (auto& [id, data] : e.channels) w.Bytes(data.data(), data.size());
     w.Pad(liStart, 2);
-    w.Patch32(liLen, (u32)(w.b.size() - liStart));
+    patchLen(liLen, w.b.size() - liStart);
     w.U32(0);  // global layer mask info
-    w.Patch32(lmiLen, (u32)(w.b.size() - lmiStart));
+    patchLen(lmiLen, w.b.size() - lmiStart);
 
-    // Merged image: RLE, all channels' row lengths first, then data.
+    // Merged image: 8-bit RLE (all channels' row byte counts first, then data);
+    // 16-bit ZIP with prediction over the concatenated channel planes.
     const gpu::Readback& c = *job.composite;
+    if (bpc == 2) {
+        w.U16(3);
+        std::vector<u8> planes;
+        planes.reserve((size_t)W * H * 8);
+        for (int ch : {0, 1, 2, 3}) {
+            std::vector<u8> p = Plane(c, Rect{0, 0, W, H}, ch, 2);
+            planes.insert(planes.end(), p.begin(), p.end());
+        }
+        std::vector<u8> z = ZipPredicted(std::move(planes), W * 2, H * 4);
+        w.Bytes(z.data(), z.size());
+    } else {
     w.U16(1);
     std::vector<std::vector<u8>> rows;
-    std::vector<u16> lens;
+    std::vector<u32> lens;
+    std::vector<u8> row((size_t)W * bpc);
     for (int ch : {0, 1, 2, 3}) {
-        std::vector<u8> row(W);
         for (int y = 0; y < H; ++y) {
-            for (int x = 0; x < W; ++x) row[x] = c.data[((size_t)y * W + x) * 4 + ch];
+            for (int x = 0; x < W; ++x) {
+                u32 v = Sample(c, (size_t)y * W + x, ch, bpc);
+                if (bpc == 2) { row[(size_t)x * 2] = (u8)(v >> 8); row[(size_t)x * 2 + 1] = (u8)v; }
+                else row[x] = (u8)v;
+            }
             std::vector<u8> packed;
-            PackRow(row.data(), W, packed);
-            lens.push_back((u16)packed.size());
+            PackRow(row.data(), W * bpc, packed);
+            lens.push_back((u32)packed.size());
             rows.push_back(std::move(packed));
         }
     }
-    for (u16 l : lens) w.U16(l);
+    for (u32 l : lens) { if (psb) w.U32(l); else w.U16((u16)l); }
     for (auto& r : rows) w.Bytes(r.data(), r.size());
+    }
+    if (!psb && w.b.size() > (2ull << 30)) {
+        if (error) *error = "fichier PSD > 2 Go : utilisez le format PSB";
+        return false;
+    }
 
-    FILE* f = nullptr;
-    if (_wfopen_s(&f, Widen(job.path).c_str(), L"wb") != 0 || !f) {
+    std::ofstream f(Utf8Path(job.path), std::ios::binary | std::ios::trunc);
+    if (!f) {
         if (error) *error = "Impossible d'écrire " + job.path;
         return false;
     }
-    bool ok = fwrite(w.b.data(), 1, w.b.size(), f) == w.b.size();
-    fclose(f);
-    if (!ok && error) *error = "Erreur d'écriture";
-    return ok;
+    f.write((const char*)w.b.data(), (std::streamsize)w.b.size());
+    if (!f && error) *error = "Erreur d'écriture";
+    return (bool)f;
 }
 
 }  // namespace sx

@@ -256,6 +256,44 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 31 && v) {
+        // PSD 16-bit and PSB exports, re-imported and compared with the original composite.
+        static gpu::ReadbackPtr orig, back[2];
+        static int stage = 0;
+        static u64 at = 0;
+        static DocView* source = nullptr;
+        if (frameCounter == 8) {
+            source = v;
+            orig = v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(*v->doc, *ctx));
+            ExportPsd("demo_export16.psd", 16);
+        }
+        if (stage == 0 && frameCounter > 9 && !psdExport) {
+            ExportPsd("demo_export.psb", 8);
+            stage = 1;
+        }
+        if (stage == 1 && !psdExport) {
+            std::error_code ec;
+            Log("[psd16] sizes: 16-bit %llu, psb %llu", (unsigned long long)std::filesystem::file_size("demo_export16.psd", ec),
+                (unsigned long long)std::filesystem::file_size("demo_export.psb", ec));
+            OpenImage("demo_export16.psd", false);
+            OpenImage("demo_export.psb", false);
+            stage = 2;
+            at = frameCounter;
+        }
+        if (stage == 2 && frameCounter == at + 10 && docs.size() >= 3) {
+            for (int k = 0; k < 2; ++k) {
+                DocView& dv = *docs[docs.size() - 2 + k];
+                back[k] = dv.renderer.ExportRGBA8(*ctx, dv.renderer.EvaluateComplete(*dv.doc, *ctx));
+            }
+            stage = 3;
+        }
+        if (stage == 3 && back[0] && back[1] && back[0]->ready && back[1]->ready && orig && orig->ready) {
+            CompareReadbacks("original vs PSD 16-bit", *orig, *back[0], 3);
+            CompareReadbacks("original vs PSB", *orig, *back[1], 3);
+            stage = 4;
+        }
+        return;
+    }
     if (demoMode == 17) {
         // PSD round trip: export with layers, re-import, compare composites.
         static gpu::ReadbackPtr orig, back;
@@ -595,7 +633,7 @@ void App::RunDemo() {
         wand.surface = bucketSurface;
         tool = Tool::Smudge;
     }
-    if (demoMode == 7 || demoMode == 8 || demoMode == 9 || demoMode == 17) {
+    if (demoMode == 7 || demoMode == 8 || demoMode == 9 || demoMode == 17 || demoMode == 31) {
         // Clipping: a rainbow gradient clipped to the paint strokes; then group paint+glow
         // and apply a group opacity; a hidden noise layer inside a collapsed group.
         d.S().activeLayer = paintId;

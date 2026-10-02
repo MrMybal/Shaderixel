@@ -34,6 +34,7 @@ VkFormat ToVk(Format f) {
         case Format::R32F: return VK_FORMAT_R32_SFLOAT;
         case Format::R32U: return VK_FORMAT_R32_UINT;
         case Format::D32F: return VK_FORMAT_D32_SFLOAT;
+        case Format::RGBA16: return VK_FORMAT_R16G16B16A16_UNORM;
     }
     return VK_FORMAT_R8G8B8A8_UNORM;
 }
@@ -54,6 +55,7 @@ u32 BytesPerPixel(Format f) {
         case Format::R32F: return 4;
         case Format::R32U: return 4;
         case Format::D32F: return 4;
+        case Format::RGBA16: return 8;
     }
     return 4;
 }

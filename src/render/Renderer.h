@@ -111,6 +111,8 @@ public:
 
     void Import(Document& doc, gpu::CommandContext& ctx, Id surface, const void* pixels, u32 w, u32 h, bool isFloat, int2 offset);
     gpu::ReadbackPtr ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb = true);
+    // Same conversion (straight, optional sRGB) at 16 bits per channel (little-endian u16).
+    gpu::ReadbackPtr ExportRGBA16(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb = true);
     // Full-resolution output of one node (through the node cache, also in tiled mode).
     gpu::Texture* EvaluateNode(Document& doc, gpu::CommandContext& ctx, Id node) { return Eval(doc, ctx, node, 0).tex; }
     // Release full-size node caches created by EvaluateNode in tiled mode.

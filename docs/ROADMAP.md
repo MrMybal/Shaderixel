@@ -44,7 +44,7 @@
 - Fluidité (pinceau : déformation avant, tourbillons, contraction, dilatation, reconstruction) : **fait**
 - LUT 3D (.cube) : **fait** (réglage Correspondance de couleur, LUT embarquée dans le .sxl, type de paramètre `lut` disponible pour les effets)
 - Filtre de déformation (marionnette / grille)
-- Export PSD avec calques : **fait** (8 bits RLE, groupes, masques, écrêtage, modes ; réglages/remplissages/filtres rastérisés). Reste : PSB (> 30000 px), 16 bits, calques de réglage natifs
+- Export PSD avec calques : **fait** (8 bits RLE, groupes, masques, écrêtage, modes ; réglages/remplissages/filtres rastérisés). PSB et 16 bits (ZIP avec prédiction) en export et import : **fait**. Reste : calques de réglage natifs
 
 - Règles, repères, grille et magnétisme : **fait**
 - Fusionner vers le bas / les calques visibles / aplatir : **fait**

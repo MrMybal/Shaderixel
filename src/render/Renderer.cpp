@@ -643,6 +643,19 @@ gpu::ReadbackPtr Renderer::Histogram(gpu::CommandContext& ctx, gpu::Texture* ima
     return ctx.ReadbackTexture(histoTex.get());
 }
 
+gpu::ReadbackPtr Renderer::ExportRGBA16(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb) {
+    auto prog = Shaders().CompileNow("export.slang", Shaders().File("export.slang"));
+    if (!image || !prog->pipeline) return nullptr;
+    auto tmp = gpu::Dev().CreateTexture(image->Width(), image->Height(), gpu::Format::RGBA16, "Export16");
+    gpu::DispatchDesc d;
+    d.pipeline = prog->pipeline.get();
+    d.srv[0] = image;
+    d.uav[0] = tmp.get();
+    SetConstants(d, ExportRoot{image->Width(), image->Height(), srgb ? 1u : 0u});
+    Dispatch2D(ctx, d, image->Width(), image->Height());
+    return ctx.ReadbackTexture(tmp.get());
+}
+
 gpu::ReadbackPtr Renderer::ReadPixel(gpu::CommandContext& ctx, gpu::Texture* image, int x, int y) {
     if (!image) return nullptr;
     Rect r{x, y, x + 1, y + 1};
