@@ -163,14 +163,7 @@ void App::DrawCanvas() {
         v->lastImage = v->renderer.Evaluate(*v->doc, *ctx);
     }
     if (!visible || !v) {
-        if (visible) {
-            ImVec2 a = ImGui::GetContentRegionAvail();
-            const char* msg = "Ctrl+N : nouveau document    Ctrl+O : ouvrir une image";
-            ImVec2 ts = ImGui::CalcTextSize(msg);
-            ImVec2 s0 = ImGui::GetCursorPos();
-            ImGui::SetCursorPos(ImVec2(s0.x + (a.x - ts.x) * 0.5f, s0.y + a.y * 0.5f));
-            ImGui::TextDisabled("%s", msg);
-        }
+        if (visible) DrawWelcome();
         ImGui::End();
         return;
     }

@@ -1,0 +1,3 @@
+// Application resources: icon (exe, window) and the logo shown in the UI.
+1 ICON "shaderixel.ico"
+2 RCDATA "logo.png"

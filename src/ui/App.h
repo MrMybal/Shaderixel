@@ -446,6 +446,12 @@ private:
 
     // dialogs / panels
     bool showNewDoc = false;
+    bool showAbout = false, aboutAtStart = false;
+    gpu::TexturePtr logoTex;  // embedded logo (resource 2), loaded on the first frame
+    bool logoTried = false;
+    void LoadLogo();
+    void DrawAbout();
+    void DrawWelcome();
     bool showShaderErrors = false;
     bool showDemo = false;
     bool layoutBuilt = false;

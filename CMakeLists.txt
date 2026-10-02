@@ -48,7 +48,7 @@ foreach(dir ${WINSDK_BINS})
 endforeach()
 
 function(sx_app target)
-    add_executable(${target} WIN32 ${SX_SOURCES} ${ARGN})
+    add_executable(${target} WIN32 ${SX_SOURCES} ${ARGN} ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc)
     target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${EXT}/stb)
     target_link_libraries(${target} PRIVATE imgui slang comdlg32 shell32 ole32)
     target_compile_definitions(${target} PRIVATE

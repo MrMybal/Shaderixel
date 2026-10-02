@@ -130,6 +130,7 @@ def main():
     shots = os.path.join(dist, 'Guide_images')
     os.makedirs(ex)
     os.makedirs(shots)
+    shutil.copy2(os.path.join(ROOT, 'assets', 'logo.png'), os.path.join(shots, 'logo.png'))
 
     exe = os.path.join(dist, 'Shaderixel.exe')
     work = os.path.join(dist, '_work')

@@ -84,6 +84,7 @@ void App::ParseCommandLine() {
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
         else if (a == "--focus" && i + 1 < argc) focusAtStart.push_back(Narrow(argv[++i]));  // panel to bring forward (captures)
+        else if (a == "--about") aboutAtStart = true;  // screenshot of the About box
         else if (a == "--save" && i + 1 < argc) cliSavePath = Narrow(argv[++i]);  // save the active document at the capture frame
         else if (a == "--dump-image" && i + 1 < argc) dumpPath = Narrow(argv[++i]);  // document composite at the capture frame
         else if (a == "--sparse-threshold" && i + 1 < argc) gpu::Dev().SetSparseThreshold((u64)_wtoi64(argv[++i]));
@@ -149,7 +150,7 @@ bool App::Init() {
     }
     ShowWindow(hwnd, SW_SHOWMAXIMIZED);
     UpdateWindow(hwnd);
-    if (!demoMode && pendingDrop.empty()) NewDocument(1920, 1080, Precision::Half16, DocMode::Layers, 0, "Sans titre");
+    // No document at launch: the canvas shows the welcome screen (logo, new/open, recent files).
     return true;
 }
 
@@ -165,10 +166,89 @@ void App::Shutdown() {
     gpu::Dev().Shutdown();
 }
 
+void App::LoadLogo() {
+    logoTried = true;
+    HMODULE mod = GetModuleHandleW(nullptr);
+    HRSRC res = FindResourceW(mod, MAKEINTRESOURCEW(2), MAKEINTRESOURCEW(10));  // RT_RCDATA
+    HGLOBAL h = res ? LoadResource(mod, res) : nullptr;
+    const void* data = h ? LockResource(h) : nullptr;
+    if (!data) return;
+    int w = 0, hgt = 0, comp = 0;
+    stbi_uc* px = stbi_load_from_memory((const stbi_uc*)data, (int)SizeofResource(mod, res), &w, &hgt, &comp, 4);
+    if (!px) return;
+    logoTex = gpu::Dev().CreateTexture((u32)w, (u32)hgt, gpu::Format::RGBA8, "Logo");
+    ctx->Upload(logoTex.get(), px, (u32)w * 4);
+    stbi_image_free(px);
+}
+
+void App::DrawAbout() {
+    if (showAbout) {
+        ImGui::OpenPopup("À propos de Shaderixel");
+        showAbout = false;
+    }
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopupModal("À propos de Shaderixel", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+    float s = ImGui::GetFontSize() * 14;
+    if (logoTex) {
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (ImGui::GetFontSize() * 22 - s) * 0.5f);
+        ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(logoTex.get()), ImVec2(s, s));
+    }
+    ImGui::Dummy(ImVec2(ImGui::GetFontSize() * 22, 0));
+    ImGui::TextUnformatted("Éditeur d'images entièrement GPU");
+    ImGui::TextDisabled("Calques, mode nodal, effets HLSL/Slang, peinture 3D PBR, IA (MCP)");
+    ImGui::TextDisabled("Rendu : %s    Compilation : %s", gpu::BackendName(), __DATE__);
+    ImGui::Spacing();
+    if (ImGui::Button("Fermer", ImVec2(-FLT_MIN, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
+}
+
+void App::DrawWelcome() {
+    // Shown in the canvas when no document is open: logo, quick actions, recent files.
+    ImVec2 a = ImGui::GetContentRegionAvail();
+    ImVec2 s0 = ImGui::GetCursorPos();
+    float fs = ImGui::GetFontSize();
+    float logo = logoTex ? std::clamp(std::min(a.x, a.y) * 0.38f, 96.0f, 360.0f) : 0.0f;
+    std::vector<const std::string*> recent;  // existing files only
+    for (auto& r : recentFiles) if (recent.size() < 6 && std::filesystem::exists(Utf8Path(r))) recent.push_back(&r);
+    int nRecent = (int)recent.size();
+    float colW = std::min(a.x - 2 * fs, fs * 26);
+    float total = logo + fs * 4.5f + (nRecent ? fs * 2 + nRecent * ImGui::GetFrameHeightWithSpacing() : 0);
+    float y = s0.y + std::max(fs, (a.y - total) * 0.45f);
+    if (logoTex) {
+        ImGui::SetCursorPos(ImVec2(s0.x + (a.x - logo) * 0.5f, y));
+        ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(logoTex.get()), ImVec2(logo, logo));
+        y += logo + fs;
+    }
+    float x = s0.x + (a.x - colW) * 0.5f;
+    float bw = (colW - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
+    ImGui::SetCursorPos(ImVec2(x, y));
+    if (ImGui::Button("Nouveau document   Ctrl+N", ImVec2(bw, fs * 2))) showNewDoc = true;
+    ImGui::SameLine();
+    if (ImGui::Button("Ouvrir...   Ctrl+O", ImVec2(bw, fs * 2))) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
+    y += fs * 3;
+    if (nRecent) {
+        ImGui::SetCursorPos(ImVec2(x, y));
+        ImGui::TextDisabled("Fichiers récents");
+        std::string open;
+        for (int i = 0; i < nRecent; ++i) {
+            const std::string& r = *recent[i];
+            ImGui::SetCursorPosX(x);
+            std::string name = Narrow(Utf8Path(r).filename().wstring());
+            if (ImGui::Selectable((name + "##" + r).c_str(), false, 0, ImVec2(colW, 0))) open = r;
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", r.c_str());
+        }
+        if (!open.empty()) OpenImage(open, false);
+    } else {
+        ImGui::SetCursorPosX(x);
+        ImGui::TextDisabled("Glissez une image, un .sxl ou un .psd sur la fenêtre pour l'ouvrir.");
+    }
+}
+
 void App::Frame() {
     gpu::Shaders().Update();
     Effects().ReloadIfChanged();
     ctx = &gpu::Dev().BeginFrame();
+    if (!logoTried) LoadLogo();
 
     gpu::Dev().ImGuiNewFrame();
     ImGui_ImplWin32_NewFrame();
@@ -182,6 +262,7 @@ void App::Frame() {
     }
 
     DrawMenuBar();
+    DrawAbout();
     DrawStatusBar();
     ImGuiID dock = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     if (!layoutBuilt || resetLayout) {
@@ -194,6 +275,7 @@ void App::Frame() {
     ++frameCounter;
     if (frameCounter == 2) ImGui::SetWindowFocus("Canevas");  // Canvas is the default center tab
     if (demoMode && frameCounter == 3) RunDemo();
+    if (aboutAtStart && frameCounter == 3) showAbout = true;
     if (demoMode) DemoTick();
     if (frameCounter >= 4 && frameCounter - 4 < focusAtStart.size()) ImGui::SetWindowFocus(focusAtStart[frameCounter - 4].c_str());
     if (!capturePath.empty() && frameCounter == (u64)captureFrame) captureRb = gpu::Dev().CaptureNextFrame();
@@ -537,7 +619,15 @@ void App::BuildDockLayout(ImGuiID dock) {
 void App::DrawMenuBar() {
     if (!ImGui::BeginMainMenuBar()) return;
     DocView* v = Active();
-    ImGui::TextColored(ImVec4(0.6f, 0.5f, 1.0f, 1.0f), "Shaderixel");
+    if (logoTex) {
+        float h = ImGui::GetFrameHeight() - 2;
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 1);
+        ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(logoTex.get()), ImVec2(h, h));
+        if (ImGui::IsItemClicked()) showAbout = true;
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("À propos de Shaderixel");
+    } else {
+        ImGui::TextColored(ImVec4(0.6f, 0.5f, 1.0f, 1.0f), "Shaderixel");
+    }
     ImGui::Separator();
     if (ImGui::BeginMenu("Fichier")) {
         if (ImGui::MenuItem("Nouveau...", "Ctrl+N")) showNewDoc = true;
@@ -656,6 +746,14 @@ void App::DrawMenuBar() {
     if (ImGui::BeginMenu("Fenêtre")) {
         if (ImGui::MenuItem("Réinitialiser la disposition")) resetLayout = true;
         ImGui::MenuItem("Démo ImGui", nullptr, &showDemo);
+        ImGui::EndMenu();
+    }
+    if (ImGui::BeginMenu("Aide")) {
+        std::wstring guide = Utf8Path(ExeDir()).wstring() + L"\\Guide.html";
+        if (ImGui::MenuItem("Guide de test", nullptr, false, std::filesystem::exists(guide)))
+            ShellExecuteW(nullptr, L"open", guide.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        ImGui::Separator();
+        if (ImGui::MenuItem("À propos de Shaderixel")) showAbout = true;
         ImGui::EndMenu();
     }
     // Document tabs in the menu bar.

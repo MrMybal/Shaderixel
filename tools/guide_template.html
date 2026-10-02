@@ -4,15 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shaderixel – guide de test</title>
+<link rel="icon" href="Guide_images/logo.png">
 <style>
 :root {
   --bg: #16171b; --panel: #1e2026; --line: #2c2f38; --text: #e6e7ec; --dim: #9a9db0;
-  --accent: #8b6cff; --accent2: #39c6e8; --warn: #ffb35c;
+  --accent: #3d8bff; --accent2: #39c6e8; --warn: #ffb35c;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 "Segoe UI", system-ui, sans-serif; }
-header { padding: 40px 24px 28px; background: linear-gradient(135deg, #2a1f55, #16171b 60%); border-bottom: 1px solid var(--line); }
+header { padding: 40px 24px 28px; background: linear-gradient(135deg, #0f2a5c, #16171b 60%); border-bottom: 1px solid var(--line); }
 header .wrap, main { max-width: 1100px; margin: 0 auto; }
+header .wrap { display: flex; align-items: center; gap: 24px; }
+header .logo { width: 112px; height: 112px; flex: none; }
+@media (max-width: 560px) { header .wrap { flex-direction: column; align-items: flex-start; } header .logo { width: 80px; height: 80px; } }
 h1 { margin: 0 0 6px; font-size: 34px; letter-spacing: -0.5px; }
 h1 span { color: var(--accent); }
 header p { margin: 0; color: var(--dim); max-width: 760px; }
@@ -42,9 +46,12 @@ td:first-child { white-space: nowrap; width: 1%; }
 </head>
 <body>
 <header><div class="wrap">
+  <img class="logo" src="Guide_images/logo.png" alt="Logo Shaderixel">
+  <div>
   <h1>Shaderixel <span>· version de test</span></h1>
   <p>Éditeur d'images entièrement GPU : calques façon Photoshop, mode nodal, effets HLSL/Slang codables, peinture 3D PBR et pont IA (MCP).
   Version du {{DATE}}.</p>
+  </div>
 </div></header>
 <main>
 
