@@ -84,6 +84,7 @@ void App::ParseCommandLine() {
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
+        else if (a == "--sparse-threshold" && i + 1 < argc) gpu::Dev().SetSparseThreshold((u64)_wtoi64(argv[++i]));
         else if (a == "--frames" && i + 1 < argc) captureFrame = std::max(3, _wtoi(argv[++i]));
         else if (a.rfind("--", 0) != 0) pendingDrop = a;  // open a file given on the command line
     }
@@ -837,9 +838,10 @@ void App::DrawStatusBar() {
                 if (ImGui::SmallButton((std::to_string(failedCount) + " erreur(s) de shader").c_str())) showShaderErrors = true;
                 ImGui::PopStyleColor();
             }
-            char right[160];
-            snprintf(right, sizeof(right), "%s   VRAM %.0f Mo   %.0f i/s", gpu::Dev().AdapterName().c_str(),
-                     gpu::Dev().VideoMemoryUsage() / (1024.0 * 1024.0), ImGui::GetIO().Framerate);
+            char right[200], sparse[48] = "";
+            if (u64 sb = gpu::Dev().SparseBytes()) snprintf(sparse, sizeof(sparse), " (creux %.0f Mo)", sb / (1024.0 * 1024.0));
+            snprintf(right, sizeof(right), "%s   VRAM %.0f Mo%s   %.0f i/s", gpu::Dev().AdapterName().c_str(),
+                     gpu::Dev().VideoMemoryUsage() / (1024.0 * 1024.0), sparse, ImGui::GetIO().Framerate);
             ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(right).x - 16);
             ImGui::TextDisabled("%s", right);
             ImGui::EndMenuBar();

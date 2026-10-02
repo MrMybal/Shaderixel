@@ -39,6 +39,13 @@ public:
     u32 Height() const { return height; }
     Format GetFormat() const { return format; }
     ID3D12Resource* Resource() const { return res.Get(); }
+    // Sparse (reserved) textures: 64 KB tiles are backed by memory only once written.
+    // Unbacked areas read as zero.
+    bool Sparse() const { return sparse; }
+    u64 MappedBytes() const { return (u64)mappedTiles * 65536; }
+    u32 TileW() const { return tileW; }
+    u32 TileH() const { return tileH; }
+    bool TileMapped(u32 tx, u32 ty) const { return tiles[(size_t)ty * tilesX + tx] >= 0; }
 
 private:
     friend class Device;
@@ -47,6 +54,11 @@ private:
     u32 width = 0, height = 0;
     Format format = Format::RGBA16F;
     D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
+    D3D12_RESOURCE_STATES frameStartState = D3D12_RESOURCE_STATE_COMMON;  // state when this frame's list begins
+    u64 stateFrame = ~0ull;
+    bool sparse = false;
+    u32 tileW = 0, tileH = 0, tilesX = 0, tilesY = 0, mappedTiles = 0;
+    std::vector<int> tiles;  // heap slot per tile, -1 = unmapped
     int srvCpu = -1, uavCpu = -1;  // staging heap slots
     int uiSlot = -1;               // persistent shader-visible SRV (for ImGui)
     int rtv = -1, dsv = -1;        // render target / depth views (graphics)
@@ -114,6 +126,11 @@ struct DispatchDesc {
     const void* cbData = nullptr;   // copied to upload ring, bound at b1
     size_t cbSize = 0;
     u32 threadsX = 1, threadsY = 1; // total threads; groups computed from pipeline
+    // Sparse UAVs: area that receives non-zero writes (memory gets backed there).
+    // {0,0,0,0} = whole texture. Writes outside backed tiles are dropped, so a kernel
+    // that only writes zeros outside `uavRect` stays exact.
+    Rect uavRect[kMaxUav];
+    u32 uavNoMap = 0;               // bit i: uav i only writes zeros, back nothing new
 };
 
 // Result of an async GPU->CPU copy; `ready` flips once the GPU finished.
@@ -174,6 +191,12 @@ public:
     u64 FrameNumber() const { return frameNumber; }
     std::string AdapterName() const { return adapterName; }
     u64 VideoMemoryUsage() const;
+    // Textures of at least this many pixels (no RT/depth usage) are created sparse.
+    void SetSparseThreshold(u64 pixels) { sparseThreshold = pixels; }
+    bool SparseSupported() const { return sparseSupported; }
+    u64 SparseBytes() const { return (u64)tilesInUse * 65536; }
+    // Back the tiles of `t` covering `r` with memory (new tiles are zeroed).
+    void MapRect(Texture* t, const Rect& r);
     // Copy the next presented frame (UI included) to the CPU (RGBA8).
     ReadbackPtr CaptureNextFrame();
 
@@ -199,7 +222,11 @@ private:
         size_t uploadOffset = 0;
         u32 ringStart = 0, ringOffset = 0;
     };
-    struct Deferred { u64 frame; ComPtr<ID3D12Resource> res; int srvCpu, uavCpu, uiSlot; int rtv = -1, dsv = -1; };
+    struct Deferred { u64 frame; ComPtr<ID3D12Resource> res; int srvCpu, uavCpu, uiSlot; int rtv = -1, dsv = -1; std::vector<int> tiles; };
+    int AllocTile();
+    void FlushDebugMessages();  // log debug-layer warnings/errors (SX_D3D12_DEBUG=1)
+    ComPtr<ID3D12InfoQueue> infoQueue;
+    ID3D12GraphicsCommandList* PreList();
 
     void CreateBackBuffers();
     void ReleaseBackBuffers();
@@ -239,6 +266,16 @@ private:
     ReadbackPtr captureRequest;
     std::string adapterName;
     bool tearing = false;
+    // Sparse texture memory: heaps of 64 KB tiles shared by all reserved textures.
+    std::vector<ComPtr<ID3D12Heap>> tileHeaps;
+    std::vector<int> freeTiles;
+    u32 tilesInUse = 0;
+    bool sparseSupported = false;
+    u64 sparseThreshold = 6000ull * 6000ull;
+    // Executed before the frame's main list (zeroing newly backed tiles).
+    ComPtr<ID3D12CommandAllocator> preAlloc[kFramesInFlight];
+    ComPtr<ID3D12GraphicsCommandList> preList;
+    bool preOpen = false;
 };
 
 Device& Dev();  // global device instance

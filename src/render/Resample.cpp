@@ -76,6 +76,13 @@ void Renderer::RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, 
     gpu::DispatchDesc d;
     d.pipeline = k;
     d.uav[0] = sf->tex.get();
+    {
+        // Only the shape's (rotated) extent receives non-zero pixels.
+        float cx = (s.rect.x + s.rect.z) * 0.5f, cy = (s.rect.y + s.rect.w) * 0.5f;
+        float rad = 0.5f * std::sqrt((s.rect.z - s.rect.x) * (s.rect.z - s.rect.x) + (s.rect.w - s.rect.y) * (s.rect.w - s.rect.y)) +
+                    s.strokeWidth + 4;
+        d.uavRect[0] = {(int)std::floor(cx - rad), (int)std::floor(cy - rad), (int)std::ceil(cx + rad), (int)std::ceil(cy + rad)};
+    }
     d.cbData = &cb;
     d.cbSize = sizeof(cb);
     Dispatch2D(ctx, d, cb.w, cb.h);

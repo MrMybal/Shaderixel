@@ -1,5 +1,6 @@
 #include "gpu/Device.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 
@@ -70,10 +71,16 @@ Buffer::~Buffer() { if (res) g_device.deferred.push_back({g_device.frameNumber, 
 // ------------------------------------------------------------------ init
 
 bool Device::Init(HWND hwnd) {
+    bool debugLayer = false;
 #ifdef _DEBUG
-    ComPtr<ID3D12Debug> debug;
-    if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)))) debug->EnableDebugLayer();
+    debugLayer = true;
 #endif
+    if (GetEnvironmentVariableA("SX_D3D12_DEBUG", nullptr, 0) > 0) debugLayer = true;
+    if (debugLayer) {
+        ComPtr<ID3D12Debug> debug;
+        if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)))) debug->EnableDebugLayer();
+        else Log("D3D12 debug layer unavailable");
+    }
     if (FAILED(CreateDXGIFactory2(0, IID_PPV_ARGS(&factory)))) return false;
 
     // Highest-performance adapter first.
@@ -87,6 +94,7 @@ bool Device::Init(HWND hwnd) {
         }
     }
     if (!device) { Log("No D3D12 feature level 12_0 adapter found."); return false; }
+    if (debugLayer) device.As(&infoQueue);
     Log("GPU: %s", adapterName.c_str());
 
     D3D12_COMMAND_QUEUE_DESC qd = {};
@@ -195,6 +203,15 @@ bool Device::Init(HWND hwnd) {
     ctx.list->Close();
     ctx.dev = this;
 
+    for (u32 i = 0; i < kFramesInFlight; ++i)
+        SX_CHECK(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&preAlloc[i])));
+    SX_CHECK(device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, preAlloc[0].Get(), nullptr, IID_PPV_ARGS(&preList)));
+    preList->Close();
+    D3D12_FEATURE_DATA_D3D12_OPTIONS opts = {};
+    if (SUCCEEDED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &opts, sizeof(opts))))
+        sparseSupported = opts.TiledResourcesTier >= D3D12_TILED_RESOURCES_TIER_2;  // tier 2: unmapped reads return 0
+    Log("Sparse textures: %s", sparseSupported ? "yes" : "no");
+
     SX_CHECK(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
     fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
@@ -251,6 +268,7 @@ CommandContext& Device::BeginFrame() {
     ResolveReadbacks();
     ProcessDeferred(false);
     f.alloc->Reset();
+    preAlloc[frameIndex]->Reset();
     ctx.list->Reset(f.alloc.Get(), nullptr);
     f.uploadOffset = 0;
     f.ringOffset = 0;
@@ -309,8 +327,16 @@ void Device::EndFrame(const std::function<void(ID3D12GraphicsCommandList*)>& dra
     }
     list->ResourceBarrier(1, &b);
     list->Close();
-    ID3D12CommandList* lists[] = {list};
-    queue->ExecuteCommandLists(1, lists);
+    FlushDebugMessages();
+    if (preOpen) {
+        preList->Close();
+        preOpen = false;
+        ID3D12CommandList* lists[] = {preList.Get(), list};
+        queue->ExecuteCommandLists(2, lists);
+    } else {
+        ID3D12CommandList* lists[] = {list};
+        queue->ExecuteCommandLists(1, lists);
+    }
 
     swapchain->Present(1, 0);
     queue->Signal(fence.Get(), ++fenceValue);
@@ -420,7 +446,25 @@ TexturePtr Device::CreateTexture(u32 w, u32 h, Format fmt, const char* debugName
     clear.Format = isDepth ? DXGI_FORMAT_D32_FLOAT : d.Format;
     clear.DepthStencil.Depth = 1.0f;
     const D3D12_CLEAR_VALUE* pClear = (isDepth || (usage & UsageRenderTarget)) ? &clear : nullptr;
-    if (FAILED(device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &d, D3D12_RESOURCE_STATE_COMMON, pClear, IID_PPV_ARGS(&t->res)))) {
+    if (sparseSupported && !usage && !isDepth && (u64)w * h >= sparseThreshold) {
+        d.Layout = D3D12_TEXTURE_LAYOUT_64KB_UNDEFINED_SWIZZLE;
+        if (SUCCEEDED(device->CreateReservedResource(&d, D3D12_RESOURCE_STATE_COMMON, nullptr, IID_PPV_ARGS(&t->res)))) {
+            UINT numTiles = 0, subCount = 1;
+            D3D12_PACKED_MIP_INFO packed = {};
+            D3D12_TILE_SHAPE shape = {};
+            D3D12_SUBRESOURCE_TILING sub = {};
+            device->GetResourceTiling(t->res.Get(), &numTiles, &packed, &shape, &subCount, 0, &sub);
+            t->sparse = true;
+            t->tileW = shape.WidthInTexels;
+            t->tileH = shape.HeightInTexels;
+            t->tilesX = sub.WidthInTiles;
+            t->tilesY = sub.HeightInTiles;
+            t->tiles.assign((size_t)t->tilesX * t->tilesY, -1);
+        } else {
+            d.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        }
+    }
+    if (!t->sparse && FAILED(device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &d, D3D12_RESOURCE_STATE_COMMON, pClear, IID_PPV_ARGS(&t->res)))) {
         Log("CreateTexture %ux%u failed (out of video memory?)", w, h);
         return nullptr;
     }
@@ -525,7 +569,11 @@ GraphicsPipelinePtr Device::CreateGraphicsPipeline(const void* vs, size_t vsSize
 }
 
 void Device::DeferRelease(Texture& t) {
-    deferred.push_back({frameNumber, std::move(t.res), t.srvCpu, t.uavCpu, t.uiSlot, t.rtv, t.dsv});
+    std::vector<int> tiles;
+    for (int s : t.tiles) if (s >= 0) tiles.push_back(s);
+    t.tiles.clear();
+    t.mappedTiles = 0;
+    deferred.push_back({frameNumber, std::move(t.res), t.srvCpu, t.uavCpu, t.uiSlot, t.rtv, t.dsv, std::move(tiles)});
     t.srvCpu = t.uavCpu = t.uiSlot = t.rtv = t.dsv = -1;
     // Drop from this frame's UI list if present.
     std::erase(uiTexturesThisFrame, &t);
@@ -539,7 +587,126 @@ void Device::ProcessDeferred(bool all) {
         persistentSlots.Free(d.uiSlot);
         rtvSlots.Free(d.rtv);
         dsvSlots.Free(d.dsv);
+        for (int s : d.tiles) freeTiles.push_back(s);
+        tilesInUse -= (u32)d.tiles.size();
         deferred.pop_front();
+    }
+}
+
+// ------------------------------------------------------------------ sparse textures
+
+constexpr int kTilesPerHeap = 512;  // 32 MB heaps
+
+int Device::AllocTile() {
+    if (freeTiles.empty()) {
+        D3D12_HEAP_DESC hd = {};
+        hd.SizeInBytes = (u64)kTilesPerHeap * 65536;
+        hd.Properties = HeapProps(D3D12_HEAP_TYPE_DEFAULT);
+        hd.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+        hd.Flags = D3D12_HEAP_FLAG_DENY_BUFFERS | D3D12_HEAP_FLAG_DENY_RT_DS_TEXTURES;
+        ComPtr<ID3D12Heap> heap;
+        if (FAILED(device->CreateHeap(&hd, IID_PPV_ARGS(&heap)))) {
+            Log("Sparse heap allocation failed (out of video memory?)");
+            return -1;
+        }
+        int base = (int)tileHeaps.size() * kTilesPerHeap;
+        tileHeaps.push_back(heap);
+        for (int i = kTilesPerHeap - 1; i >= 0; --i) freeTiles.push_back(base + i);
+    }
+    int s = freeTiles.back();
+    freeTiles.pop_back();
+    ++tilesInUse;
+    return s;
+}
+
+void Device::FlushDebugMessages() {
+    if (!infoQueue) return;
+    UINT64 n = infoQueue->GetNumStoredMessages();
+    for (UINT64 i = 0; i < n; ++i) {
+        SIZE_T len = 0;
+        infoQueue->GetMessage(i, nullptr, &len);
+        std::vector<u8> buf(len);
+        auto* m = (D3D12_MESSAGE*)buf.data();
+        if (SUCCEEDED(infoQueue->GetMessage(i, m, &len)) && m->Severity <= D3D12_MESSAGE_SEVERITY_WARNING)
+            Log("[d3d12] %s", m->pDescription);
+    }
+    infoQueue->ClearStoredMessages();
+}
+
+ID3D12GraphicsCommandList* Device::PreList() {
+    if (!preOpen) {
+        SX_CHECK(preList->Reset(preAlloc[frameIndex].Get(), nullptr));
+        ID3D12DescriptorHeap* heaps[] = {gpuHeap.Get()};
+        preList->SetDescriptorHeaps(1, heaps);
+        preOpen = true;
+    }
+    return preList.Get();
+}
+
+void Device::MapRect(Texture* t, const Rect& r0) {
+    if (!t || !t->sparse || !t->res) return;
+    Rect r = r0.Clipped((int)t->width, (int)t->height);
+    if (r.Empty()) return;
+    u32 tx0 = r.x0 / t->tileW, tx1 = (r.x1 - 1) / t->tileW, ty0 = r.y0 / t->tileH, ty1 = (r.y1 - 1) / t->tileH;
+    std::vector<D3D12_TILED_RESOURCE_COORDINATE> coords;
+    std::vector<int> slots;
+    std::vector<D3D12_RECT> rects;
+    for (u32 ty = ty0; ty <= ty1; ++ty)
+        for (u32 tx = tx0; tx <= tx1; ++tx) {
+            int& slot = t->tiles[(size_t)ty * t->tilesX + tx];
+            if (slot >= 0) continue;
+            int s = AllocTile();
+            if (s < 0) break;
+            slot = s;
+            ++t->mappedTiles;
+            coords.push_back({tx, ty, 0, 0});
+            slots.push_back(s);
+            rects.push_back({(LONG)(tx * t->tileW), (LONG)(ty * t->tileH), (LONG)std::min(t->width, (tx + 1) * t->tileW),
+                             (LONG)std::min(t->height, (ty + 1) * t->tileH)});
+        }
+    if (coords.empty()) return;
+    // One UpdateTileMappings per heap involved. It is a queue operation, so it
+    // takes effect before this frame's command lists execute.
+    std::vector<size_t> order(coords.size());
+    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::sort(order.begin(), order.end(), [&](size_t a, size_t b) { return slots[a] < slots[b]; });
+    for (size_t i = 0; i < order.size();) {
+        int heap = slots[order[i]] / kTilesPerHeap;
+        std::vector<D3D12_TILED_RESOURCE_COORDINATE> c;
+        std::vector<D3D12_TILE_REGION_SIZE> sizes;
+        std::vector<UINT> starts, counts;
+        for (; i < order.size() && slots[order[i]] / kTilesPerHeap == heap; ++i) {
+            c.push_back(coords[order[i]]);
+            sizes.push_back({1, FALSE, 1, 1, 1});
+            starts.push_back((UINT)(slots[order[i]] % kTilesPerHeap));
+            counts.push_back(1);
+        }
+        queue->UpdateTileMappings(t->res.Get(), (UINT)c.size(), c.data(), sizes.data(), tileHeaps[heap].Get(), (UINT)starts.size(), nullptr,
+                                  starts.data(), counts.data(), D3D12_TILE_MAPPING_FLAG_NONE);
+    }
+    // Zero the new tiles (recycled memory) before anything in this frame's main list touches them.
+    auto* pl = PreList();
+    D3D12_RESOURCE_STATES st = t->stateFrame == frameNumber ? t->frameStartState : t->state;
+    D3D12_RESOURCE_BARRIER b = {};
+    b.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    b.Transition.pResource = t->res.Get();
+    b.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    b.Transition.StateBefore = st;
+    b.Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    if (st != D3D12_RESOURCE_STATE_UNORDERED_ACCESS) pl->ResourceBarrier(1, &b);
+    u32 slot = AllocRing(1);
+    device->CopyDescriptorsSimple(1, GpuHeapCpu(slot), CpuHandle(t->uavCpu), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+    const float zero[4] = {0, 0, 0, 0};
+    // One rect per call: large rect arrays crash the runtime/driver (fail-fast).
+    for (const D3D12_RECT& rc : rects) pl->ClearUnorderedAccessViewFloat(GpuHeapGpu(slot), CpuHandle(t->uavCpu), t->res.Get(), zero, 1, &rc);
+    if (st != D3D12_RESOURCE_STATE_UNORDERED_ACCESS) {
+        std::swap(b.Transition.StateBefore, b.Transition.StateAfter);
+        pl->ResourceBarrier(1, &b);
+    } else {
+        D3D12_RESOURCE_BARRIER u = {};
+        u.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+        u.UAV.pResource = t->res.Get();
+        pl->ResourceBarrier(1, &u);
     }
 }
 
@@ -587,6 +754,10 @@ u64 Device::VideoMemoryUsage() const {
 
 void CommandContext::Transition(Texture* t, D3D12_RESOURCE_STATES s) {
     if (!t || !t->res) return;
+    if (t->stateFrame != dev->frameNumber) {
+        t->frameStartState = t->state;
+        t->stateFrame = dev->frameNumber;
+    }
     if (t->state == s) {
         if (s == D3D12_RESOURCE_STATE_UNORDERED_ACCESS) UavBarrier(t);
         return;
@@ -611,7 +782,16 @@ void CommandContext::UavBarrier(Texture* t) {
 void CommandContext::Dispatch(const DispatchDesc& d) {
     if (!d.pipeline || !d.pipeline->pso) return;
     for (u32 i = 0; i < kMaxSrv; ++i) if (d.srv[i]) Transition(d.srv[i], D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE);
-    for (u32 i = 0; i < kMaxUav; ++i) if (d.uav[i]) Transition(d.uav[i], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    for (u32 i = 0; i < kMaxUav; ++i) {
+        if (!d.uav[i]) continue;
+        if (d.uav[i]->sparse && !(d.uavNoMap & (1u << i)))
+            {
+            const Rect& r = d.uavRect[i];
+            bool unset = r.x0 == 0 && r.y0 == 0 && r.x1 == 0 && r.y1 == 0;
+            dev->MapRect(d.uav[i], unset ? Rect{0, 0, (int)d.uav[i]->width, (int)d.uav[i]->height} : r);
+        }
+        Transition(d.uav[i], D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+    }
 
     u32 base = dev->AllocRing(kMaxSrv + kMaxUav);
     for (u32 i = 0; i < kMaxSrv; ++i) {
@@ -706,9 +886,22 @@ void CommandContext::Draw(const DrawDesc& d) {
 }
 
 void CommandContext::CopyTexture(Texture* dst, Texture* src) {
+    if (src->sparse || dst->sparse) {
+        CopyRegion(dst, 0, 0, src, {0, 0, (int)std::min(src->width, dst->width), (int)std::min(src->height, dst->height)});
+        return;
+    }
     Transition(src, D3D12_RESOURCE_STATE_COPY_SOURCE);
     Transition(dst, D3D12_RESOURCE_STATE_COPY_DEST);
     list->CopyResource(dst->res.Get(), src->res.Get());
+}
+
+static bool AnyMapped(const Texture* t, const Rect& r) {
+    if (!t->Sparse()) return true;
+    if (t->MappedBytes() == 0) return false;
+    for (int ty = r.y0 / (int)t->TileH(); ty <= (r.y1 - 1) / (int)t->TileH(); ++ty)
+        for (int tx = r.x0 / (int)t->TileW(); tx <= (r.x1 - 1) / (int)t->TileW(); ++tx)
+            if (t->TileMapped(tx, ty)) return true;
+    return false;
 }
 
 void CommandContext::CopyRegion(Texture* dst, int dx, int dy, Texture* src, const Rect& r) {
@@ -717,8 +910,41 @@ void CommandContext::CopyRegion(Texture* dst, int dx, int dy, Texture* src, cons
     Transition(dst, D3D12_RESOURCE_STATE_COPY_DEST);
     D3D12_TEXTURE_COPY_LOCATION d = {dst->res.Get(), D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX, {}};
     D3D12_TEXTURE_COPY_LOCATION s = {src->res.Get(), D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX, {}};
-    D3D12_BOX box = {(UINT)r.x0, (UINT)r.y0, 0, (UINT)r.x1, (UINT)r.y1, 1};
-    list->CopyTextureRegion(&d, (UINT)dx, (UINT)dy, 0, &s, &box);
+    auto copy = [&](const Rect& q) {
+        D3D12_BOX box = {(UINT)q.x0, (UINT)q.y0, 0, (UINT)q.x1, (UINT)q.y1, 1};
+        list->CopyTextureRegion(&d, (UINT)(dx + q.x0 - r.x0), (UINT)(dy + q.y0 - r.y0), 0, &s, &box);
+    };
+    auto target = [&](const Rect& q) { return Rect{dx + q.x0 - r.x0, dy + q.y0 - r.y0, dx + q.x1 - r.x0, dy + q.y1 - r.y0}; };
+    if (!src->sparse) {
+        dev->MapRect(dst, target(r));
+        copy(r);
+        return;
+    }
+    // Sparse source: walk its tiles. A piece is copied when the source has data
+    // there (the destination gets backed) or the destination already holds data
+    // that must become zero; pieces empty on both sides are skipped.
+    // Horizontal runs with the same mapping need are merged into one copy.
+    for (int ty = r.y0 / (int)src->tileH; ty <= (r.y1 - 1) / (int)src->tileH; ++ty) {
+        int y0 = std::max(r.y0, ty * (int)src->tileH), y1 = std::min(r.y1, (ty + 1) * (int)src->tileH);
+        Rect run;
+        bool runMap = false;
+        auto flush = [&] {
+            if (run.Empty()) return;
+            if (runMap) dev->MapRect(dst, target(run));
+            copy(run);
+            run = {};
+        };
+        for (int tx = r.x0 / (int)src->tileW; tx <= (r.x1 - 1) / (int)src->tileW; ++tx) {
+            Rect piece{std::max(r.x0, tx * (int)src->tileW), y0, std::min(r.x1, (tx + 1) * (int)src->tileW), y1};
+            bool srcHas = src->TileMapped(tx, ty);
+            bool need = srcHas || AnyMapped(dst, target(piece));
+            if (!need) { flush(); continue; }
+            if (!run.Empty() && srcHas != runMap) flush();
+            if (run.Empty()) { run = piece; runMap = srcHas; }
+            else run.x1 = piece.x1;
+        }
+        flush();
+    }
 }
 
 void CommandContext::Upload(Texture* dst, const void* pixels, u32 srcRowPitch) {
@@ -738,7 +964,8 @@ void CommandContext::Upload(Texture* dst, const void* pixels, u32 srcRowPitch) {
     } else {
         srcRes = dev->deferred.back().res.Get();
     }
-    u32 rowBytes = dst->width * BytesPerPixel(dst->format);
+    const u32 bpp = BytesPerPixel(dst->format);
+    u32 rowBytes = dst->width * bpp;
     for (u32 y = 0; y < dst->height; ++y)
         memcpy((u8*)mem + (size_t)y * fp.Footprint.RowPitch, (const u8*)pixels + (size_t)y * srcRowPitch, rowBytes);
     fp.Offset = baseOffset;
@@ -748,8 +975,33 @@ void CommandContext::Upload(Texture* dst, const void* pixels, u32 srcRowPitch) {
     s.pResource = srcRes;
     s.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
     s.PlacedFootprint = fp;
-    list->CopyTextureRegion(&d, 0, 0, 0, &s, nullptr);
+    if (!dst->sparse) {
+        list->CopyTextureRegion(&d, 0, 0, 0, &s, nullptr);
+        return;
+    }
+    // Sparse: only back tiles that contain non-zero pixels (or already hold data).
+    for (u32 ty = 0; ty < dst->tilesY; ++ty)
+        for (u32 tx = 0; tx < dst->tilesX; ++tx) {
+            u32 x0 = tx * dst->tileW, y0 = ty * dst->tileH;
+            u32 x1 = std::min(dst->width, x0 + dst->tileW), y1 = std::min(dst->height, y0 + dst->tileH);
+            bool nonZero = false;
+            for (u32 y = y0; y < y1 && !nonZero; ++y) {
+                const u8* row = (const u8*)pixels + (size_t)y * srcRowPitch + (size_t)x0 * bpp;
+                size_t n = (size_t)(x1 - x0) * bpp, i = 0;
+                for (; i + 8 <= n; i += 8) {
+                    u64 v;
+                    memcpy(&v, row + i, 8);
+                    if (v) { nonZero = true; break; }
+                }
+                for (; i < n && !nonZero; ++i) nonZero = row[i] != 0;
+            }
+            if (!nonZero && !dst->TileMapped(tx, ty)) continue;
+            if (nonZero) dev->MapRect(dst, {(int)x0, (int)y0, (int)x1, (int)y1});
+            D3D12_BOX box = {x0, y0, 0, x1, y1, 1};
+            list->CopyTextureRegion(&d, x0, y0, 0, &s, &box);
+        }
 }
+
 
 ReadbackPtr CommandContext::ReadbackTexture(Texture* src, const Rect* region) {
     Rect r = region ? region->Clipped(src->width, src->height) : Rect{0, 0, (int)src->width, (int)src->height};

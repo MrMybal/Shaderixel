@@ -49,6 +49,7 @@ void Renderer::RetouchDabs(Document& doc, gpu::CommandContext& ctx, const std::v
         d.srv[1] = sel ? sel->tex.get() : nullptr;
         d.uav[0] = s->tex.get();
         d.uav[1] = strokeMask.get();
+        MapDabs(d, 3, (const float4*)&dabs[start], count, sizeof(Dab), 2);
         SetConstants(d, RetouchRoot{r.x0, r.y0, (u32)r.Width(), (u32)r.Height(), (u32)W, (u32)H, (u32)count, b.hardness, b.opacity,
                                     (u32)rp.mode, sel ? 1u : 0u, rp.strength, rp.srcOffset.x, rp.srcOffset.y, (u32)rp.range, 0.0f});
         d.cbData = &dabs[start];
@@ -87,6 +88,7 @@ void Renderer::SmudgeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
         d.srv[0] = smudgeSnap.get();
         d.srv[1] = sel ? sel->tex.get() : nullptr;
         d.uav[0] = s->tex.get();
+        d.uavRect[0] = r;
         SetConstants(d, SmudgeRoot{r.x0, r.y0, (u32)r.Width(), (u32)r.Height(), (u32)W, (u32)H, c, delta, dab.radius, b.hardness,
                                    strength * dab.alpha, sel ? 1u : 0u});
         Dispatch2D(ctx, d, (u32)r.Width(), (u32)r.Height());

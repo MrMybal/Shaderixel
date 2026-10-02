@@ -31,7 +31,7 @@
 ## Prochaines étapes
 
 ### Performance / grands formats
-- Rendu par tuiles : **fait** (au-delà de ~36 MP : tuiles 512 px, halos d'effets, zones modifiées, rendu progressif visible d'abord ; identique au pixel près au rendu complet). Reste : surfaces creuses (ressources réservées D3D12), historique de peinture hors VRAM, aperçus de nœuds en mode tuiles
+- Rendu par tuiles : **fait** (au-delà de ~36 MP : tuiles 512 px, halos d'effets, zones modifiées, rendu progressif visible d'abord ; identique au pixel près au rendu complet). Surfaces creuses : **fait** (ressources réservées D3D12, mémoire allouée par tuiles de 64 Ko seulement là où on peint ; démo 16K : 11,3 → 4,75 Go). Reste : historique de peinture hors VRAM, aperçus de nœuds en mode tuiles, fond uni sans mémoire
 - Recalcul limité aux régions modifiées
 - Mipmaps d'affichage, histogramme GPU
 - Mode 8 bits natif

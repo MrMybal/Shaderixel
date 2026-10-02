@@ -1,4 +1,5 @@
 #include "render/Renderer.h"
+#include "render/Dispatch.h"
 
 #include <cstring>
 
@@ -7,12 +8,6 @@ namespace sx {
 using gpu::Shaders;
 
 namespace {
-template <class T>
-void SetConstants(gpu::DispatchDesc& d, const T& v) {
-    static_assert(sizeof(T) % 4 == 0 && sizeof(T) <= gpu::kRootConstants * 4, "root constants too large");
-    memcpy(d.constants, &v, sizeof(T));
-    d.numConstants = sizeof(T) / 4;
-}
 
 struct CompositeRoot { u32 w, h, mode; float opacity; u32 flags, pad = 0; i32 ox = 0, oy = 0, bx = 0, by = 0, tx = 0, ty = 0, mx = 0, my = 0; };
 struct EffectRoot { u32 w, h; i32 ox, oy; u32 dw, dh, pass, inputMask; i32 in[8]; };
@@ -80,6 +75,7 @@ void Renderer::Prepare(Document& doc, gpu::CommandContext& ctx) {
             gpu::DispatchDesc d;
             d.pipeline = p;
             d.uav[0] = s->tex.get();
+            if (value.x == 0 && value.y == 0 && value.z == 0 && value.w == 0) d.uavNoMap = 1;  // sparse: stays unbacked
             SetConstants(d, ClearRoot{0, 0, s->tex->Width(), s->tex->Height(), value});
             d.threadsX = s->tex->Width();
             d.threadsY = s->tex->Height();
@@ -357,6 +353,7 @@ bool Renderer::BeginStroke(Document& doc, gpu::CommandContext& ctx, Id surface) 
     gpu::DispatchDesc d;
     d.pipeline = clearR;
     d.uav[0] = strokeMask.get();
+    d.uavNoMap = 1;
     SetConstants(d, ClearRRoot{strokeMask->Width(), strokeMask->Height(), 0.0f});
     d.threadsX = strokeMask->Width();
     d.threadsY = strokeMask->Height();
@@ -392,6 +389,8 @@ void Renderer::StrokeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
         d.srv[0] = strokePre.get();
         d.uav[0] = s->tex.get();
         d.uav[1] = strokeMask.get();
+        if (erase) d.uavNoMap = 1;  // erasing never needs new memory
+        MapDabs(d, 3, (const float4*)&dabs[start], count, sizeof(Dab), 2);
         Surface* sel = doc.Selection();
         d.srv[1] = sel ? sel->tex.get() : nullptr;
         BrushRoot root = {r.x0, r.y0, (u32)r.Width(), (u32)r.Height(), (u32)W, (u32)H, (u32)count,
@@ -464,6 +463,7 @@ void Renderer::Import(Document& doc, gpu::CommandContext& ctx, Id surface, const
     d.pipeline = p;
     d.srv[0] = tmp.get();
     d.uav[0] = s->tex.get();
+    d.uavRect[0] = {offset.x, offset.y, offset.x + (int)w, offset.y + (int)h};
     SetConstants(d, ImportRoot{w, h, offset.x, offset.y, s->tex->Width(), s->tex->Height(), isFloat ? 0u : 1u});
     d.threadsX = w;
     d.threadsY = h;

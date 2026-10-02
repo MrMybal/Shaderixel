@@ -37,9 +37,15 @@ void App::DemoTick() {
         };
         if (frameCounter == 8) grab(0, false);
         if (frameCounter == 12) grab(1, true);
-        if (frameCounter == 16 && rb[0] && rb[1] && rb[0]->ready && rb[1]->ready) CompareReadbacks("full vs tiled", *rb[0], *rb[1], 1);
+        if (frameCounter == 16 && rb[0] && rb[1] && rb[0]->ready && rb[1]->ready) {
+            CompareReadbacks("full vs tiled", *rb[0], *rb[1], 1);
+            Hasher h;
+            h.Bytes(rb[0]->data.data(), rb[0]->data.size());
+            Log("[tiles] image checksum %016llx (sparse memory %llu KB)", (unsigned long long)h.h, (unsigned long long)(gpu::Dev().SparseBytes() >> 10));
+        }
         if (frameCounter == 18) {
             // Small stroke while tiled: only the touched tiles (+ halo) are recomputed.
+            for (auto& l : d.S().layers) if (l.name == "Peinture") d.S().activeLayer = l.id;
             Id target = d.PaintTarget();
             if (target && v->renderer.BeginStroke(d, *ctx, target)) {
                 std::vector<Dab> dabs;
@@ -51,8 +57,20 @@ void App::DemoTick() {
         if (frameCounter == 20) Log("[tiles] tiles pending after stroke: %d / %d", v->renderer.TilesPending(), v->renderer.TilesTotal());
         if (frameCounter == 22) grab(2, true);
         if (frameCounter == 26) grab(3, false);
-        if (frameCounter == 30 && rb[2] && rb[3] && rb[2]->ready && rb[3]->ready) CompareReadbacks("incremental tiled vs full", *rb[2], *rb[3], 1);
-        if (frameCounter == 32) d.forceTiled = true;
+        if (frameCounter == 30 && rb[2] && rb[3] && rb[2]->ready && rb[3]->ready) {
+            CompareReadbacks("incremental tiled vs full", *rb[2], *rb[3], 1);
+            Hasher h;
+            h.Bytes(rb[3]->data.data(), rb[3]->data.size());
+            Log("[tiles] checksum after stroke %016llx", (unsigned long long)h.h);
+        }
+        if (frameCounter == 34) Undo();
+        if (frameCounter == 37) grab(0, false);
+        if (frameCounter == 41 && rb[0] && rb[0]->ready) {
+            Hasher h;
+            h.Bytes(rb[0]->data.data(), rb[0]->data.size());
+            Log("[tiles] checksum after undo %016llx", (unsigned long long)h.h);
+        }
+        if (frameCounter == 42) d.forceTiled = true;
         return;
     }
     if (demoMode == 16 && v) {

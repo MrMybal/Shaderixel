@@ -105,3 +105,16 @@ Invalidation : hash de structure (graphe + paramètres) → toutes les tuiles ; 
 `dirtyRects` des surfaces élargis du halo cumulé. Budget de 16 tuiles par frame, zone
 visible en premier ; `EvaluateComplete` force la fin (export, pipette, sélections).
 Vérification : `--demo tiles` (comparaison tuiles / complet), `--demo 16k`.
+
+## Surfaces creuses
+
+Les textures d'au moins ~36 MP (sans usage RT/profondeur) sont des ressources réservées
+D3D12 (tier 2 : lecture hors tuile mappée = 0). `Device::MapRect` adosse des tuiles de 64 Ko
+prises dans des tas de 32 Mo partagés ; les nouvelles tuiles sont mises à zéro dans une liste
+exécutée avant la liste principale de la frame (état de départ de la ressource suivi par
+`frameStartState`). Une écriture UAV mappe par défaut toute la texture ; `uavRect` /
+`uavNoMap` / `MapDabs` limitent le mapping aux zones réellement non nulles (pinceau,
+retouche, import, formes, effacements). Les copies et `Upload` ne transfèrent que les tuiles
+utiles. Les tuiles reviennent au pool à la destruction (libération différée).
+Test : `--sparse-threshold 100000 --demo tiles` doit donner les mêmes sommes de contrôle
+que `--demo tiles`. `SX_D3D12_DEBUG=1` active la couche de debug D3D12.
