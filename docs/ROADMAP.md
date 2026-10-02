@@ -60,4 +60,4 @@
 - Opérations MCP supplémentaires (graphes d'effets, nœuds)
 
 ### Multi-plateforme
-- Backend Vulkan : **fait** (ShaderixelVk.exe sous Windows, mêmes shaders via SPIR-V ; écarts avec D3D12 limités à la précision numérique). Reste : surfaces creuses Vulkan, couche plateforme Linux (fenêtre, dialogues, stylet), backend Metal (macOS)
+- Backend Vulkan : **fait** (ShaderixelVk.exe sous Windows, mêmes shaders via SPIR-V ; écarts avec D3D12 limités à la précision numérique). Format `.sxl` v2 portable (deflate maison, morceaux en parallèle ; v1 XPRESS toujours lisible sous Windows) : **fait**. Reste : surfaces creuses Vulkan, couche plateforme Linux (fenêtre, dialogues, stylet), backend Metal (macOS)

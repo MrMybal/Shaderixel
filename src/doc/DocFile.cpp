@@ -1,20 +1,35 @@
 #include "doc/DocFile.h"
 #include "ai/Net.h"  // Base64
 
+#include <stb_image.h>
+
+#include "core/Deflate.h"
+
+#ifdef _WIN32
 #include <windows.h>
 #include <compressapi.h>
+#pragma comment(lib, "Cabinet.lib")
+#endif
 
 #include <cstdio>
 #include <cstring>
 #include <future>
 #include <set>
+#include <filesystem>
+#include <fstream>
+#include <thread>
+#include <functional>
+#include <atomic>
 
-#pragma comment(lib, "Cabinet.lib")
 
 namespace sx {
 
 namespace {
-constexpr u32 kVersion = 1;
+// Version 1: XPRESS_HUFF (Windows only, still readable on Windows).
+// Version 2: byte-plane shuffle, zlib (deflate, own encoder / stb inflate) in 8 MB chunks (portable):
+//            [u32 chunks]{[u32 raw][u32 packed][bytes]}...
+constexpr u32 kVersion = 2;
+constexpr size_t kChunk = 8u << 20;
 
 Json EffectToJson(const EffectInstance& fx) {
     Json j = Json::Object();
@@ -115,26 +130,85 @@ std::vector<u8> Unshuffle(const std::vector<u8>& in, u32 elem) {
     return out;
 }
 
-bool Compress(const std::vector<u8>& in, std::vector<u8>& out) {
-    COMPRESSOR_HANDLE h = nullptr;
-    if (!CreateCompressor(COMPRESS_ALGORITHM_XPRESS_HUFF, nullptr, &h)) return false;
-    SIZE_T need = 0;
-    ::Compress(h, in.data(), in.size(), nullptr, 0, &need);
-    out.resize(need);
-    SIZE_T got = 0;
-    bool ok = ::Compress(h, in.data(), in.size(), out.data(), out.size(), &got) != FALSE;
-    out.resize(got);
-    CloseCompressor(h);
-    return ok;
-}
-
-bool Decompress(const std::vector<u8>& in, size_t rawSize, std::vector<u8>& out) {
+#ifdef _WIN32
+bool DecompressXpress(const std::vector<u8>& in, size_t rawSize, std::vector<u8>& out) {
     DECOMPRESSOR_HANDLE h = nullptr;
     if (!CreateDecompressor(COMPRESS_ALGORITHM_XPRESS_HUFF, nullptr, &h)) return false;
     out.resize(rawSize);
     SIZE_T got = 0;
     bool ok = ::Decompress(h, in.data(), in.size(), out.data(), out.size(), &got) != FALSE && got == rawSize;
     CloseDecompressor(h);
+    return ok;
+}
+#endif
+
+// Runs fn(i) for i in [0, count) on all hardware threads.
+void ParallelFor(size_t count, const std::function<void(size_t)>& fn) {
+    std::atomic<size_t> next{0};
+    unsigned n = std::max(1u, std::min<unsigned>(std::thread::hardware_concurrency(), (unsigned)count));
+    std::vector<std::thread> pool;
+    for (unsigned t = 0; t < n; ++t)
+        pool.emplace_back([&] {
+            for (size_t i; (i = next.fetch_add(1)) < count;) fn(i);
+        });
+    for (auto& th : pool) th.join();
+}
+
+// Chunked deflate of every buffer, all chunks of all buffers in parallel.
+std::vector<std::vector<u8>> PackAll(const std::vector<std::vector<u8>>& raws) {
+    struct Job { size_t buf, off, len; std::vector<u8> out; };
+    std::vector<Job> jobs;
+    for (size_t i = 0; i < raws.size(); ++i)
+        for (size_t off = 0; off < raws[i].size() || (off == 0 && raws[i].empty()); off += kChunk) {
+            jobs.push_back({i, off, std::min(kChunk, raws[i].size() - off), {}});
+            if (raws[i].empty()) break;
+        }
+    ParallelFor(jobs.size(), [&](size_t j) {
+        Job& jb = jobs[j];
+        jb.out = deflate::ZlibCompress(raws[jb.buf].data() + jb.off, jb.len, 6);
+    });
+    std::vector<std::vector<u8>> packed(raws.size());
+    std::vector<u32> counts(raws.size(), 0);
+    for (auto& jb : jobs) ++counts[jb.buf];
+    for (size_t i = 0; i < raws.size(); ++i) {
+        packed[i].resize(4);
+        memcpy(packed[i].data(), &counts[i], 4);
+    }
+    for (auto& jb : jobs) {
+        auto& p = packed[jb.buf];
+        u32 hdr[2] = {(u32)jb.len, (u32)jb.out.size()};
+        p.insert(p.end(), (const u8*)hdr, (const u8*)hdr + 8);
+        p.insert(p.end(), jb.out.begin(), jb.out.end());
+    }
+    return packed;
+}
+
+// Inverse of PackAll for one buffer whose raw size is known.
+bool UnpackChunks(const std::vector<u8>& in, size_t rawSize, std::vector<u8>& out) {
+    out.resize(rawSize);
+    if (in.size() < 4) return false;
+    u32 count;
+    memcpy(&count, in.data(), 4);
+    struct Chunk { size_t src, srcLen, dst, dstLen; };
+    std::vector<Chunk> chunks;
+    size_t pos = 4, dst = 0;
+    for (u32 c = 0; c < count; ++c) {
+        if (pos + 8 > in.size()) return false;
+        u32 hdr[2];
+        memcpy(hdr, in.data() + pos, 8);
+        pos += 8;
+        if (pos + hdr[1] > in.size() || dst + hdr[0] > rawSize) return false;
+        chunks.push_back({pos, hdr[1], dst, hdr[0]});
+        pos += hdr[1];
+        dst += hdr[0];
+    }
+    if (dst != rawSize) return false;
+    std::atomic<bool> ok{true};
+    ParallelFor(chunks.size(), [&](size_t i) {
+        const Chunk& ch = chunks[i];
+        int got = stbi_zlib_decode_buffer((char*)out.data() + ch.dst, (int)ch.dstLen, (const char*)in.data() + ch.src, (int)ch.srcLen);
+        if (got != (int)ch.dstLen) ok = false;
+    });
     return ok;
 }
 }  // namespace
@@ -415,51 +489,45 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
 }
 
 bool WriteSxl(const std::string& path, const Json& meta, const std::vector<SurfaceBlob>& surfaces, std::string* error) {
-    // Compress all surfaces in parallel.
-    std::vector<std::future<std::vector<u8>>> jobs;
-    for (auto& s : surfaces) {
-        jobs.push_back(std::async(std::launch::async, [&s] {
-            std::vector<u8> packed;
-            if (!Compress(Shuffle(s.data, ElemSize(s.format)), packed)) packed.clear();
-            return packed;
-        }));
-    }
+    std::vector<std::vector<u8>> shuffled(surfaces.size());
+    ParallelFor(surfaces.size(), [&](size_t i) { shuffled[i] = Shuffle(surfaces[i].data, ElemSize(surfaces[i].format)); });
+    std::vector<std::vector<u8>> packed = PackAll(shuffled);
+    shuffled.clear();
     std::string json = meta.Dump(1);
-    std::string tmp = path + ".tmp";
-    FILE* f = nullptr;
-    _wfopen_s(&f, Widen(tmp).c_str(), L"wb");
-    if (!f) {
-        if (error) *error = "impossible d'écrire " + path;
-        return false;
+    auto tmp = Utf8Path(path + ".tmp");
+    {
+        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+        if (!f) {
+            if (error) *error = "impossible d'écrire " + path;
+            return false;
+        }
+        auto put = [&](const void* p, size_t n) { f.write((const char*)p, (std::streamsize)n); };
+        put("SXL1", 4);
+        u32 version = kVersion;
+        put(&version, 4);
+        u64 js = json.size();
+        put(&js, 8);
+        put(json.data(), json.size());
+        for (size_t i = 0; i < surfaces.size(); ++i) {
+            auto& s = surfaces[i];
+            u32 hdr[4] = {s.id, s.width, s.height, (u32)s.format};
+            put(hdr, sizeof(hdr));
+            u64 raw = s.data.size(), pk = packed[i].size();
+            put(&raw, 8);
+            put(&pk, 8);
+            put(packed[i].data(), packed[i].size());
+        }
+        if (!f) {
+            f.close();
+            std::error_code ec;
+            std::filesystem::remove(tmp, ec);
+            if (error) *error = "échec de l'écriture";
+            return false;
+        }
     }
-    auto put = [&](const void* p, size_t n) { fwrite(p, 1, n, f); };
-    put("SXL1", 4);
-    u32 version = kVersion;
-    put(&version, 4);
-    u64 js = json.size();
-    put(&js, 8);
-    put(json.data(), json.size());
-    bool ok = true;
-    for (size_t i = 0; i < surfaces.size(); ++i) {
-        auto& s = surfaces[i];
-        std::vector<u8> packed = jobs[i].get();
-        if (packed.empty() && !s.data.empty()) ok = false;
-        u32 hdr[4] = {s.id, s.width, s.height, (u32)s.format};
-        put(hdr, sizeof(hdr));
-        u64 raw = s.data.size(), pk = packed.size();
-        put(&raw, 8);
-        put(&pk, 8);
-        put(packed.data(), packed.size());
-    }
-    ok = ok && !ferror(f);
-    fclose(f);
-    if (!ok) {
-        DeleteFileW(Widen(tmp).c_str());
-        if (error) *error = "échec de la compression ou de l'écriture";
-        return false;
-    }
-    // Atomic-ish replace.
-    if (!MoveFileExW(Widen(tmp).c_str(), Widen(path).c_str(), MOVEFILE_REPLACE_EXISTING)) {
+    std::error_code ec;
+    std::filesystem::rename(tmp, Utf8Path(path), ec);  // replaces the destination atomically where supported
+    if (ec) {
         if (error) *error = "impossible de remplacer " + path;
         return false;
     }
@@ -467,26 +535,33 @@ bool WriteSxl(const std::string& path, const Json& meta, const std::vector<Surfa
 }
 
 bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surfaces, std::string* error) {
-    FILE* f = nullptr;
-    _wfopen_s(&f, Widen(path).c_str(), L"rb");
+    std::ifstream f(Utf8Path(path), std::ios::binary);
     if (!f) {
         if (error) *error = "impossible d'ouvrir " + path;
         return false;
     }
-    auto get = [&](void* p, size_t n) { return fread(p, 1, n, f) == n; };
+    auto get = [&](void* p, size_t n) { return (bool)f.read((char*)p, (std::streamsize)n); };
     char magic[4];
     u32 version = 0;
     u64 js = 0;
     if (!get(magic, 4) || memcmp(magic, "SXL1", 4) != 0 || !get(&version, 4) || !get(&js, 8) || js > (256ull << 20)) {
-        fclose(f);
         if (error) *error = "en-tête invalide";
         return false;
     }
+    if (version < 1 || version > kVersion) {
+        if (error) *error = "version de fichier non prise en charge (" + std::to_string(version) + ")";
+        return false;
+    }
+#ifndef _WIN32
+    if (version == 1) {
+        if (error) *error = "fichier .sxl v1 (XPRESS) : réenregistrez-le sous Windows";
+        return false;
+    }
+#endif
     std::string json(js, '\0');
     get(json.data(), js);
     std::string perr;
     if (!Json::Parse(json, meta, &perr)) {
-        fclose(f);
         if (error) *error = "JSON invalide : " + perr;
         return false;
     }
@@ -507,19 +582,23 @@ bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surf
         surfaces.push_back(std::move(b));
         packed.push_back(std::move(p));
     }
-    fclose(f);
-    std::vector<std::future<bool>> jobs;
-    for (size_t i = 0; i < surfaces.size(); ++i) {
-        jobs.push_back(std::async(std::launch::async, [&, i] {
-            std::vector<u8> tmp;
-            size_t raw = surfaces[i].data.size();
-            if (!Decompress(packed[i], raw, tmp)) return false;
-            surfaces[i].data = Unshuffle(tmp, ElemSize(surfaces[i].format));
-            return true;
-        }));
-    }
+    f.close();
     bool ok = true;
-    for (auto& jb : jobs) ok &= jb.get();
+    for (size_t i = 0; i < surfaces.size() && ok; ++i) {
+        std::vector<u8> tmp;
+        size_t raw = surfaces[i].data.size();
+#ifdef _WIN32
+        if (version == 1) {
+            ok = DecompressXpress(packed[i], raw, tmp);
+            if (ok) surfaces[i].data = Unshuffle(tmp, ElemSize(surfaces[i].format));
+        } else
+#endif
+        {
+            ok = UnpackChunks(packed[i], raw, tmp);
+            if (ok) surfaces[i].data = Unshuffle(tmp, ElemSize(surfaces[i].format));
+        }
+        packed[i].clear();
+    }
     if (!ok && error) *error = "données de pixels corrompues";
     return ok;
 }

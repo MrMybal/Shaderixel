@@ -1203,7 +1203,13 @@ void App::UpdateSaves() {
                 PendingSave* p = &s;
                 s.writing = std::async(std::launch::async, [p] {
                     std::string err;
-                    return WriteSxl(p->path, p->meta, p->blobs, &err) ? std::string() : err;
+                    auto t0 = std::chrono::steady_clock::now();
+                    bool ok = WriteSxl(p->path, p->meta, p->blobs, &err);
+                    u64 raw = 0;
+                    for (auto& b : p->blobs) raw += b.data.size();
+                    Log("Saved %s: %.0f MB of pixels in %.2f s", p->path.c_str(), raw / 1048576.0,
+                        std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
+                    return ok ? std::string() : err;
                 });
             }
             ++i;

@@ -284,6 +284,7 @@ void App::DemoTick() {
         return;
     }
     if (demoMode == 16 && v) {
+        if (frameCounter == 90) SaveDocument(*v, "demo_16k.sxl");
         if (frameCounter % 10 == 0)
             Log("[16k] frame %llu: tiles pending %d / %d, VRAM %.0f MB", (unsigned long long)frameCounter, v->renderer.TilesPending(),
                 v->renderer.TilesTotal(), gpu::Dev().VideoMemoryUsage() / 1048576.0);
