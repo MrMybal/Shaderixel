@@ -10,7 +10,7 @@
 //   //@premultiplied               work on premultiplied colors (blurs, distortions)
 //   //@param <id> <type> <default...> [min max] ["Label"]
 //        types: float, int (min max), bool, color (r g b a), float2 (x y),
-//               enum <default> "A|B|C"
+//               enum <default> "A|B|C", curve (tone curve, shader gets <id>_eval(x))
 //
 // The same format is used by library files (shaders/effects/*.slang), by custom
 // HLSL nodes stored inside documents, and (later) by the visual effect editor,
@@ -23,7 +23,15 @@
 
 namespace sx {
 
-enum class ParamType : u8 { Float, Int, Bool, Color, Float2, Enum };
+enum class ParamType : u8 { Float, Int, Bool, Color, Float2, Enum, Curve };
+
+// Tone curve control points (x, y in 0..1, sorted by x).
+using CurvePoints = std::vector<float2>;
+constexpr int kCurveSlots = 64;  // 256 baked samples packed in float4s
+
+// Monotone cubic interpolation (Fritsch-Carlson) sampled at 256 points.
+void BakeCurve(const CurvePoints& pts, float out[256]);
+float EvalCurve(const CurvePoints& pts, float x);
 
 struct ParamDef {
     std::string id;
@@ -56,7 +64,7 @@ std::string BuildEffectSource(const EffectDef& def);
 
 // Pack parameter values into the cbuffer layout used by BuildEffectSource
 // (one float4 slot per param; int/bool/enum written as int bits).
-std::vector<float4> PackParams(const EffectDef& def, const std::vector<float4>& values);
+std::vector<float4> PackParams(const EffectDef& def, const std::vector<float4>& values, const std::vector<CurvePoints>* curves = nullptr);
 
 class EffectLibrary {
 public:

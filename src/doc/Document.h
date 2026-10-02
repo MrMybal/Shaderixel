@@ -43,6 +43,7 @@ struct EffectInstance {
     std::string effectId;
     std::string customCode;  // non-empty => custom HLSL effect
     std::vector<float4> params;
+    std::vector<CurvePoints> curves;  // per param index (curve params only)
     bool enabled = true;
     EffectDefPtr Def() const;  // resolves library / parses custom code (cached)
 private:

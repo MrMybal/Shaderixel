@@ -16,21 +16,23 @@
 - Calque par copier/couper (Ctrl+J / Ctrl+Maj+J), copier/couper/coller ; masque de fusion et calques de réglage créés depuis la sélection
 - **Transformation manuelle** (Ctrl+T) : échelle (Maj proportionnel, Alt depuis le centre), rotation (Maj 15°), pivot, perspective/déformation (Ctrl+coin), interpolation plus proche/bilinéaire/bicubique, la sélection suit ; **outil Déplacement** (V, flèches 1/10 px)
 - Historique groupé (une opération = une étape même si elle touche pixels + sélection)
+- **Retouche** : tampon de duplication (Alt+clic, aligné), correcteur, goutte, netteté, doigt, densité -/+ (plages), éponge ; pot de peinture avec remplissage par zone (tolérance, contigu, tous les calques)
+- **Groupes de calques** (mode Traverser ou fusion, opacité, masque, imbrication, repli) et **masques d'écrêtage** (Ctrl+Alt+G)
+- **Format natif .sxl** (JSON + pixels compressés XPRESS en parallèle), invite « enregistrer les modifications »
+- **Import PSD avec calques** (8/16/32 bits, RLE/ZIP, groupes, masques, modes, réglages convertis, remplissages unis)
+- **Menu Image** : taille de l'image (bicubique), taille de la zone de travail (ancrage), rotations, symétries, **outil Recadrage**, recadrer selon la sélection — tout est annulable
+- **Courbes** (éditeur par canal, spline monotone), filtre photo, correction sélective — 30 effets au total
 
 ## Phase 1 — Outils Photoshop essentiels
 - Déplacer le contour de sélection seul, transformer la sélection, sélection rapide (pinceau)
 - Transformation des calques de remplissage/réglage (transformations non destructives)
-- Groupes de calques (mode traverser), masques d'écrêtage, Blend-If
-- Retouche : tampon, correcteur, doigt, densité +/-, éponge (à porter de `CyTextureLayer.usf`)
-- Pot de peinture avec remplissage par zone (flood fill GPU)
+- Blend-If (options de fusion), styles de calque (ombre portée, contour, lueur...)
 - Texte (calques de texte vectoriels)
-- Courbes (éditeur de courbe), LUT 3D
+- LUT 3D (.cube), histogramme
 - Formes vectorielles et tracés
-- Recadrage et taille de la zone de travail
+- Export PSD avec calques
 
 ## Phase 2 — Format et performance
-- Format natif `.sxl` (graphe JSON + surfaces compressées zstd, chargement progressif)
-- Import PSD avec calques (en s'appuyant sur `CyTexturePsdImporter`), export PSD aplati
 - **Rendu par tuiles et textures sparse** (ressources réservées D3D12) pour le 16K sans saturer la VRAM
 - Recalcul limité aux régions modifiées (actuellement : la surface entière en aval)
 - Mipmaps d'affichage, histogramme et table de couleurs GPU

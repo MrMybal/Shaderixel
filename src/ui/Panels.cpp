@@ -7,6 +7,104 @@
 
 namespace sx {
 
+
+namespace {
+// Interactive tone-curve editor. Returns true while points changed this frame.
+// `active` reports whether the widget is being dragged (for undo grouping).
+bool CurveEditor(const char* id, CurvePoints& pts, ImU32 color, float size, bool& activated, bool& released) {
+    activated = released = false;
+    if (pts.size() < 2) pts = {{0, 0}, {1, 1}};
+    ImGui::PushID(id);
+    ImVec2 p0 = ImGui::GetCursorScreenPos();
+    ImVec2 p1(p0.x + size, p0.y + size);
+    ImGui::InvisibleButton("##curve", ImVec2(size, size), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+    bool hovered = ImGui::IsItemHovered();
+    ImGuiStorage* st = ImGui::GetStateStorage();
+    ImGuiID dragKey = ImGui::GetID("drag");
+    int drag = st->GetInt(dragKey, -1);
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    auto toScreen = [&](float2 c) { return ImVec2(p0.x + c.x * size, p1.y - c.y * size); };
+    auto toCurve = [&](ImVec2 s) { return float2{std::clamp((s.x - p0.x) / size, 0.0f, 1.0f), std::clamp((p1.y - s.y) / size, 0.0f, 1.0f)}; };
+
+    dl->AddRectFilled(p0, p1, IM_COL32(18, 18, 22, 255), 4);
+    for (int i = 1; i < 4; ++i) {
+        float t = i / 4.0f;
+        dl->AddLine(ImVec2(p0.x + size * t, p0.y), ImVec2(p0.x + size * t, p1.y), IM_COL32(255, 255, 255, 18));
+        dl->AddLine(ImVec2(p0.x, p0.y + size * t), ImVec2(p1.x, p0.y + size * t), IM_COL32(255, 255, 255, 18));
+    }
+    dl->AddLine(ImVec2(p0.x, p1.y), ImVec2(p1.x, p0.y), IM_COL32(255, 255, 255, 40));
+    dl->AddRect(p0, p1, IM_COL32(70, 72, 84, 255), 4);
+
+    bool changed = false;
+    ImVec2 mouse = ImGui::GetIO().MousePos;
+    int hot = -1;
+    for (int i = 0; i < (int)pts.size(); ++i) {
+        ImVec2 s = toScreen(pts[i]);
+        if (std::abs(s.x - mouse.x) < 7 && std::abs(s.y - mouse.y) < 7) hot = i;
+    }
+    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        activated = true;
+        if (hot >= 0) drag = hot;
+        else {
+            float2 c = toCurve(mouse);
+            auto it = std::lower_bound(pts.begin(), pts.end(), c, [](const float2& a, const float2& b) { return a.x < b.x; });
+            drag = (int)(it - pts.begin());
+            pts.insert(it, c);
+            changed = true;
+        }
+    }
+    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && hot > 0 && hot < (int)pts.size() - 1) {
+        activated = true;
+        pts.erase(pts.begin() + hot);
+        changed = true;
+        released = true;
+    }
+    if (drag >= 0 && drag < (int)pts.size()) {
+        if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            float2 c = toCurve(mouse);
+            bool endpoint = drag == 0 || drag == (int)pts.size() - 1;
+            float lo = drag > 0 ? pts[drag - 1].x + 0.01f : 0.0f;
+            float hi = drag + 1 < (int)pts.size() ? pts[drag + 1].x - 0.01f : 1.0f;
+            float outside = std::max(p0.y - mouse.y, mouse.y - p1.y);
+            if (!endpoint && outside > 24.0f && pts.size() > 2) {  // drag out to delete
+                pts.erase(pts.begin() + drag);
+                drag = -1;
+                changed = true;
+            } else {
+                float2 np = {std::clamp(c.x, lo, std::max(lo, hi)), c.y};
+                if (!(np == pts[drag])) { pts[drag] = np; changed = true; }
+            }
+        } else {
+            drag = -1;
+            released = true;
+        }
+    }
+    st->SetInt(dragKey, drag);
+
+    // Curve
+    ImVec2 line[129];
+    for (int i = 0; i <= 128; ++i) {
+        float x = i / 128.0f;
+        line[i] = toScreen({x, EvalCurve(pts, x)});
+    }
+    dl->PushClipRect(p0, p1, true);
+    dl->AddPolyline(line, 129, color, 0, 2.0f);
+    dl->PopClipRect();
+    for (int i = 0; i < (int)pts.size(); ++i) {
+        ImVec2 s = toScreen(pts[i]);
+        bool on = i == drag || i == hot;
+        dl->AddRectFilled(ImVec2(s.x - 4, s.y - 4), ImVec2(s.x + 4, s.y + 4), on ? IM_COL32_WHITE : IM_COL32(20, 20, 24, 255));
+        dl->AddRect(ImVec2(s.x - 4, s.y - 4), ImVec2(s.x + 4, s.y + 4), color);
+    }
+    if (hot >= 0 || drag >= 0) {
+        int i = drag >= 0 ? drag : hot;
+        if (i < (int)pts.size()) ImGui::SetTooltip("Entrée %d  Sortie %d", (int)std::lround(pts[i].x * 255), (int)std::lround(pts[i].y * 255));
+    }
+    ImGui::PopID();
+    return changed;
+}
+}  // namespace
+
 void App::TrackUndo(const char* label) {
     DocView* v = Active();
     if (!v || !frameBeforeValid) return;
@@ -29,8 +127,11 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
         for (size_t i = fx.params.size(); i < def->params.size(); ++i) fx.params.push_back(def->params[i].def);
     bool changed = false;
     ImGui::PushID(label);
+    if (fx.curves.size() < def->params.size()) fx.curves.resize(def->params.size());
+    std::vector<size_t> curveParams;
     for (size_t i = 0; i < def->params.size(); ++i) {
         const ParamDef& p = def->params[i];
+        if (p.type == ParamType::Curve) { curveParams.push_back(i); continue; }
         float4& val = fx.params[i];
         ImGui::PushID((int)i);
         bool c = false;
@@ -77,6 +178,33 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
         }
         changed |= c;
         ImGui::PopID();
+    }
+    if (!curveParams.empty()) {
+        ImGuiStorage* st = ImGui::GetStateStorage();
+        ImGuiID chanKey = ImGui::GetID("curvechan");
+        int chan = std::clamp(st->GetInt(chanKey, 0), 0, (int)curveParams.size() - 1);
+        static const ImU32 colors[] = {IM_COL32(230, 230, 235, 255), IM_COL32(240, 80, 80, 255), IM_COL32(90, 220, 110, 255), IM_COL32(90, 140, 250, 255)};
+        for (size_t k = 0; k < curveParams.size(); ++k) {
+            if (k) ImGui::SameLine();
+            if (ImGui::RadioButton(def->params[curveParams[k]].label.c_str(), chan == (int)k)) chan = (int)k;
+        }
+        st->SetInt(chanKey, chan);
+        size_t pi = curveParams[chan];
+        float edSize = std::min(ImGui::GetContentRegionAvail().x, 320.0f);
+        bool act = false, rel = false;
+        DocView* v = Active();
+        if (CurveEditor(def->params[pi].id.c_str(), fx.curves[pi], colors[std::min<size_t>(chan, 3)], edSize, act, rel)) changed = true;
+        if (act && v) editBefore = frameBefore;
+        if (rel && v && editBefore) {
+            v->history.PushState("Courbes", *editBefore, v->doc->S());
+            editBefore.reset();
+        }
+        if (ImGui::SmallButton("Réinitialiser la courbe")) {
+            fx.curves[pi] = {{0, 0}, {1, 1}};
+            changed = true;
+            if (v) v->history.PushState("Courbes", frameBefore, v->doc->S());
+        }
+        ImGui::TextDisabled("Clic : ajouter un point - clic droit / glisser dehors : supprimer");
     }
     ImGui::PopID();
     return changed;

@@ -222,7 +222,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
             Hasher h;
             h.Pod(u8(2));
             h.Pod(prog->hash);
-            auto packed = PackParams(*def, n->fx.params);
+            auto packed = PackParams(*def, n->fx.params, &n->fx.curves);
             h.Bytes(packed.data(), packed.size() * sizeof(float4));
             for (int i = 0; i < nin && i < 4; ++i) h.Pod(in[i].hash);
             h.Pod(W);

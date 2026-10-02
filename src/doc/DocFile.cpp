@@ -23,6 +23,17 @@ Json EffectToJson(const EffectInstance& fx) {
     for (auto& v : fx.params) p.Push(ToJson(v));
     j["params"] = p;
     j["enabled"] = fx.enabled;
+    bool anyCurve = false;
+    for (auto& c : fx.curves) if (!c.empty()) anyCurve = true;
+    if (anyCurve) {
+        Json cs = Json::Array();
+        for (auto& c : fx.curves) {
+            Json pts = Json::Array();
+            for (auto& pt : c) pts.Push(ToJson(pt));
+            cs.Push(pts);
+        }
+        j["curves"] = cs;
+    }
     return j;
 }
 
@@ -32,6 +43,11 @@ EffectInstance EffectFromJson(const Json& j) {
     fx.customCode = j["code"].S("");
     for (auto& p : j["params"].Elements()) fx.params.push_back(Float4FromJson(p));
     fx.enabled = j["enabled"].B(true);
+    for (auto& c : j["curves"].Elements()) {
+        CurvePoints pts;
+        for (auto& p : c.Elements()) pts.push_back(Float2FromJson(p));
+        fx.curves.push_back(pts);
+    }
     return fx;
 }
 

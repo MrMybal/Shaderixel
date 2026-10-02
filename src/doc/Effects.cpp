@@ -130,6 +130,8 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
                 p.type = ParamType::Float2;
                 p.def = {num(0, 0), num(1, 0), 0, 0};
                 p.min = num(2, 0); p.max = num(3, 1);
+            } else if (type == "curve") {
+                p.type = ParamType::Curve;
             } else if (type == "enum") {
                 p.type = ParamType::Enum;
                 p.def = {num(0, 0), 0, 0, 0};
@@ -172,10 +174,20 @@ std::string BuildEffectSource(const EffectDef& def) {
             case ParamType::Enum: s += "    int " + p.id + "; int3 _pad" + std::to_string(pad++) + ";\n"; break;
             case ParamType::Color: s += "    float4 " + p.id + ";\n"; break;
             case ParamType::Float2: s += "    float2 " + p.id + "; float2 _pad" + std::to_string(pad++) + ";\n"; break;
+            case ParamType::Curve: s += "    float4 " + p.id + "[" + std::to_string(kCurveSlots) + "];\n"; break;
         }
     }
     if (def.params.empty()) s += "    float4 _unused;\n";
-    s += "};\n\n#line 1\n";
+    s += "};\n\n";
+    for (auto& p : def.params) {
+        if (p.type != ParamType::Curve) continue;
+        s += "float " + p.id + "_eval(float x)\n{\n"
+             "    float f = saturate(x) * 255.0;\n"
+             "    uint i = min((uint)f, 254u);\n"
+             "    uint j = i + 1;\n"
+             "    return lerp(" + p.id + "[i >> 2][i & 3], " + p.id + "[j >> 2][j & 3], f - i);\n}\n";
+    }
+    s += "#line 1\n";
     s += def.body;
     s += "\n[numthreads(8, 8, 1)]\n"
          "void main(uint3 id : SV_DispatchThreadID)\n"
@@ -192,22 +204,67 @@ std::string BuildEffectSource(const EffectDef& def) {
     return s;
 }
 
-std::vector<float4> PackParams(const EffectDef& def, const std::vector<float4>& values) {
-    std::vector<float4> out(std::max<size_t>(def.params.size(), 1));
+std::vector<float4> PackParams(const EffectDef& def, const std::vector<float4>& values, const std::vector<CurvePoints>* curves) {
+    std::vector<float4> out;
+    out.reserve(def.params.size() + 4);
     for (size_t i = 0; i < def.params.size(); ++i) {
         float4 v = i < values.size() ? values[i] : def.params[i].def;
         switch (def.params[i].type) {
             case ParamType::Int:
             case ParamType::Bool:
             case ParamType::Enum: {
+                float4 slot;
                 i32 iv = (i32)std::lround(v.x);
-                memcpy(&out[i].x, &iv, 4);
+                memcpy(&slot.x, &iv, 4);
+                out.push_back(slot);
                 break;
             }
-            default: out[i] = v; break;
+            case ParamType::Curve: {
+                float lut[256];
+                static const CurvePoints identity = {{0, 0}, {1, 1}};
+                const CurvePoints& pts = curves && i < curves->size() && curves->at(i).size() >= 2 ? curves->at(i) : identity;
+                BakeCurve(pts, lut);
+                for (int k = 0; k < kCurveSlots; ++k) out.push_back({lut[k * 4], lut[k * 4 + 1], lut[k * 4 + 2], lut[k * 4 + 3]});
+                break;
+            }
+            default: out.push_back(v); break;
         }
     }
+    if (out.empty()) out.push_back({});
     return out;
+}
+
+float EvalCurve(const CurvePoints& pts, float x) {
+    size_t n = pts.size();
+    if (n == 0) return x;
+    if (n == 1 || x <= pts[0].x) return std::clamp(pts[0].y, 0.0f, 1.0f);
+    if (x >= pts[n - 1].x) return std::clamp(pts[n - 1].y, 0.0f, 1.0f);
+    // Secant slopes, then Fritsch-Carlson tangents.
+    std::vector<float> d(n - 1), m(n);
+    for (size_t i = 0; i + 1 < n; ++i) d[i] = (pts[i + 1].y - pts[i].y) / std::max(pts[i + 1].x - pts[i].x, 1e-6f);
+    m[0] = d[0];
+    m[n - 1] = d[n - 2];
+    for (size_t i = 1; i + 1 < n; ++i) m[i] = d[i - 1] * d[i] <= 0 ? 0.0f : (d[i - 1] + d[i]) * 0.5f;
+    for (size_t i = 0; i + 1 < n; ++i) {
+        if (d[i] == 0) { m[i] = m[i + 1] = 0; continue; }
+        float a = m[i] / d[i], b = m[i + 1] / d[i];
+        float s = a * a + b * b;
+        if (s > 9.0f) {
+            float t = 3.0f / std::sqrt(s);
+            m[i] = t * a * d[i];
+            m[i + 1] = t * b * d[i];
+        }
+    }
+    size_t k = 0;
+    while (k + 2 < n && x > pts[k + 1].x) ++k;
+    float h = std::max(pts[k + 1].x - pts[k].x, 1e-6f);
+    float t = (x - pts[k].x) / h, t2 = t * t, t3 = t2 * t;
+    float y = (2 * t3 - 3 * t2 + 1) * pts[k].y + (t3 - 2 * t2 + t) * h * m[k] + (-2 * t3 + 3 * t2) * pts[k + 1].y + (t3 - t2) * h * m[k + 1];
+    return std::clamp(y, 0.0f, 1.0f);
+}
+
+void BakeCurve(const CurvePoints& pts, float out[256]) {
+    for (int i = 0; i < 256; ++i) out[i] = EvalCurve(pts, i / 255.0f);
 }
 
 void EffectLibrary::Load(const std::string& dir_) {

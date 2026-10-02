@@ -17,6 +17,7 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 10 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 9 && v) {
         Document& d = *v->doc;
         if (frameCounter == 6) RotateCanvas(*v, 0);
@@ -207,6 +208,13 @@ void App::RunDemo() {
         if (Layer* g = d.FindLayer(gid)) { g->name = "Groupe peinture"; g->opacity = 0.85f; }
         d.SyncGraph();
         d.S().activeLayer = gid;
+    }
+    if (demoMode == 10) {
+        Layer& c = d.AddEffectLayer(LayerKind::Adjustment, "curves");
+        c.effect.curves.resize(c.effect.params.size());
+        c.effect.curves[0] = {{0, 0}, {0.25f, 0.12f}, {0.7f, 0.85f}, {1, 1}};
+        c.effect.curves[1] = {{0, 0.1f}, {0.5f, 0.6f}, {1, 1}};
+        d.SyncGraph();
     }
     if (demoMode == 2) {
         d.ConvertToNodes();
