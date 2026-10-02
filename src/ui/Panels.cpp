@@ -359,7 +359,7 @@ void App::DrawLayers() {
             ImVec2 tp(x0, rowMin.y + 4);
             gpu::Texture* src = nullptr;
             u64 hash = 0;
-            if (l.kind == LayerKind::Pixel) {
+            if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text) {
                 if (Surface* s = d.GetSurface(l.surface)) { src = s->tex.get(); hash = s->version; }
             } else {
                 for (auto& n : d.S().graph.nodes)
@@ -373,7 +373,8 @@ void App::DrawLayers() {
                 gpu::Texture* t = v->renderer.Thumbnail(*ctx, ((u64)l.id << 1), src, hash, (u32)thumb, (u32)thumb);
                 dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), tp, ImVec2(tp.x + thumb, tp.y + thumb));
             }
-            if (l.kind != LayerKind::Pixel) ui::DrawIcon(dl, ui::IconFx, ImVec2(tp.x + thumb * 0.5f, tp.y + thumb * 0.5f), thumb * 0.5f, IM_COL32(255, 255, 255, 200));
+            if (l.kind == LayerKind::Text) ui::DrawIcon(dl, ui::IconText, ImVec2(tp.x + thumb * 0.5f, tp.y + thumb * 0.5f), thumb * 0.55f, IM_COL32(255, 255, 255, 220));
+            else if (l.kind != LayerKind::Pixel) ui::DrawIcon(dl, ui::IconFx, ImVec2(tp.x + thumb * 0.5f, tp.y + thumb * 0.5f), thumb * 0.5f, IM_COL32(255, 255, 255, 200));
             bool contentSel = selected && !d.S().editMask;
             dl->AddRect(ImVec2(tp.x - 1, tp.y - 1), ImVec2(tp.x + thumb + 1, tp.y + thumb + 1), contentSel ? ui::col::Accent2 : ui::col::Border, 0, 0, contentSel ? 2.0f : 1.0f);
             textX = tp.x + thumb + 8;
@@ -499,14 +500,15 @@ void App::DrawProperties() {
             ImGui::InputText("Nom", &l->name);
             TrackUndo("Renommer");
             if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
-            const char* kinds[] = {"Calque de pixels", "Calque de remplissage", "Calque de réglage", "Groupe"};
+            const char* kinds[] = {"Calque de pixels", "Calque de remplissage", "Calque de réglage", "Groupe", "Calque de texte"};
             ImGui::TextDisabled("%s", kinds[(int)l->kind]);
             if (ImGui::Checkbox("Visible", &l->visible)) changed = true;
             TrackUndo("Visibilité");
             ImGui::SameLine();
             if (ImGui::Checkbox("Verrouillé", &l->locked)) changed = true;
             TrackUndo("Verrouillage");
-            if (l->kind != LayerKind::Pixel) {
+            if (l->kind == LayerKind::Text) TextPropertiesUI(*v, *l);
+            if (l->kind == LayerKind::Fill || l->kind == LayerKind::Adjustment) {
                 ImGui::SeparatorText(l->kind == LayerKind::Fill ? "Remplissage" : "Réglage");
                 changed |= EffectParamsUI(l->effect, "main");
             }
@@ -707,6 +709,21 @@ void App::DrawBrush() {
         if (ImGui::Button("Valider (Entrée)") && xf.view) TransformCommit(*xf.view);
         ImGui::SameLine();
         if (ImGui::Button("Annuler (Échap)") && xf.view) TransformCancel(*xf.view);
+    } else if (tool == Tool::Text) {
+        ImGui::SeparatorText("Texte");
+        ImGui::TextWrapped("Clic : nouveau calque de texte. Le texte se modifie dans Propriétés ; outil Déplacement pour le placer.");
+        ImGui::SliderFloat("Taille", &textDefaults.size, 4, 1000, "%.0f px", ImGuiSliderFlags_Logarithmic);
+        ImGui::Combo("Alignement", &textDefaults.align, "Gauche\0Centre\0Droite\0");
+        std::string fname = textDefaults.font.empty() ? "segoeui" : Narrow(Utf8Path(textDefaults.font).stem().wstring());
+        if (ImGui::BeginCombo("Police", fname.c_str(), ImGuiComboFlags_HeightLarge)) {
+            ImGui::InputTextWithHint("##ff", "Filtrer...", fontFilter, sizeof(fontFilter));
+            for (auto& f : SystemFonts()) {
+                if (fontFilter[0] && f.name.find(fontFilter) == std::string::npos) continue;
+                if (ImGui::Selectable(f.name.c_str(), f.path == textDefaults.font)) textDefaults.font = f.path;
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::TextDisabled("Couleur : premier plan.");
     } else if (tool == Tool::Crop) {
         ImGui::SeparatorText("Recadrage");
         ImGui::TextWrapped("Tracez le cadre (Maj : carré), puis Entrée ou double-clic pour recadrer. Échap : annuler. Le cadre peut dépasser l'image pour agrandir la zone de travail.");

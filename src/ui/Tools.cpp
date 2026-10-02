@@ -341,6 +341,10 @@ bool App::TransformBegin(DocView& v, bool moveOnly) {
     Document& doc = *v.doc;
     Id target = doc.PaintTarget();
     Surface* s = doc.GetSurface(target);
+    if (Layer* al = doc.ActiveLayer(); al && al->kind == LayerKind::Text && doc.Mode() == DocMode::Layers) {
+        Status("Calque de texte : utilisez Calque > Pixelliser pour le transformer");
+        return false;
+    }
     if (!s) {
         Status("Aucun calque de pixels à transformer");
         return false;

@@ -12,6 +12,7 @@
 
 #include "core/Common.h"
 #include "doc/Effects.h"
+#include "io/TextRaster.h"
 #include "gpu/Device.h"
 
 #include <unordered_map>
@@ -54,7 +55,7 @@ private:
     mutable std::string cachedCode;
 };
 
-enum class LayerKind : u8 { Pixel, Fill, Adjustment, Group };
+enum class LayerKind : u8 { Pixel, Fill, Adjustment, Group, Text };
 
 struct Layer {
     Id id = 0;
@@ -73,6 +74,7 @@ struct Layer {
     bool clipped = false;     // clipping mask: clipped to the layer below
     bool passThrough = true;  // groups: blend children straight into the parent stack
     bool collapsed = false;   // groups: UI state
+    TextStyle text;           // Text layers (rasterized into `surface`)
 };
 
 enum class NodeKind : u8 { Output, Surface, Effect, Blend };
@@ -155,6 +157,7 @@ public:
     Layer* ActiveLayer() { return FindLayer(state.activeLayer); }
     Layer& AddPixelLayer(const std::string& name, int index = -1);
     Layer& AddEffectLayer(LayerKind kind, const std::string& effectId, int index = -1);
+    Layer& AddTextLayer(const TextStyle& style);
     void RemoveLayer(Id id);
     void MoveLayer(Id id, int newIndex);
     void MoveLayerSibling(Id id, int dir);           // +1 up, -1 down among siblings

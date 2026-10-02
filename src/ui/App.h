@@ -13,13 +13,14 @@
 #include <imgui.h>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 
 namespace sx {
 
 enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge,
-    Picker, Hand, Zoom, Crop, Count
+    Picker, Hand, Zoom, Crop, Text, Count
 };
 inline bool IsRetouchTool(Tool t) { return t >= Tool::Clone && t <= Tool::Sponge && t != Tool::Gradient && t != Tool::Bucket; }
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
@@ -62,6 +63,8 @@ struct DocView {
     bool fitPending = true;
     gpu::TexturePtr viewTex;
     gpu::Texture* lastImage = nullptr;
+    std::unordered_map<Id, u64> textHashes;   // surface -> rasterized style hash
+    std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
 };
 
 struct NodeEditorState {
@@ -127,6 +130,10 @@ private:
     void DrawBrush();
     void DrawSelectionMenu();
     void DrawImageMenu();
+    void SyncTextLayers(DocView& v);
+    void TextInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void TextOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    void TextPropertiesUI(DocView& v, Layer& l);
     void DrawImageDialogs();
     void ApplyCanvasOp(DocView& v, u32 w, u32 h, const float m[6], int interp, const char* label);
     void RotateCanvas(DocView& v, int op);
@@ -240,6 +247,11 @@ private:
     int selDialog = 0;              // 1 feather, 2 expand, 3 contract, 4 color range
     float selDialogValue = 4;
     TransformState xf;
+    TextStyle textDefaults;
+    bool focusTextEdit = false;
+    bool textDragging = false;
+    float2 textDragStart, textPosStart;
+    char fontFilter[64] = {};
     int imageDialog = 0;            // 1 image size, 2 canvas size
     int dlgW = 0, dlgH = 0, dlgAnchor = 4, dlgInterp = 2;
     bool dlgKeepRatio = true;

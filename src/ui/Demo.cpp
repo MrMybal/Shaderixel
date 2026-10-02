@@ -22,6 +22,7 @@ void App::DemoTick() {
     }
     if (demoMode == 10 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 11 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
+    if (demoMode == 12 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 11 && v && frameCounter == 7) ImGui::SetWindowFocus("Éditeur d'effets");
     if (demoMode == 9 && v) {
         Document& d = *v->doc;
@@ -250,6 +251,36 @@ void App::RunDemo() {
         EGUnrealExport ex = ExportEffectGraphToUnreal(g, "M_SX_TeinteBruitee", "/Game/Shaderixel");
         std::ofstream("demo_unreal_export.py", std::ios::binary) << ex.python;
         Log("[demo] graph compile: %s", CompileEffectGraph(g).error.empty() ? "ok" : CompileEffectGraph(g).error.c_str());
+    }
+    if (demoMode == 12) {
+        TextStyle t;
+        t.content = "Shaderixel\nGPU · Calques · Nœuds";
+        t.size = 120;
+        t.color = {1, 1, 1, 1};
+        t.align = 1;
+        t.pos = {800, 330};
+        for (auto& f : SystemFonts()) if (f.name == "segoeuib") t.font = f.path;
+        Edit e(d, v.history, "Texte");
+        Layer& tl = d.AddTextLayer(t);
+        tl.blend = BlendMode::Overlay;
+        Id tid = tl.id;
+        d.SyncGraph();
+        e.Commit();
+        // Second text layer, clipped gradient on top of it.
+        TextStyle t2 = t;
+        t2.content = "Texte éditable";
+        t2.size = 64;
+        t2.pos = {800, 700};
+        t2.faux = true;
+        d.AddTextLayer(t2);
+        Layer& grad = d.AddEffectLayer(LayerKind::Fill, "gradient_fill");
+        grad.clipped = true;
+        grad.effect.params[0] = {1, 0.4f, 0.1f, 1};
+        grad.effect.params[1] = {0.2f, 0.9f, 1, 1};
+        grad.effect.params[3] = {0, 0, 0, 0};
+        d.SyncGraph();
+        d.S().activeLayer = tid;
+        tool = Tool::Text;
     }
     if (demoMode == 2) {
         d.ConvertToNodes();

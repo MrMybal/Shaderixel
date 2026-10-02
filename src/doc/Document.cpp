@@ -257,6 +257,22 @@ Layer& Document::AddPixelLayer(const std::string& lname, int index) {
     return state.layers[at];
 }
 
+Layer& Document::AddTextLayer(const TextStyle& style) {
+    Layer l;
+    l.id = NewId();
+    l.kind = LayerKind::Text;
+    l.text = style;
+    l.name = style.content.substr(0, std::min<size_t>(style.content.find('\n'), 32));
+    if (l.name.empty()) l.name = "Texte";
+    l.surface = CreateSurface({0, 0, 0, 0});
+    int at = InsertIndex(*this, -1, &l.parent);
+    state.layers.insert(state.layers.begin() + at, l);
+    state.activeLayer = l.id;
+    state.editMask = false;
+    SyncGraph();
+    return state.layers[at];
+}
+
 Layer& Document::AddEffectLayer(LayerKind kind, const std::string& effectId, int index) {
     Layer l;
     l.id = NewId();
@@ -448,7 +464,7 @@ struct GraphBuilder {
         x += 240.0f;
         y = 0;
         Id src;
-        if (l.kind == LayerKind::Pixel) {
+        if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text) {
             Node n;
             n.id = GenId(l.id, RoleSource);
             n.kind = NodeKind::Surface;

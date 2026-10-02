@@ -31,6 +31,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Hand, ui::IconHand, "Main", "H / Espace"},
     {Tool::Zoom, ui::IconZoom, "Zoom", "Z"},
     {Tool::Crop, ui::IconCrop, "Recadrage", "C"},
+    {Tool::Text, ui::IconText, "Texte", "T"},
 };
 
 // Toolbar slots; tools sharing a slot appear in a flyout (right-click).
@@ -44,6 +45,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Eraser},
     {Tool::Clone},
     {Tool::Heal},
+    {Tool::Text},
     {Tool::Gradient, Tool::Bucket},
     {Tool::Blur, Tool::Sharpen, Tool::Smudge},
     {Tool::Dodge, Tool::Burn, Tool::Sponge},
@@ -65,7 +67,7 @@ void App::DrawToolbar() {
         float size = std::min(ImGui::GetContentRegionAvail().x, 38.0f * dpi);
         for (size_t g = 0; g < kGroups.size(); ++g) {
             const auto& group = kGroups[g];
-            if (g == 1 || g == 5 || g == 12) {
+            if (g == 1 || g == 5 || g == 13) {
                 ImVec2 c = ImGui::GetCursorScreenPos();
                 ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);
                 ImGui::Dummy(ImVec2(size, 3 * dpi));
@@ -172,6 +174,7 @@ void App::DrawCanvas() {
     ImGui::InvisibleButton("##canvas", avail, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
     bool hovered = ImGui::IsItemHovered();
     v->renderer.Prepare(doc, *ctx);
+    SyncTextLayers(*v);
     if (xf.active && xf.view != v) TransformCancel(*xf.view);
     UpdateWand(*v);
     CanvasInput(*v, canvasMin, avail, hovered);
@@ -222,6 +225,7 @@ void App::DrawCanvas() {
     }
     DrawSelectionOverlay(*v, canvasMin, dl);
     CropOverlay(*v, canvasMin, avail, dl);
+    TextOverlay(*v, canvasMin, dl);
     TransformDrawOverlay(*v, canvasMin, dl);
     if ((tool == Tool::Clone || tool == Tool::Heal) && cloneSourceSet) {
         float2 src = cloneSource;
@@ -284,6 +288,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
 
     if (xf.active) {
         TransformInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::Text || (tool == Tool::Move && doc.ActiveLayer() && doc.ActiveLayer()->kind == LayerKind::Text && doc.Mode() == DocMode::Layers)) {
+        TextInput(v, canvasMin, hovered);
         return;
     }
     if (tool == Tool::Move) {

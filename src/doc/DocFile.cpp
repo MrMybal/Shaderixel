@@ -53,7 +53,7 @@ EffectInstance EffectFromJson(const Json& j) {
     return fx;
 }
 
-const char* kLayerKinds[] = {"pixel", "fill", "adjustment", "group"};
+const char* kLayerKinds[] = {"pixel", "fill", "adjustment", "group", "text"};
 const char* kNodeKinds[] = {"output", "surface", "effect", "blend"};
 
 template <size_t N>
@@ -168,6 +168,19 @@ Json SerializeDocument(const Document& doc) {
         if (l.parent) o["parent"] = l.parent;
         if (l.clipped) o["clipped"] = true;
         if (l.kind == LayerKind::Group) { o["passThrough"] = l.passThrough; o["collapsed"] = l.collapsed; }
+        if (l.kind == LayerKind::Text) {
+            Json t = Json::Object();
+            t["content"] = l.text.content;
+            t["font"] = l.text.font;
+            t["size"] = l.text.size;
+            t["color"] = ToJson(l.text.color);
+            t["pos"] = ToJson(l.text.pos);
+            t["align"] = l.text.align;
+            t["lineSpacing"] = l.text.lineSpacing;
+            t["tracking"] = l.text.tracking;
+            t["faux"] = l.text.faux;
+            o["text"] = t;
+        }
         layers.Push(o);
     }
     j["layers"] = layers;
@@ -231,6 +244,18 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         l.clipped = o["clipped"].B(false);
         l.passThrough = o["passThrough"].B(true);
         l.collapsed = o["collapsed"].B(false);
+        if (o.Has("text")) {
+            const Json& t = o["text"];
+            l.text.content = t["content"].S("");
+            l.text.font = t["font"].S("");
+            l.text.size = t["size"].F(72);
+            l.text.color = Float4FromJson(t["color"], {0, 0, 0, 1});
+            l.text.pos = Float2FromJson(t["pos"]);
+            l.text.align = t["align"].I(0);
+            l.text.lineSpacing = t["lineSpacing"].F(1.2f);
+            l.text.tracking = t["tracking"].F(0);
+            l.text.faux = t["faux"].B(false);
+        }
         if (l.surface && !s.surfaces.count(l.surface)) l.surface = doc->CreateSurface({0, 0, 0, 0});
         if (l.mask && !s.surfaces.count(l.mask)) l.mask = 0;
         s.layers.push_back(l);
