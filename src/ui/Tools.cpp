@@ -421,6 +421,29 @@ bool App::TransformBegin(DocView& v, bool moveOnly) {
     return true;
 }
 
+bool App::TransformSelectionBegin(DocView& v) {
+    if (xf.active) return false;
+    Document& doc = *v.doc;
+    Surface* sel = doc.Selection();
+    if (!sel) {
+        Status("Aucune sélection à transformer");
+        return false;
+    }
+    xf = TransformState{};
+    xf.active = true;
+    xf.view = &v;
+    xf.selectionOnly = true;
+    xf.before = doc.S();
+    xf.original = gpu::Dev().CreateTexture(sel->tex->Width(), sel->tex->Height(), gpu::Format::R8, "TransformOriginal");
+    ctx->CopyTexture(xf.original.get(), sel->tex.get());
+    // Work on a new selection surface so the previous one stays intact for undo.
+    xf.surface = doc.CreateSurfaceRaw(gpu::Format::R8, "Selection");
+    ctx->CopyTexture(doc.GetSurface(xf.surface)->tex.get(), sel->tex.get());
+    doc.S().selection = xf.surface;
+    xf.boundsRb = v.renderer.ComputeBounds(*ctx, xf.original.get(), nullptr, true, true);
+    return true;
+}
+
 void App::TransformApply(DocView& v) {
     if (!xf.active || xf.view != &v) return;
     Document& doc = *v.doc;
@@ -457,7 +480,8 @@ void App::TransformApply(DocView& v) {
         float dx = xf.center.x - doc.Width() * 0.5f, dy = xf.center.y - doc.Height() * 0.5f;
         if (std::abs(dx - std::round(dx)) < 1e-3f && std::abs(dy - std::round(dy)) < 1e-3f) t.interp = 0;
     }
-    Surface* sel = doc.GetSurface(xf.selection);
+    if (xf.selectionOnly) t.interp = 1;
+    Surface* sel = xf.selectionOnly ? nullptr : doc.GetSurface(xf.selection);
     v.renderer.TransformPreview(doc, *ctx, xf.surface, xf.original.get(), sel ? sel->tex.get() : nullptr, t);
 }
 
@@ -466,6 +490,20 @@ void App::TransformCommit(DocView& v) {
     if (xf.boundsRb) { xf = TransformState{}; return; }
     Document& doc = *v.doc;
     TransformApply(v);
+    if (xf.selectionOnly) {
+        bool changed = false;
+        const float2 local[4] = {{(float)xf.src.x0, (float)xf.src.y0}, {(float)xf.src.x1, (float)xf.src.y0},
+                                 {(float)xf.src.x1, (float)xf.src.y1}, {(float)xf.src.x0, (float)xf.src.y1}};
+        for (int i = 0; i < 4; ++i) if (Length(xf.corners[i] - local[i]) > 1e-3f) changed = true;
+        if (changed) {
+            doc.S().lastSelection = doc.S().selection;
+            v.history.PushState("Transformer la sélection", xf.before, doc.S());
+        } else {
+            doc.S().selection = xf.before.selection;
+        }
+        xf = TransformState{};
+        return;
+    }
     Surface* s = doc.GetSurface(xf.surface);
     bool moved = false;
     for (int i = 0; i < 4; ++i) {
@@ -509,6 +547,11 @@ void App::TransformCommit(DocView& v) {
 void App::TransformCancel(DocView& v) {
     if (!xf.active) return;
     Document& doc = *v.doc;
+    if (xf.selectionOnly) {
+        doc.S().selection = xf.before.selection;
+        xf = TransformState{};
+        return;
+    }
     if (Surface* s = doc.GetSurface(xf.surface)) {
         ctx->CopyTexture(s->tex.get(), xf.original.get());
         doc.TouchSurface(xf.surface);
@@ -798,6 +841,7 @@ void App::DrawSelectionMenu() {
         ImGui::EndMenu();
     }
     ImGui::Separator();
+    if (ImGui::MenuItem("Transformer la sélection", nullptr, false, v->doc->Selection() != nullptr)) TransformSelectionBegin(*v);
     if (ImGui::MenuItem("Transformation manuelle", "Ctrl+T")) TransformBegin(*v, false);
     ImGui::MenuItem("Mode Masque", "Q", &quickMask);
     ImGui::EndMenu();

@@ -42,6 +42,8 @@ struct TransformState {
     bool moveOnly = false;      // move tool: commit on mouse release
     Id surface = 0;
     Id selection = 0;           // selection surface at start (0 = none)
+    bool selectionOnly = false; // Select > Transform Selection: transform the outline only
+    DocState before;            // selection-only: state to restore / undo to
     gpu::TexturePtr original;   // surface content before the transform
     gpu::ReadbackPtr boundsRb;  // pending content bounds
     Rect src;                   // region being transformed
@@ -229,6 +231,7 @@ private:
     void FinishPolygon(DocView& v);
     void UpdateWand(DocView& v);
     bool TransformBegin(DocView& v, bool moveOnly);
+    bool TransformSelectionBegin(DocView& v);
     void TransformInput(DocView& v, ImVec2 canvasMin, bool hovered);
     void TransformApply(DocView& v);
     void TransformCommit(DocView& v);

@@ -81,6 +81,16 @@ void App::DemoTick() {
         if (frameCounter == 10) Undo();
         if (frameCounter == 12) Redo();
         if (frameCounter == 14) Log("[selmove] history %zu, selection %u", v->history.Cursor(), d.S().selection);
+        // Transform Selection: rotate and widen the moved ellipse, then commit.
+        if (frameCounter == 16) TransformSelectionBegin(*v);
+        if (frameCounter == 22 && xf.active && !xf.boundsRb) {
+            xf.angle = 0.5f;
+            xf.w *= 1.4f;
+            TransformUpdateCorners();
+            xf.dirty = true;
+        }
+        if (frameCounter == 26) TransformCommit(*v);
+        if (frameCounter == 28) Log("[selmove] after transform: history %zu, selection %u", v->history.Cursor(), d.S().selection);
         tool = Tool::EllipseSelect;
         return;
     }
