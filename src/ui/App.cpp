@@ -78,7 +78,7 @@ void App::ParseCommandLine() {
         if (a == "--test-effects") testEffects = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -595,7 +595,7 @@ void App::LayerMenuItems() {
             d.SyncGraph();
             e.Commit();
         }
-        if (ImGui::MenuItem("Pixelliser le calque", nullptr, false, l && l->kind == LayerKind::Text)) {
+        if (ImGui::MenuItem("Pixelliser le calque", nullptr, false, l && (l->kind == LayerKind::Text || l->kind == LayerKind::Shape))) {
             Edit e(d, v->history, "Pixelliser");
             l->kind = LayerKind::Pixel;
             d.SyncGraph();
@@ -743,6 +743,7 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_W)) setTool(Tool::Wand);
     if (pressed(ImGuiKey_C)) setTool(Tool::Crop);
     if (pressed(ImGuiKey_T)) setTool(Tool::Text);
+    if (pressed(ImGuiKey_U)) setTool(Tool::Shape);
     if (pressed(ImGuiKey_B)) setTool(Tool::Brush);
     if (pressed(ImGuiKey_S)) setTool(Tool::Clone);
     if (pressed(ImGuiKey_J)) setTool(Tool::Heal);

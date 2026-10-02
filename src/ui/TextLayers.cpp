@@ -11,6 +11,19 @@ void App::SyncTextLayers(DocView& v) {
     if (d.Mode() != DocMode::Layers) return;
     bool any = false;
     for (auto& l : d.S().layers) {
+        if (l.kind == LayerKind::Shape && l.surface) {
+            u64 h = l.shape.Hash() ^ ((u64)d.Width() << 32) ^ d.Height() ^ 0x5A5A;
+            auto it = v.textHashes.find(l.surface);
+            if (it == v.textHashes.end() || it->second != h) {
+                d.CancelPendingClear(l.surface);
+                v.renderer.RenderShape(d, *ctx, l.surface, l.shape);
+                v.textHashes[l.surface] = h;
+                const float4& r = l.shape.rect;
+                float pad = l.shape.strokeWidth + 2;
+                v.textRects[l.surface] = Rect{(int)(std::min(r.x, r.z) - pad), (int)(std::min(r.y, r.w) - pad), (int)(std::max(r.x, r.z) + pad), (int)(std::max(r.y, r.w) + pad)};
+            }
+            continue;
+        }
         if (l.kind != LayerKind::Text || !l.surface) continue;
         u64 h = l.text.Hash() ^ ((u64)d.Width() << 32) ^ d.Height();
         auto it = v.textHashes.find(l.surface);
@@ -38,6 +51,62 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     }
     float2 dp = ScreenToDoc(v, canvasMin, io.MousePos);
     Layer* al = d.ActiveLayer();
+    // Shape tool: drag a new shape.
+    if (tool == Tool::Shape) {
+        if (hovered && ImGui::IsMouseClicked(0)) {
+            shapeDragging = true;
+            shapeStart = dp;
+            editBefore = frameBefore;
+            ShapeStyle s = shapeDefaults;
+            s.fill = fg;
+            s.stroke = bg;
+            s.rect = {dp.x, dp.y, dp.x + 1, dp.y + 1};
+            d.AddShapeLayer(s);
+        }
+        if (shapeDragging) {
+            Layer* l = d.ActiveLayer();
+            if (l && l->kind == LayerKind::Shape) {
+                float2 e = dp;
+                if (io.KeyShift) {
+                    float2 dd = e - shapeStart;
+                    if (l->shape.type == 2) {
+                        float a = std::round(std::atan2(dd.y, dd.x) / 0.785398f) * 0.785398f, len = Length(dd);
+                        e = shapeStart + float2{std::cos(a) * len, std::sin(a) * len};
+                    } else {
+                        float m = std::max(std::abs(dd.x), std::abs(dd.y));
+                        e = shapeStart + float2{dd.x < 0 ? -m : m, dd.y < 0 ? -m : m};
+                    }
+                }
+                if (l->shape.type == 2) l->shape.rect = {shapeStart.x, shapeStart.y, e.x, e.y};
+                else l->shape.rect = {std::min(shapeStart.x, e.x), std::min(shapeStart.y, e.y), std::max(shapeStart.x, e.x), std::max(shapeStart.y, e.y)};
+            }
+            if (!ImGui::IsMouseDown(0)) {
+                shapeDragging = false;
+                if (editBefore) v.history.PushState("Forme", *editBefore, d.S());
+                editBefore.reset();
+            }
+        }
+        return;
+    }
+    if (tool == Tool::Move && al && al->kind == LayerKind::Shape) {
+        if (hovered && ImGui::IsMouseClicked(0)) {
+            shapeDragging = true;
+            shapeStart = dp;
+            shapeRectStart = al->shape.rect;
+            editBefore = frameBefore;
+        }
+        if (shapeDragging) {
+            float2 dd = dp - shapeStart;
+            if (io.KeyShift) { if (std::abs(dd.x) > std::abs(dd.y)) dd.y = 0; else dd.x = 0; }
+            al->shape.rect = {shapeRectStart.x + dd.x, shapeRectStart.y + dd.y, shapeRectStart.z + dd.x, shapeRectStart.w + dd.y};
+            if (!ImGui::IsMouseDown(0)) {
+                shapeDragging = false;
+                if (editBefore) v.history.PushState("Déplacer la forme", *editBefore, d.S());
+                editBefore.reset();
+            }
+        }
+        return;
+    }
     bool onActiveText = false;
     if (al && al->kind == LayerKind::Text) {
         auto it = v.textRects.find(al->surface);
@@ -86,15 +155,17 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
 void App::TextOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
     Document& d = *v.doc;
     Layer* al = d.ActiveLayer();
-    if (!al || al->kind != LayerKind::Text || (tool != Tool::Text && tool != Tool::Move)) return;
+    if (!al || (al->kind != LayerKind::Text && al->kind != LayerKind::Shape) || (tool != Tool::Text && tool != Tool::Move && tool != Tool::Shape)) return;
     auto it = v.textRects.find(al->surface);
     if (it == v.textRects.end() || it->second.Empty()) return;
     const Rect& r = it->second;
     ImVec2 a(canvasMin.x + v.pan.x + r.x0 * v.zoom, canvasMin.y + v.pan.y + r.y0 * v.zoom);
     ImVec2 b(canvasMin.x + v.pan.x + r.x1 * v.zoom, canvasMin.y + v.pan.y + r.y1 * v.zoom);
     dl->AddRect(a, b, ui::col::Accent2, 0, 0, 1.0f);
-    ImVec2 anchor(canvasMin.x + v.pan.x + al->text.pos.x * v.zoom, canvasMin.y + v.pan.y + al->text.pos.y * v.zoom);
-    dl->AddCircleFilled(anchor, 3.5f, ui::col::Accent2);
+    if (al->kind == LayerKind::Text) {
+        ImVec2 anchor(canvasMin.x + v.pan.x + al->text.pos.x * v.zoom, canvasMin.y + v.pan.y + al->text.pos.y * v.zoom);
+        dl->AddCircleFilled(anchor, 3.5f, ui::col::Accent2);
+    }
 }
 
 void App::TextPropertiesUI(DocView& v, Layer& l) {
@@ -143,6 +214,33 @@ void App::TextPropertiesUI(DocView& v, Layer& l) {
     if (ImGui::DragFloat2("Position", &t.pos.x, 1.0f, -100000, 100000, "%.0f")) changed = true;
     TrackUndo("Position du texte");
     if (changed) d.dirty = true;
+}
+
+void App::ShapePropertiesUI(DocView& v, Layer& l) {
+    Document& d = *v.doc;
+    ShapeStyle& s = l.shape;
+    ImGui::SeparatorText("Forme");
+    if (ImGui::Combo("Type", &s.type, "Rectangle Ellipse Ligne Polygone Étoile ")) v.history.PushState("Type de forme", frameBefore, d.S());
+    if (ImGui::DragFloat4("Cadre", &s.rect.x, 1.0f, -100000, 100000, "%.0f")) d.dirty = true;
+    TrackUndo("Cadre de la forme");
+    if (s.type == 0) { ImGui::SliderFloat("Rayon des coins", &s.radius, 0, 1000, "%.0f px"); TrackUndo("Rayon"); }
+    if (s.type >= 3) { ImGui::SliderInt("Côtés / branches", &s.sides, 3, 32); TrackUndo("Côtés"); }
+    if (s.type == 4) { ImGui::SliderFloat("Creux", &s.radius, 0.05f, 0.95f, "%.2f"); TrackUndo("Creux"); }
+    if (s.type != 2) { ImGui::SliderFloat("Rotation", &s.rotation, -180, 180, "%.1f°"); TrackUndo("Rotation"); }
+    if (s.type != 2) {
+        ImGui::Checkbox("Fond", &s.fillOn);
+        TrackUndo("Fond");
+        ImGui::SameLine();
+        ImGui::ColorEdit4("##fill", &s.fill.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
+        TrackUndo("Couleur de fond");
+    }
+    ImGui::Checkbox(s.type == 2 ? "Trait" : "Contour", &s.strokeOn);
+    TrackUndo("Contour");
+    ImGui::SameLine();
+    ImGui::ColorEdit4("##stroke", &s.stroke.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar);
+    TrackUndo("Couleur du contour");
+    ImGui::SliderFloat("Épaisseur", &s.strokeWidth, 0.5f, 300, "%.1f px", ImGuiSliderFlags_Logarithmic);
+    TrackUndo("Épaisseur");
 }
 
 }  // namespace sx

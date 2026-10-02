@@ -282,6 +282,38 @@ void App::RunDemo() {
         d.S().activeLayer = tid;
         tool = Tool::Text;
     }
+    if (demoMode == 13) {
+        // Shape layers + layer styles (filters).
+        auto shape = [&](int type, float4 r, float4 fill, bool stroke, float radius, int sides) -> Layer& {
+            ShapeStyle s;
+            s.type = type; s.rect = r; s.fill = fill; s.strokeOn = stroke; s.stroke = {1, 1, 1, 1}; s.strokeWidth = 6;
+            s.radius = radius; s.sides = sides;
+            return d.AddShapeLayer(s);
+        };
+        auto addStyle = [&](Layer& l, const char* id) -> EffectInstance& {
+            EffectInstance fx;
+            fx.effectId = id;
+            if (auto def = Effects().Find(id)) fx.params = def->DefaultParams();
+            l.filters.push_back(fx);
+            return l.filters.back();
+        };
+        Layer& r1 = shape(0, {150, 600, 550, 900}, {0.95f, 0.3f, 0.35f, 1}, false, 40, 5);
+        addStyle(r1, "style_drop_shadow");
+        addStyle(r1, "style_bevel");
+        Layer& e1 = shape(1, {650, 560, 950, 940}, {0.2f, 0.75f, 0.95f, 1}, true, 0, 5);
+        addStyle(e1, "style_outer_glow");
+        Layer& st = shape(4, {1050, 560, 1450, 960}, {1, 0.85f, 0.2f, 1}, false, 0.45f, 5);
+        addStyle(st, "style_stroke").params[1] = {8, 0, 0, 0};
+        addStyle(st, "style_drop_shadow");
+        Layer& pg = shape(3, {80, 80, 330, 330}, {0.6f, 0.95f, 0.5f, 1}, true, 0, 6);
+        addStyle(pg, "style_inner_shadow");
+        Layer& ln = shape(2, {400, 120, 1500, 300}, {1, 1, 1, 1}, true, 0, 5);
+        ln.shape.stroke = {1, 1, 1, 1};
+        ln.shape.strokeWidth = 10;
+        addStyle(ln, "style_outer_glow");
+        d.SyncGraph();
+        tool = Tool::Shape;
+    }
     if (demoMode == 2) {
         d.ConvertToNodes();
         // Add a custom HLSL node between the output and its input.

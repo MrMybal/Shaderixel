@@ -114,6 +114,7 @@ public:
     // Rebuild every surface at a new size: dst pixel -> src pixel = (m0 x + m1 y + m2, m3 x + m4 y + m5).
     bool ResampleCanvas(Document& doc, gpu::CommandContext& ctx, History& hist, u32 newW, u32 newH, const float m[6], int interp,
                         const std::string& label);
+    void RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, const ShapeStyle& s);
     void TransformPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection,
                           const TransformParams& t);
 

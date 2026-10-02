@@ -53,7 +53,7 @@ EffectInstance EffectFromJson(const Json& j) {
     return fx;
 }
 
-const char* kLayerKinds[] = {"pixel", "fill", "adjustment", "group", "text"};
+const char* kLayerKinds[] = {"pixel", "fill", "adjustment", "group", "text", "shape"};
 const char* kNodeKinds[] = {"output", "surface", "effect", "blend"};
 
 template <size_t N>
@@ -168,6 +168,20 @@ Json SerializeDocument(const Document& doc) {
         if (l.parent) o["parent"] = l.parent;
         if (l.clipped) o["clipped"] = true;
         if (l.kind == LayerKind::Group) { o["passThrough"] = l.passThrough; o["collapsed"] = l.collapsed; }
+        if (l.kind == LayerKind::Shape) {
+            Json t = Json::Object();
+            t["type"] = l.shape.type;
+            t["rect"] = ToJson(l.shape.rect);
+            t["radius"] = l.shape.radius;
+            t["sides"] = l.shape.sides;
+            t["rotation"] = l.shape.rotation;
+            t["fillOn"] = l.shape.fillOn;
+            t["strokeOn"] = l.shape.strokeOn;
+            t["fill"] = ToJson(l.shape.fill);
+            t["stroke"] = ToJson(l.shape.stroke);
+            t["strokeWidth"] = l.shape.strokeWidth;
+            o["shape"] = t;
+        }
         if (l.kind == LayerKind::Text) {
             Json t = Json::Object();
             t["content"] = l.text.content;
@@ -244,6 +258,19 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         l.clipped = o["clipped"].B(false);
         l.passThrough = o["passThrough"].B(true);
         l.collapsed = o["collapsed"].B(false);
+        if (o.Has("shape")) {
+            const Json& t = o["shape"];
+            l.shape.type = t["type"].I(0);
+            l.shape.rect = Float4FromJson(t["rect"]);
+            l.shape.radius = t["radius"].F(0);
+            l.shape.sides = t["sides"].I(5);
+            l.shape.rotation = t["rotation"].F(0);
+            l.shape.fillOn = t["fillOn"].B(true);
+            l.shape.strokeOn = t["strokeOn"].B(false);
+            l.shape.fill = Float4FromJson(t["fill"], {0, 0, 0, 1});
+            l.shape.stroke = Float4FromJson(t["stroke"], {0, 0, 0, 1});
+            l.shape.strokeWidth = t["strokeWidth"].F(4);
+        }
         if (o.Has("text")) {
             const Json& t = o["text"];
             l.text.content = t["content"].S("");

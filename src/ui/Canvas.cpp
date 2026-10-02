@@ -32,6 +32,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Zoom, ui::IconZoom, "Zoom", "Z"},
     {Tool::Crop, ui::IconCrop, "Recadrage", "C"},
     {Tool::Text, ui::IconText, "Texte", "T"},
+    {Tool::Shape, ui::IconShape, "Forme", "U"},
 };
 
 // Toolbar slots; tools sharing a slot appear in a flyout (right-click).
@@ -46,6 +47,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Clone},
     {Tool::Heal},
     {Tool::Text},
+    {Tool::Shape},
     {Tool::Gradient, Tool::Bucket},
     {Tool::Blur, Tool::Sharpen, Tool::Smudge},
     {Tool::Dodge, Tool::Burn, Tool::Sponge},
@@ -67,7 +69,7 @@ void App::DrawToolbar() {
         float size = std::min(ImGui::GetContentRegionAvail().x, 38.0f * dpi);
         for (size_t g = 0; g < kGroups.size(); ++g) {
             const auto& group = kGroups[g];
-            if (g == 1 || g == 5 || g == 13) {
+            if (g == 1 || g == 5 || g == 14) {
                 ImVec2 c = ImGui::GetCursorScreenPos();
                 ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);
                 ImGui::Dummy(ImVec2(size, 3 * dpi));
@@ -290,7 +292,8 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         TransformInput(v, canvasMin, hovered);
         return;
     }
-    if (tool == Tool::Text || (tool == Tool::Move && doc.ActiveLayer() && doc.ActiveLayer()->kind == LayerKind::Text && doc.Mode() == DocMode::Layers)) {
+    bool vectorLayer = doc.ActiveLayer() && (doc.ActiveLayer()->kind == LayerKind::Text || doc.ActiveLayer()->kind == LayerKind::Shape) && doc.Mode() == DocMode::Layers;
+    if (tool == Tool::Text || tool == Tool::Shape || (tool == Tool::Move && vectorLayer)) {
         TextInput(v, canvasMin, hovered);
         return;
     }

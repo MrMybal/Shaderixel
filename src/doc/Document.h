@@ -55,7 +55,26 @@ private:
     mutable std::string cachedCode;
 };
 
-enum class LayerKind : u8 { Pixel, Fill, Adjustment, Group, Text };
+enum class LayerKind : u8 { Pixel, Fill, Adjustment, Group, Text, Shape };
+
+// Vector shape layer (rendered by shaders/shape.slang).
+struct ShapeStyle {
+    int type = 0;                    // 0 rectangle, 1 ellipse, 2 line, 3 polygon, 4 star
+    float4 rect = {0, 0, 100, 100};  // x0 y0 x1 y1 (line: endpoints)
+    float radius = 0;                // corner radius (rect) / inner ratio (star)
+    int sides = 5;
+    float rotation = 0;              // degrees
+    bool fillOn = true, strokeOn = false;
+    float4 fill = {0.2f, 0.45f, 0.9f, 1};  // sRGB straight
+    float4 stroke = {0, 0, 0, 1};
+    float strokeWidth = 4;
+    u64 Hash() const {
+        Hasher h;
+        h.Pod(type); h.Pod(rect); h.Pod(radius); h.Pod(sides); h.Pod(rotation); h.Pod(fillOn); h.Pod(strokeOn);
+        h.Pod(fill); h.Pod(stroke); h.Pod(strokeWidth);
+        return h.h;
+    }
+};
 
 struct Layer {
     Id id = 0;
@@ -75,6 +94,7 @@ struct Layer {
     bool passThrough = true;  // groups: blend children straight into the parent stack
     bool collapsed = false;   // groups: UI state
     TextStyle text;           // Text layers (rasterized into `surface`)
+    ShapeStyle shape;         // Shape layers (rendered into `surface`)
 };
 
 enum class NodeKind : u8 { Output, Surface, Effect, Blend };
@@ -158,6 +178,7 @@ public:
     Layer& AddPixelLayer(const std::string& name, int index = -1);
     Layer& AddEffectLayer(LayerKind kind, const std::string& effectId, int index = -1);
     Layer& AddTextLayer(const TextStyle& style);
+    Layer& AddShapeLayer(const ShapeStyle& style);
     void RemoveLayer(Id id);
     void MoveLayer(Id id, int newIndex);
     void MoveLayerSibling(Id id, int dir);           // +1 up, -1 down among siblings

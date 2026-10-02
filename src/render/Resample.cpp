@@ -47,4 +47,39 @@ bool Renderer::ResampleCanvas(Document& doc, gpu::CommandContext& ctx, History& 
     return true;
 }
 
+namespace {
+struct ShapeCB {
+    float4 rect, fill, stroke;
+    u32 w, h, type, flags;
+    float radius, strokeWidth, rotation;
+    i32 sides;
+};
+}  // namespace
+
+void Renderer::RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, const ShapeStyle& s) {
+    Surface* sf = doc.GetSurface(surface);
+    auto* k = Kernel("shape.slang");
+    if (!sf || !k) return;
+    auto lin = [](float4 c) { return float4{SrgbToLinear(c.x), SrgbToLinear(c.y), SrgbToLinear(c.z), c.w}; };
+    ShapeCB cb;
+    cb.rect = s.rect;
+    cb.fill = lin(s.fill);
+    cb.stroke = lin(s.stroke);
+    cb.w = sf->tex->Width();
+    cb.h = sf->tex->Height();
+    cb.type = (u32)s.type;
+    cb.flags = (s.fillOn ? 1u : 0u) | (s.strokeOn ? 2u : 0u);
+    cb.radius = s.type == 4 ? s.radius : s.radius;
+    cb.strokeWidth = s.strokeWidth;
+    cb.rotation = s.rotation * 3.14159265f / 180.0f;
+    cb.sides = s.sides;
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.uav[0] = sf->tex.get();
+    d.cbData = &cb;
+    d.cbSize = sizeof(cb);
+    Dispatch2D(ctx, d, cb.w, cb.h);
+    doc.TouchSurface(surface);
+}
+
 }  // namespace sx

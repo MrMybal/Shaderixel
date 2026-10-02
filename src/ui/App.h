@@ -20,7 +20,7 @@ namespace sx {
 enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge,
-    Picker, Hand, Zoom, Crop, Text, Count
+    Picker, Hand, Zoom, Crop, Text, Shape, Count
 };
 inline bool IsRetouchTool(Tool t) { return t >= Tool::Clone && t <= Tool::Sponge && t != Tool::Gradient && t != Tool::Bucket; }
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
@@ -134,6 +134,7 @@ private:
     void TextInput(DocView& v, ImVec2 canvasMin, bool hovered);
     void TextOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     void TextPropertiesUI(DocView& v, Layer& l);
+    void ShapePropertiesUI(DocView& v, Layer& l);
     void DrawImageDialogs();
     void ApplyCanvasOp(DocView& v, u32 w, u32 h, const float m[6], int interp, const char* label);
     void RotateCanvas(DocView& v, int op);
@@ -248,6 +249,10 @@ private:
     float selDialogValue = 4;
     TransformState xf;
     TextStyle textDefaults;
+    ShapeStyle shapeDefaults;
+    bool shapeDragging = false;
+    float2 shapeStart;
+    float4 shapeRectStart;
     bool focusTextEdit = false;
     bool textDragging = false;
     float2 textDragStart, textPosStart;

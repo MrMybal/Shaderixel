@@ -273,6 +273,22 @@ Layer& Document::AddTextLayer(const TextStyle& style) {
     return state.layers[at];
 }
 
+Layer& Document::AddShapeLayer(const ShapeStyle& style) {
+    Layer l;
+    l.id = NewId();
+    l.kind = LayerKind::Shape;
+    l.shape = style;
+    static const char* names[] = {"Rectangle", "Ellipse", "Ligne", "Polygone", "Étoile"};
+    l.name = names[std::clamp(style.type, 0, 4)];
+    l.surface = CreateSurface({0, 0, 0, 0});
+    int at = InsertIndex(*this, -1, &l.parent);
+    state.layers.insert(state.layers.begin() + at, l);
+    state.activeLayer = l.id;
+    state.editMask = false;
+    SyncGraph();
+    return state.layers[at];
+}
+
 Layer& Document::AddEffectLayer(LayerKind kind, const std::string& effectId, int index) {
     Layer l;
     l.id = NewId();
@@ -464,7 +480,7 @@ struct GraphBuilder {
         x += 240.0f;
         y = 0;
         Id src;
-        if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text) {
+        if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text || l.kind == LayerKind::Shape) {
             Node n;
             n.id = GenId(l.id, RoleSource);
             n.kind = NodeKind::Surface;

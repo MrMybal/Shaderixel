@@ -359,7 +359,7 @@ void App::DrawLayers() {
             ImVec2 tp(x0, rowMin.y + 4);
             gpu::Texture* src = nullptr;
             u64 hash = 0;
-            if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text) {
+            if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text || l.kind == LayerKind::Shape) {
                 if (Surface* s = d.GetSurface(l.surface)) { src = s->tex.get(); hash = s->version; }
             } else {
                 for (auto& n : d.S().graph.nodes)
@@ -500,7 +500,7 @@ void App::DrawProperties() {
             ImGui::InputText("Nom", &l->name);
             TrackUndo("Renommer");
             if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
-            const char* kinds[] = {"Calque de pixels", "Calque de remplissage", "Calque de réglage", "Groupe", "Calque de texte"};
+            const char* kinds[] = {"Calque de pixels", "Calque de remplissage", "Calque de réglage", "Groupe", "Calque de texte", "Calque de forme"};
             ImGui::TextDisabled("%s", kinds[(int)l->kind]);
             if (ImGui::Checkbox("Visible", &l->visible)) changed = true;
             TrackUndo("Visibilité");
@@ -508,6 +508,7 @@ void App::DrawProperties() {
             if (ImGui::Checkbox("Verrouillé", &l->locked)) changed = true;
             TrackUndo("Verrouillage");
             if (l->kind == LayerKind::Text) TextPropertiesUI(*v, *l);
+            if (l->kind == LayerKind::Shape) ShapePropertiesUI(*v, *l);
             if (l->kind == LayerKind::Fill || l->kind == LayerKind::Adjustment) {
                 ImGui::SeparatorText(l->kind == LayerKind::Fill ? "Remplissage" : "Réglage");
                 changed |= EffectParamsUI(l->effect, "main");
@@ -709,6 +710,16 @@ void App::DrawBrush() {
         if (ImGui::Button("Valider (Entrée)") && xf.view) TransformCommit(*xf.view);
         ImGui::SameLine();
         if (ImGui::Button("Annuler (Échap)") && xf.view) TransformCancel(*xf.view);
+    } else if (tool == Tool::Shape) {
+        ImGui::SeparatorText("Forme");
+        ImGui::Combo("Type", &shapeDefaults.type, "Rectangle\0Ellipse\0Ligne\0Polygone\0Étoile\0");
+        if (shapeDefaults.type == 0) ImGui::SliderFloat("Rayon des coins", &shapeDefaults.radius, 0, 500, "%.0f px");
+        if (shapeDefaults.type >= 3) ImGui::SliderInt("Côtés / branches", &shapeDefaults.sides, 3, 32);
+        if (shapeDefaults.type == 4) ImGui::SliderFloat("Creux", &shapeDefaults.radius, 0.05f, 0.95f, "%.2f");
+        ImGui::Checkbox("Fond (premier plan)", &shapeDefaults.fillOn);
+        ImGui::Checkbox("Contour (arrière-plan)", &shapeDefaults.strokeOn);
+        ImGui::SliderFloat("Épaisseur", &shapeDefaults.strokeWidth, 0.5f, 200, "%.1f px", ImGuiSliderFlags_Logarithmic);
+        ImGui::TextDisabled("Glisser : tracer (Maj : proportions). Déplacement (V) pour bouger.");
     } else if (tool == Tool::Text) {
         ImGui::SeparatorText("Texte");
         ImGui::TextWrapped("Clic : nouveau calque de texte. Le texte se modifie dans Propriétés ; outil Déplacement pour le placer.");
