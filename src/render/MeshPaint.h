@@ -25,7 +25,16 @@ struct MeshScene {
     float3 target;
     Mat4 viewProj;
     float3 camPos;
+    // HDRI environment (prefiltered atlas uploaded on the next render).
+    gpu::TexturePtr envAtlas;
+    std::vector<float4> envPixels;
+    u32 envW = 0, envH = 0;
+    std::string envName;
+    float envIntensity = 1.0f, envRotation = 0.0f;
     void UpdateCamera(float aspect);
 };
+
+// Load an equirectangular .hdr (or any image) as the 3D view's environment.
+bool LoadEnvironment(MeshScene& s, const std::string& path, std::string* error);
 
 }  // namespace sx

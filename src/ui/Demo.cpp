@@ -305,6 +305,51 @@ void App::DemoTick() {
     if (demoMode == 18 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 11 && v && frameCounter == 7) ImGui::SetWindowFocus("Éditeur d'effets");
     if (demoMode == 27 && v && frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
+    if (demoMode == 29 && v) {
+        // HDRI lighting: glossy metal band on a sphere under a generated environment.
+        Document& d = *v->doc;
+        if (frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 6) CreatePbrChannels(*v);
+        auto fillChannel = [&](PbrChannel c, float gray, float y0, float y1) {
+            Id g = FindChannelGroup(d, c);
+            for (auto& l : d.S().layers)
+                if (l.parent == g && l.kind == LayerKind::Pixel) {
+                    if (!v->renderer.BeginStroke(d, *ctx, l.surface)) return;
+                    std::vector<Dab> dabs;
+                    for (float y = y0; y <= y1; y += 20)
+                        for (float x = 0; x <= (float)d.Width(); x += 20) dabs.push_back({x, y, 30, 1});
+                    BrushSettings b = brush;
+                    b.hardness = 1;
+                    v->renderer.StrokeDabs(d, *ctx, dabs, b, LinearColor({gray, gray, gray, 1}), false);
+                    v->renderer.EndStroke(d, *ctx, v->history, "Pinceau");
+                    return;
+                }
+        };
+        if (frameCounter == 8) fillChannel(PbrChannel::Metallic, 1.0f, 0, 1000);
+        if (frameCounter == 9) fillChannel(PbrChannel::Roughness, 0.08f, 0, 520);
+        if (frameCounter == 10) {
+            // Equirect sky: blue gradient, warm sun, gray ground.
+            const int W = 512, H = 256;
+            std::vector<float> px((size_t)W * H * 3);
+            for (int y = 0; y < H; ++y)
+                for (int x = 0; x < W; ++x) {
+                    float th = (y + 0.5f) / H * 3.14159f, ph = ((x + 0.5f) / W - 0.5f) * 6.28318f;
+                    float dy = std::cos(th);
+                    float3 c = dy > 0 ? float3{0.25f + 0.3f * (1 - dy), 0.45f + 0.25f * (1 - dy), 0.9f} : float3{0.18f, 0.16f, 0.14f};
+                    float3 sun = {std::sin(0.8f) * std::cos(1.0f), std::cos(0.8f), std::sin(0.8f) * std::sin(1.0f)};
+                    float3 dir = {std::sin(th) * std::sin(ph), dy, -std::sin(th) * std::cos(ph)};
+                    float dd = Dot(dir, sun);
+                    if (dd > 0.995f) c = c + float3{40, 36, 30};
+                    float* p = &px[((size_t)y * W + x) * 3];
+                    p[0] = c.x; p[1] = c.y; p[2] = c.z;
+                }
+            stbi_write_hdr("demo_sky.hdr", W, H, 3, px.data());
+            std::string err;
+            if (!LoadEnvironment(*v->mesh, "demo_sky.hdr", &err)) Log("[hdri] %s", err.c_str());
+            else Log("[hdri] environment loaded (%ux%u atlas)", v->mesh->envW, v->mesh->envH);
+        }
+        return;
+    }
     if (demoMode == 28 && v) {
         // PBR channels: glossy band in roughness, metallic patch, then texture + Unreal script export.
         Document& d = *v->doc;
@@ -662,7 +707,7 @@ void App::RunDemo() {
         d.SyncGraph();
         tool = Tool::Shape;
     }
-    if (demoMode == 14 || demoMode == 28) {
+    if (demoMode == 14 || demoMode == 28 || demoMode == 29) {
         AttachMesh(v, MakeSphere());
         tool = Tool::Brush;
     }

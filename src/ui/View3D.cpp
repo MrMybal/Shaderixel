@@ -49,6 +49,23 @@ void App::DrawView3D() {
             ExportPbrTextures(*v, platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png"));
         }
         ImGui::SameLine();
+        if (ImGui::SmallButton(v->mesh->envAtlas || !v->mesh->envPixels.empty() ? "HDRI (actif)" : "HDRI...")) {
+            std::string path = platform::OpenFileDialog(hwnd, L"Environnement HDR (*.hdr)\0*.hdr\0Images\0*.png;*.jpg;*.exr\0");
+            std::string err;
+            if (!path.empty() && !LoadEnvironment(*v->mesh, path, &err)) Status("HDRI : " + err);
+        }
+        if (v->mesh->envAtlas) {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(90 * dpi);
+            ImGui::SliderFloat("##envI", &v->mesh->envIntensity, 0.05f, 8.0f, "Intensité %.2f", ImGuiSliderFlags_Logarithmic);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(90 * dpi);
+            float deg = v->mesh->envRotation * 57.29578f;
+            if (ImGui::SliderFloat("##envR", &deg, -180, 180, "Rotation %.0f°")) v->mesh->envRotation = deg / 57.29578f;
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Sans HDRI")) v->mesh->envAtlas.reset();
+        }
+        ImGui::SameLine();
         if (ImGui::SmallButton("Recentrer")) {
             v->mesh->yaw = 0.7f;
             v->mesh->pitch = 0.35f;

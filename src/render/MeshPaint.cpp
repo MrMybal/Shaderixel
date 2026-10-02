@@ -1,6 +1,8 @@
 // Mesh viewport rendering, UV bake and projection painting.
 #include "render/Renderer.h"
 #include "render/MeshPaint.h"
+
+#include <stb_image.h>
 #include "render/Dispatch.h"
 
 #include <cstring>
@@ -36,7 +38,7 @@ struct ViewCB {
     float vp[16];
     float4 camPos, lightDir;
     u32 flags;
-    float pad[3];
+    float envIntensity, envRotation, pad;
 };
 struct BrushRootM {
     u32 dw, dh, vw, vh, count;
@@ -127,10 +129,19 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     float3 l = Normalize(s.camPos - s.target + float3{0.6f, 1.2f, 0.0f});
     cb.lightDir = {l.x, l.y, l.z, 0};
     cb.flags = 0;
+    if (!s.envPixels.empty()) {
+        s.envAtlas = gpu::Dev().CreateTexture(s.envW, s.envH, gpu::Format::RGBA32F, "Environment");
+        if (s.envAtlas) ctx.Upload(s.envAtlas.get(), s.envPixels.data(), s.envW * sizeof(float4));
+        s.envPixels.clear();
+    }
+    if (s.envAtlas) cb.flags |= 128;
+    cb.envIntensity = s.envIntensity;
+    cb.envRotation = s.envRotation;
     gpu::DrawDesc d;
     d.pipeline = p;
     for (int c = 0; c < (int)PbrChannel::Count; ++c) {
         d.srv[c] = material.tex[c];
+        d.srv[7] = s.envAtlas.get();
         if (material.tex[c]) cb.flags |= 1u << c;
     }
     d.rt[0] = s.color.get();
@@ -187,6 +198,64 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
     }
     strokeRect = {0, 0, (int)W, (int)H};
     doc.TouchSurface(strokeSurface);
+}
+
+bool LoadEnvironment(MeshScene& s, const std::string& path, std::string* error) {
+    int w = 0, h = 0, comp = 0;
+    FILE* f = nullptr;
+    if (_wfopen_s(&f, Widen(path).c_str(), L"rb") != 0 || !f) { if (error) *error = "fichier introuvable"; return false; }
+    float* src = stbi_loadf_from_file(f, &w, &h, &comp, 3);
+    fclose(f);
+    if (!src) { if (error) *error = "image illisible"; return false; }
+    // Resample to 1024 x 512 (bilinear, wrapping horizontally), then box-downsample 5 times.
+    const int W = 1024, H = 512, levels = 6;
+    auto at = [&](int x, int y) {
+        x = ((x % w) + w) % w;
+        y = std::clamp(y, 0, h - 1);
+        const float* p = &src[((size_t)y * w + x) * 3];
+        return float4{p[0], p[1], p[2], 1};
+    };
+    std::vector<std::vector<float4>> lv(levels);
+    lv[0].resize((size_t)W * H);
+    for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+            float fx = (x + 0.5f) * w / W - 0.5f, fy = (y + 0.5f) * h / H - 0.5f;
+            int x0 = (int)std::floor(fx), y0 = (int)std::floor(fy);
+            float tx = fx - x0, ty = fy - y0;
+            float4 a = at(x0, y0), b = at(x0 + 1, y0), c = at(x0, y0 + 1), d = at(x0 + 1, y0 + 1);
+            auto mix = [](float4 p, float4 q, float t) { return float4{p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t, p.z + (q.z - p.z) * t, 1}; };
+            lv[0][(size_t)y * W + x] = mix(mix(a, b, tx), mix(c, d, tx), ty);
+        }
+    stbi_image_free(src);
+    for (int k = 1; k < levels; ++k) {
+        int pw = W >> (k - 1), ph = H >> (k - 1), cw = W >> k, ch = H >> k;
+        lv[k].resize((size_t)cw * ch);
+        // 2x2 box + a light 3-tap blur so rough levels stay smooth.
+        for (int y = 0; y < ch; ++y)
+            for (int x = 0; x < cw; ++x) {
+                float4 sum = {};
+                for (int dy = -1; dy <= 2; ++dy)
+                    for (int dx = -1; dx <= 2; ++dx) {
+                        int sx = ((2 * x + dx) % pw + pw) % pw, sy = std::clamp(2 * y + dy, 0, ph - 1);
+                        float wgt = (dx == -1 || dx == 2 ? 0.5f : 1.0f) * (dy == -1 || dy == 2 ? 0.5f : 1.0f);
+                        const float4& p = lv[k - 1][(size_t)sy * pw + sx];
+                        sum.x += p.x * wgt; sum.y += p.y * wgt; sum.z += p.z * wgt;
+                    }
+                lv[k][(size_t)y * cw + x] = {sum.x / 9.0f, sum.y / 9.0f, sum.z / 9.0f, 1};
+            }
+    }
+    s.envW = W;
+    s.envH = 0;
+    for (int k = 0; k < levels; ++k) s.envH += H >> k;
+    s.envPixels.assign((size_t)s.envW * s.envH, float4{0, 0, 0, 1});
+    u32 y0 = 0;
+    for (int k = 0; k < levels; ++k) {
+        int cw = W >> k, ch = H >> k;
+        for (int y = 0; y < ch; ++y) memcpy(&s.envPixels[(size_t)(y0 + y) * W], &lv[k][(size_t)y * cw], cw * sizeof(float4));
+        y0 += ch;
+    }
+    s.envName = Narrow(Utf8Path(path).filename().wstring());
+    return true;
 }
 
 }  // namespace sx

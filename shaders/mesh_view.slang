@@ -9,8 +9,10 @@ cbuffer View : register(b1)
     row_major float4x4 gViewProj;
     float4 gCamPos;
     float4 gLightDir;
-    uint gFlags;       // bit i: channel i present
-    float3 _pad;
+    uint gFlags;       // bit i: channel i present, bit 7: HDRI environment
+    float gEnvIntensity;
+    float gEnvRotation; // radians around the vertical axis
+    float _pad;
 };
 
 Texture2D<float4> gBase : register(t0);
@@ -20,6 +22,10 @@ Texture2D<float4> gNormal : register(t3);
 Texture2D<float4> gEmissive : register(t4);
 Texture2D<float4> gAO : register(t5);
 Texture2D<float4> gHeight : register(t6);
+
+// HDRI: equirectangular environment prefiltered into 6 blur levels stacked
+// vertically (level k is (W>>k) x (H>>k), H = W/2), sampled by roughness.
+Texture2D<float4> gEnv : register(t7);
 
 static const float kBumpStrength = 32.0;  // tangent tilt per unit of height change per texel (same as bake_normal)
 
@@ -81,6 +87,29 @@ float3 Sky(float3 d)
     return lerp(float3(0.20, 0.19, 0.18), float3(0.55, 0.60, 0.70), t);
 }
 
+float3 EnvLevel(float3 d, int k)
+{
+    uint aw, ah;
+    gEnv.GetDimensions(aw, ah);
+    float W = aw, H = aw * 0.5;
+    float s = sin(gEnvRotation), c = cos(gEnvRotation);
+    d = float3(c * d.x + s * d.z, d.y, -s * d.x + c * d.z);
+    float2 uv = float2(atan2(d.x, -d.z) / (2.0 * PI) + 0.5, acos(clamp(d.y, -1.0, 1.0)) / PI);
+    float w = W / exp2(k), h = H / exp2(k);
+    float y0 = 2.0 * H - 2.0 * h;
+    float2 px = float2(frac(uv.x) * w, clamp(uv.y * h, 0.5, h - 0.5));
+    px.x = clamp(px.x, 0.5, w - 0.5);
+    return gEnv.SampleLevel(sLinearClamp, (px + float2(0, y0)) / float2(aw, ah), 0).rgb;
+}
+
+float3 Env(float3 d, float lod)
+{
+    lod = clamp(lod, 0.0, 5.0);
+    int k0 = (int)floor(lod);
+    int k1 = min(k0 + 1, 5);
+    return lerp(EnvLevel(d, k0), EnvLevel(d, k1), lod - k0) * gEnvIntensity;
+}
+
 float4 psMain(VSOut i, bool front : SV_IsFrontFace) : SV_Target0
 {
     float3 n = normalize(i.nrm);
@@ -129,14 +158,23 @@ float4 psMain(VSOut i, bool front : SV_IsFrontFace) : SV_Target0
     float3 f0 = lerp(float3(0.04, 0.04, 0.04), base, metal);
 
     float3 col = 0;
-    col += Shade(n, v, normalize(gLightDir.xyz), float3(1.0, 0.97, 0.92) * 1.6, diffColor, f0, rough);
-    col += Shade(n, v, normalize(float3(-0.6, 0.3, -0.4)), float3(0.45, 0.5, 0.6) * 0.5, diffColor, f0, rough);
-    // Ambient: hemisphere diffuse + rough-aware reflection.
     float NdotV = saturate(dot(n, v));
     float3 Fenv = f0 + (max(1.0 - rough, f0) - f0) * pow(1.0 - NdotV, 5.0);
     float3 r = reflect(-v, n);
-    col += diffColor * Sky(n) * 0.6 * ao;
-    col += Fenv * lerp(Sky(r), Sky(n) * 0.6, rough) * ao;
+    if (gFlags & 128)
+    {
+        // Image-based lighting: blurred environment for diffuse, roughness-selected level for specular.
+        col += diffColor * Env(n, 5.0) * ao;
+        col += Fenv * Env(r, sqrt(rough) * 5.0) * ao;
+    }
+    else
+    {
+        col += Shade(n, v, normalize(gLightDir.xyz), float3(1.0, 0.97, 0.92) * 1.6, diffColor, f0, rough);
+        col += Shade(n, v, normalize(float3(-0.6, 0.3, -0.4)), float3(0.45, 0.5, 0.6) * 0.5, diffColor, f0, rough);
+        // Ambient: hemisphere diffuse + rough-aware reflection.
+        col += diffColor * Sky(n) * 0.6 * ao;
+        col += Fenv * lerp(Sky(r), Sky(n) * 0.6, rough) * ao;
+    }
     col += emissive;
     col = col / (1.0 + col * 0.15);  // gentle highlight compression
     return float4(LinearToSrgb(saturate(col)), 1.0);
