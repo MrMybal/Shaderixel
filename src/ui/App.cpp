@@ -80,7 +80,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -500,7 +500,7 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Enregistrer", "Ctrl+S", false, v != nullptr)) SaveCurrent(false);
         if (ImGui::MenuItem("Enregistrer sous...", "Ctrl+Maj+S", false, v != nullptr)) SaveCurrent(true);
         ImGui::Separator();
-        if (ImGui::MenuItem("Exporter...", "Ctrl+Shift+E", false, v != nullptr))
+        if (ImGui::MenuItem("Exporter...", "Ctrl+Alt+Maj+W", false, v != nullptr))
             ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
         if (ImGui::MenuItem("Exporter en PSD (calques)...", nullptr, false, v != nullptr))
             ExportPsd(platform::SaveFileDialog(hwnd, L"Photoshop (*.psd)\0*.psd\0", L"psd"));
@@ -641,6 +641,10 @@ void App::LayerMenuItems() {
             d.RemoveLayer(l->id);
             e.Commit();
         }
+        if (ImGui::MenuItem("Fusionner vers le bas", "Ctrl+E", false, l != nullptr)) MergeDown(*v);
+        if (ImGui::MenuItem("Fusionner les calques visibles", "Ctrl+Maj+E")) MergeVisible(*v, false);
+        if (ImGui::MenuItem("Aplatir l'image")) MergeVisible(*v, true);
+        ImGui::Separator();
         if (ImGui::MenuItem("Grouper", "Ctrl+G", false, l != nullptr)) {
             Edit e(d, v->history, "Grouper");
             d.GroupLayer(l->id);
@@ -736,8 +740,11 @@ void App::HandleShortcuts() {
     if (ctrl && !shift && pressed(ImGuiKey_N)) showNewDoc = true;
     if (ctrl && !shift && pressed(ImGuiKey_O)) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
     if (ctrl && shift && pressed(ImGuiKey_O) && v) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), true);
-    if (ctrl && shift && pressed(ImGuiKey_E) && v) ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0", L"png"));
-    if (ctrl && pressed(ImGuiKey_W) && v) { CloseDocument(activeDoc); return; }
+    if (ctrl && shift && ImGui::GetIO().KeyAlt && ImGui::IsKeyPressed(ImGuiKey_W, false) && v)
+        ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0", L"png"));
+    if (ctrl && shift && pressed(ImGuiKey_E) && v && v->doc->Mode() == DocMode::Layers) MergeVisible(*v, false);
+    if (ctrl && !shift && pressed(ImGuiKey_E) && v && v->doc->Mode() == DocMode::Layers) MergeDown(*v);
+    if (ctrl && !shift && !ImGui::GetIO().KeyAlt && pressed(ImGuiKey_W) && v) { CloseDocument(activeDoc); return; }
     if (ctrl && pressed(ImGuiKey_S) && v) { SaveCurrent(shift); return; }
     if (!v) return;
     Document& d = *v->doc;

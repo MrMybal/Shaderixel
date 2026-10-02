@@ -356,6 +356,65 @@ void Renderer::Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, 
     ctx.Dispatch(d);
 }
 
+void Renderer::Composite(Document& doc, gpu::CommandContext& ctx, gpu::Texture* dst, gpu::Texture* base, gpu::Texture* top, gpu::Texture* mask,
+                         BlendMode mode, float opacity, bool clip, const BlendIf* bif) {
+    auto* p = Kernel("composite.slang");
+    if (!p || !dst) return;
+    const u32 W = dst->Width(), H = dst->Height();
+    gpu::DispatchDesc d;
+    d.pipeline = p;
+    d.srv[0] = base;
+    d.srv[1] = top;
+    d.srv[2] = mask;
+    d.uav[0] = dst;
+    bool useBif = bif && bif->Active();
+    u32 flags = (mask ? 1u : 0u) | (doc.blendInGamma ? 2u : 0u) | (top ? 4u : 0u) | (base ? 8u : 0u) | (clip ? 16u : 0u) | (useBif ? 32u : 0u);
+    float4 ranges[2] = {};
+    if (useBif) {
+        ranges[0] = {bif->self[0] / 255.0f, bif->self[1] / 255.0f, bif->self[2] / 255.0f, bif->self[3] / 255.0f};
+        ranges[1] = {bif->under[0] / 255.0f, bif->under[1] / 255.0f, bif->under[2] / 255.0f, bif->under[3] / 255.0f};
+    }
+    d.cbData = ranges;
+    d.cbSize = sizeof(ranges);
+    SetConstants(d, CompositeRoot{W, H, (u32)mode, opacity, flags});
+    Dispatch2D(ctx, d, W, H);
+}
+
+gpu::TexturePtr Renderer::ApplyEffect(Document& doc, gpu::CommandContext& ctx, const EffectInstance& fx, gpu::Texture* in) {
+    EffectDefPtr def = fx.Def();
+    if (!def || !in) return nullptr;
+    auto prog = ProgramFor(def);
+    if (prog->state.load() != gpu::Program::State::Ready) return nullptr;
+    const u32 W = in->Width(), H = in->Height();
+    auto out = gpu::Dev().CreateTexture(W, H, in->GetFormat(), "EffectOut");
+    auto tmp = def->passes > 1 ? gpu::Dev().CreateTexture(W, H, in->GetFormat(), "EffectTmp") : nullptr;
+    auto packed = PackParams(*def, fx.params, &fx.curves, &fx.luts);
+    for (int p = 0; p < def->passes; ++p) {
+        bool toMain = ((def->passes - 1 - p) % 2) == 0;
+        gpu::Texture* dst = toMain ? out.get() : tmp.get();
+        gpu::Texture* prev = toMain ? tmp.get() : out.get();
+        gpu::DispatchDesc d;
+        d.pipeline = prog->pipeline.get();
+        d.srv[0] = def->inputs.empty() ? nullptr : in;
+        d.srv[4] = p > 0 ? prev : nullptr;
+        BindLuts(ctx, d, *def, fx);
+        d.uav[0] = dst;
+        SetConstants(d, EffectRoot{W, H, 0, 0, doc.Width(), doc.Height(), (u32)p, def->inputs.empty() ? 0u : 1u, {0, 0, 0, 0, 0, 0, 0, 0}});
+        d.cbData = packed.data();
+        d.cbSize = packed.size() * sizeof(float4);
+        Dispatch2D(ctx, d, W, H);
+    }
+    return out;
+}
+
+void Renderer::FillTexture(gpu::CommandContext& ctx, gpu::Texture* dst, float4 value) {
+    gpu::DispatchDesc d;
+    d.pipeline = Kernel("clear.slang");
+    d.uav[0] = dst;
+    SetConstants(d, ClearRoot{0, 0, dst->Width(), dst->Height(), value});
+    Dispatch2D(ctx, d, dst->Width(), dst->Height());
+}
+
 gpu::Texture* Renderer::DisplaySource(gpu::CommandContext& ctx, gpu::Texture* image, float invZoom) {
     if (!image) return image;
     // The display shader averages up to 4x4 taps per view pixel; reduce beyond that.

@@ -101,6 +101,13 @@ public:
     void ApplyGradient(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, float2 a, float2 b,
                        int shape, float4 colorA, float4 colorB, float opacity, const std::string& label);
 
+    // Off-graph helpers (layer merging): composite `top` over `base` into `dst`
+    // like a Blend node; apply an effect to `in` (nullptr while compiling); fill.
+    void Composite(Document& doc, gpu::CommandContext& ctx, gpu::Texture* dst, gpu::Texture* base, gpu::Texture* top, gpu::Texture* mask,
+                   BlendMode mode, float opacity, bool clip, const BlendIf* blendIf);
+    gpu::TexturePtr ApplyEffect(Document& doc, gpu::CommandContext& ctx, const EffectInstance& fx, gpu::Texture* in);
+    void FillTexture(gpu::CommandContext& ctx, gpu::Texture* dst, float4 value);
+
     void Import(Document& doc, gpu::CommandContext& ctx, Id surface, const void* pixels, u32 w, u32 h, bool isFloat, int2 offset);
     gpu::ReadbackPtr ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb = true);
     // Full-resolution output of one node (through the node cache, also in tiled mode).

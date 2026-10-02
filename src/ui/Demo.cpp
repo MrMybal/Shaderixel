@@ -73,6 +73,52 @@ void App::DemoTick() {
         if (frameCounter == 42) d.forceTiled = true;
         return;
     }
+    if (demoMode == 24 && v) {
+        // Merging must not change the image (normal over normal is associative), undo restores it.
+        static gpu::ReadbackPtr rb[6];
+        Document& d = *v->doc;
+        auto grab = [&](int i) { rb[i] = v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx)); };
+        auto cmp = [&](const char* what, int a, int b) {
+            if (rb[a] && rb[b] && rb[a]->ready && rb[b]->ready) CompareReadbacks(what, *rb[a], *rb[b], 1);
+        };
+        if (frameCounter == 6) {
+            Layer& top = d.AddPixelLayer("Haut");
+            top.opacity = 0.6f;
+            Id surf = top.surface, id = top.id;
+            v->renderer.Prepare(d, *ctx);
+            if (v->renderer.BeginStroke(d, *ctx, surf)) {
+                std::vector<Dab> dabs;
+                for (int i = 0; i < 200; ++i) dabs.push_back({300.0f + i * 5, 300.0f + std::sin(i * 0.05f) * 200, 60, 1});
+                v->renderer.StrokeDabs(d, *ctx, dabs, brush, LinearColor({0.2f, 1, 0.4f, 1}), false);
+                v->renderer.EndStroke(d, *ctx, v->history, "Pinceau");
+            }
+            d.AddMask(id);
+            v->renderer.Prepare(d, *ctx);
+            v->renderer.ApplyGradient(d, *ctx, v->history, d.FindLayer(id)->mask, {0, 0}, {1600, 0}, 0, {1, 1, 1, 1}, {0, 0, 0, 1}, 1.0f, "Masque");
+            d.S().editMask = false;
+            // Put it right above "Peinture" so it merges onto a normal pixel layer.
+            for (auto& l : d.S().layers) if (l.name == "Peinture") d.MoveLayerTo(id, l.id, false);
+            d.S().activeLayer = id;
+            d.SyncGraph();
+        }
+        if (frameCounter == 10) grab(0);
+        if (frameCounter == 12) MergeDown(*v);
+        if (frameCounter == 16) grab(1);
+        if (frameCounter == 18) MergeVisible(*v, false);
+        if (frameCounter == 22) grab(2);
+        if (frameCounter == 24) { Undo(); Undo(); }
+        if (frameCounter == 28) grab(3);
+        if (frameCounter == 30) MergeVisible(*v, true);
+        if (frameCounter == 34) grab(4);
+        if (frameCounter == 38) {
+            cmp("merge down", 0, 1);
+            cmp("merge visible", 0, 2);
+            cmp("undo x2", 0, 3);
+            cmp("flatten", 0, 4);
+            Log("[merge] layers now %zu", d.S().layers.size());
+        }
+        return;
+    }
     if (demoMode == 23 && v) {
         // Pen paths: a heart made of Bézier curves, filled, stroked, made into a selection, saved and reloaded.
         Document& d = *v->doc;

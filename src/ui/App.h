@@ -142,6 +142,8 @@ private:
     void OpenImage(const std::string& path, bool asLayer);
     void ExportImage(const std::string& path);
     void ExportPsd(const std::string& path);
+    void MergeDown(DocView& v);
+    void MergeVisible(DocView& v, bool flatten);
     void PollPsdExport();
     void CloseDocument(int index, bool force = false);
     void SaveDocument(DocView& v, const std::string& path);
