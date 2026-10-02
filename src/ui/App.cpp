@@ -83,6 +83,7 @@ void App::ParseCommandLine() {
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
+        else if (a == "--dump-image" && i + 1 < argc) dumpPath = Narrow(argv[++i]);  // document composite at the capture frame
         else if (a == "--sparse-threshold" && i + 1 < argc) gpu::Dev().SetSparseThreshold((u64)_wtoi64(argv[++i]));
         else if (a == "--frames" && i + 1 < argc) captureFrame = std::max(3, _wtoi(argv[++i]));
         else if (a.rfind("--", 0) != 0) pendingDrop = a;  // open a file given on the command line
@@ -192,6 +193,13 @@ void App::Frame() {
     if (demoMode && frameCounter == 3) RunDemo();
     if (demoMode) DemoTick();
     if (!capturePath.empty() && frameCounter == (u64)captureFrame) captureRb = gpu::Dev().CaptureNextFrame();
+    if (!dumpPath.empty() && frameCounter == (u64)captureFrame && Active())
+        dumpRb = Active()->renderer.ExportRGBA8(*ctx, Active()->renderer.EvaluateComplete(*Active()->doc, *ctx));
+    if (dumpRb && dumpRb->ready) {
+        stbi_write_png(dumpPath.c_str(), dumpRb->width, dumpRb->height, 4, dumpRb->data.data(), dumpRb->width * 4);
+        Log("Dumped document image to %s", dumpPath.c_str());
+        dumpRb.reset();
+    }
     if (captureRb && captureRb->ready) {
         for (size_t i = 3; i < captureRb->data.size(); i += 4) captureRb->data[i] = 255;
         stbi_write_png(capturePath.c_str(), captureRb->width, captureRb->height, 4, captureRb->data.data(), captureRb->width * 4);

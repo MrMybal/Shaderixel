@@ -118,3 +118,18 @@ retouche, import, formes, effacements). Les copies et `Upload` ne transfèrent q
 utiles. Les tuiles reviennent au pool à la destruction (libération différée).
 Test : `--sparse-threshold 100000 --demo tiles` doit donner les mêmes sommes de contrôle
 que `--demo tiles`. `SX_D3D12_DEBUG=1` active la couche de debug D3D12.
+
+## Backends GPU
+
+`gpu/Device.h` expose une API neutre ; l'implémentation est choisie à la compilation :
+`DeviceD3D12.cpp` (Shaderixel.exe) ou `DeviceVulkan.cpp` (ShaderixelVk.exe, `SX_VULKAN`).
+Vulkan 1.3 : rendu dynamique, synchronization2, push descriptors (layout universel :
+t0-7 → bindings 0-7, u0-3 → 16-19, b1 → 33, samplers statiques s0-2 → 48-50 immuables),
+descripteurs nuls (robustness2), constantes racine b0 → push constants. Les shaders sont
+communs : `ShaderSystem` compile en DXIL ou SPIR-V (`ForceDXLayout` pour garder l'agencement
+des cbuffers D3D) et réécrit les `register()` en `[[vk::binding]]` / `[[vk::push_constant]]`.
+Toutes les images Vulkan vivent en layout GENERAL ; une barrière mémoire complète sépare
+les opérations successives. Les dépendances (external/vulkan-headers, external/volk) ne
+sont nécessaires qu'à la compilation ; à l'exécution seul le pilote (vulkan-1.dll) est requis.
+Validation : `--dump-image <png>` écrit le composite du document au moment de la capture,
+pour comparer les deux backends (`SX_VK_VALIDATION=1` active la couche de validation si installée).

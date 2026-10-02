@@ -12,6 +12,7 @@
 #include "core/Common.h"
 
 #ifdef SX_VULKAN
+#include <windows.h>
 #include <volk.h>
 #else
 #include <d3d12.h>
@@ -305,6 +306,9 @@ private:
     Frame frames[kFramesInFlight];
     std::deque<std::pair<u64, std::function<void()>>> deferred;
     std::vector<Texture*> uiTexturesThisFrame;
+    u64 completedFrame = 0;      // highest submission id known finished
+    bool acquiredImage = false;  // a swapchain image is being rendered this frame
+    bool memoryBudget = false;   // VK_EXT_memory_budget available
 #else
     struct FreeList {
         std::vector<int> free;

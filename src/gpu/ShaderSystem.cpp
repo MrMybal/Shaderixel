@@ -6,6 +6,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <regex>
 
 namespace fs = std::filesystem;
 
@@ -207,21 +208,72 @@ ProgramPtr ShaderSystem::CompileGraphicsNow(const std::string& name, const std::
     return p;
 }
 
+namespace {
+#ifdef SX_VULKAN
+constexpr const char* kBinaryExt = "spv";
+// Vulkan: HLSL registers -> set 0 bindings (t:0+, u:16+, b:32+, s:48+), b0 -> push constants.
+std::string BackendSource(const std::string& in) {
+    static const std::regex re(R"((^|
+)([ 	]*)([^
+;{]*?)\s*:\s*register\(\s*([tubs])(\d+)\s*\))");
+    std::string out;
+    auto begin = std::sregex_iterator(in.begin(), in.end(), re);
+    size_t last = 0;
+    for (auto it = begin; it != std::sregex_iterator(); ++it) {
+        const std::smatch& m = *it;
+        out.append(in, last, m.position(0) - last);
+        char kind = m[4].str()[0];
+        int reg = std::stoi(m[5].str());
+        std::string attr;
+        if (kind == 'b' && reg == 0) attr = "[[vk::push_constant]] ";
+        else {
+            int base = kind == 't' ? 0 : kind == 'u' ? 16 : kind == 'b' ? 32 : 48;
+            attr = "[[vk::binding(" + std::to_string(base + reg) + ", 0)]] ";
+        }
+        out += m[1].str() + m[2].str() + attr + m[3].str();
+        last = m.position(0) + m.length(0);
+    }
+    out.append(in, last, std::string::npos);
+    return out;
+}
+void SetupTarget(slang::IGlobalSession* gs, slang::TargetDesc& target, slang::SessionDesc& sd) {
+    static slang::CompilerOptionEntry opts[2];
+    opts[0].name = slang::CompilerOptionName::ForceDXLayout;
+    opts[0].value.intValue0 = 1;
+    opts[1].name = slang::CompilerOptionName::VulkanUseEntryPointName;
+    opts[1].value.intValue0 = 1;
+    target.format = SLANG_SPIRV;
+    target.profile = gs->findProfile("spirv_1_5");
+    target.compilerOptionEntries = opts;
+    target.compilerOptionEntryCount = 2;
+    sd.targets = &target;
+    sd.targetCount = 1;
+}
+#else
+constexpr const char* kBinaryExt = "dxil";
+std::string BackendSource(const std::string& in) { return in; }
+void SetupTarget(slang::IGlobalSession* gs, slang::TargetDesc& target, slang::SessionDesc& sd) {
+    target.format = SLANG_DXIL;
+    target.profile = gs->findProfile("sm_6_5");
+    sd.targets = &target;
+    sd.targetCount = 1;
+}
+#endif
+}  // namespace
+
 void ShaderSystem::Compile(Program& p) {
     if (p.graphics) {
         auto* gs = static_cast<slang::IGlobalSession*>(globalSession);
         if (!gs) { p.errors = "Slang unavailable"; p.state = Program::State::Failed; return; }
         slang::TargetDesc target = {};
-        target.format = SLANG_DXIL;
-        target.profile = gs->findProfile("sm_6_5");
         slang::SessionDesc sd = {};
-        sd.targets = &target;
-        sd.targetCount = 1;
+        SetupTarget(gs, target, sd);
         Slang::ComPtr<slang::ISession> session;
         gs->createSession(sd, session.writeRef());
         Slang::ComPtr<slang::IBlob> diag;
         std::string modName = "g" + std::to_string(p.hash);
-        slang::IModule* mod = session ? session->loadModuleFromSourceString(modName.c_str(), (p.name + ".slang").c_str(), p.source.c_str(), diag.writeRef()) : nullptr;
+        std::string src = BackendSource(p.source);
+        slang::IModule* mod = session ? session->loadModuleFromSourceString(modName.c_str(), (p.name + ".slang").c_str(), src.c_str(), diag.writeRef()) : nullptr;
         Slang::ComPtr<slang::IEntryPoint> vsE, psE;
         if (!mod || SLANG_FAILED(mod->findAndCheckEntryPoint("vsMain", SLANG_STAGE_VERTEX, vsE.writeRef(), diag.writeRef())) ||
             SLANG_FAILED(mod->findAndCheckEntryPoint("psMain", SLANG_STAGE_FRAGMENT, psE.writeRef(), diag.writeRef()))) {
@@ -249,7 +301,7 @@ void ShaderSystem::Compile(Program& p) {
     }
     // Disk cache: <hash>.dxil with a 8-byte header (group sizes).
     char fname[64];
-    snprintf(fname, sizeof(fname), "%016llx.dxil", (unsigned long long)p.hash);
+    snprintf(fname, sizeof(fname), "%016llx.%s", (unsigned long long)p.hash, kBinaryExt);
     std::string cachePath = cacheDir + "/" + fname;
     {
         std::ifstream f(Utf8Path(cachePath), std::ios::binary);
@@ -270,11 +322,8 @@ void ShaderSystem::Compile(Program& p) {
 
     auto t0 = Now();
     slang::TargetDesc target = {};
-    target.format = SLANG_DXIL;
-    target.profile = gs->findProfile("sm_6_5");
     slang::SessionDesc sd = {};
-    sd.targets = &target;
-    sd.targetCount = 1;
+    SetupTarget(gs, target, sd);
     const char* search[] = {shaderDir.c_str()};
     sd.searchPaths = search;
     sd.searchPathCount = 1;
@@ -287,7 +336,8 @@ void ShaderSystem::Compile(Program& p) {
 
     Slang::ComPtr<slang::IBlob> diag;
     std::string modName = "m" + std::to_string(p.hash);
-    slang::IModule* mod = session->loadModuleFromSourceString(modName.c_str(), (p.name + ".slang").c_str(), p.source.c_str(), diag.writeRef());
+    std::string src = BackendSource(p.source);
+    slang::IModule* mod = session->loadModuleFromSourceString(modName.c_str(), (p.name + ".slang").c_str(), src.c_str(), diag.writeRef());
     if (!mod) {
         p.errors = diag ? (const char*)diag->getBufferPointer() : "module load failed";
         Log("Shader '%s' failed:\n%s", p.name.c_str(), p.errors.c_str());

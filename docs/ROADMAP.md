@@ -59,4 +59,4 @@
 - Opérations MCP supplémentaires (graphes d'effets, nœuds)
 
 ### Multi-plateforme
-- Backends Vulkan (Linux) et Metal (macOS) derrière `gpu::Device` ; Slang cible déjà SPIR-V et Metal
+- Backend Vulkan : **fait** (ShaderixelVk.exe sous Windows, mêmes shaders via SPIR-V ; écarts avec D3D12 limités à la précision numérique). Reste : surfaces creuses Vulkan, couche plateforme Linux (fenêtre, dialogues, stylet), backend Metal (macOS)

@@ -4,6 +4,7 @@
 #include "doc/EffectGraph.h"
 
 #include <fstream>
+#include <stb_image_write.h>
 
 #include <cmath>
 
@@ -39,6 +40,9 @@ void App::DemoTick() {
         if (frameCounter == 12) grab(1, true);
         if (frameCounter == 16 && rb[0] && rb[1] && rb[0]->ready && rb[1]->ready) {
             CompareReadbacks("full vs tiled", *rb[0], *rb[1], 1);
+            std::string pre = std::string("cmp_") + gpu::BackendName();
+            stbi_write_png((pre + "_full.png").c_str(), rb[0]->width, rb[0]->height, 4, rb[0]->data.data(), rb[0]->width * 4);
+            stbi_write_png((pre + "_tiled.png").c_str(), rb[1]->width, rb[1]->height, 4, rb[1]->data.data(), rb[1]->width * 4);
             Hasher h;
             h.Bytes(rb[0]->data.data(), rb[0]->data.size());
             Log("[tiles] image checksum %016llx (sparse memory %llu KB)", (unsigned long long)h.h, (unsigned long long)(gpu::Dev().SparseBytes() >> 10));
