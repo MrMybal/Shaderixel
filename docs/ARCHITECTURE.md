@@ -30,6 +30,11 @@ autonome de l'éditeur Document de CyTexture (plugin Unreal).
 | `src/render/Renderer.*` | Évaluation du graphe avec cache, affichage, pinceau, dégradé, import/export |
 | `src/ui/*` | Interface Dear ImGui (docking) : canevas, calques, graphe, propriétés... |
 | `src/platform/*` | Fenêtre Win32, entrée tablette (pression + historique haute fréquence), dialogues |
+| `src/doc/EffectGraph.*` | Graphes d'effets visuels → code d'effet ; export matériau Unreal |
+| `src/doc/DocFile.*` | Format `.sxl` |
+| `src/io/*` | Import PSD, rendu du texte (stb_truetype) |
+| `src/ai/*` | Pont HTTP local (protocole CyToolsCore), client WinHTTP |
+| `src/mesh/*`, `src/render/MeshPaint.*` | Maillages, vue 3D, cuisson UV, pinceau projeté |
 | `shaders/` | Noyaux intégrés (`composite`, `brush`, `display`...) |
 | `shaders/effects/` | Bibliothèque d'effets : un fichier = un effet, rechargés à chaud |
 
@@ -70,10 +75,20 @@ Ce même format sert à trois choses :
 
 Pour tester toute la bibliothèque : `Shaderixel.exe --test-effects`.
 
+## IA et MCP
+
+Shaderixel expose un pont HTTP local (`describe` / `invoke` / `ack`, jeton aléatoire,
+fichier `%LOCALAPPDATA%/Shaderixel/Assistant/shaderixel.connection.json`) et lance le
+compagnon `CyUEMCPSDK/Bridge/run.py --editor <connection.json>`. Les agents externes se
+branchent avec `run.py --editor <connection.json> --mcp` (configuration copiable dans le
+panneau « Assistant IA »). Les opérations qui modifient le document sont refusées tant
+que l'utilisateur ne les a pas autorisées.
+
 ## Automatisation
 
 ```
 Shaderixel.exe --test-effects               compile tous les effets, résultat dans shaderixel.log
-Shaderixel.exe --demo [nodes] --capture out.png [--frames N]
+Shaderixel.exe --demo [nodes|select|transform|retouch|groups|save|image|curves|effectgraph|text|shapes|mesh] --capture out.png [--frames N]
+Shaderixel.exe --ai-test                    démarre le compagnon IA et autorise l'écriture (tests)
 Shaderixel.exe image.png                    ouvre une image
 ```

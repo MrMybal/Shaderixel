@@ -1,61 +1,56 @@
 # Shaderixel — Feuille de route
 
-## ✅ Socle (fait)
-- D3D12 + Slang (HLSL) compilés à l'exécution, en asynchrone, avec cache et rechargement à chaud
-- Modes Calques / Nodal, conversion dans les deux sens (vers calques seulement si le graphe est linéaire)
-- 27 modes de fusion Photoshop, opacité, masques de fusion, fusion en gamma ou linéaire
-- Calques de pixels, de remplissage et de réglage, filtres non destructifs par calque
-- Pinceau et gomme : pression tablette, flux/opacité, dureté, espacement, lissage, Maj+clic pour une ligne droite
-- Dégradé (5 formes), pot de peinture (remplit tout le calque), pipette, main, zoom
-- 27 effets (réglages, flous, netteté, esthétiques, déformations, générateurs, composition)
-- Nœud HLSL personnalisé éditable dans l'app
-- Annuler/rétablir (structure + pixels), panneau Historique
-- Import PNG/JPG/TGA/BMP/PSD (aplati)/HDR, export PNG/JPG/TGA/BMP
-- **Sélections** (masque GPU 8 bits) : rectangle, ellipse, lasso, lasso polygonal, baguette magique (contiguë ou non, tolérance), plage de couleurs, depuis les pixels d'un calque (Ctrl+clic) ; modes nouvelle/ajout/soustraction/intersection (Maj/Alt) ; contour progressif, dilater, contracter, intervertir, tout/désélectionner/resélectionner ; pointillés animés et mode masque (Q)
-- Tous les outils respectent la sélection (pinceau, gomme, dégradé, remplissage, suppression)
-- Calque par copier/couper (Ctrl+J / Ctrl+Maj+J), copier/couper/coller ; masque de fusion et calques de réglage créés depuis la sélection
-- **Transformation manuelle** (Ctrl+T) : échelle (Maj proportionnel, Alt depuis le centre), rotation (Maj 15°), pivot, perspective/déformation (Ctrl+coin), interpolation plus proche/bilinéaire/bicubique, la sélection suit ; **outil Déplacement** (V, flèches 1/10 px)
-- Historique groupé (une opération = une étape même si elle touche pixels + sélection)
-- **Retouche** : tampon de duplication (Alt+clic, aligné), correcteur, goutte, netteté, doigt, densité -/+ (plages), éponge ; pot de peinture avec remplissage par zone (tolérance, contigu, tous les calques)
-- **Groupes de calques** (mode Traverser ou fusion, opacité, masque, imbrication, repli) et **masques d'écrêtage** (Ctrl+Alt+G)
-- **Format natif .sxl** (JSON + pixels compressés XPRESS en parallèle), invite « enregistrer les modifications »
-- **Import PSD avec calques** (8/16/32 bits, RLE/ZIP, groupes, masques, modes, réglages convertis, remplissages unis)
-- **Menu Image** : taille de l'image (bicubique), taille de la zone de travail (ancrage), rotations, symétries, **outil Recadrage**, recadrer selon la sélection — tout est annulable
-- **Courbes** (éditeur par canal, spline monotone), filtre photo, correction sélective — 30 effets au total
+## ✅ Fait
 
-## Phase 1 — Outils Photoshop essentiels
-- Déplacer le contour de sélection seul, transformer la sélection, sélection rapide (pinceau)
-- Transformation des calques de remplissage/réglage (transformations non destructives)
-- Blend-If (options de fusion), styles de calque (ombre portée, contour, lueur...)
-- Texte (calques de texte vectoriels)
-- LUT 3D (.cube), histogramme
-- Formes vectorielles et tracés
+**Socle**
+- D3D12 + Slang (HLSL) compilés à l'exécution, en asynchrone, avec cache et rechargement à chaud ; pipelines compute et graphiques
+- Graphe nodal toujours rendu ; modes Calques / Nodal avec conversion dans les deux sens (vers calques seulement si le graphe est linéaire)
+- Évaluation GPU avec cache par signature de contenu : 0 calcul quand rien ne change
+
+**Photoshop**
+- 27 modes de fusion, opacité, masques de fusion, fusion en gamma ou linéaire
+- Calques de pixels, de remplissage, de réglage, de texte, de forme ; groupes (Traverser) ; masques d'écrêtage ; filtres non destructifs par calque
+- Pinceau et gomme (pression, flux, dureté, espacement, lissage), dégradé, pot de peinture (tolérance, contigu), pipette
+- Retouche : tampon de duplication, correcteur, goutte, netteté, doigt, densité -/+, éponge
+- Sélections : rectangle, ellipse, lasso, polygonal, baguette, plage de couleurs, depuis un calque ; ajout/soustraction/intersection, contour progressif, dilater/contracter, intervertir, mode masque
+- Transformation manuelle (échelle, rotation, pivot, perspective) et outil Déplacement ; calque par copier/couper, copier/coller
+- Menu Image : taille de l'image, zone de travail, rotations, symétries, recadrage
+- 37 effets dont Courbes, Niveaux, Teinte/Saturation, flous, styles de calque (ombre portée/interne, lueur, contour, incrustations, biseau)
+- Texte (polices système, multi-ligne, alignement, approche, interligne)
+- Formes vectorielles SDF (rectangle arrondi, ellipse, ligne, polygone, étoile ; fond + contour)
+- Historique groupé, annulable partout
+
+**Fichiers**
+- Format natif `.sxl` (JSON + pixels compressés XPRESS), import PSD avec calques, import PNG/JPG/TGA/BMP/HDR, export PNG/JPG/TGA/BMP
+
+**Spécifique Shaderixel**
+- Nœuds HLSL personnalisés et **éditeur d'effets visuel** (façon éditeur de matériaux Unreal) avec **export vers un matériau Unreal** (script Python : nœud Custom + paramètres + textures)
+- **IA** : pont MCP compatible CyToolsCore (17 opérations `shaderixel.*`, écriture soumise à autorisation), compagnon CyUEMCPSDK lancé automatiquement, assistant intégré, génération d'images OpenAI / Gemini
+- **Peinture 3D** : vue 3D (OBJ, primitives), document en texture, pinceau projeté avec occultation
+
+## Prochaines étapes
+
+### Performance / grands formats
+- Rendu par tuiles + ressources réservées D3D12 pour le 16K (aujourd'hui chaque nœud mis en cache occupe une texture pleine taille)
+- Recalcul limité aux régions modifiées
+- Mipmaps d'affichage, histogramme GPU
+- Mode 8 bits natif
+
+### Photoshop
+- Déplacer/transformer le contour de sélection seul, sélection rapide
+- Blend-If (options de fusion)
+- Tracés vectoriels (plume), formes personnalisées
+- LUT 3D (.cube), filtres « Fluidité » et déformation
 - Export PSD avec calques
 
-## Phase 2 — Format et performance
-- **Rendu par tuiles et textures sparse** (ressources réservées D3D12) pour le 16K sans saturer la VRAM
-- Recalcul limité aux régions modifiées (actuellement : la surface entière en aval)
-- Mipmaps d'affichage, histogramme et table de couleurs GPU
-- Format 8 bits sRGB natif par document
+### 3D
+- glTF / FBX, plusieurs matériaux
+- Canaux PBR liés (rugosité, métal, normale, hauteur) et rendu PBR
+- Pinceau en espace UV / triplanar, masquage par ID de matériau
 
-## Phase 3 — Éditeur d'effets
-- Graphe visuel façon éditeur de matériaux d'Unreal (math, UV, bruit, échantillonnage, constantes, paramètres) qui génère le code `Effect()`
-- Nœud « Custom HLSL » à entrées typées
-- Mode HLSL pur avec un vrai éditeur de code (coloration, erreurs en ligne)
-- Sous-graphes et nœuds de groupe réutilisables
-- **Export vers un matériau Unreal** (Custom node HLSL + paramètres), branché sur CyTexture
+### IA
+- ComfyUI (workflows API), retouche par inpainting depuis la sélection
+- Opérations MCP supplémentaires (graphes d'effets, nœuds)
 
-## Phase 4 — Peinture 3D (façon Substance Painter)
-- Chargement de maillages (glTF/FBX/OBJ), vue 3D, UV
-- Projection du pinceau dans l'espace écran vers les UV, avec corrections de joints (dilatation)
-- Canaux PBR (couleur de base, rugosité, métallique, normale, hauteur) sous forme de « documents liés »
-- Export des canaux et d'un matériau Unreal
-
-## Phase 5 — IA (via CyToolsCore / CyUEMCPSDK)
-- Serveur MCP intégré : piloter calques, nœuds, outils et rendu depuis l'extérieur
-- Client : assistant dans l'app, génération et retouche d'images (ComfyUI, OpenAI, Gemini…) via le processus compagnon CyToolsCore
-- Résultats IA insérés comme calques ou nœuds
-
-## Phase 6 — Multi-plateforme
-- Backends Vulkan (Linux) et Metal (macOS) derrière `gpu::Device`
-- Slang cible déjà SPIR-V et Metal : les shaders restent identiques
+### Multi-plateforme
+- Backends Vulkan (Linux) et Metal (macOS) derrière `gpu::Device` ; Slang cible déjà SPIR-V et Metal
