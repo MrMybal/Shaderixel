@@ -299,6 +299,15 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             dl->AddRectFilled(P(-0.75f, -0.5f), P(0.75f, 0.6f), col, s * 0.12f);
             for (int i = 0; i < 3; ++i) dl->AddCircleFilled(P(-0.4f + i * 0.4f, 0.05f + (i % 2) * 0.2f - 0.1f), s * 0.08f, IM_COL32(30, 31, 36, 255));
             break;
+        case IconPen: {
+            // Fountain pen nib.
+            ImVec2 q[5] = {P(0.0f, -0.85f), P(0.5f, 0.05f), P(0.25f, 0.6f), P(-0.25f, 0.6f), P(-0.5f, 0.05f)};
+            dl->AddConvexPolyFilled(q, 5, col);
+            dl->AddLine(P(0.0f, -0.6f), P(0.0f, 0.15f), IM_COL32(30, 31, 36, 255), t * 1.2f);
+            dl->AddCircleFilled(P(0.0f, 0.15f), s * 0.09f, IM_COL32(30, 31, 36, 255));
+            dl->AddRectFilled(P(-0.3f, 0.68f), P(0.3f, 0.9f), col, s * 0.04f);
+            break;
+        }
         case IconQuickSelect: {
             // Dashed circle (selection) with a brush tip.
             for (int i = 0; i < 8; ++i) {

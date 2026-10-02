@@ -11,6 +11,7 @@
 // nodes, so structural edits never copy pixels and undo snapshots stay cheap.
 
 #include "core/Common.h"
+#include "doc/VectorPath.h"
 #include "doc/Effects.h"
 #include "io/TextRaster.h"
 #include "gpu/Device.h"
@@ -149,6 +150,8 @@ struct DocState {
     bool editMask = false;     // painting targets the active layer's mask
     Id selection = 0;          // R8 selection surface (0 = no selection: everything)
     Id lastSelection = 0;      // for Reselect
+    std::vector<VectorPath> paths;  // Pen tool paths
+    Id activePath = 0;
     std::unordered_map<Id, Surface> surfaces;
     Id nextId = 100;
 };

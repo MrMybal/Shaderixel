@@ -27,7 +27,7 @@ namespace sx {
 enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
-    Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Count
+    Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, Count
 };
 inline bool IsRetouchTool(Tool t) { return t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket; }
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
@@ -232,6 +232,24 @@ private:
     void UpdateWand(DocView& v);
     void QuickSelectInput(DocView& v, ImVec2 canvasMin, bool hovered, const std::vector<PointerSample>& samples);
     void UpdateQuickSelect(DocView& v);
+    // Pen tool / paths (PenTool.cpp)
+    void PenInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void DrawPenOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    void DrawPathsPanel();
+    VectorPath* ActivePath(Document& doc);
+    bool PathToSelection(DocView& v, SelMode mode);
+    void FillPath(DocView& v);
+    void StrokePath(DocView& v);
+    struct PenState {
+        bool drawing = false;    // adding anchors to the last subpath of the active path
+        bool dragging = false;   // shaping the handles of the anchor just placed
+        int dragPt = 0;
+        float2 dragOrigin;
+        int editSub = -1, editPt = -1, editPart = -1;  // Ctrl+drag target (0 anchor, 1 in, 2 out)
+        float2 editStart;
+        PathAnchor editOrig;
+        std::optional<DocState> before;
+    } pen;
     void DrawQuickSelectOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     struct QuickSelState {
         gpu::ReadbackPtr rb;       // analyzed image (RGBA8), cached while unchanged

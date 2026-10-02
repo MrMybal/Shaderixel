@@ -80,7 +80,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -125,7 +125,7 @@ bool App::Init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout_v6.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v7.ini";
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
     ui::LoadFonts(dpi);
@@ -225,6 +225,7 @@ void App::Frame() {
     DrawColor();
     DrawBrush();
     DrawHistory();
+    DrawPathsPanel();
     UpdateHistogram();
     DrawHistogram();
     DrawNewDocDialog();
@@ -481,6 +482,7 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("Assistant IA", rightMid);
     ImGui::DockBuilderDockWindow("Génération IA", rightMid);
     ImGui::DockBuilderDockWindow("Calques", rightBottom);
+    ImGui::DockBuilderDockWindow("Tracés", rightBottom);
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(left)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoResizeX;
     ImGui::DockBuilderFinish(dock);
 }
@@ -813,6 +815,8 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_I)) setTool(Tool::Picker);
     if (pressed(ImGuiKey_G)) setTool(shift && tool == Tool::Gradient ? Tool::Bucket : Tool::Gradient);
     if (pressed(ImGuiKey_K)) setTool(Tool::Bucket);
+    if (pressed(ImGuiKey_P)) setTool(Tool::Pen);
+    if (tool == Tool::Pen && ctrl && ImGui::IsKeyPressed(ImGuiKey_Enter) && v) PathToSelection(*v, SelMode::Replace);
     if (pressed(ImGuiKey_H)) setTool(Tool::Hand);
     if (pressed(ImGuiKey_Z)) setTool(Tool::Zoom);
     if (pressed(ImGuiKey_Q)) quickMask = !quickMask;

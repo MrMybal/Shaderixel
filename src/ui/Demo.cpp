@@ -73,6 +73,50 @@ void App::DemoTick() {
         if (frameCounter == 42) d.forceTiled = true;
         return;
     }
+    if (demoMode == 23 && v) {
+        // Pen paths: a heart made of Bézier curves, filled, stroked, made into a selection, saved and reloaded.
+        Document& d = *v->doc;
+        tool = Tool::Pen;
+        if (frameCounter == 6) {
+            VectorPath p;
+            p.id = d.NewId();
+            p.name = "Cœur";
+            SubPath sp;
+            sp.closed = true;
+            float2 c = {800, 520};
+            sp.pts.push_back({c + float2{0, 260}, c + float2{0, 260}, c + float2{0, 260}});                        // bottom tip (corner)
+            sp.pts.push_back({c + float2{-260, -60}, c + float2{-200, 120}, c + float2{-320, -230}});            // left lobe
+            sp.pts.push_back({c + float2{0, -150}, c + float2{-90, -330}, c + float2{90, -330}});                // top notch
+            sp.pts.push_back({c + float2{260, -60}, c + float2{320, -230}, c + float2{200, 120}});               // right lobe
+            p.subpaths.push_back(sp);
+            DocState before = d.S();
+            d.S().paths.push_back(p);
+            d.S().activePath = p.id;
+            v->history.PushState("Plume", before, d.S());
+        }
+        if (frameCounter == 8) {
+            Layer& l = d.AddPixelLayer("Remplissage du tracé");
+            (void)l;
+            fg = {0.95f, 0.25f, 0.4f, 1};
+        }
+        if (frameCounter == 10) FillPath(*v);
+        if (frameCounter == 12) {
+            fg = {1, 1, 1, 1};
+            brush.size = 14;
+            brush.hardness = 0.9f;
+            StrokePath(*v);
+        }
+        if (frameCounter == 14) PathToSelection(*v, SelMode::Replace);
+        if (frameCounter == 16) SaveDocument(*v, "demo_pen.sxl");
+        if (frameCounter == 24) LoadSxl("demo_pen.sxl");
+        if (frameCounter == 30 && Active()) {
+            Document& r = *Active()->doc;
+            size_t anchors = 0;
+            for (auto& p : r.S().paths) for (auto& sp : p.subpaths) anchors += sp.pts.size();
+            Log("[pen] reloaded %zu path(s), %zu anchors, active %u, selection %u", r.S().paths.size(), anchors, r.S().activePath, r.S().selection);
+        }
+        return;
+    }
     if (demoMode == 22 && v) {
         // Quick selection: "paint" along the middle (orange) stroke, then along part of the top one (add).
         Document& d = *v->doc;

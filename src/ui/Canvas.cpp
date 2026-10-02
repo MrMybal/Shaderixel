@@ -16,6 +16,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::PolyLasso, ui::IconPolyLasso, "Lasso polygonal", "L"},
     {Tool::Wand, ui::IconWand, "Baguette magique", "W"},
     {Tool::QuickSelect, ui::IconQuickSelect, "Sélection rapide", "W"},
+    {Tool::Pen, ui::IconPen, "Plume", "P"},
     {Tool::Brush, ui::IconBrush, "Pinceau", "B"},
     {Tool::Eraser, ui::IconEraser, "Gomme", "E"},
     {Tool::Clone, ui::IconStamp, "Tampon de duplication", "S"},
@@ -49,6 +50,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Clone},
     {Tool::Heal},
     {Tool::Text},
+    {Tool::Pen},
     {Tool::Shape},
     {Tool::Gradient, Tool::Bucket},
     {Tool::Blur, Tool::Sharpen, Tool::Smudge, Tool::Liquify},
@@ -250,6 +252,7 @@ void App::DrawCanvas() {
     }
     DrawSelectionOverlay(*v, canvasMin, dl);
     DrawQuickSelectOverlay(*v, canvasMin, dl);
+    DrawPenOverlay(*v, canvasMin, dl);
     CropOverlay(*v, canvasMin, avail, dl);
     TextOverlay(*v, canvasMin, dl);
     TransformDrawOverlay(*v, canvasMin, dl);
@@ -335,6 +338,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (tool == Tool::QuickSelect) {
         QuickSelectInput(v, canvasMin, hovered, samples);
+        return;
+    }
+    if (tool == Tool::Pen) {
+        PenInput(v, canvasMin, hovered);
         return;
     }
 

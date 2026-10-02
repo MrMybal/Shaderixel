@@ -168,6 +168,31 @@ Json SerializeDocument(const Document& doc) {
     j["activeLayer"] = s.activeLayer;
     j["activeNode"] = s.activeNode;
     j["selection"] = s.selection;
+    if (!s.paths.empty()) {
+        Json ps = Json::Array();
+        for (auto& p : s.paths) {
+            Json o = Json::Object();
+            o["id"] = p.id;
+            o["name"] = p.name;
+            Json subs = Json::Array();
+            for (auto& sp : p.subpaths) {
+                Json so = Json::Object();
+                so["closed"] = sp.closed;
+                Json pts = Json::Array();
+                for (auto& a : sp.pts) {
+                    pts.Push(ToJson(a.p));
+                    pts.Push(ToJson(a.in));
+                    pts.Push(ToJson(a.out));
+                }
+                so["pts"] = pts;
+                subs.Push(so);
+            }
+            o["subpaths"] = subs;
+            ps.Push(o);
+        }
+        j["paths"] = ps;
+        j["activePath"] = s.activePath;
+    }
 
     Json layers = Json::Array();
     for (auto& l : s.layers) {
@@ -353,9 +378,25 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
     s.activeNode = j["activeNode"].U();
     s.selection = s.surfaces.count(j["selection"].U()) ? j["selection"].U() : 0;
     s.lastSelection = s.selection;
+    for (auto& o : j["paths"].Elements()) {
+        VectorPath p;
+        p.id = o["id"].U();
+        p.name = o["name"].S("Tracé");
+        for (auto& so : o["subpaths"].Elements()) {
+            SubPath sp;
+            sp.closed = so["closed"].B(false);
+            std::vector<float2> v;
+            for (auto& e : so["pts"].Elements()) v.push_back(Float2FromJson(e));
+            for (size_t k = 0; k + 2 < v.size(); k += 3) sp.pts.push_back({v[k], v[k + 1], v[k + 2]});
+            p.subpaths.push_back(sp);
+        }
+        s.paths.push_back(p);
+    }
+    s.activePath = j["activePath"].U();
     // nextId must stay above every id in the file.
     Id maxId = j["nextId"].U(100);
     for (auto& l : s.layers) maxId = std::max(maxId, l.id + 1);
+    for (auto& p : s.paths) maxId = std::max(maxId, p.id + 1);
     for (auto& [id, sf] : s.surfaces) maxId = std::max(maxId, id + 1);
     for (auto& n : s.graph.nodes) if (n.id < 0x40000000u) maxId = std::max(maxId, n.id + 1);
     s.nextId = std::max(s.nextId, maxId);
