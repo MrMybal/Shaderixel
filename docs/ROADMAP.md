@@ -51,7 +51,7 @@
 
 ### 3D
 - Import glTF 2.0 (.gltf / .glb) : **fait** ; reste : FBX, plusieurs matériaux / UDIM
-- Canaux PBR liés (rugosité, métal, normale, hauteur) et rendu PBR
+- Canaux PBR (couleur, rugosité, métal, normale, émissif, occlusion) en groupes de calques, rendu PBR GGX, export textures + script de matériau Unreal : **fait** ; reste : hauteur → normale, IBL/HDRI, rendu par canal solo
 - Pinceau en espace UV / triplanar, masquage par ID de matériau
 
 ### IA

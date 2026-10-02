@@ -15,6 +15,7 @@
 namespace sx {
 
 struct MeshScene;
+struct MeshMaterial;
 
 struct ViewParams {
     float2 origin;          // document pixel at the top-left of the view
@@ -152,7 +153,7 @@ public:
                         const std::string& label);
     // 3D painting (MeshPaint.cpp)
     bool MeshPrepare(Document& doc, gpu::CommandContext& ctx, MeshScene& s);
-    gpu::Texture* MeshRender(gpu::CommandContext& ctx, MeshScene& s, gpu::Texture* albedo, u32 w, u32 h);
+    gpu::Texture* MeshRender(gpu::CommandContext& ctx, MeshScene& s, const MeshMaterial& material, u32 w, u32 h);
     void MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
                         float4 colorLinear, bool erase);
     void RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, const ShapeStyle& s);

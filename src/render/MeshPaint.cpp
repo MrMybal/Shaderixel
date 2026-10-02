@@ -95,7 +95,7 @@ bool Renderer::MeshPrepare(Document& doc, gpu::CommandContext& ctx, MeshScene& s
     return true;
 }
 
-gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, gpu::Texture* albedo, u32 w, u32 h) {
+gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const MeshMaterial& material, u32 w, u32 h) {
     if (!s.vb || w == 0 || h == 0) return nullptr;
     if (!s.color || s.color->Width() != w || s.color->Height() != h) {
         s.color = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA8, "MeshView", gpu::UsageRenderTarget);
@@ -111,10 +111,13 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, gpu::
     cb.camPos = {s.camPos.x, s.camPos.y, s.camPos.z, 1};
     float3 l = Normalize(s.camPos - s.target + float3{0.6f, 1.2f, 0.0f});
     cb.lightDir = {l.x, l.y, l.z, 0};
-    cb.flags = albedo ? 1u : 0u;
+    cb.flags = 0;
     gpu::DrawDesc d;
     d.pipeline = p;
-    d.srv[0] = albedo;
+    for (int c = 0; c < (int)PbrChannel::Count; ++c) {
+        d.srv[c] = material.tex[c];
+        if (material.tex[c]) cb.flags |= 1u << c;
+    }
     d.rt[0] = s.color.get();
     d.depth = s.depth.get();
     d.clearColor = d.clearDepth = true;

@@ -301,6 +301,37 @@ void App::DemoTick() {
     if (demoMode == 18 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 11 && v && frameCounter == 7) ImGui::SetWindowFocus("Éditeur d'effets");
     if (demoMode == 27 && v && frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
+    if (demoMode == 28 && v) {
+        // PBR channels: glossy band in roughness, metallic patch, then texture + Unreal script export.
+        Document& d = *v->doc;
+        if (frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 6) CreatePbrChannels(*v);
+        auto paintIn = [&](PbrChannel c, float gray, float y0, float y1) {
+            Id g = FindChannelGroup(d, c);
+            for (auto& l : d.S().layers)
+                if (l.parent == g && l.kind == LayerKind::Pixel) {
+                    if (!v->renderer.BeginStroke(d, *ctx, l.surface)) return;
+                    std::vector<Dab> dabs;
+                    for (float y = y0; y <= y1; y += 30)
+                        for (float x = 0; x <= (float)d.Width(); x += 30) dabs.push_back({x, y, 40, 1});
+                    BrushSettings b = brush;
+                    b.hardness = 1;
+                    v->renderer.StrokeDabs(d, *ctx, dabs, b, LinearColor({gray, gray, gray, 1}), false);
+                    v->renderer.EndStroke(d, *ctx, v->history, "Pinceau");
+                    return;
+                }
+        };
+        if (frameCounter == 8) paintIn(PbrChannel::Roughness, 0.08f, 380, 620);
+        if (frameCounter == 9) paintIn(PbrChannel::Metallic, 1.0f, 650, 1000);
+        if (frameCounter == 14) ExportPbrTextures(*v, "pbr_test.png");
+        if (frameCounter == 24) {
+            std::error_code ec;
+            for (const char* f : {"pbr_test_BaseColor.png", "pbr_test_Roughness.png", "pbr_test_Metallic.png", "pbr_test_Normal.png", "pbr_test_AO.png",
+                                  "pbr_test_Emissive.png", "pbr_test_unreal_material.py"})
+                Log("[pbr] %s: %llu bytes", f, (unsigned long long)std::filesystem::file_size(f, ec));
+        }
+        return;
+    }
     if (demoMode == 14 && v && v->mesh) {
         if (frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
         if (frameCounter == 8) {
@@ -626,7 +657,7 @@ void App::RunDemo() {
         d.SyncGraph();
         tool = Tool::Shape;
     }
-    if (demoMode == 14) {
+    if (demoMode == 14 || demoMode == 28) {
         AttachMesh(v, MakeSphere());
         tool = Tool::Brush;
     }

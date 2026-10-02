@@ -40,6 +40,12 @@ void App::DrawView3D() {
     }
     if (v->mesh) {
         ImGui::SameLine();
+        if (!FindChannelGroup(doc, PbrChannel::Roughness)) {
+            if (ImGui::SmallButton("Créer les canaux PBR")) CreatePbrChannels(*v);
+        } else if (ImGui::SmallButton("Exporter les textures PBR...")) {
+            ExportPbrTextures(*v, platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png"));
+        }
+        ImGui::SameLine();
         if (ImGui::SmallButton("Recentrer")) {
             v->mesh->yaw = 0.7f;
             v->mesh->pitch = 0.35f;
@@ -120,7 +126,7 @@ void App::DrawView3D() {
             if (len > 0) meshLastDab = p;
         }
         // Render first so the occlusion test uses this frame's depth.
-        v->renderer.MeshRender(*ctx, s, v->lastImage, w, h);
+        v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
         if (!dabs.empty()) v->renderer.MeshStrokeDabs(doc, *ctx, s, dabs, b, LinearColor(fg), tool == Tool::Eraser);
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             v->renderer.EndStroke(doc, *ctx, v->history, "Peinture 3D");
@@ -130,7 +136,7 @@ void App::DrawView3D() {
 
     // Re-evaluate the document (cached) so the mesh shows the latest paint, then render.
     v->lastImage = v->renderer.Evaluate(doc, *ctx);
-    gpu::Texture* img = v->renderer.MeshRender(*ctx, s, v->lastImage, w, h);
+    gpu::Texture* img = v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
     ImDrawList* dl = ImGui::GetWindowDrawList();
     if (img) dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(img), origin, ImVec2(origin.x + w, origin.y + h));
     if (hovered && paintTool && !orbit) {

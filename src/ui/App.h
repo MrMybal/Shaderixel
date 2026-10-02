@@ -143,6 +143,12 @@ private:
     void ExportImage(const std::string& path);
     void ExportPsd(const std::string& path);
     void MergeDown(DocView& v);
+    // PBR material channels (Material.cpp)
+    Id FindChannelGroup(Document& d, PbrChannel c);
+    gpu::Texture* ChannelTexture(DocView& v, PbrChannel c);
+    MeshMaterial GatherMaterial(DocView& v);
+    void CreatePbrChannels(DocView& v);
+    void ExportPbrTextures(DocView& v, const std::string& pngBasePath);
     // Recent files (stored next to the executable).
     std::vector<std::string> recentFiles;
     void LoadRecent();
