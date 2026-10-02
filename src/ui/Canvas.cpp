@@ -9,6 +9,12 @@ namespace sx {
 namespace {
 struct ToolInfo { Tool tool; int icon; const char* tip; };
 const ToolInfo kTools[] = {
+    {Tool::Move, ui::IconMove, "Déplacement (V) - flèches : décaler"},
+    {Tool::RectSelect, ui::IconRectSel, "Rectangle de sélection (M)"},
+    {Tool::EllipseSelect, ui::IconEllipseSel, "Ellipse de sélection (Maj+M)"},
+    {Tool::Lasso, ui::IconLasso, "Lasso (L)"},
+    {Tool::PolyLasso, ui::IconPolyLasso, "Lasso polygonal (Maj+L)"},
+    {Tool::Wand, ui::IconWand, "Baguette magique (W)"},
     {Tool::Brush, ui::IconBrush, "Pinceau (B)"},
     {Tool::Eraser, ui::IconEraser, "Gomme (E)"},
     {Tool::Gradient, ui::IconGradient, "Dégradé (G)"},
@@ -24,7 +30,14 @@ void App::DrawToolbar() {
     if (ImGui::Begin("Outils", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar)) {
         float size = std::min(ImGui::GetContentRegionAvail().x, 40.0f * dpi);
         for (auto& t : kTools) {
-            if (ui::IconButton(t.tip, t.icon, tool == t.tool, size, t.tip)) tool = t.tool;
+            if (t.tool == Tool::Brush || t.tool == Tool::Hand) {
+                ImGui::Dummy(ImVec2(size, 2 * dpi));
+                ImGui::GetWindowDrawList()->AddLine(ImGui::GetCursorScreenPos() - ImVec2(0, 4 * dpi), ImGui::GetCursorScreenPos() + ImVec2(size, -4 * dpi), ui::col::Border);
+            }
+            if (ui::IconButton(t.tip, t.icon, tool == t.tool, size, t.tip)) {
+                if (xf.active && xf.view) TransformCommit(*xf.view);
+                tool = t.tool;
+            }
         }
         ImGui::Spacing();
         ImGui::Separator();
@@ -90,7 +103,10 @@ void App::DrawCanvas() {
     ImGui::InvisibleButton("##canvas", avail, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
     bool hovered = ImGui::IsItemHovered();
     v->renderer.Prepare(doc, *ctx);
+    if (xf.active && xf.view != v) TransformCancel(*xf.view);
+    UpdateWand(*v);
     CanvasInput(*v, canvasMin, avail, hovered);
+    TransformApply(*v);
 
     gpu::Texture* image = v->renderer.Evaluate(doc, *ctx);
     v->lastImage = image;
@@ -102,6 +118,10 @@ void App::DrawCanvas() {
     vp.viewW = vw;
     vp.viewH = vh;
     vp.nearest = v->zoom >= 2.0f;
+    Surface* sel = doc.Selection();
+    vp.selection = (sel && !(xf.active && !xf.moveOnly)) ? sel->tex.get() : nullptr;
+    vp.quickMask = quickMask;
+    vp.time = (float)ImGui::GetTime();
     v->renderer.Display(*ctx, image, doc.Width(), doc.Height(), vp, v->viewTex.get());
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -131,6 +151,8 @@ void App::DrawCanvas() {
     } else if (hovered && panMode) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     }
+    DrawSelectionOverlay(*v, canvasMin, dl);
+    TransformDrawOverlay(*v, canvasMin, dl);
     if (gradientDrag) {
         ImVec2 a(canvasMin.x + v->pan.x + gradientStart.x * v->zoom, canvasMin.y + v->pan.y + gradientStart.y * v->zoom);
         ImVec2 b(canvasMin.x + v->pan.x + gradientEnd.x * v->zoom, canvasMin.y + v->pan.y + gradientEnd.y * v->zoom);
@@ -140,7 +162,7 @@ void App::DrawCanvas() {
         dl->AddCircleFilled(b, 4, ui::col::Accent);
     }
     // Paint-target hint
-    if (hovered && (tool == Tool::Brush || tool == Tool::Eraser || tool == Tool::Gradient || tool == Tool::Bucket) && !doc.PaintTarget()) {
+    if (hovered && (tool == Tool::Brush || tool == Tool::Eraser || tool == Tool::Gradient || tool == Tool::Bucket || tool == Tool::Move) && !doc.PaintTarget()) {
         const char* msg = doc.Mode() == DocMode::Layers ? "Sélectionnez un calque de pixels (non verrouillé)" : "Sélectionnez un nœud « Calque pixel »";
         ImVec2 ts = ImGui::CalcTextSize(msg);
         ImVec2 p(mouse.x + 16, mouse.y + 16);
@@ -182,6 +204,19 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     bool click = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     bool alt = io.KeyAlt;
 
+    if (xf.active) {
+        TransformInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::Move) {
+        if (click && TransformBegin(v, true)) TransformInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || tool == Tool::PolyLasso || tool == Tool::Wand) {
+        SelectionToolInput(v, canvasMin, hovered, samples);
+        return;
+    }
+
     // Eyedropper (also Alt with paint tools)
     bool picker = tool == Tool::Picker || (alt && (tool == Tool::Brush || tool == Tool::Gradient || tool == Tool::Bucket));
     if (picker && !stroking) {
@@ -202,7 +237,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
 
     Id target = doc.PaintTarget();
     if (tool == Tool::Bucket && click && target) {
-        v.renderer.ApplyGradient(doc, *ctx, v.history, target, {0, 0}, {1, 0}, 0, LinearColor(fg), LinearColor(fg), 1.0f, "Pot de peinture");
+        FillOrErase(v, false);
         return;
     }
 

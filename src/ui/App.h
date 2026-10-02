@@ -12,7 +12,36 @@
 
 namespace sx {
 
-enum class Tool { Brush, Eraser, Picker, Gradient, Bucket, Hand, Zoom, Count };
+enum class Tool { Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand, Brush, Eraser, Gradient, Bucket, Picker, Hand, Zoom, Count };
+
+struct DocView;
+
+// Free transform / move session on one surface (+ the selection, if any).
+struct TransformState {
+    bool active = false;
+    DocView* view = nullptr;
+    bool pivotCustom = false;
+    bool moveOnly = false;      // move tool: commit on mouse release
+    Id surface = 0;
+    Id selection = 0;           // selection surface at start (0 = none)
+    gpu::TexturePtr original;   // surface content before the transform
+    gpu::ReadbackPtr boundsRb;  // pending content bounds
+    Rect src;                   // region being transformed
+    // Parametric state (rotation/scale); `free` switches to independent corners.
+    bool freeCorners = false;
+    float2 center;
+    float w = 1, h = 1;         // signed sizes in pixels
+    float angle = 0;            // radians
+    float2 corners[4];          // TL TR BR BL in document pixels (always up to date)
+    float2 pivot;
+    // Interaction
+    int drag = -1;              // 0-3 corners, 4-7 edges, 8 move, 9 rotate, 10 pivot
+    float2 dragStart;
+    float2 startCenter, startPivot, startCorners[4];
+    float startW = 1, startH = 1, startAngle = 0;
+    bool dirty = false;
+    int interp = 2;
+};
 
 struct DocView {
     std::unique_ptr<Document> doc;
@@ -65,6 +94,8 @@ private:
     void DrawProperties();
     void DrawColor();
     void DrawBrush();
+    void DrawSelectionMenu();
+    void DrawSelectionDialog();
     void DrawHistory();
     void DrawStatusBar();
     void DrawNewDocDialog();
@@ -86,11 +117,35 @@ private:
     void Redo();
     void Status(const std::string& msg);
 
+    // Selections & transform (Tools.cpp)
+    SelMode ModeFromModifiers() const;
+    void SelectionToolInput(DocView& v, ImVec2 canvasMin, bool hovered, const std::vector<PointerSample>& samples);
+    void DrawSelectionOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    void FinishPolygon(DocView& v);
+    void UpdateWand(DocView& v);
+    bool TransformBegin(DocView& v, bool moveOnly);
+    void TransformInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void TransformApply(DocView& v);
+    void TransformCommit(DocView& v);
+    void TransformCancel(DocView& v);
+    void TransformDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    void TransformUpdateCorners();
+    void Nudge(DocView& v, float dx, float dy);
+    void FillOrErase(DocView& v, bool erase);
+    void LayerViaCopy(DocView& v, bool cut);
+    void CopyToClipboard(DocView& v, bool cut);
+    void PasteClipboard(DocView& v);
+    void SelectFromLayer(DocView& v, const Layer& l, SelMode mode);
+    void ApplySelectionAsMask(DocView& v, Id layerId);
+    // Add a mask (always, or only when a selection exists) filled from the selection.
+    void MaskFromSelection(DocView& v, Id layerId, bool always);
+
     // Automation (command line): --test-effects, --demo [nodes], --capture <png> [--frames N]
     void ParseCommandLine();
     void RunDemo();
+    void DemoTick();
     bool testEffects = false;
-    int demoMode = 0;              // 0 none, 1 layers, 2 nodes
+    int demoMode = 0;              // 0 none, 1 layers, 2 nodes, 3 selection, 4 transform
     std::string capturePath;
     int captureFrame = 30;
     u64 frameCounter = 0;
@@ -110,6 +165,26 @@ private:
     float4 bg = {1, 1, 1, 1};
     bool editBg = false;
     int gradientShape = 0;
+    // selection options
+    int selModeOption = 0;          // 0 new, 1 add, 2 subtract, 3 intersect
+    float selFeather = 0;
+    bool selAntialias = true;
+    float wandTolerance = 32;       // 0..255
+    bool wandContiguous = true;
+    bool wandSampleMerged = false;
+    bool quickMask = false;
+    // selection interaction
+    bool selDragging = false;
+    SelMode selDragMode = SelMode::Replace;
+    float2 selStart, selEnd;
+    std::vector<float2> lassoPts;
+    bool polyActive = false;
+    struct WandRequest { gpu::ReadbackPtr rb; int x = 0, y = 0; SelMode mode = SelMode::Replace; DocView* view = nullptr; };
+    WandRequest wand;
+    int selDialog = 0;              // 1 feather, 2 expand, 3 contract, 4 color range
+    float selDialogValue = 4;
+    TransformState xf;
+    gpu::TexturePtr clipboard;
     float gradientOpacity = 1.0f;
 
     // stroke state

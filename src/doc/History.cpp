@@ -4,21 +4,29 @@ namespace sx {
 
 namespace {
 constexpr size_t kMaxEntries = 300;
-constexpr u64 kMaxPaintBytes = 2ull << 30;  // 2 GB of VRAM for paint undo
+constexpr u64 kMaxBytes = 3ull << 30;  // VRAM budget for undo data
+
+u64 TextureBytes(const gpu::TexturePtr& t) {
+    return t ? (u64)t->Width() * t->Height() * gpu::BytesPerPixel(t->GetFormat()) : 0;
 }
+}  // namespace
 
 void History::Push(Entry&& e) {
+    e.group = currentGroup;
     // Drop the redo branch.
     while (entries.size() > cursor) {
-        paintBytes -= entries.back().bytes;
+        bytes -= entries.back().bytes;
         entries.pop_back();
     }
-    paintBytes += e.bytes;
+    bytes += e.bytes;
     entries.push_back(std::move(e));
-    // Trim oldest entries.
-    while (entries.size() > kMaxEntries || (paintBytes > kMaxPaintBytes && entries.size() > 1)) {
-        paintBytes -= entries.front().bytes;
-        entries.erase(entries.begin());
+    // Trim oldest entries (whole groups).
+    while (entries.size() > 1 && (entries.size() > kMaxEntries || bytes > kMaxBytes)) {
+        u32 g = entries.front().group;
+        do {
+            bytes -= entries.front().bytes;
+            entries.erase(entries.begin());
+        } while (g && entries.size() > 1 && entries.front().group == g);
     }
     cursor = entries.size();
 }
@@ -28,6 +36,9 @@ void History::PushState(const std::string& label, const DocState& before, const 
     e.label = label;
     e.before = before;
     e.after = after;
+    // Surfaces created by this step are owned (memory-wise) by it.
+    for (auto& [id, s] : after.surfaces)
+        if (!before.surfaces.count(id)) e.bytes += TextureBytes(s.tex);
     Push(std::move(e));
 }
 
@@ -37,7 +48,7 @@ void History::PushPaint(const std::string& label, Id surface, const Rect& r, gpu
     e.paint = true;
     e.surface = surface;
     e.rect = r;
-    e.bytes = (u64)r.Width() * r.Height() * gpu::BytesPerPixel(before->GetFormat()) * 2;
+    e.bytes = TextureBytes(before) + TextureBytes(after);
     e.pixelsBefore = std::move(before);
     e.pixelsAfter = std::move(after);
     Push(std::move(e));
@@ -50,19 +61,31 @@ static void ApplyPaint(Document& doc, gpu::CommandContext& ctx, Id surface, cons
     doc.TouchSurface(surface);
 }
 
-void History::Undo(Document& doc, gpu::CommandContext& ctx) {
-    if (!CanUndo()) return;
+void History::UndoOne(Document& doc, gpu::CommandContext& ctx) {
     Entry& e = entries[--cursor];
     if (e.paint) ApplyPaint(doc, ctx, e.surface, e.rect, e.pixelsBefore.get());
     else { doc.S() = e.before; doc.InvalidateSurfaces(); doc.SyncGraph(); }
+}
+
+void History::RedoOne(Document& doc, gpu::CommandContext& ctx) {
+    Entry& e = entries[cursor++];
+    if (e.paint) ApplyPaint(doc, ctx, e.surface, e.rect, e.pixelsAfter.get());
+    else { doc.S() = e.after; doc.InvalidateSurfaces(); doc.SyncGraph(); }
+}
+
+void History::Undo(Document& doc, gpu::CommandContext& ctx) {
+    if (!CanUndo()) return;
+    u32 g = entries[cursor - 1].group;
+    UndoOne(doc, ctx);
+    while (g && cursor > 0 && entries[cursor - 1].group == g) UndoOne(doc, ctx);
     doc.dirty = true;
 }
 
 void History::Redo(Document& doc, gpu::CommandContext& ctx) {
     if (!CanRedo()) return;
-    Entry& e = entries[cursor++];
-    if (e.paint) ApplyPaint(doc, ctx, e.surface, e.rect, e.pixelsAfter.get());
-    else { doc.S() = e.after; doc.InvalidateSurfaces(); doc.SyncGraph(); }
+    u32 g = entries[cursor].group;
+    RedoOne(doc, ctx);
+    while (g && cursor < entries.size() && entries[cursor].group == g) RedoOne(doc, ctx);
     doc.dirty = true;
 }
 

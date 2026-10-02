@@ -44,6 +44,7 @@ DXGI_FORMAT ToDxgi(Format f) {
         case Format::R8: return DXGI_FORMAT_R8_UNORM;
         case Format::R16F: return DXGI_FORMAT_R16_FLOAT;
         case Format::R32F: return DXGI_FORMAT_R32_FLOAT;
+        case Format::R32U: return DXGI_FORMAT_R32_UINT;
     }
     return DXGI_FORMAT_UNKNOWN;
 }
@@ -56,6 +57,7 @@ u32 BytesPerPixel(Format f) {
         case Format::R8: return 1;
         case Format::R16F: return 2;
         case Format::R32F: return 4;
+        case Format::R32U: return 4;
     }
     return 4;
 }

@@ -208,6 +208,59 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
         case IconFx:
             dl->AddText(ImVec2(c.x - s * 0.38f, c.y - ImGui::GetFontSize() * 0.5f), col, "fx");
             break;
+        case IconMove: {
+            dl->AddLine(P(-0.85f, 0), P(0.85f, 0), col, t);
+            dl->AddLine(P(0, -0.85f), P(0, 0.85f), col, t);
+            const float a = 0.3f;
+            dl->AddTriangleFilled(P(0.85f, 0), P(0.85f - a, -a), P(0.85f - a, a), col);
+            dl->AddTriangleFilled(P(-0.85f, 0), P(-0.85f + a, a), P(-0.85f + a, -a), col);
+            dl->AddTriangleFilled(P(0, -0.85f), P(a, -0.85f + a), P(-a, -0.85f + a), col);
+            dl->AddTriangleFilled(P(0, 0.85f), P(-a, 0.85f - a), P(a, 0.85f - a), col);
+            break;
+        }
+        case IconRectSel:
+        case IconEllipseSel: {
+            // dashed outline
+            const int n = 16;
+            ImVec2 pts[n + 1];
+            for (int i = 0; i <= n; ++i) {
+                float a = 6.28318f * i / n;
+                if (icon == IconEllipseSel) pts[i] = P(std::cos(a) * 0.8f, std::sin(a) * 0.65f);
+                else {
+                    float u = (float)i / n * 4.0f;
+                    int side = std::min((int)u, 3);
+                    float f = u - side;
+                    ImVec2 c4[5] = {P(-0.8f, -0.65f), P(0.8f, -0.65f), P(0.8f, 0.65f), P(-0.8f, 0.65f), P(-0.8f, -0.65f)};
+                    pts[i] = ImVec2(c4[side].x + (c4[side + 1].x - c4[side].x) * f, c4[side].y + (c4[side + 1].y - c4[side].y) * f);
+                }
+            }
+            for (int i = 0; i < n; i += 2) dl->AddLine(pts[i], pts[i + 1], col, t);
+            break;
+        }
+        case IconLasso: {
+            ImVec2 pts[14];
+            for (int i = 0; i < 14; ++i) {
+                float a = 6.28318f * i / 13;
+                float r = 0.75f + 0.12f * std::sin(a * 3);
+                pts[i] = P(std::cos(a) * r, std::sin(a) * r * 0.6f - 0.15f);
+            }
+            dl->AddPolyline(pts, 14, col, 0, t);
+            dl->AddBezierQuadratic(P(-0.3f, 0.4f), P(-0.5f, 0.9f), P(0.1f, 0.85f), col, t);
+            break;
+        }
+        case IconPolyLasso: {
+            ImVec2 pts[6] = {P(-0.8f, -0.2f), P(-0.2f, -0.8f), P(0.75f, -0.5f), P(0.5f, 0.3f), P(-0.1f, 0.75f), P(-0.8f, -0.2f)};
+            dl->AddPolyline(pts, 6, col, 0, t);
+            for (auto& p : pts) dl->AddCircleFilled(p, s * 0.07f, col);
+            break;
+        }
+        case IconWand:
+            dl->AddLine(P(-0.8f, 0.8f), P(0.25f, -0.25f), col, t * 1.6f);
+            for (int i = 0; i < 4; ++i) {
+                float a = 1.5708f * i + 0.785f;
+                dl->AddLine(P(0.5f, -0.5f), P(0.5f + std::cos(a) * 0.38f, -0.5f + std::sin(a) * 0.38f), col, t);
+            }
+            break;
         case IconSwap:
             dl->AddBezierQuadratic(P(-0.6f, 0.4f), P(-0.6f, -0.6f), P(0.4f, -0.6f), col, t);
             dl->AddTriangleFilled(P(0.3f, -0.85f), P(0.75f, -0.6f), P(0.3f, -0.35f), col);

@@ -25,7 +25,7 @@ constexpr u32 kMaxSrv = 8;
 constexpr u32 kMaxUav = 4;
 constexpr u32 kRootConstants = 16;
 
-enum class Format : u8 { RGBA8, RGBA16F, RGBA32F, R8, R16F, R32F };
+enum class Format : u8 { RGBA8, RGBA16F, RGBA32F, R8, R16F, R32F, R32U };
 DXGI_FORMAT ToDxgi(Format f);
 u32 BytesPerPixel(Format f);
 

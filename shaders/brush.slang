@@ -12,7 +12,8 @@ cbuffer Root : register(b0)
     float gHardness;
     float gOpacity;
     uint gMode;         // 0 = paint, 1 = erase
-    float2 _pad;
+    uint gFlags;        // 1 = has selection
+    float _pad;
     float4 gColor;      // linear, straight
 };
 
@@ -24,6 +25,7 @@ cbuffer Dabs : register(b1)
 Texture2D<float4> gPre : register(t0);       // layer before the stroke
 RWTexture2D<float4> gLayer : register(u0);
 RWTexture2D<float> gStroke : register(u1);   // stroke coverage
+Texture2D<float> gSel : register(t1);        // selection (optional)
 
 float DabCoverage(float2 p, float4 dab)
 {
@@ -53,6 +55,7 @@ void main(uint3 id : SV_DispatchThreadID)
 
     float4 pre = gPre.Load(int3(px, 0));
     float k = saturate(m * gOpacity);
+    if (gFlags & 1) k *= gSel.Load(int3(px, 0));
     float4 result;
     if (gMode == 1)
         result = pre * (1.0 - k);

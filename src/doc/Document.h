@@ -102,6 +102,8 @@ struct DocState {
     Id activeLayer = 0;
     Id activeNode = 0;
     bool editMask = false;     // painting targets the active layer's mask
+    Id selection = 0;          // R8 selection surface (0 = no selection: everything)
+    Id lastSelection = 0;      // for Reselect
     std::unordered_map<Id, Surface> surfaces;
     Id nextId = 100;
 };
@@ -124,11 +126,16 @@ public:
 
     Id NewId() { return state.nextId++; }
     Id CreateSurface(const float4& clear);  // premultiplied linear clear value
+    Id CreateSurfaceRaw(gpu::Format f, const char* name);  // contents written by the caller
+    Surface* Selection() { return state.selection ? GetSurface(state.selection) : nullptr; }
     Surface* GetSurface(Id id);
     void TouchSurface(Id id);
     // Give every surface a fresh version (after undo/redo swapped the state).
     void InvalidateSurfaces();
     std::vector<std::pair<Id, float4>> pendingClears;  // consumed by renderer
+    void CancelPendingClear(Id id) {
+        std::erase_if(pendingClears, [&](auto& c) { return c.first == id; });
+    }
 
     // Layer mode -------------------------------------------------------
     Layer* FindLayer(Id id);

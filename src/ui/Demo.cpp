@@ -6,6 +6,34 @@
 
 namespace sx {
 
+void App::DemoTick() {
+    DocView* v = Active();
+    if (!v || (demoMode != 4 && demoMode != 5)) return;
+    Document& d = *v->doc;
+    if (frameCounter == 6) {
+        // Select the paint layer and start a free transform on part of it.
+        for (auto& l : d.S().layers) if (l.name == "Peinture") d.S().activeLayer = l.id;
+        v->renderer.SelectShape(d, *ctx, v->history, SelShape::Rect, {100, 150, 900, 900}, SelMode::Replace, true, 0, "Rectangle");
+        TransformBegin(*v, false);
+    }
+    if (frameCounter == 14 && xf.active && !xf.boundsRb) {
+        xf.angle = 0.3f;
+        xf.w *= 0.8f;
+        xf.h *= 1.1f;
+        xf.center = xf.center + float2{420, -40};
+        TransformUpdateCorners();
+        xf.corners[2] = xf.corners[2] + float2{0, 0};
+        xf.dirty = true;
+        tool = Tool::Move;
+    }
+    if (demoMode == 5) {
+        if (frameCounter == 18) TransformCommit(*v);
+        if (frameCounter == 22) Undo();
+        if (frameCounter == 26) Redo();
+        if (frameCounter == 30) Log("[demo] history %zu/%zu, selection %u", v->history.Cursor(), v->history.Count(), d.S().selection);
+    }
+}
+
 void App::RunDemo() {
     for (const char* s : {"composite.slang", "display.slang", "brush.slang", "clear.slang", "clear_r.slang", "gradient.slang"})
         gpu::Shaders().CompileNow(s, gpu::Shaders().File(s));
@@ -73,6 +101,27 @@ void App::RunDemo() {
     d.S().editMask = false;
     d.S().activeLayer = paintId;
 
+    if (demoMode == 3) {
+        // Feathered ellipse + polygon (add) + rectangle (intersect), then fill on a new layer.
+        tool = Tool::EllipseSelect;
+        v.renderer.SelectShape(d, *ctx, v.history, SelShape::Ellipse, {250, 180, 900, 820}, SelMode::Replace, true, 25, "Ellipse");
+        tool = Tool::PolyLasso;
+        selDragMode = SelMode::Add;
+        lassoPts.clear();
+        for (int i = 0; i < 10; ++i) {
+            float a = i * 3.14159265f / 5 - 1.5708f;
+            float r = (i % 2) ? 120.0f : 300.0f;
+            lassoPts.push_back({1150 + std::cos(a) * r, 500 + std::sin(a) * r});
+        }
+        FinishPolygon(v);
+        v.renderer.SelectShape(d, *ctx, v.history, SelShape::Rect, {0, 120, 1600, 880}, SelMode::Intersect, true, 0, "Intersection");
+        Edit e(d, v.history, "Nouveau calque");
+        Id fillSurface = d.AddPixelLayer("Remplissage sélection").surface;
+        e.Commit();
+        v.renderer.Prepare(d, *ctx);
+        v.renderer.FillSelection(d, *ctx, &v.history, fillSurface, 0, LinearColor({1.0f, 0.75f, 0.2f, 1}), 0.55f, "Remplir");
+        tool = Tool::RectSelect;
+    }
     if (demoMode == 2) {
         d.ConvertToNodes();
         // Add a custom HLSL node between the output and its input.

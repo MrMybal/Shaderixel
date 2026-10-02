@@ -145,9 +145,16 @@ void App::DrawLayers() {
         float rowH = thumb + 8;
         float w = ImGui::GetContentRegionAvail().x;
         if (ImGui::Selectable("##row", selected, ImGuiSelectableFlags_AllowOverlap, ImVec2(w, rowH))) {
-            d.S().activeLayer = l.id;
-            d.S().editMask = false;
+            ImGuiIO& io = ImGui::GetIO();
+            if (io.KeyCtrl) {  // Ctrl+click: load layer pixels as selection
+                SelMode m = io.KeyShift && io.KeyAlt ? SelMode::Intersect : io.KeyShift ? SelMode::Add : io.KeyAlt ? SelMode::Subtract : SelMode::Replace;
+                SelectFromLayer(*v, l, m);
+            } else {
+                d.S().activeLayer = l.id;
+                d.S().editMask = false;
+            }
         }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) ImGui::SetTooltip("Ctrl+clic : sélectionner les pixels du calque");
         if (ImGui::BeginDragDropSource()) {
             ImGui::SetDragDropPayload("SX_LAYER", &i, sizeof(int));
             ImGui::Text("%s", l.name.c_str());
@@ -248,11 +255,11 @@ void App::DrawLayers() {
     if (ui::IconButton("fx", ui::IconFx, false, bs, "Nouveau calque de remplissage ou de réglage")) ImGui::OpenPopup("##newfx");
     if (ImGui::BeginPopup("##newfx")) {
         if (ImGui::BeginMenu("Remplissage")) {
-            EffectMenu([&](const std::string& id) { Edit e(d, v->history, "Calque de remplissage"); d.AddEffectLayer(LayerKind::Fill, id); e.Commit(); }, true, false);
+            EffectMenu([&](const std::string& id) { Edit e(d, v->history, "Calque de remplissage"); MaskFromSelection(*v, d.AddEffectLayer(LayerKind::Fill, id).id, false); e.Commit(); }, true, false);
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Réglage")) {
-            EffectMenu([&](const std::string& id) { Edit e(d, v->history, "Calque de réglage"); d.AddEffectLayer(LayerKind::Adjustment, id); e.Commit(); }, false, true);
+            EffectMenu([&](const std::string& id) { Edit e(d, v->history, "Calque de réglage"); MaskFromSelection(*v, d.AddEffectLayer(LayerKind::Adjustment, id).id, false); e.Commit(); }, false, true);
             ImGui::EndMenu();
         }
         ImGui::EndPopup();
@@ -261,7 +268,7 @@ void App::DrawLayers() {
     ImGui::BeginDisabled(!active);
     if (ui::IconButton("mask", ui::IconMask, false, bs, "Ajouter un masque de fusion") && active && !active->mask) {
         Edit e(d, v->history, "Ajouter un masque");
-        d.AddMask(active->id);
+        MaskFromSelection(*v, active->id, true);
         e.Commit();
     }
     ImGui::SameLine();
@@ -487,14 +494,71 @@ void App::DrawColor() {
 }
 
 void App::DrawBrush() {
-    if (!ImGui::Begin("Pinceau")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Options")) { ImGui::End(); return; }
     ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.38f);
-    if (tool == Tool::Gradient) {
+    DocView* v = Active();
+
+    if (xf.active) {
+        ImGui::SeparatorText(xf.moveOnly ? "Déplacement" : "Transformation manuelle");
+        if (xf.boundsRb) {
+            ImGui::TextDisabled("Calcul des limites...");
+        } else if (!xf.moveOnly) {
+            bool changed = false;
+            if (!xf.freeCorners) {
+                float wp = xf.w / xf.src.Width() * 100.0f, hp = xf.h / xf.src.Height() * 100.0f;
+                if (ImGui::DragFloat("Largeur %", &wp, 0.25f, -1000, 1000, "%.1f")) { xf.w = wp / 100.0f * xf.src.Width(); changed = true; }
+                if (ImGui::DragFloat("Hauteur %", &hp, 0.25f, -1000, 1000, "%.1f")) { xf.h = hp / 100.0f * xf.src.Height(); changed = true; }
+                float deg = xf.angle * 180.0f / 3.14159265f;
+                if (ImGui::DragFloat("Angle", &deg, 0.25f, -360, 360, "%.1f°")) { xf.angle = deg * 3.14159265f / 180.0f; changed = true; }
+                if (ImGui::DragFloat2("Centre", &xf.center.x, 1.0f, -100000, 100000, "%.1f")) changed = true;
+            } else {
+                ImGui::TextDisabled("Mode déformation (coins libres)");
+            }
+            if (ImGui::Combo("Interpolation", &xf.interp, "Au plus proche\0Bilinéaire\0Bicubique\0")) changed = true;
+            if (changed) {
+                TransformUpdateCorners();
+                xf.dirty = true;
+            }
+            ImGui::TextDisabled("Coin : échelle  (Maj : proportionnel, Alt : depuis le centre)");
+            ImGui::TextDisabled("Ctrl+coin : perspective / déformation");
+            ImGui::TextDisabled("Hors du cadre : rotation (Maj : 15°)");
+        }
+        if (ImGui::Button("Valider (Entrée)") && xf.view) TransformCommit(*xf.view);
+        ImGui::SameLine();
+        if (ImGui::Button("Annuler (Échap)") && xf.view) TransformCancel(*xf.view);
+    } else if (tool == Tool::Move) {
+        ImGui::SeparatorText("Déplacement");
+        ImGui::TextWrapped("Glissez pour déplacer le calque actif (ou la sélection). Flèches : 1 px, Maj+flèches : 10 px. Ctrl+T : transformation manuelle.");
+    } else if (tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || tool == Tool::PolyLasso || tool == Tool::Wand) {
+        ImGui::SeparatorText("Sélection");
+        const char* modes[] = {"Nouvelle", "Ajouter", "Soustraire", "Intersection"};
+        for (int i = 0; i < 4; ++i) {
+            if (i) ImGui::SameLine();
+            if (ImGui::RadioButton(modes[i], selModeOption == i)) selModeOption = i;
+        }
+        ImGui::TextDisabled("Maj : ajouter, Alt : soustraire, Maj+Alt : intersection");
+        ImGui::SliderFloat("Contour progressif", &selFeather, 0, 250, "%.1f px", ImGuiSliderFlags_Logarithmic);
+        ImGui::Checkbox("Lissage (anti-crénelage)", &selAntialias);
+        if (tool == Tool::Wand) {
+            ImGui::SeparatorText("Baguette magique");
+            ImGui::SliderFloat("Tolérance", &wandTolerance, 0, 255, "%.0f");
+            ImGui::Checkbox("Pixels contigus", &wandContiguous);
+            ImGui::Checkbox("Échantillonner tous les calques", &wandSampleMerged);
+        }
+        if (tool == Tool::PolyLasso) ImGui::TextDisabled("Clic : point. Double-clic / Entrée : fermer. Retour arrière : annuler un point.");
+        if (v && v->doc->S().selection) {
+            ImGui::Spacing();
+            if (ImGui::Button("Désélectionner (Ctrl+D)")) v->renderer.Deselect(*v->doc, v->history);
+            ImGui::SameLine();
+            if (ImGui::Button("Intervertir")) v->renderer.SelectionFilter(*v->doc, *ctx, v->history, 3, 0, "Intervertir");
+        }
+        ImGui::Checkbox("Mode masque (Q)", &quickMask);
+    } else if (tool == Tool::Gradient) {
         ImGui::SeparatorText("Dégradé");
         ImGui::Combo("Style", &gradientShape, "Linéaire\0" "Radial\0" "Angle\0" "Réfléchi\0" "Losange\0");
         ImGui::SliderFloat("Opacité", &gradientOpacity, 0, 1);
         ImGui::TextDisabled("Premier plan -> arrière-plan. Maj : 45°.");
-    } else {
+    } else if (tool == Tool::Brush || tool == Tool::Eraser) {
         BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
         ImGui::SeparatorText(tool == Tool::Eraser ? "Gomme" : "Pinceau");
         ImGui::SliderFloat("Taille", &b.size, 1, 2000, "%.0f px", ImGuiSliderFlags_Logarithmic);
@@ -525,9 +589,15 @@ void App::DrawBrush() {
             dl->AddRectFilled(ImVec2(x0, p.y + h - 4 - bh), ImVec2(x0 + (w - 8) / N, p.y + h - 4), ui::col::Accent);
         }
         ImGui::Dummy(ImVec2(w, h));
+    } else if (tool == Tool::Bucket) {
+        ImGui::SeparatorText("Pot de peinture");
+        ImGui::TextWrapped("Remplit la sélection (ou tout le calque) avec la couleur de premier plan.");
+    } else {
+        ImGui::TextDisabled("Aucune option pour cet outil.");
     }
     ImGui::PopItemWidth();
     ImGui::End();
 }
+
 
 }  // namespace sx

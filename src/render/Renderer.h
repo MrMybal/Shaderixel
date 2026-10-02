@@ -22,6 +22,20 @@ struct ViewParams {
     float exposure = 0;
     float4 outside = {0.11f, 0.11f, 0.12f, 1};
     float checker = 8;
+    gpu::Texture* selection = nullptr;  // marching ants
+    bool quickMask = false;
+    float time = 0;
+};
+
+enum class SelMode : u8 { Replace, Add, Subtract, Intersect };
+enum class SelShape : u8 { Rect, Ellipse, Coverage, All, None };
+enum class SelSource : u8 { Alpha, Luminance, ColorRange };
+
+// Projective transform state shared by free transform and the move tool.
+struct TransformParams {
+    float hinv[9];   // destination pixel -> source pixel
+    Rect src;        // region that moves
+    int interp = 2;  // 0 nearest, 1 bilinear, 2 bicubic
 };
 
 struct BrushSettings {
@@ -66,6 +80,29 @@ public:
     gpu::ReadbackPtr ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* image);
     gpu::ReadbackPtr ReadPixel(gpu::CommandContext& ctx, gpu::Texture* image, int x, int y);
 
+    // Selections (Selection.cpp). Each operation creates a new selection surface
+    // and records a history step, so selections undo like Photoshop's.
+    bool SelectShape(Document& doc, gpu::CommandContext& ctx, History& hist, SelShape shape, float4 bounds, SelMode mode,
+                     bool antialias, float feather, const std::string& label);
+    bool SelectCoverage(Document& doc, gpu::CommandContext& ctx, History& hist, const std::vector<u8>& coverage, const Rect& r,
+                        SelMode mode, float feather, const std::string& label);
+    bool SelectFrom(Document& doc, gpu::CommandContext& ctx, History& hist, gpu::Texture* image, SelSource src, SelMode mode,
+                    float4 colorSrgb, float tolerance, const std::string& label);
+    void Deselect(Document& doc, History& hist);
+    void Reselect(Document& doc, History& hist);
+    bool SelectionFilter(Document& doc, gpu::CommandContext& ctx, History& hist, int op, float radius, const std::string& label);
+    void SelectionToMask(Document& doc, gpu::CommandContext& ctx, Id maskSurface, bool invert);
+    // Fill (mode 0), erase (1) or keep-only-selected (2) on a surface, honoring the selection.
+    void FillSelection(Document& doc, gpu::CommandContext& ctx, History* hist, Id surface, int mode, float4 colorLinear,
+                       float opacity, const std::string& label, gpu::Texture* source = nullptr);
+    // Async bounding box of visible pixels (optionally restricted to the selection).
+    // Result: 4 x u32 {x0, y0, x1, y1}; x0 > x1 means empty.
+    // dst = src * selection (or src when there is no selection).
+    void CopySelected(Document& doc, gpu::CommandContext& ctx, gpu::Texture* src, gpu::Texture* dst);
+    gpu::ReadbackPtr ComputeBounds(gpu::CommandContext& ctx, gpu::Texture* image, gpu::Texture* selection, bool imageIsMask);
+    void TransformPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection,
+                          const TransformParams& t);
+
     void Reset();  // drop all caches (document switch)
 
 private:
@@ -99,6 +136,8 @@ private:
     u64 effectGeneration = ~0ull;
     bool pending = false;
 
+    gpu::TexturePtr selTmp[2];
+    gpu::TexturePtr boundsTex;
     Id strokeSurface = 0;
     gpu::TexturePtr strokePre, strokeMask;
     Rect strokeRect;

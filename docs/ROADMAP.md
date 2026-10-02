@@ -11,10 +11,15 @@
 - Nœud HLSL personnalisé éditable dans l'app
 - Annuler/rétablir (structure + pixels), panneau Historique
 - Import PNG/JPG/TGA/BMP/PSD (aplati)/HDR, export PNG/JPG/TGA/BMP
+- **Sélections** (masque GPU 8 bits) : rectangle, ellipse, lasso, lasso polygonal, baguette magique (contiguë ou non, tolérance), plage de couleurs, depuis les pixels d'un calque (Ctrl+clic) ; modes nouvelle/ajout/soustraction/intersection (Maj/Alt) ; contour progressif, dilater, contracter, intervertir, tout/désélectionner/resélectionner ; pointillés animés et mode masque (Q)
+- Tous les outils respectent la sélection (pinceau, gomme, dégradé, remplissage, suppression)
+- Calque par copier/couper (Ctrl+J / Ctrl+Maj+J), copier/couper/coller ; masque de fusion et calques de réglage créés depuis la sélection
+- **Transformation manuelle** (Ctrl+T) : échelle (Maj proportionnel, Alt depuis le centre), rotation (Maj 15°), pivot, perspective/déformation (Ctrl+coin), interpolation plus proche/bilinéaire/bicubique, la sélection suit ; **outil Déplacement** (V, flèches 1/10 px)
+- Historique groupé (une opération = une étape même si elle touche pixels + sélection)
 
 ## Phase 1 — Outils Photoshop essentiels
-- **Sélections** : rectangle, ellipse, lasso, polygone, baguette magique, plage de couleurs, contour progressif ; masque de sélection GPU appliqué à tous les outils et filtres
-- Déplacement et transformation libre (échelle, rotation, perspective) des calques
+- Déplacer le contour de sélection seul, transformer la sélection, sélection rapide (pinceau)
+- Transformation des calques de remplissage/réglage (transformations non destructives)
 - Groupes de calques (mode traverser), masques d'écrêtage, Blend-If
 - Retouche : tampon, correcteur, doigt, densité +/-, éponge (à porter de `CyTextureLayer.usf`)
 - Pot de peinture avec remplissage par zone (flood fill GPU)

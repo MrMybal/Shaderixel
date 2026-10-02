@@ -11,11 +11,19 @@ cbuffer View : register(b1)
     float4 gOutside;    // sRGB color outside the document
     float gChecker;     // checker square size in view pixels
     float gExposure;    // stops
-    float2 _pad;
+    float gTime;        // seconds (marching ants)
+    uint gSelFlags;     // 1 = selection, 2 = quick mask overlay
 };
 
 Texture2D<float4> gImage : register(t0);
+Texture2D<float> gSel : register(t1);
 RWTexture2D<float4> gOut : register(u0);
+
+float SelAt(float2 d)
+{
+    int2 p = clamp(int2(floor(d)), int2(0, 0), int2(gDocSize) - 1);
+    return gSel.Load(int3(p, 0));
+}
 
 float4 Fetch(float2 docPos)
 {
@@ -60,5 +68,20 @@ void main(uint3 id : SV_DispatchThreadID)
     float checker = ((cell.x + cell.y) & 1) ? 0.80 : 1.0;
     float3 back = SrgbToLinear(float3(checker, checker, checker));
     float3 rgb = c.rgb + back * (1.0 - saturate(c.a));
-    gOut[id.xy] = float4(LinearToSrgb(rgb), 1.0);
+    float3 srgb = LinearToSrgb(rgb);
+    if (gSelFlags & 1)
+    {
+        float s0 = SelAt(d);
+        if (gSelFlags & 2) srgb = lerp(srgb, float3(1.0, 0.15, 0.2), (1.0 - s0) * 0.5);
+        // Marching ants on the 50% iso-line, one view pixel wide.
+        bool in0 = s0 >= 0.5;
+        bool edge = (SelAt(d + float2(gInvZoom, 0)) >= 0.5) != in0 || (SelAt(d + float2(0, gInvZoom)) >= 0.5) != in0 ||
+                    (SelAt(d - float2(gInvZoom, 0)) >= 0.5) != in0 || (SelAt(d - float2(0, gInvZoom)) >= 0.5) != in0;
+        if (edge && in0)
+        {
+            float phase = frac((v.x + v.y) / 8.0 - gTime * 1.5);
+            srgb = phase < 0.5 ? float3(0, 0, 0) : float3(1, 1, 1);
+        }
+    }
+    gOut[id.xy] = float4(srgb, 1.0);
 }

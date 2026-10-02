@@ -31,7 +31,7 @@ std::string ExeDir() {
 std::string ShaderDir() {
     // Prefer shaders next to the exe (distribution), else the source tree (development).
     std::string local = ExeDir() + "/shaders";
-    if (fs::exists(fs::u8path(local + "/common.slang"))) return local;
+    if (fs::exists(Utf8Path(local + "/common.slang"))) return local;
     return SX_SHADER_DIR;
 }
 
@@ -64,7 +64,11 @@ void App::ParseCommandLine() {
     for (int i = 1; i < argc; ++i) {
         std::string a = Narrow(argv[i]);
         if (a == "--test-effects") testEffects = true;
-        else if (a == "--demo") demoMode = (i + 1 < argc && Narrow(argv[i + 1]) == "nodes") ? (++i, 2) : 1;
+        else if (a == "--demo") {
+            std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : 1;
+            if (demoMode > 1) ++i;
+        }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
         else if (a == "--frames" && i + 1 < argc) captureFrame = std::max(3, _wtoi(argv[++i]));
         else if (a.rfind("--", 0) != 0) pendingDrop = a;  // open a file given on the command line
@@ -104,9 +108,9 @@ bool App::Init() {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v2.ini";
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
     ui::LoadFonts(dpi);
@@ -168,6 +172,7 @@ void App::Frame() {
 
     ++frameCounter;
     if (demoMode && frameCounter == 3) RunDemo();
+    if (demoMode) DemoTick();
     if (!capturePath.empty() && frameCounter == (u64)captureFrame) captureRb = gpu::Dev().CaptureNextFrame();
     if (captureRb && captureRb->ready) {
         for (size_t i = 3; i < captureRb->data.size(); i += 4) captureRb->data[i] = 255;
@@ -189,6 +194,7 @@ void App::Frame() {
     DrawHistory();
     DrawNewDocDialog();
     DrawShaderErrors();
+    DrawSelectionDialog();
     if (showDemo) ImGui::ShowDemoWindow(&showDemo);
 
     if (!pendingDrop.empty()) {
@@ -200,7 +206,7 @@ void App::Frame() {
     for (size_t i = 0; i < exports.size();) {
         auto& e = exports[i];
         if (e.rb && e.rb->ready) {
-            std::string ext = Narrow(fs::u8path(e.path).extension().wstring());
+            std::string ext = Narrow(Utf8Path(e.path).extension().wstring());
             for (auto& ch : ext) ch = (char)tolower(ch);
             int ok = 0;
             std::string native = e.path;
@@ -283,7 +289,7 @@ void App::OpenImage(const std::string& path, bool asLayer) {
     void* pixels = isFloat ? (void*)stbi_loadf_from_file(f, &w, &h, &comp, 4) : (void*)stbi_load_from_file(f, &w, &h, &comp, 4);
     fclose(f);
     if (!pixels) { Status("Format d'image non supporté : " + path); return; }
-    std::string name = Narrow(fs::u8path(path).filename().wstring());
+    std::string name = Narrow(Utf8Path(path).filename().wstring());
     DocView* v = Active();
     if (!asLayer || !v) {
         NewDocument((u32)w, (u32)h, isFloat ? Precision::Float32 : Precision::Half16, DocMode::Layers, 3, name);
@@ -331,12 +337,13 @@ void App::Status(const std::string& msg) {
 void App::Undo() {
     DocView* v = Active();
     if (!v || stroking) return;
+    if (xf.active) { TransformCancel(*v); return; }
     v->history.Undo(*v->doc, *ctx);
 }
 
 void App::Redo() {
     DocView* v = Active();
-    if (!v || stroking) return;
+    if (!v || stroking || xf.active) return;
     v->history.Redo(*v->doc, *ctx);
 }
 
@@ -356,7 +363,7 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("Canevas", center);
     ImGui::DockBuilderDockWindow("Graphe", bottom);
     ImGui::DockBuilderDockWindow("Couleur", rightTop);
-    ImGui::DockBuilderDockWindow("Pinceau", rightTop);
+    ImGui::DockBuilderDockWindow("Options", rightTop);
     ImGui::DockBuilderDockWindow("Propriétés", rightMid);
     ImGui::DockBuilderDockWindow("Historique", rightMid);
     ImGui::DockBuilderDockWindow("Calques", rightBottom);
@@ -387,12 +394,14 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Rétablir", "Ctrl+Maj+Z", false, v && v->history.CanRedo())) Redo();
         ImGui::Separator();
         bool canFill = v && v->doc->PaintTarget();
-        if (ImGui::MenuItem("Remplir avec la couleur de premier plan", "Alt+Retour", false, canFill))
-            v->renderer.ApplyGradient(*v->doc, *ctx, v->history, v->doc->PaintTarget(), {0, 0}, {1, 0}, 0, LinearColor(fg), LinearColor(fg), 1.0f, "Remplir");
-        if (ImGui::MenuItem("Effacer le calque", "Suppr", false, canFill)) {
-            float4 clear = {0, 0, 0, 0};
-            v->renderer.ApplyGradient(*v->doc, *ctx, v->history, v->doc->PaintTarget(), {0, 0}, {1, 0}, 0, clear, clear, 0.0f, "Effacer");
-        }
+        if (ImGui::MenuItem("Couper", "Ctrl+X", false, canFill)) CopyToClipboard(*v, true);
+        if (ImGui::MenuItem("Copier", "Ctrl+C", false, canFill)) CopyToClipboard(*v, false);
+        if (ImGui::MenuItem("Coller", "Ctrl+V", false, clipboard != nullptr)) PasteClipboard(*v);
+        ImGui::Separator();
+        if (ImGui::MenuItem("Remplir avec la couleur de premier plan", "Alt+Retour", false, canFill)) FillOrErase(*v, false);
+        if (ImGui::MenuItem("Effacer", "Suppr", false, canFill)) FillOrErase(*v, true);
+        ImGui::Separator();
+        if (ImGui::MenuItem("Transformation manuelle", "Ctrl+T", false, canFill)) TransformBegin(*v, false);
         ImGui::Separator();
         ImGui::MenuItem("Erreurs de shaders", nullptr, &showShaderErrors);
         ImGui::EndMenu();
@@ -401,6 +410,7 @@ void App::DrawMenuBar() {
         LayerMenuItems();
         ImGui::EndMenu();
     }
+    DrawSelectionMenu();
     if (ImGui::BeginMenu("Filtre", v != nullptr)) {
         Document& d = *v->doc;
         bool layerMode = d.Mode() == DocMode::Layers;
@@ -476,7 +486,7 @@ void App::LayerMenuItems() {
         if (ImGui::BeginMenu("Nouveau calque de remplissage")) {
             EffectMenu([&](const std::string& id) {
                 Edit e(d, v->history, "Calque de remplissage");
-                d.AddEffectLayer(LayerKind::Fill, id);
+                MaskFromSelection(*v, d.AddEffectLayer(LayerKind::Fill, id).id, false);
                 e.Commit();
             }, true, false);
             ImGui::EndMenu();
@@ -484,7 +494,7 @@ void App::LayerMenuItems() {
         if (ImGui::BeginMenu("Nouveau calque de réglage")) {
             EffectMenu([&](const std::string& id) {
                 Edit e(d, v->history, "Calque de réglage");
-                d.AddEffectLayer(LayerKind::Adjustment, id);
+                MaskFromSelection(*v, d.AddEffectLayer(LayerKind::Adjustment, id).id, false);
                 e.Commit();
             }, false, true);
             ImGui::EndMenu();
@@ -503,7 +513,7 @@ void App::LayerMenuItems() {
         }
         if (ImGui::MenuItem("Ajouter un masque de fusion", nullptr, false, l && !l->mask)) {
             Edit e(d, v->history, "Ajouter un masque");
-            d.AddMask(l->id);
+            MaskFromSelection(*v, l->id, true);
             e.Commit();
         }
         ImGui::Separator();
@@ -544,10 +554,25 @@ void App::EffectMenu(const std::function<void(const std::string&)>& onPick, bool
 void App::HandleShortcuts() {
     ImGuiIO& io = ImGui::GetIO();
     spaceHeld = !io.WantTextInput && ImGui::IsKeyDown(ImGuiKey_Space);
-    if (io.WantTextInput) return;
+    if (io.WantTextInput || ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel)) return;
     DocView* v = Active();
     bool ctrl = io.KeyCtrl, shift = io.KeyShift, alt = io.KeyAlt;
     auto pressed = [](ImGuiKey k) { return ImGui::IsKeyPressed(k, false); };
+    auto setTool = [&](Tool t) {
+        if (xf.active && xf.view) TransformCommit(*xf.view);
+        tool = t;
+    };
+
+    // Transform / polygon session keys first.
+    if (xf.active && xf.view) {
+        if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) { TransformCommit(*xf.view); return; }
+        if (pressed(ImGuiKey_Escape)) { TransformCancel(*xf.view); return; }
+    }
+    if (polyActive && v) {
+        if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) { FinishPolygon(*v); return; }
+        if (pressed(ImGuiKey_Escape)) { polyActive = false; lassoPts.clear(); return; }
+        if (pressed(ImGuiKey_Backspace) && lassoPts.size() > 1) { lassoPts.pop_back(); return; }
+    }
 
     if (ctrl && pressed(ImGuiKey_Z)) { shift ? Redo() : Undo(); }
     if (ctrl && pressed(ImGuiKey_Y)) Redo();
@@ -555,40 +580,78 @@ void App::HandleShortcuts() {
     if (ctrl && !shift && pressed(ImGuiKey_O)) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
     if (ctrl && shift && pressed(ImGuiKey_O) && v) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), true);
     if (ctrl && shift && pressed(ImGuiKey_E) && v) ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0", L"png"));
-    if (ctrl && pressed(ImGuiKey_W) && v) CloseDocument(activeDoc);
-    if (v && ctrl && pressed(ImGuiKey_0)) v->fitPending = true;
-    if (v && ctrl && pressed(ImGuiKey_1)) v->zoom = 1.0f;
-    if (v && v->doc->Mode() == DocMode::Layers) {
-        Document& d = *v->doc;
+    if (ctrl && pressed(ImGuiKey_W) && v) { CloseDocument(activeDoc); return; }
+    if (!v) return;
+    Document& d = *v->doc;
+    if (ctrl && pressed(ImGuiKey_0)) v->fitPending = true;
+    if (ctrl && pressed(ImGuiKey_1)) v->zoom = 1.0f;
+
+    // Selection
+    if (ctrl && !shift && pressed(ImGuiKey_A))
+        v->renderer.SelectShape(d, *ctx, v->history, SelShape::All, {}, SelMode::Replace, false, 0, "Tout sélectionner");
+    if (ctrl && !shift && pressed(ImGuiKey_D)) v->renderer.Deselect(d, v->history);
+    if (ctrl && shift && pressed(ImGuiKey_D)) v->renderer.Reselect(d, v->history);
+    if (ctrl && shift && pressed(ImGuiKey_I)) v->renderer.SelectionFilter(d, *ctx, v->history, 3, 0, "Intervertir");
+    if (shift && pressed(ImGuiKey_F6) && d.S().selection) { selDialog = 1; selDialogValue = 8; }
+    if (ctrl && !shift && pressed(ImGuiKey_T)) TransformBegin(*v, false);
+
+    // Clipboard & layer via copy
+    if (ctrl && !shift && pressed(ImGuiKey_C)) CopyToClipboard(*v, false);
+    if (ctrl && !shift && pressed(ImGuiKey_X)) CopyToClipboard(*v, true);
+    if (ctrl && !shift && pressed(ImGuiKey_V)) PasteClipboard(*v);
+    if (d.Mode() == DocMode::Layers) {
         if (ctrl && shift && pressed(ImGuiKey_N)) {
             Edit e(d, v->history, "Nouveau calque");
             d.AddPixelLayer("Calque " + std::to_string(d.S().layers.size() + 1));
             e.Commit();
         }
         if (ctrl && pressed(ImGuiKey_J) && d.ActiveLayer()) {
-            Edit e(d, v->history, "Dupliquer le calque");
-            d.DuplicateLayer(d.S().activeLayer);
-            e.Commit();
+            if (d.S().selection || shift) LayerViaCopy(*v, shift);
+            else {
+                Edit e(d, v->history, "Dupliquer le calque");
+                d.DuplicateLayer(d.S().activeLayer);
+                e.Commit();
+            }
         }
     }
-    if (v && alt && pressed(ImGuiKey_Enter) && v->doc->PaintTarget())
-        v->renderer.ApplyGradient(*v->doc, *ctx, v->history, v->doc->PaintTarget(), {0, 0}, {1, 0}, 0, LinearColor(fg), LinearColor(fg), 1.0f, "Remplir");
+    if (alt && (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_Backspace))) FillOrErase(*v, false);
     if (ctrl || alt) return;
 
-    if (pressed(ImGuiKey_B)) tool = Tool::Brush;
-    if (pressed(ImGuiKey_E)) tool = Tool::Eraser;
-    if (pressed(ImGuiKey_I)) tool = Tool::Picker;
-    if (pressed(ImGuiKey_G)) tool = Tool::Gradient;
-    if (pressed(ImGuiKey_K)) tool = Tool::Bucket;
-    if (pressed(ImGuiKey_H)) tool = Tool::Hand;
-    if (pressed(ImGuiKey_Z)) tool = Tool::Zoom;
+    if (pressed(ImGuiKey_Delete) && d.S().selection && d.PaintTarget()) FillOrErase(*v, true);
+    if (pressed(ImGuiKey_Escape) && selDragging) selDragging = false;
+
+    if (pressed(ImGuiKey_V)) setTool(Tool::Move);
+    if (pressed(ImGuiKey_M)) setTool(shift ? (tool == Tool::RectSelect ? Tool::EllipseSelect : Tool::RectSelect) : Tool::RectSelect);
+    if (pressed(ImGuiKey_L)) setTool(shift ? Tool::PolyLasso : Tool::Lasso);
+    if (pressed(ImGuiKey_W)) setTool(Tool::Wand);
+    if (pressed(ImGuiKey_B)) setTool(Tool::Brush);
+    if (pressed(ImGuiKey_E)) setTool(Tool::Eraser);
+    if (pressed(ImGuiKey_I)) setTool(Tool::Picker);
+    if (pressed(ImGuiKey_G)) setTool(Tool::Gradient);
+    if (pressed(ImGuiKey_K)) setTool(Tool::Bucket);
+    if (pressed(ImGuiKey_H)) setTool(Tool::Hand);
+    if (pressed(ImGuiKey_Z)) setTool(Tool::Zoom);
+    if (pressed(ImGuiKey_Q)) quickMask = !quickMask;
     if (pressed(ImGuiKey_X)) std::swap(fg, bg);
     if (pressed(ImGuiKey_D)) { fg = {0, 0, 0, 1}; bg = {1, 1, 1, 1}; }
+
+    if (tool == Tool::Move && !xf.active) {
+        float step = shift ? 10.0f : 1.0f;
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) Nudge(*v, -step, 0);
+        if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) Nudge(*v, step, 0);
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) Nudge(*v, 0, -step);
+        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) Nudge(*v, 0, step);
+    }
+
     BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
-    if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) b.size = std::max(1.0f, b.size * (shift ? 1.0f : 0.85f) - (shift ? 0 : 1));
-    if (ImGui::IsKeyPressed(ImGuiKey_RightBracket)) b.size = std::min(5000.0f, b.size * 1.18f + 1);
-    if (shift && ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) b.hardness = std::max(0.0f, b.hardness - 0.1f);
-    if (shift && ImGui::IsKeyPressed(ImGuiKey_RightBracket)) b.hardness = std::min(1.0f, b.hardness + 0.1f);
+    if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) {
+        if (shift) b.hardness = std::max(0.0f, b.hardness - 0.1f);
+        else b.size = std::max(1.0f, b.size * 0.85f - 1);
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_RightBracket)) {
+        if (shift) b.hardness = std::min(1.0f, b.hardness + 0.1f);
+        else b.size = std::min(5000.0f, b.size * 1.18f + 1);
+    }
 }
 
 // ------------------------------------------------------------------ small panels

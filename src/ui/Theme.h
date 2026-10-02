@@ -33,6 +33,7 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 center, float size, ImU32 color);
 void HelpTooltip(const char* text);
 
 enum Icon { IconBrush, IconEraser, IconPicker, IconHand, IconZoom, IconGradient, IconBucket, IconEye, IconEyeOff,
-            IconPlus, IconTrash, IconUp, IconDown, IconMask, IconCopy, IconLock, IconFx, IconSwap };
+            IconPlus, IconTrash, IconUp, IconDown, IconMask, IconCopy, IconLock, IconFx, IconSwap,
+            IconMove, IconRectSel, IconEllipseSel, IconLasso, IconPolyLasso, IconWand };
 
 }  // namespace sx::ui

@@ -2,7 +2,8 @@
 // Undo/redo. Two kinds of entries:
 //  - State: full copy of DocState (layers, graph, surface table). Cheap because
 //    pixels live in shared GPU textures, not in the state.
-//  - Paint: GPU copies of the touched rectangle before and after a stroke.
+//  - Paint: GPU copies of the touched rectangle before and after an operation.
+// Entries pushed between BeginGroup/EndGroup undo and redo as one step.
 
 #include "doc/Document.h"
 
@@ -12,16 +13,20 @@ class History {
 public:
     void PushState(const std::string& label, const DocState& before, const DocState& after);
     void PushPaint(const std::string& label, Id surface, const Rect& r, gpu::TexturePtr before, gpu::TexturePtr after);
+    void BeginGroup() { if (groupDepth++ == 0) currentGroup = ++groupCounter; }
+    void EndGroup() { if (--groupDepth == 0) currentGroup = 0; }
 
     bool CanUndo() const { return cursor > 0; }
     bool CanRedo() const { return cursor < entries.size(); }
     void Undo(Document& doc, gpu::CommandContext& ctx);
     void Redo(Document& doc, gpu::CommandContext& ctx);
-    void Clear() { entries.clear(); cursor = 0; }
+    void Clear() { entries.clear(); cursor = 0; bytes = 0; }
 
     size_t Count() const { return entries.size(); }
     size_t Cursor() const { return cursor; }
     const std::string& Label(size_t i) const { return entries[i].label; }
+    bool Grouped(size_t i) const { return entries[i].group != 0 && i > 0 && entries[i - 1].group == entries[i].group; }
+    u64 MemoryBytes() const { return bytes; }
 
 private:
     struct Entry {
@@ -32,11 +37,16 @@ private:
         Rect rect;
         gpu::TexturePtr pixelsBefore, pixelsAfter;
         u64 bytes = 0;
+        u32 group = 0;
     };
     void Push(Entry&& e);
+    void UndoOne(Document& doc, gpu::CommandContext& ctx);
+    void RedoOne(Document& doc, gpu::CommandContext& ctx);
     std::vector<Entry> entries;
     size_t cursor = 0;
-    u64 paintBytes = 0;
+    u64 bytes = 0;
+    u32 groupCounter = 0, currentGroup = 0;
+    int groupDepth = 0;
 };
 
 // Helper for structural edits: snapshot on construction, push on Commit().

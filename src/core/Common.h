@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <filesystem>
 
 namespace sx {
 
@@ -77,6 +78,7 @@ void Log(const char* fmt, ...);
 std::wstring Widen(const std::string& s);
 std::string Narrow(const std::wstring& s);
 bool ReadTextFile(const std::string& path, std::string& out);
+inline std::filesystem::path Utf8Path(const std::string& s) { return std::filesystem::path(Widen(s)); }
 
 inline float SrgbToLinear(float c) { return c <= 0.04045f ? c / 12.92f : std::pow((c + 0.055f) / 1.055f, 2.4f); }
 inline float LinearToSrgb(float c) { c = std::max(c, 0.0f); return c <= 0.0031308f ? c * 12.92f : 1.055f * std::pow(c, 1.0f / 2.4f) - 0.055f; }

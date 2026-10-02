@@ -18,7 +18,7 @@ struct CompositeRoot { u32 w, h, mode; float opacity; u32 flags; };
 struct EffectRoot { u32 w, h, pass, inputMask, seed; float time; };
 struct ClearRoot { i32 x, y; u32 w, h; float4 value; };
 struct ClearRRoot { u32 w, h; float value; };
-struct BrushRoot { i32 rx, ry; u32 rw, rh, dw, dh, count; float hardness, opacity; u32 mode; float pad[2]; float4 color; };
+struct BrushRoot { i32 rx, ry; u32 rw, rh, dw, dh, count; float hardness, opacity; u32 mode, flags; float pad; float4 color; };
 struct GradientRoot { u32 w, h; float2 a, b; u32 shape; float opacity; float4 ca, cb; };
 struct ImportRoot { u32 sw, sh; i32 ox, oy; u32 dw, dh, flags; };
 struct ExportRoot { u32 w, h, flags; };
@@ -28,7 +28,8 @@ struct DisplayCB {
     u32 flags;
     u32 viewW, viewH, docW, docH;
     float4 outside;
-    float checker, exposure, pad[2];
+    float checker, exposure, time;
+    u32 selFlags;
 };
 }  // namespace
 
@@ -279,9 +280,12 @@ void Renderer::Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, 
     cb.outside = v.outside;
     cb.checker = v.checker;
     cb.exposure = v.exposure;
+    cb.time = v.time;
+    cb.selFlags = v.selection ? (1u | (v.quickMask ? 2u : 0u)) : 0u;
     gpu::DispatchDesc d;
     d.pipeline = p;
     d.srv[0] = image;
+    d.srv[1] = v.selection;
     d.uav[0] = target;
     d.cbData = &cb;
     d.cbSize = sizeof(cb);
@@ -358,8 +362,10 @@ void Renderer::StrokeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
         d.srv[0] = strokePre.get();
         d.uav[0] = s->tex.get();
         d.uav[1] = strokeMask.get();
+        Surface* sel = doc.Selection();
+        d.srv[1] = sel ? sel->tex.get() : nullptr;
         BrushRoot root = {r.x0, r.y0, (u32)r.Width(), (u32)r.Height(), (u32)W, (u32)H, (u32)count,
-                          b.hardness, b.opacity, erase ? 1u : 0u, {0, 0}, color};
+                          b.hardness, b.opacity, erase ? 1u : 0u, sel ? 1u : 0u, 0.0f, color};
         SetConstants(d, root);
         d.cbData = &dabs[start];
         d.cbSize = count * sizeof(Dab);
@@ -399,8 +405,10 @@ void Renderer::ApplyGradient(Document& doc, gpu::CommandContext& ctx, History& h
     gpu::DispatchDesc d;
     d.pipeline = p;
     d.srv[0] = before.get();
+    Surface* sel = doc.Selection();
+    d.srv[1] = sel ? sel->tex.get() : nullptr;
     d.uav[0] = s->tex.get();
-    SetConstants(d, GradientRoot{W, H, a, b, (u32)shape, opacity, colorA, colorB});
+    SetConstants(d, GradientRoot{W, H, a, b, (u32)shape | (sel ? 0x100u : 0u), opacity, colorA, colorB});
     d.threadsX = W;
     d.threadsY = H;
     ctx.Dispatch(d);

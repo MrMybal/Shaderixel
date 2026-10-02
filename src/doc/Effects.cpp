@@ -216,7 +216,7 @@ void EffectLibrary::Load(const std::string& dir_) {
     byId.clear();
     std::error_code ec;
     std::vector<fs::path> paths;
-    for (auto& e : fs::directory_iterator(fs::u8path(dir), ec))
+    for (auto& e : fs::directory_iterator(Utf8Path(dir), ec))
         if (e.path().extension() == ".slang") paths.push_back(e.path());
     std::sort(paths.begin(), paths.end());
     for (auto& p : paths) {

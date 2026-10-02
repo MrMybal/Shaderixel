@@ -16,7 +16,7 @@ ShaderSystem g_shaders;
 
 i64 FileTime(const std::string& path) {
     std::error_code ec;
-    auto t = fs::last_write_time(fs::u8path(path), ec);
+    auto t = fs::last_write_time(Utf8Path(path), ec);
     return ec ? 0 : (i64)t.time_since_epoch().count();
 }
 
@@ -38,7 +38,7 @@ bool ShaderSystem::Init(const std::string& shaderDir_, const std::string& cacheD
     shaderDir = shaderDir_;
     cacheDir = cacheDir_;
     std::error_code ec;
-    fs::create_directories(fs::u8path(cacheDir), ec);
+    fs::create_directories(Utf8Path(cacheDir), ec);
     worker = std::thread([this] { Worker(); });
     return true;
 }
@@ -191,7 +191,7 @@ void ShaderSystem::Compile(Program& p) {
     snprintf(fname, sizeof(fname), "%016llx.dxil", (unsigned long long)p.hash);
     std::string cachePath = cacheDir + "/" + fname;
     {
-        std::ifstream f(fs::u8path(cachePath), std::ios::binary);
+        std::ifstream f(Utf8Path(cachePath), std::ios::binary);
         if (f) {
             u32 gx = 8, gy = 8;
             f.read((char*)&gx, 4);
@@ -265,7 +265,7 @@ void ShaderSystem::Compile(Program& p) {
         p.state = Program::State::Failed;
         return;
     }
-    std::ofstream f(fs::u8path(cachePath), std::ios::binary);
+    std::ofstream f(Utf8Path(cachePath), std::ios::binary);
     u32 gx = (u32)groups[0], gy = (u32)groups[1];
     f.write((const char*)&gx, 4);
     f.write((const char*)&gy, 4);
