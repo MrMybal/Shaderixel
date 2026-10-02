@@ -21,7 +21,7 @@
 - Historique groupé, annulable partout
 
 **Fichiers**
-- Format natif `.sxl` (JSON + pixels compressés XPRESS), import PSD avec calques, import PNG/JPG/TGA/BMP/HDR, export PNG/JPG/TGA/BMP
+- Format natif `.sxl` (JSON + pixels compressés XPRESS), import et export PSD avec calques, import PNG/JPG/TGA/BMP/HDR, export PNG/JPG/TGA/BMP
 
 **Spécifique Shaderixel**
 - Nœuds HLSL personnalisés et **éditeur d'effets visuel** (façon éditeur de matériaux Unreal) avec **export vers un matériau Unreal** (script Python : nœud Custom + paramètres + textures)
@@ -42,7 +42,7 @@
 - Blend-If (options de fusion)
 - Tracés vectoriels (plume), formes personnalisées
 - LUT 3D (.cube), filtres « Fluidité » et déformation
-- Export PSD avec calques
+- Export PSD avec calques : **fait** (8 bits RLE, groupes, masques, écrêtage, modes ; réglages/remplissages/filtres rastérisés). Reste : PSB (> 30000 px), 16 bits, calques de réglage natifs
 
 ### 3D
 - glTF / FBX, plusieurs matériaux

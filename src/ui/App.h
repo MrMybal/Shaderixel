@@ -6,13 +6,16 @@
 #include "render/Renderer.h"
 #include "platform/Platform.h"
 #include "doc/DocFile.h"
+#include "io/PsdExport.h"
 #include "doc/EffectGraph.h"
 #include "ai/Bridge.h"
 #include "render/MeshPaint.h"
 
 #include <mutex>
 
+#include <atomic>
 #include <future>
+#include <thread>
 
 #include <imgui.h>
 #include <memory>
@@ -136,6 +139,8 @@ private:
     void NewDocument(u32 w, u32 h, Precision p, DocMode mode, int background, const std::string& name);
     void OpenImage(const std::string& path, bool asLayer);
     void ExportImage(const std::string& path);
+    void ExportPsd(const std::string& path);
+    void PollPsdExport();
     void CloseDocument(int index, bool force = false);
     void SaveDocument(DocView& v, const std::string& path);
     void SaveCurrent(bool saveAs);
@@ -326,6 +331,14 @@ private:
     gpu::ReadbackPtr pickReadback;
     struct PendingExport { std::string path; gpu::ReadbackPtr rb; };
     std::vector<PendingExport> exports;
+    struct PsdExportState {
+        PsdExportJob job;
+        bool writing = false;
+        std::atomic<bool> done{false};
+        bool ok = false;
+        std::string error;
+    };
+    std::shared_ptr<PsdExportState> psdExport;
     struct PendingSave {
         std::string path;
         Json meta;

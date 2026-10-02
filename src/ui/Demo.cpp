@@ -21,7 +21,7 @@ void CompareReadbacks(const char* what, const gpu::Readback& a, const gpu::Readb
         if (dd > maxd) { maxd = dd; bx = (int)((i / 4) % a.width); by = (int)((i / 4) / a.width); }
         if (dd > tol) ++bad;
     }
-    Log("[tiles] %s: max diff %d at (%d,%d), %zu channels > %d", what, maxd, bx, by, bad, tol);
+    Log("[compare] %s: max diff %d at (%d,%d), %zu channels > %d", what, maxd, bx, by, bad, tol);
 }
 }  // namespace
 
@@ -71,6 +71,33 @@ void App::DemoTick() {
             Log("[tiles] checksum after undo %016llx", (unsigned long long)h.h);
         }
         if (frameCounter == 42) d.forceTiled = true;
+        return;
+    }
+    if (demoMode == 17) {
+        // PSD round trip: export with layers, re-import, compare composites.
+        static gpu::ReadbackPtr orig, back;
+        static int stage = 0;
+        static u64 at = 0;
+        if (frameCounter == 8 && v) {
+            orig = v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(*v->doc, *ctx));
+            ExportPsd("demo_export.psd");
+        }
+        if (stage == 0 && frameCounter > 9 && !psdExport) {
+            std::error_code ec;
+            Log("[psd] file size %llu bytes", (unsigned long long)std::filesystem::file_size("demo_export.psd", ec));
+            OpenImage("demo_export.psd", false);
+            stage = 1;
+            at = frameCounter;
+        }
+        if (stage == 1 && frameCounter == at + 8 && Active()) {
+            Log("[psd] reimported %zu layers", Active()->doc->S().layers.size());
+            back = Active()->renderer.ExportRGBA8(*ctx, Active()->renderer.EvaluateComplete(*Active()->doc, *ctx));
+            stage = 2;
+        }
+        if (stage == 2 && back && back->ready && orig && orig->ready) {
+            CompareReadbacks("original vs PSD round trip", *orig, *back, 3);
+            stage = 3;
+        }
         return;
     }
     if (demoMode == 16 && v) {
@@ -289,7 +316,7 @@ void App::RunDemo() {
         wand.surface = bucketSurface;
         tool = Tool::Smudge;
     }
-    if (demoMode == 7 || demoMode == 8 || demoMode == 9) {
+    if (demoMode == 7 || demoMode == 8 || demoMode == 9 || demoMode == 17) {
         // Clipping: a rainbow gradient clipped to the paint strokes; then group paint+glow
         // and apply a group opacity; a hidden noise layer inside a collapsed group.
         d.S().activeLayer = paintId;

@@ -513,7 +513,7 @@ void Renderer::Import(Document& doc, gpu::CommandContext& ctx, Id surface, const
     doc.TouchSurface(surface, &r);
 }
 
-gpu::ReadbackPtr Renderer::ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* image) {
+gpu::ReadbackPtr Renderer::ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb) {
     auto prog = Shaders().CompileNow("export.slang", Shaders().File("export.slang"));
     if (!image || !prog->pipeline) return nullptr;
     auto tmp = gpu::Dev().CreateTexture(image->Width(), image->Height(), gpu::Format::RGBA8, "Export");
@@ -521,7 +521,7 @@ gpu::ReadbackPtr Renderer::ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* i
     d.pipeline = prog->pipeline.get();
     d.srv[0] = image;
     d.uav[0] = tmp.get();
-    SetConstants(d, ExportRoot{image->Width(), image->Height(), 1u});
+    SetConstants(d, ExportRoot{image->Width(), image->Height(), srgb ? 1u : 0u});
     d.threadsX = image->Width();
     d.threadsY = image->Height();
     ctx.Dispatch(d);

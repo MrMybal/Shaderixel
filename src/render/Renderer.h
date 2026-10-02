@@ -100,7 +100,11 @@ public:
                        int shape, float4 colorA, float4 colorB, float opacity, const std::string& label);
 
     void Import(Document& doc, gpu::CommandContext& ctx, Id surface, const void* pixels, u32 w, u32 h, bool isFloat, int2 offset);
-    gpu::ReadbackPtr ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* image);
+    gpu::ReadbackPtr ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb = true);
+    // Full-resolution output of one node (through the node cache, also in tiled mode).
+    gpu::Texture* EvaluateNode(Document& doc, gpu::CommandContext& ctx, Id node) { return Eval(doc, ctx, node, 0).tex; }
+    // Release full-size node caches created by EvaluateNode in tiled mode.
+    void DropNodeCaches(const Document& doc) { if (doc.tiled) cache.clear(); }
     gpu::ReadbackPtr ReadPixel(gpu::CommandContext& ctx, gpu::Texture* image, int x, int y);
 
     // Selections (Selection.cpp). Each operation creates a new selection surface

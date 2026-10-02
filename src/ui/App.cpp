@@ -80,7 +80,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -239,6 +239,7 @@ void App::Frame() {
         pendingDrop.clear();
     }
 
+    PollPsdExport();
     // Finished async readbacks.
     for (size_t i = 0; i < exports.size();) {
         auto& e = exports[i];
@@ -390,6 +391,37 @@ void App::OpenImage(const std::string& path, bool asLayer) {
     Status("Ouvert : " + path);
 }
 
+void App::ExportPsd(const std::string& path) {
+    DocView* v = Active();
+    if (!v || path.empty()) return;
+    if (psdExport) { Status("Un export PSD est déjà en cours"); return; }
+    auto st = std::make_shared<PsdExportState>();
+    st->job.path = path;
+    if (!StartPsdExport(*v->doc, v->renderer, *ctx, st->job)) { Status("Échec de l'export PSD"); return; }
+    psdExport = st;
+    Status("Export PSD en cours...");
+}
+
+void App::PollPsdExport() {
+    if (!psdExport) return;
+    auto st = psdExport;
+    if (!st->writing && PsdExportReady(st->job)) {
+        st->writing = true;
+        // Encoding big documents takes a while: keep the UI responsive.
+        std::thread([st] {
+            st->ok = WritePsd(st->job, &st->error);
+            st->job.layers.clear();  // free the pixel copies early
+            st->job.composite.reset();
+            st->done = true;
+        }).detach();
+    }
+    if (st->done) {
+        Status(st->ok ? "Exporté : " + st->job.path : "Échec de l'export PSD : " + st->error);
+        Log("PSD export %s: %s", st->ok ? "ok" : "failed", st->job.path.c_str());
+        psdExport.reset();
+    }
+}
+
 void App::ExportImage(const std::string& path) {
     DocView* v = Active();
     if (!v || path.empty()) return;
@@ -465,6 +497,8 @@ void App::DrawMenuBar() {
         ImGui::Separator();
         if (ImGui::MenuItem("Exporter...", "Ctrl+Shift+E", false, v != nullptr))
             ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
+        if (ImGui::MenuItem("Exporter en PSD (calques)...", nullptr, false, v != nullptr))
+            ExportPsd(platform::SaveFileDialog(hwnd, L"Photoshop (*.psd)\0*.psd\0", L"psd"));
         ImGui::Separator();
         if (ImGui::MenuItem("Fermer", "Ctrl+W", false, v != nullptr)) CloseDocument(activeDoc);
         if (ImGui::MenuItem("Quitter", "Alt+F4")) PostMessageW(hwnd, WM_CLOSE, 0, 0);
