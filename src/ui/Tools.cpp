@@ -166,6 +166,7 @@ void App::SelectionToolInput(DocView& v, ImVec2 canvasMin, bool hovered, const s
     ImGuiIO& io = ImGui::GetIO();
     Document& doc = *v.doc;
     float2 dp = ScreenToDoc(v, canvasMin, io.MousePos);
+    if (tool == Tool::RectSelect || tool == Tool::EllipseSelect) dp = Snap(v, dp);
     bool click = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     static bool shiftAtStart = false;
 

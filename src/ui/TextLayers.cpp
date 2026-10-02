@@ -49,7 +49,7 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
         if (hovered && ImGui::IsMouseClicked(0)) Status("Les calques de texte sont disponibles en mode calques");
         return;
     }
-    float2 dp = ScreenToDoc(v, canvasMin, io.MousePos);
+    float2 dp = Snap(v, ScreenToDoc(v, canvasMin, io.MousePos));
     Layer* al = d.ActiveLayer();
     // Shape tool: drag a new shape.
     if (tool == Tool::Shape) {

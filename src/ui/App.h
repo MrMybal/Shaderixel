@@ -143,6 +143,22 @@ private:
     void ExportImage(const std::string& path);
     void ExportPsd(const std::string& path);
     void MergeDown(DocView& v);
+    // Rulers, guides, grid, snapping (Guides.cpp)
+    float RulerSize() const;
+    float2 Snap(const DocView& v, float2 p) const;
+    void DrawGridAndGuides(DocView& v, ImVec2 canvasMin, ImVec2 avail, ImDrawList* dl);
+    bool GuideInput(DocView& v, ImVec2 canvasMin, ImVec2 avail, bool canvasHovered);
+    void DrawRulers(DocView& v, ImVec2 origin, ImVec2 canvasMin, ImVec2 avail);
+    bool showRulers = true, showGuides = true, showGrid = false, snapEnabled = true;
+    float gridStep = 100;
+    int gridSubdiv = 4;
+    struct GuideDrag {
+        bool active = false;
+        const DocView* view = nullptr;
+        bool vertical = false;
+        int index = -1;  // existing guide being moved, -1 = new
+        float pos = 0;
+    } guideDrag;
     void MergeVisible(DocView& v, bool flatten);
     void PollPsdExport();
     void CloseDocument(int index, bool force = false);

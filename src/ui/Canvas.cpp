@@ -174,8 +174,16 @@ void App::DrawCanvas() {
         return;
     }
     Document& doc = *v->doc;
-    ImVec2 canvasMin = ImGui::GetCursorScreenPos();
+    const ImVec2 rulerOrigin = ImGui::GetCursorScreenPos();
+    ImVec2 canvasMin = rulerOrigin;
     ImVec2 avail = ImGui::GetContentRegionAvail();
+    if (float R = RulerSize(); R > 0) {
+        canvasMin.x += R;
+        canvasMin.y += R;
+        avail.x = std::max(1.0f, avail.x - R);
+        avail.y = std::max(1.0f, avail.y - R);
+        ImGui::SetCursorScreenPos(canvasMin);
+    }
     u32 vw = (u32)std::max(1.0f, avail.x), vh = (u32)std::max(1.0f, avail.y);
     if (v->fitPending) {
         FitView(*v, avail);
@@ -190,7 +198,7 @@ void App::DrawCanvas() {
     if (xf.active && xf.view != v) TransformCancel(*xf.view);
     UpdateWand(*v);
     UpdateQuickSelect(*v);
-    CanvasInput(*v, canvasMin, avail, hovered);
+    if (!GuideInput(*v, canvasMin, avail, hovered)) CanvasInput(*v, canvasMin, avail, hovered);
     TransformApply(*v);
 
     {
@@ -218,6 +226,7 @@ void App::DrawCanvas() {
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(v->viewTex.get()), canvasMin, ImVec2(canvasMin.x + vw, canvasMin.y + vh));
+    DrawGridAndGuides(*v, canvasMin, avail, dl);
 
     // Document border
     ImVec2 d0(canvasMin.x + v->pan.x, canvasMin.y + v->pan.y);
@@ -283,6 +292,7 @@ void App::DrawCanvas() {
     if (doc.Mode() == DocMode::Layers && doc.S().editMask) {
         dl->AddText(ImVec2(canvasMin.x + 10, canvasMin.y + 8), IM_COL32(255, 255, 255, 200), "Édition du masque de fusion");
     }
+    DrawRulers(*v, rulerOrigin, canvasMin, avail);
     ImGui::End();
 }
 

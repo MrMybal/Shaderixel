@@ -80,7 +80,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -566,6 +566,25 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("100 %", "Ctrl+1")) v->zoom = 1.0f;
         ImGui::Separator();
         ImGui::MenuItem("Fusion en gamma (compatible Photoshop)", nullptr, &v->doc->blendInGamma);
+        ImGui::Separator();
+        ImGui::MenuItem("Règles", "Ctrl+R", &showRulers);
+        ImGui::MenuItem("Repères", "Ctrl+;", &showGuides);
+        ImGui::MenuItem("Grille", "Ctrl+'", &showGrid);
+        ImGui::MenuItem("Magnétisme", "Ctrl+Maj+;", &snapEnabled);
+        if (ImGui::BeginMenu("Paramètres de la grille")) {
+            ImGui::SetNextItemWidth(120 * dpi);
+            ImGui::DragFloat("Pas (px)", &gridStep, 1, 4, 4000, "%.0f");
+            ImGui::SetNextItemWidth(120 * dpi);
+            ImGui::SliderInt("Subdivisions", &gridSubdiv, 1, 10);
+            ImGui::EndMenu();
+        }
+        bool anyGuide = !v->doc->S().guidesX.empty() || !v->doc->S().guidesY.empty();
+        if (ImGui::MenuItem("Effacer les repères", nullptr, false, anyGuide)) {
+            Edit e(*v->doc, v->history, "Effacer les repères");
+            v->doc->S().guidesX.clear();
+            v->doc->S().guidesY.clear();
+            e.Commit();
+        }
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Fenêtre")) {
@@ -749,6 +768,10 @@ void App::HandleShortcuts() {
     if (!v) return;
     Document& d = *v->doc;
     if (ctrl && pressed(ImGuiKey_0)) v->fitPending = true;
+    if (ctrl && !shift && pressed(ImGuiKey_R)) showRulers = !showRulers;
+    if (ctrl && !shift && pressed(ImGuiKey_Semicolon)) showGuides = !showGuides;
+    if (ctrl && shift && pressed(ImGuiKey_Semicolon)) snapEnabled = !snapEnabled;
+    if (ctrl && pressed(ImGuiKey_Apostrophe)) showGrid = !showGrid;
     if (ctrl && pressed(ImGuiKey_1)) v->zoom = 1.0f;
 
     // Selection

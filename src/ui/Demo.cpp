@@ -73,6 +73,26 @@ void App::DemoTick() {
         if (frameCounter == 42) d.forceTiled = true;
         return;
     }
+    if (demoMode == 25 && v) {
+        // Guides, grid and snapping.
+        Document& d = *v->doc;
+        if (frameCounter == 6) {
+            DocState before = d.S();
+            d.S().guidesX = {400, 800, 1200};
+            d.S().guidesY = {250, 500};
+            v->history.PushState("Repères", before, d.S());
+            showGrid = true;
+            gridStep = 200;
+            gridSubdiv = 4;
+            float2 a = Snap(*v, {403.5f, 497.0f}), b = Snap(*v, {651.0f, 333.0f}), c = Snap(*v, {1597.0f, 2.0f});
+            Log("[guides] snap (403.5,497)->(%.1f,%.1f)  (651,333)->(%.1f,%.1f)  (1597,2)->(%.1f,%.1f)", a.x, a.y, b.x, b.y, c.x, c.y);
+            v->renderer.SelectShape(d, *ctx, v->history, SelShape::Rect, {a.x, a.y, 1200, 750}, SelMode::Replace, true, 0, "Rectangle");
+        }
+        if (frameCounter == 10) SaveDocument(*v, "demo_guides.sxl");
+        if (frameCounter == 18) LoadSxl("demo_guides.sxl");
+        if (frameCounter == 24 && Active()) Log("[guides] reloaded %zu vertical, %zu horizontal", Active()->doc->S().guidesX.size(), Active()->doc->S().guidesY.size());
+        return;
+    }
     if (demoMode == 24 && v) {
         // Merging must not change the image (normal over normal is associative), undo restores it.
         static gpu::ReadbackPtr rb[6];

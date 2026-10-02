@@ -26,7 +26,7 @@ VectorPath* App::ActivePath(Document& doc) { return FindPath(doc.S(), doc.S().ac
 void App::PenInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     ImGuiIO& io = ImGui::GetIO();
     Document& doc = *v.doc;
-    float2 dp = ScreenToDoc(v, canvasMin, io.MousePos);
+    float2 dp = Snap(v, ScreenToDoc(v, canvasMin, io.MousePos));
     auto toScreen = [&](float2 p) { return ImVec2(canvasMin.x + v.pan.x + p.x * v.zoom, canvasMin.y + v.pan.y + p.y * v.zoom); };
     auto isNear = [&](float2 p) {
         ImVec2 s = toScreen(p);

@@ -151,6 +151,7 @@ struct DocState {
     Id selection = 0;          // R8 selection surface (0 = no selection: everything)
     Id lastSelection = 0;      // for Reselect
     std::vector<VectorPath> paths;  // Pen tool paths
+    std::vector<float> guidesX, guidesY;  // vertical guides (x) and horizontal guides (y), document pixels
     Id activePath = 0;
     std::unordered_map<Id, Surface> surfaces;
     Id nextId = 100;

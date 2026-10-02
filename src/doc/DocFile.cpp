@@ -168,6 +168,13 @@ Json SerializeDocument(const Document& doc) {
     j["activeLayer"] = s.activeLayer;
     j["activeNode"] = s.activeNode;
     j["selection"] = s.selection;
+    if (!s.guidesX.empty() || !s.guidesY.empty()) {
+        Json gx = Json::Array(), gy = Json::Array();
+        for (float g : s.guidesX) gx.Push(g);
+        for (float g : s.guidesY) gy.Push(g);
+        j["guidesX"] = gx;
+        j["guidesY"] = gy;
+    }
     if (!s.paths.empty()) {
         Json ps = Json::Array();
         for (auto& p : s.paths) {
@@ -393,6 +400,8 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         s.paths.push_back(p);
     }
     s.activePath = j["activePath"].U();
+    for (auto& gv : j["guidesX"].Elements()) s.guidesX.push_back(gv.F());
+    for (auto& gv : j["guidesY"].Elements()) s.guidesY.push_back(gv.F());
     // nextId must stay above every id in the file.
     Id maxId = j["nextId"].U(100);
     for (auto& l : s.layers) maxId = std::max(maxId, l.id + 1);

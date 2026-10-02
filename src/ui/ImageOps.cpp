@@ -151,7 +151,7 @@ void App::DrawImageDialogs() {
 
 void App::CropInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     ImGuiIO& io = ImGui::GetIO();
-    float2 dp = ScreenToDoc(v, canvasMin, io.MousePos);
+    float2 dp = Snap(v, ScreenToDoc(v, canvasMin, io.MousePos));
     if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && cropActive) {
         ApplyCrop(v, CropRect());
         cropActive = false;

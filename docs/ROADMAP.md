@@ -46,6 +46,9 @@
 - Filtre de déformation (marionnette / grille)
 - Export PSD avec calques : **fait** (8 bits RLE, groupes, masques, écrêtage, modes ; réglages/remplissages/filtres rastérisés). Reste : PSB (> 30000 px), 16 bits, calques de réglage natifs
 
+- Règles, repères, grille et magnétisme : **fait**
+- Fusionner vers le bas / les calques visibles / aplatir : **fait**
+
 ### 3D
 - glTF / FBX, plusieurs matériaux
 - Canaux PBR liés (rugosité, métal, normale, hauteur) et rendu PBR
