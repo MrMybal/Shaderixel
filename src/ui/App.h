@@ -296,6 +296,11 @@ private:
     bool quickMask = false;
     // selection interaction
     bool selDragging = false;
+    // Outline move: a click first probes the selection under the cursor (async readback).
+    gpu::ReadbackPtr selProbe;
+    float2 selProbeStart;
+    bool selMoving = false;
+    int2 selMoveOffset;
     SelMode selDragMode = SelMode::Replace;
     float2 selStart, selEnd;
     std::vector<float2> lassoPts;

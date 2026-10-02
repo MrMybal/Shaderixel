@@ -169,6 +169,57 @@ void App::SelectionToolInput(DocView& v, ImVec2 canvasMin, bool hovered, const s
     bool click = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     static bool shiftAtStart = false;
 
+    // Dragging inside the selection (no modifier) moves the outline, like Photoshop.
+    bool canMove = tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || (tool == Tool::PolyLasso && !polyActive);
+    if (click && canMove && doc.Selection() && ModeFromModifiers() == SelMode::Replace && !selProbe) {
+        int x = (int)std::floor(dp.x), y = (int)std::floor(dp.y);
+        if (x >= 0 && y >= 0 && x < (int)doc.Width() && y < (int)doc.Height()) {
+            selProbe = v.renderer.ReadPixel(*ctx, doc.Selection()->tex.get(), x, y);
+            selProbeStart = dp;
+            return;
+        }
+    }
+    if (selProbe) {
+        if (!selProbe->ready) return;  // decided in a frame or two
+        bool inside = !selProbe->data.empty() && selProbe->data[0] >= 128;
+        selProbe.reset();
+        bool down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        if (inside) {
+            selMoving = down;
+            selMoveOffset = {0, 0};
+        } else if (!down) {
+            v.renderer.Deselect(doc, v.history);  // simple click outside
+            return;
+        } else {
+            // Start the selection gesture where the click happened.
+            selDragMode = SelMode::Replace;
+            if (tool == Tool::RectSelect || tool == Tool::EllipseSelect) {
+                selDragging = true;
+                selStart = selEnd = selProbeStart;
+                shiftAtStart = io.KeyShift;
+            } else if (tool == Tool::Lasso) {
+                selDragging = true;
+                lassoPts = {selProbeStart};
+            } else if (tool == Tool::PolyLasso) {
+                polyActive = true;
+                lassoPts = {selProbeStart};
+            }
+        }
+    }
+    if (selMoving) {
+        float2 d = dp - selProbeStart;
+        selMoveOffset = {(int)std::lround(d.x), (int)std::lround(d.y)};
+        if (io.KeyShift) {  // constrain to an axis
+            if (std::abs(selMoveOffset.x) > std::abs(selMoveOffset.y)) selMoveOffset.y = 0;
+            else selMoveOffset.x = 0;
+        }
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            selMoving = false;
+            v.renderer.OffsetSelection(doc, *ctx, v.history, selMoveOffset, "Déplacer la sélection");
+        }
+        return;
+    }
+
     if (tool == Tool::RectSelect || tool == Tool::EllipseSelect) {
         if (click) {
             selDragging = true;

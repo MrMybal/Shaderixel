@@ -207,6 +207,7 @@ void App::DrawCanvas() {
     vp.nearest = v->zoom >= 2.0f;
     Surface* sel = doc.Selection();
     vp.selection = (sel && !(xf.active && !xf.moveOnly)) ? sel->tex.get() : nullptr;
+    if (selMoving && sel) vp.selection = v->renderer.OffsetSelectionPreview(doc, *ctx, selMoveOffset);
     vp.quickMask = quickMask;
     vp.time = (float)ImGui::GetTime();
     v->renderer.Display(*ctx, v->renderer.DisplaySource(*ctx, image, vp.invZoom), doc.Width(), doc.Height(), vp, v->viewTex.get());

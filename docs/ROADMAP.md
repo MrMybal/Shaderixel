@@ -38,7 +38,7 @@
 - Mode 8 bits natif
 
 ### Photoshop
-- Déplacer/transformer le contour de sélection seul, sélection rapide
+- Déplacer le contour de sélection (glisser à l'intérieur, flèches) : **fait** ; reste : transformer la sélection, sélection rapide
 - Blend-If (options de fusion) : **fait** (gris, poignées séparables, import/export PSD) ; reste : par canal R/V/B
 - Tracés vectoriels (plume), formes personnalisées
 - Fluidité (pinceau : déformation avant, tourbillons, contraction, dilatation, reconstruction) : **fait**

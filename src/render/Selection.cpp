@@ -151,6 +151,36 @@ bool Renderer::SelectFrom(Document& doc, gpu::CommandContext& ctx, History& hist
     return true;
 }
 
+void Renderer::DispatchSelOffset(gpu::CommandContext& ctx, gpu::Texture* src, gpu::Texture* dst, int2 offset) {
+    struct { u32 w, h; i32 dx, dy; } root = {dst->Width(), dst->Height(), offset.x, offset.y};
+    gpu::DispatchDesc d;
+    d.pipeline = Kernel("sel_offset.slang");
+    d.srv[0] = src;
+    d.uav[0] = dst;
+    SetConstants(d, root);
+    Dispatch2D(ctx, d, dst->Width(), dst->Height());
+}
+
+bool Renderer::OffsetSelection(Document& doc, gpu::CommandContext& ctx, History& hist, int2 offset, const std::string& label) {
+    Surface* prev = doc.Selection();
+    if (!prev || (offset.x == 0 && offset.y == 0)) return false;
+    DocState before = doc.S();
+    Id id = doc.CreateSurfaceRaw(gpu::Format::R8, "Selection");
+    DispatchSelOffset(ctx, prev->tex.get(), doc.GetSurface(id)->tex.get(), offset);
+    doc.S().selection = id;
+    doc.S().lastSelection = id;
+    hist.PushState(label, before, doc.S());
+    return true;
+}
+
+gpu::Texture* Renderer::OffsetSelectionPreview(Document& doc, gpu::CommandContext& ctx, int2 offset) {
+    Surface* sel = doc.Selection();
+    if (!sel) return nullptr;
+    Ensure(selMove, doc.Width(), doc.Height(), gpu::Format::R8, "SelMove");
+    DispatchSelOffset(ctx, sel->tex.get(), selMove.get(), offset);
+    return selMove.get();
+}
+
 void Renderer::Deselect(Document& doc, History& hist) {
     if (!doc.S().selection) return;
     DocState before = doc.S();

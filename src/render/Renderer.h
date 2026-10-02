@@ -121,6 +121,10 @@ public:
     bool SelectFrom(Document& doc, gpu::CommandContext& ctx, History& hist, gpu::Texture* image, SelSource src, SelMode mode,
                     float4 colorSrgb, float tolerance, const std::string& label);
     void Deselect(Document& doc, History& hist);
+    // Move the selection outline by an integer offset (new selection + history step).
+    bool OffsetSelection(Document& doc, gpu::CommandContext& ctx, History& hist, int2 offset, const std::string& label);
+    // Translated copy of the selection for live preview while dragging the outline.
+    gpu::Texture* OffsetSelectionPreview(Document& doc, gpu::CommandContext& ctx, int2 offset);
     void Reselect(Document& doc, History& hist);
     bool SelectionFilter(Document& doc, gpu::CommandContext& ctx, History& hist, int op, float radius, const std::string& label);
     void SelectionToMask(Document& doc, gpu::CommandContext& ctx, Id maskSurface, bool invert);
@@ -215,7 +219,8 @@ private:
     u64 effectGeneration = ~0ull;
     bool pending = false;
 
-    gpu::TexturePtr selTmp[2];
+    gpu::TexturePtr selTmp[2], selMove;
+    void DispatchSelOffset(gpu::CommandContext& ctx, gpu::Texture* src, gpu::Texture* dst, int2 offset);
     gpu::TexturePtr boundsTex;
     Id strokeSurface = 0;
     gpu::TexturePtr strokePre, strokeMask;

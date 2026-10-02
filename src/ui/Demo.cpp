@@ -73,6 +73,17 @@ void App::DemoTick() {
         if (frameCounter == 42) d.forceTiled = true;
         return;
     }
+    if (demoMode == 21 && v) {
+        // Selection outline move: ellipse, then offset (drag result) and undo/redo.
+        Document& d = *v->doc;
+        if (frameCounter == 6) v->renderer.SelectShape(d, *ctx, v->history, SelShape::Ellipse, {200, 200, 700, 600}, SelMode::Replace, true, 0, "Ellipse");
+        if (frameCounter == 8) v->renderer.OffsetSelection(d, *ctx, v->history, {450, 120}, "Déplacer la sélection");
+        if (frameCounter == 10) Undo();
+        if (frameCounter == 12) Redo();
+        if (frameCounter == 14) Log("[selmove] history %zu, selection %u", v->history.Cursor(), d.S().selection);
+        tool = Tool::EllipseSelect;
+        return;
+    }
     if (demoMode == 20 && v) {
         // .sxl round trip with an embedded LUT.
         static gpu::ReadbackPtr a, b;

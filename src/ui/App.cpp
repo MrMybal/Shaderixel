@@ -80,7 +80,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -819,6 +819,16 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_X)) std::swap(fg, bg);
     if (pressed(ImGuiKey_D)) { fg = {0, 0, 0, 1}; bg = {1, 1, 1, 1}; }
 
+    bool selTool = tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || tool == Tool::PolyLasso || tool == Tool::Wand;
+    if (selTool && v->doc->Selection() && !xf.active) {
+        int step = shift ? 10 : 1;
+        int2 o = {0, 0};
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) o.x -= step;
+        if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) o.x += step;
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) o.y -= step;
+        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) o.y += step;
+        if (o.x || o.y) v->renderer.OffsetSelection(*v->doc, *ctx, v->history, o, "Déplacer la sélection");
+    }
     if (tool == Tool::Move && !xf.active) {
         float step = shift ? 10.0f : 1.0f;
         if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) Nudge(*v, -step, 0);
