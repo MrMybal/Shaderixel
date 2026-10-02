@@ -55,7 +55,8 @@
 - Pinceau en espace UV / triplanar, masquage par ID de matériau
 
 ### IA
-- ComfyUI (workflows API), retouche par inpainting depuis la sélection
+- Remplissage génératif depuis la sélection (OpenAI /images/edits avec masque, Gemini) : **fait** (chaîne validée avec SX_AI_MOCK=1 ; appels réels non testés sans clé)
+- ComfyUI (workflows API)
 - Opérations MCP supplémentaires (graphes d'effets, nœuds)
 
 ### Multi-plateforme

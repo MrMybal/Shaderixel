@@ -305,6 +305,20 @@ void App::DemoTick() {
     if (demoMode == 18 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
     if (demoMode == 11 && v && frameCounter == 7) ImGui::SetWindowFocus("Éditeur d'effets");
     if (demoMode == 27 && v && frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
+    if (demoMode == 30 && v) {
+        // Generative fill with the local stand-in (SX_AI_MOCK=1): ellipse selection -> masked AI layer.
+        Document& d = *v->doc;
+        if (frameCounter == 6) {
+            v->renderer.SelectShape(d, *ctx, v->history, SelShape::Ellipse, {550, 300, 1050, 700}, SelMode::Replace, true, 0, "Ellipse");
+            ImGui::SetWindowFocus("Génération IA");
+        }
+        if (frameCounter == 9) StartGenerativeFill(*v, "un vitrail lumineux");
+        if (frameCounter == 40) {
+            const Layer* top = d.ActiveLayer();
+            Log("[genfill] busy=%d active layer '%s' mask=%u layers=%zu", (int)genFill.busy, top ? top->name.c_str() : "-", top ? top->mask : 0, d.S().layers.size());
+        }
+        return;
+    }
     if (demoMode == 29 && v) {
         // HDRI lighting: glossy metal band on a sphere under a generated environment.
         Document& d = *v->doc;

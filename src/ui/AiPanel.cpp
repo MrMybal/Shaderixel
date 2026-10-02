@@ -395,6 +395,15 @@ void App::DrawImageGenPanel() {
         }
     }
     ImGui::EndDisabled();
+    ImGui::SeparatorText("Remplissage génératif");
+    {
+        DocView* v = Active();
+        bool canFill = v && v->doc->Selection() && !genPrompt.empty() && provider != 2 && !genFill.busy;
+        ImGui::BeginDisabled(!canFill);
+        if (ImGui::Button(genFill.busy ? "Remplissage en cours..." : "Remplir la sélection", ImVec2(-1, 0))) StartGenerativeFill(*v, genPrompt);
+        ImGui::EndDisabled();
+        ImGui::TextDisabled("Remplace la zone sélectionnée par le contenu décrit dans le prompt (nouveau calque masqué).");
+    }
     if (genRefReadback && genRefReadback->ready && genPendingLaunch) {
         auto rb = genRefReadback;
         std::string pngData;

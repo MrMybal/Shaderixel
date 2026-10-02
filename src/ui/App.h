@@ -464,6 +464,16 @@ private:
     bool genUseImage = false, genNewDoc = false, genBusy = false;
     gpu::ReadbackPtr genRefReadback;
     std::function<void(std::string)> genPendingLaunch;
+    // Generative fill (GenFill.cpp)
+    struct GenFillState {
+        DocView* view = nullptr;
+        gpu::ReadbackPtr image, mask;
+        std::string prompt;
+        Id selection = 0;
+        bool busy = false, launched = false;
+    } genFill;
+    void StartGenerativeFill(DocView& v, const std::string& prompt);
+    void UpdateGenerativeFill();
     std::string statusMsg;
     double statusTime = 0;
     std::string pendingDrop;
