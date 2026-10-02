@@ -241,9 +241,17 @@ void App::DrawNodeEditor() {
         }
         // Thumbnail
         gpu::Texture* out = v->renderer.NodeOutput(n.id);
+        u64 outHash = v->renderer.NodeHash(n.id);
+        // Tiled mode (large documents) keeps no per-node images: surfaces and the
+        // final image can still be previewed.
+        if (!out && n.kind == NodeKind::Surface)
+            if (Surface* s = d.GetSurface(n.surface)) { out = s->tex.get(); outHash = s->version; }
+        if (!out && n.kind == NodeKind::Output && d.tiled) { out = v->lastImage; outHash = v->renderer.ImageVersion(); }
+        ImVec2 ta = toScreen(n.pos + float2{8, kHeader + std::max(L.inputs, 1) * kRow + 4});
+        if (!out && d.tiled && ed.zoom > 0.4f)
+            dl->AddText(ImVec2(ta.x + 4, ta.y + 4), ui::col::TextDim, "Aperçu indisponible\n(grand document)");
         if (out) {
-            gpu::Texture* t = v->renderer.Thumbnail(*ctx, kThumbKeyBit | n.id, out, v->renderer.NodeHash(n.id), (u32)L.thumbW, (u32)L.thumbH);
-            ImVec2 ta = toScreen(n.pos + float2{8, kHeader + std::max(L.inputs, 1) * kRow + 4});
+            gpu::Texture* t = v->renderer.Thumbnail(*ctx, kThumbKeyBit | n.id, out, outHash, (u32)L.thumbW, (u32)L.thumbH);
             ImVec2 tb(ta.x + L.thumbW * ed.zoom, ta.y + L.thumbH * ed.zoom);
             dl->AddImageRounded((ImTextureID)gpu::Dev().UiTextureId(t), ta, tb, ImVec2(0, 0), ImVec2(1, 1), n.bypass ? IM_COL32(255, 255, 255, 90) : IM_COL32_WHITE, 3 * ed.zoom);
         }
