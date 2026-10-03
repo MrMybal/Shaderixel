@@ -583,6 +583,9 @@ void Document::RebuildFromLayers() {
     out.pos = {b.x + 300.0f, 510.0f};
     b.g.nodes.push_back(out);
     b.g.output = kOutputId;
+    // Positions moved by the user survive the rebuild.
+    for (auto& n : b.g.nodes)
+        if (auto it = state.layerNodePos.find(n.id); it != state.layerNodePos.end()) n.pos = it->second;
     state.graph = std::move(b.g);
     state.activeNode = 0;
 }

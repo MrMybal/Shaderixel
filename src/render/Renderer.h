@@ -110,7 +110,12 @@ public:
     // like a Blend node; apply an effect to `in` (nullptr while compiling); fill.
     void Composite(Document& doc, gpu::CommandContext& ctx, gpu::Texture* dst, gpu::Texture* base, gpu::Texture* top, gpu::Texture* mask,
                    BlendMode mode, float opacity, bool clip, const BlendIf* blendIf);
-    gpu::TexturePtr ApplyEffect(Document& doc, gpu::CommandContext& ctx, const EffectInstance& fx, gpu::Texture* in);
+    // `refW/refH`: reference size the effect sees as the document (0 = the document's).
+    gpu::TexturePtr ApplyEffect(Document& doc, gpu::CommandContext& ctx, const EffectInstance& fx, gpu::Texture* in, u32 refW = 0, u32 refH = 0);
+    // Small copy of `src` fitted into w x h (aspect kept, centered), for previews.
+    gpu::TexturePtr PreviewCopy(gpu::CommandContext& ctx, gpu::Texture* src, u32 w, u32 h);
+    // Destructive filter on a pixel surface (selection-limited), recorded in the history.
+    bool ApplyEffectToSurface(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, const EffectInstance& fx, const std::string& label);
     void FillTexture(gpu::CommandContext& ctx, gpu::Texture* dst, float4 value);
 
     void Import(Document& doc, gpu::CommandContext& ctx, Id surface, const void* pixels, u32 w, u32 h, bool isFloat, int2 offset);

@@ -1,4 +1,5 @@
 #pragma once
+#include <set>
 // Application shell: window, frame loop, documents, panels.
 
 #include "doc/Document.h"
@@ -23,6 +24,8 @@
 #include <unordered_map>
 
 namespace sx {
+
+std::string ExeDir();  // folder of the executable
 
 enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
@@ -462,6 +465,21 @@ private:
     void LoadLogo();
     void DrawAbout();
     void DrawWelcome();
+    // Effects: one entry point for every way of applying a library effect.
+    enum class FxApply { Filter, Adjustment, Destructive, Node };
+    void ApplyLibraryEffect(DocView& v, const std::string& id, FxApply how);
+    void DrawEffectBrowser();
+    void DrawLayerPreview();
+    struct {
+        std::string search, category, selected;
+        bool favoritesOnly = false, favLoaded = false;
+        std::set<std::string> favorites;
+        int source = 0;            // 0 active layer, 1 whole image
+        float thumb = 120;
+        gpu::TexturePtr sourceSmall;
+        u64 sourceHash = 0, sourceFrame = 0;
+        std::map<std::string, gpu::TexturePtr> previews;
+    } fxBrowser;
     void UpdateRelativeDrag();
     // Scripted run (--demo, --capture, --dump-image, --save): never takes the focus or the real cursor.
     bool Automated() const { return demoMode != 0 || !capturePath.empty() || !dumpPath.empty() || !cliSavePath.empty(); }  // hidden, pinned cursor while a slider/drag is dragged

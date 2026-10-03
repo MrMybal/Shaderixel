@@ -378,7 +378,52 @@ void Renderer::Composite(Document& doc, gpu::CommandContext& ctx, gpu::Texture* 
     Dispatch2D(ctx, d, W, H);
 }
 
-gpu::TexturePtr Renderer::ApplyEffect(Document& doc, gpu::CommandContext& ctx, const EffectInstance& fx, gpu::Texture* in) {
+gpu::TexturePtr Renderer::PreviewCopy(gpu::CommandContext& ctx, gpu::Texture* src, u32 w, u32 h) {
+    auto* k = Kernel("preview_resample.slang");
+    if (!k || !src || !w || !h) return nullptr;
+    auto out = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA16F, "Preview");
+    float scale = std::max((float)src->Width() / w, (float)src->Height() / h);
+    struct { u32 w, h; float sx, sy, ox, oy; } root = {w, h, scale, scale, (src->Width() - w * scale) * 0.5f, (src->Height() - h * scale) * 0.5f};
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = src;
+    d.uav[0] = out.get();
+    SetConstants(d, root);
+    Dispatch2D(ctx, d, w, h);
+    return out;
+}
+
+bool Renderer::ApplyEffectToSurface(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, const EffectInstance& fx, const std::string& label) {
+    Surface* s = doc.GetSurface(surface);
+    auto* k = Kernel("apply_masked.slang");
+    EffectDefPtr def = fx.Def();
+    if (!s || !k || !def) return false;
+    // A one-shot action: compile now rather than wait for the background compile.
+    if (ProgramFor(def)->state.load() == gpu::Program::State::Pending)
+        programs[def.get()].program = Shaders().CompileNow(def->name, BuildEffectSource(*def));
+    auto result = ApplyEffect(doc, ctx, fx, s->tex.get());
+    if (!result) return false;
+    const u32 W = s->tex->Width(), H = s->tex->Height();
+    auto before = gpu::Dev().CreateTexture(W, H, s->tex->GetFormat(), "UndoBefore");
+    ctx.CopyTexture(before.get(), s->tex.get());
+    Surface* sel = doc.Selection();
+    struct { u32 w, h, flags; } root = {W, H, sel ? 1u : 0u};
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = before.get();
+    d.srv[1] = result.get();
+    d.srv[2] = sel ? sel->tex.get() : nullptr;
+    d.uav[0] = s->tex.get();
+    SetConstants(d, root);
+    Dispatch2D(ctx, d, W, H);
+    auto after = gpu::Dev().CreateTexture(W, H, s->tex->GetFormat(), "UndoAfter");
+    ctx.CopyTexture(after.get(), s->tex.get());
+    hist.PushPaint(label, surface, {0, 0, (int)W, (int)H}, before, after);
+    doc.TouchSurface(surface);
+    return true;
+}
+
+gpu::TexturePtr Renderer::ApplyEffect(Document& doc, gpu::CommandContext& ctx, const EffectInstance& fx, gpu::Texture* in, u32 refW, u32 refH) {
     EffectDefPtr def = fx.Def();
     if (!def || !in) return nullptr;
     auto prog = ProgramFor(def);
@@ -397,7 +442,7 @@ gpu::TexturePtr Renderer::ApplyEffect(Document& doc, gpu::CommandContext& ctx, c
         d.srv[4] = p > 0 ? prev : nullptr;
         BindLuts(ctx, d, *def, fx);
         d.uav[0] = dst;
-        SetConstants(d, EffectRoot{W, H, 0, 0, doc.Width(), doc.Height(), (u32)p, def->inputs.empty() ? 0u : 1u, {0, 0, 0, 0, 0, 0, 0, 0}});
+        SetConstants(d, EffectRoot{W, H, 0, 0, refW ? refW : doc.Width(), refH ? refH : doc.Height(), (u32)p, def->inputs.empty() ? 0u : 1u, {0, 0, 0, 0, 0, 0, 0, 0}});
         d.cbData = packed.data();
         d.cbSize = packed.size() * sizeof(float4);
         Dispatch2D(ctx, d, W, H);

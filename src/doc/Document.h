@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 // Document model.
 //
 // The node GRAPH is what gets rendered, always. A document is created either in
@@ -165,6 +166,8 @@ struct DocState {
     std::vector<VectorPath> paths;  // Pen tool paths
     std::vector<float> guidesX, guidesY;  // vertical guides (x) and horizontal guides (y), document pixels
     Id activePath = 0;
+    // Layer mode: positions the user gave to generated graph nodes (by node id).
+    std::map<Id, float2> layerNodePos;
     std::unordered_map<Id, Surface> surfaces;
     Id nextId = 100;
 };

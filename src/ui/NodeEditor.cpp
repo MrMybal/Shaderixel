@@ -144,10 +144,9 @@ void App::DrawNodeEditor() {
             if (Node* n = g.Find(hoverNode)) {
                 if (!editable && n->layer) { d.S().activeLayer = n->layer; d.S().editMask = false; }
             }
-            if (editable) {
-                ed.dragNode = hoverNode;
-                ed.moveBefore = d.S();
-            }
+            // Nodes can be moved in both modes (layer mode keeps the position over rebuilds).
+            ed.dragNode = hoverNode;
+            ed.moveBefore = d.S();
             // Bring to front
             auto it = std::find_if(g.nodes.begin(), g.nodes.end(), [&](const Node& n) { return n.id == hoverNode; });
             if (it != g.nodes.end() && editable) std::rotate(it, it + 1, g.nodes.end());
@@ -156,7 +155,10 @@ void App::DrawNodeEditor() {
         }
     }
     if (ed.dragNode && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
-        if (Node* n = g.Find(ed.dragNode)) n->pos = n->pos + float2{io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
+        if (Node* n = g.Find(ed.dragNode)) {
+            n->pos = n->pos + float2{io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
+            if (!editable) d.S().layerNodePos[n->id] = n->pos;
+        }
     }
     if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
         if (ed.draggingLink) {

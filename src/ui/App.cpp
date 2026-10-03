@@ -16,16 +16,16 @@ namespace fs = std::filesystem;
 
 namespace sx {
 
-namespace {
-double Now() {
-    using namespace std::chrono;
-    return duration<double>(steady_clock::now().time_since_epoch()).count();
-}
-
 std::string ExeDir() {
     wchar_t buf[MAX_PATH];
     GetModuleFileNameW(nullptr, buf, MAX_PATH);
     return Narrow(fs::path(buf).parent_path().wstring());
+}
+
+namespace {
+double Now() {
+    using namespace std::chrono;
+    return duration<double>(steady_clock::now().time_since_epoch()).count();
 }
 
 std::string ShaderDir() {
@@ -79,7 +79,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -129,7 +129,7 @@ bool App::Init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout_v8.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v9.ini";
     LoadRecent();
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
@@ -380,6 +380,8 @@ void App::Frame() {
     DrawPathsPanel();
     UpdateHistogram();
     DrawHistogram();
+    DrawEffectBrowser();
+    DrawLayerPreview();
     DrawNewDocDialog();
     DrawShaderErrors();
     DrawSelectionDialog();
@@ -659,9 +661,11 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("Vue 3D", center);
     ImGui::DockBuilderDockWindow("Graphe", bottom);
     ImGui::DockBuilderDockWindow("Éditeur d'effets", bottom);
+    ImGui::DockBuilderDockWindow("Effets", bottom);
     ImGui::DockBuilderDockWindow("Couleur", rightTop);
     ImGui::DockBuilderDockWindow("Options", rightTop);
     ImGui::DockBuilderDockWindow("Histogramme", rightTop);
+    ImGui::DockBuilderDockWindow("Aperçu du calque", rightTop);
     ImGui::DockBuilderDockWindow("Propriétés", rightMid);
     ImGui::DockBuilderDockWindow("Historique", rightMid);
     ImGui::DockBuilderDockWindow("Assistant IA", rightMid);
@@ -751,27 +755,13 @@ void App::DrawMenuBar() {
         Layer* l = d.ActiveLayer();
         if (layerMode && !l) ImGui::TextDisabled("Aucun calque actif");
         EffectMenu([&](const std::string& id) {
-            Edit e(d, v->history, "Filtre");
-            if (layerMode && l) {
-                EffectInstance fx;
-                fx.effectId = id;
-                if (auto def = Effects().Find(id)) fx.params = def->DefaultParams();
-                l->filters.push_back(fx);
-                d.SyncGraph();
-            } else if (!layerMode) {
-                // Insert after the active node, rewiring its consumers.
-                Id src = d.S().activeNode;
-                Node* sn = d.S().graph.Find(src);
-                float2 pos = sn ? sn->pos + float2{220, 0} : nodeEd.contextPos;
-                Id nid = d.AddEffectNode(id, "", pos).id;
-                if (src && src != d.S().graph.output) {
-                    for (auto& n : d.S().graph.nodes)
-                        for (auto& in : n.inputs) if (in == src && n.id != nid) in = nid;
-                    d.Link(src, nid, 0);
-                }
-            }
-            e.Commit();
+            if (!layerMode || l) ApplyLibraryEffect(*v, id, FxApply::Filter);
         }, false, true);
+        if (ImGui::BeginMenu("Appliquer aux pixels (destructif)", d.GetSurface(d.PaintTarget()) != nullptr)) {
+            EffectMenu([&](const std::string& id) { ApplyLibraryEffect(*v, id, FxApply::Destructive); }, false, true);
+            ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem("Galerie d'effets...")) ImGui::SetWindowFocus("Effets");
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Affichage", v != nullptr)) {

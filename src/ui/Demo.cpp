@@ -256,6 +256,36 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 36 && v) {
+        // Effects gallery + layer preview; destructive apply (and its undo); a moved
+        // node keeps its place when the layer graph is rebuilt.
+        Document& d = *v->doc;
+        static gpu::ReadbackPtr orig, applied, undone;
+        auto grab = [&] { return v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx)); };
+        if (frameCounter == 4) {
+            for (auto& l : d.S().layers) if (l.name == "Peinture") d.S().activeLayer = l.id;
+            fxBrowser.selected = "invert";
+        }
+        if (frameCounter == 6) orig = grab();
+        if (frameCounter == 8) ApplyLibraryEffect(*v, "invert", FxApply::Destructive);
+        if (frameCounter == 10) applied = grab();
+        if (frameCounter == 12) Undo();
+        if (frameCounter == 14) undone = grab();
+        if (frameCounter == 16) Redo();
+        if (frameCounter == 18) {
+            Id moved = 0;
+            for (auto& n : d.S().graph.nodes) if (n.kind == NodeKind::Surface && n.layer == d.S().activeLayer) moved = n.id;
+            d.S().layerNodePos[moved] = {-300, 900};
+            d.SyncGraph();
+            const Node* n = d.S().graph.Find(moved);
+            Log("[fxbrowser] moved node %u at %.0f,%.0f after rebuild", moved, n ? n->pos.x : 0.0f, n ? n->pos.y : 0.0f);
+        }
+        if (frameCounter == 24 && orig && applied && undone && orig->ready && applied->ready && undone->ready) {
+            CompareReadbacks("original vs invert applied", *orig, *applied, 1);
+            CompareReadbacks("original vs undo", *orig, *undone, 0);
+        }
+        return;
+    }
     if (demoMode == 35) {
         // Relative sliders/drags, driven through ImGui's input queue only (the real
         // cursor and keyboard are never touched): 100 px plain, with Shift, with Ctrl.
