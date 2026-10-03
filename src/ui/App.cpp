@@ -1,5 +1,6 @@
 #include "ui/App.h"
 #include "io/ColorMgmt.h"
+#include "io/WicLoad.h"
 #include "doc/HlslImport.h"
 #include "doc/Brushes.h"
 #include "ui/Theme.h"
@@ -38,7 +39,10 @@ std::string ShaderDir() {
     return SX_SHADER_DIR;
 }
 
-const wchar_t* kImageFilter = L"Documents et images\0*.sxl;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif\0Documents Shaderixel (*.sxl)\0*.sxl\0Images\0*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif\0Tous les fichiers\0*.*\0";
+const wchar_t* kImageFilter =
+    L"Documents et images\0*.sxl;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif;*.tif;*.tiff;*.webp;*.heic;*.dng;*.cr2;*.cr3;*.nef;*.arw;*.orf;*.rw2;*.raf;*.pef;*.srw\0"
+    L"Documents Shaderixel (*.sxl)\0*.sxl\0Images\0*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif;*.tif;*.tiff;*.webp;*.heic\0"
+    L"Camera RAW\0*.dng;*.cr2;*.cr3;*.nef;*.arw;*.orf;*.rw2;*.raf;*.pef;*.srw\0Tous les fichiers\0*.*\0";
 }  // namespace
 
 // ------------------------------------------------------------------ lifecycle
@@ -82,7 +86,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -456,6 +460,7 @@ void App::Frame() {
     UpdateContentAwareFill();
     UpdateActionRun();
     UpdateColorJobs();
+    UpdatePhotoJob();
     UpdateBatch();
     UpdateSubjectInstall();
     if (DocView* av = Active(); av && frameCounter % 60 == 0) UpdateLinkedSmartObjects(*av, false);
@@ -486,6 +491,7 @@ void App::Frame() {
     if (Shown("Compositions de calques")) DrawLayerCompsPanel();
     DrawBatchWindow();
     DrawColorDialogs();
+    DrawPhotoDialog();
     UpdateHistogram();
     if (Shown("Histogramme")) DrawHistogram();
     if (Shown("Effets")) DrawEffectBrowser();
@@ -674,6 +680,15 @@ void App::OpenImage(const std::string& path, bool asLayer) {
             Log("PSD layered import failed (%s), falling back to the flattened image", err.c_str());
         }
     }
+    {
+        // Camera RAW (and formats stb does not read): Windows Imaging Component.
+        std::string ext = Narrow(Utf8Path(path).extension().wstring());
+        for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
+        if (IsRawExtension(ext) || ext == ".tif" || ext == ".tiff" || ext == ".webp" || ext == ".heic" || ext == ".heif" || ext == ".jxr") {
+            OpenWithWic(path, asLayer);
+            return;
+        }
+    }
     FILE* f = nullptr;
     _wfopen_s(&f, Widen(path).c_str(), L"rb");
     if (!f) { Status("Impossible d'ouvrir " + path); return; }
@@ -681,7 +696,10 @@ void App::OpenImage(const std::string& path, bool asLayer) {
     bool isFloat = stbi_is_hdr_from_file(f) != 0;
     void* pixels = isFloat ? (void*)stbi_loadf_from_file(f, &w, &h, &comp, 4) : (void*)stbi_load_from_file(f, &w, &h, &comp, 4);
     fclose(f);
-    if (!pixels) { Status("Format d'image non supporté : " + path); return; }
+    if (!pixels) {
+        if (!OpenWithWic(path, asLayer)) Status("Format d'image non supporté : " + path);
+        return;
+    }
     std::string name = Narrow(Utf8Path(path).filename().wstring());
     DocView* v = Active();
     if (!asLayer || !v) {
@@ -846,6 +864,10 @@ void App::DrawMenuBar() {
         }
         if (ImGui::BeginMenu("Automatisation")) {
             if (ImGui::MenuItem("Traitement par lots...")) batch.open = true;
+            ImGui::Separator();
+            if (ImGui::MenuItem("Photomerge (panorama)...")) { photoDlg.open = true; photoDlg.kind = 1; }
+            if (ImGui::MenuItem("Fusion HDR...")) { photoDlg.open = true; photoDlg.kind = 4; }
+            ImGui::Separator();
             if (ImGui::MenuItem("Actions")) { panelOpen["Actions"].open = true; ShowSideTab(1); ImGui::SetWindowFocus("Actions"); }
             ImGui::EndMenu();
         }
@@ -872,6 +894,9 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Effacer", "Suppr", false, canFill)) FillOrErase(*v, true);
         if (ImGui::MenuItem("Contour...", nullptr, false, canFill && v->doc->Selection() != nullptr)) selDialog = 5;
         DrawColorEditMenu();
+        ImGui::Separator();
+        if (ImGui::MenuItem("Alignement automatique des calques...", nullptr, false, v != nullptr)) { photoDlg.open = true; photoDlg.kind = 2; }
+        if (ImGui::MenuItem("Fusion automatique des calques...", nullptr, false, v != nullptr)) { photoDlg.open = true; photoDlg.kind = 3; }
         ImGui::Separator();
         if (ImGui::MenuItem("Remplir d'après le contenu", "Maj+F5", false, canFill && v->doc->Selection() != nullptr && !fillJob.active))
             StartContentAwareFill(*v);

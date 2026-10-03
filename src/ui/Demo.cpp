@@ -300,6 +300,48 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 58) {
+        // Photo tools: SX_OP = pano | hdr (files SX_FILES, ';' separated) | align | stack (first file opened, others as layers).
+        char filesBuf[4096] = "", op[16] = "pano";
+        GetEnvironmentVariableA("SX_FILES", filesBuf, sizeof(filesBuf));
+        GetEnvironmentVariableA("SX_OP", op, sizeof(op));
+        std::vector<std::string> files;
+        for (std::string s = filesBuf; !s.empty();) {
+            size_t p = s.find(';');
+            files.push_back(s.substr(0, p));
+            s = p == std::string::npos ? "" : s.substr(p + 1);
+        }
+        std::string o = op;
+        if (frameCounter == 4) {
+            photoDlg.files = files;
+            photoDlg.layout = 0;
+            photoDlg.blend = true;
+            photoDlg.blendMode = o == "stack" ? 1 : 0;
+            if (o == "pano") StartPhotoJob(1, nullptr);
+            else if (o == "hdr") StartPhotoJob(4, nullptr);
+            else {
+                OpenImage(files[0], false);
+                for (size_t i = 1; i < files.size(); ++i) OpenImage(files[i], true);
+            }
+        }
+        if (frameCounter == 8 && (o == "align" || o == "stack") && Active()) StartPhotoJob(o == "align" ? 2 : 3, Active());
+        if (frameCounter == 200 && o == "hdr" && Active()) {
+            // Camera Raw on the merged HDR: exposure -2, highlights / shadows, clarity, vibrance.
+            Document& d = *Active()->doc;
+            for (auto& l : d.S().layers)
+                for (auto& f : l.filters)
+                    if (f.effectId == "camera_raw" && f.params.size() >= 14) {
+                        f.params[2].x = -1.5f;  // exposure
+                        f.params[4].x = -60;    // highlights
+                        f.params[5].x = 50;     // shadows
+                        f.params[9].x = 40;     // clarity
+                        f.params[11].x = 30;    // vibrance
+                    }
+            d.SyncGraph();
+        }
+        if (frameCounter % 30 == 0) Log("[demo] photo %s: %s", op, statusMsg.c_str());
+        return;
+    }
     if (demoMode == 57) {
         // Color management: CMYK values of primaries, proofing / gamut warning on SX_IMAGE, CMYK TIFF to SX_OUT.
         char path[512] = "", out[512] = "", op[16] = "";

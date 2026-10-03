@@ -39,6 +39,7 @@ inline bool IsRetouchTool(Tool t) {
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
 
 struct DocView;
+struct PhotoJob;
 
 // Free transform / move session on one surface (+ the selection, if any).
 // Actions (Actions.cpp): a command with JSON parameters, replayed on any document.
@@ -727,6 +728,19 @@ private:
     void DrawColorEditMenu();
     void DrawColorModeMenu();
     void DrawColorDialogs();
+    // Photo tools (PhotoMerge.cpp): panorama, auto-align / auto-blend, HDR merge, RAW through WIC.
+    std::shared_ptr<PhotoJob> photoJob;
+    struct {
+        bool open = false, blend = true;
+        int kind = 1, layout = 0, blendMode = 0;
+        std::vector<std::string> files;
+    } photoDlg;
+    void StartPhotoJob(int kind, DocView* v);
+    void UpdatePhotoJob();
+    void ApplyPhotoJob(PhotoJob& J);
+    void WriteMaskData(Document& d, Id surface, const std::vector<float>& m, int mw, int mh);
+    bool OpenWithWic(const std::string& path, bool asLayer);
+    void DrawPhotoDialog();
     void DrawBatchWindow();
     Id smartEditRequest = 0;
     void ColorPickerBody();  // Couleur panel / toolbar popup
