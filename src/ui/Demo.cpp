@@ -256,6 +256,33 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 33 && v) {
+        // Warp: bulge the paint strokes, commit, then undo back to the original.
+        Document& d = *v->doc;
+        static gpu::ReadbackPtr orig, warpedRb, undone;
+        auto grab = [&] { return v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx)); };
+        if (frameCounter == 5) {
+            for (auto& l : d.S().layers) if (l.name == "Peinture") d.S().activeLayer = l.id;
+            orig = grab();
+        }
+        if (frameCounter == 6) WarpBegin(*v);
+        if (frameCounter == 10 && xf.warp) {
+            for (int k : {5, 6}) xf.grid[k] = xf.grid[k] + float2{0, -260};
+            for (int k : {9, 10}) xf.grid[k] = xf.grid[k] + float2{0, 160};
+            xf.grid[15] = xf.grid[15] + float2{80, 60};
+            xf.dirty = true;
+        }
+        if (frameCounter == 30) TransformCommit(*v);
+        if (frameCounter == 32) warpedRb = grab();
+        if (frameCounter == 34) Undo();
+        if (frameCounter == 37) undone = grab();
+        if (frameCounter == 42 && orig && warpedRb && undone && orig->ready && warpedRb->ready && undone->ready) {
+            CompareReadbacks("original vs warped", *orig, *warpedRb, 1);
+            CompareReadbacks("original vs undo", *orig, *undone, 0);
+            Log("[warp] history: %s", v->history.Count() ? "ok" : "empty");
+        }
+        return;
+    }
     if (demoMode == 32 && v) {
         // Selection -> path: ellipse with a rectangular hole plus a separate disc,
         // traced into a path, turned back into a selection and compared.

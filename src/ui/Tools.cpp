@@ -463,9 +463,15 @@ void App::TransformApply(DocView& v) {
         xf.w = (float)(x1 - x0);
         xf.h = (float)(y1 - y0);
         TransformUpdateCorners();
+        if (xf.warpPending) WarpFromCorners();
     }
     if (!xf.dirty) return;
     xf.dirty = false;
+    if (xf.warp) {
+        Surface* sel = xf.selectionOnly ? nullptr : doc.GetSurface(xf.selection);
+        v.renderer.WarpPreview(doc, *ctx, xf.surface, xf.original.get(), sel ? sel->tex.get() : nullptr, xf.src, xf.grid, xf.selectionOnly);
+        return;
+    }
     float m[9], n[9], hm[9];
     SquareToQuad(xf.corners, m);
     const float sw = (float)xf.src.Width(), sh = (float)xf.src.Height();
@@ -491,11 +497,19 @@ void App::TransformCommit(DocView& v) {
     if (xf.boundsRb) { xf = TransformState{}; return; }
     Document& doc = *v.doc;
     TransformApply(v);
+    // Warp: compare the grid with the undeformed one.
+    bool warped = false;
+    if (xf.warp)
+        for (int j = 0; j < 4; ++j)
+            for (int i = 0; i < 4; ++i) {
+                float2 rest = {xf.src.x0 + xf.src.Width() * i / 3.0f, xf.src.y0 + xf.src.Height() * j / 3.0f};
+                if (Length(xf.grid[j * 4 + i] - rest) > 1e-3f) warped = true;
+            }
     if (xf.selectionOnly) {
-        bool changed = false;
+        bool changed = warped;
         const float2 local[4] = {{(float)xf.src.x0, (float)xf.src.y0}, {(float)xf.src.x1, (float)xf.src.y0},
                                  {(float)xf.src.x1, (float)xf.src.y1}, {(float)xf.src.x0, (float)xf.src.y1}};
-        for (int i = 0; i < 4; ++i) if (Length(xf.corners[i] - local[i]) > 1e-3f) changed = true;
+        if (!xf.warp) for (int i = 0; i < 4; ++i) if (Length(xf.corners[i] - local[i]) > 1e-3f) changed = true;
         if (changed) {
             doc.S().lastSelection = doc.S().selection;
             v.history.PushState("Transformer la sélection", xf.before, doc.S());
@@ -506,8 +520,8 @@ void App::TransformCommit(DocView& v) {
         return;
     }
     Surface* s = doc.GetSurface(xf.surface);
-    bool moved = false;
-    for (int i = 0; i < 4; ++i) {
+    bool moved = warped;
+    for (int i = 0; i < 4 && !xf.warp; ++i) {
         const float2 local[4] = {{(float)xf.src.x0, (float)xf.src.y0}, {(float)xf.src.x1, (float)xf.src.y0},
                                  {(float)xf.src.x1, (float)xf.src.y1}, {(float)xf.src.x0, (float)xf.src.y1}};
         if (Length(xf.corners[i] - local[i]) > 1e-3f) moved = true;
@@ -516,9 +530,18 @@ void App::TransformCommit(DocView& v) {
         v.history.BeginGroup();
         auto after = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "UndoAfter");
         ctx->CopyTexture(after.get(), s->tex.get());
-        v.history.PushPaint(xf.moveOnly ? "Déplacement" : "Transformation", xf.surface, {0, 0, (int)s->tex->Width(), (int)s->tex->Height()}, xf.original, after);
+        v.history.PushPaint(xf.warp ? "Déformation" : xf.moveOnly ? "Déplacement" : "Transformation", xf.surface,
+                            {0, 0, (int)s->tex->Width(), (int)s->tex->Height()}, xf.original, after);
         // The selection follows the pixels.
-        if (Surface* sel = doc.GetSurface(xf.selection)) {
+        Surface* sel = doc.GetSurface(xf.selection);
+        if (sel && xf.warp) {
+            DocState before = doc.S();
+            Id nid = doc.CreateSurfaceRaw(gpu::Format::R8, "Selection");
+            v.renderer.WarpPreview(doc, *ctx, nid, sel->tex.get(), nullptr, xf.src, xf.grid, true);
+            doc.S().selection = nid;
+            doc.S().lastSelection = nid;
+            v.history.PushState("Transformer la sélection", before, doc.S());
+        } else if (sel) {
             DocState before = doc.S();
             Id nid = doc.CreateSurfaceRaw(gpu::Format::R8, "Selection");
             float m[9], n[9], hm[9];
@@ -572,6 +595,7 @@ void App::Nudge(DocView& v, float dx, float dy) {
 
 void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     if (!xf.active || xf.boundsRb) return;
+    if (xf.warp) { WarpInput(v, canvasMin, hovered); return; }
     ImGuiIO& io = ImGui::GetIO();
     float2 m = ScreenToDoc(v, canvasMin, io.MousePos);
     auto toScreen = [&](float2 p) { return ImVec2(canvasMin.x + v.pan.x + p.x * v.zoom, canvasMin.y + v.pan.y + p.y * v.zoom); };
@@ -683,6 +707,7 @@ void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
 
 void App::TransformDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
     if (!xf.active || xf.view != &v || xf.moveOnly || xf.boundsRb) return;
+    if (xf.warp) { WarpDrawOverlay(v, canvasMin, dl); return; }
     auto toScreen = [&](float2 p) { return ImVec2(canvasMin.x + v.pan.x + p.x * v.zoom, canvasMin.y + v.pan.y + p.y * v.zoom); };
     ImVec2 q[4];
     for (int i = 0; i < 4; ++i) q[i] = toScreen(xf.corners[i]);
@@ -708,6 +733,124 @@ void App::TransformDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
         ImVec2 mp = ImGui::GetIO().MousePos;
         dl->AddRectFilled(ImVec2(mp.x + 14, mp.y + 14), ImVec2(mp.x + 24 + ImGui::CalcTextSize(buf).x, mp.y + 20 + ImGui::GetFontSize()), IM_COL32(20, 20, 24, 220), 4);
         dl->AddText(ImVec2(mp.x + 19, mp.y + 17), IM_COL32_WHITE, buf);
+    }
+}
+
+// ------------------------------------------------------------------ warp
+
+bool App::WarpBegin(DocView& v) {
+    if (!xf.active && !TransformBegin(v, false)) return false;
+    if (xf.moveOnly) return false;
+    if (xf.boundsRb) xf.warpPending = true;  // grid set up once the bounds are known
+    else WarpFromCorners();
+    return true;
+}
+
+void App::WarpFromCorners() {
+    // Start from the current quad (bilinear placement of the 16 points).
+    xf.warpPending = false;
+    xf.warp = true;
+    for (int j = 0; j < 4; ++j)
+        for (int i = 0; i < 4; ++i) {
+            float u = i / 3.0f, vv = j / 3.0f;
+            float2 top = xf.corners[0] * (1 - u) + xf.corners[1] * u, bottom = xf.corners[3] * (1 - u) + xf.corners[2] * u;
+            xf.grid[j * 4 + i] = top * (1 - vv) + bottom * vv;
+        }
+    xf.dirty = true;
+}
+
+void App::WarpInput(DocView& v, ImVec2 canvasMin, bool hovered) {
+    ImGuiIO& io = ImGui::GetIO();
+    float2 m = ScreenToDoc(v, canvasMin, io.MousePos);
+    auto toScreen = [&](float2 p) { return ImVec2(canvasMin.x + v.pan.x + p.x * v.zoom, canvasMin.y + v.pan.y + p.y * v.zoom); };
+    auto hitNear = [&](float2 p, float r) { ImVec2 s = toScreen(p); float dx = s.x - io.MousePos.x, dy = s.y - io.MousePos.y; return dx * dx + dy * dy <= r * r; };
+    int hit = -1;
+    // Corners first, then tangent handles, then interior points.
+    static const int order[16] = {0, 3, 15, 12, 1, 2, 4, 8, 7, 11, 13, 14, 5, 6, 9, 10};
+    for (int k = 0; k < 16 && hit < 0; ++k) if (hitNear(xf.grid[order[k]], 9)) hit = order[k];
+    // Otherwise: a point of the surface (closest sample of the patch).
+    float2 uvHit;
+    if (hit < 0) {
+        float best = 1e30f;
+        const int S = 32;
+        for (int y = 0; y <= S; ++y)
+            for (int x = 0; x <= S; ++x) {
+                float2 p = BezierPatch(xf.grid, (float)x / S, (float)y / S);
+                float d = Length(p - m);
+                if (d < best) { best = d; uvHit = {(float)x / S, (float)y / S}; }
+            }
+        if (best * v.zoom < 24.0f) hit = 16;
+    }
+    if (hovered && xf.warpDrag < 0) ImGui::SetMouseCursor(hit >= 0 ? ImGuiMouseCursor_ResizeAll : ImGuiMouseCursor_Arrow);
+    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && hit >= 0) {
+        xf.warpDrag = hit;
+        xf.warpUV = uvHit;
+        xf.dragStart = m;
+        memcpy(xf.startGrid, xf.grid, sizeof(xf.grid));
+    }
+    if (xf.warpDrag >= 0 && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        float2 delta = m - xf.dragStart;
+        memcpy(xf.grid, xf.startGrid, sizeof(xf.grid));
+        int d = xf.warpDrag;
+        if (d == 16) {
+            // Surface drag: move the control points by their influence so the grabbed point follows the mouse.
+            float u = xf.warpUV.x, w = xf.warpUV.y;
+            float bu[4] = {(1 - u) * (1 - u) * (1 - u), 3 * u * (1 - u) * (1 - u), 3 * u * u * (1 - u), u * u * u};
+            float bv[4] = {(1 - w) * (1 - w) * (1 - w), 3 * w * (1 - w) * (1 - w), 3 * w * w * (1 - w), w * w * w};
+            float sum2 = 0;
+            for (int j = 0; j < 4; ++j) for (int i = 0; i < 4; ++i) sum2 += (bu[i] * bv[j]) * (bu[i] * bv[j]);
+            for (int j = 0; j < 4; ++j)
+                for (int i = 0; i < 4; ++i) xf.grid[j * 4 + i] = xf.startGrid[j * 4 + i] + delta * (bu[i] * bv[j] / std::max(sum2, 1e-6f));
+        } else {
+            xf.grid[d] = xf.startGrid[d] + delta;
+            // Corners carry their two tangent handles (and the adjacent interior point).
+            int ci = d % 4, cj = d / 4;
+            if ((ci == 0 || ci == 3) && (cj == 0 || cj == 3)) {
+                int ni = ci == 0 ? 1 : 2, nj = cj == 0 ? 1 : 2;
+                for (int idx : {cj * 4 + ni, nj * 4 + ci, nj * 4 + ni}) xf.grid[idx] = xf.startGrid[idx] + delta;
+            }
+        }
+        xf.dirty = true;
+    }
+    if (xf.warpDrag >= 0 && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) xf.warpDrag = -1;
+}
+
+void App::WarpDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
+    auto toScreen = [&](float2 p) { return ImVec2(canvasMin.x + v.pan.x + p.x * v.zoom, canvasMin.y + v.pan.y + p.y * v.zoom); };
+    // Grid lines at thirds, outline thicker.
+    const int S = 32;
+    for (int k = 0; k <= 3; ++k)
+        for (int dir = 0; dir < 2; ++dir) {
+            ImVec2 pts[S + 1];
+            for (int t = 0; t <= S; ++t) {
+                float a = (float)t / S, b = k / 3.0f;
+                pts[t] = toScreen(dir == 0 ? BezierPatch(xf.grid, a, b) : BezierPatch(xf.grid, b, a));
+            }
+            bool edge = k == 0 || k == 3;
+            dl->AddPolyline(pts, S + 1, IM_COL32(0, 0, 0, 140), 0, edge ? 3.0f : 2.0f);
+            dl->AddPolyline(pts, S + 1, edge ? ui::col::Accent2 : IM_COL32(255, 255, 255, 150), 0, edge ? 1.5f : 1.0f);
+        }
+    // Tangent handles of the corners.
+    const int corners[4] = {0, 3, 15, 12};
+    for (int c : corners) {
+        int ci = c % 4, cj = c / 4;
+        int hx = cj * 4 + (ci == 0 ? 1 : 2), hy = (cj == 0 ? 1 : 2) * 4 + ci;
+        for (int h : {hx, hy}) {
+            dl->AddLine(toScreen(xf.grid[c]), toScreen(xf.grid[h]), IM_COL32(255, 255, 255, 170), 1.0f);
+            ImVec2 p = toScreen(xf.grid[h]);
+            dl->AddCircleFilled(p, 4.5f, IM_COL32_WHITE);
+            dl->AddCircle(p, 4.5f, IM_COL32(20, 20, 24, 255));
+        }
+    }
+    for (int idx : {5, 6, 9, 10}) {
+        ImVec2 p = toScreen(xf.grid[idx]);
+        dl->AddCircle(p, 4.0f, IM_COL32(0, 0, 0, 180), 0, 3.0f);
+        dl->AddCircle(p, 4.0f, IM_COL32_WHITE, 0, 1.5f);
+    }
+    for (int c : corners) {
+        ImVec2 p = toScreen(xf.grid[c]);
+        dl->AddRectFilled(ImVec2(p.x - 5, p.y - 5), ImVec2(p.x + 5, p.y + 5), IM_COL32_WHITE);
+        dl->AddRect(ImVec2(p.x - 5, p.y - 5), ImVec2(p.x + 5, p.y + 5), IM_COL32(20, 20, 24, 255));
     }
 }
 

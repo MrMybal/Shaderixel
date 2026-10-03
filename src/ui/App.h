@@ -61,6 +61,12 @@ struct TransformState {
     float startW = 1, startH = 1, startAngle = 0;
     bool dirty = false;
     int interp = 2;
+    // Warp: bicubic Bezier patch over the region (4x4 control points, row-major).
+    bool warp = false;
+    bool warpPending = false;  // switch to warp once the bounds are known
+    float2 grid[16], startGrid[16];
+    int warpDrag = -1;         // control point, 16 = surface drag
+    float2 warpUV;             // patch parameters of a surface drag
 };
 
 struct DocView {
@@ -303,6 +309,10 @@ private:
     void TransformCancel(DocView& v);
     void TransformDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     void TransformUpdateCorners();
+    bool WarpBegin(DocView& v);
+    void WarpFromCorners();
+    void WarpInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void WarpDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     void Nudge(DocView& v, float dx, float dy);
     void FillOrErase(DocView& v, bool erase);
     void LayerViaCopy(DocView& v, bool cut);

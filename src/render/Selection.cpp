@@ -3,6 +3,7 @@
 #include "render/Dispatch.h"
 
 #include <cstring>
+#include <unordered_map>
 
 namespace sx {
 
@@ -340,6 +341,101 @@ void Renderer::TransformPreview(Document& doc, gpu::CommandContext& ctx, Id surf
     d.cbData = &cb;
     d.cbSize = sizeof(cb);
     Dispatch2D(ctx, d, cb.w, cb.h);
+    doc.TouchSurface(surface);
+}
+
+// ------------------------------------------------------------------ warp
+
+float2 BezierPatch(const float2 g[16], float u, float v) {
+    float bu[4] = {(1 - u) * (1 - u) * (1 - u), 3 * u * (1 - u) * (1 - u), 3 * u * u * (1 - u), u * u * u};
+    float bv[4] = {(1 - v) * (1 - v) * (1 - v), 3 * v * (1 - v) * (1 - v), 3 * v * v * (1 - v), v * v * v};
+    float2 p;
+    for (int j = 0; j < 4; ++j)
+        for (int i = 0; i < 4; ++i) p = p + g[j * 4 + i] * (bu[i] * bv[j]);
+    return p;
+}
+
+namespace {
+const gpu::GraphicsPipeline* WarpPipeline(gpu::Format f) {
+    static std::unordered_map<int, gpu::GraphicsPipelinePtr> cache;
+    static u64 gen = ~0ull;
+    if (gen != Shaders().FileGeneration()) { cache.clear(); gen = Shaders().FileGeneration(); }
+    auto it = cache.find((int)f);
+    if (it != cache.end()) return it->second.get();
+    auto prog = Shaders().CompileGraphicsNow("warp.slang", Shaders().File("warp.slang"));
+    if (prog->state.load() != gpu::Program::State::Ready) return nullptr;
+    gpu::GraphicsDesc gd;
+    gd.colorFormats = {f};
+    gd.useDepth = false;
+    gd.depthWrite = false;
+    auto p = gpu::Dev().CreateGraphicsPipeline(prog->vs.data(), prog->vs.size(), prog->ps.data(), prog->ps.size(), gd);
+    cache[(int)f] = p;
+    return p.get();
+}
+struct WarpCB { float4 src; float2 origin, target, docSize; u32 flags; u32 pad; };
+struct WarpCombineRoot { u32 w, h; i32 ox, oy; u32 ww, wh, flags; };
+}  // namespace
+
+void Renderer::WarpPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection, const Rect& src,
+                           const float2 grid[16], bool mask) {
+    Surface* s = doc.GetSurface(surface);
+    auto* combine = Kernel("warp_combine.slang");
+    const gpu::GraphicsPipeline* pipe = s && original ? WarpPipeline(s->tex->GetFormat()) : nullptr;
+    if (!s || !original || !combine || !pipe || src.Empty()) return;
+    const u32 W = s->tex->Width(), H = s->tex->Height();
+    // Tessellation and its bounding box (clipped to the document).
+    const int N = 48;
+    struct Vtx { float pos[3], nrm[3], uv[2]; };
+    std::vector<Vtx> verts;
+    verts.reserve((N + 1) * (N + 1));
+    float bx0 = 1e30f, by0 = 1e30f, bx1 = -1e30f, by1 = -1e30f;
+    for (int y = 0; y <= N; ++y)
+        for (int x = 0; x <= N; ++x) {
+            float u = (float)x / N, v = (float)y / N;
+            float2 p = BezierPatch(grid, u, v);
+            bx0 = std::min(bx0, p.x); by0 = std::min(by0, p.y); bx1 = std::max(bx1, p.x); by1 = std::max(by1, p.y);
+            verts.push_back({{p.x, p.y, 0}, {0, 0, 1}, {src.x0 + u * src.Width(), src.y0 + v * src.Height()}});
+        }
+    std::vector<u32> idx;
+    idx.reserve(N * N * 6);
+    for (int y = 0; y < N; ++y)
+        for (int x = 0; x < N; ++x) {
+            u32 a = y * (N + 1) + x, b = a + 1, c = a + N + 1, d = c + 1;
+            idx.insert(idx.end(), {a, b, d, a, d, c});
+        }
+    Rect box = Rect{(int)std::floor(bx0) - 2, (int)std::floor(by0) - 2, (int)std::ceil(bx1) + 2, (int)std::ceil(by1) + 2}.Clipped((int)W, (int)H);
+    gpu::TexturePtr warped;
+    if (!box.Empty()) {
+        if (!warpTarget || warpTarget->Width() != (u32)box.Width() || warpTarget->Height() != (u32)box.Height() || warpTarget->GetFormat() != s->tex->GetFormat())
+            warpTarget = gpu::Dev().CreateTexture((u32)box.Width(), (u32)box.Height(), s->tex->GetFormat(), "Warp", gpu::UsageRenderTarget);
+        auto vb = gpu::Dev().CreateBuffer(ctx, verts.data(), verts.size() * sizeof(Vtx), "WarpVB");
+        auto ib = gpu::Dev().CreateBuffer(ctx, idx.data(), idx.size() * sizeof(u32), "WarpIB");
+        WarpCB cb = {{(float)src.x0, (float)src.y0, (float)src.x1, (float)src.y1}, {(float)box.x0, (float)box.y0},
+                     {(float)box.Width(), (float)box.Height()}, {(float)W, (float)H}, (selection ? 1u : 0u) | (mask ? 2u : 0u), 0};
+        gpu::DrawDesc d;
+        d.pipeline = pipe;
+        d.srv[0] = original;
+        d.srv[1] = selection;
+        d.rt[0] = warpTarget.get();
+        d.clearColor = true;
+        d.clearValue = {0, 0, 0, 0};
+        d.cbData = &cb;
+        d.cbSize = sizeof(cb);
+        d.vertices = vb.get();
+        d.vertexStride = sizeof(Vtx);
+        d.indices = ib.get();
+        d.count = (u32)idx.size();
+        ctx.Draw(d);
+        warped = warpTarget;
+    }
+    gpu::DispatchDesc c;
+    c.pipeline = combine;
+    c.srv[0] = original;
+    c.srv[1] = selection;
+    c.srv[2] = warped.get();
+    c.uav[0] = s->tex.get();
+    SetConstants(c, WarpCombineRoot{W, H, box.x0, box.y0, warped ? (u32)box.Width() : 0u, warped ? (u32)box.Height() : 0u, selection && !mask ? 1u : 0u});
+    Dispatch2D(ctx, c, W, H);
     doc.TouchSurface(surface);
 }
 

@@ -988,9 +988,17 @@ void App::DrawBrush() {
     DocView* v = Active();
 
     if (xf.active) {
-        ImGui::SeparatorText(xf.moveOnly ? "Déplacement" : "Transformation manuelle");
+        ImGui::SeparatorText(xf.moveOnly ? "Déplacement" : xf.warp ? "Déformation" : "Transformation manuelle");
         if (xf.boundsRb) {
             ImGui::TextDisabled("Calcul des limites...");
+        } else if (xf.warp) {
+            ImGui::TextDisabled("Glisser un point, une poignée ou la surface.");
+            ImGui::TextDisabled("Les coins entraînent leurs poignées.");
+            if (ImGui::Button("Réinitialiser la grille")) {
+                for (int j = 0; j < 4; ++j)
+                    for (int i = 0; i < 4; ++i) xf.grid[j * 4 + i] = {xf.src.x0 + xf.src.Width() * i / 3.0f, xf.src.y0 + xf.src.Height() * j / 3.0f};
+                xf.dirty = true;
+            }
         } else if (!xf.moveOnly) {
             bool changed = false;
             if (!xf.freeCorners) {
@@ -1011,6 +1019,7 @@ void App::DrawBrush() {
             ImGui::TextDisabled("Coin : échelle  (Maj : proportionnel, Alt : depuis le centre)");
             ImGui::TextDisabled("Ctrl+coin : perspective / déformation");
             ImGui::TextDisabled("Hors du cadre : rotation (Maj : 15°)");
+            if (ImGui::Button("Passer en déformation (grille)")) WarpFromCorners();
         }
         if (ImGui::Button("Valider (Entrée)") && xf.view) TransformCommit(*xf.view);
         ImGui::SameLine();

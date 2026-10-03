@@ -62,6 +62,9 @@ struct RetouchParams {
     int range = 1;  // dodge/burn: 0 shadows, 1 midtones, 2 highlights
 };
 
+// Point of a bicubic Bezier patch (4x4 control points, row-major) at (u, v).
+float2 BezierPatch(const float2 grid[16], float u, float v);
+
 class Renderer {
 public:
     // Process queued surface clears/copies; call once per frame before evaluation.
@@ -162,12 +165,18 @@ public:
     void MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
                         float4 colorLinear, bool erase);
     void RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, const ShapeStyle& s);
+    // Warp: `src` drawn as the bicubic Bezier patch `grid` (4x4 control points,
+    // row-major, document pixels) over what stays (unselected pixels). `mask`:
+    // the original is a selection, warped as a whole.
+    void WarpPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection, const Rect& src,
+                     const float2 grid[16], bool mask);
     void TransformPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection,
                           const TransformParams& t);
 
     void Reset();  // drop all caches (document switch)
 
 private:
+    gpu::TexturePtr warpTarget;  // WarpPreview render target (bounding box of the warped patch)
     struct NodeCache {
         gpu::TexturePtr tex, tmp;
         u64 hash = 0;
