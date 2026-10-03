@@ -287,6 +287,55 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_EXTRA", b, sizeof(b)) > 0) NewExtraWindow();
         return;
     }
+    if (demoMode == 44 && v) {
+        // Effect drag & drop on the layer graph, injected through ImGui (never the real mouse):
+        // on the "Lueur" layer node -> filter; on empty space -> node mode + new node.
+        Document& d = *v->doc;
+        ImGuiIO& io = ImGui::GetIO();
+        ImGuiWindow* gw = ImGui::FindWindowByName("Graphe");
+        auto screenOf = [&](float2 p) {
+            ImVec2 o = gw->InnerRect.Min;
+            return ImVec2(o.x + (p.x + nodeEd.pan.x) * nodeEd.zoom, o.y + (p.y + nodeEd.pan.y) * nodeEd.zoom);
+        };
+        static ImVec2 target;
+        static const char* fx = "invert";
+        auto drag = [&](int f0) {
+            int f = (int)frameCounter - f0;
+            if (f == 0) io.AddMousePosEvent(target.x - 60, target.y - 60);
+            if (f == 1) io.AddMouseButtonEvent(0, true);
+            if (f >= 1 && f <= 6) {
+                if (f >= 2) io.AddMousePosEvent(target.x - 60 + f * 10, target.y - 60 + f * 10);
+                if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceExtern)) {
+                    ImGui::SetDragDropPayload(kEffectPayload, fx, strlen(fx) + 1);
+                    ImGui::EndDragDropSource();
+                }
+            }
+            if (f == 6) io.AddMouseButtonEvent(0, false);
+        };
+        if (frameCounter == 5 && gw) {
+            nodeEd.zoom = 0.6f;
+            for (auto& n : d.S().graph.nodes)
+                if (n.layer && n.name == "Lueur" && n.kind == NodeKind::Surface) {
+                    nodeEd.pan = float2{200, 120} - n.pos;
+                    target = screenOf(n.pos + float2{60, 40});
+                }
+        }
+        if (frameCounter >= 6 && frameCounter <= 12) drag(6);
+        if (frameCounter == 15) {
+            for (auto& l : d.S().layers)
+                if (l.name == "Lueur") Log("[demo] dnd on layer node: Lueur has %zu filters (last %s), mode %s", l.filters.size(),
+                                           l.filters.empty() ? "-" : l.filters.back().effectId.c_str(), d.Mode() == DocMode::Layers ? "calques" : "nodal");
+            target = ImVec2(gw->InnerRect.Max.x - 80, gw->InnerRect.Max.y - 60);
+            fx = "posterize";
+        }
+        if (frameCounter >= 16 && frameCounter <= 22) drag(16);
+        if (frameCounter == 25) {
+            int found = 0;
+            for (auto& n : d.S().graph.nodes) if (n.kind == NodeKind::Effect && n.fx.effectId == "posterize") ++found;
+            Log("[demo] dnd on empty space: mode %s, posterize nodes %d", d.Mode() == DocMode::Layers ? "calques" : "nodal", found);
+        }
+        return;
+    }
     if (demoMode == 43 && v && frameCounter == 4) {
         // Graphs: a brush built in nodes (scatter, random size, follow the stroke) painted
         // on a new layer, and a blend built in nodes on the glow layer.
