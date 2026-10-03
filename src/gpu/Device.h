@@ -309,6 +309,26 @@ private:
     u64 completedFrame = 0;      // highest submission id known finished
     bool acquiredImage = false;  // a swapchain image is being rendered this frame
     bool memoryBudget = false;   // VK_EXT_memory_budget available
+    // Sparse textures: 64 KB tiles carved from shared memory blocks. Tiles are
+    // bound with vkQueueBindSparse as soon as they are needed, before the
+    // commands using them are recorded (writes recorded earlier are lost on
+    // NVIDIA). Each bind waits for the previous frame and signals `sparseSem`;
+    // the frame's submission waits for the last bind. New tiles are zeroed by a
+    // command buffer that runs ahead of the main one.
+    int AllocTile();
+    VkCommandBuffer PreCmd();
+    std::vector<VkDeviceMemory> tileBlocks;
+    std::vector<int> freeTiles;
+    u32 tileMemType = ~0u;
+    VkBuffer zeroBuf = VK_NULL_HANDLE;  // 64 KB of zeros (tile clears)
+    VkDeviceMemory zeroMem = VK_NULL_HANDLE;
+    bool zeroReady = false;
+    VkCommandPool prePool[kFramesInFlight] = {};
+    VkCommandBuffer preCmd[kFramesInFlight] = {};
+    bool preOpen = false;
+    VkSemaphore sparseSem = VK_NULL_HANDLE;  // timeline: one value per bind
+    u64 sparseValue = 0, sparseWaited = 0;
+    VkSemaphore timeline = VK_NULL_HANDLE;       // signaled with the submission id of each frame
 #else
     struct FreeList {
         std::vector<int> free;

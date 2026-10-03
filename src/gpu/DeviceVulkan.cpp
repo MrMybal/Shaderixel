@@ -5,7 +5,8 @@
 // (VK_EXT_robustness2) for unbound slots. Every image lives in the GENERAL
 // layout after its first use; consecutive GPU operations are separated by a
 // full memory barrier (simple and correct; finer tracking can come later).
-// Sparse textures are not implemented on this backend yet.
+// Sparse textures use sparse residency images (residencyNonResidentStrict:
+// unbound areas read as zero), like D3D12 tiled resources tier 2.
 #include "gpu/Device.h"
 
 #include <imgui.h>
@@ -19,6 +20,8 @@ namespace sx::gpu {
 namespace {
 constexpr size_t kUploadPerFrame = 64ull << 20;
 constexpr u32 kBindSrv = 0, kBindUav = 16, kBindCb = 33, kBindSampler = 48;
+constexpr VkDeviceSize kTileBytes = 65536;
+constexpr int kTilesPerBlock = 512;  // 32 MB memory blocks
 
 Device g_device;
 
@@ -160,6 +163,7 @@ bool Device::Init(HWND window) {
     VkPhysicalDeviceVulkan12Features f12 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     f12.scalarBlockLayout = VK_TRUE;
     f12.uniformBufferStandardLayout = VK_TRUE;
+    f12.timelineSemaphore = VK_TRUE;
     f12.pNext = &f13;
     VkPhysicalDeviceFeatures2 f2 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2};
     f2.features.shaderStorageImageReadWithoutFormat = VK_TRUE;
@@ -167,6 +171,21 @@ bool Device::Init(HWND window) {
     f2.features.shaderStorageImageExtendedFormats = VK_TRUE;
     f2.features.fragmentStoresAndAtomics = VK_TRUE;
     f2.pNext = &f12;
+    {
+        // Sparse residency images whose unbound areas read as zero, on our queue.
+        VkPhysicalDeviceFeatures have;
+        vkGetPhysicalDeviceFeatures(physical, &have);
+        VkPhysicalDeviceProperties props;
+        vkGetPhysicalDeviceProperties(physical, &props);
+        u32 qn = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(physical, &qn, nullptr);
+        std::vector<VkQueueFamilyProperties> qf(qn);
+        vkGetPhysicalDeviceQueueFamilyProperties(physical, &qn, qf.data());
+        sparseSupported = have.sparseBinding && have.sparseResidencyImage2D && props.sparseProperties.residencyNonResidentStrict &&
+                          props.sparseProperties.residencyStandard2DBlockShape && (qf[queueFamily].queueFlags & VK_QUEUE_SPARSE_BINDING_BIT);
+        f2.features.sparseBinding = f2.features.sparseResidencyImage2D = sparseSupported ? VK_TRUE : VK_FALSE;
+        Log("Sparse textures: %s", sparseSupported ? "yes" : "no");
+    }
     std::vector<const char*> devExts = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, VK_EXT_ROBUSTNESS_2_EXTENSION_NAME,
                                         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME};
     {
@@ -246,6 +265,37 @@ bool Device::Init(HWND window) {
         VK_CHECK(vkAllocateMemory(device, &mai, nullptr, &f.uploadMem));
         VK_CHECK(vkBindBufferMemory(device, f.upload, f.uploadMem, 0));
         VK_CHECK(vkMapMemory(device, f.uploadMem, 0, VK_WHOLE_SIZE, 0, (void**)&f.uploadPtr));
+    }
+    for (u32 i = 0; i < kFramesInFlight; ++i) {
+        VkCommandPoolCreateInfo pci = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+        pci.queueFamilyIndex = queueFamily;
+        VK_CHECK(vkCreateCommandPool(device, &pci, nullptr, &prePool[i]));
+        VkCommandBufferAllocateInfo cai = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+        cai.commandPool = prePool[i];
+        cai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        cai.commandBufferCount = 1;
+        VK_CHECK(vkAllocateCommandBuffers(device, &cai, &preCmd[i]));
+    }
+    {
+        VkSemaphoreTypeCreateInfo tci = {VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO};
+        tci.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+        VkSemaphoreCreateInfo semi = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+        semi.pNext = &tci;
+        VK_CHECK(vkCreateSemaphore(device, &semi, nullptr, &timeline));
+        VK_CHECK(vkCreateSemaphore(device, &semi, nullptr, &sparseSem));
+    }
+    if (sparseSupported) {
+        VkBufferCreateInfo bci = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+        bci.size = kTileBytes;
+        bci.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+        VK_CHECK(vkCreateBuffer(device, &bci, nullptr, &zeroBuf));
+        VkMemoryRequirements req;
+        vkGetBufferMemoryRequirements(device, zeroBuf, &req);
+        VkMemoryAllocateInfo mai = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        mai.allocationSize = req.size;
+        mai.memoryTypeIndex = FindMemory(req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VK_CHECK(vkAllocateMemory(device, &mai, nullptr, &zeroMem));
+        VK_CHECK(vkBindBufferMemory(device, zeroBuf, zeroMem, 0));
     }
     ctx.dev = this;
     RECT rc;
@@ -344,6 +394,14 @@ void Device::Shutdown() {
         vkDestroySemaphore(device, f.acquired, nullptr);
         vkDestroyCommandPool(device, f.pool, nullptr);
     }
+    for (u32 i = 0; i < kFramesInFlight; ++i) {
+        vkDestroyCommandPool(device, prePool[i], nullptr);
+    }
+    vkDestroySemaphore(device, timeline, nullptr);
+    vkDestroySemaphore(device, sparseSem, nullptr);
+    vkDestroyBuffer(device, zeroBuf, nullptr);
+    vkFreeMemory(device, zeroMem, nullptr);
+    for (VkDeviceMemory m : tileBlocks) vkFreeMemory(device, m, nullptr);
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     vkDestroyDescriptorSetLayout(device, setLayout, nullptr);
     for (auto s : samplers) vkDestroySampler(device, s, nullptr);
@@ -498,21 +556,53 @@ void Device::EndFrame() {
     VK_CHECK(vkEndCommandBuffer(cmd));
 
     const u64 id = frameNumber + 1;
-    VkCommandBufferSubmitInfo cbi = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
-    cbi.commandBuffer = cmd;
-    VkSemaphoreSubmitInfo waitI = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    waitI.semaphore = f.acquired;
-    waitI.stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
-    VkSemaphoreSubmitInfo signalI = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
-    if (acquiredImage) signalI.semaphore = renderDone[swapIndex];
-    signalI.stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    VkSemaphoreSubmitInfo waits[2] = {}, signals[2] = {};
+    u32 numWaits = 0, numSignals = 0;
+    if (acquiredImage) {
+        waits[numWaits] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+        waits[numWaits].semaphore = f.acquired;
+        waits[numWaits++].stageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+        signals[numSignals] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+        signals[numSignals].semaphore = renderDone[swapIndex];
+        signals[numSignals++].stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    }
+    signals[numSignals] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+    signals[numSignals].semaphore = timeline;
+    signals[numSignals].value = id;
+    signals[numSignals++].stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    if (sparseValue > sparseWaited) {
+        waits[numWaits] = {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO};
+        waits[numWaits].semaphore = sparseSem;
+        waits[numWaits].value = sparseValue;
+        waits[numWaits++].stageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+        sparseWaited = sparseValue;
+    }
+    VkCommandBufferSubmitInfo cbis[2] = {};
+    u32 numCb = 0;
+    if (preOpen) {
+        VkCommandBuffer pre = preCmd[frameIndex];
+        VkMemoryBarrier2 mb = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
+        mb.srcStageMask = mb.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+        mb.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
+        mb.dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT;
+        VkDependencyInfo di = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+        di.memoryBarrierCount = 1;
+        di.pMemoryBarriers = &mb;
+        vkCmdPipelineBarrier2(pre, &di);
+        VK_CHECK(vkEndCommandBuffer(pre));
+        cbis[numCb] = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+        cbis[numCb++].commandBuffer = pre;
+        preOpen = false;
+    }
+    cbis[numCb] = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO};
+    cbis[numCb++].commandBuffer = cmd;
     VkSubmitInfo2 si = {VK_STRUCTURE_TYPE_SUBMIT_INFO_2};
-    si.commandBufferInfoCount = 1;
-    si.pCommandBufferInfos = &cbi;
-    si.waitSemaphoreInfoCount = acquiredImage ? 1 : 0;
-    si.pWaitSemaphoreInfos = &waitI;
-    si.signalSemaphoreInfoCount = acquiredImage ? 1 : 0;
-    si.pSignalSemaphoreInfos = &signalI;
+    si.commandBufferInfoCount = numCb;
+    si.pCommandBufferInfos = cbis;
+    si.waitSemaphoreInfoCount = numWaits;
+    si.pWaitSemaphoreInfos = waits;
+    si.signalSemaphoreInfoCount = numSignals;
+    si.pSignalSemaphoreInfos = signals;
     VK_CHECK(vkResetFences(device, 1, &f.fence));
     VK_CHECK(vkQueueSubmit2(queue, 1, &si, f.fence));
     f.submitted = id;
@@ -581,7 +671,106 @@ u64 Device::VideoMemoryUsage() const {
     return used;
 }
 
-void Device::MapRect(Texture*, const Rect&) {}  // no sparse textures on Vulkan yet
+// ------------------------------------------------------------------ sparse textures
+
+int Device::AllocTile() {
+    if (freeTiles.empty()) {
+        VkMemoryAllocateInfo mai = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
+        mai.allocationSize = kTileBytes * kTilesPerBlock;
+        mai.memoryTypeIndex = tileMemType;
+        VkDeviceMemory m;
+        if (vkAllocateMemory(device, &mai, nullptr, &m) != VK_SUCCESS) {
+            Log("Sparse memory allocation failed (out of video memory?)");
+            return -1;
+        }
+        int base = (int)tileBlocks.size() * kTilesPerBlock;
+        tileBlocks.push_back(m);
+        for (int i = kTilesPerBlock - 1; i >= 0; --i) freeTiles.push_back(base + i);
+    }
+    int s = freeTiles.back();
+    freeTiles.pop_back();
+    ++tilesInUse;
+    return s;
+}
+
+VkCommandBuffer Device::PreCmd() {
+    if (!preOpen) {
+        // The slot may still be in flight when called between frames.
+        VK_CHECK(vkWaitForFences(device, 1, &frames[frameIndex].fence, VK_TRUE, UINT64_MAX));
+        VK_CHECK(vkResetCommandPool(device, prePool[frameIndex], 0));
+        VkCommandBufferBeginInfo bi = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+        bi.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        VK_CHECK(vkBeginCommandBuffer(preCmd[frameIndex], &bi));
+        preOpen = true;
+        if (!zeroReady) {
+            vkCmdFillBuffer(preCmd[frameIndex], zeroBuf, 0, VK_WHOLE_SIZE, 0);
+            VkMemoryBarrier2 mb = {VK_STRUCTURE_TYPE_MEMORY_BARRIER_2};
+            mb.srcStageMask = mb.dstStageMask = VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+            mb.srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT;
+            mb.dstAccessMask = VK_ACCESS_2_TRANSFER_READ_BIT;
+            VkDependencyInfo di = {VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
+            di.memoryBarrierCount = 1;
+            di.pMemoryBarriers = &mb;
+            vkCmdPipelineBarrier2(preCmd[frameIndex], &di);
+            zeroReady = true;
+        }
+    }
+    return preCmd[frameIndex];
+}
+
+void Device::MapRect(Texture* t, const Rect& r0) {
+    if (!t || !t->sparse || !t->image) return;
+    Rect r = r0.Clipped((int)t->width, (int)t->height);
+    if (r.Empty()) return;
+    u32 tx0 = r.x0 / t->tileW, tx1 = (r.x1 - 1) / t->tileW, ty0 = r.y0 / t->tileH, ty1 = (r.y1 - 1) / t->tileH;
+    std::vector<VkBufferImageCopy> clears;
+    std::vector<VkSparseImageMemoryBind> binds;
+    for (u32 ty = ty0; ty <= ty1; ++ty)
+        for (u32 tx = tx0; tx <= tx1; ++tx) {
+            int& slot = t->tiles[(size_t)ty * t->tilesX + tx];
+            if (slot >= 0) continue;
+            int s = AllocTile();
+            if (s < 0) break;
+            slot = s;
+            ++t->mappedTiles;
+            u32 x = tx * t->tileW, y = ty * t->tileH;
+            VkExtent3D ext = {std::min(t->tileW, t->width - x), std::min(t->tileH, t->height - y), 1};
+            VkSparseImageMemoryBind b = {};
+            b.subresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0};
+            b.offset = {(int)x, (int)y, 0};
+            b.extent = ext;
+            b.memory = tileBlocks[s / kTilesPerBlock];
+            b.memoryOffset = (VkDeviceSize)(s % kTilesPerBlock) * kTileBytes;
+            binds.push_back(b);
+            VkBufferImageCopy c = {};
+            c.bufferRowLength = t->tileW;
+            c.bufferImageHeight = t->tileH;
+            c.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            c.imageOffset = {(int)x, (int)y, 0};
+            c.imageExtent = ext;
+            clears.push_back(c);
+        }
+    if (binds.empty()) return;
+    // Wait for the previous submission (it may still read these regions as zero).
+    const u64 waitValue = frameNumber, signalValue = ++sparseValue;
+    VkTimelineSemaphoreSubmitInfo tsi = {VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO};
+    tsi.waitSemaphoreValueCount = 1;
+    tsi.pWaitSemaphoreValues = &waitValue;
+    tsi.signalSemaphoreValueCount = 1;
+    tsi.pSignalSemaphoreValues = &signalValue;
+    VkSparseImageMemoryBindInfo info = {t->image, (u32)binds.size(), binds.data()};
+    VkBindSparseInfo bsi = {VK_STRUCTURE_TYPE_BIND_SPARSE_INFO};
+    bsi.pNext = &tsi;
+    bsi.waitSemaphoreCount = 1;
+    bsi.pWaitSemaphores = &timeline;
+    bsi.imageBindCount = 1;
+    bsi.pImageBinds = &info;
+    bsi.signalSemaphoreCount = 1;
+    bsi.pSignalSemaphores = &sparseSem;
+    VK_CHECK(vkQueueBindSparse(queue, 1, &bsi, VK_NULL_HANDLE));
+    // Zero the new tiles (recycled memory) before this frame's main work touches them.
+    vkCmdCopyBufferToImage(PreCmd(), zeroBuf, t->image, VK_IMAGE_LAYOUT_GENERAL, (u32)clears.size(), clears.data());
+}
 
 // ------------------------------------------------------------------ resources
 
@@ -604,12 +793,18 @@ void Device::DestroyTexture(Texture& t) {
     t.view = VK_NULL_HANDLE;
     t.memory = VK_NULL_HANDLE;
     t.uiSet = VK_NULL_HANDLE;
+    std::vector<int> tiles;
+    for (int s : t.tiles) if (s >= 0) tiles.push_back(s);
+    t.tiles.clear();
+    t.mappedTiles = 0;
     std::erase(uiTexturesThisFrame, &t);
-    Defer([img, view, mem, ui] {
+    Defer([img, view, mem, ui, tiles = std::move(tiles)] {
         if (ui) ImGui_ImplVulkan_RemoveTexture(ui);
         vkDestroyImageView(g_device.device, view, nullptr);
         vkDestroyImage(g_device.device, img, nullptr);
         vkFreeMemory(g_device.device, mem, nullptr);
+        for (int s : tiles) g_device.freeTiles.push_back(s);
+        g_device.tilesInUse -= (u32)tiles.size();
     });
 }
 
@@ -633,6 +828,51 @@ TexturePtr Device::CreateTexture(u32 w, u32 h, Format fmt, const char* debugName
     else ici.usage |= VK_IMAGE_USAGE_STORAGE_BIT;
     if (usage & UsageRenderTarget) ici.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     ici.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    if (sparseSupported && !usage && !depth && (u64)w * h >= sparseThreshold) {
+        VkImageCreateInfo sci = ici;
+        sci.flags = VK_IMAGE_CREATE_SPARSE_BINDING_BIT | VK_IMAGE_CREATE_SPARSE_RESIDENCY_BIT;
+        VkImage img = VK_NULL_HANDLE;
+        if (vkCreateImage(device, &sci, nullptr, &img) == VK_SUCCESS) {
+            VkMemoryRequirements req;
+            vkGetImageMemoryRequirements(device, img, &req);
+            u32 n = 0;
+            vkGetImageSparseMemoryRequirements(device, img, &n, nullptr);
+            std::vector<VkSparseImageMemoryRequirements> sreq(n);
+            vkGetImageSparseMemoryRequirements(device, img, &n, sreq.data());
+            u32 type = FindMemory(req.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            if (tileMemType == ~0u) tileMemType = type;
+            // One 64 KB block per tile, no mip tail at level 0, shared memory type.
+            bool ok = n == 1 && req.alignment == kTileBytes && sreq[0].imageMipTailFirstLod > 0 && type == tileMemType &&
+                      (sreq[0].formatProperties.aspectMask & VK_IMAGE_ASPECT_COLOR_BIT);
+            if (ok) {
+                VkExtent3D g = sreq[0].formatProperties.imageGranularity;
+                ok = (VkDeviceSize)g.width * g.height * BytesPerPixel(fmt) == kTileBytes;
+                if (ok) {
+                    t->image = img;
+                    t->sparse = true;
+                    t->tileW = g.width;
+                    t->tileH = g.height;
+                    t->tilesX = (w + g.width - 1) / g.width;
+                    t->tilesY = (h + g.height - 1) / g.height;
+                    t->tiles.assign((size_t)t->tilesX * t->tilesY, -1);
+                }
+            }
+            if (!ok) vkDestroyImage(device, img, nullptr);  // e.g. smaller than one tile: committed texture
+        }
+    }
+    if (t->sparse) {
+        // Unbound areas read as zero; move to GENERAL ahead of the frame's work.
+        t->initialized = true;
+        ImageBarrier(PreCmd(), t->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, 0,
+                     VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT, VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_MEMORY_WRITE_BIT);
+        VkImageViewCreateInfo vci = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+        vci.image = t->image;
+        vci.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        vci.format = ici.format;
+        vci.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        VK_CHECK(vkCreateImageView(device, &vci, nullptr, &t->view));
+        return t;
+    }
     if (vkCreateImage(device, &ici, nullptr, &t->image) != VK_SUCCESS) {
         Log("CreateTexture %ux%u failed", w, h);
         return nullptr;
@@ -876,6 +1116,12 @@ static void FillBindings(Bindings& b, const VkImageView* views, VkBuffer cbBuf, 
 
 void CommandContext::Dispatch(const DispatchDesc& d) {
     if (!d.pipeline || !d.pipeline->pipeline) return;
+    for (u32 i = 0; i < kMaxUav; ++i) {
+        if (!d.uav[i] || !d.uav[i]->sparse || (d.uavNoMap & (1u << i))) continue;
+        const Rect& r = d.uavRect[i];
+        bool unset = r.x0 == 0 && r.y0 == 0 && r.x1 == 0 && r.y1 == 0;
+        dev->MapRect(d.uav[i], unset ? Rect{0, 0, (int)d.uav[i]->width, (int)d.uav[i]->height} : r);
+    }
     Barrier();
     for (auto* t : d.srv) Prepare(t);
     for (auto* t : d.uav) Prepare(t);
@@ -971,18 +1217,61 @@ void CommandContext::CopyTexture(Texture* dst, Texture* src) {
     CopyRegion(dst, 0, 0, src, {0, 0, (int)std::min(src->width, dst->width), (int)std::min(src->height, dst->height)});
 }
 
+static bool AnyMapped(const Texture* t, const Rect& r) {
+    if (!t->Sparse()) return true;
+    if (t->MappedBytes() == 0) return false;
+    for (int ty = r.y0 / (int)t->TileH(); ty <= (r.y1 - 1) / (int)t->TileH(); ++ty)
+        for (int tx = r.x0 / (int)t->TileW(); tx <= (r.x1 - 1) / (int)t->TileW(); ++tx)
+            if (t->TileMapped(tx, ty)) return true;
+    return false;
+}
+
 void CommandContext::CopyRegion(Texture* dst, int dx, int dy, Texture* src, const Rect& r) {
     if (r.Empty() || !dst || !src) return;
     Barrier();
     Prepare(src);
     Prepare(dst);
-    VkImageCopy c = {};
-    c.srcSubresource = {Aspect(src->format), 0, 0, 1};
-    c.dstSubresource = {Aspect(dst->format), 0, 0, 1};
-    c.srcOffset = {r.x0, r.y0, 0};
-    c.dstOffset = {dx, dy, 0};
-    c.extent = {(u32)r.Width(), (u32)r.Height(), 1};
-    vkCmdCopyImage(cmd, src->image, VK_IMAGE_LAYOUT_GENERAL, dst->image, VK_IMAGE_LAYOUT_GENERAL, 1, &c);
+    std::vector<VkImageCopy> copies;
+    auto copy = [&](const Rect& q) {
+        VkImageCopy c = {};
+        c.srcSubresource = {Aspect(src->format), 0, 0, 1};
+        c.dstSubresource = {Aspect(dst->format), 0, 0, 1};
+        c.srcOffset = {q.x0, q.y0, 0};
+        c.dstOffset = {dx + q.x0 - r.x0, dy + q.y0 - r.y0, 0};
+        c.extent = {(u32)q.Width(), (u32)q.Height(), 1};
+        copies.push_back(c);
+    };
+    auto target = [&](const Rect& q) { return Rect{dx + q.x0 - r.x0, dy + q.y0 - r.y0, dx + q.x1 - r.x0, dy + q.y1 - r.y0}; };
+    if (!src->sparse) {
+        dev->MapRect(dst, target(r));
+        copy(r);
+    } else {
+        // Sparse source: copy only where the source has data (the destination gets
+        // backed) or the destination holds data that must become zero.
+        for (int ty = r.y0 / (int)src->tileH; ty <= (r.y1 - 1) / (int)src->tileH; ++ty) {
+            int y0 = std::max(r.y0, ty * (int)src->tileH), y1 = std::min(r.y1, (ty + 1) * (int)src->tileH);
+            Rect run;
+            bool runMap = false;
+            auto flush = [&] {
+                if (run.Empty()) return;
+                if (runMap) dev->MapRect(dst, target(run));
+                copy(run);
+                run = {};
+            };
+            for (int tx = r.x0 / (int)src->tileW; tx <= (r.x1 - 1) / (int)src->tileW; ++tx) {
+                Rect piece{std::max(r.x0, tx * (int)src->tileW), y0, std::min(r.x1, (tx + 1) * (int)src->tileW), y1};
+                bool srcHas = src->TileMapped(tx, ty);
+                bool need = srcHas || AnyMapped(dst, target(piece));
+                if (!need) { flush(); continue; }
+                if (!run.Empty() && srcHas != runMap) flush();
+                if (run.Empty()) { run = piece; runMap = srcHas; }
+                else run.x1 = piece.x1;
+            }
+            flush();
+        }
+    }
+    if (!copies.empty())
+        vkCmdCopyImage(cmd, src->image, VK_IMAGE_LAYOUT_GENERAL, dst->image, VK_IMAGE_LAYOUT_GENERAL, (u32)copies.size(), copies.data());
 }
 
 void CommandContext::Upload(Texture* dst, const void* pixels, u32 srcRowPitch) {
@@ -993,11 +1282,44 @@ void CommandContext::Upload(Texture* dst, const void* pixels, u32 srcRowPitch) {
     for (u32 y = 0; y < dst->height; ++y) memcpy((u8*)mem + (size_t)y * rowBytes, (const u8*)pixels + (size_t)y * srcRowPitch, rowBytes);
     Barrier();
     Prepare(dst);
-    VkBufferImageCopy c = {};
-    c.bufferOffset = off;
-    c.imageSubresource = {Aspect(dst->format), 0, 0, 1};
-    c.imageExtent = {dst->width, dst->height, 1};
-    vkCmdCopyBufferToImage(cmd, buf, dst->image, VK_IMAGE_LAYOUT_GENERAL, 1, &c);
+    if (!dst->sparse) {
+        VkBufferImageCopy c = {};
+        c.bufferOffset = off;
+        c.imageSubresource = {Aspect(dst->format), 0, 0, 1};
+        c.imageExtent = {dst->width, dst->height, 1};
+        vkCmdCopyBufferToImage(cmd, buf, dst->image, VK_IMAGE_LAYOUT_GENERAL, 1, &c);
+        return;
+    }
+    // Sparse: only back tiles that contain non-zero pixels (or already hold data).
+    const u32 bpp = BytesPerPixel(dst->format);
+    std::vector<VkBufferImageCopy> copies;
+    for (u32 ty = 0; ty < dst->tilesY; ++ty)
+        for (u32 tx = 0; tx < dst->tilesX; ++tx) {
+            u32 x0 = tx * dst->tileW, y0 = ty * dst->tileH;
+            u32 x1 = std::min(dst->width, x0 + dst->tileW), y1 = std::min(dst->height, y0 + dst->tileH);
+            bool nonZero = false;
+            for (u32 y = y0; y < y1 && !nonZero; ++y) {
+                const u8* row = (const u8*)pixels + (size_t)y * srcRowPitch + (size_t)x0 * bpp;
+                size_t n = (size_t)(x1 - x0) * bpp, i = 0;
+                for (; i + 8 <= n; i += 8) {
+                    u64 v;
+                    memcpy(&v, row + i, 8);
+                    if (v) { nonZero = true; break; }
+                }
+                for (; i < n && !nonZero; ++i) nonZero = row[i] != 0;
+            }
+            if (!nonZero && !dst->TileMapped(tx, ty)) continue;
+            if (nonZero) dev->MapRect(dst, {(int)x0, (int)y0, (int)x1, (int)y1});
+            VkBufferImageCopy c = {};
+            c.bufferOffset = off + (VkDeviceSize)y0 * rowBytes + (VkDeviceSize)x0 * bpp;
+            c.bufferRowLength = dst->width;
+            c.bufferImageHeight = dst->height;
+            c.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+            c.imageOffset = {(int)x0, (int)y0, 0};
+            c.imageExtent = {x1 - x0, y1 - y0, 1};
+            copies.push_back(c);
+        }
+    if (!copies.empty()) vkCmdCopyBufferToImage(cmd, buf, dst->image, VK_IMAGE_LAYOUT_GENERAL, (u32)copies.size(), copies.data());
 }
 
 ReadbackPtr CommandContext::ReadbackTexture(Texture* src, const Rect* region) {
