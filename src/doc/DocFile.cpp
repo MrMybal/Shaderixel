@@ -304,6 +304,7 @@ Json SerializeDocument(const Document& doc) {
         o["locked"] = l.locked;
         if (l.mask) { o["mask"] = l.mask; o["maskEnabled"] = l.maskEnabled; }
         if (l.parent) o["parent"] = l.parent;
+        if (l.material) o["material"] = l.material;
         if (l.clipped) o["clipped"] = true;
         if (l.blendIf.Active()) {
             Json b = Json::Array();
@@ -414,6 +415,7 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         l.mask = o["mask"].U();
         l.maskEnabled = o["maskEnabled"].B(true);
         l.parent = o["parent"].U();
+        l.material = o["material"].U();
         l.clipped = o["clipped"].B(false);
         if (o.Has("blendIf")) {
             int i = 0;

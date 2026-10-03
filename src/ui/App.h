@@ -159,7 +159,7 @@ public:
     int Run();
 
     // Workspace state (saved in the ImGui ini / layouts, see Workspace.cpp).
-    static constexpr int kSideTabs = 5;  // Général, Outils, Effets, Fusion, Peinture
+    static constexpr int kSideTabs = 6;  // Général, Outils, Effets, Fusion, Peinture, 3D
     int sideTab = 0;
     int sideTabRequest = -1;  // selects a side tab on the next frame
     bool hideBottom = false, hideRight = false;
@@ -472,6 +472,19 @@ private:
     void SelectTip(BrushSettings& b, const std::string& id);
     void DrawBrushPanel();
     void DrawBlendPanel();
+    // Material layers (Substance-like): one fill per PBR channel group sharing a mask.
+    Id materialSel = 0;
+    std::optional<DocState> materialEditBefore;
+    bool paint3DLayoutRequest = false;
+    std::vector<Id> MaterialIds(Document& d);
+    Layer* MaterialChannelLayer(Document& d, Id material, PbrChannel c);
+    Layer* AnyMaterialLayer(Document& d, Id material);
+    Layer* AddMaterialChannel(Document& d, Id material, PbrChannel c, const std::string& name, Id mask, float4 value, float opacity);
+    void AddMaterialLayer(DocView& v, int preset);
+    void SelectMaterial(Document& d, Id material);
+    void ApplyPaint3DLayout();
+    void DrawMaterialPanel();
+    float4 PaintColor(Document& d);  // brush color: fg, gray on masks, white on material masks
     void OpenGraphEditor(int target);  // 0 effect, 1 blend of the layer, 2 brush
     void SaveGraphToLibrary(const EffectGraph& g, const std::string& code);
     void DropEffectOnLayer(DocView& v, Id layer, const std::string& effectId);

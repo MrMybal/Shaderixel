@@ -552,14 +552,21 @@ void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSa
     EmitDabs(v, dabs, &extra);
 }
 
+float4 App::PaintColor(Document& d) {
+    float4 color = LinearColor(fg);
+    if (d.Mode() == DocMode::Layers && d.S().editMask) {
+        // Material masks: the brush applies the material (white); masks otherwise take the gray of the color.
+        if (const Layer* l = d.ActiveLayer(); l && l->material) return {1, 1, 1, 1};
+        float g = 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z;
+        color = {g, g, g, 1};
+    }
+    return color;
+}
+
 void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<float4>* extra) {
     Document& doc = *v.doc;
     if (strokeErase || tool == Tool::Brush || tool == Tool::Eraser) {
-        float4 color = LinearColor(fg);
-        if (doc.S().editMask) {
-            float l = 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z;
-            color = {l, l, l, 1};
-        }
+        float4 color = PaintColor(doc);
         const BrushSettings& bs = strokeErase ? eraser : brush;
         if (auto td = TipDef(bs)) {
             // Programmable tip: shape, color and placement come from the brush code.

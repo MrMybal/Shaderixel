@@ -119,6 +119,7 @@ struct Layer {
     Id mask = 0;              // mask surface (0 = none)
     bool maskEnabled = true;
     Id parent = 0;            // enclosing group (0 = root)
+    Id material = 0;          // material layer (one fill per PBR channel group, shared mask), 0 = none
     bool clipped = false;     // clipping mask: clipped to the layer below
     bool passThrough = true;  // groups: blend children straight into the parent stack
     bool collapsed = false;   // groups: UI state

@@ -14,7 +14,7 @@
 namespace sx {
 
 namespace {
-const char* kSideTabNames[App::kSideTabs] = {"Général", "Outils", "Effets", "Fusion", "Peinture"};
+const char* kSideTabNames[App::kSideTabs] = {"Général", "Outils", "Effets", "Fusion", "Peinture", "3D"};
 
 ImGuiID SideTabDock(int i) {
     char id[32];
@@ -123,6 +123,9 @@ void App::BuildDockLayout(ImGuiID dock) {
                 two(0.42f);
                 ImGui::DockBuilderDockWindow("Couleur", top);
                 ImGui::DockBuilderDockWindow("Pinceaux", low);
+                break;
+            case 5:  // 3D (material layers)
+                ImGui::DockBuilderDockWindow("Matériaux", id);
                 break;
         }
         for (ImGuiID n : {top, low})

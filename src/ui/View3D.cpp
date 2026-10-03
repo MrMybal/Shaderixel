@@ -148,7 +148,7 @@ void App::DrawView3D() {
             const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
             float pr = platform::PenActive() ? platform::LastPressure() : 1.0f;
             v->renderer.MeshStrokeDabs(doc, *ctx, s, {{p.x, p.y, b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f), b.flow}}, b,
-                                       LinearColor(fg), tool == Tool::Eraser);
+                                       PaintColor(doc), tool == Tool::Eraser);
         }
     }
     if (meshStroking) {
@@ -172,7 +172,7 @@ void App::DrawView3D() {
         }
         // Render first so the occlusion test uses this frame's depth.
         v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
-        if (!dabs.empty()) v->renderer.MeshStrokeDabs(doc, *ctx, s, dabs, b, LinearColor(fg), tool == Tool::Eraser);
+        if (!dabs.empty()) v->renderer.MeshStrokeDabs(doc, *ctx, s, dabs, b, PaintColor(doc), tool == Tool::Eraser);
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
             v->renderer.EndStroke(doc, *ctx, v->history, "Peinture 3D");
             meshStroking = false;

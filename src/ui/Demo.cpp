@@ -287,6 +287,47 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_EXTRA", b, sizeof(b)) > 0) NewExtraWindow();
         return;
     }
+    if (demoMode == 45 && frameCounter == 4) {
+        // Substance-like material painting: PBR channels, three material layers whose
+        // shared masks are painted in UV space, 3D view next to the texture.
+        NewDocument(1024, 1024, Precision::Half16, DocMode::Layers, 0, "Matériaux");
+        DocView& m = *Active();
+        Document& d = *m.doc;
+        AttachMesh(m, MakeSphere());
+        CreatePbrChannels(m);
+        m.renderer.Prepare(d, *ctx);
+        auto paintMask = [&](int preset, auto&& path) {
+            AddMaterialLayer(m, preset);
+            m.renderer.Prepare(d, *ctx);
+            Id target = d.PaintTarget();
+            if (!target || !m.renderer.BeginStroke(d, *ctx, target)) { Log("[demo] material %d: no mask target", preset); return; }
+            std::vector<Dab> dabs;
+            path(dabs);
+            BrushSettings b = brush;
+            b.hardness = 0.6f;
+            m.renderer.StrokeDabs(d, *ctx, dabs, b, PaintColor(d), false);
+            m.renderer.EndStroke(d, *ctx, m.history, "Peinture du masque");
+        };
+        // Base: red paint everywhere.
+        AddMaterialLayer(m, 0);
+        m.renderer.Prepare(d, *ctx);  // creates the (black) mask before filling it
+        if (Layer* l = d.ActiveLayer(); l && l->mask)
+            m.renderer.FillSelection(d, *ctx, &m.history, l->mask, 0, {1, 1, 1, 1}, 1.0f, "Remplir le masque", nullptr, nullptr, false);
+        // Gold band around the equator.
+        paintMask(4, [](std::vector<Dab>& dabs) {
+            for (float x = 0; x <= 1024; x += 6) dabs.push_back({x, 512 + std::sin(x * 0.03f) * 40, 60, 1});
+        });
+        // Rust patches.
+        paintMask(8, [](std::vector<Dab>& dabs) {
+            for (int i = 0; i < 160; ++i) {
+                float a = i * 2.399963f, r = 30 + i * 2.6f;
+                dabs.push_back({512 + std::cos(a) * r * 1.6f, 260 + std::sin(a) * r * 0.5f, 18.0f + (i % 7) * 4.0f, 0.8f});
+            }
+        });
+        Log("[demo] materials: %zu", MaterialIds(d).size());
+        paint3DLayoutRequest = true;
+        return;
+    }
     if (demoMode == 44 && v) {
         // Effect drag & drop on the layer graph, injected through ImGui (never the real mouse):
         // on the "Lueur" layer node -> filter; on empty space -> node mode + new node.
