@@ -1,5 +1,5 @@
 //@name Advanced Rotate Blur2
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Step float 16.0 1.0 128.0 "Step"

@@ -1,5 +1,5 @@
 //@name Advanced Circle
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Radius float 0.25 0.0 1.0 "Radius"

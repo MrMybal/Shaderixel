@@ -1,11 +1,11 @@
 //@name Chromatic Aberration
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Amount float 0.015 -0.25 0.25 "Amount"
 //@param Center float2 0.5 0.5 0 1 "Center"
 
-// Imported from CyTexture (Effect / Color & Tone): Radial RGB channel separation for lens effects.
+// Imported preset (Effect / Color & Tone): Radial RGB channel separation for lens effects.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

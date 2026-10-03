@@ -1,5 +1,5 @@
 //@name Starfield
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param CellCount float 48 4 512 "Cell Count"
@@ -20,7 +20,7 @@
 //@param ColorB color 2 0.8 0.35 1 "Color B"
 //@param BackgroundColor color 0 0 0 1 "Background Color"
 
-// Imported from CyTexture (Draw / Light & Space): Seeded HDR star field with variable size, density, diffraction spikes, and color variation.
+// Imported preset (Draw / Light & Space): Seeded HDR star field with variable size, density, diffraction spikes, and color variation.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

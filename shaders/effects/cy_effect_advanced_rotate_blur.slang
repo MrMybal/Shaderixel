@@ -1,5 +1,5 @@
 //@name Advanced Rotate Blur
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Blur float 0.8 0.0 1.6 "Blur"

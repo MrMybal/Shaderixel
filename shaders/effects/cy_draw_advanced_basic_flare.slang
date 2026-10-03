@@ -1,5 +1,5 @@
 //@name Advanced Basic Flare
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo full
 //@param Divisor float 4.0 0.0 8.0 "Divisor"

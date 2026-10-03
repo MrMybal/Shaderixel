@@ -31,7 +31,7 @@ SYSTEM = {
     'CyInvCanvasSize': ('ctx.texel', 2),
 }
 INPUT_LABEL = {'CyInput': 'Image', 'CyInputTexture': 'Image', 'CyBackground': 'Fond', 'CyForeground': 'Calque', 'CyMask': 'Masque'}
-CY_CATEGORY = {'Draw': 'CyTexture Dessin', 'Effect': 'CyTexture Effets', 'Blend': 'CyTexture Fusions', 'Mask': 'CyTexture Masques'}
+CY_CATEGORY = {'Draw': 'Dessin', 'Effect': 'Traitements', 'Blend': 'Fusions', 'Mask': 'Masques'}
 
 
 # Implicit float4 -> float3 truncations Unreal accepts and Slang does not (exact code fragments).

@@ -1,9 +1,9 @@
 //@name Round
-//@category CyTexture Formes
+//@category Formes
 //@selfflow
 //@spacing 0.1
 
-// Imported from CyTexture (Brush / Shape Tips): White local-space round material brush. Foreground color, pressure, hardness, and flow are applied by the brush contract.
+// Imported preset (Brush / Shape Tips): White local-space round material brush. Foreground color, pressure, hardness, and flow are applied by the brush contract.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize)
 {

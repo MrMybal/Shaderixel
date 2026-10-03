@@ -1,5 +1,5 @@
 //@name Advanced Box Blur Variant
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Blur float 3.907962 0.0 7.815924 "Blur"

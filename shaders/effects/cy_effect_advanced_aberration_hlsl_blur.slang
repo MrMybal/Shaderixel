@@ -1,5 +1,5 @@
 //@name Advanced Aberration HLSL Blur
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param X float 1.0 0.0 2.0 "X"

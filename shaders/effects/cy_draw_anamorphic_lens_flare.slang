@@ -1,5 +1,5 @@
 //@name Anamorphic Lens Flare
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Aspect float 1 0.1 8 "Aspect"
@@ -15,7 +15,7 @@
 //@param CoreColor color 1 0.75 0.35 1 "Core Color"
 //@param StreakColor color 0.18 0.45 1 1 "Streak Color"
 
-// Imported from CyTexture (Draw / Light & Space): Wide cinematic anamorphic flare with horizontal streaks and spectral split.
+// Imported preset (Draw / Light & Space): Wide cinematic anamorphic flare with horizontal streaks and spectral split.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

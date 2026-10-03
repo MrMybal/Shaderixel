@@ -1,12 +1,12 @@
 //@name Levels
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param BlackPoint float 0 0 1 "Black Point"
 //@param WhitePoint float 1 0 1 "White Point"
 //@param Gamma float 1 0.05 8 "Gamma"
 
-// Imported from CyTexture (Effect / Color & Tone): Black point, white point, and gamma correction.
+// Imported preset (Effect / Color & Tone): Black point, white point, and gamma correction.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

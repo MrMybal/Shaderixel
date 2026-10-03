@@ -99,7 +99,7 @@ void App::SaveGraphToLibrary(const EffectGraph& g, const std::string& code) {
 }
 
 void App::DrawBrushPanel() {
-    if (!ImGui::Begin("Pinceaux")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Pinceaux", PanelFlag("Pinceaux"))) { ImGui::End(); return; }
     BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
     auto td = TipDef(b);
     DocView* v = Active();

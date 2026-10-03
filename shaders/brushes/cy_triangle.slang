@@ -1,11 +1,11 @@
 //@name Triangle
-//@category CyTexture Formes
+//@category Formes
 //@selfflow
 //@spacing 0.1
 //@param Rotation float -1.5708 -6.283 6.283 "Rotation"
 //@param FollowStroke float 0 0 1 "Suivre le trait"
 
-// Imported from CyTexture (Brush / Shape Tips): Procedural triangular brush tip with rotation.
+// Imported preset (Brush / Shape Tips): Procedural triangular brush tip with rotation.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Rotation)
 {

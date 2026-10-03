@@ -1,5 +1,5 @@
 //@name Anamorphic Bloom
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Threshold float 1 0 16 "Threshold"
@@ -13,7 +13,7 @@
 //@param DitherSeed float 0 -1000 1000 "Dither Seed"
 //@param Tint color 0.2 0.45 1 1 "Tint"
 
-// Imported from CyTexture (Effect / Color & Tone): Quality-controlled horizontal threshold streak for cinematic anamorphic highlights.
+// Imported preset (Effect / Color & Tone): Quality-controlled horizontal threshold streak for cinematic anamorphic highlights.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

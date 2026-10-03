@@ -281,7 +281,7 @@ void App::StrokePath(DocView& v) {
 }
 
 void App::DrawPathsPanel() {
-    if (!ImGui::Begin("Tracés")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Tracés", PanelFlag("Tracés"))) { ImGui::End(); return; }
     DocView* v = Active();
     if (!v) { ImGui::End(); return; }
     Document& d = *v->doc;

@@ -1,5 +1,5 @@
 //@name Pencil Sketch
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 1.5 0.25 16 "Radius"
@@ -13,7 +13,7 @@
 //@param PencilColor color 0.015 0.012 0.01 1 "Pencil Color"
 //@param PaperColor color 0.9 0.86 0.74 1 "Paper Color"
 
-// Imported from CyTexture (Effect / Stylize): Pencil-sketch conversion with multi-scale edges, paper tone, grain, and source-color retention.
+// Imported preset (Effect / Stylize): Pencil-sketch conversion with multi-scale edges, paper tone, grain, and source-color retention.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

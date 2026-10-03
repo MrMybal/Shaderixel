@@ -1,5 +1,5 @@
 //@name AO From Height
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 24 1 512 "Radius"
@@ -10,7 +10,7 @@
 //@param Invert float 0 0 1 "Invert"
 //@param HeightChannel color 1 0 0 0 "Height Channel"
 
-// Imported from CyTexture (Effect / PBR): Generates a horizon-style ambient-occlusion mask from a linear height texture with adjustable sample quality.
+// Imported preset (Effect / PBR): Generates a horizon-style ambient-occlusion mask from a linear height texture with adjustable sample quality.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

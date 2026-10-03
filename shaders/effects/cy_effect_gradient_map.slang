@@ -1,5 +1,5 @@
 //@name Gradient Map
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Midpoint float 0.5 0.01 0.99 "Midpoint"
@@ -8,7 +8,7 @@
 //@param MidColor color 0.5 0.5 0.5 1 "Mid Color"
 //@param HighlightColor color 1 1 1 1 "Highlight Color"
 
-// Imported from CyTexture (Effect / Color & Tone): Maps luminance through shadow, midtone, and highlight HDR colors.
+// Imported preset (Effect / Color & Tone): Maps luminance through shadow, midtone, and highlight HDR colors.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

@@ -1,5 +1,5 @@
 //@name Circuit Board
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Grid float 18 2 256 "Grid"
@@ -17,7 +17,7 @@
 //@param TraceColor color 0.05 1.6 0.45 1 "Trace Color"
 //@param BoardColor color 0.005 0.025 0.012 1 "Board Color"
 
-// Imported from CyTexture (Draw / Pattern): Procedural circuit traces, pads, and substrate for technical masks and graphic design.
+// Imported preset (Draw / Pattern): Procedural circuit traces, pads, and substrate for technical masks and graphic design.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

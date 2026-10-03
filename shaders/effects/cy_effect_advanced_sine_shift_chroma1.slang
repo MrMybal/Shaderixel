@@ -1,5 +1,5 @@
 //@name Advanced Sine Shift Chroma1
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Sin float 1.0 0.0 2.0 "Sin"

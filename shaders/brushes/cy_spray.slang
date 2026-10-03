@@ -1,5 +1,5 @@
 //@name Spray
-//@category CyTexture Particules
+//@category Particules
 //@selfflow
 //@spacing 0.3
 //@param Density float 0.22 0.001 1 "Density"
@@ -9,7 +9,7 @@
 //@param Seed float 0 -1000 1000 "Seed"
 //@param RandomSeed float 1 0 1 "Graine par touche"
 
-// Imported from CyTexture (Brush / Particles): Pressure-aware spray paint with density, grain size, falloff, and seed controls.
+// Imported preset (Brush / Particles): Pressure-aware spray paint with density, grain size, falloff, and seed controls.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Density, float GrainScale, float Falloff, float Softness, float Seed)
 {

@@ -1,5 +1,5 @@
 //@name Orton Glow
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 16 0.25 512 "Radius"
@@ -12,7 +12,7 @@
 //@param DitherAmount float 0.75 0 2 "Dither Amount"
 //@param DitherSeed float 0 -1000 1000 "Dither Seed"
 
-// Imported from CyTexture (Effect / Blur & Denoise): Dreamy Orton process combining a soft high-key image with the original through screen or multiply.
+// Imported preset (Effect / Blur & Denoise): Dreamy Orton process combining a soft high-key image with the original through screen or multiply.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

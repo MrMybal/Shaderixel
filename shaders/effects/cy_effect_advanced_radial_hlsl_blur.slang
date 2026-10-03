@@ -1,5 +1,5 @@
 //@name Advanced Radial HLSL Blur
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Distance float 0.05 0.0 1.0 "Distance"

@@ -1,5 +1,5 @@
 //@name Curvature From Normal
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 1 0.25 16 "Radius"
@@ -8,7 +8,7 @@
 //@param Concave float 0 0 1 "Concave"
 //@param Power float 1 0.05 8 "Power"
 
-// Imported from CyTexture (Effect / PBR): Extracts convex and concave curvature masks from a tangent-space normal map.
+// Imported preset (Effect / PBR): Extracts convex and concave curvature masks from a tangent-space normal map.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

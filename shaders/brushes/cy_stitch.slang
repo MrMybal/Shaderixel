@@ -1,5 +1,5 @@
 //@name Stitch
-//@category CyTexture Détails
+//@category Détails
 //@selfflow
 //@spacing 0.45
 //@param Rotation float 0 -6.283 6.283 "Rotation"
@@ -12,7 +12,7 @@
 //@param KnotAmount float 0.35 0 1 "Knot Amount"
 //@param FollowStroke float 0 0 1 "Suivre le trait"
 
-// Imported from CyTexture (Brush / Surface Detail): Repeatable dashed stitch tip with thread thickness, spacing, angle, and knot controls.
+// Imported preset (Brush / Surface Detail): Repeatable dashed stitch tip with thread thickness, spacing, angle, and knot controls.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Rotation, float Length, float Stitches, float Duty, float ThreadWidth, float Softness, float KnotRadius, float KnotAmount)
 {

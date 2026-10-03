@@ -1,12 +1,12 @@
 //@name Normal Detail
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 1 0.25 16 "Radius"
 //@param DetailStrength float 3 0 64 "Detail Strength"
 //@param UseAlpha float 1 0 1 "Use Alpha"
 
-// Imported from CyTexture (Effect / PBR): Adds high-frequency detail stored in alpha or luminance to an existing tangent-space normal map.
+// Imported preset (Effect / PBR): Adds high-frequency detail stored in alpha or luminance to an existing tangent-space normal map.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

@@ -1,5 +1,5 @@
 //@name Shadows Highlights
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param ShadowAmount float 0.25 0 2 "Shadow Amount"
@@ -7,7 +7,7 @@
 //@param Radius float 2 0.01 8 "Radius"
 //@param Strength float 1 0 1 "Strength"
 
-// Imported from CyTexture (Effect / Color & Tone): Recovers shadows and compresses highlights while retaining HDR detail.
+// Imported preset (Effect / Color & Tone): Recovers shadows and compresses highlights while retaining HDR detail.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

@@ -1,11 +1,11 @@
 //@name Noise
-//@category CyTexture Formes
+//@category Formes
 //@selfflow
 //@spacing 0.1
 //@param NoiseScale float 8 1 128 "Noise Scale"
 //@param NoiseThreshold float 0.35 0 1 "Noise Threshold"
 
-// Imported from CyTexture (Brush / Shape Tips): White local-space round material brush whose coverage is broken up by procedural noise.
+// Imported preset (Brush / Shape Tips): White local-space round material brush whose coverage is broken up by procedural noise.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float NoiseScale, float NoiseThreshold)
 {

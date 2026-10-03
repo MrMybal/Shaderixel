@@ -1,5 +1,5 @@
 //@name Truchet Tiles
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Tiling float 10 1 256 "Tiling"
@@ -14,7 +14,7 @@
 //@param LineColor color 0.15 0.8 1.8 1 "Line Color"
 //@param BackgroundColor color 0 0 0 1 "Background Color"
 
-// Imported from CyTexture (Draw / Pattern): Seeded Truchet arc tiles for procedural ornament, paths, and seamless patterns.
+// Imported preset (Draw / Pattern): Seeded Truchet arc tiles for procedural ornament, paths, and seamless patterns.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

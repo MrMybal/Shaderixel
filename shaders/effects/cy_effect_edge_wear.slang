@@ -1,5 +1,5 @@
 //@name Edge Wear
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 2 0.25 32 "Radius"
@@ -14,7 +14,7 @@
 //@param Invert float 0 0 1 "Invert"
 //@param HeightChannel color 1 0 0 0 "Height Channel"
 
-// Imported from CyTexture (Effect / PBR): Builds a controllable worn-edge mask from source height or luminance with procedural breakup.
+// Imported preset (Effect / PBR): Builds a controllable worn-edge mask from source height or luminance with procedural breakup.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

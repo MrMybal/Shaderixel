@@ -1,5 +1,5 @@
 //@name Match Color
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param LuminanceStrength float 1 0 1 "Luminance Strength"
@@ -8,7 +8,7 @@
 //@param SourceAverage color 0.5 0.5 0.5 1 "Source Average"
 //@param TargetAverage color 0.5 0.5 0.5 1 "Target Average"
 
-// Imported from CyTexture (Effect / Color & Tone): Matches the image toward a target average color with luminance and color strengths.
+// Imported preset (Effect / Color & Tone): Matches the image toward a target average color with luminance and color strengths.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

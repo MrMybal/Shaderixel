@@ -1,5 +1,5 @@
 //@name Impulse Denoise
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 2 0.25 32 "Radius"
@@ -8,7 +8,7 @@
 //@param Softness float 0.05 0.0001 1 "Softness"
 //@param Strength float 1 0 1 "Strength"
 
-// Imported from CyTexture (Effect / Blur & Denoise): Edge-preserving impulse and salt-and-pepper denoiser with adaptive color rejection.
+// Imported preset (Effect / Blur & Denoise): Edge-preserving impulse and salt-and-pepper denoiser with adaptive color rejection.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

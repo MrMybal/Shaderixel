@@ -1,5 +1,5 @@
 //@name Advanced Radial HLSL Chroma
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Blur float 0.1 0.0 1.0 "Blur"

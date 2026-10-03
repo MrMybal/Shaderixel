@@ -1,5 +1,5 @@
 //@name HDR Toning
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Exposure float 0 -16 16 "Exposure"
@@ -9,7 +9,7 @@
 //@param Saturation float 1 0 4 "Saturation"
 //@param Strength float 1 0 1 "Strength"
 
-// Imported from CyTexture (Effect / Color & Tone): HDR exposure, detail contrast, shoulder compression, and saturation toning.
+// Imported preset (Effect / Color & Tone): HDR exposure, detail contrast, shoulder compression, and saturation toning.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

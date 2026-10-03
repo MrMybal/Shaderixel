@@ -1,11 +1,11 @@
 //@name Normal From Height
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 1 0.25 16 "Radius"
 //@param Strength float 4 0.01 64 "Strength"
 
-// Imported from CyTexture (Effect / Detail): Generates a tangent-space normal map from source luminance.
+// Imported preset (Effect / Detail): Generates a tangent-space normal map from source luminance.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

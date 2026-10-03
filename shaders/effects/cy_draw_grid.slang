@@ -1,5 +1,5 @@
 //@name Grid
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Divisions float 16 1 512 "Divisions"
@@ -10,7 +10,7 @@
 //@param LineColor color 1 1 1 1 "Line Color"
 //@param BackgroundColor color 0 0 0 1 "Background Color"
 
-// Imported from CyTexture (Draw / Pattern): Procedural grid with independent background and line colors.
+// Imported preset (Draw / Pattern): Procedural grid with independent background and line colors.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

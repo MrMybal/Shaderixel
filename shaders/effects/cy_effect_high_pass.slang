@@ -1,5 +1,5 @@
 //@name High Pass
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 8 0.25 256 "Radius"
@@ -10,7 +10,7 @@
 //@param DitherAmount float 0.75 0 2 "Dither Amount"
 //@param DitherSeed float 0 -1000 1000 "Dither Seed"
 
-// Imported from CyTexture (Effect / Detail): High-pass detail isolation with up to 128 samples, deterministic radius dithering, and a one-click high-quality mode.
+// Imported preset (Effect / Detail): High-pass detail isolation with up to 128 samples, deterministic radius dithering, and a one-click high-quality mode.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

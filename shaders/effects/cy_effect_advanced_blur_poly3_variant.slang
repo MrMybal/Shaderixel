@@ -1,5 +1,5 @@
 //@name Advanced Blur Poly3 Variant
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Scale float 1.494463 0.0 2.988926 "Scale"

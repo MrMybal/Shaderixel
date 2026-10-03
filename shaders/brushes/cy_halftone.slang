@@ -1,12 +1,12 @@
 //@name Halftone
-//@category CyTexture Formes
+//@category Formes
 //@selfflow
 //@spacing 0.1
 //@param Cells float 8 1 64 "Cells"
 //@param DotSize float 0.28 0.01 0.7 "Dot Size"
 //@param Softness float 0.04 0.001 0.4 "Softness"
 
-// Imported from CyTexture (Brush / Shape Tips): Circular halftone-dot brush with configurable cell count and dot size.
+// Imported preset (Brush / Shape Tips): Circular halftone-dot brush with configurable cell count and dot size.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Cells, float DotSize, float Softness)
 {

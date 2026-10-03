@@ -1,5 +1,5 @@
 //@name Fur
-//@category CyTexture Particules
+//@category Particules
 //@selfflow
 //@spacing 0.3
 //@param Length float 0.43 0.02 0.7 "Length"
@@ -12,7 +12,7 @@
 //@param RandomSeed float 1 0 1 "Graine par touche"
 //@param FollowStroke float 0 0 1 "Suivre le trait"
 
-// Imported from CyTexture (Brush / Particles): Clustered tapered fibers with seeded direction and length variation.
+// Imported preset (Brush / Particles): Clustered tapered fibers with seeded direction and length variation.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Length, float Width, float Rotation, float FiberWidth, float Softness, float Bend, float Seed)
 {

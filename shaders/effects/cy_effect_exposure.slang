@@ -1,10 +1,10 @@
 //@name Exposure
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param ExposureEV float 0 -16 16 "Exposure EV"
 
-// Imported from CyTexture (Effect / Color & Tone): Linear HDR exposure in photographic EV stops.
+// Imported preset (Effect / Color & Tone): Linear HDR exposure in photographic EV stops.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

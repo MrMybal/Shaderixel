@@ -1,5 +1,5 @@
 //@name Advanced HLSL Sharpen
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param RadialStep float 16.0 1.0 128.0 "Radial Step"

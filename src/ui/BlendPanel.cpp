@@ -46,7 +46,7 @@ const EffectInstance& BuiltinBlendFx(int mode) {
 }  // namespace
 
 void App::DrawBlendPanel() {
-    if (!ImGui::Begin("Fusions")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Fusions", PanelFlag("Fusions"))) { ImGui::End(); return; }
     auto& B = blendBrowser;
     DocView* v = Active();
     Document* d = v ? v->doc.get() : nullptr;

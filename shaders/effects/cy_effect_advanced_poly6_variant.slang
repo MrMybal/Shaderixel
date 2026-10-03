@@ -1,5 +1,5 @@
 //@name Advanced Poly6 Variant
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param K1 float -0.1 -0.1 1.0 "K1"

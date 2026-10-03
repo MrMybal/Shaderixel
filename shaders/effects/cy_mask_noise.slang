@@ -1,5 +1,5 @@
 //@name Noise
-//@category CyTexture Masques
+//@category Masques
 //@input Image
 //@halo 0
 //@param Scale float 256 1 4096 "Scale"
@@ -8,7 +8,7 @@
 //@param Contrast float 4 0 32 "Contrast"
 //@param UseSource float 0 0 1 "Use Source"
 
-// Imported from CyTexture (Mask / Mask): Multiplies source luminance by procedural noise.
+// Imported preset (Mask / Mask): Multiplies source luminance by procedural noise.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

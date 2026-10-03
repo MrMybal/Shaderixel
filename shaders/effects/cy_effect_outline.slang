@@ -1,5 +1,5 @@
 //@name Outline
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Thickness float 2 0.25 128 "Thickness"
@@ -7,7 +7,7 @@
 //@param Opacity float 1 0 1 "Opacity"
 //@param OutlineColor color 1 1 1 1 "Outline Color"
 
-// Imported from CyTexture (Effect / Detail): Builds an inner or outer outline from source alpha.
+// Imported preset (Effect / Detail): Builds an inner or outer outline from source alpha.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

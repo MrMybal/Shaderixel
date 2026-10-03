@@ -1,11 +1,11 @@
 //@name Clamp Range
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Minimum float 0 -32 32 "Minimum"
 //@param Maximum float 1 -32 32 "Maximum"
 
-// Imported from CyTexture (Effect / Color & Tone): Clamps HDR RGB to a configurable minimum and maximum range.
+// Imported preset (Effect / Color & Tone): Clamps HDR RGB to a configurable minimum and maximum range.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

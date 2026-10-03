@@ -1,5 +1,5 @@
 //@name Ink Bleed
-//@category CyTexture Matières
+//@category Matières
 //@selfflow
 //@spacing 0.12
 //@param Lobes float 13 1 64 "Lobes"
@@ -10,7 +10,7 @@
 //@param Seed float 0 -1000 1000 "Seed"
 //@param RandomSeed float 1 0 1 "Graine par touche"
 
-// Imported from CyTexture (Brush / Natural Media): Dense ink stamp with irregular capillary bleed and a configurable wet fringe.
+// Imported preset (Brush / Natural Media): Dense ink stamp with irregular capillary bleed and a configurable wet fringe.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Lobes, float Irregularity, float BleedWidth, float BleedFalloff, float BleedAmount, float Seed)
 {

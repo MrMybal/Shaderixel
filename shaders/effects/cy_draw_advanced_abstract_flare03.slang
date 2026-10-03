@@ -1,5 +1,5 @@
 //@name Advanced Abstract Flare03
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo full
 //@param Divisor float 4.862034 0.0 9.724068 "Divisor"

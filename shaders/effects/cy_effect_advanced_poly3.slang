@@ -1,5 +1,5 @@
 //@name Advanced Poly3
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Scale float 1.0 0.0 2.0 "Scale"

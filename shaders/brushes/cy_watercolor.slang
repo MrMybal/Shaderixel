@@ -1,5 +1,5 @@
 //@name Watercolor
-//@category CyTexture Matières
+//@category Matières
 //@selfflow
 //@spacing 0.12
 //@param Opacity float 0.7 0 1 "Opacity"
@@ -12,7 +12,7 @@
 //@param Seed float 0 -1000 1000 "Seed"
 //@param RandomSeed float 1 0 1 "Graine par touche"
 
-// Imported from CyTexture (Brush / Natural Media): Soft watercolor wash with pigment pooling, paper grain, and translucent interior.
+// Imported preset (Brush / Natural Media): Soft watercolor wash with pigment pooling, paper grain, and translucent interior.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Opacity, float EdgePosition, float EdgeWidth, float EdgeSharpness, float EdgePooling, float GrainScale, float GrainAmount, float Seed)
 {

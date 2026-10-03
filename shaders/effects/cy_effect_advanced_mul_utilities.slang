@@ -1,5 +1,5 @@
 //@name Advanced Mul Utilities
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Mul float 1.0 0.0 2.0 "Mul"

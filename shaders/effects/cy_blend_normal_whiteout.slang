@@ -1,5 +1,5 @@
 //@name Normal Whiteout
-//@category CyTexture Fusions
+//@category Fusions
 //@input Fond
 //@input Calque
 //@input Masque
@@ -7,7 +7,7 @@
 //@param DetailStrength float 1 0 8 "Detail Strength"
 //@param Opacity float 1 0 1 "Opacity"
 
-// Imported from CyTexture (Blend / PBR): Whiteout tangent-space normal blend that retains broad surface direction while adding fine detail.
+// Imported preset (Blend / PBR): Whiteout tangent-space normal blend that retains broad surface direction while adding fine detail.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

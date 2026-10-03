@@ -1,5 +1,5 @@
 //@name Advanced Flare2
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo full
 //@param Fmod float 0.2 0.0 1.0 "Fmod"

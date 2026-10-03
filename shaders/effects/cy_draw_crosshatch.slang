@@ -1,5 +1,5 @@
 //@name Crosshatch
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Frequency float 28 2 512 "Frequency"
@@ -12,7 +12,7 @@
 //@param InkColor color 0.015 0.012 0.01 1 "Ink Color"
 //@param PaperColor color 0.75 0.68 0.55 1 "Paper Color"
 
-// Imported from CyTexture (Draw / Pattern): Layered crosshatch generator with tone-controlled stroke density and paper color.
+// Imported preset (Draw / Pattern): Layered crosshatch generator with tone-controlled stroke density and paper color.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

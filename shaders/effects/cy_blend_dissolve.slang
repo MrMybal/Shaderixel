@@ -1,5 +1,5 @@
 //@name Dissolve
-//@category CyTexture Fusions
+//@category Fusions
 //@input Fond
 //@input Calque
 //@input Masque
@@ -13,7 +13,7 @@
 //@param Opacity float 1 0 1 "Opacity"
 //@param EdgeColor color 2 0.35 0.02 1 "Edge Color"
 
-// Imported from CyTexture (Blend / Utility): Seeded procedural dissolve blend with threshold, feathered edge, and HDR edge color.
+// Imported preset (Blend / Utility): Seeded procedural dissolve blend with threshold, feathered edge, and HDR edge color.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

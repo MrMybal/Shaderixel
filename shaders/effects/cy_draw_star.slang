@@ -1,5 +1,5 @@
 //@name Star
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Points float 5 2 64 "Points"
@@ -13,7 +13,7 @@
 //@param Center float2 0.5 0.5 0 1 "Center"
 //@param Color color 1 1 1 1 "Color"
 
-// Imported from CyTexture (Draw / Shape & Gradient): Procedural star or flower shape with controllable point count.
+// Imported preset (Draw / Shape & Gradient): Procedural star or flower shape with controllable point count.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

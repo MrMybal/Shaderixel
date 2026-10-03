@@ -1,5 +1,5 @@
 //@name Bokeh Rings
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Aspect float 1 0.1 8 "Aspect"
@@ -13,7 +13,7 @@
 //@param ColorA color 1 0.45 0.12 1 "Color A"
 //@param ColorB color 0.1 0.4 1 1 "Color B"
 
-// Imported from CyTexture (Draw / Light & Space): Procedural bokeh ring cluster for flare and depth-of-field overlays.
+// Imported preset (Draw / Light & Space): Procedural bokeh ring cluster for flare and depth-of-field overlays.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

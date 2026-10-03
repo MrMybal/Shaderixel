@@ -1,5 +1,5 @@
 //@name Rust Patches
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 4 0.1 128 "Scale"
@@ -18,7 +18,7 @@
 //@param RustBright color 0.75 0.16 0.015 1 "Rust Bright"
 //@param EdgeColor color 1.2 0.32 0.03 1 "Edge Color"
 
-// Imported from CyTexture (Draw / Surface): Layered corrosion patches with pitting, scale variation, edge oxidation, and PBR-friendly masks.
+// Imported preset (Draw / Surface): Layered corrosion patches with pitting, scale variation, edge oxidation, and PBR-friendly masks.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

@@ -1,5 +1,5 @@
 //@name Advanced Tiling UV
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Add_X float 0.0 0.0 1.0 "Add X"

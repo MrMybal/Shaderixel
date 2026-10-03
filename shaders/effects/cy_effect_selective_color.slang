@@ -1,5 +1,5 @@
 //@name Selective Color
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Tolerance float 0.2 0 1 "Tolerance"
@@ -8,7 +8,7 @@
 //@param TargetColor color 1 0 0 1 "Target Color"
 //@param Correction color 0 0 0 0 "Correction"
 
-// Imported from CyTexture (Effect / Color & Tone): Selects a color range and applies an RGB correction with soft tolerance.
+// Imported preset (Effect / Color & Tone): Selects a color range and applies an RGB correction with soft tolerance.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

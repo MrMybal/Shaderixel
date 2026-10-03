@@ -1,5 +1,5 @@
 //@name Advanced Mixer RGB Color
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Red color 1.0 0.0 0.0 0.0 "Red"

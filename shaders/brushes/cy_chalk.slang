@@ -1,5 +1,5 @@
 //@name Chalk
-//@category CyTexture Matières
+//@category Matières
 //@selfflow
 //@spacing 0.12
 //@param NoiseScale float 48 2 512 "Noise Scale"
@@ -9,7 +9,7 @@
 //@param Seed float 0 -1000 1000 "Seed"
 //@param RandomSeed float 1 0 1 "Graine par touche"
 
-// Imported from CyTexture (Brush / Natural Media): Grainy chalk tip with noisy coverage and irregular edges.
+// Imported preset (Brush / Natural Media): Grainy chalk tip with noisy coverage and irregular edges.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float NoiseScale, float Grain, float GrainThreshold, float EdgeBreakup, float Seed)
 {

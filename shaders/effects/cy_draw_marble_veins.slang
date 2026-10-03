@@ -1,5 +1,5 @@
 //@name Marble Veins
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 4 0.1 64 "Scale"
@@ -17,7 +17,7 @@
 //@param SecondaryColor color 0.28 0.3 0.32 1 "Secondary Color"
 //@param VeinColor color 0.85 0.82 0.72 1 "Vein Color"
 
-// Imported from CyTexture (Draw / Surface): Layered marble veins with turbulent domain warping and HDR mineral highlights.
+// Imported preset (Draw / Surface): Layered marble veins with turbulent domain warping and HDR mineral highlights.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

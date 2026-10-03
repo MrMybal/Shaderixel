@@ -1,5 +1,5 @@
 //@name Sponge
-//@category CyTexture Matières
+//@category Matières
 //@selfflow
 //@spacing 0.12
 //@param CellScale float 10 2 64 "Cell Scale"
@@ -9,7 +9,7 @@
 //@param Seed float 0 -1000 1000 "Seed"
 //@param RandomSeed float 1 0 1 "Graine par touche"
 
-// Imported from CyTexture (Brush / Natural Media): Porous sponge texture with adjustable cells and holes.
+// Imported preset (Brush / Natural Media): Porous sponge texture with adjustable cells and holes.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float CellScale, float PoreSize, float Softness, float Porosity, float Seed)
 {

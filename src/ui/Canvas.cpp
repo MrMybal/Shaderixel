@@ -129,13 +129,23 @@ void App::DrawToolbar() {
         dl->AddRectFilled(p, ImVec2(p.x + sw, p.y + sw), ImGui::ColorConvertFloat4ToU32(ImVec4(fg.x, fg.y, fg.z, 1)), 3);
         dl->AddRect(p, ImVec2(p.x + sw, p.y + sw), IM_COL32(200, 200, 210, 255), 3);
         ImGui::SetCursorScreenPos(p);
-        if (ImGui::InvisibleButton("##fg", ImVec2(sw, sw))) { editBg = false; ImGui::SetWindowFocus("Couleur"); }
+        if (ImGui::InvisibleButton("##fg", ImVec2(sw, sw))) { editBg = false; ImGui::OpenPopup("##colorpop"); }
         ui::HelpTooltip("Couleur de premier plan");
         ImGui::SetCursorScreenPos(bgMin);
-        if (ImGui::InvisibleButton("##bg", ImVec2(sw, sw))) { editBg = true; ImGui::SetWindowFocus("Couleur"); }
+        if (ImGui::InvisibleButton("##bg", ImVec2(sw, sw))) { editBg = true; ImGui::OpenPopup("##colorpop"); }
         ui::HelpTooltip("Couleur d'arrière-plan");
         ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + size + 4));
         if (ui::IconButton("swap", ui::IconSwap, false, size * 0.5f, "Permuter (X)")) std::swap(fg, bg);
+        // Color chooser as a popup (the Couleur panel is optional).
+        if (colorPopupRequest) { ImGui::OpenPopup("##colorpop"); colorPopupRequest = false; }
+        ImGui::SetNextWindowPos(ImVec2(p.x + size + 10 * dpi, p.y - 150 * dpi), ImGuiCond_Appearing);
+        if (ImGui::BeginPopup("##colorpop")) {
+            ImGui::TextDisabled(editBg ? "Couleur d'arrière-plan" : "Couleur de premier plan");
+            ImGui::BeginChild("##colorpopbody", ImVec2(340 * dpi, 300 * dpi));
+            ColorPickerBody();
+            ImGui::EndChild();
+            ImGui::EndPopup();
+        }
     }
     ImGui::End();
     ImGui::PopStyleVar(2);

@@ -1,5 +1,5 @@
 //@name Hue Saturation
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Hue float 0 -1 1 "Hue"
@@ -7,7 +7,7 @@
 //@param Value float 1 0 8 "Value"
 //@param Strength float 1 0 1 "Strength"
 
-// Imported from CyTexture (Effect / Color & Tone): YIQ hue rotation with saturation and value controls.
+// Imported preset (Effect / Color & Tone): YIQ hue rotation with saturation and value controls.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

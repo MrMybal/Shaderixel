@@ -1,5 +1,5 @@
 //@name Smoke
-//@category CyTexture Particules
+//@category Particules
 //@selfflow
 //@spacing 0.3
 //@param Scale float 3.5 0.1 64 "Scale"
@@ -10,7 +10,7 @@
 //@param Turbulence float 0.85 0 1 "Turbulence"
 //@param RandomSeed float 1 0 1 "Graine par touche"
 
-// Imported from CyTexture (Brush / Particles): Layered turbulent smoke stamp with wispy breakup and soft radial extinction.
+// Imported preset (Brush / Particles): Layered turbulent smoke stamp with wispy breakup and soft radial extinction.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Scale, float Seed, float Bias, float Contrast, float Falloff, float Turbulence)
 {

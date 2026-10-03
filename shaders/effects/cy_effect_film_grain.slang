@@ -1,12 +1,12 @@
 //@name Film Grain
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Amount float 0.04 0 1 "Amount"
 //@param Seed float 0 -10000 10000 "Seed"
 //@param Colored float 0 0 1 "Colored"
 
-// Imported from CyTexture (Effect / Stylize): Resolution-aware monochrome or colored film grain.
+// Imported preset (Effect / Stylize): Resolution-aware monochrome or colored film grain.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

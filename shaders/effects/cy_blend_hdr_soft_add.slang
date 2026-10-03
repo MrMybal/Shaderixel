@@ -1,5 +1,5 @@
 //@name HDR Soft Add
-//@category CyTexture Fusions
+//@category Fusions
 //@input Fond
 //@input Calque
 //@input Masque
@@ -9,7 +9,7 @@
 //@param Rolloff float 0.35 0 1 "Rolloff"
 //@param Opacity float 1 0 1 "Opacity"
 
-// Imported from CyTexture (Blend / Utility): HDR-preserving soft additive blend with highlight rolloff and energy control.
+// Imported preset (Blend / Utility): HDR-preserving soft additive blend with highlight rolloff and energy control.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

@@ -1,5 +1,5 @@
 //@name Advanced Rad Grad Distortion2
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Intensity float 0.0 0.0 1.0 "Intensity"

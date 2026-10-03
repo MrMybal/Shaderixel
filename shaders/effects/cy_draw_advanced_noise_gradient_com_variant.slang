@@ -1,5 +1,5 @@
 //@name Advanced Noise Gradient Com Variant
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 75.29034 0.0 150.5807 "Scale"

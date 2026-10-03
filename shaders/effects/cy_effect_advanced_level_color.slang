@@ -1,5 +1,5 @@
 //@name Advanced Level Color
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Black float 0.0 0.0 1.0 "Black"

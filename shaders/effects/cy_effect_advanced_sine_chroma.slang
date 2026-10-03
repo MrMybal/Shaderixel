@@ -1,5 +1,5 @@
 //@name Advanced Sine Chroma
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Noise float 1.05 0.0 2.1 "Noise"

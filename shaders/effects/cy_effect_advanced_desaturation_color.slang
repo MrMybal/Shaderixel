@@ -1,5 +1,5 @@
 //@name Advanced Desaturation Color
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Desacturation float 0.0 0.0 1.0 "Desacturation"

@@ -1,10 +1,10 @@
 //@name Soft Square
-//@category CyTexture Formes
+//@category Formes
 //@selfflow
 //@spacing 0.1
 //@param CornerRadius float 0.25 0 1 "Corner Radius"
 
-// Imported from CyTexture (Brush / Shape Tips): Rounded soft-square tip with controllable corner radius.
+// Imported preset (Brush / Shape Tips): Rounded soft-square tip with controllable corner radius.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float CornerRadius)
 {

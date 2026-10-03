@@ -1,5 +1,5 @@
 //@name Procedural Noise
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 16 1 1024 "Scale"
@@ -10,7 +10,7 @@
 //@param ColorA color 0 0 0 1 "Color A"
 //@param ColorB color 1 1 1 1 "Color B"
 
-// Imported from CyTexture (Draw / Noise): Fast deterministic value noise for masks, grain, and procedural sources.
+// Imported preset (Draw / Noise): Fast deterministic value noise for masks, grain, and procedural sources.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

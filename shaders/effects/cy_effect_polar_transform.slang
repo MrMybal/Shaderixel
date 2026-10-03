@@ -1,5 +1,5 @@
 //@name Polar Transform
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Aspect float 1 0.05 16 "Aspect"
@@ -11,7 +11,7 @@
 //@param ToPolar float 1 0 1 "To Polar"
 //@param Center float2 0.5 0.5 0 1 "Center"
 
-// Imported from CyTexture (Effect / Distort): Cartesian-to-polar transform with repeat, twist, radial offset, and seamless angular wrapping.
+// Imported preset (Effect / Distort): Cartesian-to-polar transform with repeat, twist, radial offset, and seamless angular wrapping.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

@@ -1,5 +1,5 @@
 //@name Advanced Gradient Color
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param A color 1.0 0.0 0.0 0.0 "A"

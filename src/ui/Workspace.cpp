@@ -41,6 +41,7 @@ void SettingsReadLine(ImGuiContext*, ImGuiSettingsHandler*, void*, const char* l
     else if (sscanf(line, "Right=0x%08X", &u) == 1) a.rightZone = u;
     else if (sscanf(line, "Windows=%d", &i) == 1) a.extraWindows.assign(std::clamp(i, 0, 8), true);
     else if (sscanf(line, "WindowOpen%d=", &i) == 1 && i >= 0 && i < (int)a.extraWindows.size()) a.extraWindows[i] = strchr(line, '=')[1] == '1';
+    else if (strncmp(line, "Closed=", 7) == 0) a.panelOpen[line + 7].open = false;
 }
 
 void SettingsWriteAll(ImGuiContext*, ImGuiSettingsHandler* h, ImGuiTextBuffer* buf) {
@@ -50,6 +51,8 @@ void SettingsWriteAll(ImGuiContext*, ImGuiSettingsHandler* h, ImGuiTextBuffer* b
     buf->appendf("Bottom=0x%08X\nRight=0x%08X\n", a.bottomZone, a.rightZone);
     buf->appendf("Windows=%d\n", (int)a.extraWindows.size());
     for (size_t i = 0; i < a.extraWindows.size(); ++i) buf->appendf("WindowOpen%d=%d\n", (int)i, a.extraWindows[i] ? 1 : 0);
+    for (auto& [name, f] : a.panelOpen)
+        if (!f.open) buf->appendf("Closed=%s\n", name.c_str());
     buf->append("\n");
 }
 }  // namespace
@@ -91,6 +94,7 @@ void App::BuildDockLayout(ImGuiID dock) {
     // The side tabs host: nothing docks over it (a panel dropped there would vanish behind it).
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(right)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingOverMe;
     ImGui::DockBuilderFinish(dock);
+    panelOpen.clear();  // the default layout shows every panel
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(bottomLeft)) n->SelectedTabId = ImHashStr("Graphe");
     bottomZone = bottom;
     rightZone = right;
@@ -223,6 +227,7 @@ void App::NewExtraWindow() {
 }
 
 bool App::Shown(const char* window) const {
+    if (!PanelIsOpen(window)) return false;
     ImGuiWindow* w = ImGui::FindWindowByName(window);
     if (!w) return true;
     ImGuiDockNode* n = w->DockNode ? w->DockNode : (w->DockId ? ImGui::DockBuilderGetNode(w->DockId) : nullptr);
@@ -277,6 +282,7 @@ void App::ApplyPendingLayout() {
     if (pendingLayoutIni.empty()) return;
     ImGui::ClearIniSettings();
     extraWindows.clear();
+    panelOpen.clear();
     ImGui::LoadIniSettingsFromMemory(pendingLayoutIni.c_str(), pendingLayoutIni.size());
     layoutBuilt = true;
     Status("Disposition : " + pendingLayoutName);
@@ -289,8 +295,34 @@ void App::DeleteLayout(const std::string& name) {
     ScanLayouts();
 }
 
+void App::DrawPanelsMenu() {
+    // Closed panels come back here (also from Fenêtre).
+    static const char* names[] = {"Calques", "Graphe", "Aperçu du calque", "Éditeur d'effets", "Vue 3D", "Propriétés", "Historique", "Histogramme",
+                                  "Options", "Tracés", "Effets", "Fusions", "Couleur", "Pinceaux", "Matériaux", "Assistant IA", "Génération IA"};
+    if (!ImGui::BeginMenu("Panneaux")) return;
+    for (const char* n : names) {
+        bool open = PanelIsOpen(n);
+        if (ImGui::MenuItem(n, nullptr, &open)) {
+            panelOpen[n].open = open;
+            if (open) {
+                // Side tab panels: show their tab; others: bring forward.
+                ImGuiWindow* w = ImGui::FindWindowByName(n);
+                ImGuiDockNode* node = w ? (w->DockNode ? w->DockNode : ImGui::DockBuilderGetNode(w->DockId)) : nullptr;
+                while (node && node->ParentNode) node = node->ParentNode;
+                for (int i = 0; node && i < kSideTabs; ++i)
+                    if (node->ID == SideTabDock(i)) ShowSideTab(i);
+                ImGui::SetWindowFocus(n);
+            }
+        }
+    }
+    ImGui::Separator();
+    if (ImGui::MenuItem("Tout réafficher")) panelOpen.clear();
+    ImGui::EndMenu();
+}
+
 void App::DrawWindowMenu() {
     if (!ImGui::BeginMenu("Fenêtre")) return;
+    DrawPanelsMenu();
     if (ImGui::MenuItem("Nouvelle fenêtre")) NewExtraWindow();
     for (size_t i = 0; i < extraWindows.size(); ++i) {
         bool o = extraWindows[i];

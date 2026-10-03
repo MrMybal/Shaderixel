@@ -1,5 +1,5 @@
 //@name Advanced Anamorph
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param X float 1.0 0.0 2.0 "X"

@@ -1,5 +1,5 @@
 //@name Roughness Remap
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param InputMinimum float 0 0 1 "Input Minimum"
@@ -14,7 +14,7 @@
 //@param SourceChannel color 1 0 0 0 "Source Channel"
 //@param OutputChannels color 1 1 1 0 "Output Channels"
 
-// Imported from CyTexture (Effect / PBR): PBR roughness remap with range compression, gamma, microvariation, and physical clamping.
+// Imported preset (Effect / PBR): PBR roughness remap with range compression, gamma, microvariation, and physical clamping.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

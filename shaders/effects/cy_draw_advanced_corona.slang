@@ -1,5 +1,5 @@
 //@name Advanced Corona
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo full
 //@param Flare1 float 40.0 0.0 80.0 "Flare1"

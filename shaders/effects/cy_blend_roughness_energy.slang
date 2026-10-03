@@ -1,5 +1,5 @@
 //@name Roughness Energy
-//@category CyTexture Fusions
+//@category Fusions
 //@input Fond
 //@input Calque
 //@input Masque
@@ -10,7 +10,7 @@
 //@param ForegroundChannel color 1 0 0 0 "Foreground Channel"
 //@param OutputChannels color 1 1 1 0 "Output Channels"
 
-// Imported from CyTexture (Blend / PBR): Blends roughness in squared perceptual space to avoid an unnaturally linear material transition.
+// Imported preset (Blend / PBR): Blends roughness in squared perceptual space to avoid an unnaturally linear material transition.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

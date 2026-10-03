@@ -15,7 +15,7 @@ void App::AttachMesh(DocView& v, MeshData data) {
 
 void App::DrawView3D() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    bool open = ImGui::Begin("Vue 3D", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    bool open = ImGui::Begin("Vue 3D", PanelFlag("Vue 3D"), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar();
     DocView* v = Active();
     if (!open || !v) { ImGui::End(); return; }

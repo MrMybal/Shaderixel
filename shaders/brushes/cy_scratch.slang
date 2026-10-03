@@ -1,5 +1,5 @@
 //@name Scratch
-//@category CyTexture Détails
+//@category Détails
 //@selfflow
 //@spacing 0.45
 //@param Length float 0.48 0.02 0.75 "Length"
@@ -11,7 +11,7 @@
 //@param RandomSeed float 1 0 1 "Graine par touche"
 //@param FollowStroke float 0 0 1 "Suivre le trait"
 
-// Imported from CyTexture (Brush / Surface Detail): Directional clustered scratch tip for wear, brushed metal, and damage masks.
+// Imported preset (Brush / Surface Detail): Directional clustered scratch tip for wear, brushed metal, and damage masks.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Length, float Width, float Rotation, float LineWidth, float Softness, float Seed)
 {

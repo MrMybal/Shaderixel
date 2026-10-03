@@ -1,5 +1,5 @@
 //@name Radial Gradient
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Radius float 0.35 0.001 2 "Radius"
@@ -10,7 +10,7 @@
 //@param InnerColor color 1 1 1 1 "Inner Color"
 //@param OuterColor color 0 0 0 0 "Outer Color"
 
-// Imported from CyTexture (Draw / Shape & Gradient): Configurable radial gradient useful for shapes and vignettes.
+// Imported preset (Draw / Shape & Gradient): Configurable radial gradient useful for shapes and vignettes.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

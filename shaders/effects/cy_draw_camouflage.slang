@@ -1,5 +1,5 @@
 //@name Camouflage
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 3.5 0.1 64 "Scale"
@@ -14,7 +14,7 @@
 //@param ColorC color 0.32 0.28 0.12 1 "Color C"
 //@param ColorD color 0.08 0.07 0.045 1 "Color D"
 
-// Imported from CyTexture (Draw / Surface): Multi-scale organic camouflage regions with four colors, warped boundaries, and seamless UV input.
+// Imported preset (Draw / Surface): Multi-scale organic camouflage regions with four colors, warped boundaries, and seamless UV input.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

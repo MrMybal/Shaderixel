@@ -1,5 +1,5 @@
 //@name Advanced Noise Value Com
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 100.0 0.0 200.0 "Scale"

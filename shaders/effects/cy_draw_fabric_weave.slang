@@ -1,5 +1,5 @@
 //@name Fabric Weave
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param WarpThreads float 48 2 512 "Warp Threads"
@@ -11,7 +11,7 @@
 //@param WarpColor color 0.08 0.18 0.34 1 "Warp Color"
 //@param WeftColor color 0.55 0.62 0.7 1 "Weft Color"
 
-// Imported from CyTexture (Draw / Surface): Procedural woven textile with over-under threads, fiber highlights, and weave irregularity.
+// Imported preset (Draw / Surface): Procedural woven textile with over-under threads, fiber highlights, and weave irregularity.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

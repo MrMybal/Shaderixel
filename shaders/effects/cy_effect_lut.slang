@@ -1,5 +1,5 @@
 //@name LUT
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@input LUT
 //@halo full
@@ -7,7 +7,7 @@
 //@param FlipVertical float 0 0 1 "Flip Vertical"
 //@param Strength float 0 0 1 "Strength"
 
-// Imported from CyTexture (Effect / Color & Tone): Applies a standard horizontal 2D strip LUT (N*N by N) with adjustable strength.
+// Imported preset (Effect / Color & Tone): Applies a standard horizontal 2D strip LUT (N*N by N) with adjustable strength.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

@@ -1,5 +1,5 @@
 //@name Heat Haze
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Scale float 4 0.01 128 "Scale"
@@ -9,7 +9,7 @@
 //@param UseAlphaMask float 0 0 1 "Use Alpha Mask"
 //@param MaskPower float 1 0.05 8 "Mask Power"
 
-// Imported from CyTexture (Effect / Distort): Layered procedural refraction for heat shimmer, underwater distortion, and energy fields.
+// Imported preset (Effect / Distort): Layered procedural refraction for heat shimmer, underwater distortion, and energy fields.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

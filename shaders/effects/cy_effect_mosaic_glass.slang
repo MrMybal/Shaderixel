@@ -1,5 +1,5 @@
 //@name Mosaic Glass
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Cells float 24 2 512 "Cells"
@@ -12,7 +12,7 @@
 //@param GroutOpacity float 1 0 1 "Grout Opacity"
 //@param GroutColor color 0.015 0.015 0.018 1 "Grout Color"
 
-// Imported from CyTexture (Effect / Stylize): Cellular stained-glass mosaic with seeded sampling, bevel shading, and grout color.
+// Imported preset (Effect / Stylize): Cellular stained-glass mosaic with seeded sampling, bevel shading, and grout color.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

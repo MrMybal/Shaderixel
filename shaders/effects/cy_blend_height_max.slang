@@ -1,5 +1,5 @@
 //@name Height Max
-//@category CyTexture Fusions
+//@category Fusions
 //@input Fond
 //@input Calque
 //@input Masque
@@ -10,7 +10,7 @@
 //@param BackgroundHeightChannel color 0 0 0 1 "Background Height Channel"
 //@param ForegroundHeightChannel color 0 0 0 1 "Foreground Height Channel"
 
-// Imported from CyTexture (Blend / PBR): Selects the material with the greater packed height while preserving a controllable soft transition.
+// Imported preset (Blend / PBR): Selects the material with the greater packed height while preserving a controllable soft transition.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

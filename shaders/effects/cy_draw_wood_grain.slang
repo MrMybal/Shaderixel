@@ -1,5 +1,5 @@
 //@name Wood Grain
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 7 0.1 128 "Scale"
@@ -16,7 +16,7 @@
 //@param EarlyWood color 0.12 0.035 0.008 1 "Early Wood"
 //@param LateWood color 0.55 0.22 0.045 1 "Late Wood"
 
-// Imported from CyTexture (Draw / Surface): Seamless procedural wood rings with warped fibers, pores, and adjustable early/late wood color.
+// Imported preset (Draw / Surface): Seamless procedural wood rings with warped fibers, pores, and adjustable early/late wood color.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

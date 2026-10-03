@@ -22,7 +22,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 OUT = os.path.join(ROOT, 'shaders', 'effects')
 
-CATEGORY = {'Draw': 'CyTexture Dessin', 'Effect': 'CyTexture Effets', 'Blend': 'CyTexture Fusions', 'Mask': 'CyTexture Masques'}
+# Categories shown in Shaderixel (no reference to the source tool once imported).
+CATEGORY = {'Draw': 'Dessin', 'Effect': 'Traitements', 'Blend': 'Fusions', 'Mask': 'Masques'}
 INPUT_LABEL = {'CyInput': 'Image', 'CyBackground': 'Fond', 'CyForeground': 'Calque', 'CyMask': 'Masque'}
 SYSTEM = {'CyCanvasSize', 'CyBrushPosition', 'CyBrushSize', 'CyBrushHardness', 'CyBrushFlow', 'CyBrushColor', 'CyWriteChannels'}
 POSITION_HINTS = ('center', 'position', 'offset', 'direction', 'halfsize', 'size', 'origin', 'pivot', 'point', 'handle', 'scale', 'tiling', 'axis', 'start', 'end', 'focus')
@@ -97,7 +98,7 @@ def convert(p):
             call_args.append(f'{n}.rgb')
         fn_params.append('float3 ' + n)
     lines.append('')
-    lines.append(f'// Imported from CyTexture ({p["category"]} / {p["group"]}): {p["description"]}')
+    lines.append(f'// Imported preset ({p["category"]} / {p["group"]}): {p["description"]}')
     lines.append('// Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.')
     # Unconnected textures read as Unreal's default texture (white), like in CyTexture.
     lines.append('float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }')

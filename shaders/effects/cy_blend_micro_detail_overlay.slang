@@ -1,5 +1,5 @@
 //@name Micro Detail Overlay
-//@category CyTexture Fusions
+//@category Fusions
 //@input Fond
 //@input Calque
 //@input Masque
@@ -10,7 +10,7 @@
 //@param DetailChannel color 1 0 0 0 "Detail Channel"
 //@param TargetChannels color 1 1 1 0 "Target Channels"
 
-// Imported from CyTexture (Blend / PBR): Adds signed micro-detail to selected PBR channels with range-safe attenuation near black and white.
+// Imported preset (Blend / PBR): Adds signed micro-detail to selected PBR channels with range-safe attenuation near black and white.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

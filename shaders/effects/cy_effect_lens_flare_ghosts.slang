@@ -1,5 +1,5 @@
 //@name Lens Flare Ghosts
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param GhostScale float 1.2 0.05 8 "Ghost Scale"
@@ -10,7 +10,7 @@
 //@param GhostColorA color 1 0.2 0.05 1 "Ghost Color A"
 //@param GhostColorB color 0.05 0.3 1 1 "Ghost Color B"
 
-// Imported from CyTexture (Effect / Color & Tone): Extracts bright regions into mirrored chromatic lens ghosts.
+// Imported preset (Effect / Color & Tone): Extracts bright regions into mirrored chromatic lens ghosts.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

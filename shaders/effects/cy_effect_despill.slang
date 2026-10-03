@@ -1,11 +1,11 @@
 //@name Despill
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Amount float 2 0 16 "Amount"
 //@param SpillColor color 0 1 0 1 "Spill Color"
 
-// Imported from CyTexture (Effect / Color & Tone): Reduces a selected spill color while preserving luminance.
+// Imported preset (Effect / Color & Tone): Reduces a selected spill color while preserving luminance.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

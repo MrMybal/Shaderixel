@@ -1,5 +1,5 @@
 //@name Cracks
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 14 1 256 "Scale"
@@ -15,7 +15,7 @@
 //@param CrackColor color 1 1 1 1 "Crack Color"
 //@param BackgroundColor color 0 0 0 1 "Background Color"
 
-// Imported from CyTexture (Draw / Surface): Voronoi fracture network with branching breakup, variable width, and optional filled cells.
+// Imported preset (Draw / Surface): Voronoi fracture network with branching breakup, variable width, and optional filled cells.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

@@ -1,11 +1,11 @@
 //@name Gamma
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Gamma float 1 0.05 8 "Gamma"
 //@param Strength float 1 0 1 "Strength"
 
-// Imported from CyTexture (Effect / Color & Tone): Per-channel gamma correction with blend strength.
+// Imported preset (Effect / Color & Tone): Per-channel gamma correction with blend strength.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

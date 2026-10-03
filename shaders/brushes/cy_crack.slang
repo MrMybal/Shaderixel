@@ -1,5 +1,5 @@
 //@name Crack
-//@category CyTexture Détails
+//@category Détails
 //@selfflow
 //@spacing 0.45
 //@param Width float 0.012 0.001 0.15 "Width"
@@ -11,7 +11,7 @@
 //@param Seed float 0 -1000 1000 "Seed"
 //@param RandomSeed float 1 0 1 "Graine par touche"
 
-// Imported from CyTexture (Brush / Surface Detail): Branching fracture stamp for rock, ceramic, dried mud, and edge-damage masks.
+// Imported preset (Brush / Surface Detail): Branching fracture stamp for rock, ceramic, dried mud, and edge-damage masks.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Width, float Softness, float Frequency, float Wobble, float BranchLength, float Slope, float Seed)
 {

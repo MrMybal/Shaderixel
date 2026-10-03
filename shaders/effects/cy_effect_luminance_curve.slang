@@ -1,5 +1,5 @@
 //@name Luminance Curve
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Strength float 1 0 1 "Strength"
@@ -16,7 +16,7 @@
 //@param CurveHandle2Out float2 0.777778 0.777778 0 1 "Curve Handle2 Out"
 //@param CurveHandle3In float2 0.888889 0.888889 0 1 "Curve Handle3 In"
 
-// Imported from CyTexture (Effect / Color & Tone): HDR-aware luminance remapping with a dedicated interactive four-point curve editor.
+// Imported preset (Effect / Color & Tone): HDR-aware luminance remapping with a dedicated interactive four-point curve editor.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

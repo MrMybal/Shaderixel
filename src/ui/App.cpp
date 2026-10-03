@@ -215,7 +215,8 @@ void App::UpdateRelativeDrag() {
         dragging = true;
         ImVec2 c = ImGui::GetIO().MouseClickedPos[0];
         anchor = {(LONG)c.x, (LONG)c.y};
-        ClientToScreen(hwnd, &anchor);
+        // With multi-viewports ImGui positions are already in screen coordinates.
+        if (!(ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)) ClientToScreen(hwnd, &anchor);
         last = cur;
     }
     if (!dragging) return;
@@ -225,6 +226,8 @@ void App::UpdateRelativeDrag() {
         return;
     }
     GSXMouseDelta = ImVec2((float)(cur.x - last.x), (float)(cur.y - last.y));
+    // A jump (cursor warped by the system, another screen) is not a motion.
+    if (std::abs(GSXMouseDelta.x) > 400 || std::abs(GSXMouseDelta.y) > 400) GSXMouseDelta = ImVec2(0, 0);
     GSXUseMouseDelta = true;
     long dx = cur.x - anchor.x, dy = cur.y - anchor.y;
     if (dx * dx + dy * dy > 80 * 80) {
@@ -769,29 +772,34 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Galerie d'effets...")) ImGui::SetWindowFocus("Effets");
         ImGui::EndMenu();
     }
-    if (ImGui::BeginMenu("Affichage", v != nullptr)) {
-        if (ImGui::MenuItem("Adapter à l'écran", "Ctrl+0")) v->fitPending = true;
-        if (ImGui::MenuItem("100 %", "Ctrl+1")) v->zoom = 1.0f;
+    if (ImGui::BeginMenu("Affichage")) {
+        DrawPanelsMenu();
         ImGui::Separator();
-        ImGui::MenuItem("Fusion en gamma (compatible Photoshop)", nullptr, &v->doc->blendInGamma);
-        ImGui::Separator();
-        ImGui::MenuItem("Règles", "Ctrl+R", &showRulers);
-        ImGui::MenuItem("Repères", "Ctrl+;", &showGuides);
-        ImGui::MenuItem("Grille", "Ctrl+'", &showGrid);
-        ImGui::MenuItem("Magnétisme", "Ctrl+Maj+;", &snapEnabled);
-        if (ImGui::BeginMenu("Paramètres de la grille")) {
-            ImGui::SetNextItemWidth(120 * dpi);
-            ImGui::DragFloat("Pas (px)", &gridStep, 1, 4, 4000, "%.0f");
-            ImGui::SetNextItemWidth(120 * dpi);
-            ImGui::SliderInt("Subdivisions", &gridSubdiv, 1, 10);
-            ImGui::EndMenu();
-        }
-        bool anyGuide = !v->doc->S().guidesX.empty() || !v->doc->S().guidesY.empty();
-        if (ImGui::MenuItem("Effacer les repères", nullptr, false, anyGuide)) {
-            Edit e(*v->doc, v->history, "Effacer les repères");
-            v->doc->S().guidesX.clear();
-            v->doc->S().guidesY.clear();
-            e.Commit();
+        if (v) {
+            if (ImGui::MenuItem("Adapter à l'écran", "Ctrl+0")) v->fitPending = true;
+            if (ImGui::MenuItem("100 %", "Ctrl+1")) v->zoom = 1.0f;
+            ImGui::Separator();
+            ImGui::MenuItem("Fusion en sRGB", nullptr, &v->doc->blendInGamma);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Mélange les calques en sRGB (comme Photoshop) au lieu de l'espace linéaire.");
+            ImGui::Separator();
+            ImGui::MenuItem("Règles", "Ctrl+R", &showRulers);
+            ImGui::MenuItem("Repères", "Ctrl+;", &showGuides);
+            ImGui::MenuItem("Grille", "Ctrl+'", &showGrid);
+            ImGui::MenuItem("Magnétisme", "Ctrl+Maj+;", &snapEnabled);
+            if (ImGui::BeginMenu("Paramètres de la grille")) {
+                ImGui::SetNextItemWidth(120 * dpi);
+                ImGui::DragFloat("Pas (px)", &gridStep, 1, 4, 4000, "%.0f");
+                ImGui::SetNextItemWidth(120 * dpi);
+                ImGui::SliderInt("Subdivisions", &gridSubdiv, 1, 10);
+                ImGui::EndMenu();
+            }
+            bool anyGuide = !v->doc->S().guidesX.empty() || !v->doc->S().guidesY.empty();
+            if (ImGui::MenuItem("Effacer les repères", nullptr, false, anyGuide)) {
+                Edit e(*v->doc, v->history, "Effacer les repères");
+                v->doc->S().guidesX.clear();
+                v->doc->S().guidesY.clear();
+                e.Commit();
+            }
         }
         ImGui::EndMenu();
     }
@@ -1254,7 +1262,7 @@ void App::UpdateHistogram() {
 }
 
 void App::DrawHistogram() {
-    if (!ImGui::Begin("Histogramme")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Histogramme", PanelFlag("Histogramme"))) { ImGui::End(); return; }
     const char* channels[] = {"Couleurs", "Luminosité", "Rouge", "Vert", "Bleu"};
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
     ImGui::Combo("Couche", &histoChannel, channels, IM_ARRAYSIZE(channels));
@@ -1316,7 +1324,7 @@ void App::DrawHistogram() {
 
 
 void App::DrawHistory() {
-    if (!ImGui::Begin("Historique")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Historique", PanelFlag("Historique"))) { ImGui::End(); return; }
     DocView* v = Active();
     if (v) {
         History& h = v->history;

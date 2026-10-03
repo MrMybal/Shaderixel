@@ -1,5 +1,5 @@
 //@name Vignette
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Aspect float 1 0.01 8 "Aspect"
@@ -9,7 +9,7 @@
 //@param Center float2 0.5 0.5 0 1 "Center"
 //@param VignetteColor color 0 0 0 1 "Vignette Color"
 
-// Imported from CyTexture (Effect / Color & Tone): Elliptical soft vignette with tint and HDR intensity.
+// Imported preset (Effect / Color & Tone): Elliptical soft vignette with tint and HDR intensity.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

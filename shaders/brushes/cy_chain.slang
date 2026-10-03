@@ -1,5 +1,5 @@
 //@name Chain
-//@category CyTexture Détails
+//@category Détails
 //@selfflow
 //@spacing 0.45
 //@param Rotation float 0 -6.283 6.283 "Rotation"
@@ -11,7 +11,7 @@
 //@param Perspective float 2.2 0.2 8 "Perspective"
 //@param FollowStroke float 0 0 1 "Suivre le trait"
 
-// Imported from CyTexture (Brush / Surface Detail): Interlocking chain-link stamp for trim, ornaments, cables, and mechanical masks.
+// Imported preset (Brush / Surface Detail): Interlocking chain-link stamp for trim, ornaments, cables, and mechanical masks.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Rotation, float Links, float LinkLength, float LinkWidth, float Thickness, float Softness, float Perspective)
 {

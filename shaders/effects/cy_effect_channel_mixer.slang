@@ -1,5 +1,5 @@
 //@name Channel Mixer
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Strength float 1 0 1 "Strength"
@@ -8,7 +8,7 @@
 //@param BlueMix color 0 0 1 0 "Blue Mix"
 //@param Constant color 0 0 0 0 "Constant"
 
-// Imported from CyTexture (Effect / Color & Tone): Full RGB channel mixer using three editable matrix rows.
+// Imported preset (Effect / Color & Tone): Full RGB channel mixer using three editable matrix rows.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

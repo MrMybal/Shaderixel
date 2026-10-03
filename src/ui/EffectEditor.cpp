@@ -85,7 +85,7 @@ EffectInstance* App::EditedEffect(DocView& v, std::string* where) {
 
 void App::DrawEffectEditor() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    bool open = ImGui::Begin("Éditeur d'effets", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    bool open = ImGui::Begin("Éditeur d'effets", PanelFlag("Éditeur d'effets"), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar();
     DocView* v = Active();
     if (!open || !v) { ImGui::End(); return; }
@@ -544,7 +544,7 @@ void App::DrawEffectEditor() {
     }
 
     // Context menu: add node
-    if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && !ImGui::IsMouseDragging(ImGuiMouseButton_Right, 4)) {
+    if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Right] < 16.0f) {
         ed.ctxPos = toG(m);
         ed.search[0] = 0;
         ImGui::OpenPopup("##efadd");

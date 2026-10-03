@@ -1,5 +1,5 @@
 //@name Advanced Spiral Blur
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@input n15
 //@halo full

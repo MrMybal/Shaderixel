@@ -311,7 +311,7 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
 // ------------------------------------------------------------------ layers
 
 void App::DrawLayers() {
-    if (!ImGui::Begin("Calques")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Calques", PanelFlag("Calques"))) { ImGui::End(); return; }
     DocView* v = Active();
     if (!v) { ImGui::End(); return; }
     Document& d = *v->doc;
@@ -362,7 +362,7 @@ void App::DrawLayers() {
         // Library blend effects (inputs Fond, Calque, Masque), e.g. imported CyTexture blends.
         if (ImGui::BeginMenu("Fusions d'effets")) {
             for (auto& def : Effects().All()) {
-                if (def->inputs.size() != 3 || def->category.find("Fusion") == std::string::npos) continue;
+                if (!def->blend) continue;
                 if (ImGui::MenuItem(def->name.c_str(), def->category.c_str(), active && active->blendFx.effectId == def->id)) {
                     active->blendFx = {};
                     active->blendFx.effectId = def->id;
@@ -617,7 +617,7 @@ void App::DrawLayers() {
 // ------------------------------------------------------------------ properties
 
 void App::DrawProperties() {
-    if (!ImGui::Begin("Propriétés")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Propriétés", PanelFlag("Propriétés"))) { ImGui::End(); return; }
     DocView* v = Active();
     if (!v) { ImGui::End(); return; }
     Document& d = *v->doc;
@@ -839,7 +839,8 @@ void App::DrawProperties() {
 
     ImGui::SeparatorText("Document");
     ImGui::Text("%u x %u px, %s", d.Width(), d.Height(), d.GetPrecision() == Precision::Float32 ? "32 bits flottant" : "16 bits flottant");
-    if (ImGui::Checkbox("Fusion en gamma (compatible Photoshop)", &d.blendInGamma)) d.dirty = true;
+    if (ImGui::Checkbox("Fusion en sRGB", &d.blendInGamma)) d.dirty = true;
+    ui::HelpTooltip("Mélange les calques en sRGB (comme Photoshop) au lieu de l'espace linéaire : les modes Produit, Superposition... donnent alors les mêmes résultats que Photoshop.");
     ui::HelpTooltip("Activé : les modes de fusion sont calculés en sRGB comme Photoshop.\nDésactivé : fusion physiquement linéaire (rendu, PBR).");
     ImGui::PopItemWidth();
     ImGui::End();
@@ -857,7 +858,12 @@ void App::PushRecentColor(float4 c) {
 // Compact Photoshop-like color panel: fg/bg swatches, saturation/value square +
 // hue bar sized to the space available, hex field, RGB/HSV sliders, recent colors.
 void App::DrawColor() {
-    if (!ImGui::Begin("Couleur")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Couleur", PanelFlag("Couleur"))) { ImGui::End(); return; }
+    ColorPickerBody();
+    ImGui::End();
+}
+
+void App::ColorPickerBody() {
     float4& c = editBg ? bg : fg;
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const ImGuiStyle& st = ImGui::GetStyle();
@@ -1040,11 +1046,10 @@ void App::DrawColor() {
         ImGui::NewLine();
     }
     if (side) ImGui::EndGroup();
-    ImGui::End();
 }
 
 void App::DrawBrush() {
-    if (!ImGui::Begin("Options")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Options", PanelFlag("Options"))) { ImGui::End(); return; }
     ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.38f);
     DocView* v = Active();
 

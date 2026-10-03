@@ -1,5 +1,5 @@
 //@name Replace Color
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Tolerance float 0.18 0 1 "Tolerance"
@@ -8,7 +8,7 @@
 //@param SourceColor color 1 0 0 1 "Source Color"
 //@param TargetColor color 0 0.4 1 1 "Target Color"
 
-// Imported from CyTexture (Effect / Color & Tone): Replaces a selected color while preserving source shading.
+// Imported preset (Effect / Color & Tone): Replaces a selected color while preserving source shading.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

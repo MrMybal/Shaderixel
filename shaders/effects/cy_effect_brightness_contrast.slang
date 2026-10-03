@@ -1,5 +1,5 @@
 //@name Brightness Contrast
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Brightness float 0 -4 4 "Brightness"
@@ -7,7 +7,7 @@
 //@param Pivot float 0.5 0 2 "Pivot"
 //@param Strength float 1 0 1 "Strength"
 
-// Imported from CyTexture (Effect / Color & Tone): HDR-safe brightness and pivoted contrast adjustment.
+// Imported preset (Effect / Color & Tone): HDR-safe brightness and pivoted contrast adjustment.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

@@ -1,5 +1,5 @@
 //@name Colorize
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Gamma float 1 0.01 8 "Gamma"
@@ -7,7 +7,7 @@
 //@param ShadowColor color 0.02 0.04 0.12 1 "Shadow Color"
 //@param HighlightColor color 1 0.35 0.08 1 "Highlight Color"
 
-// Imported from CyTexture (Effect / Color & Tone): Maps luminance between two HDR colors.
+// Imported preset (Effect / Color & Tone): Maps luminance between two HDR colors.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

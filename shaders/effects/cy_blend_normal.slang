@@ -1,12 +1,12 @@
 //@name Normal
-//@category CyTexture Fusions
+//@category Fusions
 //@input Fond
 //@input Calque
 //@input Masque
 //@halo 0
 //@param Opacity float 1 0 1 "Opacity"
 
-// Imported from CyTexture (Blend / Compositing): Standard alpha blend.
+// Imported preset (Blend / Compositing): Standard alpha blend.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

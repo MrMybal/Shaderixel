@@ -1,5 +1,5 @@
 //@name Rake
-//@category CyTexture Matières
+//@category Matières
 //@selfflow
 //@spacing 0.12
 //@param Length float 0.49 0.01 0.75 "Length"
@@ -12,7 +12,7 @@
 //@param Phase float 0 -10 10 "Phase"
 //@param FollowStroke float 0 0 1 "Suivre le trait"
 
-// Imported from CyTexture (Brush / Natural Media): Multi-tine rake brush for hair, fur, grass, scratches, and parallel texture strokes.
+// Imported preset (Brush / Natural Media): Multi-tine rake brush for hair, fur, grass, scratches, and parallel texture strokes.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Length, float Width, float Rotation, float Tines, float TineWidth, float Softness, float Taper, float Phase)
 {

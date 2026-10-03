@@ -1,5 +1,5 @@
 //@name Charcoal
-//@category CyTexture Matières
+//@category Matières
 //@selfflow
 //@spacing 0.12
 //@param Length float 0.48 0.01 0.7 "Length"
@@ -12,7 +12,7 @@
 //@param RandomSeed float 1 0 1 "Graine par touche"
 //@param FollowStroke float 0 0 1 "Suivre le trait"
 
-// Imported from CyTexture (Brush / Natural Media): Directional charcoal tip with streaky broken grain.
+// Imported preset (Brush / Natural Media): Directional charcoal tip with streaky broken grain.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Length, float Width, float Rotation, float GrainScale, float Threshold, float Breakup, float Seed)
 {

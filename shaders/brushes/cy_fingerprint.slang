@@ -1,5 +1,5 @@
 //@name Fingerprint
-//@category CyTexture Détails
+//@category Détails
 //@selfflow
 //@spacing 0.45
 //@param Aspect float 0.72 0.1 4 "Aspect"
@@ -13,7 +13,7 @@
 //@param Seed float 0 -1000 1000 "Seed"
 //@param RandomSeed float 1 0 1 "Graine par touche"
 
-// Imported from CyTexture (Brush / Surface Detail): Fingerprint-like ridge stamp for forensic detail, grime, decals, and roughness variation.
+// Imported preset (Brush / Surface Detail): Fingerprint-like ridge stamp for forensic detail, grime, decals, and roughness variation.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Aspect, float RidgeCount, float RidgeWidth, float Softness, float WhorlCount, float WhorlAmount, float GapScale, float GapAmount, float Seed)
 {

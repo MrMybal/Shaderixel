@@ -1,5 +1,5 @@
 //@name CRT Display
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Curvature float 0.08 0 0.75 "Curvature"
@@ -10,7 +10,7 @@
 //@param VignettePower float 1.4 0.05 8 "Vignette Power"
 //@param Brightness float 1.15 0 8 "Brightness"
 
-// Imported from CyTexture (Effect / Stylize): Curved CRT display simulation with RGB phosphors, scanlines, vignette, and chromatic convergence.
+// Imported preset (Effect / Stylize): Curved CRT display simulation with RGB phosphors, scanlines, vignette, and chromatic convergence.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

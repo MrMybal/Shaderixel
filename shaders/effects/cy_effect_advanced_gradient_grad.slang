@@ -1,5 +1,5 @@
 //@name Advanced Gradient Grad
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Radius float 0.5 0.0 1.0 "Radius"

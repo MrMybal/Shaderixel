@@ -1,5 +1,5 @@
 //@name Spin Blur
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Amount float 0.15 -3.14159 3.14159 "Amount"
@@ -10,7 +10,7 @@
 //@param DitherSeed float 0 -1000 1000 "Dither Seed"
 //@param Center float2 0.5 0.5 0 1 "Center"
 
-// Imported from CyTexture (Effect / Blur & Denoise): Rotational blur around a configurable center with explicit sample quality.
+// Imported preset (Effect / Blur & Denoise): Rotational blur around a configurable center with explicit sample quality.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

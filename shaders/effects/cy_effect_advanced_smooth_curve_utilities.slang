@@ -1,5 +1,5 @@
 //@name Advanced Smooth Curve Utilities
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param T0 float 1.0 0.0 2.0 "T0"

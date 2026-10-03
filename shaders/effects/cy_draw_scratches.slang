@@ -1,5 +1,5 @@
 //@name Scratches
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Cells float 72 4 1024 "Cells"
@@ -19,7 +19,7 @@
 //@param ScratchColor color 1 1 1 1 "Scratch Color"
 //@param BackgroundColor color 0 0 0 1 "Background Color"
 
-// Imported from CyTexture (Draw / Surface): Seeded multi-scale directional scratch mask with length, width, density, and edge breakup.
+// Imported preset (Draw / Surface): Seeded multi-scale directional scratch mask with length, width, density, and edge breakup.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

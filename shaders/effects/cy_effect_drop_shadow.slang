@@ -1,5 +1,5 @@
 //@name Drop Shadow
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 12 0 256 "Radius"
@@ -12,7 +12,7 @@
 //@param Offset float2 16 16 -2 2 "Offset"
 //@param ShadowColor color 0 0 0 1 "Shadow Color"
 
-// Imported from CyTexture (Effect / Color & Tone): Creates a soft offset shadow from the source alpha while retaining the source.
+// Imported preset (Effect / Color & Tone): Creates a soft offset shadow from the source alpha while retaining the source.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

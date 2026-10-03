@@ -1,11 +1,11 @@
 //@name Dither
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Levels float 16 2 256 "Levels"
 //@param Amount float 1 0 4 "Amount"
 
-// Imported from CyTexture (Effect / Stylize): Ordered-style procedural dithering and bit-depth reduction.
+// Imported preset (Effect / Stylize): Ordered-style procedural dithering and bit-depth reduction.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

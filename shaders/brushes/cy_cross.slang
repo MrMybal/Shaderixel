@@ -1,5 +1,5 @@
 //@name Cross
-//@category CyTexture Formes
+//@category Formes
 //@selfflow
 //@spacing 0.1
 //@param ArmLength float 0.42 0.01 0.5 "Arm Length"
@@ -7,7 +7,7 @@
 //@param Rotation float 0 -6.283 6.283 "Rotation"
 //@param FollowStroke float 0 0 1 "Suivre le trait"
 
-// Imported from CyTexture (Brush / Shape Tips): Rotatable cross stamp with adjustable arms.
+// Imported preset (Brush / Shape Tips): Rotatable cross stamp with adjustable arms.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float ArmLength, float ArmWidth, float Rotation)
 {

@@ -1,5 +1,5 @@
 //@name Gaussian Blur
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 16 0 512 "Radius"
@@ -11,7 +11,7 @@
 //@param DitherAmount float 0.75 0 2 "Dither Amount"
 //@param DitherSeed float 0 -1000 1000 "Dither Seed"
 
-// Imported from CyTexture (Effect / Blur & Denoise): High-quality directional Gaussian blur; stack horizontal and vertical instances for a full 2D Gaussian.
+// Imported preset (Effect / Blur & Denoise): High-quality directional Gaussian blur; stack horizontal and vertical instances for a full 2D Gaussian.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

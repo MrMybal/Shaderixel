@@ -1,5 +1,5 @@
 //@name Halftone
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Scale float 96 2 2048 "Scale"
@@ -9,7 +9,7 @@
 //@param InkColor color 0 0 0 1 "Ink Color"
 //@param PaperColor color 1 1 1 1 "Paper Color"
 
-// Imported from CyTexture (Effect / Stylize): Print-style halftone dots with angle, scale, softness, and color preservation.
+// Imported preset (Effect / Stylize): Print-style halftone dots with angle, scale, softness, and color preservation.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

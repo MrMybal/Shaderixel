@@ -1,5 +1,5 @@
 //@name Emboss
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Angle float 0.785 -6.283 6.283 "Angle"
@@ -8,7 +8,7 @@
 //@param Bias float 0.5 -2 2 "Bias"
 //@param Blend float 1 0 1 "Blend"
 
-// Imported from CyTexture (Effect / Detail): Directional emboss filter with adjustable bias.
+// Imported preset (Effect / Detail): Directional emboss filter with adjustable bias.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

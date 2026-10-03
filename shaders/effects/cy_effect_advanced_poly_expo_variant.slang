@@ -1,5 +1,5 @@
 //@name Advanced Poly Expo Variant
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param K1 float -48.84918 -48.84918 1.0 "K1"

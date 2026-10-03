@@ -1,5 +1,5 @@
 //@name Advanced Power Utilities
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Power float 1.0 0.0 2.0 "Power"

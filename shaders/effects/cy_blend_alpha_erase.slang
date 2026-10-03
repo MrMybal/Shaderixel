@@ -1,5 +1,5 @@
 //@name Alpha Erase
-//@category CyTexture Fusions
+//@category Fusions
 //@input Fond
 //@input Calque
 //@input Masque
@@ -8,7 +8,7 @@
 //@param ReplaceRGB float 0 0 1 "Replace RGB"
 //@param EraseColor color 0 0 0 1 "Erase Color"
 
-// Imported from CyTexture (Blend / Utility): Uses foreground alpha and mask as a nondestructive eraser while optionally retaining RGB data.
+// Imported preset (Blend / Utility): Uses foreground alpha and mask as a nondestructive eraser while optionally retaining RGB data.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

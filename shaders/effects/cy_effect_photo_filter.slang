@@ -1,12 +1,12 @@
 //@name Photo Filter
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Density float 0.25 0 1 "Density"
 //@param PreserveLuminosity float 1 0 1 "Preserve Luminosity"
 //@param FilterColor color 1 0.55 0.2 1 "Filter Color"
 
-// Imported from CyTexture (Effect / Color & Tone): Photographic warming/cooling filter with density and optional luminance preservation.
+// Imported preset (Effect / Color & Tone): Photographic warming/cooling filter with density and optional luminance preservation.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

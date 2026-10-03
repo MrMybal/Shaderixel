@@ -1,5 +1,5 @@
 //@name Checker
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Tiling float 8 1 256 "Tiling"
@@ -8,7 +8,7 @@
 //@param ColorA color 0 0 0 1 "Color A"
 //@param ColorB color 1 1 1 1 "Color B"
 
-// Imported from CyTexture (Draw / Shape & Gradient): Procedural checker pattern with independent colors.
+// Imported preset (Draw / Shape & Gradient): Procedural checker pattern with independent colors.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

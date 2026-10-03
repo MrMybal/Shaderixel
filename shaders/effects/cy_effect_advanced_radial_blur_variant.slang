@@ -1,5 +1,5 @@
 //@name Advanced Radial Blur Variant
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param RadialStep float 32.0 1.0 128.0 "Radial Step"

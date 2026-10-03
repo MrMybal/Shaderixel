@@ -1,5 +1,5 @@
 //@name Advanced Invert Utilities
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Invert float 1.0 0.0 2.0 "Invert"

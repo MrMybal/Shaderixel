@@ -1,5 +1,5 @@
 //@name Chroma Key
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Tolerance float 0.25 0 4 "Tolerance"
@@ -7,7 +7,7 @@
 //@param Despill float 0.5 0 1 "Despill"
 //@param KeyColor color 0 1 0 1 "Key Color"
 
-// Imported from CyTexture (Effect / Color & Tone): Removes a selected key color with tolerance, softness, edge restoration, and spill suppression.
+// Imported preset (Effect / Color & Tone): Removes a selected key color with tolerance, softness, edge restoration, and spill suppression.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

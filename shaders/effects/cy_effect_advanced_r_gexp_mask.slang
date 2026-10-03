@@ -1,5 +1,5 @@
 //@name Advanced R Gexp Mask
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param UV_X float 1.0 0.0 2.0 "UV X"

@@ -1,5 +1,5 @@
 //@name Aurora Bands
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Frequency float 8 0.1 64 "Frequency"
@@ -16,7 +16,7 @@
 //@param ColorA color 0.05 2 0.45 1 "Color A"
 //@param ColorB color 0.4 0.08 2.5 1 "Color B"
 
-// Imported from CyTexture (Draw / Light & Space): Layered HDR aurora ribbons with turbulence, glow, and horizon falloff.
+// Imported preset (Draw / Light & Space): Layered HDR aurora ribbons with turbulence, glow, and horizon falloff.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

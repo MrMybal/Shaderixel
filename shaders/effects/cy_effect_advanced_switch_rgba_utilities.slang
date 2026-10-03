@@ -1,5 +1,5 @@
 //@name Advanced Switch RGBA Utilities
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param R___R float 1.0 0.0 2.0 "R - R"

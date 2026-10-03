@@ -1,5 +1,5 @@
 //@name Voronoi
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 12 1 256 "Scale"
@@ -11,7 +11,7 @@
 //@param ColorA color 0 0 0 1 "Color A"
 //@param ColorB color 1 1 1 1 "Color B"
 
-// Imported from CyTexture (Draw / Noise): Voronoi cell distance and border generator.
+// Imported preset (Draw / Noise): Voronoi cell distance and border generator.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

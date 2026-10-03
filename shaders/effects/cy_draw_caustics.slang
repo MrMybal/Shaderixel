@@ -1,5 +1,5 @@
 //@name Caustics
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 3.5 0.01 64 "Scale"
@@ -13,7 +13,7 @@
 //@param DeepColor color 0 0.015 0.04 1 "Deep Color"
 //@param LightColor color 0.05 0.85 2.5 1 "Light Color"
 
-// Imported from CyTexture (Draw / Light & Space): Animated-looking layered caustic field for water light, energy, and emissive masks.
+// Imported preset (Draw / Light & Space): Animated-looking layered caustic field for water light, energy, and emissive masks.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

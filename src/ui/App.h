@@ -165,6 +165,8 @@ public:
     bool hideBottom = false, hideRight = false;
     ImGuiID bottomZone = 0, rightZone = 0;
     std::vector<bool> extraWindows;  // "Fenêtre 2..." (open flags)
+    struct PanelOpenFlag { bool open = true; };
+    std::map<std::string, PanelOpenFlag> panelOpen;  // closed panels (tab cross)
 
 private:
     std::string pendingLayoutIni, pendingLayoutName, layoutName;
@@ -183,6 +185,7 @@ private:
     void DeleteLayout(const std::string& name);
     void ApplyPendingLayout();
     void DrawWindowMenu();
+    void DrawPanelsMenu();
     void DrawLayoutSavePopup();
 
     bool Init();
@@ -472,6 +475,11 @@ private:
     void SelectTip(BrushSettings& b, const std::string& id);
     void DrawBrushPanel();
     void DrawBlendPanel();
+    void ColorPickerBody();  // Couleur panel / toolbar popup
+    bool colorPopupRequest = false;
+    // Closable panels (tab cross), reopened from Affichage > Panneaux; saved with the layout.
+    bool* PanelFlag(const char* name) { return &panelOpen[name].open; }
+    bool PanelIsOpen(const char* name) const { auto it = panelOpen.find(name); return it == panelOpen.end() || it->second.open; }
     // Material layers (Substance-like): one fill per PBR channel group sharing a mask.
     Id materialSel = 0;
     std::optional<DocState> materialEditBefore;

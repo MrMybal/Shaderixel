@@ -1,5 +1,5 @@
 //@name Advanced Range Selector Color
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param ColorSelect color 0.0 0.0 0.0 0.0 "Color Select"

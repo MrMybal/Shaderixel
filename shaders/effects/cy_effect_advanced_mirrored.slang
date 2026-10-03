@@ -1,5 +1,5 @@
 //@name Advanced Mirrored
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Scale float 0.6 0.0 1.2 "Scale"

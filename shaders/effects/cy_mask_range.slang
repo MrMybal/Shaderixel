@@ -1,12 +1,12 @@
 //@name Range
-//@category CyTexture Masques
+//@category Masques
 //@input Image
 //@halo 0
 //@param Minimum float 0.25 0 1 "Minimum"
 //@param Maximum float 0.75 0 1 "Maximum"
 //@param Softness float 0.05 0.0001 0.5 "Softness"
 
-// Imported from CyTexture (Mask / Mask): Selects a soft luminance range.
+// Imported preset (Mask / Mask): Selects a soft luminance range.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

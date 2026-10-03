@@ -1,11 +1,11 @@
 //@name Pixelate
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param BlocksX float 128 1 8192 "Blocks X"
 //@param BlocksY float 128 1 8192 "Blocks Y"
 
-// Imported from CyTexture (Effect / Stylize): Pixelates the source into configurable blocks.
+// Imported preset (Effect / Stylize): Pixelates the source into configurable blocks.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

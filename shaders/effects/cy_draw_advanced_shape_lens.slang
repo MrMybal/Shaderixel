@@ -1,5 +1,5 @@
 //@name Advanced Shape Lens
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo full
 //@param RadialStep float 5.01 1.0 128.0 "Radial Step"

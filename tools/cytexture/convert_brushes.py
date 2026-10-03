@@ -28,8 +28,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 OUT = os.path.join(ROOT, 'shaders', 'brushes')
 
 CONTRACT = {'CyBrushSize', 'CyBrushHardness', 'CyBrushFlow', 'CyBrushPosition', 'CyBrushColor', 'CyWriteChannels', 'CyCanvasSize'}
-GROUPS = {'Shape Tips': 'CyTexture Formes', 'Particles': 'CyTexture Particules',
-          'Natural Media': 'CyTexture Matières', 'Surface Detail': 'CyTexture Détails'}
+GROUPS = {'Shape Tips': 'Formes', 'Particles': 'Particules', 'Natural Media': 'Matières', 'Surface Detail': 'Détails'}
 # Dab spacing per group (fraction of the diameter): scattered patterns read
 # better with spaced dabs, solid tips with dense ones.
 SPACING = {'Shape Tips': 0.1, 'Particles': 0.3, 'Natural Media': 0.12, 'Surface Detail': 0.45}
@@ -56,7 +55,7 @@ def convert(p):
     seeded, rotating = 'Seed' in names, 'Rotation' in names
     title = words(p['name'][:-5] if p['name'].endswith('Brush') else p['name'])
     lines = ['//@name ' + title,
-             '//@category ' + GROUPS.get(p['group'], 'CyTexture'),
+             '//@category ' + GROUPS.get(p['group'], 'Pinceaux'),
              '//@selfflow',
              '//@spacing ' + num(SPACING.get(p['group'], 0.15))]
     fn_params = ['float2 UV', 'float CyBrushHardness', 'float CyBrushFlow', 'float4 CyBrushPosition',
@@ -77,7 +76,7 @@ def convert(p):
     if rotating:
         lines.append('//@param FollowStroke float 0 0 1 "Suivre le trait"')
     lines.append('')
-    lines.append(f'// Imported from CyTexture (Brush / {p["group"]}): {p["description"]}')
+    lines.append(f'// Imported preset (Brush / {p["group"]}): {p["description"]}')
     lines.append('// Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).')
     lines.append('float4 CyPreset(' + ', '.join(fn_params) + ')')
     lines.append('{')

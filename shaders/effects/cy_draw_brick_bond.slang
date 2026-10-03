@@ -1,5 +1,5 @@
 //@name Brick Bond
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Columns float 8 1 128 "Columns"
@@ -16,7 +16,7 @@
 //@param BrickColorB color 0.55 0.14 0.055 1 "Brick Color B"
 //@param MortarColor color 0.28 0.25 0.2 1 "Mortar Color"
 
-// Imported from CyTexture (Draw / Surface): Seamless running-bond brick generator with mortar, bevel, variation, and surface grain.
+// Imported preset (Draw / Surface): Seamless running-bond brick generator with mortar, bevel, variation, and surface grain.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

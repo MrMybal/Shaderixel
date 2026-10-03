@@ -1,5 +1,5 @@
 //@name Channel Normalize
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param InputMinimum color 0 0 0 0 "Input Minimum"
@@ -9,7 +9,7 @@
 //@param OutputMaximum color 1 1 1 0 "Output Maximum"
 //@param Channels color 1 1 1 0 "Channels"
 
-// Imported from CyTexture (Effect / PBR): Normalizes and remaps independently selected packed PBR channels with per-channel gamma.
+// Imported preset (Effect / PBR): Normalizes and remaps independently selected packed PBR channels with per-channel gamma.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

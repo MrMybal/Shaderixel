@@ -1,5 +1,5 @@
 //@name Dry Media
-//@category CyTexture Matières
+//@category Matières
 //@selfflow
 //@spacing 0.12
 //@param Length float 0.49 0.01 0.75 "Length"
@@ -15,7 +15,7 @@
 //@param RandomSeed float 1 0 1 "Graine par touche"
 //@param FollowStroke float 0 0 1 "Suivre le trait"
 
-// Imported from CyTexture (Brush / Natural Media): Broken dry-media brush with directional grain, edge breakup, and paint loading.
+// Imported preset (Brush / Natural Media): Broken dry-media brush with directional grain, edge breakup, and paint loading.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Length, float Width, float Rotation, float GrainFrequency, float GrainWarp, float GrainCells, float Dryness, float Contrast, float Breakup, float Seed)
 {

@@ -1,5 +1,5 @@
 //@name Advanced Luma Contrast Utilities
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Contrast color 0.0 0.0 0.0 0.0 "Contrast"

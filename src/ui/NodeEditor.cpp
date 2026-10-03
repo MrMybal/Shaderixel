@@ -96,7 +96,7 @@ std::string Lower(std::string s) {
 
 void App::DrawNodeEditor() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    bool open = ImGui::Begin("Graphe", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    bool open = ImGui::Begin("Graphe", PanelFlag("Graphe"), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar();
     DocView* v = Active();
     if (!open || !v) { ImGui::End(); return; }
@@ -127,7 +127,7 @@ void App::DrawNodeEditor() {
         float2 after = toGraph(io.MousePos);
         ed.pan = ed.pan + (after - before);
     }
-    bool panDrag = ImGui::IsItemActive() && (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0) ||
+    bool panDrag = ImGui::IsItemActive() && (ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0) || ImGui::IsMouseDragging(ImGuiMouseButton_Right, 4) ||
                                              (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0) && (io.KeyAlt || spaceHeld)));
     if (panDrag) ed.pan = ed.pan + float2{io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
 
@@ -385,7 +385,7 @@ void App::DrawNodeEditor() {
     }
 
     // Context menus
-    if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && !ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
+    if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Right] < 16.0f) {
         ed.contextPos = toGraph(mouse);
         if (hoverNode) {
             d.S().activeNode = hoverNode;

@@ -1,5 +1,5 @@
 //@name Grass
-//@category CyTexture Détails
+//@category Détails
 //@selfflow
 //@spacing 0.45
 //@param Spread float 0.85 0.05 1.5 "Spread"
@@ -11,7 +11,7 @@
 //@param Seed float 0 -1000 1000 "Seed"
 //@param RandomSeed float 1 0 1 "Graine par touche"
 
-// Imported from CyTexture (Brush / Surface Detail): Clustered curved grass blades with seeded height, lean, and width variation.
+// Imported preset (Brush / Surface Detail): Clustered curved grass blades with seeded height, lean, and width variation.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Spread, float MinHeight, float MaxHeight, float Lean, float BladeWidth, float Softness, float Seed)
 {

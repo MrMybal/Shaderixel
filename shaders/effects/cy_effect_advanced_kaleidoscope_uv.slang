@@ -1,5 +1,5 @@
 //@name Advanced Kaleidoscope UV
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Power_X float 8.0 0.0 16.0 "Power X"

@@ -1,12 +1,12 @@
 //@name Seamless Offset
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Feather float 0.08 0.001 0.5 "Feather"
 //@param Strength float 1 0 1 "Strength"
 //@param Offset float2 0.5 0.5 0 1 "Offset"
 
-// Imported from CyTexture (Effect / PBR): Wraps and crossfades an offset texture to reduce visible borders during seamless texture authoring.
+// Imported preset (Effect / PBR): Wraps and crossfades an offset texture to reduce visible borders during seamless texture authoring.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

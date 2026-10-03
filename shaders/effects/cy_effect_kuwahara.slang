@@ -1,5 +1,5 @@
 //@name Kuwahara
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Radius float 6 0.5 64 "Radius"
@@ -7,7 +7,7 @@
 //@param Stylize float 0.15 0 1 "Stylize"
 //@param Posterize float 0.9 0.1 4 "Posterize"
 
-// Imported from CyTexture (Effect / Blur & Denoise): Edge-aware Kuwahara painterly filter using local color variance to preserve major forms.
+// Imported preset (Effect / Blur & Denoise): Edge-aware Kuwahara painterly filter using local color variance to preserve major forms.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

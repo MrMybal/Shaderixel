@@ -89,7 +89,7 @@ void App::PollAiJobs() {
 }
 
 void App::DrawAiPanel() {
-    if (!ImGui::Begin("Assistant IA")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Assistant IA", PanelFlag("Assistant IA"))) { ImGui::End(); return; }
     ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.35f);
 
     // ---------------------------------------------------------- bridge / MCP
@@ -410,7 +410,7 @@ void App::UpdateImageGeneration() {
 }
 
 void App::DrawImageGenPanel() {
-    if (!ImGui::Begin("Génération IA")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Génération IA", PanelFlag("Génération IA"))) { ImGui::End(); return; }
     ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.35f);
     int provider = aiSettings.imageProvider == "gemini" ? 1 : aiSettings.imageProvider == "comfyui" ? 2 : 0;
     if (ImGui::Combo("Fournisseur", &provider, "OpenAI (GPT Image)\0Google Gemini\0ComfyUI (local)\0")) {

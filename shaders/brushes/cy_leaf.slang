@@ -1,5 +1,5 @@
 //@name Leaf
-//@category CyTexture Formes
+//@category Formes
 //@selfflow
 //@spacing 0.1
 //@param Length float 0.9 0.05 2 "Length"
@@ -13,7 +13,7 @@
 //@param VeinColor color 0.25 0.55 0.08 1 "Vein Color"
 //@param FollowStroke float 0 0 1 "Suivre le trait"
 
-// Imported from CyTexture (Brush / Shape Tips): Procedural leaf stamp with serrated edge, central vein, and optional preserved color.
+// Imported preset (Brush / Shape Tips): Procedural leaf stamp with serrated edge, central vein, and optional preserved color.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float Length, float Width, float Rotation, float Serration, float SerrationCount, float Softness, float VeinWidth, float VeinStrength, float4 VeinColor)
 {

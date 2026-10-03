@@ -1,5 +1,5 @@
 //@name Hex Grid
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param Scale float 12 1 256 "Scale"
@@ -12,7 +12,7 @@
 //@param LineColor color 0.05 0.8 1.4 1 "Line Color"
 //@param CellColor color 0.005 0.015 0.025 1 "Cell Color"
 
-// Imported from CyTexture (Draw / Pattern): Hexagonal technical grid with independently controlled cells, borders, and corner nodes.
+// Imported preset (Draw / Pattern): Hexagonal technical grid with independently controlled cells, borders, and corner nodes.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

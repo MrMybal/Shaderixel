@@ -1,9 +1,9 @@
 //@name Diamond
-//@category CyTexture Formes
+//@category Formes
 //@selfflow
 //@spacing 0.1
 
-// Imported from CyTexture (Brush / Shape Tips): Diamond-shaped tip with material-controlled softness.
+// Imported preset (Brush / Shape Tips): Diamond-shaped tip with material-controlled softness.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize)
 {

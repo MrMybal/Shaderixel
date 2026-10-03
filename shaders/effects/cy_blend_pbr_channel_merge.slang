@@ -1,5 +1,5 @@
 //@name PBR Channel Merge
-//@category CyTexture Fusions
+//@category Fusions
 //@input Fond
 //@input Calque
 //@input Masque
@@ -8,7 +8,7 @@
 //@param Opacity float 1 0 1 "Opacity"
 //@param ForegroundChannels color 1 1 1 0 "Foreground Channels"
 
-// Imported from CyTexture (Blend / PBR): Merges arbitrary foreground RGB and alpha channels into a packed PBR texture through a shared mask.
+// Imported preset (Blend / PBR): Merges arbitrary foreground RGB and alpha channels into a packed PBR texture through a shared mask.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

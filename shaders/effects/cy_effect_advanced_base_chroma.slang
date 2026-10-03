@@ -1,5 +1,5 @@
 //@name Advanced Base Chroma
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Red float 1.05 0.0 2.1 "Red"

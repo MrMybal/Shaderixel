@@ -1,5 +1,5 @@
 //@name Color Grading
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param LiftLuma float 0 -2 2 "Lift Luma"
@@ -15,7 +15,7 @@
 //@param GammaWheel color 0 0 1 1 "Gamma Wheel"
 //@param GainWheel color 0 0 1 1 "Gain Wheel"
 
-// Imported from CyTexture (Effect / Color & Tone): Professional lift, gamma, and gain color wheels with temperature, tint, saturation, and contrast.
+// Imported preset (Effect / Color & Tone): Professional lift, gamma, and gain color wheels with temperature, tint, saturation, and contrast.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

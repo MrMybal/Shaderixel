@@ -146,7 +146,7 @@ void App::DropEffectOnLayer(DocView& v, Id layer, const std::string& effectId) {
 // ------------------------------------------------------------------ effects browser
 
 void App::DrawEffectBrowser() {
-    if (!ImGui::Begin("Effets")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Effets", PanelFlag("Effets"))) { ImGui::End(); return; }
     auto& B = fxBrowser;
     const std::string favPath = ExeDir() + "/effect_favorites.txt";
     if (!B.favLoaded) {
@@ -355,7 +355,7 @@ void App::DrawEffectBrowser() {
 // ------------------------------------------------------------------ active layer preview
 
 void App::DrawLayerPreview() {
-    if (!ImGui::Begin("Aperçu du calque")) { ImGui::End(); return; }
+    if (!ImGui::Begin("Aperçu du calque", PanelFlag("Aperçu du calque"))) { ImGui::End(); return; }
     DocView* v = Active();
     if (!v) { ImGui::TextDisabled("Aucun document"); ImGui::End(); return; }
     Document& d = *v->doc;

@@ -285,6 +285,18 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_TAB", b, sizeof(b)) > 0) ShowSideTab(atoi(b));
         if (GetEnvironmentVariableA("SX_HIDE", b, sizeof(b)) > 0) { hideBottom = strchr(b, 'b') != nullptr; hideRight = strchr(b, 'r') != nullptr; }
         if (GetEnvironmentVariableA("SX_EXTRA", b, sizeof(b)) > 0) NewExtraWindow();
+        char closeList[256] = "";
+        if (GetEnvironmentVariableA("SX_CLOSE", closeList, sizeof(closeList)) > 0) {
+            // Comma-separated panels closed (like their tab cross).
+            std::string l = closeList;
+            for (size_t p0 = 0; p0 <= l.size();) {
+                size_t e = l.find(',', p0);
+                if (e == std::string::npos) e = l.size();
+                if (e > p0) panelOpen[l.substr(p0, e - p0)].open = false;
+                p0 = e + 1;
+            }
+        }
+        if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
     if (demoMode == 45 && frameCounter == 4) {

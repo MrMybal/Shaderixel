@@ -1,5 +1,5 @@
 //@name Advanced Sharpen Depth Ppm2 Variant
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Sharpen float 3.0 0.0 6.0 "Sharpen"

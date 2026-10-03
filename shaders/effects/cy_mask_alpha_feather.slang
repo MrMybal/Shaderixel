@@ -1,12 +1,12 @@
 //@name Alpha Feather
-//@category CyTexture Masques
+//@category Masques
 //@input Image
 //@halo 0
 //@param Threshold float 0.5 0 1 "Threshold"
 //@param Feather float 0.1 0.0001 0.5 "Feather"
 //@param Gamma float 1 0.01 8 "Gamma"
 
-// Imported from CyTexture (Mask / Mask): Remaps and feathers the source alpha channel.
+// Imported preset (Mask / Mask): Remaps and feathers the source alpha channel.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

@@ -1,5 +1,5 @@
 //@name Rounded Rectangle
-//@category CyTexture Dessin
+//@category Dessin
 //@generator
 //@halo 0
 //@param CornerRadius float 0.05 0 0.5 "Corner Radius"
@@ -11,7 +11,7 @@
 //@param HalfSize float2 0.3 0.2 0 1 "Half Size"
 //@param Color color 1 1 1 1 "Color"
 
-// Imported from CyTexture (Draw / Shape & Gradient): Signed-distance rounded rectangle with border support.
+// Imported preset (Draw / Shape & Gradient): Signed-distance rounded rectangle with border support.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
 float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)

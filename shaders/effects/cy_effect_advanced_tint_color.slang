@@ -1,5 +1,5 @@
 //@name Advanced Tint Color
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param Color color 1.0 1.0 1.0 0.0 "Color"

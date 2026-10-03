@@ -1,5 +1,5 @@
 //@name Cloud
-//@category CyTexture Particules
+//@category Particules
 //@selfflow
 //@spacing 0.3
 //@param CloudScale float 3.5 0.1 64 "Cloud Scale"
@@ -9,7 +9,7 @@
 //@param Seed float 0 -1000 1000 "Seed"
 //@param RandomSeed float 1 0 1 "Graine par touche"
 
-// Imported from CyTexture (Brush / Particles): Soft cloudy brush with procedural multi-frequency modulation.
+// Imported preset (Brush / Particles): Soft cloudy brush with procedural multi-frequency modulation.
 // Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).
 float4 CyPreset(float2 UV, float CyBrushHardness, float CyBrushFlow, float4 CyBrushPosition, float3 CyBrushColor, float4 CyCanvasSize, float CloudScale, float Falloff, float Contrast, float Modulation, float Seed)
 {

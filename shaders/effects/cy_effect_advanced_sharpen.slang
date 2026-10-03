@@ -1,5 +1,5 @@
 //@name Advanced Sharpen
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param Sharpen float 1.0 0.0 2.0 "Sharpen"

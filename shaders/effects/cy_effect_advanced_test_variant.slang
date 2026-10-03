@@ -1,5 +1,5 @@
 //@name Advanced TEST Variant
-//@category CyTexture Effets
+//@category Traitements
 //@input Param
 //@input Image
 //@halo full

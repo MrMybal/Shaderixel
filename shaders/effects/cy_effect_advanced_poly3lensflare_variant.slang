@@ -1,5 +1,5 @@
 //@name Advanced Poly3lensflare Variant
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo full
 //@param K1 float 2.757838 0.0 5.515676 "K1"

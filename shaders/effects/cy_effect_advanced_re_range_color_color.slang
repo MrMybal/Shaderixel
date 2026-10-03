@@ -1,5 +1,5 @@
 //@name Advanced Re Range Color Color
-//@category CyTexture Effets
+//@category Traitements
 //@input Image
 //@halo 0
 //@param R_Low float 0.0 0.0 1.0 "R Low"
