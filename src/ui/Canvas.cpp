@@ -22,6 +22,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::MagicEraser, ui::IconEraser, "Gomme magique", "E"},
     {Tool::BackgroundEraser, ui::IconEraser, "Gomme d'arrière-plan", "E"},
     {Tool::HistoryBrush, ui::IconBrush, "Forme d'historique", "Y"},
+    {Tool::PatternStamp, ui::IconStamp, "Tampon de motif", "S"},
     {Tool::Wand, ui::IconWand, "Baguette magique", "W"},
     {Tool::QuickSelect, ui::IconQuickSelect, "Sélection rapide", "W"},
     {Tool::Pen, ui::IconPen, "Plume", "P"},
@@ -55,7 +56,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Crop},
     {Tool::Brush, Tool::HistoryBrush},
     {Tool::Eraser, Tool::BackgroundEraser, Tool::MagicEraser},
-    {Tool::Clone},
+    {Tool::Clone, Tool::PatternStamp},
     {Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye},
     {Tool::Text},
     {Tool::Pen},
@@ -664,6 +665,12 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
             if (!rp.source) return;
             break;
         }
+        case Tool::PatternStamp:
+            // Pattern aligned on the document, painted like the history brush.
+            rp.mode = RetouchMode::History;
+            rp.source = PatternTiled(v, patternSel, patternScale);
+            if (!rp.source) return;
+            break;
         case Tool::BackgroundEraser:
             rp.mode = RetouchMode::BackgroundErase;
             rp.tolerance = bgEraserTolerance;

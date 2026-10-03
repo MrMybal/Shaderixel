@@ -31,10 +31,11 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Count
 };
 inline bool IsRetouchTool(Tool t) {
-    return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush;
+    return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
+           t == Tool::PatternStamp;
 }
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
 
@@ -745,6 +746,47 @@ private:
     void WriteMaskData(Document& d, Id surface, const std::vector<float>& m, int mw, int mh);
     bool OpenWithWic(const std::string& path, bool asLayer);
     void DrawPhotoDialog();
+    // Resources (Resources.cpp): patterns, swatches, .abr / .pat import.
+    struct PatternEntry {
+        std::string name, path;
+        int w = 0, h = 0;
+        std::vector<u8> rgba;
+        gpu::TexturePtr thumb;
+    };
+    std::vector<PatternEntry> patterns;
+    bool patternsScanned = false;
+    int patternSel = 0;
+    float patternScale = 1;
+    gpu::TexturePtr patternTiled;
+    u64 patternTiledKey = 0;
+    struct {
+        bool active = false;
+        DocView* view = nullptr;
+        gpu::ReadbackPtr image, bounds;
+    } patternDefine;
+    struct SwatchEntry {
+        std::string name;
+        float4 srgb;
+    };
+    std::vector<SwatchEntry> swatches;
+    std::string swatchPath;
+    bool swatchesLoaded = false;
+    std::string PatternDir() const;
+    void EnsureDefaultPatterns();
+    void ScanPatterns();
+    bool LoadPattern(PatternEntry& p);
+    gpu::Texture* PatternTiled(DocView& v, int index, float scale);
+    void FillWithPattern(DocView& v, int index, float scale);
+    void DefinePattern(DocView& v);
+    void UpdateResources();
+    void ImportPatFile(const std::string& path);
+    void DrawPatternsPanel();
+    std::string SwatchDir() const;
+    void LoadSwatchLibrary(const std::string& path);
+    void SaveSwatches();
+    void EnsureSwatches();
+    void DrawSwatchesPanel();
+    void ImportAbrFile(const std::string& path);
     void DrawBatchWindow();
     Id smartEditRequest = 0;
     void ColorPickerBody();  // Couleur panel / toolbar popup

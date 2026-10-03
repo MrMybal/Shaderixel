@@ -5,3 +5,9 @@ shadercache/
 shaderixel_layout.ini
 dist/
 tools/unreal/export.json
+shaders/patterns/
+shaders/brushes/abr_*.slang
+shaders/brushes/textures/abr/
+shaders/effects/user_*.slang
+shaders/effects/blend_user_*.slang
+shaders/brushes/user_*.slang

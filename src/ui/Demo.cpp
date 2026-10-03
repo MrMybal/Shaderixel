@@ -300,6 +300,94 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 60) {
+        // Resources: .abr / .pat / .ase / .aco import (files in SX_DIR), pattern fill and pattern stamp.
+        char dir[512] = "";
+        GetEnvironmentVariableA("SX_DIR", dir, sizeof(dir));
+        std::string D = dir;
+        if (frameCounter == 3) {
+            ImportAbrFile(D + "/test6.abr");
+            Log("[demo] abr v6: %s", statusMsg.c_str());
+            ImportAbrFile(D + "/test2.abr");
+            Log("[demo] abr v2: %s", statusMsg.c_str());
+            ImportPatFile(D + "/test.pat");
+            Log("[demo] pat: %s", statusMsg.c_str());
+            for (const char* f : {"/test.ase", "/test.aco"}) {
+                LoadSwatchLibrary(D + f);
+                std::string list;
+                for (auto& s : swatches) {
+                    char b[96];
+                    snprintf(b, sizeof(b), " [%s %.2f %.2f %.2f]", s.name.c_str(), s.srgb.x, s.srgb.y, s.srgb.z);
+                    list += b;
+                }
+                Log("[demo] swatches %s:%s", f, list.c_str());
+            }
+            swatchesLoaded = true;
+            int abr = 0;
+            for (auto& b : Brushes().All()) abr += b->id.rfind("abr_", 0) == 0;
+            Log("[demo] %d abr brushes in the library, %zu patterns", abr, patterns.size());
+            NewDocument(900, 600, Precision::Half16, DocMode::Layers, 0, "Motifs");
+        }
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        if (frameCounter == 6) {
+            int stripes = 0, test = 0;
+            for (int i = 0; i < (int)patterns.size(); ++i) {
+                if (patterns[i].name == "Briques") stripes = i;
+                if (patterns[i].name == "Dégradé test") test = i;
+            }
+            Edit e(d, a->history, "Nouveau calque");
+            d.AddPixelLayer("Motif");
+            e.Commit();
+            a->renderer.Prepare(d, *ctx);
+            a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, {40, 40, 460, 560}, SelMode::Replace, false, 0, "Rectangle");
+            FillWithPattern(*a, stripes, 1.0f);
+            a->renderer.Deselect(d, a->history);
+            // Pattern stamp stroke with the imported pattern (scaled x3).
+            patternSel = test;
+            patternScale = 3;
+            if (a->renderer.BeginStroke(d, *ctx, d.PaintTarget())) {
+                RetouchParams rp;
+                rp.mode = RetouchMode::History;
+                rp.source = PatternTiled(*a, test, 3);
+                std::vector<Dab> dabs;
+                for (float x = 520; x < 860; x += 6) dabs.push_back({x, 300 + std::sin(x / 40) * 120, 50, 1.0f});
+                a->renderer.RetouchDabs(d, *ctx, dabs, retouch, rp);
+                a->renderer.EndStroke(d, *ctx, a->history, "Tampon de motif");
+            }
+        }
+        if (frameCounter == 8) {
+            // Strokes with two imported .abr tips.
+            Id surf = d.PaintTarget();
+            int row = 0;
+            for (const char* id : {"abr_test6_2", "abr_test2_1"}) {
+                auto td = Brushes().Find(id);
+                if (!td) { Log("[demo] %s missing", id); continue; }
+                BrushSettings b = brush;
+                b.size = 60;
+                SelectTip(b, id);
+                BindTipTextures(b, *td);
+                EffectInstance tip;
+                tip.params = b.tipParams;
+                std::string err;
+                for (int w = 0; w < 6000 && !a->renderer.BrushPipeline(*td, &err) && err.empty(); ++w) Sleep(10);
+                std::vector<Dab> dabs;
+                std::vector<float4> extra;
+                float sp = std::max(1.0f, b.size * std::max(b.spacing, 0.02f));
+                for (float x = 520; x < 860; x += sp) {
+                    dabs.push_back({x, 60.0f + row * 80, 30, 1});
+                    extra.push_back({1, 0, 0, x - 520});
+                }
+                if (a->renderer.BeginStroke(d, *ctx, surf)) {
+                    a->renderer.StrokeProgram(d, *ctx, dabs, extra, *td, tip, b, LinearColor({0.1f, 0.2f, 0.6f, 1}), false, 0);
+                    a->renderer.EndStroke(d, *ctx, a->history, "Pinceau");
+                }
+                ++row;
+            }
+        }
+        return;
+    }
     if (demoMode == 59) {
         // Text: character / paragraph styles and text on a path; .sxl round trip with SX_OUT.
         if (frameCounter == 4) NewDocument(1600, 900, Precision::Half16, DocMode::Layers, 0, "Texte");

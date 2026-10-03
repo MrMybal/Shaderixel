@@ -1248,7 +1248,18 @@ void App::DrawBrush() {
         static const char* titles[] = {"", "", "", "", "", "", "Pinceau", "Gomme", "Tampon de duplication", "Correcteur", "", "",
                                        "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge", "Fluidité"};
         ImGui::SeparatorText(tool == Tool::HistoryBrush ? "Forme d'historique" : tool == Tool::BackgroundEraser ? "Gomme d'arrière-plan"
-                                                                                                         : titles[(int)tool]);
+                             : tool == Tool::PatternStamp ? "Tampon de motif"
+                                                          : titles[(int)tool]);
+        if (tool == Tool::PatternStamp) {
+            if (!patternsScanned) ScanPatterns();
+            const char* pn = patternSel < (int)patterns.size() ? patterns[patternSel].name.c_str() : "(aucun)";
+            if (ImGui::BeginCombo("Motif", pn)) {
+                for (int i = 0; i < (int)patterns.size(); ++i) if (ImGui::Selectable(patterns[i].name.c_str(), i == patternSel)) patternSel = i;
+                ImGui::EndCombo();
+            }
+            ImGui::SliderFloat("Échelle du motif", &patternScale, 0.1f, 8.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+            ImGui::TextDisabled("Motif aligné sur le document (panneau Motifs).");
+        }
         if (tool == Tool::BackgroundEraser) {
             ImGui::SliderFloat("Tolérance##bg", &bgEraserTolerance, 0.01f, 1, "%.2f");
             ImGui::TextDisabled("Efface les couleurs proches de celle sous le centre du pinceau.");
