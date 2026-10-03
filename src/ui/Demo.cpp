@@ -299,6 +299,74 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 46 && v && frameCounter == 4) {
+        // Custom HLSL node with typed pins: texture + UV wired, the other inputs unconnected
+        // become parameters (range, category) in Propriétés.
+        Document& d = *v->doc;
+        EffectGraph g;
+        g.name = "Postérisation teintée";
+        g.category = "Mes effets";
+        g.inputs = 1;
+        auto add = [&](const char* op, float2 pos) -> EGNode& {
+            EGNode n;
+            n.id = g.nextId++;
+            n.op = op;
+            n.pos = pos;
+            n.inputs.resize(FindOp(op)->inputs.size());
+            g.nodes.push_back(n);
+            return g.nodes.back();
+        };
+        Id tex = add("texture", {40, 40}).id, uv = add("uv", {40, 170}).id;
+        EGNode& c = add("custom", {340, 40});
+        c.name = "Postérise";
+        auto pin = [](const char* name, int type, float4 def, float mn, float mx, const char* cat, const char* label) {
+            EGPinDecl d;
+            d.name = name;
+            d.type = type;
+            d.def = def;
+            d.min = mn;
+            d.max = mx;
+            d.category = cat;
+            d.label = label;
+            return d;
+        };
+        c.pins = {pin("Image", kPinTexture, {}, 0, 1, "", ""), pin("UV", kPinFloat2, {}, 0, 1, "", ""),
+                  pin("Steps", kPinInt, {4, 0, 0, 0}, 2, 16, "Réglages", "Niveaux"), pin("Amount", kPinFloat, {1, 0, 0, 0}, 0, 1, "Réglages", "Intensité"),
+                  pin("Invert", kPinBool, {0, 0, 0, 0}, 0, 1, "Options", "Inverser"), pin("Tint", kPinColor, {1, 0.75f, 0.4f, 1}, 0, 1, "Couleur", "Teinte")};
+        EGPinDecl o;
+        o.name = "Resultat";
+        o.type = kPinFloat4;
+        c.outs = {o};
+        c.text = "        float4 s = Texture2DSample(Image, ImageSampler, UV);\n"
+                 "        float3 q = floor(s.rgb * Steps + 0.5) / Steps;\n"
+                 "        if (Invert) q = 1.0 - q;\n"
+                 "        return float4(lerp(s.rgb, q * Tint.rgb, Amount), s.a);";
+        c.inputs.resize(c.pins.size());
+        c.inputs[0] = {tex, 0};
+        c.inputs[1] = {uv, 0};
+        Id cid = c.id;
+        EGNode& out = add("output", {700, 40});
+        out.inputs = {{cid, 0}, {}, {}};
+        EGCompileResult r = CompileEffectGraph(g);
+        if (!r.error.empty()) Log("[demo] custom pins: %s", r.error.c_str());
+        Edit e(d, v->history, "Effet visuel");
+        Layer& l = d.AddEffectLayer(LayerKind::Adjustment, "");
+        l.name = "Postérisation teintée";
+        l.effect.graph = g.Serialize();
+        if (auto def = l.effect.Def()) {
+            l.effect.params = def->DefaultParams();
+            std::string list;
+            for (auto& p : def->params) list += p.id + "[" + p.group + "] ";
+            Log("[demo] custom pins params: %s", list.c_str());
+        }
+        d.SyncGraph();
+        e.Commit();
+        OpenGraphEditor(0);
+        efEd.selected = cid;
+        ShowSideTab(0);
+        ImGui::SetWindowFocus("Propriétés");
+        return;
+    }
     if (demoMode == 45 && frameCounter == 4) {
         // Substance-like material painting: PBR channels, three material layers whose
         // shared masks are painted in UV space, 3D view next to the texture.

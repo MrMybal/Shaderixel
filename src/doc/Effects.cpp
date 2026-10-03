@@ -115,6 +115,7 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
     def->id = id;
     def->name = id.empty() ? "Effet" : id;
     def->category = "Personnalisé";
+    std::string group;  // current //@group
     bool generator = false, explicitInputs = false;
     std::string body;
     size_t pos = 0;
@@ -142,7 +143,13 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
         else if (key == "generator") generator = true;
         else if (key == "premultiplied") def->premultiplied = true;
         else if (key == "blend") def->blend = true;
-        else if (key == "graph") def->graph = rest(1);
+        else if (key == "graph") {
+            // Raw remainder (JSON: spaces and quotes kept).
+            size_t k = line.find("graph");
+            def->graph = line.substr(k + 5);
+            def->graph.erase(0, def->graph.find_first_not_of(" \t"));
+            while (!def->graph.empty() && (def->graph.back() == '\r' || def->graph.back() == ' ')) def->graph.pop_back();
+        } else if (key == "group") group = rest(1);
         else if (key == "halo" && t.size() > 1) {
             // //@halo full | //@halo <px> | //@halo <param> <scale> [<param> <scale>...] [<offset>]
             def->haloTerms.clear();
@@ -185,6 +192,14 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
                 p.type = ParamType::Float2;
                 p.def = {num(0, 0), num(1, 0), 0, 0};
                 p.min = num(2, 0); p.max = num(3, 1);
+            } else if (type == "float3") {
+                p.type = ParamType::Float3;
+                p.def = {num(0, 0), num(1, 0), num(2, 0), 0};
+                p.min = num(3, 0); p.max = num(4, 1);
+            } else if (type == "float4") {
+                p.type = ParamType::Float4;
+                p.def = {num(0, 0), num(1, 0), num(2, 0), num(3, 0)};
+                p.min = num(4, 0); p.max = num(5, 1);
             } else if (type == "curve") {
                 p.type = ParamType::Curve;
             } else if (type == "lut") {
@@ -208,6 +223,7 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
                 continue;
             }
             if (!strs.empty()) p.label = strs.back();
+            p.group = group;
             if (def->params.size() < 32) def->params.push_back(p);
         }
     }
@@ -229,6 +245,8 @@ std::string EffectParamFields(const EffectDef& def) {
             case ParamType::Enum: s += "    int " + p.id + "; int3 _pad" + std::to_string(pad++) + ";\n"; break;
             case ParamType::Color: s += "    float4 " + p.id + ";\n"; break;
             case ParamType::Float2: s += "    float2 " + p.id + "; float2 _pad" + std::to_string(pad++) + ";\n"; break;
+            case ParamType::Float3: s += "    float3 " + p.id + "; float _pad" + std::to_string(pad++) + ";\n"; break;
+            case ParamType::Float4: s += "    float4 " + p.id + ";\n"; break;
             case ParamType::Curve: s += "    float4 " + p.id + "[" + std::to_string(kCurveSlots) + "];\n"; break;
             case ParamType::Lut: s += "    float4 " + p.id + ";\n"; break;
         }

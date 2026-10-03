@@ -232,7 +232,8 @@ void App::DrawEffectEditor() {
     ImGuiIO& io = ImGui::GetIO();
 
     // ---------------------------------------------------------- details panel
-    float panelW = 270.0f * dpi;
+    const EGNode* selNode = g.Find(ed.selected);
+    float panelW = (selNode && selNode->op == "custom" ? 400.0f : 270.0f) * dpi;  // custom nodes: pins + code need room
     ImGui::BeginChild("##efdetails", ImVec2(panelW, 0), ImGuiChildFlags_Borders, 0);
     ImGui::TextDisabled("Édition : %s", where.c_str());
     ImGui::SeparatorText("Effet");
@@ -304,28 +305,81 @@ void App::DrawEffectEditor() {
             if (!sel->HasPins()) {
                 ImGui::TextDisabled("Entrées A B C D (float4), retourner un float4.");
                 if (ImGui::Button("Déclarer les broches")) {
-                    sel->pins = {{"A", 4}, {"B", 4}, {"C", 4}, {"D", 4}};
-                    sel->outs = {{"Resultat", 4}};
+                    for (const char* nm : {"A", "B", "C", "D"}) {
+                        EGPinDecl d;
+                        d.name = nm;
+                        d.type = kPinFloat4;
+                        sel->pins.push_back(d);
+                    }
+                    EGPinDecl o;
+                    o.name = "Resultat";
+                    o.type = kPinFloat4;
+                    sel->outs = {o};
                     changed = true;
                 }
                 ui::HelpTooltip("Entrées et sorties nommées et typées (float à float4, texture lue à n'importe quel UV).");
             } else {
                 // Declared pins: name (HLSL identifier) + type; textures are read with Texture2DSample(T, S, uv).
-                static const char* kPinTypes = "float\0float2\0float3\0float4\0Texture\0";
-                static const char* kOutTypes = "float\0float2\0float3\0float4\0";
-                auto pinList = [&](std::vector<EGPinDecl>& pins, const char* title, const char* types, int maxType, bool inputs) {
-                    ImGui::TextDisabled("%s", title);
-                    int removeAt = -1;
+                // Pin types (EGPinType order): float, float2, float3, float4, Texture, int, bool, couleur.
+                static const char* kPinTypes = "float\0float2\0float3\0float4\0Texture\0int\0bool\0couleur\0";
+                auto pinList = [&](std::vector<EGPinDecl>& pins, const char* title, bool inputs) {
+                    ImGui::SeparatorText(title);
+                    int removeAt = -1, moveUp = -1;
                     for (size_t i = 0; i < pins.size(); ++i) {
+                        EGPinDecl& pin = pins[i];
                         ImGui::PushID((int)i + (inputs ? 0 : 1000));
-                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
-                        track(ImGui::InputText("##pn", &pins[i].name, ImGuiInputTextFlags_CharsNoBlank));
-                        ImGui::SameLine();
-                        int t = pins[i].type - 1;
-                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() - 6);
-                        if (ImGui::Combo("##pt", &t, types)) { pins[i].type = std::clamp(t + 1, 1, maxType); changed = true; }
-                        ImGui::SameLine();
+                        std::string head = pin.name + "  (" + PinTypeName(pin.type) + ")" + (pin.category.empty() ? "" : "  [" + pin.category + "]");
+                        bool open = ImGui::TreeNodeEx("##pin", ImGuiTreeNodeFlags_SpanAvailWidth, "%s", head.c_str());
+                        ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight() * 2 - 8);
+                        if (i > 0 && ImGui::SmallButton("^")) moveUp = (int)i;
+                        ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight());
                         if (ImGui::SmallButton("x")) removeAt = (int)i;
+                        if (open) {
+                            track(ImGui::InputText("Nom", &pin.name, ImGuiInputTextFlags_CharsNoBlank));
+                            ui::HelpTooltip("Identifiant utilisé dans le code.");
+                            int t = pin.type - 1;
+                            bool texOk = inputs;
+                            if (ImGui::Combo("Type", &t, kPinTypes)) {
+                                int nt = std::clamp(t + 1, 1, (int)kPinTypeCount);
+                                if (nt == kPinTexture && !texOk) nt = kPinFloat4;
+                                if (nt == kPinColor && pin.def == float4{}) pin.def = {1, 1, 1, 1};
+                                if (nt == kPinInt && pin.max == 1) pin.max = 10;
+                                pin.type = nt;
+                                changed = true;
+                            }
+                            track(ImGui::InputText("Catégorie", &pin.category));
+                            ui::HelpTooltip(inputs ? "Groupe sous lequel le réglage apparaît dans Propriétés." : "Groupe de la sortie.");
+                            if (inputs && pin.type != kPinTexture) {
+                                track(ImGui::InputText("Libellé", &pin.label));
+                                ui::HelpTooltip("Nom affiché dans Propriétés (sinon le nom).");
+                                // Default + range: the value used when nothing is connected (then a parameter of the effect).
+                                switch (pin.type) {
+                                    case kPinFloat: track(ImGui::DragFloat("Défaut", &pin.def.x, 0.01f)); break;
+                                    case kPinInt: {
+                                        int iv = (int)std::lround(pin.def.x);
+                                        if (ImGui::DragInt("Défaut", &iv)) { pin.def.x = (float)iv; live = true; }
+                                        if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+                                        break;
+                                    }
+                                    case kPinBool: {
+                                        bool bv = pin.def.x > 0.5f;
+                                        if (ImGui::Checkbox("Défaut", &bv)) { pin.def.x = bv ? 1.0f : 0.0f; changed = true; }
+                                        break;
+                                    }
+                                    case kPinFloat2: track(ImGui::DragFloat2("Défaut", &pin.def.x, 0.01f)); break;
+                                    case kPinFloat3: track(ImGui::DragFloat3("Défaut", &pin.def.x, 0.01f)); break;
+                                    case kPinFloat4: track(ImGui::DragFloat4("Défaut", &pin.def.x, 0.01f)); break;
+                                    case kPinColor: track(ImGui::ColorEdit4("Défaut", &pin.def.x, ImGuiColorEditFlags_Float)); break;
+                                }
+                                if (pin.type != kPinBool && pin.type != kPinColor) {
+                                    float r[2] = {pin.min, pin.max};
+                                    if (ImGui::DragFloat2("Min / max", r, 0.01f)) { pin.min = r[0]; pin.max = r[1]; live = true; }
+                                    if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+                                }
+                                ImGui::TextDisabled("Non reliée : réglable dans Propriétés.");
+                            }
+                            ImGui::TreePop();
+                        }
                         ImGui::PopID();
                     }
                     if (removeAt >= 0) {
@@ -333,13 +387,21 @@ void App::DrawEffectEditor() {
                         if (inputs && removeAt < (int)sel->inputs.size()) sel->inputs.erase(sel->inputs.begin() + removeAt);
                         changed = true;
                     }
+                    if (moveUp > 0) {
+                        std::swap(pins[moveUp], pins[moveUp - 1]);
+                        if (inputs && moveUp < (int)sel->inputs.size()) std::swap(sel->inputs[moveUp], sel->inputs[moveUp - 1]);
+                        changed = true;
+                    }
                     if (ImGui::SmallButton(inputs ? "+ Entrée" : "+ Sortie")) {
-                        pins.push_back({(inputs ? "In" : "Out") + std::to_string(pins.size() + 1), 4});
+                        EGPinDecl d;
+                        d.name = (inputs ? "In" : "Out") + std::to_string(pins.size() + 1);
+                        d.type = inputs ? kPinFloat : kPinFloat4;
+                        pins.push_back(d);
                         changed = true;
                     }
                 };
-                pinList(sel->pins, "Entrées", kPinTypes, kEGTexture, true);
-                pinList(sel->outs, "Sorties (une seule : return ; plusieurs : paramètres out)", kOutTypes, 4, false);
+                pinList(sel->pins, "Entrées", true);
+                pinList(sel->outs, "Sorties (une seule : return ; plusieurs : paramètres out)", false);
                 sel->inputs.resize(sel->pins.size());
                 ImGui::TextDisabled("Déclarations (fonctions, constantes)");
                 ImGui::PushFont(ui::GetFonts().mono, 0.0f);
@@ -606,7 +668,7 @@ void App::DrawEffectEditor() {
             ImVec2 p = inPin(n, i);
             bool conn = i < (int)n.inputs.size() && n.inputs[i].node;
             int t = conn ? cr.OutType(n.inputs[i].node, n.inputs[i].output) : 0;
-            int declared = n.op == "custom" && i < (int)n.pins.size() ? n.pins[i].type : 0;
+            int declared = n.op == "custom" && i < (int)n.pins.size() ? (n.pins[i].type == kEGTexture ? kEGTexture : PinValueSize(n.pins[i].type)) : 0;
             if (conn) dl->AddCircleFilled(p, pr, typeColor(t));
             else dl->AddCircle(p, pr, declared ? typeColor(declared) : IM_COL32(120, 122, 140, 255), 0, 1.5f * ed.zoom);
             if (text) {

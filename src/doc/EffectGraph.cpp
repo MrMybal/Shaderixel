@@ -95,12 +95,22 @@ bool OpAllowed(const EGOpDef& op, EGKind kind) {
     return true;
 }
 
+int PinValueSize(int t) { return t == kPinInt || t == kPinBool ? 1 : t == kPinColor ? 4 : t; }
+const char* PinHlslType(int t) {
+    static const char* n[] = {"float", "float", "float2", "float3", "float4", "uint", "int", "bool", "float4"};
+    return n[std::clamp(t, 0, (int)kPinTypeCount)];
+}
+const char* PinTypeName(int t) {
+    static const char* n[] = {"?", "float", "float2", "float3", "float4", "Texture", "int", "bool", "couleur"};
+    return n[std::clamp(t, 0, (int)kPinTypeCount)];
+}
+
 EGOpDef EffectiveOp(const EGNode& n) {
     const EGOpDef* d = FindOp(n.op);
     EGOpDef r = d ? *d : EGOpDef{"", "?", "", {}, {}, 0};
     if (n.op == "custom" && n.HasPins()) {
         r.inputs.clear();
-        for (auto& p : n.pins) r.inputs.push_back({p.name.c_str(), p.type == kEGTexture ? -5.0f : 0.0f});
+        for (auto& p : n.pins) r.inputs.push_back({p.name.c_str(), p.type == kEGTexture ? -5.0f : -7.0f});  // -7: parameter when unconnected
         r.outputs.clear();
         for (auto& o : n.outs) r.outputs.push_back(o.name.c_str());
         r.fixedOutType = 0;
@@ -178,11 +188,20 @@ Json EffectGraph::ToJson() const {
         if (!n.text.empty()) o["text"] = n.text;
         if (n.index) o["index"] = n.index;
         auto pinsJson = [](const std::vector<EGPinDecl>& v) {
+            // [name, type, default, min, max, category, label] (trailing defaults omitted)
             Json a = Json::Array();
             for (auto& p : v) {
                 Json e = Json::Array();
                 e.Push(p.name);
                 e.Push(p.type);
+                bool extra = !(p.def == float4{}) || p.min != 0 || p.max != 1 || !p.category.empty() || !p.label.empty();
+                if (extra) {
+                    e.Push(sx::ToJson(p.def));
+                    e.Push(p.min);
+                    e.Push(p.max);
+                    e.Push(p.category);
+                    e.Push(p.label);
+                }
                 a.Push(e);
             }
             return a;
@@ -224,8 +243,22 @@ bool EffectGraph::FromJson(const Json& j, EffectGraph& g) {
         n.name = o["name"].S("");
         n.text = o["text"].S("");
         n.index = o["index"].I(0);
-        for (auto& p : o["pins"].Elements()) n.pins.push_back({p.At(0).S(""), std::clamp(p.At(1).I(4), 1, kEGTexture)});
-        for (auto& p : o["outs"].Elements()) n.outs.push_back({p.At(0).S(""), std::clamp(p.At(1).I(4), 1, 4)});
+        auto readPins = [](const Json& arr, std::vector<EGPinDecl>& out) {
+            for (auto& p : arr.Elements()) {
+                EGPinDecl d;
+                d.name = p.At(0).S("");
+                d.type = std::clamp(p.At(1).I(4), 1, (int)kPinTypeCount);
+                if (p.Size() > 2) d.def = Float4FromJson(p.At(2));
+                if (p.Size() > 3) d.min = p.At(3).F(0);
+                if (p.Size() > 4) d.max = p.At(4).F(1);
+                if (p.Size() > 5) d.category = p.At(5).S("");
+                if (p.Size() > 6) d.label = p.At(6).S("");
+                out.push_back(d);
+            }
+        };
+        readPins(o["pins"], n.pins);
+        readPins(o["outs"], n.outs);
+        for (auto& p : n.outs) if (p.type == kPinTexture) p.type = kPinFloat4;
         n.decl = o["decl"].S("");
         n.inputs.resize(EffectiveOp(n).inputs.size());
         g.nextId = std::max(g.nextId, n.id + 1);
@@ -368,7 +401,10 @@ struct Gen {
     std::vector<std::string> customStructs;
     std::vector<std::string> customDecls;
     bool textures = false;  // a custom node reads textures: Texture2DSample helpers needed
-    std::string opacityVar = "opacity";  // blends: the layer opacity (an "Opacity" parameter of the graph, else a generated one)
+    std::string opacityVar = "opacity";
+    // Unconnected custom pins exposed as effect parameters.
+    struct PinParam { std::string id; EGPinDecl pin; };
+    std::vector<PinParam> pinParams;  // blends: the layer opacity (an "Opacity" parameter of the graph, else a generated one)
     std::unordered_map<Id, std::vector<Val>> memo;
     std::set<Id> visiting;
     std::set<int> usedInputs;
@@ -394,6 +430,7 @@ struct Gen {
         if (def == -1) return {UV(), 2};  // pins defaulting to the image UV
         if (def == -2) return {opacityVar, 1};  // layer opacity (blends)
         if (def == -5) return {"31u", kEGTexture};  // unconnected texture: reads white
+        if (def == -7) return {"0.0", 1};           // custom pin: parameter (see the custom node)
         if (def == -3) return {brush() ? std::string("b.local") : "(" + UV() + " * 2.0 - 1.0)", 2};
         if (def == -4) return {brush() ? "b.hardness" : "0.8", 1};
         return {F(def), 1};
@@ -461,29 +498,56 @@ struct Gen {
             std::string sname = "SXC" + std::to_string(id), params;
             for (size_t i = 0; i < n->pins.size(); ++i) {
                 if (i) params += ", ";
-                params += Type(n->pins[i].type) + " " + n->pins[i].name;
+                params += std::string(PinHlslType(n->pins[i].type)) + " " + n->pins[i].name;
                 if (n->pins[i].type == kEGTexture) textures = true;
             }
             const bool single = n->outs.size() <= 1;
-            int retType = n->outs.empty() ? 4 : n->outs[0].type;
+            int retType = n->outs.empty() ? kPinFloat4 : n->outs[0].type;
             if (!single)
-                for (auto& o : n->outs) params += std::string(params.empty() ? "" : ", ") + "out " + Type(o.type) + " " + o.name;
+                for (auto& o : n->outs) params += std::string(params.empty() ? "" : ", ") + "out " + PinHlslType(o.type) + " " + o.name;
             if (!n->decl.empty()) customDecls.push_back("// " + n->name + "\n" + n->decl + "\n");
-            customStructs.push_back("struct " + sname + "\n{\n    " + (single ? Type(retType) : std::string("void")) + " Run(" + params + ")\n    {\n" + n->text +
-                                    "\n    }\n};\n");
+            customStructs.push_back("struct " + sname + "\n{\n    " + (single ? std::string(PinHlslType(retType)) : std::string("void")) + " Run(" + params +
+                                    ")\n    {\n" + n->text + "\n    }\n};\n");
             std::string inst = "sxc" + std::to_string(id), args;
             lines.push_back("    " + sname + " " + inst + ";");
-            for (size_t i = 0; i < a.size(); ++i) args += (i ? ", " : "") + (n->pins[i].type == kEGTexture ? a[i].expr : Conv(a[i], n->pins[i].type));
-            if (single) one(inst + ".Run(" + args + ")", retType);
+            auto toPin = [&](const Val& v, int t) -> std::string {
+                if (t == kEGTexture) return v.expr;
+                if (t == kPinInt) return "(int)(" + Conv(v, 1) + ")";
+                if (t == kPinBool) return "(" + Conv(v, 1) + " > 0.5)";
+                return Conv(v, PinValueSize(t));
+            };
+            for (size_t i = 0; i < a.size(); ++i) {
+                const EGPinDecl& pin = n->pins[i];
+                bool linked = i < n->inputs.size() && n->inputs[i].node;
+                std::string expr;
+                if (!linked && pin.type != kEGTexture) {
+                    // Unconnected: a parameter of the effect (default, range, category).
+                    std::string pid = "P_n" + std::to_string(id) + "_" + SanitizeId(pin.name, (int)i).substr(2);
+                    if (std::find_if(pinParams.begin(), pinParams.end(), [&](const PinParam& q) { return q.id == pid; }) == pinParams.end())
+                        pinParams.push_back({pid, pin});
+                    expr = pin.type == kPinBool ? "(" + pid + " != 0)" : pin.type == kPinInt ? pid
+                                                                             : Conv({pid, PinValueSize(pin.type)}, PinValueSize(pin.type));
+                } else {
+                    expr = toPin(a[i], pin.type);
+                }
+                args += (i ? ", " : "") + expr;
+            }
+            if (single) one(inst + ".Run(" + args + ")", PinValueSize(retType));
             else {
                 for (size_t k = 0; k < n->outs.size(); ++k) {
                     std::string var = "n" + std::to_string(id) + "_o" + std::to_string(k);
-                    lines.push_back("    " + Type(n->outs[k].type) + " " + var + ";");
+                    lines.push_back("    " + std::string(PinHlslType(n->outs[k].type)) + " " + var + ";");
                     args += std::string(args.empty() ? "" : ", ") + var;
                 }
                 lines.push_back("    " + inst + ".Run(" + args + ");");
-                for (size_t k = 0; k < n->outs.size(); ++k) out.push_back({"n" + std::to_string(id) + "_o" + std::to_string(k), n->outs[k].type});
+                for (size_t k = 0; k < n->outs.size(); ++k) {
+                    std::string var = "n" + std::to_string(id) + "_o" + std::to_string(k);
+                    // int / bool outputs continue as float values in the graph.
+                    if (n->outs[k].type == kPinInt || n->outs[k].type == kPinBool) var = "(float)(" + var + ")";
+                    out.push_back({var, PinValueSize(n->outs[k].type)});
+                }
             }
+            if (single && (retType == kPinInt || retType == kPinBool)) out.back().expr = "(float)(" + out.back().expr + ")";
         } else if (op == "opacity") {
             one(opacityVar, 1);
         } else if (op == "blendover") {
@@ -671,6 +735,38 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
             s += "//@param " + it->second + " float2 " + F(n.value.x) + " " + F(n.value.y) + " " + F(n.min) + " " + F(n.max) + " \"" + label + "\"\n";
         else
             s += "//@param " + it->second + " color " + F(n.value.x) + " " + F(n.value.y) + " " + F(n.value.z) + " " + F(n.value.w) + " \"" + label + "\"\n";
+    }
+    {
+        // Parameters of unconnected custom pins, grouped by category.
+        std::vector<std::string> cats;
+        for (auto& pp : gen.pinParams)
+            if (std::find(cats.begin(), cats.end(), pp.pin.category) == cats.end()) cats.push_back(pp.pin.category);
+        std::stable_sort(cats.begin(), cats.end(), [](const std::string& a, const std::string& b) { return a.empty() && !b.empty(); });
+        for (auto& cat : cats) {
+            s += "//@group " + cat + "\n";
+            for (auto& pp : gen.pinParams) {
+                if (pp.pin.category != cat) continue;
+                const EGPinDecl& p = pp.pin;
+                std::string label = "\"" + (p.label.empty() ? p.name : p.label) + "\"";
+                switch (p.type) {
+                    case kPinFloat: s += "//@param " + pp.id + " float " + F(p.def.x) + " " + F(p.min) + " " + F(p.max) + " " + label + "\n"; break;
+                    case kPinInt: s += "//@param " + pp.id + " int " + F(std::round(p.def.x)) + " " + F(p.min) + " " + F(p.max) + " " + label + "\n"; break;
+                    case kPinBool: s += "//@param " + pp.id + " bool " + F(p.def.x > 0.5f ? 1.0f : 0.0f) + " " + label + "\n"; break;
+                    case kPinFloat2: s += "//@param " + pp.id + " float2 " + F(p.def.x) + " " + F(p.def.y) + " " + F(p.min) + " " + F(p.max) + " " + label + "\n"; break;
+                    case kPinFloat3:
+                        s += "//@param " + pp.id + " float3 " + F(p.def.x) + " " + F(p.def.y) + " " + F(p.def.z) + " " + F(p.min) + " " + F(p.max) + " " + label + "\n";
+                        break;
+                    case kPinFloat4:
+                        s += "//@param " + pp.id + " float4 " + F(p.def.x) + " " + F(p.def.y) + " " + F(p.def.z) + " " + F(p.def.w) + " " + F(p.min) + " " + F(p.max) + " " +
+                             label + "\n";
+                        break;
+                    default:
+                        s += "//@param " + pp.id + " color " + F(p.def.x) + " " + F(p.def.y) + " " + F(p.def.z) + " " + F(p.def.w) + " " + label + "\n";
+                        break;
+                }
+            }
+        }
+        if (!gen.pinParams.empty()) s += "//@group\n";
     }
     s += "// Généré par l'éditeur visuel de Shaderixel.\n";
     s += kHelperStruct;

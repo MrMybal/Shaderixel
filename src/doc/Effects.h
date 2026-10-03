@@ -25,7 +25,7 @@
 
 namespace sx {
 
-enum class ParamType : u8 { Float, Int, Bool, Color, Float2, Enum, Curve, Lut };
+enum class ParamType : u8 { Float, Int, Bool, Color, Float2, Enum, Curve, Lut, Float3, Float4 };
 
 // 3D color lookup table (.cube), embedded in documents.
 struct Lut3D {
@@ -54,6 +54,7 @@ struct ParamDef {
     float4 def;
     float min = 0, max = 1;
     std::vector<std::string> enumItems;
+    std::string group;  // //@group: category shown above the parameter in the UI
 };
 
 struct EffectDef {

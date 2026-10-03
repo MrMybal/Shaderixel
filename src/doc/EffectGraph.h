@@ -23,12 +23,21 @@ struct EGLink {
     int output = 0;
 };
 
-// Declared pin of a custom HLSL node: type 1..4 = float..float4, 5 = texture
-// (an image read at any UV with Texture2DSample(T, S, uv) in the code).
+// Declared pin of a custom HLSL node. Types: 1..4 float..float4, 5 texture (an
+// image read at any UV with Texture2DSample(T, S, uv)), 6 int, 7 bool, 8 color.
+// An unconnected input (not a texture) is a parameter of the effect: default,
+// range, label and category (group in Propriétés).
 struct EGPinDecl {
     std::string name;
     int type = 4;
+    float4 def;
+    float min = 0, max = 1;
+    std::string category, label;
 };
+enum EGPinType : int { kPinFloat = 1, kPinFloat2, kPinFloat3, kPinFloat4, kPinTexture, kPinInt, kPinBool, kPinColor, kPinTypeCount = kPinColor };
+int PinValueSize(int pinType);            // components carried by a link of that type
+const char* PinHlslType(int pinType);     // type of the Run() parameter
+const char* PinTypeName(int pinType);
 
 struct EGNode {
     Id id = 0;

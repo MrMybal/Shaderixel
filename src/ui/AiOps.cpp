@@ -35,6 +35,8 @@ Json ParamValueJson(const ParamDef& p, const float4& v) {
     switch (p.type) {
         case ParamType::Color: return Arr({LinearToSrgb(v.x), LinearToSrgb(v.y), LinearToSrgb(v.z), v.w});
         case ParamType::Float2: return Arr({v.x, v.y});
+        case ParamType::Float3: return Arr({v.x, v.y, v.z});
+        case ParamType::Float4: return Arr({v.x, v.y, v.z, v.w});
         case ParamType::Bool: return Json(v.x > 0.5f);
         case ParamType::Curve: return Json("curve");
         case ParamType::Lut: return Json("lut");
@@ -50,9 +52,10 @@ bool ApplyParamValue(const ParamDef& p, const Json& j, float4& v) {
             return true;
         }
         case ParamType::Float2:
+        case ParamType::Float3:
+        case ParamType::Float4:
             if (!j.IsArray() || j.Size() < 2) return false;
-            v.x = j.At(0).F();
-            v.y = j.At(1).F();
+            for (size_t k = 0; k < j.Size() && k < 4; ++k) v[(int)k] = j.At(k).F();
             return true;
         case ParamType::Enum:
             if (j.GetType() == Json::Type::String) {

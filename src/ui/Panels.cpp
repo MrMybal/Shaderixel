@@ -205,9 +205,14 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
     ImGui::PushID(label);
     if (fx.curves.size() < def->params.size()) fx.curves.resize(def->params.size());
     std::vector<size_t> curveParams;
+    std::string group;
     for (size_t i = 0; i < def->params.size(); ++i) {
         const ParamDef& p = def->params[i];
         if (p.type == ParamType::Curve) { curveParams.push_back(i); continue; }
+        if (p.group != group) {
+            group = p.group;
+            if (!group.empty()) ImGui::SeparatorText(group.c_str());
+        }
         float4& val = fx.params[i];
         ImGui::PushID((int)i);
         bool c = false;
@@ -233,6 +238,8 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
                 break;
             }
             case ParamType::Float2: c = ImGui::SliderFloat2(p.label.c_str(), &val.x, p.min, p.max, "%.3f"); break;
+            case ParamType::Float3: c = ImGui::SliderFloat3(p.label.c_str(), &val.x, p.min, p.max, "%.3f"); break;
+            case ParamType::Float4: c = ImGui::SliderFloat4(p.label.c_str(), &val.x, p.min, p.max, "%.3f"); break;
             case ParamType::Lut: {
                 if (fx.luts.size() < def->params.size()) fx.luts.resize(def->params.size());
                 const Lut3D* l = fx.luts[i].get();
