@@ -306,6 +306,8 @@ void App::DrawNodeEditor() {
             }, "Ajouter un effet visuel");
         if (match("hlsl personnalisé custom code") && ImGui::MenuItem("HLSL personnalisé"))
             add([&] { d.AddEffectNode("", kCustomEffectTemplate, ed.contextPos); }, "Ajouter un nœud HLSL");
+        if (match("fusion personnalisée blend custom mélange") && ImGui::MenuItem("Fusion personnalisée (A, B, masque)"))
+            add([&] { d.AddEffectNode("", kCustomBlendTemplate, ed.contextPos); }, "Ajouter une fusion personnalisée");
         ImGui::Separator();
         if (q.empty()) {
             EffectMenu([&](const std::string& id) { add([&] { d.AddEffectNode(id, "", ed.contextPos); }, "Ajouter un effet"); }, true, true);

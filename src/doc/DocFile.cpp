@@ -291,6 +291,8 @@ Json SerializeDocument(const Document& doc) {
         o["kind"] = kLayerKinds[(int)l.kind];
         if (l.surface) o["surface"] = l.surface;
         if (l.kind == LayerKind::Fill || l.kind == LayerKind::Adjustment) o["effect"] = EffectToJson(l.effect);
+        if (l.channelOff) o["channelOff"] = (int)l.channelOff;
+        if (!l.blendFx.customCode.empty()) o["blendFx"] = EffectToJson(l.blendFx);
         if (!l.filters.empty()) {
             Json f = Json::Array();
             for (auto& x : l.filters) f.Push(EffectToJson(x));
@@ -358,7 +360,7 @@ Json SerializeDocument(const Document& doc) {
         o["pos"] = ToJson(n.pos);
         if (n.surface) o["surface"] = n.surface;
         if (n.kind == NodeKind::Effect) o["effect"] = EffectToJson(n.fx);
-        if (n.kind == NodeKind::Blend) { o["blend"] = (int)n.blend; o["opacity"] = n.opacity; o["clip"] = n.clip; }
+        if (n.kind == NodeKind::Blend) { o["blend"] = (int)n.blend; o["opacity"] = n.opacity; o["clip"] = n.clip; if (n.channelOff) o["channelOff"] = (int)n.channelOff; }
         if (n.bypass) o["bypass"] = true;
         if (n.layer) o["layer"] = n.layer;
         Json in = Json::Array();
@@ -398,6 +400,8 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         l.surface = o["surface"].U();
         if (o.Has("effect")) l.effect = EffectFromJson(o["effect"]);
         for (auto& f : o["filters"].Elements()) l.filters.push_back(EffectFromJson(f));
+        l.channelOff = (u8)(o["channelOff"].I(0) & 15);
+        if (o.Has("blendFx")) l.blendFx = EffectFromJson(o["blendFx"]);
         l.blend = (BlendMode)std::clamp(o["blend"].I(), 0, (int)BlendMode::Count - 1);
         l.opacity = o["opacity"].F(1);
         l.visible = o["visible"].B(true);
@@ -470,6 +474,7 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         n.blend = (BlendMode)std::clamp(o["blend"].I(), 0, (int)BlendMode::Count - 1);
         n.opacity = o["opacity"].F(1);
         n.clip = o["clip"].B(false);
+        n.channelOff = (u8)(o["channelOff"].I(0) & 15);
         n.bypass = o["bypass"].B(false);
         n.layer = o["layer"].U();
         for (auto& x : o["inputs"].Elements()) n.inputs.push_back(x.U());

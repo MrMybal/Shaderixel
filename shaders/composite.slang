@@ -7,7 +7,8 @@ cbuffer Root : register(b0)
     uint2 gSize;
     uint gMode;
     float gOpacity;
-    uint gFlags;    // 1 = has mask, 2 = blend in gamma (Photoshop-like), 4 = has top, 8 = has base, 16 = clip to base alpha
+    uint gFlags;    // 1 = has mask, 2 = blend in gamma (Photoshop-like), 4 = has top, 8 = has base, 16 = clip to base alpha,
+                    // bits 8-11: channels kept from the base (R, G, B, A)
     uint gPad;          // keeps the int2 fields 16-byte-register aligned
     int2 gOutOrigin;    // document pixel of thread (0,0) (tiled rendering)
     int2 gBaseOrigin;   // document pixel of texel (0,0) of each input texture
@@ -73,5 +74,13 @@ void main(uint3 id : SV_DispatchThreadID)
         rgb = as * ab * mixed + (1.0 - as) * ab * cb;
         a = ab;
     }
-    gOut[id.xy] = float4(rgb, a);
+    float4 result = float4(rgb, a);
+    uint keep = (gFlags >> 8) & 15;
+    if (keep)
+    {
+        // Channel mask: unchecked channels stay as they were below (premultiplied values).
+        [unroll] for (int c = 0; c < 4; ++c)
+            if (keep & (1u << c)) result[c] = base[c];
+    }
+    gOut[id.xy] = result;
 }

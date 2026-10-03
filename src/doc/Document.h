@@ -111,6 +111,8 @@ struct Layer {
     BlendMode blend = BlendMode::Normal;
     float opacity = 1.0f;
     BlendIf blendIf;
+    u8 channelOff = 0;        // channels the layer leaves untouched (bit 0 R, 1 G, 2 B, 3 A)
+    EffectInstance blendFx;   // custom blend (HLSL: A below, B the layer, mask), active when it has code
     bool visible = true;
     bool locked = false;
     Id mask = 0;              // mask surface (0 = none)
@@ -137,6 +139,7 @@ struct Node {
     bool bypass = false;
     bool clip = false;        // Blend: keep the base alpha (clipping mask)
     BlendIf blendIf;          // Blend: conditional blending
+    u8 channelOff = 0;        // Blend: channels kept from the base (bit 0 R, 1 G, 2 B, 3 A)
     std::vector<Id> inputs;   // per input pin, 0 = unconnected
     Id layer = 0;             // generated from this layer (layer mode)
 };

@@ -256,6 +256,34 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 38 && v) {
+        // Channel mask: all channels off == layer hidden. Custom blend (template =
+        // multiply) == standard Multiply in linear blending.
+        Document& d = *v->doc;
+        static gpu::ReadbackPtr rb[4];
+        auto grab = [&] { return v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx)); };
+        Layer* glow = nullptr;
+        for (auto& l : d.S().layers) if (l.name == "Lueur") glow = &l;
+        if (!glow) return;
+        if (frameCounter == 4) { d.blendInGamma = false; glow->visible = false; d.SyncGraph(); }
+        if (frameCounter == 6) rb[0] = grab();
+        if (frameCounter == 8) { glow->visible = true; glow->channelOff = 15; d.SyncGraph(); }
+        if (frameCounter == 10) rb[1] = grab();
+        if (frameCounter == 12) { glow->channelOff = 0; glow->blend = BlendMode::Multiply; d.SyncGraph(); }
+        if (frameCounter == 14) rb[2] = grab();
+        if (frameCounter == 16) {
+            glow->blendFx.customCode = kCustomBlendTemplate;
+            if (auto def = glow->blendFx.Def()) glow->blendFx.params = def->DefaultParams();
+            d.S().activeLayer = glow->id;
+            d.SyncGraph();
+        }
+        if (frameCounter == 40) rb[3] = grab();
+        if (frameCounter == 50 && rb[3] && rb[3]->ready) {
+            CompareReadbacks("hidden vs all channels off", *rb[0], *rb[1], 0);
+            CompareReadbacks("Multiply vs custom blend template", *rb[2], *rb[3], 2);
+        }
+        return;
+    }
     if (demoMode == 37 && v && frameCounter == 4) {
         // Custom HLSL adjustment layer with two inputs-free params, shown in Propriétés.
         Document& d = *v->doc;

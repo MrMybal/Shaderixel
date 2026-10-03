@@ -59,7 +59,7 @@ u64 Renderer::StructHash(Document& doc, Id id, std::unordered_map<Id, u64>& memo
     h.Pod(n->bypass);
     switch (n->kind) {
         case NodeKind::Surface: h.Pod(n->surface); break;
-        case NodeKind::Blend: h.Pod(n->blend); h.Pod(n->opacity); h.Pod(n->clip); h.Pod(n->blendIf); h.Pod(doc.blendInGamma); break;
+        case NodeKind::Blend: h.Pod(n->blend); h.Pod(n->opacity); h.Pod(n->clip); h.Pod(n->blendIf); h.Pod(n->channelOff); h.Pod(doc.blendInGamma); break;
         case NodeKind::Effect: {
             EffectDefPtr def = n->fx.Def();
             if (def) {
@@ -112,7 +112,7 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
             d.srv[1] = in[1].tex;
             d.srv[2] = in[2].tex;
             d.uav[0] = out;
-            u32 flags = (in[2].tex ? 1u : 0u) | (doc.blendInGamma ? 2u : 0u) | 4u | (in[0].tex ? 8u : 0u) | (n->clip ? 16u : 0u) | (n->blendIf.Active() ? 32u : 0u);
+            u32 flags = (in[2].tex ? 1u : 0u) | (doc.blendInGamma ? 2u : 0u) | 4u | (in[0].tex ? 8u : 0u) | (n->clip ? 16u : 0u) | (n->blendIf.Active() ? 32u : 0u) | ((u32)n->channelOff << 8);
                 float4 bif[8];
                 n->blendIf.Ranges(bif);
                 d.cbData = bif;

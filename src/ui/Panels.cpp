@@ -336,7 +336,8 @@ void App::DrawLayers() {
     ImGui::BeginDisabled(!active);
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.55f);
     bool isGroup = active && active->kind == LayerKind::Group;
-    const char* curBlend = !active ? "Normal" : (isGroup && active->passThrough) ? "Traverser" : BlendModeName(active->blend);
+    const char* curBlend = !active ? "Normal" : (isGroup && active->passThrough) ? "Traverser"
+                           : !active->blendFx.customCode.empty() ? "Personnalisé (HLSL)" : BlendModeName(active->blend);
     if (ImGui::BeginCombo("##blend", curBlend)) {
         if (isGroup && ImGui::Selectable("Traverser", active->passThrough)) {
             active->passThrough = true;
@@ -346,12 +347,24 @@ void App::DrawLayers() {
         for (int i = 0; i < kBlendMenuCount; ++i) {
             int m = kBlendMenuOrder[i];
             if (m < 0) { ImGui::Separator(); continue; }
-            if (ImGui::Selectable(BlendModeName((BlendMode)m), active && (int)active->blend == m && !(isGroup && active->passThrough))) {
+            if (ImGui::Selectable(BlendModeName((BlendMode)m), active && (int)active->blend == m && !(isGroup && active->passThrough) && active->blendFx.customCode.empty())) {
                 active->blend = (BlendMode)m;
                 active->passThrough = false;
+                active->blendFx = {};
                 d.SyncGraph();
                 v->history.PushState("Mode de fusion", frameBefore, d.S());
             }
+        }
+        ImGui::Separator();
+        if (ImGui::Selectable("Personnalisé (HLSL)...", active && !active->blendFx.customCode.empty())) {
+            if (active->blendFx.customCode.empty()) {
+                active->blendFx.customCode = kCustomBlendTemplate;
+                if (auto def = active->blendFx.Def()) active->blendFx.params = def->DefaultParams();
+            }
+            active->passThrough = false;
+            d.SyncGraph();
+            v->history.PushState("Fusion personnalisée", frameBefore, d.S());
+            ImGui::SetWindowFocus("Propriétés");
         }
         ImGui::EndCombo();
     }
@@ -628,6 +641,35 @@ void App::DrawProperties() {
                     v->history.PushState("Supprimer le masque", before, d.S());
                 }
             }
+            if (l->kind != LayerKind::Group || !l->passThrough) {
+                // Channel mask (Photoshop "Canaux" in the blending options, plus alpha).
+                ImGui::TextUnformatted("Canaux");
+                static const char* kCh[] = {"R", "V", "B", "A"};
+                for (int c = 0; c < 4; ++c) {
+                    ImGui::SameLine();
+                    bool on = !(l->channelOff & (1 << c));
+                    if (ImGui::Checkbox(kCh[c], &on)) {
+                        DocState before = d.S();
+                        l->channelOff = (u8)(on ? l->channelOff & ~(1 << c) : l->channelOff | (1 << c));
+                        d.SyncGraph();
+                        v->history.PushState("Canaux du calque", before, d.S());
+                    }
+                }
+                ui::HelpTooltip("Décochez un canal pour que le calque ne le modifie pas (il reste celui des calques du dessous).");
+            }
+            if (!l->blendFx.customCode.empty()) {
+                ImGui::SeparatorText("Fusion personnalisée");
+                ImGui::TextDisabled("A = dessous, B = ce calque, masque = masque du calque ; opacité = opacité du calque.");
+                if (EffectParamsUI(l->blendFx, "blendfx")) changed = true;
+                CustomCodeUI(*v, l->blendFx, 0, "blend");
+                if (ImGui::SmallButton("Revenir au mode Normal")) {
+                    DocState before = d.S();
+                    l->blendFx = {};
+                    l->blend = BlendMode::Normal;
+                    d.SyncGraph();
+                    v->history.PushState("Mode de fusion", before, d.S());
+                }
+            }
             if (l->blendIf.Active()) ImGui::SetNextItemOpen(true, ImGuiCond_Once);
             if (ImGui::CollapsingHeader("Options de fusion (Blend If)")) {
                 static int bifChannel = 0;
@@ -719,6 +761,17 @@ void App::DrawProperties() {
                 case NodeKind::Blend: {
                     ImGui::Checkbox("Désactivé (bypass)", &n->bypass);
                     TrackUndo("Bypass");
+                    ImGui::TextUnformatted("Canaux");
+                    for (int c = 0; c < 4; ++c) {
+                        static const char* kCh[] = {"R", "V", "B", "A"};
+                        ImGui::SameLine();
+                        bool on = !(n->channelOff & (1 << c));
+                        if (ImGui::Checkbox(kCh[c], &on)) {
+                            DocState before = d.S();
+                            n->channelOff = (u8)(on ? n->channelOff & ~(1 << c) : n->channelOff | (1 << c));
+                            v->history.PushState("Canaux", before, d.S());
+                        }
+                    }
                     if (ImGui::BeginCombo("Mode", BlendModeName(n->blend))) {
                         for (int i = 0; i < kBlendMenuCount; ++i) {
                             int m = kBlendMenuOrder[i];

@@ -110,5 +110,7 @@ EffectLibrary& Effects();
 
 // Template for a new custom HLSL node.
 extern const char* kCustomEffectTemplate;
+// Template for a custom blend: inputs A (below), B (layer), mask.
+extern const char* kCustomBlendTemplate;
 
 }  // namespace sx

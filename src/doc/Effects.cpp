@@ -65,6 +65,33 @@ const char* kCustomEffectTemplate =
     "    return float4(lerp(c.rgb, tinted, amount), c.a);\n"
     "}\n";
 
+const char* kCustomBlendTemplate =
+    "//@name Fusion personnalisée\n"
+    "//@category Fusion\n"
+    "//@input A (dessous)\n"
+    "//@input B (calque)\n"
+    "//@input Masque\n"
+    "//@halo 0\n"
+    "//@param opacity float 1 0 1 \"Opacité\"\n"
+    "\n"
+    "// A, B : couleurs (non prémultipliées) et alpha ; m : masque.\n"
+    "float3 Mix(float3 a, float3 b)\n"
+    "{\n"
+    "    return a * b;  // formule de mélange (ici Produit) : à modifier\n"
+    "}\n"
+    "\n"
+    "float4 Effect(EffectContext ctx)\n"
+    "{\n"
+    "    float4 A = Input(0, ctx.px);\n"
+    "    float4 B = Input(1, ctx.px);\n"
+    "    float m = HasInput(2) ? Input(2, ctx.px).r : 1.0;\n"
+    "    float ab = saturate(B.a * m * opacity);\n"
+    "    // Composition source-over avec le mélange (comme les modes de fusion standard).\n"
+    "    float a = ab + A.a * (1.0 - ab);\n"
+    "    float3 rgb = ab * (1.0 - A.a) * B.rgb + ab * A.a * Mix(A.rgb, B.rgb) + (1.0 - ab) * A.a * A.rgb;\n"
+    "    return float4(a > 0.0 ? rgb / a : 0.0, a);\n"
+    "}\n";
+
 int EffectHalo(const EffectDef& def, const std::vector<float4>& values) {
     if (def.inputs.empty()) return 0;  // generators never read inputs
     if (def.haloFull) return -1;
