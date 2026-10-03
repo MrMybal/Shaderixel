@@ -45,6 +45,8 @@ void App::DrawImageMenu() {
     DocView* v = Active();
     if (!ImGui::BeginMenu("Image", v != nullptr)) return;
     Document& d = *v->doc;
+    DrawColorModeMenu();
+    ImGui::Separator();
     if (ImGui::MenuItem("Taille de l'image...", "Ctrl+Alt+I")) {
         imageDialog = 1;
         dlgW = (int)d.Width();

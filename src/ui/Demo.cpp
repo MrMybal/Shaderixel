@@ -1,5 +1,6 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
 #include "ui/App.h"
+#include "io/ColorMgmt.h"
 #include "gpu/ShaderSystem.h"
 #include "doc/EffectGraph.h"
 #include "doc/Brushes.h"
@@ -297,6 +298,55 @@ void App::DemoTick() {
             }
         }
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
+        return;
+    }
+    if (demoMode == 57) {
+        // Color management: CMYK values of primaries, proofing / gamut warning on SX_IMAGE, CMYK TIFF to SX_OUT.
+        char path[512] = "", out[512] = "", op[16] = "";
+        GetEnvironmentVariableA("SX_OUT", out, sizeof(out));
+        GetEnvironmentVariableA("SX_OP", op, sizeof(op));
+        if (frameCounter == 3) {
+            std::string cmyk = color::DefaultCmykPath();
+            Log("[demo] color: sRGB %s, CMYK %s, monitor '%s', %zu profiles", color::SrgbPath().c_str(), cmyk.c_str(), monitorProfile.c_str(),
+                color::Profiles().size());
+            const u8 rgb[] = {255, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 255, 0};
+            u8 k[20] = {};
+            color::RgbToCmyk("", cmyk, 1, rgb, 5, k);
+            for (int i = 0; i < 5; ++i) Log("[demo] rgb %3d %3d %3d -> cmyk %3d %3d %3d %3d", rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2], k[i * 4], k[i * 4 + 1], k[i * 4 + 2], k[i * 4 + 3]);
+            float in[6] = {0, 1, 0, 1, 0, 0}, o[6] = {};
+            std::string adobe;
+            for (auto& p : color::Profiles()) if (p.name.find("Adobe") != std::string::npos) adobe = p.path;
+            color::TransformRgb({"", adobe}, 1, in, 2, o);
+            Log("[demo] sRGB green -> Adobe RGB %.3f %.3f %.3f ; red -> %.3f %.3f %.3f", o[0], o[1], o[2], o[3], o[4], o[5]);
+            {
+                float pin[15] = {1, 1, 1, 1, 0, 0, 0, 1, 0, 0.5f, 0.5f, 0.5f, 0, 0, 1}, pout[15] = {};
+                std::vector<u8> gam;
+                color::TransformRgb({"", cmyk, ""}, 1, pin, 5, pout, &gam);
+                for (int i = 0; i < 5; ++i)
+                    Log("[demo] proof %.2f %.2f %.2f -> %.3f %.3f %.3f (gamut %d)", pin[i * 3], pin[i * 3 + 1], pin[i * 3 + 2], pout[i * 3], pout[i * 3 + 1], pout[i * 3 + 2], gam.empty() ? -1 : gam[i]);
+                u8 k8[20] = {}, back[15] = {};
+                u8 rgb8[15];
+                for (int i = 0; i < 15; ++i) rgb8[i] = (u8)(pin[i] * 255);
+                color::RgbToCmyk("", cmyk, 1, rgb8, 5, k8);
+                color::CmykToRgb(cmyk, "", 1, k8, 5, back);
+                for (int i = 0; i < 5; ++i) Log("[demo] 8-bit round trip -> %d %d %d", back[i * 3], back[i * 3 + 1], back[i * 3 + 2]);
+            }
+            color::TransformRgb({"", ""}, 1, in, 2, o);
+            Log("[demo] sRGB -> sRGB identity %.3f %.3f %.3f", o[0], o[1], o[2]);
+            float4 lab = color::SrgbToLab({1, 1, 1, 1}), lab2 = color::SrgbToLab({1, 0, 0, 1});
+            float4 back = color::LabToSrgb(lab2);
+            Log("[demo] Lab white %.1f %.1f %.1f, red %.1f %.1f %.1f -> %.3f %.3f %.3f", lab.x, lab.y, lab.z, lab2.x, lab2.y, lab2.z, back.x, back.y, back.z);
+        }
+        if (frameCounter == 4 && GetEnvironmentVariableA("SX_IMAGE", path, sizeof(path)) > 0) OpenImage(path, false);
+        DocView* a = Active();
+        if (!a) return;
+        if (frameCounter == 6) {
+            std::string o = op;
+            proof.on = o == "proof" || o == "gamut";
+            proof.gamutWarning = o == "gamut";
+            if (o == "cmyk") SetColorMode(*a, 1);
+        }
+        if (frameCounter == 8 && out[0]) ExportCmykTiff(*a, out);
         return;
     }
     if (demoMode == 56) {

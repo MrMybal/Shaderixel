@@ -240,6 +240,7 @@ void App::DrawCanvas() {
     if (selMoving && sel) vp.selection = v->renderer.OffsetSelectionPreview(doc, *ctx, selMoveOffset);
     vp.quickMask = quickMask;
     vp.time = (float)ImGui::GetTime();
+    DisplayColorLut(*v, vp);
     v->renderer.Display(*ctx, v->renderer.DisplaySource(*ctx, image, vp.invZoom), doc.Width(), doc.Height(), vp, v->viewTex.get());
 
     ImDrawList* dl = ImGui::GetWindowDrawList();

@@ -1,5 +1,6 @@
 // Layers, properties, color and brush panels.
 #include "ui/App.h"
+#include "io/ColorMgmt.h"
 #include "doc/Brushes.h"
 #include "ui/Theme.h"
 
@@ -937,7 +938,7 @@ void App::ColorPickerBody() {
     // Wide panel: sliders beside the square (square uses the full height); otherwise stacked.
     float sqSide = std::min(avail.y - st.ItemSpacing.y, 420 * dpi);
     bool side = avail.x - sqSide - barW - gap * 3 >= sideW;
-    float below = side ? 0 : (fh + st.ItemSpacing.y) * 5 + st.ItemSpacing.y;
+    float below = side ? 0 : (fh + st.ItemSpacing.y) * (colorSliderMode == 2 ? 6 : 5) + st.ItemSpacing.y;
     float sq = side ? sqSide : std::min(avail.x - barW - gap, avail.y - below);
     if (!side && sq < 90 * dpi) {  // short panel: the square gets priority over the sliders
         below = 0;
@@ -1001,12 +1002,56 @@ void App::ColorPickerBody() {
     if (showSliders) {
         // Sliders: RGB 0-255 or HSV.
         ImGui::SetNextItemWidth(fh * 3.4f);
-        ImGui::Combo("##smode", &colorSliderMode, "RVB\0TSV\0");
+        ImGui::Combo("##smode", &colorSliderMode, "RVB\0TSV\0CMJN\0Lab\0");
         ImGui::SameLine();
         ImGui::TextDisabled("%s", editBg ? "Arrière-plan" : "Premier plan");
         float w = side ? std::min(ImGui::GetContentRegionAvail().x, 260 * dpi) : std::min(sq + barW + gap, ImGui::GetContentRegionAvail().x);
         ImGui::PushItemWidth(w - ImGui::CalcTextSize("M ").x);
-        if (colorSliderMode == 0) {
+        if (colorSliderMode == 2) {
+            // CMYK through the document's CMYK profile (Windows color system).
+            static float cmyk[4] = {0, 0, 0, 0};
+            static float4 cmykFor = {-1, -1, -1, -1};
+            const std::string prof = CmykProfileFor(Active());
+            if (std::abs(cmykFor.x - c.x) + std::abs(cmykFor.y - c.y) + std::abs(cmykFor.z - c.z) > 1e-5f) {
+                u8 rgb8[3] = {(u8)std::lround(c.x * 255), (u8)std::lround(c.y * 255), (u8)std::lround(c.z * 255)}, k8[4] = {};
+                if (!prof.empty() && color::RgbToCmyk(DocProfile(Active()), prof, 1, rgb8, 1, k8)) for (int i = 0; i < 4; ++i) cmyk[i] = k8[i] / 2.55f;
+                else {
+                    float k = 1 - std::max({c.x, c.y, c.z});
+                    cmyk[3] = k * 100;
+                    for (int i = 0; i < 3; ++i) cmyk[i] = k < 1 ? (1 - (&c.x)[i] - k) / (1 - k) * 100 : 0;
+                }
+                cmykFor = c;
+            }
+            const char* names[] = {"C", "M", "J", "N"};
+            bool ch = false;
+            for (int i = 0; i < 4; ++i) {
+                ch |= ImGui::SliderFloat(names[i], &cmyk[i], 0, 100, "%.0f %%");
+                released |= ImGui::IsItemDeactivatedAfterEdit();
+            }
+            if (ch) {
+                u8 k8[4], rgb8[3];
+                for (int i = 0; i < 4; ++i) k8[i] = (u8)std::lround(std::clamp(cmyk[i], 0.0f, 100.0f) * 2.55f);
+                if (!prof.empty() && color::CmykToRgb(prof, DocProfile(Active()), 1, k8, 1, rgb8)) c = {rgb8[0] / 255.0f, rgb8[1] / 255.0f, rgb8[2] / 255.0f, 1};
+                else {
+                    float k = cmyk[3] / 100;
+                    c = {(1 - cmyk[0] / 100) * (1 - k), (1 - cmyk[1] / 100) * (1 - k), (1 - cmyk[2] / 100) * (1 - k), 1};
+                }
+                cmykFor = c;
+            }
+            ImGui::TextDisabled("%s", prof.empty() ? "Sans profil CMJN (formule simple)" : color::ProfileName(prof).c_str());
+        } else if (colorSliderMode == 3) {
+            float4 lab = color::SrgbToLab({c.x, c.y, c.z, 1});
+            bool ch = ImGui::SliderFloat("L", &lab.x, 0, 100, "%.0f");
+            released |= ImGui::IsItemDeactivatedAfterEdit();
+            ch |= ImGui::SliderFloat("a", &lab.y, -128, 127, "%.0f");
+            released |= ImGui::IsItemDeactivatedAfterEdit();
+            ch |= ImGui::SliderFloat("b", &lab.z, -128, 127, "%.0f");
+            released |= ImGui::IsItemDeactivatedAfterEdit();
+            if (ch) {
+                float4 s = color::LabToSrgb(lab);
+                c = {s.x, s.y, s.z, 1};
+            }
+        } else if (colorSliderMode == 0) {
             int rgb[3] = {(int)std::lround(c.x * 255), (int)std::lround(c.y * 255), (int)std::lround(c.z * 255)};
             const char* names[] = {"R", "V", "B"};
             for (int i = 0; i < 3; ++i) {

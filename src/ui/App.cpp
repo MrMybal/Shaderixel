@@ -1,4 +1,5 @@
 #include "ui/App.h"
+#include "io/ColorMgmt.h"
 #include "doc/HlslImport.h"
 #include "doc/Brushes.h"
 #include "ui/Theme.h"
@@ -81,7 +82,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -219,6 +220,7 @@ bool App::Init() {
     settingsPath = ExeDir() + "/shaderixel_settings.json";
     LoadAiSettings();
     LoadActions();
+    monitorProfile = color::MonitorPath(hwnd);
     RegisterAiOps();
     if (aiTest) bridge.allowWrites = true;
     if (bridge.Start(ExeDir() + "/Shaderixel") && (aiSettings.autoStart || aiTest)) {
@@ -453,6 +455,7 @@ void App::Frame() {
     UpdateSelectSubject();
     UpdateContentAwareFill();
     UpdateActionRun();
+    UpdateColorJobs();
     UpdateBatch();
     UpdateSubjectInstall();
     if (DocView* av = Active(); av && frameCounter % 60 == 0) UpdateLinkedSmartObjects(*av, false);
@@ -482,6 +485,7 @@ void App::Frame() {
     if (!ImGui::FindWindowByName("Compositions de calques")) ImGui::SetNextWindowDockID(ImHashStr("##sxside1"), ImGuiCond_FirstUseEver);
     if (Shown("Compositions de calques")) DrawLayerCompsPanel();
     DrawBatchWindow();
+    DrawColorDialogs();
     UpdateHistogram();
     if (Shown("Histogramme")) DrawHistogram();
     if (Shown("Effets")) DrawEffectBrowser();
@@ -688,6 +692,7 @@ void App::OpenImage(const std::string& path, bool asLayer) {
         v->renderer.Import(*v->doc, *ctx, l.surface, pixels, (u32)w, (u32)h, isFloat, {0, 0});
         v->doc->path = path;
         v->doc->dirty = false;
+        OpenedImageProfile(*v, path);
     } else {
         Document& d = *v->doc;
         DocState before = d.S();
@@ -829,6 +834,8 @@ void App::DrawMenuBar() {
         ImGui::Separator();
         if (ImGui::MenuItem("Exporter...", "Ctrl+Alt+Maj+W", false, v != nullptr))
             ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
+        if (ImGui::MenuItem("Exporter en TIFF CMJN...", nullptr, false, v != nullptr))
+            ExportCmykTiff(*v, platform::SaveFileDialog(hwnd, L"TIFF CMJN (*.tif)\0*.tif;*.tiff\0", L"tif"));
         if (ImGui::MenuItem("Exporter les plans de travail...", nullptr, false, v != nullptr)) {
             std::string f = platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0", L"png");
             if (!f.empty()) ExportArtboards(*v, f);
@@ -864,6 +871,8 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Remplir avec la couleur de premier plan", "Alt+Retour", false, canFill)) FillOrErase(*v, false);
         if (ImGui::MenuItem("Effacer", "Suppr", false, canFill)) FillOrErase(*v, true);
         if (ImGui::MenuItem("Contour...", nullptr, false, canFill && v->doc->Selection() != nullptr)) selDialog = 5;
+        DrawColorEditMenu();
+        ImGui::Separator();
         if (ImGui::MenuItem("Remplir d'après le contenu", "Maj+F5", false, canFill && v->doc->Selection() != nullptr && !fillJob.active))
             StartContentAwareFill(*v);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Reconstruit la zone sélectionnée à partir du reste de l'image (PatchMatch, sans IA).");
@@ -906,6 +915,7 @@ void App::DrawMenuBar() {
             if (ImGui::MenuItem("Adapter à l'écran", "Ctrl+0")) v->fitPending = true;
             if (ImGui::MenuItem("100 %", "Ctrl+1")) v->zoom = 1.0f;
             ImGui::Separator();
+            DrawProofMenu();
             ImGui::MenuItem("Fusion en sRGB", nullptr, &v->doc->blendInGamma);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Mélange les calques en sRGB (comme Photoshop) au lieu de l'espace linéaire.");
             ImGui::Separator();
@@ -966,6 +976,7 @@ void App::LayerMenuItems() {
     bool layerMode = d.Mode() == DocMode::Layers;
     if (layerMode) {
         if (ImGui::MenuItem("Nouveau plan de travail")) NewArtboard(*v);
+        if (ImGui::MenuItem("Nouveau ton direct...")) spotDialog = true;
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Le premier plan de travail reprend la zone de travail et ses calques ;\nles suivants s'ajoutent à droite (la zone de travail s'agrandit).");
         if (ImGui::MenuItem("Nouveau calque", "Ctrl+Maj+N")) {
             RecordAction("new_layer");
@@ -1123,7 +1134,7 @@ void App::HandleShortcuts() {
         selectMask.hash = 0;
     }
     if (ctrl && pressed(ImGuiKey_Z)) { shift ? Redo() : Undo(); }
-    if (ctrl && pressed(ImGuiKey_Y)) Redo();
+    if (ctrl && !alt && pressed(ImGuiKey_Y)) Redo();
     if (ctrl && !shift && pressed(ImGuiKey_N)) showNewDoc = true;
     if (ctrl && !shift && pressed(ImGuiKey_O)) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
     if (ctrl && shift && pressed(ImGuiKey_O) && v) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), true);
@@ -1145,6 +1156,10 @@ void App::HandleShortcuts() {
     // Selection
     if (ctrl && !shift && pressed(ImGuiKey_A))
         v->renderer.SelectShape(d, *ctx, v->history, SelShape::All, {}, SelMode::Replace, false, 0, "Tout sélectionner"), RecordSelect("all");
+    if (ctrl && alt && pressed(ImGuiKey_Y)) {
+        if (shift) proof.gamutWarning = !proof.gamutWarning;
+        else proof.on = !proof.on;
+    }
     if (ctrl && !shift && pressed(ImGuiKey_D)) v->renderer.Deselect(d, v->history), RecordSelect("none");
     if (ctrl && shift && pressed(ImGuiKey_D)) v->renderer.Reselect(d, v->history);
     if (ctrl && shift && pressed(ImGuiKey_I)) v->renderer.SelectionFilter(d, *ctx, v->history, 3, 0, "Intervertir"), RecordSelect("invert");

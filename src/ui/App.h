@@ -115,6 +115,9 @@ struct DocView {
     std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
     std::unique_ptr<MeshScene> mesh;          // 3D painting scene (optional)
     std::unordered_map<Id, gpu::TexturePtr> snapshots;  // history brush sources (layer state before the first edit)
+    std::string displayLutKey;                // color management chain of displayLut
+    gpu::TexturePtr displayLut;
+    int displayLutN = 0;
     // Inner document of a smart object (open in this tab): its parent and the object.
     struct {
         DocView* parent = nullptr;
@@ -696,6 +699,34 @@ private:
     void DrawArtboards(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     void ExportArtboards(DocView& v, const std::string& basePath);
     void ArtboardPropertiesUI(DocView& v, Layer& l);
+    // Color management (ColorManage.cpp, io/ColorMgmt).
+    struct {
+        bool on = false, gamutWarning = false, useMonitor = true;
+        std::string profile;  // "" = the document's CMYK profile
+        int intent = 1;
+    } proof;
+    std::string monitorProfile;
+    int colorDialog = 0;  // 1 assign, 2 convert
+    std::string colorDialogProfile;
+    bool spotDialog = false;
+    std::string spotName = "Encre 1";
+    float4 spotColor = {0.9f, 0.1f, 0.4f, 1};
+    float spotSolidity = 1;
+    struct CmykExport { std::string path; gpu::ReadbackPtr rb; std::string rgbProfile, cmykProfile; int intent = 1; };
+    std::vector<CmykExport> cmykExports;
+    std::string DocProfile(DocView* v) const;
+    std::string CmykProfileFor(DocView* v) const;
+    void DisplayColorLut(DocView& v, ViewParams& vp);
+    bool ApplyColorLutToDocument(DocView& v, const std::vector<std::string>& chain, int intent, const std::string& label);
+    void SetColorMode(DocView& v, int mode);
+    void OpenedImageProfile(DocView& v, const std::string& path);
+    void ExportCmykTiff(DocView& v, const std::string& path);
+    void UpdateColorJobs();
+    void NewSpotColor(DocView& v, const std::string& name, float4 srgb, float solidity);
+    void DrawProofMenu();
+    void DrawColorEditMenu();
+    void DrawColorModeMenu();
+    void DrawColorDialogs();
     void DrawBatchWindow();
     Id smartEditRequest = 0;
     void ColorPickerBody();  // Couleur panel / toolbar popup

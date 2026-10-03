@@ -13,10 +13,25 @@ cbuffer View : register(b1)
     float gExposure;    // stops
     float gTime;        // seconds (marching ants)
     uint gSelFlags;     // 1 = selection, 2 = quick mask overlay
+    uint gLutSize;      // color management / soft proofing LUT (0 = none)
+    uint gGamut;        // 1 = gray out colors outside the proofing gamut
+    uint2 gPad;
 };
 
 Texture2D<float4> gImage : register(t0);
 Texture2D<float> gSel : register(t1);
+Texture2D<float4> gLut : register(t2);  // n*n x n: x = b * n + r, y = g; alpha 1 = in gamut
+
+float4 LutAt(float3 s)
+{
+    float n = float(gLutSize);
+    float3 p = saturate(s) * (n - 1.0);
+    float b0 = floor(p.z), b1 = min(b0 + 1.0, n - 1.0), fb = p.z - b0;
+    float2 size = float2(n * n, n);
+    float2 uv0 = (float2(b0 * n + p.x, p.y) + 0.5) / size;
+    float2 uv1 = (float2(b1 * n + p.x, p.y) + 0.5) / size;
+    return lerp(gLut.SampleLevel(sLinearClamp, uv0, 0), gLut.SampleLevel(sLinearClamp, uv1, 0), fb);
+}
 RWTexture2D<float4> gOut : register(u0);
 
 float SelAt(float2 d)
@@ -69,6 +84,13 @@ void main(uint3 id : SV_DispatchThreadID)
     float3 back = SrgbToLinear(float3(checker, checker, checker));
     float3 rgb = c.rgb + back * (1.0 - saturate(c.a));
     float3 srgb = LinearToSrgb(rgb);
+    if (gLutSize >= 2)
+    {
+        // Document profile -> (proofing profile) -> monitor.
+        float4 m = LutAt(srgb);
+        srgb = m.rgb;
+        if ((gGamut & 1) && m.a < 0.5 && c.a > 0.01) srgb = float3(0.5, 0.5, 0.5);
+    }
     if (gSelFlags & 1)
     {
         float s0 = SelAt(d);

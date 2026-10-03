@@ -240,6 +240,10 @@ public:
     const std::string& Name() const { return name; }
     std::string path;
     bool blendInGamma = true;  // Photoshop-compatible blending (sRGB space)
+    // Color management: working RGB profile ("" = sRGB), CMYK profile for proofing / CMYK mode,
+    // document mode (0 RGB, 1 CMYK: colors kept in the CMYK gamut and shown through it, 2 Lab).
+    std::string iccProfile, cmykProfile;
+    int colorMode = 0;
     bool dirty = false;
 
     DocState& S() { return state; }

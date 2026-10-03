@@ -29,6 +29,9 @@ struct ViewParams {
     gpu::Texture* selection = nullptr;  // marching ants
     bool quickMask = false;
     float time = 0;
+    gpu::Texture* lut = nullptr;  // display / proof 3D LUT (n*n x n, alpha = in gamut)
+    u32 lutSize = 0;
+    bool gamutWarning = false;
 };
 
 enum class SelMode : u8 { Replace, Add, Subtract, Intersect };
