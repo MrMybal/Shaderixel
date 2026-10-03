@@ -252,8 +252,8 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
                 d.srv[2] = in[2].tex;
                 d.uav[0] = c.tex.get();
                 u32 flags = (in[2].tex ? 1u : 0u) | (doc.blendInGamma ? 2u : 0u) | 4u | (in[0].tex ? 8u : 0u) | (n->clip ? 16u : 0u) | (n->blendIf.Active() ? 32u : 0u);
-                float4 bif[2] = {{n->blendIf.self[0] / 255.0f, n->blendIf.self[1] / 255.0f, n->blendIf.self[2] / 255.0f, n->blendIf.self[3] / 255.0f},
-                                 {n->blendIf.under[0] / 255.0f, n->blendIf.under[1] / 255.0f, n->blendIf.under[2] / 255.0f, n->blendIf.under[3] / 255.0f}};
+                float4 bif[8];
+                n->blendIf.Ranges(bif);
                 d.cbData = bif;
                 d.cbSize = sizeof(bif);
                 SetConstants(d, CompositeRoot{W, H, (u32)n->blend, n->opacity, flags});
@@ -370,11 +370,8 @@ void Renderer::Composite(Document& doc, gpu::CommandContext& ctx, gpu::Texture* 
     d.uav[0] = dst;
     bool useBif = bif && bif->Active();
     u32 flags = (mask ? 1u : 0u) | (doc.blendInGamma ? 2u : 0u) | (top ? 4u : 0u) | (base ? 8u : 0u) | (clip ? 16u : 0u) | (useBif ? 32u : 0u);
-    float4 ranges[2] = {};
-    if (useBif) {
-        ranges[0] = {bif->self[0] / 255.0f, bif->self[1] / 255.0f, bif->self[2] / 255.0f, bif->self[3] / 255.0f};
-        ranges[1] = {bif->under[0] / 255.0f, bif->under[1] / 255.0f, bif->under[2] / 255.0f, bif->under[3] / 255.0f};
-    }
+    float4 ranges[8] = {};
+    if (useBif) bif->Ranges(ranges);
     d.cbData = ranges;
     d.cbSize = sizeof(ranges);
     SetConstants(d, CompositeRoot{W, H, (u32)mode, opacity, flags});

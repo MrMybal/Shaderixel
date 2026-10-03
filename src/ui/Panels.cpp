@@ -114,7 +114,7 @@ bool CurveEditor(const char* id, CurvePoints& pts, ImU32 color, float size, bool
 
 // Photoshop-style Blend If bar: black-to-white gradient with 4 handles
 // (lo0, lo1, hi0, hi1). Each pair moves together until split with Alt-drag.
-static bool BlendIfSlider(const char* id, u8 v[4]) {
+static bool BlendIfSlider(const char* id, u8 v[4], ImU32 hiColor = IM_COL32(255, 255, 255, 255)) {
     ImGuiWindow* win = ImGui::GetCurrentWindow();
     const float dpi = ImGui::GetFontSize() / 16.0f;
     const float w = ImGui::GetContentRegionAvail().x, barH = 10 * dpi, handle = 6 * dpi;
@@ -123,8 +123,7 @@ static bool BlendIfSlider(const char* id, u8 v[4]) {
     ImGui::InvisibleButton(id, ImVec2(w, barH + handle * 2 + ImGui::GetFontSize()));
     ImGuiID gid = ImGui::GetItemID();
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddRectFilledMultiColor(ImVec2(x0, p0.y), ImVec2(x1, p0.y + barH), IM_COL32(0, 0, 0, 255), IM_COL32(255, 255, 255, 255),
-                                IM_COL32(255, 255, 255, 255), IM_COL32(0, 0, 0, 255));
+    dl->AddRectFilledMultiColor(ImVec2(x0, p0.y), ImVec2(x1, p0.y + barH), IM_COL32(0, 0, 0, 255), hiColor, hiColor, IM_COL32(0, 0, 0, 255));
     auto xOf = [&](int val) { return x0 + (x1 - x0) * val / 255.0f; };
     static int dragging = -1;
     static bool dragPair = true;
@@ -629,11 +628,21 @@ void App::DrawProperties() {
             }
             if (l->blendIf.Active()) ImGui::SetNextItemOpen(true, ImGuiCond_Once);
             if (ImGui::CollapsingHeader("Options de fusion (Blend If)")) {
+                static int bifChannel = 0;
+                static const char* kBifNames[] = {"Gris", "Rouge", "Vert", "Bleu"};
+                static const ImU32 kBifColors[] = {IM_COL32(255, 255, 255, 255), IM_COL32(255, 60, 60, 255), IM_COL32(60, 230, 90, 255),
+                                                   IM_COL32(70, 120, 255, 255)};
+                for (int c = 0; c < 4; ++c) {
+                    if (c) ImGui::SameLine();
+                    // A dot marks channels with active ranges.
+                    std::string label = std::string(kBifNames[c]) + (l->blendIf.Active(c) ? " •" : "") + "##bifch" + std::to_string(c);
+                    if (ImGui::RadioButton(label.c_str(), bifChannel == c)) bifChannel = c;
+                }
                 ImGui::TextDisabled("Ce calque");
-                if (BlendIfSlider("##bifSelf", l->blendIf.self)) changed = true;
+                if (BlendIfSlider("##bifSelf", l->blendIf.self[bifChannel], kBifColors[bifChannel])) changed = true;
                 TrackUndo("Options de fusion");
                 ImGui::TextDisabled("Calque sous-jacent");
-                if (BlendIfSlider("##bifUnder", l->blendIf.under)) changed = true;
+                if (BlendIfSlider("##bifUnder", l->blendIf.under[bifChannel], kBifColors[bifChannel])) changed = true;
                 TrackUndo("Options de fusion");
                 ImGui::TextDisabled("Alt + glisser : séparer une poignée");
                 if (l->blendIf.Active() && ImGui::SmallButton("Réinitialiser")) {

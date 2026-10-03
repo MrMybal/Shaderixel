@@ -350,9 +350,10 @@ bool WritePsd(const PsdExportJob& job, std::string* error) {
         }
         // Blending ranges: composite gray (source, destination), then R, G, B (full range).
         w.U32(32);
-        w.Bytes(l.blendIf.self, 4);
-        w.Bytes(l.blendIf.under, 4);
-        for (int c = 0; c < 6; ++c) { w.U8(0); w.U8(0); w.U8(255); w.U8(255); }
+        for (int c = 0; c < 4; ++c) {
+            w.Bytes(l.blendIf.self[c], 4);
+            w.Bytes(l.blendIf.under[c], 4);
+        }
         PascalName(w, l.name);
         Luni(w, l.name);
         if (l.kind != PsdExportLayer::Pixels) {

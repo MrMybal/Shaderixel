@@ -78,13 +78,25 @@ struct ShapeStyle {
     }
 };
 
-// Photoshop "Blend If" (gray): the layer shows where its own luminance and the
-// underlying luminance fall inside [lo0..lo1 ramp up, hi0..hi1 ramp down] (0-255, sRGB).
+// Photoshop "Blend If": the layer shows where its own values and the underlying
+// values fall inside [lo0..lo1 ramp up, hi0..hi1 ramp down] (0-255, sRGB), for
+// the gray channel and each of red, green, blue (all conditions combine).
 struct BlendIf {
-    u8 self[4] = {0, 0, 255, 255};
-    u8 under[4] = {0, 0, 255, 255};
+    static constexpr int kGray = 0, kChannels = 4;  // gray, red, green, blue
+    u8 self[kChannels][4] = {{0, 0, 255, 255}, {0, 0, 255, 255}, {0, 0, 255, 255}, {0, 0, 255, 255}};
+    u8 under[kChannels][4] = {{0, 0, 255, 255}, {0, 0, 255, 255}, {0, 0, 255, 255}, {0, 0, 255, 255}};
+    static bool Full(const u8 r[4]) { return !r[0] && !r[1] && r[2] == 255 && r[3] == 255; }
+    bool Active(int c) const { return !Full(self[c]) || !Full(under[c]); }
     bool Active() const {
-        return self[0] || self[1] || self[2] != 255 || self[3] != 255 || under[0] || under[1] || under[2] != 255 || under[3] != 255;
+        for (int c = 0; c < kChannels; ++c) if (Active(c)) return true;
+        return false;
+    }
+    // Shader constants: self ranges of the 4 channels, then under ranges (0-1).
+    void Ranges(float4 out[8]) const {
+        for (int c = 0; c < kChannels; ++c) {
+            out[c] = {self[c][0] / 255.0f, self[c][1] / 255.0f, self[c][2] / 255.0f, self[c][3] / 255.0f};
+            out[4 + c] = {under[c][0] / 255.0f, under[c][1] / 255.0f, under[c][2] / 255.0f, under[c][3] / 255.0f};
+        }
     }
 };
 

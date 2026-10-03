@@ -297,9 +297,17 @@ Json SerializeDocument(const Document& doc) {
         if (l.clipped) o["clipped"] = true;
         if (l.blendIf.Active()) {
             Json b = Json::Array();
-            for (u8 x : l.blendIf.self) b.Push((int)x);
-            for (u8 x : l.blendIf.under) b.Push((int)x);
+            for (u8 x : l.blendIf.self[0]) b.Push((int)x);
+            for (u8 x : l.blendIf.under[0]) b.Push((int)x);
             o["blendIf"] = b;
+            if (l.blendIf.Active(1) || l.blendIf.Active(2) || l.blendIf.Active(3)) {
+                Json c = Json::Array();
+                for (int ch = 1; ch < 4; ++ch) {
+                    for (u8 x : l.blendIf.self[ch]) c.Push((int)x);
+                    for (u8 x : l.blendIf.under[ch]) c.Push((int)x);
+                }
+                o["blendIfRGB"] = c;
+            }
         }
         if (l.kind == LayerKind::Group) { o["passThrough"] = l.passThrough; o["collapsed"] = l.collapsed; }
         if (l.kind == LayerKind::Shape) {
@@ -394,8 +402,19 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
             int i = 0;
             for (auto& x : o["blendIf"].Elements()) {
                 u8 v = (u8)std::clamp(x.I(), 0, 255);
-                if (i < 4) l.blendIf.self[i] = v;
-                else if (i < 8) l.blendIf.under[i - 4] = v;
+                if (i < 4) l.blendIf.self[0][i] = v;
+                else if (i < 8) l.blendIf.under[0][i - 4] = v;
+                ++i;
+            }
+        }
+        if (o.Has("blendIfRGB")) {
+            int i = 0;
+            for (auto& x : o["blendIfRGB"].Elements()) {
+                if (i >= 24) break;
+                u8 v = (u8)std::clamp(x.I(), 0, 255);
+                int ch = 1 + i / 8, k = i % 8;
+                if (k < 4) l.blendIf.self[ch][k] = v;
+                else l.blendIf.under[ch][k - 4] = v;
                 ++i;
             }
         }

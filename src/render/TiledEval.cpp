@@ -113,8 +113,8 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
             d.srv[2] = in[2].tex;
             d.uav[0] = out;
             u32 flags = (in[2].tex ? 1u : 0u) | (doc.blendInGamma ? 2u : 0u) | 4u | (in[0].tex ? 8u : 0u) | (n->clip ? 16u : 0u) | (n->blendIf.Active() ? 32u : 0u);
-                float4 bif[2] = {{n->blendIf.self[0] / 255.0f, n->blendIf.self[1] / 255.0f, n->blendIf.self[2] / 255.0f, n->blendIf.self[3] / 255.0f},
-                                 {n->blendIf.under[0] / 255.0f, n->blendIf.under[1] / 255.0f, n->blendIf.under[2] / 255.0f, n->blendIf.under[3] / 255.0f}};
+                float4 bif[8];
+                n->blendIf.Ranges(bif);
                 d.cbData = bif;
                 d.cbSize = sizeof(bif);
             SetConstants(d, CompositeRootT{(u32)need.Width(), (u32)need.Height(), (u32)n->blend, n->opacity, flags, 0, need.x0, need.y0,

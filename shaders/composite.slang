@@ -17,8 +17,8 @@ cbuffer Root : register(b0)
 
 cbuffer BlendIfCB : register(b1)
 {
-    float4 gSelfRange;   // lo0, lo1, hi0, hi1 (0-1, sRGB gray)
-    float4 gUnderRange;
+    float4 gSelfRange[4];   // gray, red, green, blue: lo0, lo1, hi0, hi1 (0-1, sRGB)
+    float4 gUnderRange[4];
 };
 
 // Weight of a gray value inside a Blend If range (ramps between the split handles).
@@ -53,7 +53,10 @@ void main(uint3 id : SV_DispatchThreadID)
     if (gFlags & 32)
     {
         const float3 w = float3(0.299, 0.587, 0.114);
-        as *= RangeWeight(dot(LinearToSrgb(saturate(cs)), w), gSelfRange) * RangeWeight(dot(LinearToSrgb(saturate(cb)), w), gUnderRange);
+        float3 s = LinearToSrgb(saturate(cs)), u = LinearToSrgb(saturate(cb));
+        as *= RangeWeight(dot(s, w), gSelfRange[0]) * RangeWeight(dot(u, w), gUnderRange[0]);
+        for (int c = 0; c < 3; ++c)
+            as *= RangeWeight(s[c], gSelfRange[c + 1]) * RangeWeight(u[c], gUnderRange[c + 1]);
     }
     float3 mixed;
     if (gFlags & 2)

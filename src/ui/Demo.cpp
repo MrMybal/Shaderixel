@@ -688,8 +688,9 @@ void App::RunDemo() {
     if (demoMode == 17 || demoMode == 18) {
         // Blend If: the glow only over dark areas, the paint fades out in its darks.
         for (auto& l : d.S().layers) {
-            if (l.name == "Lueur") { l.blendIf.under[2] = 70; l.blendIf.under[3] = 150; d.S().activeLayer = l.id; }
-            if (l.name == "Peinture") { l.blendIf.self[0] = 30; l.blendIf.self[1] = 110; }
+            if (l.name == "Lueur") { l.blendIf.under[0][2] = 70; l.blendIf.under[0][3] = 150; d.S().activeLayer = l.id; }
+            if (l.name == "Peinture") { l.blendIf.self[0][0] = 30; l.blendIf.self[0][1] = 110; }
+            if (l.name == "Vibrance") { l.blendIf.under[1][2] = 120; l.blendIf.under[1][3] = 200; }  // red channel: not over reds
         }
         d.SyncGraph();
     }
