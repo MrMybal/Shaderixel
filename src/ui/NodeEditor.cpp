@@ -30,19 +30,67 @@ ImU32 HeaderColor(const Node& n) {
     return IM_COL32(90, 90, 90, 255);
 }
 
+// Each node offers its image as RGBA plus single channels (Unreal-style typed pins).
+constexpr int kOutputs = 5;
+const char* kOutNames[kOutputs] = {"RGBA", "R", "V", "B", "A"};
+ImU32 ChannelColor(int c, int alpha = 255) {
+    switch (c) {
+        case 1: return IM_COL32(235, 80, 80, alpha);
+        case 2: return IM_COL32(90, 210, 100, alpha);
+        case 3: return IM_COL32(80, 140, 255, alpha);
+        case 4: return IM_COL32(200, 200, 205, alpha);
+        default: return IM_COL32(230, 120, 210, alpha);
+    }
+}
+
 struct Layout {
     float h;
     float thumbW, thumbH;
-    int inputs;
+    int inputs, outputs, rows;
 };
 
 Layout NodeLayout(const Node& n, float aspect) {
     Layout l;
     l.inputs = NodeInputCount(n);
+    l.outputs = n.kind == NodeKind::Output ? 0 : kOutputs;
+    l.rows = std::max({l.inputs, l.outputs, 1});
     l.thumbW = kNodeW - 16;
     l.thumbH = std::clamp(l.thumbW / std::max(aspect, 0.1f), 40.0f, l.thumbW);
-    l.h = kHeader + std::max(l.inputs, 1) * kRow + l.thumbH + 12;
+    l.h = kHeader + l.rows * kRow + l.thumbH + 12;
     return l;
+}
+
+// Node menu entries (tree by category).
+struct NodeEntry {
+    std::string category, label, keywords;
+    std::function<Id(Document&, float2)> make;
+};
+
+std::vector<NodeEntry> NodeEntries() {
+    std::vector<NodeEntry> e;
+    e.push_back({"Calques", "Calque pixel", "surface peinture", [](Document& d, float2 p) { return d.AddNode(NodeKind::Surface, p).id; }});
+    e.push_back({"Fusion", "Fusion (mode de fusion)", "blend mélange", [](Document& d, float2 p) { return d.AddNode(NodeKind::Blend, p).id; }});
+    e.push_back({"Fusion", "Fusion personnalisée (A, B, masque)", "blend custom hlsl mélange",
+                 [](Document& d, float2 p) { return d.AddEffectNode("", kCustomBlendTemplate, p).id; }});
+    e.push_back({"Personnalisé", "HLSL personnalisé", "code custom shader", [](Document& d, float2 p) { return d.AddEffectNode("", kCustomEffectTemplate, p).id; }});
+    e.push_back({"Personnalisé", "Effet visuel (graphe)", "graph unreal material", [](Document& d, float2 p) {
+                     Node& nn = d.AddEffectNode("", "", p);
+                     nn.fx.graph = EffectGraph::Default().Serialize();
+                     nn.name = "Effet visuel";
+                     nn.fx.params.clear();
+                     nn.inputs.assign(NodeInputCount(nn), 0);
+                     return nn.id;
+                 }});
+    for (auto& def : Effects().All()) {
+        std::string id = def->id;
+        e.push_back({def->category, def->name, id, [id](Document& d, float2 p) { return d.AddEffectNode(id, "", p).id; }});
+    }
+    return e;
+}
+
+std::string Lower(std::string s) {
+    for (auto& ch : s) ch = (char)tolower((unsigned char)ch);
+    return s;
 }
 }  // namespace
 
@@ -57,6 +105,7 @@ void App::DrawNodeEditor() {
     NodeEditorState& ed = nodeEd;
     const bool editable = d.Mode() == DocMode::Nodes;
     ImGuiIO& io = ImGui::GetIO();
+    std::erase_if(ed.selection, [&](Id id) { return !g.Find(id); });
 
     ImVec2 origin = ImGui::GetCursorScreenPos();
     ImVec2 size = ImGui::GetContentRegionAvail();
@@ -87,15 +136,12 @@ void App::DrawNodeEditor() {
     float step = 24.0f * ed.zoom;
     if (step > 6) {
         float ox = std::fmod(ed.pan.x * ed.zoom, step), oy = std::fmod(ed.pan.y * ed.zoom, step);
-        int i = 0;
-        for (float x = ox; x < size.x; x += step, ++i)
-            dl->AddLine(ImVec2(origin.x + x, origin.y), ImVec2(origin.x + x, origin.y + size.y), ui::col::Grid);
-        for (float y = oy; y < size.y; y += step)
-            dl->AddLine(ImVec2(origin.x, origin.y + y), ImVec2(origin.x + size.x, origin.y + y), ui::col::Grid);
+        for (float x = ox; x < size.x; x += step) dl->AddLine(ImVec2(origin.x + x, origin.y), ImVec2(origin.x + x, origin.y + size.y), ui::col::Grid);
+        for (float y = oy; y < size.y; y += step) dl->AddLine(ImVec2(origin.x, origin.y + y), ImVec2(origin.x + size.x, origin.y + y), ui::col::Grid);
     }
 
     // Geometry
-    auto outPin = [&](const Node& n) { return toScreen(n.pos + float2{kNodeW, kHeader * 0.5f}); };
+    auto outPin = [&](const Node& n, int k) { return toScreen(n.pos + float2{kNodeW, kHeader + kRow * (k + 0.5f)}); };
     auto inPin = [&](const Node& n, int i) { return toScreen(n.pos + float2{0, kHeader + kRow * (i + 0.5f)}); };
     float pinR = kPin * ed.zoom;
     ImVec2 mouse = io.MousePos;
@@ -103,15 +149,16 @@ void App::DrawNodeEditor() {
 
     // Hit testing (topmost = last)
     Id hoverNode = 0, hoverOut = 0, hoverInNode = 0;
-    int hoverIn = -1;
+    int hoverIn = -1, hoverOutCh = 0;
     if (hovered) {
         for (int k = (int)g.nodes.size() - 1; k >= 0; --k) {
             const Node& n = g.nodes[k];
             Layout L = NodeLayout(n, aspect);
-            if (n.kind != NodeKind::Output && isNear(mouse, outPin(n), pinR * 2.2f)) { hoverOut = n.id; break; }
             bool pinHit = false;
-            for (int i = 0; i < L.inputs; ++i)
-                if (isNear(mouse, inPin(n, i), pinR * 2.2f)) { hoverInNode = n.id; hoverIn = i; pinHit = true; break; }
+            for (int o = 0; o < L.outputs && !pinHit; ++o)
+                if (isNear(mouse, outPin(n, o), pinR * 2.0f)) { hoverOut = n.id; hoverOutCh = o; pinHit = true; }
+            for (int i = 0; i < L.inputs && !pinHit; ++i)
+                if (isNear(mouse, inPin(n, i), pinR * 2.0f)) { hoverInNode = n.id; hoverIn = i; pinHit = true; }
             if (pinHit) break;
             ImVec2 a = toScreen(n.pos), b = toScreen(n.pos + float2{kNodeW, L.h});
             if (mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y) { hoverNode = n.id; break; }
@@ -119,10 +166,12 @@ void App::DrawNodeEditor() {
     }
 
     // Mouse interactions
+    bool openAddMenu = false;
     if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt && !spaceHeld) {
         if (editable && hoverOut) {
             ed.draggingLink = true;
             ed.linkFrom = hoverOut;
+            ed.linkChannel = (u8)hoverOutCh;
             ed.linkTo = 0;
             ed.linkInput = -1;
         } else if (editable && hoverInNode) {
@@ -130,6 +179,7 @@ void App::DrawNodeEditor() {
             Id src = n && hoverIn < (int)n->inputs.size() ? n->inputs[hoverIn] : 0;
             ed.moveBefore = d.S();
             if (src) {  // pick up the existing link
+                ed.linkChannel = InputChannel(*n, hoverIn);
                 d.Unlink(hoverInNode, hoverIn);
                 ed.linkFrom = src;
                 ed.linkTo = 0;
@@ -141,30 +191,63 @@ void App::DrawNodeEditor() {
             ed.draggingLink = true;
         } else if (hoverNode) {
             d.S().activeNode = hoverNode;
-            if (Node* n = g.Find(hoverNode)) {
-                if (!editable && n->layer) { d.S().activeLayer = n->layer; d.S().editMask = false; }
+            if (io.KeyCtrl || io.KeyShift) {
+                if (!ed.selection.erase(hoverNode)) ed.selection.insert(hoverNode);
+            } else if (!ed.selection.count(hoverNode)) {
+                ed.selection = {hoverNode};
             }
-            // Nodes can be moved in both modes (layer mode keeps the position over rebuilds).
+            if (Node* n = g.Find(hoverNode))
+                if (!editable && n->layer) { d.S().activeLayer = n->layer; d.S().editMask = false; }
+            // Nodes move in both modes (layer mode keeps positions over rebuilds).
             ed.dragNode = hoverNode;
             ed.moveBefore = d.S();
-            // Bring to front
             auto it = std::find_if(g.nodes.begin(), g.nodes.end(), [&](const Node& n) { return n.id == hoverNode; });
             if (it != g.nodes.end() && editable) std::rotate(it, it + 1, g.nodes.end());
         } else {
-            d.S().activeNode = 0;
+            // Empty space: rectangle selection (Ctrl/Shift adds).
+            if (!io.KeyCtrl && !io.KeyShift) {
+                ed.selection.clear();
+                d.S().activeNode = 0;
+            }
+            ed.boxSelecting = true;
+            ed.boxStart = toGraph(mouse);
         }
     }
     if (ed.dragNode && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
-        if (Node* n = g.Find(ed.dragNode)) {
-            n->pos = n->pos + float2{io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
-            if (!editable) d.S().layerNodePos[n->id] = n->pos;
-        }
+        float2 delta = {io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
+        std::set<Id> moving = ed.selection.count(ed.dragNode) ? ed.selection : std::set<Id>{ed.dragNode};
+        for (Id id : moving)
+            if (Node* n = g.Find(id)) {
+                n->pos = n->pos + delta;
+                if (!editable) d.S().layerNodePos[n->id] = n->pos;
+            }
+    }
+    if (ed.boxSelecting) {
+        ImVec2 a = toScreen(ed.boxStart);
+        dl->AddRectFilled(ImVec2(std::min(a.x, mouse.x), std::min(a.y, mouse.y)), ImVec2(std::max(a.x, mouse.x), std::max(a.y, mouse.y)), IM_COL32(120, 100, 255, 40));
+        dl->AddRect(ImVec2(std::min(a.x, mouse.x), std::min(a.y, mouse.y)), ImVec2(std::max(a.x, mouse.x), std::max(a.y, mouse.y)), ui::col::Accent);
     }
     if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
         if (ed.draggingLink) {
             bool linked = false;
-            if (ed.linkFrom && hoverInNode) linked = d.Link(ed.linkFrom, hoverInNode, hoverIn);
-            else if (ed.linkTo && hoverOut) linked = d.Link(hoverOut, ed.linkTo, ed.linkInput);
+            if (ed.linkFrom && hoverInNode) linked = d.Link(ed.linkFrom, hoverInNode, hoverIn, ed.linkChannel);
+            else if (ed.linkTo && hoverOut) linked = d.Link(hoverOut, ed.linkTo, ed.linkInput, (u8)hoverOutCh);
+            else if (ed.linkFrom && hoverNode) {
+                // Dropped on a node: its first free input (else the first).
+                if (Node* t = g.Find(hoverNode); t && NodeInputCount(*t) > 0) {
+                    int in = 0;
+                    for (int i = 0; i < NodeInputCount(*t); ++i) if (i >= (int)t->inputs.size() || !t->inputs[i]) { in = i; break; }
+                    linked = d.Link(ed.linkFrom, hoverNode, in, ed.linkChannel);
+                }
+            } else if (!hoverNode && !hoverOut && !hoverInNode && hovered) {
+                // Dropped on empty space: pick a node to create, connected to this link.
+                ed.pendFrom = ed.linkFrom;
+                ed.pendChannel = ed.linkChannel;
+                ed.pendTo = ed.linkTo;
+                ed.pendInput = ed.linkInput;
+                ed.contextPos = toGraph(mouse);
+                openAddMenu = true;
+            }
             if (!linked && ed.linkFrom && hoverInNode) Status("Lien refusé (cycle)");
             if (ed.moveBefore) v->history.PushState(linked ? "Relier" : "Délier", *ed.moveBefore, d.S());
             else if (linked) v->history.PushState("Relier", frameBefore, d.S());
@@ -173,15 +256,27 @@ void App::DrawNodeEditor() {
             ed.moveBefore.reset();
         }
         if (ed.dragNode) {
-            const Node* before = ed.moveBefore ? ed.moveBefore->graph.Find(ed.dragNode) : nullptr;
-            const Node* now = g.Find(ed.dragNode);
-            if (before && now && !(before->pos == now->pos)) v->history.PushState("Déplacer le nœud", *ed.moveBefore, d.S());
+            bool moved = false;
+            if (ed.moveBefore)
+                for (auto& n : g.nodes)
+                    if (const Node* b = ed.moveBefore->graph.Find(n.id); b && !(b->pos == n.pos)) moved = true;
+            if (moved) v->history.PushState(ed.selection.size() > 1 ? "Déplacer les nœuds" : "Déplacer le nœud", *ed.moveBefore, d.S());
             ed.dragNode = 0;
             ed.moveBefore.reset();
         }
+        if (ed.boxSelecting) {
+            float2 p = toGraph(mouse);
+            float2 mn{std::min(p.x, ed.boxStart.x), std::min(p.y, ed.boxStart.y)}, mx{std::max(p.x, ed.boxStart.x), std::max(p.y, ed.boxStart.y)};
+            for (auto& n : g.nodes) {
+                Layout L = NodeLayout(n, aspect);
+                if (n.pos.x < mx.x && n.pos.x + kNodeW > mn.x && n.pos.y < mx.y && n.pos.y + L.h > mn.y) ed.selection.insert(n.id);
+            }
+            if (ed.selection.size() == 1) d.S().activeNode = *ed.selection.begin();
+            ed.boxSelecting = false;
+        }
     }
 
-    // Links
+    // Links (colored by the channel they carry)
     auto drawLink = [&](ImVec2 a, ImVec2 b, ImU32 col, float thick) {
         float dx = std::max(std::abs(b.x - a.x) * 0.5f, 40.0f * ed.zoom);
         dl->AddBezierCubic(a, ImVec2(a.x + dx, a.y), ImVec2(b.x - dx, b.y), b, col, thick * ed.zoom);
@@ -190,12 +285,13 @@ void App::DrawNodeEditor() {
         for (int i = 0; i < (int)n.inputs.size() && i < NodeInputCount(n); ++i) {
             const Node* src = n.inputs[i] ? g.Find(n.inputs[i]) : nullptr;
             if (!src) continue;
-            bool sel = src->id == d.S().activeNode || n.id == d.S().activeNode;
-            drawLink(outPin(*src), inPin(n, i), sel ? ui::col::Accent2 : IM_COL32(150, 150, 170, 200), sel ? 3.0f : 2.0f);
+            int ch = InputChannel(n, i);
+            bool sel = ed.selection.count(src->id) || ed.selection.count(n.id);
+            drawLink(outPin(*src, ch), inPin(n, i), sel ? ui::col::Accent2 : ChannelColor(ch, 200), sel ? 3.0f : 2.0f);
         }
     }
     if (ed.draggingLink) {
-        if (ed.linkFrom) { if (const Node* s = g.Find(ed.linkFrom)) drawLink(outPin(*s), mouse, ui::col::Accent, 2.5f); }
+        if (ed.linkFrom) { if (const Node* s = g.Find(ed.linkFrom)) drawLink(outPin(*s, ed.linkChannel), mouse, ChannelColor(ed.linkChannel), 2.5f); }
         else if (const Node* t = g.Find(ed.linkTo)) drawLink(mouse, inPin(*t, ed.linkInput), ui::col::Accent, 2.5f);
     }
 
@@ -208,7 +304,7 @@ void App::DrawNodeEditor() {
         ImVec2 a = toScreen(n.pos), b = toScreen(n.pos + float2{kNodeW, L.h});
         if (b.x < origin.x || b.y < origin.y || a.x > origin.x + size.x || a.y > origin.y + size.y) continue;
         float r = 6 * ed.zoom;
-        bool selected = n.id == d.S().activeNode;
+        bool selected = ed.selection.count(n.id) || n.id == d.S().activeNode;
         bool failedNode = v->renderer.NodeFailed(n.id);
         bool isPaint = n.kind == NodeKind::Surface && n.surface == d.PaintTarget();
         dl->AddRectFilled(ImVec2(a.x + 3, a.y + 4), ImVec2(b.x + 3, b.y + 4), IM_COL32(0, 0, 0, 70), r);
@@ -225,21 +321,28 @@ void App::DrawNodeEditor() {
             dl->AddText(font, fs, ImVec2(a.x + 8 * ed.zoom, a.y + (kHeader * ed.zoom - fs) * 0.5f), IM_COL32_WHITE, title.c_str());
             dl->PopClipRect();
         }
-        // Inputs
+        // Inputs (filled with the color of the linked channel)
         for (int i = 0; i < L.inputs; ++i) {
             ImVec2 p = inPin(n, i);
             bool connected = i < (int)n.inputs.size() && n.inputs[i];
             bool hot = hoverInNode == n.id && hoverIn == i;
-            dl->AddCircleFilled(p, pinR * (hot ? 1.4f : 1.0f), connected ? ui::col::Accent2 : IM_COL32(70, 72, 86, 255));
-            dl->AddCircle(p, pinR * (hot ? 1.4f : 1.0f), IM_COL32(20, 20, 24, 255), 0, 1.5f);
+            float pr = pinR * (hot ? 1.4f : 1.0f);
+            if (connected) dl->AddCircleFilled(p, pr, ChannelColor(InputChannel(n, i)));
+            else dl->AddCircleFilled(p, pr, IM_COL32(52, 54, 64, 255));
+            dl->AddCircle(p, pr, connected ? IM_COL32(20, 20, 24, 255) : IM_COL32(120, 122, 140, 255), 0, 1.5f);
             if (drawText) dl->AddText(font, fs * 0.9f, ImVec2(p.x + 10 * ed.zoom, p.y - fs * 0.45f), ui::col::TextDim, NodeInputName(n, i).c_str());
         }
-        // Output
-        if (n.kind != NodeKind::Output) {
-            ImVec2 p = outPin(n);
-            bool hot = hoverOut == n.id;
-            dl->AddCircleFilled(p, pinR * (hot ? 1.4f : 1.0f), ui::col::Accent);
-            dl->AddCircle(p, pinR * (hot ? 1.4f : 1.0f), IM_COL32(20, 20, 24, 255), 0, 1.5f);
+        // Outputs: RGBA and single channels
+        for (int o = 0; o < L.outputs; ++o) {
+            ImVec2 p = outPin(n, o);
+            bool hot = hoverOut == n.id && hoverOutCh == o;
+            float pr = pinR * (hot ? 1.4f : (o ? 0.85f : 1.0f));
+            dl->AddCircleFilled(p, pr, ChannelColor(o));
+            dl->AddCircle(p, pr, IM_COL32(20, 20, 24, 255), 0, 1.5f);
+            if (drawText) {
+                ImVec2 ts = font->CalcTextSizeA(fs * 0.85f, FLT_MAX, 0, kOutNames[o]);
+                dl->AddText(font, fs * 0.85f, ImVec2(p.x - 10 * ed.zoom - ts.x, p.y - fs * 0.43f), ChannelColor(o, 230), kOutNames[o]);
+            }
         }
         // Thumbnail
         gpu::Texture* out = v->renderer.NodeOutput(n.id);
@@ -249,7 +352,7 @@ void App::DrawNodeEditor() {
         if (!out && n.kind == NodeKind::Surface)
             if (Surface* s = d.GetSurface(n.surface)) { out = s->tex.get(); outHash = s->version; }
         if (!out && n.kind == NodeKind::Output && d.tiled) { out = v->lastImage; outHash = v->renderer.ImageVersion(); }
-        ImVec2 ta = toScreen(n.pos + float2{8, kHeader + std::max(L.inputs, 1) * kRow + 4});
+        ImVec2 ta = toScreen(n.pos + float2{8, kHeader + L.rows * kRow + 4});
         if (!out && d.tiled && ed.zoom > 0.4f)
             dl->AddText(ImVec2(ta.x + 4, ta.y + 4), ui::col::TextDim, "Aperçu indisponible\n(grand document)");
         if (out) {
@@ -259,70 +362,89 @@ void App::DrawNodeEditor() {
         }
     }
 
-    // Context menu
+    // Context menus
     if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && !ImGui::IsMouseDragging(ImGuiMouseButton_Right)) {
         ed.contextPos = toGraph(mouse);
         if (hoverNode) {
             d.S().activeNode = hoverNode;
+            if (!ed.selection.count(hoverNode)) ed.selection = {hoverNode};
             ImGui::OpenPopup("##nodectx");
         } else if (editable) {
-            ed.search[0] = 0;
-            ImGui::OpenPopup("##addnode");
+            ed.pendFrom = ed.pendTo = 0;
+            openAddMenu = true;
         }
     }
     if (ImGui::IsMouseDragging(ImGuiMouseButton_Right) && ImGui::IsItemActive())
         ed.pan = ed.pan + float2{io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
+    if (openAddMenu) {
+        ed.search[0] = 0;
+        ImGui::OpenPopup("##addnode");
+    }
 
+    ImGui::SetNextWindowSizeConstraints(ImVec2(260 * dpi, 0), ImVec2(360 * dpi, 520 * dpi));
     if (ImGui::BeginPopup("##addnode")) {
-        ImGui::TextDisabled("Ajouter un nœud");
+        ImGui::TextDisabled(ed.pendFrom ? "Nouveau nœud relié à cette sortie" : ed.pendTo ? "Nouveau nœud relié à cette entrée" : "Ajouter un nœud");
         if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
-        ImGui::InputTextWithHint("##search", "Rechercher...", ed.search, sizeof(ed.search));
-        std::string q = ed.search;
-        for (auto& ch : q) ch = (char)tolower((unsigned char)ch);
-        auto match = [&](const std::string& s) {
-            if (q.empty()) return true;
-            std::string l = s;
-            for (auto& ch : l) ch = (char)tolower((unsigned char)ch);
-            return l.find(q) != std::string::npos;
-        };
-        auto add = [&](auto&& fn, const char* label) {
-            DocState before = d.S();
-            fn();
-            v->history.PushState(label, before, d.S());
-            ImGui::CloseCurrentPopup();
-        };
-        if (match("calque pixel surface") && ImGui::MenuItem("Calque pixel"))
-            add([&] { d.AddNode(NodeKind::Surface, ed.contextPos); }, "Ajouter un calque pixel");
-        if (match("fusion blend") && ImGui::MenuItem("Fusion (mode de fusion)"))
-            add([&] { d.AddNode(NodeKind::Blend, ed.contextPos); }, "Ajouter une fusion");
-        if (match("effet visuel graphe") && ImGui::MenuItem("Effet visuel (graphe)"))
-            add([&] {
-                Node& nn = d.AddEffectNode("", "", ed.contextPos);
-                nn.fx.graph = EffectGraph::Default().Serialize();
-                nn.name = "Effet visuel";
-                nn.fx.params.clear();
-                nn.inputs.assign(NodeInputCount(nn), 0);
-                ImGui::SetWindowFocus("Éditeur d'effets");
-            }, "Ajouter un effet visuel");
-        if (match("hlsl personnalisé custom code") && ImGui::MenuItem("HLSL personnalisé"))
-            add([&] { d.AddEffectNode("", kCustomEffectTemplate, ed.contextPos); }, "Ajouter un nœud HLSL");
-        if (match("fusion personnalisée blend custom mélange") && ImGui::MenuItem("Fusion personnalisée (A, B, masque)"))
-            add([&] { d.AddEffectNode("", kCustomBlendTemplate, ed.contextPos); }, "Ajouter une fusion personnalisée");
-        ImGui::Separator();
-        if (q.empty()) {
-            EffectMenu([&](const std::string& id) { add([&] { d.AddEffectNode(id, "", ed.contextPos); }, "Ajouter un effet"); }, true, true);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        bool enter = ImGui::InputTextWithHint("##search", "Rechercher...", ed.search, sizeof(ed.search), ImGuiInputTextFlags_EnterReturnsTrue);
+        std::string q = Lower(ed.search);
+        static std::vector<NodeEntry> entries;
+        static u64 entriesGen = ~0ull;
+        if (entriesGen != Effects().Generation()) { entries = NodeEntries(); entriesGen = Effects().Generation(); }
+        const NodeEntry* picked = nullptr;
+        ImGui::BeginChild("##nodelist", ImVec2(0, 380 * dpi), ImGuiChildFlags_None);
+        if (!q.empty()) {
+            // Flat list of matches; Enter takes the first.
+            const NodeEntry* first = nullptr;
+            for (auto& e : entries) {
+                if (Lower(e.label + " " + e.category + " " + e.keywords).find(q) == std::string::npos) continue;
+                if (!first) first = &e;
+                if (ImGui::Selectable((e.label + "##" + e.category).c_str())) picked = &e;
+                ImGui::SameLine();
+                ImGui::TextDisabled("%s", e.category.c_str());
+            }
+            if (!first) ImGui::TextDisabled("Aucun nœud ne correspond.");
+            if (enter && first) picked = first;
         } else {
-            for (auto& e : Effects().All())
-                if (match(e->name) || match(e->category))
-                    if (ImGui::MenuItem((e->name + "  (" + e->category + ")").c_str()))
-                        add([&] { d.AddEffectNode(e->id, "", ed.contextPos); }, "Ajouter un effet");
+            // Tree by category.
+            std::vector<std::string> cats;
+            for (auto& e : entries) if (std::find(cats.begin(), cats.end(), e.category) == cats.end()) cats.push_back(e.category);
+            for (auto& c : cats) {
+                if (!ImGui::TreeNodeEx(c.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth)) continue;
+                for (auto& e : entries)
+                    if (e.category == c && ImGui::Selectable(e.label.c_str())) picked = &e;
+                ImGui::TreePop();
+            }
+        }
+        ImGui::EndChild();
+        if (picked) {
+            DocState before = d.S();
+            Id nid = picked->make(d, ed.contextPos);
+            if (Node* nn = g.Find(nid)) {
+                if (ed.pendFrom && NodeInputCount(*nn) > 0) d.Link(ed.pendFrom, nid, 0, ed.pendChannel);
+                if (ed.pendTo) d.Link(nid, ed.pendTo, ed.pendInput, 0);
+            }
+            d.S().activeNode = nid;
+            ed.selection = {nid};
+            ed.pendFrom = ed.pendTo = 0;
+            v->history.PushState("Ajouter un nœud", before, d.S());
+            ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
     }
+    auto deleteSelection = [&] {
+        DocState before = d.S();
+        int n = 0;
+        for (Id id : ed.selection)
+            if (id != g.output && g.Find(id)) { d.RemoveNode(id); ++n; }
+        if (!n && d.S().activeNode && d.S().activeNode != g.output) { d.RemoveNode(d.S().activeNode); ++n; }
+        ed.selection.clear();
+        if (n) v->history.PushState(n > 1 ? "Supprimer les nœuds" : "Supprimer le nœud", before, d.S());
+    };
     if (ImGui::BeginPopup("##nodectx")) {
         Node* n = g.Find(d.S().activeNode);
         if (n) {
-            ImGui::TextDisabled("%s", n->name.c_str());
+            ImGui::TextDisabled("%s%s", n->name.c_str(), ed.selection.size() > 1 ? "  (+ sélection)" : "");
             if (editable && n->kind != NodeKind::Output) {
                 if (ImGui::MenuItem("Désactiver (bypass)", nullptr, n->bypass)) {
                     DocState before = d.S();
@@ -342,32 +464,24 @@ void App::DrawNodeEditor() {
                     }
                     g.nodes.push_back(copy);
                     d.S().activeNode = copy.id;
+                    ed.selection = {copy.id};
                     v->history.PushState("Dupliquer le nœud", before, d.S());
                 }
-                if (ImGui::MenuItem("Supprimer", "Suppr")) {
-                    DocState before = d.S();
-                    d.RemoveNode(n->id);
-                    v->history.PushState("Supprimer le nœud", before, d.S());
-                }
+                if (ImGui::MenuItem(ed.selection.size() > 1 ? "Supprimer la sélection" : "Supprimer", "Suppr")) deleteSelection();
             } else if (!editable) {
-                ImGui::TextDisabled("Graphe en lecture seule (mode calques)");
+                ImGui::TextDisabled("Liens en lecture seule (mode calques)");
             }
         }
         ImGui::EndPopup();
     }
 
     // Keyboard
-    if (focused && editable && !io.WantTextInput && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))) {
-        Id sel = d.S().activeNode;
-        if (sel && sel != g.output) {
-            DocState before = d.S();
-            d.RemoveNode(sel);
-            v->history.PushState("Supprimer le nœud", before, d.S());
-        }
-    }
+    if (focused && editable && !io.WantTextInput && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))) deleteSelection();
+    if (focused && !io.WantTextInput && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) for (auto& n : g.nodes) ed.selection.insert(n.id);
     if (focused && !io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F) && !g.nodes.empty()) {
         float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
         for (auto& n : g.nodes) {
+            if (!ed.selection.empty() && !ed.selection.count(n.id)) continue;  // F frames the selection when there is one
             mn = {std::min(mn.x, n.pos.x), std::min(mn.y, n.pos.y)};
             mx = {std::max(mx.x, n.pos.x + kNodeW), std::max(mx.y, n.pos.y + NodeLayout(n, aspect).h)};
         }
@@ -379,7 +493,7 @@ void App::DrawNodeEditor() {
     // Header banner
     ImVec2 bp(origin.x + 10, origin.y + 8);
     if (!editable) {
-        const char* msg = "Mode calques : graphe généré, lecture seule.";
+        const char* msg = "Mode calques : graphe généré depuis les calques (nœuds déplaçables, liens fixes).";
         dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + ImGui::CalcTextSize(msg).x + 190 * dpi, bp.y + ImGui::GetFrameHeight()), IM_COL32(20, 20, 26, 220), 5);
         dl->AddText(ImVec2(bp.x, bp.y + 3), ui::col::TextDim, msg);
         ImGui::SetCursorScreenPos(ImVec2(bp.x + ImGui::CalcTextSize(msg).x + 10, bp.y));
@@ -388,8 +502,9 @@ void App::DrawNodeEditor() {
             d.ConvertToNodes();
             e.Commit();
         }
+        ui::HelpTooltip("Le graphe devient libre : relier, séparer les canaux R V B A, ajouter des nœuds.");
     } else {
-        const char* hint = "Clic droit : ajouter  |  glisser une sortie vers une entrée : relier  |  F : cadrer  |  Suppr : supprimer";
+        const char* hint = "Clic droit : nœuds  |  tirer un lien dans le vide : nouveau nœud relié  |  rectangle / Ctrl+clic : sélection  |  F : cadrer  |  Suppr";
         ImVec2 ts = ImGui::CalcTextSize(hint);
         dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + ts.x + 6, bp.y + ts.y + 4), IM_COL32(20, 20, 26, 220), 5);
         dl->AddText(ImVec2(bp.x, bp.y), ui::col::TextDim, hint);

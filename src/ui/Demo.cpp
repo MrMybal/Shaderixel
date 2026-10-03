@@ -256,6 +256,45 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 39 && v) {
+        // Graph channel links: Combine RGBA fed with R, G, B, A of a node gives that
+        // node back (full and tiled rendering).
+        Document& d = *v->doc;
+        static gpu::ReadbackPtr rb[4];
+        static Id src = 0, comb = 0;
+        auto grab = [&] { return v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx)); };
+        Graph& g = d.S().graph;
+        if (frameCounter == 4) {
+            Edit e(d, v->history, "Nœuds");
+            d.ConvertToNodes();
+            e.Commit();
+            src = g.Find(g.output) ? g.Find(g.output)->inputs[0] : 0;
+            float2 mn{1e9f, 1e9f};
+            for (auto& n : g.nodes) mn = {std::min(mn.x, n.pos.x), std::min(mn.y, n.pos.y)};
+            nodeEd.zoom = 0.3f;
+            nodeEd.pan = float2{40, 120} - mn;
+        }
+        if (frameCounter == 8) rb[0] = grab();
+        if (frameCounter == 10 && src) {
+            Node* out = g.Find(g.output);
+            float2 p = out->pos + float2{-30, 260};
+            comb = d.AddEffectNode("combine_rgba", "", p).id;
+            for (int c = 0; c < 4; ++c) d.Link(src, comb, c, (u8)(c + 1));
+            d.Link(comb, g.output, 0);
+            nodeEd.selection = {comb};
+            nodeEd.zoom = 0.85f;
+            nodeEd.pan = float2{560, 30} - p;  // Combine RGBA and its source in view
+        }
+        if (frameCounter == 40) rb[1] = grab();
+        if (frameCounter == 42) d.forceTiled = true;
+        if (frameCounter == 70) rb[2] = grab();
+        if (frameCounter == 80 && rb[2] && rb[2]->ready) {
+            CompareReadbacks("node vs Combine(R,G,B,A of node)", *rb[0], *rb[1], 1);
+            CompareReadbacks("full vs tiled channel links", *rb[1], *rb[2], 1);
+            d.forceTiled = false;
+        }
+        return;
+    }
     if (demoMode == 38 && v) {
         // Channel mask: all channels off == layer hidden. Custom blend (template =
         // multiply) == standard Multiply in linear blending.

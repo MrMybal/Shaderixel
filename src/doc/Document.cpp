@@ -502,7 +502,7 @@ struct GraphBuilder {
 
     // Content of a non-group layer (source + filters). Adjustments read `base`.
     Id Content(const Layer& l, Id base, float& y) {
-        x += 240.0f;
+        x += 320.0f;
         y = 0;
         Id src;
         if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text || l.kind == LayerKind::Shape) {
@@ -532,7 +532,7 @@ struct GraphBuilder {
         u32 fi = 0;
         for (const auto& f : l.filters) {
             if (fi >= 15) break;
-            y += 170.0f;
+            y += 280.0f;
             Node n;
             n.id = GenId(l.id, RoleFilter + fi++);
             n.kind = NodeKind::Effect;
@@ -566,13 +566,13 @@ struct GraphBuilder {
                     Id inner = Stack(l.id, base);
                     bool needsBlend = l.opacity < 0.999f || (l.mask && l.maskEnabled) || !l.visible;
                     if (needsBlend && inner)
-                        base = Blend(l, base, inner, MaskNode(l, {x, 520}), BlendMode::Normal, l.opacity, false, !l.visible, {x + 40, 520}, RoleBlend);
+                        base = Blend(l, base, inner, MaskNode(l, {x, 840}), BlendMode::Normal, l.opacity, false, !l.visible, {x + 40, 840}, RoleBlend);
                     else if (inner)
                         base = inner;
                     continue;
                 }
                 content = Stack(l.id, 0);
-                y = 340;
+                y = 560;
             } else {
                 content = Content(l, base, y);
             }
@@ -580,9 +580,9 @@ struct GraphBuilder {
                 const Layer& c = *kids[k];
                 float cy = 0;
                 Id cc = Content(c, content, cy);
-                content = Blend(c, content, cc, MaskNode(c, {x - 120, cy + 170}), c.blend, c.opacity, true, !c.visible, {x + 40, cy + 340}, RoleBlend);
+                content = Blend(c, content, cc, MaskNode(c, {x - 130, cy + 280}), c.blend, c.opacity, true, !c.visible, {x + 40, cy + 560}, RoleBlend);
             }
-            base = Blend(l, base, content, MaskNode(l, {x - 120, y + 170}), l.blend, l.opacity, false, !l.visible, {x + 40, y + 340}, RoleBlend);
+            base = Blend(l, base, content, MaskNode(l, {x - 130, y + 280}), l.blend, l.opacity, false, !l.visible, {x + 40, y + 560}, RoleBlend);
             i = j - 1;
         }
         return base;
@@ -598,7 +598,7 @@ void Document::RebuildFromLayers() {
     out.kind = NodeKind::Output;
     out.name = "Sortie";
     out.inputs = {result};
-    out.pos = {b.x + 300.0f, 510.0f};
+    out.pos = {b.x + 300.0f, 840.0f};
     b.g.nodes.push_back(out);
     b.g.output = kOutputId;
     // Positions moved by the user survive the rebuild.
@@ -620,6 +620,9 @@ void Document::ConvertToNodes() {
 
 // Try to read the graph back as a linear layer stack.
 static bool ExtractLayers(const Graph& g, std::vector<Layer>& out, std::string* why) {
+    for (auto& n : g.nodes)
+        for (u8 c : n.inputChannel)
+            if (c) { if (why) *why = "liens par canal (R, V, B, A)"; return false; }
     auto fail = [&](const std::string& msg) { if (why) *why = msg; return false; };
     // Count consumers: every node must feed at most one input.
     std::unordered_map<Id, int> uses;
@@ -772,19 +775,26 @@ void Document::RemoveNode(Id id) {
     dirty = true;
 }
 
-bool Document::Link(Id from, Id to, int input) {
+bool Document::Link(Id from, Id to, int input, u8 channel) {
     Node* dst = state.graph.Find(to);
     if (!dst || !state.graph.Find(from) || from == to) return false;
     if (state.graph.WouldCycle(from, to)) return false;
     if ((int)dst->inputs.size() <= input) dst->inputs.resize(input + 1, 0);
     dst->inputs[input] = from;
+    if (channel || (size_t)input < dst->inputChannel.size()) {
+        if ((int)dst->inputChannel.size() <= input) dst->inputChannel.resize(input + 1, 0);
+        dst->inputChannel[input] = channel;
+    }
     dirty = true;
     return true;
 }
 
 void Document::Unlink(Id to, int input) {
     if (Node* dst = state.graph.Find(to))
-        if (input < (int)dst->inputs.size()) dst->inputs[input] = 0;
+        if (input < (int)dst->inputs.size()) {
+            dst->inputs[input] = 0;
+            if (input < (int)dst->inputChannel.size()) dst->inputChannel[input] = 0;
+        }
     dirty = true;
 }
 

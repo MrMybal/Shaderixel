@@ -360,6 +360,11 @@ Json SerializeDocument(const Document& doc) {
         o["pos"] = ToJson(n.pos);
         if (n.surface) o["surface"] = n.surface;
         if (n.kind == NodeKind::Effect) o["effect"] = EffectToJson(n.fx);
+        if (std::any_of(n.inputChannel.begin(), n.inputChannel.end(), [](u8 c) { return c != 0; })) {
+            Json ch = Json::Array();
+            for (u8 c : n.inputChannel) ch.Push((int)c);
+            o["inputChannels"] = ch;
+        }
         if (n.kind == NodeKind::Blend) { o["blend"] = (int)n.blend; o["opacity"] = n.opacity; o["clip"] = n.clip; if (n.channelOff) o["channelOff"] = (int)n.channelOff; }
         if (n.bypass) o["bypass"] = true;
         if (n.layer) o["layer"] = n.layer;
@@ -475,6 +480,7 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         n.opacity = o["opacity"].F(1);
         n.clip = o["clip"].B(false);
         n.channelOff = (u8)(o["channelOff"].I(0) & 15);
+        for (auto& c : o["inputChannels"].Elements()) n.inputChannel.push_back((u8)std::clamp(c.I(0), 0, 4));
         n.bypass = o["bypass"].B(false);
         n.layer = o["layer"].U();
         for (auto& x : o["inputs"].Elements()) n.inputs.push_back(x.U());

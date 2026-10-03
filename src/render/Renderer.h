@@ -190,6 +190,10 @@ private:
         gpu::Texture* tex = nullptr;
         u64 hash = 0;
     };
+    // Input i of node n, through a single-channel extraction when linked from R/G/B/A.
+    EvalResult EvalInput(Document& doc, gpu::CommandContext& ctx, const Node& n, int i, int depth);
+    std::unordered_map<u64, struct NodeCache> channelCache;  // (source node, channel)
+
     struct ThumbCache {
         gpu::TexturePtr tex;
         u64 hash = 0;
@@ -214,6 +218,7 @@ private:
     static constexpr int kTileSize = 512;
     gpu::Texture* EvaluateTiled(Document& doc, gpu::CommandContext& ctx, const Rect* visible, int budget);
     TileRes EvalTile(Document& doc, gpu::CommandContext& ctx, Id id, const Rect& need, int depth);
+    TileRes EvalTileInput(Document& doc, gpu::CommandContext& ctx, const Node& n, int i, const Rect& need, int depth);
     u64 StructHash(Document& doc, Id id, std::unordered_map<Id, u64>& memo, int& maxHalo, bool& compiling);
     gpu::Texture* PoolGet(u32 w, u32 h, gpu::Format f);
     void PoolReset(bool trim);

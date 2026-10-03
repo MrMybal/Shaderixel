@@ -79,8 +79,27 @@ u64 Renderer::StructHash(Document& doc, Id id, std::unordered_map<Id, u64>& memo
         default: break;
     }
     for (Id in : n->inputs) h.Pod(StructHash(doc, in, memo, maxHalo, compiling));
+    for (u8 c : n->inputChannel) h.Pod(c);
     memo[id] = h.h;
     return h.h;
+}
+
+Renderer::TileRes Renderer::EvalTileInput(Document& doc, gpu::CommandContext& ctx, const Node& n, int i, const Rect& need, int depth) {
+    if (i >= (int)n.inputs.size()) return {};
+    TileRes src = EvalTile(doc, ctx, n.inputs[i], need, depth);
+    u8 ch = InputChannel(n, i);
+    if (!ch || !src.tex) return src;
+    auto* k = Kernel("channel_extract.slang");
+    if (!k) { pending = true; return {}; }
+    gpu::Texture* out = PoolGet((u32)need.Width(), (u32)need.Height(), src.tex->GetFormat());
+    struct { u32 w, h; i32 ox, oy; u32 ch; } root = {(u32)need.Width(), (u32)need.Height(), need.x0 - src.origin.x, need.y0 - src.origin.y, ch};
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = src.tex;
+    d.uav[0] = out;
+    SetConstants(d, root);
+    Dispatch2D(ctx, d, root.w, root.h);
+    return {out, {need.x0, need.y0}};
 }
 
 Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id id, const Rect& need, int depth) {
@@ -95,14 +114,14 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
     TileRes res;
     switch (n->kind) {
         case NodeKind::Output:
-            res = n->inputs.empty() ? TileRes{} : EvalTile(doc, ctx, n->inputs[0], need, depth + 1);
+            res = n->inputs.empty() ? TileRes{} : EvalTileInput(doc, ctx, *n, 0, need, depth + 1);
             break;
         case NodeKind::Surface:
             if (Surface* s = doc.GetSurface(n->surface)) res = {s->tex.get(), {0, 0}};
             break;
         case NodeKind::Blend: {
             TileRes in[3];
-            for (int i = 0; i < 3 && i < (int)n->inputs.size(); ++i) in[i] = EvalTile(doc, ctx, n->inputs[i], need, depth + 1);
+            for (int i = 0; i < 3 && i < (int)n->inputs.size(); ++i) in[i] = EvalTileInput(doc, ctx, *n, i, need, depth + 1);
             if (n->bypass || !in[1].tex) { res = in[0]; break; }
             auto* p = Kernel("composite.slang");
             gpu::Texture* out = PoolGet((u32)need.Width(), (u32)need.Height(), fmt);
@@ -127,13 +146,13 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
             EffectDefPtr def = n->fx.Def();
             int nin = def ? (int)def->inputs.size() : 0;
             if (n->bypass || !def) {
-                res = n->inputs.empty() ? TileRes{} : EvalTile(doc, ctx, n->inputs[0], need, depth + 1);
+                res = n->inputs.empty() ? TileRes{} : EvalTileInput(doc, ctx, *n, 0, need, depth + 1);
                 break;
             }
             auto prog = ProgramFor(def);
             if (prog->state.load() != gpu::Program::State::Ready) {
                 pending = prog->state.load() == gpu::Program::State::Pending;
-                res = n->inputs.empty() ? TileRes{} : EvalTile(doc, ctx, n->inputs[0], need, depth + 1);
+                res = n->inputs.empty() ? TileRes{} : EvalTileInput(doc, ctx, *n, 0, need, depth + 1);
                 break;
             }
             int halo = EffectHalo(*def, n->fx.params);
@@ -143,10 +162,10 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
                 if (!n->inputs[i]) continue;
                 if (halo < 0) {
                     // Global effect: full-resolution input from the cached path.
-                    EvalResult full = Eval(doc, ctx, n->inputs[i], depth + 1);
+                    EvalResult full = EvalInput(doc, ctx, *n, i, depth + 1);
                     in[i] = {full.tex, {0, 0}};
                 } else {
-                    in[i] = EvalTile(doc, ctx, n->inputs[i], area, depth + 1);
+                    in[i] = EvalTileInput(doc, ctx, *n, i, area, depth + 1);
                 }
             }
             auto packed = PackParams(*def, n->fx.params, &n->fx.curves, &n->fx.luts);

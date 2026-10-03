@@ -141,10 +141,12 @@ struct Node {
     BlendIf blendIf;          // Blend: conditional blending
     u8 channelOff = 0;        // Blend: channels kept from the base (bit 0 R, 1 G, 2 B, 3 A)
     std::vector<Id> inputs;   // per input pin, 0 = unconnected
+    std::vector<u8> inputChannel;  // per input pin: output used on the source, 0 RGBA, 1 R, 2 G, 3 B, 4 A
     Id layer = 0;             // generated from this layer (layer mode)
 };
 
 int NodeInputCount(const Node& n);
+inline u8 InputChannel(const Node& n, size_t i) { return i < n.inputChannel.size() ? n.inputChannel[i] : 0; }
 std::string NodeInputName(const Node& n, int i);
 
 struct Graph {
@@ -243,7 +245,7 @@ public:
     Node& AddNode(NodeKind kind, float2 pos);
     Node& AddEffectNode(const std::string& effectId, const std::string& customCode, float2 pos);
     void RemoveNode(Id id);
-    bool Link(Id from, Id to, int input);
+    bool Link(Id from, Id to, int input, u8 channel = 0);
     void Unlink(Id to, int input);
 
     // Surface that brush tools paint into (active layer / mask / surface node).

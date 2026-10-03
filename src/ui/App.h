@@ -96,9 +96,17 @@ struct NodeEditorState {
     Id linkFrom = 0;          // output side
     Id linkTo = 0;            // input side when dragging from an input
     int linkInput = -1;
+    u8 linkChannel = 0;       // output used on the source side (0 RGBA, 1 R, 2 G, 3 B, 4 A)
     float2 contextPos;        // graph position of right click
     std::optional<DocState> moveBefore;
     char search[64] = {};
+    std::set<Id> selection;   // selected nodes (moved / deleted together)
+    bool boxSelecting = false;
+    float2 boxStart;          // graph position
+    // Link dropped on empty space: the node picked in the menu gets connected.
+    Id pendFrom = 0, pendTo = 0;
+    int pendInput = 0;
+    u8 pendChannel = 0;
 };
 
 struct EffectEditorState {

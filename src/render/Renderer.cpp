@@ -195,6 +195,32 @@ bool Renderer::NodeFailed(Id node, std::string* errors) const {
     return true;
 }
 
+Renderer::EvalResult Renderer::EvalInput(Document& doc, gpu::CommandContext& ctx, const Node& n, int i, int depth) {
+    if (i >= (int)n.inputs.size()) return {};
+    EvalResult src = Eval(doc, ctx, n.inputs[i], depth);
+    u8 ch = InputChannel(n, i);
+    if (!ch || !src.tex) return src;
+    auto* k = Kernel("channel_extract.slang");
+    if (!k) { pending = true; return {}; }
+    Hasher h;
+    h.Pod(u8(7));
+    h.Pod(src.hash);
+    h.Pod(ch);
+    NodeCache& c = channelCache[((u64)n.inputs[i] << 3) | ch];
+    Ensure(c.tex, src.tex->Width(), src.tex->Height(), src.tex->GetFormat(), "Channel");
+    if (c.hash != h.h || !src.hash) {
+        struct { u32 w, h; i32 ox, oy; u32 ch; } root = {src.tex->Width(), src.tex->Height(), 0, 0, ch};
+        gpu::DispatchDesc d;
+        d.pipeline = k;
+        d.srv[0] = src.tex;
+        d.uav[0] = c.tex.get();
+        SetConstants(d, root);
+        Dispatch2D(ctx, d, root.w, root.h);
+        c.hash = src.hash ? h.h : 0;
+    }
+    return {c.tex.get(), src.hash ? h.h : 0};
+}
+
 Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id id, int depth) {
     if (!id || depth > 256) return {};
     auto memo = frameEval.find(id);
@@ -209,7 +235,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
 
     switch (n->kind) {
         case NodeKind::Output: {
-            result = n->inputs.empty() ? EvalResult{} : Eval(doc, ctx, n->inputs[0], depth + 1);
+            result = n->inputs.empty() ? EvalResult{} : EvalInput(doc, ctx, *n, 0, depth + 1);
             break;
         }
         case NodeKind::Surface: {
@@ -224,7 +250,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
         }
         case NodeKind::Blend: {
             EvalResult in[3];
-            for (int i = 0; i < 3 && i < (int)n->inputs.size(); ++i) in[i] = Eval(doc, ctx, n->inputs[i], depth + 1);
+            for (int i = 0; i < 3 && i < (int)n->inputs.size(); ++i) in[i] = EvalInput(doc, ctx, *n, i, depth + 1);
             if (n->bypass || !in[1].tex) { result = in[0]; break; }
             Hasher h;
             h.Pod(u8(1));
@@ -270,7 +296,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
             EffectDefPtr def = n->fx.Def();
             int nin = def ? (int)def->inputs.size() : 0;
             EvalResult in[4];
-            for (int i = 0; i < 4 && i < (int)n->inputs.size(); ++i) in[i] = Eval(doc, ctx, n->inputs[i], depth + 1);
+            for (int i = 0; i < 4 && i < (int)n->inputs.size(); ++i) in[i] = EvalInput(doc, ctx, *n, i, depth + 1);
             if (n->bypass || !def) { result = in[0]; break; }
             auto prog = ProgramFor(def);
             auto st = prog->state.load();
