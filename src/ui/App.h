@@ -75,6 +75,18 @@ struct TransformState {
     float2 grid[16], startGrid[16];
     int warpDrag = -1;         // control point, 16 = surface drag
     float2 warpUV;             // patch parameters of a surface drag
+    // Mesh warps (MeshWarp.cpp): 0 = Bezier warp, 1 = puppet, 2 = perspective.
+    int warpKind = 0;
+    WarpMesh mesh;             // last mesh drawn (pin placement, overlay)
+    std::vector<float2> pinSrc, pinDst;
+    int pinSel = -1, pinDrag = -1;
+    int puppetMode = 0;        // 0 rigid, 1 normal (similarity), 2 distort (affine)
+    int puppetDensity = 1;
+    bool showMesh = true;
+    std::vector<float2> layoutPts, warpPts;
+    std::vector<std::array<int, 4>> planes;
+    int perspPhase = 0, ptDrag = -1, planeSel = 0;
+    float2 dragOffset;
 };
 
 struct DocView {
@@ -398,6 +410,13 @@ private:
     void WarpFromCorners();
     void WarpInput(DocView& v, ImVec2 canvasMin, bool hovered);
     void WarpDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    void MeshWarpBegin(DocView& v, int kind);  // 1 puppet, 2 perspective
+    void PerspectiveInitPlanes();
+    WarpMesh BuildMeshWarp();
+    bool MeshWarpChanged();
+    void MeshWarpInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void MeshWarpDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    void MeshWarpOptions();
     void Nudge(DocView& v, float dx, float dy);
     void FillOrErase(DocView& v, bool erase);
     void LayerViaCopy(DocView& v, bool cut);

@@ -515,6 +515,11 @@ void App::TransformApply(DocView& v) {
     }
     if (xf.warp) {
         Surface* sel = xf.selectionOnly ? nullptr : doc.GetSurface(xf.selection);
+        if (xf.warpKind) {
+            xf.mesh = BuildMeshWarp();
+            v.renderer.WarpPreview(doc, *ctx, xf.surface, xf.original.get(), sel ? sel->tex.get() : nullptr, xf.src, xf.mesh, xf.selectionOnly);
+            return;
+        }
         v.renderer.WarpPreview(doc, *ctx, xf.surface, xf.original.get(), sel ? sel->tex.get() : nullptr, xf.src, xf.grid, xf.selectionOnly);
         return;
     }
@@ -552,7 +557,8 @@ void App::TransformCommit(DocView& v) {
     }
     // Warp: compare the grid with the undeformed one.
     bool warped = false;
-    if (xf.warp)
+    if (xf.warp && xf.warpKind) warped = MeshWarpChanged();
+    else if (xf.warp)
         for (int j = 0; j < 4; ++j)
             for (int i = 0; i < 4; ++i) {
                 float2 rest = {xf.src.x0 + xf.src.Width() * i / 3.0f, xf.src.y0 + xf.src.Height() * j / 3.0f};
@@ -583,14 +589,15 @@ void App::TransformCommit(DocView& v) {
         v.history.BeginGroup();
         auto after = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "UndoAfter");
         ctx->CopyTexture(after.get(), s->tex.get());
-        v.history.PushPaint(xf.warp ? "Déformation" : xf.moveOnly ? "Déplacement" : "Transformation", xf.surface,
+        v.history.PushPaint(xf.warp ? (xf.warpKind == 1 ? "Marionnette" : xf.warpKind == 2 ? "Déformation de la perspective" : "Déformation") : xf.moveOnly ? "Déplacement" : "Transformation", xf.surface,
                             {0, 0, (int)s->tex->Width(), (int)s->tex->Height()}, xf.original, after);
         // The selection follows the pixels.
         Surface* sel = doc.GetSurface(xf.selection);
         if (sel && xf.warp) {
             DocState before = doc.S();
             Id nid = doc.CreateSurfaceRaw(gpu::Format::R8, "Selection");
-            v.renderer.WarpPreview(doc, *ctx, nid, sel->tex.get(), nullptr, xf.src, xf.grid, true);
+            if (xf.warpKind) v.renderer.WarpPreview(doc, *ctx, nid, sel->tex.get(), nullptr, xf.src, xf.mesh, true);
+            else v.renderer.WarpPreview(doc, *ctx, nid, sel->tex.get(), nullptr, xf.src, xf.grid, true);
             doc.S().selection = nid;
             doc.S().lastSelection = nid;
             v.history.PushState("Transformer la sélection", before, doc.S());
@@ -653,6 +660,7 @@ void App::Nudge(DocView& v, float dx, float dy) {
 
 void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     if (!xf.active || xf.boundsRb) return;
+    if (xf.warp && xf.warpKind) { MeshWarpInput(v, canvasMin, hovered); return; }
     if (xf.warp) { WarpInput(v, canvasMin, hovered); return; }
     ImGuiIO& io = ImGui::GetIO();
     float2 m = ScreenToDoc(v, canvasMin, io.MousePos);
@@ -765,6 +773,7 @@ void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
 
 void App::TransformDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
     if (!xf.active || xf.view != &v || xf.moveOnly || xf.boundsRb) return;
+    if (xf.warp && xf.warpKind) { MeshWarpDrawOverlay(v, canvasMin, dl); return; }
     if (xf.warp) { WarpDrawOverlay(v, canvasMin, dl); return; }
     auto toScreen = [&](float2 p) { return ImVec2(canvasMin.x + v.pan.x + p.x * v.zoom, canvasMin.y + v.pan.y + p.y * v.zoom); };
     ImVec2 q[4];

@@ -73,6 +73,13 @@ struct RetouchParams {
 
 // Point of a bicubic Bezier patch (4x4 control points, row-major) at (u, v).
 float2 BezierPatch(const float2 grid[16], float u, float v);
+// Deformation mesh: (nx + 1) x (ny + 1) vertices (row-major), each with its destination
+// and the source pixel it comes from (document pixels).
+struct WarpMesh {
+    int nx = 0, ny = 0;
+    std::vector<float2> dst, src;
+};
+WarpMesh BezierWarpMesh(const float2 grid[16], const Rect& src, int n = 48);
 
 struct BrushDef;
 
@@ -229,7 +236,12 @@ public:
     // row-major, document pixels) over what stays (unselected pixels). `mask`:
     // the original is a selection, warped as a whole.
     void WarpPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection, const Rect& src,
-                     const float2 grid[16], bool mask);
+                     const float2 grid[16], bool mask) {
+        WarpPreview(doc, ctx, surface, original, selection, src, BezierWarpMesh(grid, src), mask);
+    }
+    // Any deformation mesh (puppet warp, perspective warp).
+    void WarpPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection, const Rect& src,
+                     const WarpMesh& mesh, bool mask);
     void TransformPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection,
                           const TransformParams& t);
 

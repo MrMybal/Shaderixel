@@ -1062,9 +1062,13 @@ void App::DrawBrush() {
     DocView* v = Active();
 
     if (xf.active) {
-        ImGui::SeparatorText(xf.moveOnly ? "Déplacement" : xf.warp ? "Déformation" : "Transformation manuelle");
+        ImGui::SeparatorText(xf.moveOnly ? "Déplacement"
+                             : xf.warp   ? (xf.warpKind == 1 ? "Marionnette" : xf.warpKind == 2 ? "Déformation de la perspective" : "Déformation")
+                                         : "Transformation manuelle");
         if (xf.boundsRb) {
             ImGui::TextDisabled("Calcul des limites...");
+        } else if (xf.warp && xf.warpKind) {
+            MeshWarpOptions();
         } else if (xf.warp) {
             ImGui::TextDisabled("Glisser un point, une poignée ou la surface.");
             ImGui::TextDisabled("Les coins entraînent leurs poignées.");

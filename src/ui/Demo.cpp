@@ -299,6 +299,37 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 54) {
+        // Puppet warp (SX_OP=puppet, SX_MODE 0..2) or perspective warp (SX_OP=persp) on SX_IMAGE.
+        char path[512] = "", op[16] = "puppet", mode[8] = "0";
+        GetEnvironmentVariableA("SX_OP", op, sizeof(op));
+        GetEnvironmentVariableA("SX_MODE", mode, sizeof(mode));
+        bool persp = std::string(op) == "persp";
+        if (frameCounter == 4 && GetEnvironmentVariableA("SX_IMAGE", path, sizeof(path)) > 0) OpenImage(path, false);
+        DocView* a = Active();
+        if (!a) return;
+        if (frameCounter == 8) MeshWarpBegin(*a, persp ? 2 : 1);
+        if (frameCounter == 14 && xf.active && xf.warp) {
+            if (persp) {
+                PerspectiveInitPlanes();
+                xf.perspPhase = 1;
+                xf.warpPts = xf.layoutPts;
+                xf.warpPts[0] = {250, 120};
+                xf.warpPts[1] = {950, 120};
+            } else {
+                xf.puppetMode = atoi(mode);
+                // Pole base and ground fixed, the head pulled to the right.
+                xf.pinSrc = {{580, 620}, {580, 295}, {200, 700}, {1000, 700}};
+                xf.pinDst = {{580, 620}, {760, 330}, {200, 700}, {1000, 700}};
+            }
+            xf.dirty = true;
+        }
+        if (frameCounter == 20 && GetEnvironmentVariableA("SX_COMMIT", nullptr, 0) > 0) {
+            TransformCommit(*a);
+            Log("[demo] mesh warp committed: %s", a->history.Count() ? a->history.Label(a->history.Count() - 1).c_str() : "-");
+        }
+        return;
+    }
     if (demoMode == 53) {
         // Retouching on SX_IMAGE: SX_OP=fill (content-aware fill of the pole), patch, move, redeye, history.
         char path[512] = "", op[16] = "fill";
