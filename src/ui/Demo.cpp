@@ -3,6 +3,7 @@
 #include "gpu/ShaderSystem.h"
 #include "doc/EffectGraph.h"
 #include "doc/Brushes.h"
+#include <imgui_internal.h>
 
 #include <fstream>
 #include <stb_image_write.h>
@@ -255,6 +256,35 @@ void App::DemoTick() {
             h.Bytes(a->data.data(), a->data.size());
             Log("[lut] image checksum %016llx", (unsigned long long)h.h);
         }
+        return;
+    }
+    if (demoMode == 42 && frameCounter == 8 && !extraWindows.empty()) {
+        // Half outside the main window: becomes its own OS window (viewport).
+        ImGuiViewport* mv = ImGui::GetMainViewport();
+        ImGui::SetWindowPos("Fenêtre 2", ImVec2(mv->Pos.x + mv->Size.x - 300, mv->Pos.y + 200));
+        ImGui::DockBuilderDockWindow("Histogramme", ImHashStr("Fenêtre 2##dock"));
+    }
+    if (demoMode == 42 && GetEnvironmentVariableA("SX_LAYOUT", nullptr, 0) > 0) {
+        // Saved layout round trip: save on tab 3 with the graph hidden, change, load back.
+        if (frameCounter == 6) { ShowSideTab(3); hideBottom = true; }
+        if (frameCounter == 8) SaveLayout("_test");
+        if (frameCounter == 9) { ShowSideTab(0); hideBottom = false; }
+        if (frameCounter == 11) LoadLayout("_test");
+        if (frameCounter == 14) {
+            Log("[demo] layout reloaded: tab %d, hideBottom %d", sideTab, hideBottom ? 1 : 0);
+            DeleteLayout("_test");
+        }
+    }
+    if (demoMode == 42 && frameCounter == 14) {
+        Log("[demo] viewports %d, Fenêtre 2 viewport %s", ImGui::GetPlatformIO().Viewports.Size,
+            ImGui::FindWindowByName("Fenêtre 2") && ImGui::FindWindowByName("Fenêtre 2")->Viewport != ImGui::GetMainViewport() ? "own" : "main");
+    }
+    if (demoMode == 42 && frameCounter == 5) {
+        // Workspace: side tab, hidden zones, extra window (env SX_TAB, SX_HIDE, SX_EXTRA).
+        char b[16] = "";
+        if (GetEnvironmentVariableA("SX_TAB", b, sizeof(b)) > 0) ShowSideTab(atoi(b));
+        if (GetEnvironmentVariableA("SX_HIDE", b, sizeof(b)) > 0) { hideBottom = strchr(b, 'b') != nullptr; hideRight = strchr(b, 'r') != nullptr; }
+        if (GetEnvironmentVariableA("SX_EXTRA", b, sizeof(b)) > 0) NewExtraWindow();
         return;
     }
     if (demoMode == 41 && v && frameCounter == 4) {

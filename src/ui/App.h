@@ -150,7 +150,33 @@ class App {
 public:
     int Run();
 
+    // Workspace state (saved in the ImGui ini / layouts, see Workspace.cpp).
+    static constexpr int kSideTabs = 5;  // Général, Outils, Effets, Fusion, Peinture
+    int sideTab = 0;
+    int sideTabRequest = -1;  // selects a side tab on the next frame
+    bool hideBottom = false, hideRight = false;
+    ImGuiID bottomZone = 0, rightZone = 0;
+    std::vector<bool> extraWindows;  // "Fenêtre 2..." (open flags)
+
 private:
+    std::string pendingLayoutIni, pendingLayoutName, layoutName;
+    std::vector<std::string> savedLayouts;
+    bool layoutSavePopup = false;
+    void RegisterWorkspaceSettings();
+    float ToolbarWidth() const;
+    void DrawSidePanel();
+    void ShowSideTab(int tab);
+    void DrawExtraWindows();
+    void NewExtraWindow();
+    bool Shown(const char* window) const;
+    void ScanLayouts();
+    void SaveLayout(const std::string& name);
+    void LoadLayout(const std::string& name);
+    void DeleteLayout(const std::string& name);
+    void ApplyPendingLayout();
+    void DrawWindowMenu();
+    void DrawLayoutSavePopup();
+
     bool Init();
     void Shutdown();
     void Frame();
@@ -437,6 +463,7 @@ private:
     std::shared_ptr<const struct BrushDef> TipDef(const BrushSettings& b);
     void SelectTip(BrushSettings& b, const std::string& id);
     void DrawBrushPanel();
+    void DrawBlendPanel();
     struct {
         std::string search, buffer, bufferKey, errors;
         std::string saveName, saveCategory = "Mes pinceaux";
@@ -516,6 +543,7 @@ private:
     void UpdateSelectionToPath();
     bool showShaderErrors = false;
     bool showDemo = false;
+    bool multiWindowTest = false;  // --multiwindow: viewports enabled in a scripted run
     bool layoutBuilt = false;
     bool resetLayout = false;
     char newName[64] = "Sans titre";

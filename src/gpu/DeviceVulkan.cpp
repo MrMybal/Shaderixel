@@ -428,6 +428,16 @@ bool Device::InitImGui() {
     init.PipelineInfoMain.PipelineRenderingCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR};
     init.PipelineInfoMain.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
     init.PipelineInfoMain.PipelineRenderingCreateInfo.pColorAttachmentFormats = &swapFormat;
+    // Secondary viewports (panels / windows outside the main window): Win32 surfaces.
+    ImGui::GetPlatformIO().Platform_CreateVkSurface = [](ImGuiViewport* vp, ImU64 inst, const void* alloc, ImU64* out) -> int {
+        VkWin32SurfaceCreateInfoKHR sci = {VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR};
+        sci.hinstance = GetModuleHandleW(nullptr);
+        sci.hwnd = (HWND)vp->PlatformHandleRaw;
+        VkSurfaceKHR s = VK_NULL_HANDLE;
+        VkResult r = vkCreateWin32SurfaceKHR((VkInstance)inst, &sci, (const VkAllocationCallbacks*)alloc, &s);
+        *out = (ImU64)s;
+        return (int)r;
+    };
     return ImGui_ImplVulkan_Init(&init);
 }
 

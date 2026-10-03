@@ -80,12 +80,13 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
         else if (a == "--focus" && i + 1 < argc) focusAtStart.push_back(Narrow(argv[++i]));  // panel to bring forward (captures)
-        else if (a == "--about") aboutAtStart = true;  // screenshot of the About box
+        else if (a == "--about") aboutAtStart = true;
+        else if (a == "--multiwindow") multiWindowTest = true;  // screenshot of the About box
         else if (a == "--save" && i + 1 < argc) cliSavePath = Narrow(argv[++i]);  // save the active document at the capture frame
         else if (a == "--dump-image" && i + 1 < argc) dumpPath = Narrow(argv[++i]);  // document composite at the capture frame
         else if (a == "--sparse-threshold" && i + 1 < argc) gpu::Dev().SetSparseThreshold((u64)_wtoi64(argv[++i]));
@@ -138,8 +139,13 @@ bool App::Init() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
+    // Panels and extra windows can leave the main window (other screens).
+    if (!Automated() || multiWindowTest) io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    io.ConfigViewportsNoTaskBarIcon = true;
+    RegisterWorkspaceSettings();
+    ScanLayouts();
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout_v10.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v11.ini";
     LoadRecent();
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
@@ -317,6 +323,7 @@ void App::Frame() {
     gpu::Dev().ImGuiNewFrame();
     ImGui_ImplWin32_NewFrame();
     UpdateRelativeDrag();  // before NewFrame: feeds the cursor motion of slider drags
+    ApplyPendingLayout();
     ImGui::NewFrame();
 
     if (DocView* v = Active()) {
@@ -378,22 +385,27 @@ void App::Frame() {
     HandleShortcuts();
     DrawToolbar();
     DrawCanvas();
-    DrawLayers();
-    DrawNodeEditor();
-    DrawView3D();
-    DrawEffectEditor();
-    DrawAiPanel();
-    DrawImageGenPanel();
-    DrawProperties();
-    DrawColor();
-    DrawBrush();
-    DrawHistory();
-    DrawPathsPanel();
+    if (Shown("Panneaux")) DrawSidePanel();
+    else for (int i = 0; i < kSideTabs; ++i) ImGui::DockSpace(ImHashStr(("##sxside" + std::to_string(i)).c_str()), ImVec2(0, 0), ImGuiDockNodeFlags_KeepAliveOnly);
+    DrawExtraWindows();
+    if (Shown("Calques")) DrawLayers();
+    if (Shown("Graphe")) DrawNodeEditor();
+    if (Shown("Vue 3D")) DrawView3D();
+    if (Shown("Éditeur d'effets")) DrawEffectEditor();
+    if (Shown("Assistant IA")) DrawAiPanel();
+    if (Shown("Génération IA")) DrawImageGenPanel();
+    if (Shown("Propriétés")) DrawProperties();
+    if (Shown("Couleur")) DrawColor();
+    if (Shown("Options")) DrawBrush();
+    if (Shown("Historique")) DrawHistory();
+    if (Shown("Tracés")) DrawPathsPanel();
     UpdateHistogram();
-    DrawHistogram();
-    DrawEffectBrowser();
-    DrawBrushPanel();
-    DrawLayerPreview();
+    if (Shown("Histogramme")) DrawHistogram();
+    if (Shown("Effets")) DrawEffectBrowser();
+    if (Shown("Fusions")) DrawBlendPanel();
+    if (Shown("Pinceaux")) DrawBrushPanel();
+    if (Shown("Aperçu du calque")) DrawLayerPreview();
+    DrawLayoutSavePopup();
     DrawNewDocDialog();
     DrawShaderErrors();
     DrawSelectionDialog();
@@ -446,6 +458,11 @@ void App::Frame() {
 
     ImGui::Render();
     gpu::Dev().EndFrame();
+    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+        // Panels / windows outside the main window (after the main frame is submitted).
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+    }
     ctx = nullptr;
 }
 
@@ -658,37 +675,6 @@ void App::Redo() {
 
 // ------------------------------------------------------------------ layout & menus
 
-void App::BuildDockLayout(ImGuiID dock) {
-    ImGui::DockBuilderRemoveNode(dock);
-    ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
-    ImGui::DockBuilderSetNodeSize(dock, ImGui::GetMainViewport()->WorkSize);
-    ImGuiID left, rest, right, center, bottom, rightTop, rightMid, rightBottom;
-    ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, 0.035f, &left, &rest);
-    ImGui::DockBuilderSplitNode(rest, ImGuiDir_Right, 0.24f, &right, &center);
-    ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.32f, &bottom, &center);
-    ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.33f, &rightTop, &rightMid);
-    ImGui::DockBuilderSplitNode(rightMid, ImGuiDir_Down, 0.44f, &rightBottom, &rightMid);
-    ImGui::DockBuilderDockWindow("Outils", left);
-    ImGui::DockBuilderDockWindow("Canevas", center);
-    ImGui::DockBuilderDockWindow("Vue 3D", center);
-    ImGui::DockBuilderDockWindow("Graphe", bottom);
-    ImGui::DockBuilderDockWindow("Éditeur d'effets", bottom);
-    ImGui::DockBuilderDockWindow("Effets", bottom);
-    ImGui::DockBuilderDockWindow("Pinceaux", bottom);
-    ImGui::DockBuilderDockWindow("Couleur", rightTop);
-    ImGui::DockBuilderDockWindow("Options", rightTop);
-    ImGui::DockBuilderDockWindow("Histogramme", rightTop);
-    ImGui::DockBuilderDockWindow("Aperçu du calque", rightTop);
-    ImGui::DockBuilderDockWindow("Propriétés", rightMid);
-    ImGui::DockBuilderDockWindow("Historique", rightMid);
-    ImGui::DockBuilderDockWindow("Assistant IA", rightMid);
-    ImGui::DockBuilderDockWindow("Génération IA", rightMid);
-    ImGui::DockBuilderDockWindow("Calques", rightBottom);
-    ImGui::DockBuilderDockWindow("Tracés", rightBottom);
-    if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(left)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoResizeX;
-    ImGui::DockBuilderFinish(dock);
-}
-
 void App::DrawMenuBar() {
     if (!ImGui::BeginMainMenuBar()) return;
     DocView* v = Active();
@@ -803,11 +789,7 @@ void App::DrawMenuBar() {
         }
         ImGui::EndMenu();
     }
-    if (ImGui::BeginMenu("Fenêtre")) {
-        if (ImGui::MenuItem("Réinitialiser la disposition")) resetLayout = true;
-        ImGui::MenuItem("Démo ImGui", nullptr, &showDemo);
-        ImGui::EndMenu();
-    }
+    DrawWindowMenu();
     if (ImGui::BeginMenu("Aide")) {
         std::wstring guide = Utf8Path(ExeDir()).wstring() + L"\\Guide.html";
         if (ImGui::MenuItem("Guide de test", nullptr, false, std::filesystem::exists(guide)))
@@ -988,6 +970,9 @@ void App::HandleShortcuts() {
         if (pressed(ImGuiKey_Backspace) && lassoPts.size() > 1) { lassoPts.pop_back(); return; }
     }
 
+    if (pressed(ImGuiKey_Tab) && !ctrl && !alt) { (shift ? hideRight : hideBottom) ^= true; return; }
+    for (int i = 0; i < kSideTabs; ++i)
+        if (alt && !ctrl && pressed((ImGuiKey)(ImGuiKey_1 + i))) { ShowSideTab(i); return; }
     if (ctrl && pressed(ImGuiKey_Z)) { shift ? Redo() : Undo(); }
     if (ctrl && pressed(ImGuiKey_Y)) Redo();
     if (ctrl && !shift && pressed(ImGuiKey_N)) showNewDoc = true;
@@ -1162,6 +1147,15 @@ void App::DrawStatusBar() {
             if (u64 sb = gpu::Dev().SparseBytes()) snprintf(sparse, sizeof(sparse), " (creux %.0f Mo)", sb / (1024.0 * 1024.0));
             snprintf(right, sizeof(right), "%s   VRAM %.0f Mo%s   %.0f i/s", gpu::Dev().AdapterName().c_str(),
                      gpu::Dev().VideoMemoryUsage() / (1024.0 * 1024.0), sparse, ImGui::GetIO().Framerate);
+            // Zone toggles (Tab / Maj+Tab), left of the GPU info.
+            const char* tb = hideBottom ? "Afficher le graphe" : "Masquer le graphe";
+            const char* tr = hideRight ? "Afficher les panneaux" : "Masquer les panneaux";
+            float bw = ImGui::CalcTextSize(tb).x + ImGui::CalcTextSize(tr).x + ImGui::GetStyle().FramePadding.x * 4 + ImGui::GetStyle().ItemSpacing.x * 2;
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(right).x - 32 - bw);
+            if (ImGui::SmallButton(tb)) hideBottom = !hideBottom;
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Zone du bas (graphe, éditeur d'effets) - Tab");
+            if (ImGui::SmallButton(tr)) hideRight = !hideRight;
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Colonne de droite (onglets, calques) - Maj+Tab");
             ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(right).x - 16);
             ImGui::TextDisabled("%s", right);
             ImGui::EndMenuBar();
