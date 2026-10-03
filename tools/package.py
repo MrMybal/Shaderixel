@@ -99,7 +99,7 @@ EXAMPLES = [
     ('07_Courbes', 'curves', 40, 'Calque de réglage Courbes',
      "Éditeur de courbes avec l'histogramme en fond (Propriétés). Clic pour ajouter un point, clic droit pour supprimer ; panneau Histogramme."),
     ('08_Blend_If', 'blendif', 40, 'Options de fusion (Blend If)',
-     "La lueur ne s'applique que sur les zones sombres. Propriétés > Options de fusion : déplacez les poignées, Alt pour les séparer."),
+     "La lueur ne s'applique que sur les zones sombres. Propriétés > Options de fusion : déplacez les poignées, Alt pour les séparer ; Gris / Rouge / Vert / Bleu pour conditionner par canal."),
     ('09_Fluidite', 'liquify', 40, 'Fluidité',
      "Déformation avant, tourbillon et dilatation déjà appliqués. Outil Fluidité (groupe Goutte, clic droit) : essayez les modes dans Options."),
     ('10_Trace_plume', 'pen', 40, 'Outil Plume et tracés',
@@ -110,6 +110,10 @@ EXAMPLES = [
      "Un calque Correspondance de couleur avec une LUT .cube embarquée. Chargez LUT_Sarcelle_Orange.cube (ou la vôtre) depuis Propriétés."),
     ('13_Materiau_PBR', 'pbr', 40, 'Matériau PBR pour la peinture 3D',
      "Document organisé en canaux (couleur, rugosité, métal, normale, émissif, occlusion, hauteur). Onglet Vue 3D : Sphère ou « Ouvrir un maillage... » (Tore.glb), peignez avec le pinceau ; menu d'affichage pour voir un canal ; HDRI... (Ciel.hdr) ; Exporter les textures PBR + script Unreal."),
+    ('14_Deformation', 'warp', 31, 'Déformation (grille)',
+     "Les traits de peinture courbés par une déformation. Édition > Déformation : glissez les coins, les poignées ou directement la surface ; Entrée pour valider. Aussi depuis Ctrl+T, bouton « Passer en déformation »."),
+    ('15_Trace_depuis_selection', 'selpath', 22, 'Tracé depuis une sélection',
+     "Une ellipse percée d'un rectangle et un disque transformés en tracé. Sélection > Créer un tracé depuis la sélection (ou panneau Tracés, réglage de la tolérance) ; les tracés sont conservés dans les PSD exportés."),
 ]
 
 
