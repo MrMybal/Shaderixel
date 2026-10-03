@@ -86,7 +86,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -474,8 +474,11 @@ void App::Frame() {
     DrawCanvas();
     if (Shown("Panneaux")) DrawSidePanel();
     else for (int i = 0; i < kSideTabs; ++i) ImGui::DockSpace(ImHashStr(("##sxside" + std::to_string(i)).c_str()), ImVec2(0, 0), ImGuiDockNodeFlags_KeepAliveOnly);
+    MigrateLayout();
     DrawExtraWindows();
     if (Shown("Graphe")) DrawNodeEditor();  // first: tab order of the bottom zone
+    if (!ImGui::FindWindowByName("Palette de nœuds")) DockNewPanel(2, false);
+    if (Shown("Palette de nœuds")) DrawNodePalette();
     if (Shown("Calques")) DrawLayers();
     if (Shown("Vue 3D")) DrawView3D();
     if (Shown("Éditeur d'effets")) DrawEffectEditor();
@@ -486,15 +489,15 @@ void App::Frame() {
     if (Shown("Options")) DrawBrush();
     if (Shown("Historique")) DrawHistory();
     if (Shown("Tracés")) DrawPathsPanel();
-    if (!ImGui::FindWindowByName("Actions")) ImGui::SetNextWindowDockID(ImHashStr("##sxside1"), ImGuiCond_FirstUseEver);
+    if (!ImGui::FindWindowByName("Actions")) DockNewPanel(1, false);
     if (Shown("Actions")) DrawActionsPanel();
-    if (!ImGui::FindWindowByName("Compositions de calques")) ImGui::SetNextWindowDockID(ImHashStr("##sxside1"), ImGuiCond_FirstUseEver);
+    if (!ImGui::FindWindowByName("Compositions de calques")) DockNewPanel(1, false);
     if (Shown("Compositions de calques")) DrawLayerCompsPanel();
-    if (!ImGui::FindWindowByName("Styles de texte")) ImGui::SetNextWindowDockID(ImHashStr("##sxside1"), ImGuiCond_FirstUseEver);
+    if (!ImGui::FindWindowByName("Styles de texte")) DockNewPanel(1, false);
     if (Shown("Styles de texte")) DrawTextStylesPanel();
-    if (!ImGui::FindWindowByName("Nuancier")) ImGui::SetNextWindowDockID(ImHashStr("##sxside4"), ImGuiCond_FirstUseEver);
+    if (!ImGui::FindWindowByName("Nuancier")) DockNewPanel(4, false);
     if (Shown("Nuancier")) DrawSwatchesPanel();
-    if (!ImGui::FindWindowByName("Motifs")) ImGui::SetNextWindowDockID(ImHashStr("##sxside4"), ImGuiCond_FirstUseEver);
+    if (!ImGui::FindWindowByName("Motifs")) DockNewPanel(4, true);
     if (Shown("Motifs")) DrawPatternsPanel();
     DrawBatchWindow();
     DrawColorDialogs();
@@ -973,6 +976,12 @@ void App::DrawMenuBar() {
             if (ImGui::MenuItem("Adapter à l'écran", "Ctrl+0")) v->fitPending = true;
             if (ImGui::MenuItem("100 %", "Ctrl+1")) v->zoom = 1.0f;
             ImGui::Separator();
+            if (ImGui::BeginMenu("Mode de vue")) {
+                if (ImGui::MenuItem("Image finale", "Ctrl+Alt+1", v->viewMode == 0)) v->viewMode = 0;
+                if (ImGui::MenuItem("Calque sélectionné seul", "Ctrl+Alt+2", v->viewMode == 1)) v->viewMode = 1;
+                if (ImGui::MenuItem("Jusqu'au calque sélectionné", "Ctrl+Alt+3", v->viewMode == 2)) v->viewMode = 2;
+                ImGui::EndMenu();
+            }
             DrawProofMenu();
             ImGui::MenuItem("Fusion en sRGB", nullptr, &v->doc->blendInGamma);
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Mélange les calques en sRGB (comme Photoshop) au lieu de l'espace linéaire.");
@@ -1214,6 +1223,11 @@ void App::HandleShortcuts() {
     // Selection
     if (ctrl && !shift && pressed(ImGuiKey_A))
         v->renderer.SelectShape(d, *ctx, v->history, SelShape::All, {}, SelMode::Replace, false, 0, "Tout sélectionner"), RecordSelect("all");
+    if (ctrl && alt && !shift && v) {
+        if (pressed(ImGuiKey_1)) v->viewMode = 0;
+        if (pressed(ImGuiKey_2)) v->viewMode = 1;
+        if (pressed(ImGuiKey_3)) v->viewMode = 2;
+    }
     if (ctrl && alt && pressed(ImGuiKey_Y)) {
         if (shift) proof.gamutWarning = !proof.gamutWarning;
         else proof.on = !proof.on;
@@ -1357,6 +1371,22 @@ void App::DrawStatusBar() {
                 ImGui::Text("%u x %u  %s  %s", v->doc->Width(), v->doc->Height(),
                             v->doc->GetPrecision() == Precision::Float32 ? "32 bits" : "16 bits",
                             v->doc->Mode() == DocMode::Layers ? "Calques" : "Nodal");
+                ImGui::Separator();
+                {
+                    // View: final image / active layer only / up to the active layer.
+                    static const char* modes[] = {"Vue : finale", "Vue : calque seul", "Vue : jusqu'au calque"};
+                    ImGui::SetNextItemWidth(ImGui::CalcTextSize(modes[2]).x + ImGui::GetFrameHeight() * 1.6f);
+                    if (ImGui::BeginCombo("##viewmode", modes[std::clamp(v->viewMode, 0, 2)], ImGuiComboFlags_HeightSmall)) {
+                        for (int i = 0; i < 3; ++i)
+                            if (ImGui::Selectable(modes[i], v->viewMode == i)) v->viewMode = i;
+                        ImGui::EndCombo();
+                    }
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Ctrl+Alt+1 / 2 / 3");
+                    if (v->viewMode) {
+                        ImGui::SameLine();
+                        ImGui::TextColored(ImVec4(1, 0.55f, 0.1f, 1), "(aperçu partiel)");
+                    }
+                }
                 ImGui::Separator();
                 if (cursorInDoc) ImGui::Text("X %d  Y %d", (int)cursorDoc.x, (int)cursorDoc.y);
                 else ImGui::TextDisabled("X -  Y -");

@@ -94,6 +94,76 @@ std::string Lower(std::string s) {
 }
 }  // namespace
 
+void App::DrawNodePalette() {
+    if (!ImGui::Begin("Palette de nœuds", PanelFlag("Palette de nœuds"))) { ImGui::End(); return; }
+    ImGui::RadioButton("Graphe des calques", &paletteFocus, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Graphe d'effet", &paletteFocus, 1);
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::InputTextWithHint("##palsearch", "Rechercher un nœud...", &paletteSearch);
+    std::string q = Lower(paletteSearch);
+    ImGui::TextDisabled("Glisser sur le graphe, ou clic : au centre de la vue.");
+    ImGui::BeginChild("##pallist");
+    auto item = [&](const std::string& label, const std::string& key, const char* tip) {
+        if (ImGui::Selectable(label.c_str())) {
+            paletteAdd.pending = true;
+            paletteAdd.target = paletteFocus;
+            paletteAdd.key = key;
+            paletteAdd.hasPos = false;
+        }
+        if (tip && *tip && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", tip);
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+            std::string data = std::string(paletteFocus ? "1" : "0") + key;
+            ImGui::SetDragDropPayload(kPalettePayload, data.c_str(), data.size() + 1);
+            ImGui::TextUnformatted(label.c_str());
+            ImGui::EndDragDropSource();
+        }
+    };
+    if (paletteFocus == 0) {
+        static std::vector<NodeEntry> entries;
+        static u64 gen = ~0ull;
+        if (gen != Effects().Generation()) { entries = NodeEntries(); gen = Effects().Generation(); }
+        std::vector<std::string> cats;
+        for (auto& e : entries) if (std::find(cats.begin(), cats.end(), e.category) == cats.end()) cats.push_back(e.category);
+        for (auto& c : cats) {
+            bool any = false;
+            for (auto& e : entries) any |= e.category == c && (q.empty() || Lower(e.label + " " + e.category + " " + e.keywords).find(q) != std::string::npos);
+            if (!any) continue;
+            if (!q.empty()) ImGui::SetNextItemOpen(true);
+            if (!ImGui::TreeNodeEx(c.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth)) continue;
+            for (auto& e : entries) {
+                if (e.category != c || (!q.empty() && Lower(e.label + " " + e.category + " " + e.keywords).find(q) == std::string::npos)) continue;
+                ImGui::PushID(e.keywords.c_str());
+                item(e.label, e.label + "\x1f" + e.category, nullptr);
+                ImGui::PopID();
+            }
+            ImGui::TreePop();
+        }
+    } else {
+        // Effect graph operations allowed for the graph being edited.
+        EGKind kind = efEd.target == 2 ? EGKind::Brush : efEd.target == 1 ? EGKind::Blend : EGKind::Effect;
+        std::string lastCat;
+        bool open = false;
+        for (auto& od : EffectGraphOps()) {
+            if (std::string(od.op) == "output" || !OpAllowed(od, kind)) continue;
+            if (!q.empty() && Lower(std::string(od.label) + " " + od.op + " " + od.category).find(q) == std::string::npos) continue;
+            if (od.category != lastCat) {
+                if (open) ImGui::TreePop();
+                lastCat = od.category;
+                if (!q.empty()) ImGui::SetNextItemOpen(true);
+                open = ImGui::TreeNodeEx(od.category, ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen);
+            }
+            if (!open) continue;
+            ImGui::PushID(od.op);
+            item(od.label, od.op, nullptr);
+            ImGui::PopID();
+        }
+        if (open) ImGui::TreePop();
+    }
+    ImGui::EndChild();
+    ImGui::End();
+}
+
 void App::DrawNodeEditor() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     bool open = ImGui::Begin("Graphe", PanelFlag("Graphe"), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -303,7 +373,7 @@ void App::DrawNodeEditor() {
             if (!src) continue;
             int ch = InputChannel(n, i);
             bool sel = ed.selection.count(src->id) || ed.selection.count(n.id);
-            drawLink(outPin(*src, linkPin(*src, ch)), inPin(n, i), sel ? ui::col::Accent2 : TypeColor(ch ? PinType::Channel : PinType::RGBA, 200), sel ? 3.0f : 2.0f);
+            drawLink(outPin(*src, linkPin(*src, ch)), inPin(n, i), sel ? ui::col::Selection : TypeColor(ch ? PinType::Channel : PinType::RGBA, 200), sel ? 3.0f : 2.0f);
         }
     }
     if (ed.draggingLink) {
@@ -328,8 +398,9 @@ void App::DrawNodeEditor() {
         ImU32 hc = HeaderColor(n);
         if (n.bypass) hc = (hc & 0x00FFFFFF) | 0x60000000;
         dl->AddRectFilled(a, ImVec2(b.x, a.y + kHeader * ed.zoom), hc, r, ImDrawFlags_RoundCornersTop);
-        ImU32 border = failedNode ? ui::col::Error : selected ? ui::col::Accent : (n.id == hoverNode ? IM_COL32(110, 110, 130, 255) : ui::col::Border);
-        dl->AddRect(a, b, border, r, 0, selected || failedNode ? 2.0f : 1.0f);
+        ImU32 border = failedNode ? ui::col::Error : selected ? ui::col::Selection : (n.id == hoverNode ? IM_COL32(110, 110, 130, 255) : ui::col::Border);
+        if (selected) dl->AddRect(ImVec2(a.x - 3, a.y - 3), ImVec2(b.x + 3, b.y + 3), IM_COL32(255, 140, 0, 90), r + 3, 0, 4.0f);
+        dl->AddRect(a, b, border, r, 0, selected ? 3.0f : failedNode ? 2.0f : 1.0f);
         if (drawText) {
             std::string title = n.name;
             if (isPaint) title = "\xE2\x9C\x8E " + title;  // pencil mark on the paint target
@@ -496,6 +567,40 @@ void App::DrawNodeEditor() {
             }
         }
         ImGui::EndPopup();
+    }
+
+    // Node palette: drag and drop on the canvas, or click (added at the center of the view).
+    if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) paletteFocus = 0;
+    if (const ImGuiPayload* pl = ImGui::GetDragDropPayload(); pl && pl->IsDataType(kPalettePayload) && ((const char*)pl->Data)[0] == '0' &&
+        ImGui::IsMouseHoveringRect(origin, ImVec2(origin.x + size.x, origin.y + size.y))) {
+        if (ImGui::BeginDragDropTargetCustom(ImRect(origin, ImVec2(origin.x + size.x, origin.y + size.y)), ImGui::GetID("##paldrop"))) {
+            if (const ImGuiPayload* got = ImGui::AcceptDragDropPayload(kPalettePayload)) {
+                paletteAdd.pending = true;
+                paletteAdd.target = 0;
+                paletteAdd.key = (const char*)got->Data + 1;
+                paletteAdd.hasPos = true;
+                paletteAdd.screenPos = mouse;
+            }
+            ImGui::EndDragDropTarget();
+        }
+    }
+    if (paletteAdd.pending && paletteAdd.target == 0) {
+        paletteAdd.pending = false;
+        static std::vector<NodeEntry> entries;
+        static u64 gen = ~0ull;
+        if (gen != Effects().Generation()) { entries = NodeEntries(); gen = Effects().Generation(); }
+        for (auto& e : entries) {
+            if (e.label + "\x1f" + e.category != paletteAdd.key) continue;
+            float2 at = paletteAdd.hasPos ? toGraph(paletteAdd.screenPos) : toGraph(ImVec2(origin.x + size.x * 0.5f, origin.y + size.y * 0.5f));
+            at = at - float2{kNodeW * 0.5f, 20};
+            toNodeMode();
+            DocState before = d.S();
+            Id nid = e.make(d, at);
+            d.S().activeNode = nid;
+            ed.selection = {nid};
+            v->history.PushState("Ajouter un nœud", before, d.S());
+            break;
+        }
     }
 
     // Effect dropped from the effects browser: on a layer node -> filter of that

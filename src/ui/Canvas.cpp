@@ -226,8 +226,16 @@ void App::DrawCanvas() {
         float x0 = -v->pan.x * iz, y0 = -v->pan.y * iz;
         v->renderer.SetVisibleRect({(int)std::floor(x0), (int)std::floor(y0), (int)std::ceil(x0 + vw * iz), (int)std::ceil(y0 + vh * iz)});
     }
+    // View modes: up to the active layer (graph without the layers above it), active layer only.
+    const bool upTo = v->viewMode == 2 && doc.Mode() == DocMode::Layers && doc.S().activeLayer;
+    if (upTo) doc.BuildViewGraph(doc.S().activeLayer);
     gpu::Texture* image = v->renderer.Evaluate(doc, *ctx);
+    if (upTo) doc.BuildViewGraph(0);
     v->lastImage = image;
+    if (v->viewMode == 1) {
+        u64 h = 0;
+        if (gpu::Texture* t = ActiveLayerContent(*v, h)) image = t;
+    }
     if (!v->viewTex || v->viewTex->Width() != vw || v->viewTex->Height() != vh)
         v->viewTex = gpu::Dev().CreateTexture(vw, vh, gpu::Format::RGBA8, "Viewport");
     ViewParams vp;

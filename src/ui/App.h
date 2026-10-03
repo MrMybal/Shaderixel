@@ -117,6 +117,7 @@ struct DocView {
     std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
     std::unique_ptr<MeshScene> mesh;          // 3D painting scene (optional)
     std::unordered_map<Id, gpu::TexturePtr> snapshots;  // history brush sources (layer state before the first edit)
+    int viewMode = 0;                         // 0 final image, 1 active layer only, 2 up to the active layer
     std::string displayLutKey;                // color management chain of displayLut
     gpu::TexturePtr displayLut;
     int displayLutN = 0;
@@ -164,6 +165,21 @@ struct EffectEditorState {
     std::string cachedJson;
     EffectGraph graph;
     std::optional<DocState> pendingBefore;
+    // Library page and edit session (EffectLibrary.cpp).
+    bool browse = false;
+    int browseKind = 0;  // 0 effects, 1 blends, 2 brushes
+    std::string browseSearch, browseSel;
+    bool unlock = false;
+    struct Session {
+        bool active = false;
+        DocState before;
+        BrushSettings brushBefore, eraserBefore;
+        std::string prevWindow;
+        int prevSideTab = 0;
+        bool prevHideBottom = false;
+        std::string libId;  // original opened for editing ("" = copy)
+        int libKind = 0;
+    } session;
 };
 
 struct AssistantState {
@@ -194,6 +210,7 @@ gpu::Texture* LayerBelow(DocView& v, u64& hash);
 
 // Drag & drop payload: a library effect id (effects browser -> graph, layers, canvas).
 inline constexpr const char* kEffectPayload = "SX_EFFECT";
+inline constexpr const char* kPalettePayload = "SX_PALETTE";  // node palette item: "<0|1><key>"
 
 class App {
 public:
@@ -208,6 +225,8 @@ public:
     std::vector<bool> extraWindows;  // "Fenêtre 2..." (open flags)
     struct PanelOpenFlag { bool open = true; };
     std::map<std::string, PanelOpenFlag> panelOpen;  // closed panels (tab cross)
+    static constexpr int kLayoutMigration = 2;
+    int layoutMigration = 0, layoutMigrationFrames = 0;  // saved layouts from older versions start at 0
 
 private:
     std::string pendingLayoutIni, pendingLayoutName, layoutName;
@@ -217,6 +236,18 @@ private:
     float ToolbarWidth() const;
     void DrawSidePanel();
     void ShowSideTab(int tab);
+    void DockNewPanel(int tab, bool lower);
+    // Node palette (NodeEditor.cpp): adds nodes to the layer graph (0) or the effect graph (1).
+    int paletteFocus = 0;
+    struct {
+        bool pending = false, hasPos = false;
+        int target = 0;
+        std::string key;
+        ImVec2 screenPos;
+    } paletteAdd;
+    std::string paletteSearch;
+    void DrawNodePalette();
+    void MigrateLayout();
     void DrawExtraWindows();
     void NewExtraWindow();
     bool Shown(const char* window) const;
@@ -356,6 +387,15 @@ private:
     std::string TipTexturePath(const BrushSettings& b, const struct BrushDef& td, size_t i) const;
     bool TipTexturesUI(BrushSettings& b, const struct BrushDef& td);
     u64 BrushPreviewVersion(const BrushSettings& b, const struct BrushDef& td) const;
+    void BrushStrokePreview(BrushSettings& b, const struct BrushDef* td, float h);
+    void BrushTipPicker(BrushSettings& b);
+    void BeginEditSession(const char* prevWindow);
+    void EndEditSession(bool cancel);
+    std::string LibraryTextOf(const EffectInstance& fx);
+    bool SaveOriginal(std::string* err);
+    void OpenLibraryItem(int kind, const std::string& id, bool original);
+    void DrawEffectLibraryPage();
+    void DrawEditSessionBar();
     std::vector<PointerSample> frameSamples;  // pointer samples of this frame (canvas, 3D view, brush pad)
     struct {
         bool stroking = false, ready = false;

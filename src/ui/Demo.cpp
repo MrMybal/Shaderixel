@@ -300,6 +300,56 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 62) {
+        // Effect editor library page (SX_OP=browse) or an opened template (SX_OP=open) / original of a brush (SX_OP=brush).
+        char op[16] = "browse";
+        GetEnvironmentVariableA("SX_OP", op, sizeof(op));
+        std::string o = op;
+        if (frameCounter == 5) {
+            hideBottom = false;
+            ImGui::SetWindowFocus("Éditeur d'effets");
+            if (o == "browse") {
+                efEd.browse = true;
+                efEd.browseSearch = "flou";
+                efEd.browseSel = "gaussian_blur";
+            } else if (o == "open") {
+                BeginEditSession("Calques");
+                OpenLibraryItem(0, "cy_effect_bloom", false);
+            } else {
+                BeginEditSession("Options");
+                OpenLibraryItem(2, "cy_bristle", true);
+            }
+        }
+        if (frameCounter == 9) ImGui::SetWindowFocus("Éditeur d'effets");
+        if (frameCounter == 12 && GetEnvironmentVariableA("SX_PAL", nullptr, 0) > 0) {
+            // Node palette: one node in the effect graph (center of the view) and one in the layer graph.
+            ShowSideTab(2);
+            ImGui::SetWindowFocus("Palette de nœuds");
+            paletteFocus = 1;
+            paletteAdd.pending = true;
+            paletteAdd.target = 1;
+            paletteAdd.key = "noise";
+            paletteAdd.hasPos = false;
+        }
+        if (frameCounter == 15 && GetEnvironmentVariableA("SX_PAL", nullptr, 0) > 0) {
+            paletteAdd.pending = true;
+            paletteAdd.target = 0;
+            paletteAdd.key = std::string("Séparer RGBA (R, V, B, A)") + '\x1f' + "Canaux";
+            paletteAdd.hasPos = false;
+        }
+        if (frameCounter == 20 && GetEnvironmentVariableA("SX_PAL", nullptr, 0) > 0 && Active()) {
+            int splits = 0;
+            for (auto& n : Active()->doc->S().graph.nodes) splits += n.kind == NodeKind::Split;
+            Log("[demo] palette: effect graph %zu nodes, layer graph splits %d, mode %s", efEd.graph.nodes.size(), splits,
+                Active()->doc->Mode() == DocMode::Nodes ? "nodal" : "calques");
+        }
+        if (frameCounter == 24 && o == "open" && GetEnvironmentVariableA("SX_CANCEL", nullptr, 0) > 0) {
+            size_t before = Active() ? Active()->doc->S().layers.size() : 0;
+            EndEditSession(true);
+            Log("[demo] edit cancelled: filters back to %zu layers, focus restored", before);
+        }
+        return;
+    }
     if (demoMode == 61) {
         // Shape booleans: four shapes, one per operation, plus a .sxl round trip (SX_OUT).
         if (frameCounter == 4) NewDocument(1200, 400, Precision::Half16, DocMode::Layers, 0, "Booléens");

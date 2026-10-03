@@ -575,12 +575,18 @@ struct GraphBuilder {
         return src;
     }
 
+    bool ViewHidden(const Layer& l) const {
+        return doc.viewUpTo && l.id != doc.viewUpTo && doc.LayerIndex(l.id) > doc.LayerIndex(doc.viewUpTo) && !doc.IsDescendant(doc.viewUpTo, l.id);
+    }
+
     Id Stack(Id parent, Id base) {
         const auto& layers = doc.S().layers;
         std::vector<const Layer*> kids;
         for (auto& l : layers) if (l.parent == parent) kids.push_back(&l);
         for (size_t i = 0; i < kids.size(); ++i) {
             const Layer& l = *kids[i];
+            // View "up to the layer": everything above it is left out (its groups stay).
+            if (ViewHidden(l)) continue;
             // Clipped layers directly above l (l itself may not be clipped).
             size_t j = i + 1;
             while (j < kids.size() && kids[j]->clipped && kids[j]->kind != LayerKind::Group) ++j;
@@ -603,6 +609,7 @@ struct GraphBuilder {
             }
             for (size_t k = i + 1; k < j; ++k) {
                 const Layer& c = *kids[k];
+                if (ViewHidden(c)) continue;
                 float cy = 0;
                 Id cc = Content(c, content, cy);
                 content = Blend(c, content, cc, MaskNode(c, {x - 130, cy + 280}), c.blend, c.opacity, true, !c.visible, {x + 40, cy + 560}, RoleBlend);

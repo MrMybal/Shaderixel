@@ -1282,24 +1282,12 @@ void App::DrawBrush() {
             }
             ImGui::Separator();
         }
-        // Programmable tip (brush and eraser).
+        // Brush: stroke preview (white on transparent), tip, its settings - everything in one place.
         auto td = (tool == Tool::Brush || tool == Tool::Eraser) ? TipDef(b) : nullptr;
+        BrushStrokePreview(b, td.get(), 84 * dpi);
         if (tool == Tool::Brush || tool == Tool::Eraser) {
-            const char* tipName = td && td->def ? td->def->name.c_str() : "Ronde (standard)";
-            if (ImGui::BeginCombo("Pointe", tipName)) {
-                if (ImGui::Selectable("Ronde (standard)", !td)) SelectTip(b, "");
-                std::vector<std::string> cats;
-                for (auto& x : Brushes().All())
-                    if (x->def && std::find(cats.begin(), cats.end(), x->def->category) == cats.end()) cats.push_back(x->def->category);
-                for (auto& c : cats) {
-                    ImGui::SeparatorText(c.c_str());
-                    for (auto& x : Brushes().All())
-                        if (x->def && x->def->category == c && ImGui::Selectable((x->def->name + "##" + x->id).c_str(), b.tipId == x->id && b.tipCode.empty()))
-                            SelectTip(b, x->id);
-                }
-                ImGui::EndCombo();
-            }
-            ui::HelpTooltip("Pointes programmables : forme, couleur et placement des touches écrits en shader (panneau Pinceaux).");
+            BrushTipPicker(b);
+            td = TipDef(b);
         }
         if (td) {
             EffectInstance fx;
@@ -1307,45 +1295,29 @@ void App::DrawBrush() {
             fx.params = b.tipParams;
             if (EffectParamsUI(fx, "tip")) b.tipParams = fx.params;
             TipTexturesUI(b, *td);
-            if (ImGui::SmallButton("Modifier le code du pinceau")) ImGui::SetWindowFocus("Pinceaux");
-            if (td->airbrush > 0) {
-                ImGui::SameLine();
-                ImGui::TextDisabled("aérographe %.0f/s", td->airbrush);
+            if (td->airbrush > 0) ImGui::TextDisabled("Aérographe : %.0f touches/s", td->airbrush);
+        }
+        if (tool == Tool::Brush || tool == Tool::Eraser) {
+            if (ImGui::SmallButton(td ? "Éditer le pinceau" : "Nouveau pinceau (code)")) {
+                if (!td) {
+                    b.tipId.clear();
+                    b.tipGraph.clear();
+                    b.tipCode = kBrushTemplate;
+                    b.tipParams = ParseBrush("edit", b.tipCode)->def->DefaultParams();
+                }
+                OpenGraphEditor(2);
+            }
+            ui::HelpTooltip("Ouvre le pinceau dans l'Éditeur d'effets (une copie : la bibliothèque reste intacte).");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Nouveau (graphe)")) {
+                b.tipId.clear();
+                b.tipCode.clear();
+                b.tipGraph = EffectGraph::DefaultBrush().Serialize();
+                if (auto nd = TipDef(b); nd && nd->def) b.tipParams = nd->def->DefaultParams();
+                OpenGraphEditor(2);
             }
         }
-        if (td && v) {
-            // Sample stroke rendered with the tip.
-            std::string err;
-            float w = ImGui::GetContentRegionAvail().x, h = 70 * dpi;
-            EffectInstance tip;
-            tip.params = b.tipParams;
-            BindTipTextures(b, *td);
-            BrushSettings ps = b;
-            ps.size = std::min(b.size, h * 0.4f / dpi * dpi);
-            if (gpu::Texture* t = v->renderer.BrushPreview(*ctx, *td, tip, ps, LinearColor(fg), (u32)w, (u32)h, &err)) {
-                gpu::Texture* th = v->renderer.Thumbnail(*ctx, (1ull << 59) | 1, t, BrushPreviewVersion(ps, *td) ^ (u64)w, (u32)w, (u32)h);
-                ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(th), ImVec2(w, h));
-            }
-            if (!err.empty()) ImGui::TextColored(ImVec4(1, 0.45f, 0.45f, 1), "%s", err.substr(0, 300).c_str());
-        } else {
-        // Live preview of the dab profile.
-        ImVec2 p = ImGui::GetCursorScreenPos();
-        float w = ImGui::GetContentRegionAvail().x, h = 30 * dpi;
-        ImDrawList* dl = ImGui::GetWindowDrawList();
-        dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), IM_COL32(20, 20, 24, 255), 4);
-        const int N = 48;
-        for (int i = 0; i < N; ++i) {
-            float x = (float)i / (N - 1);
-            float d = std::abs(x - 0.5f) * 2.0f;
-            float inner = b.hardness;
-            float cov = d <= inner ? 1.0f : 1.0f - std::clamp((d - inner) / std::max(1.0f - inner, 1e-3f), 0.0f, 1.0f);
-            cov = cov * cov * (3 - 2 * cov);
-            float bh = cov * (h - 8) * b.opacity;
-            float x0 = p.x + 4 + x * (w - 8);
-            dl->AddRectFilled(ImVec2(x0, p.y + h - 4 - bh), ImVec2(x0 + (w - 8) / N, p.y + h - 4), ui::col::Accent);
-        }
-        ImGui::Dummy(ImVec2(w, h));
-        }
+        ImGui::SeparatorText("Réglages");
         ImGui::SliderFloat("Taille", &b.size, 1, 2000, "%.0f px", ImGuiSliderFlags_Logarithmic);
         ImGui::SliderFloat("Dureté", &b.hardness, 0, 1, "%.2f");
         ImGui::SliderFloat("Opacité", &b.opacity, 0, 1, "%.2f");

@@ -312,6 +312,16 @@ public:
 
     // Rebuild the generated graph (call after any layer change in layer mode).
     void SyncGraph();
+    // View "up to the layer": graph without the layers above `layer` (0 = full graph). Not a document edit.
+    void BuildViewGraph(Id layer) {
+        if (state.mode != DocMode::Layers) return;
+        Id keep = state.activeNode;
+        viewUpTo = layer;
+        RebuildFromLayers();
+        viewUpTo = 0;
+        state.activeNode = keep;
+    }
+    Id viewUpTo = 0;
 
     // Mode conversion.
     void ConvertToNodes();

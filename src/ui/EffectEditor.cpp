@@ -120,8 +120,17 @@ void App::DrawEffectEditor() {
     }
     const bool brushMode = ed.target == 2;
 
-    // What is edited: effect, blend of the active layer, current brush.
+    // Library page (templates, originals) or the edit itself.
     ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + 8 * dpi, ImGui::GetCursorPosY() + 6 * dpi));
+    if (ed.browse) {
+        DrawEffectLibraryPage();
+        ImGui::End();
+        return;
+    }
+    DrawEditSessionBar();
+    if (ed.browse) { ImGui::End(); return; }
+    ImGui::SameLine(0, 20 * dpi);
+    // What is edited: effect, blend of the active layer, current brush.
     ImGui::AlignTextToFramePadding();
     ImGui::TextDisabled("Éditer :");
     ImGui::SameLine();
@@ -193,7 +202,14 @@ void App::DrawEffectEditor() {
             ImGui::End();
             return;
         }
-        ImGui::TextWrapped("Sélectionnez un effet basé sur un graphe (nœud, calque de réglage ou de remplissage).");
+        if (!fx) {
+            // Nothing to edit here: the library (templates, originals, new).
+            ImGui::EndGroup();
+            DrawEffectLibraryPage();
+            ImGui::End();
+            return;
+        }
+        ImGui::TextWrapped("Cet effet n'est pas un graphe.");
         ImGui::Spacing();
         if (fx && ImGui::Button("Convertir cet effet en graphe vide")) {
             DocState before = d.S();
@@ -669,7 +685,7 @@ void App::DrawEffectEditor() {
     for (auto& n : g.nodes)
         for (int i = 0; i < (int)n.inputs.size(); ++i) {
             const EGNode* s = n.inputs[i].node ? g.Find(n.inputs[i].node) : nullptr;
-            if (s) link(outPin(*s, n.inputs[i].output), inPin(n, i), (s->id == ed.selected || n.id == ed.selected) ? ui::col::Accent2 : typeColor(cr.OutType(s->id, n.inputs[i].output), 200));
+            if (s) link(outPin(*s, n.inputs[i].output), inPin(n, i), (s->id == ed.selected || n.id == ed.selected) ? ui::col::Selection : typeColor(cr.OutType(s->id, n.inputs[i].output), 200));
         }
     if (ed.dragLink) {
         if (ed.linkFrom) { if (const EGNode* s = g.Find(ed.linkFrom)) link(outPin(*s, ed.linkFromOut), m, ui::col::Accent); }
@@ -692,7 +708,8 @@ void App::DrawEffectEditor() {
         dl->AddRectFilled(a, b, ui::col::PanelLight, r);
         dl->AddRectFilled(a, ImVec2(b.x, a.y + kHead * ed.zoom), CategoryColor(od->category), r, ImDrawFlags_RoundCornersTop);
         bool selected = n.id == ed.selected;
-        dl->AddRect(a, b, errNodes.count(n.id) ? ui::col::Error : selected ? ui::col::Accent : ui::col::Border, r, 0, selected ? 2.0f : 1.0f);
+        if (selected) dl->AddRect(ImVec2(a.x - 3, a.y - 3), ImVec2(b.x + 3, b.y + 3), IM_COL32(255, 140, 0, 90), r + 3, 0, 4.0f);
+        dl->AddRect(a, b, errNodes.count(n.id) ? ui::col::Error : selected ? ui::col::Selection : ui::col::Border, r, 0, selected ? 3.0f : 1.0f);
         if (text) {
             std::string title = (n.op == "param" || n.op == "paramcolor" || n.op == "param2" || n.op == "custom") && !n.name.empty()
                                     ? (n.op == "custom" ? "HLSL : " + n.name : !n.text.empty() ? n.text : n.name)
@@ -741,6 +758,47 @@ void App::DrawEffectEditor() {
         }
     }
 
+    auto addAt = [&](const EGOpDef& od, float2 at) {
+        EGNode n;
+        n.id = g.nextId++;
+        n.op = od.op;
+        n.pos = at;
+        n.inputs.resize(od.inputs.size());
+        if (n.op == "param") { n.name = "Valeur"; n.value = {0.5f, 0, 0, 0}; }
+        if (n.op == "param2") { n.name = "Position"; n.value = {0.5f, 0.5f, 0, 0}; }
+        if (n.op == "paramcolor") { n.name = "Couleur"; n.value = {1, 0.5f, 0.2f, 1}; }
+        if (n.op == "color") n.value = {1, 1, 1, 1};
+        if (n.op == "const") n.value = {1, 0, 0, 0};
+        if (n.op == "custom") n.text = "    return A * B;";
+        if (n.op == "mask") n.index = 7;
+        g.nodes.push_back(n);
+        ed.selected = n.id;
+        changed = true;
+        changeLabel = std::string("Ajouter ") + od.label;
+    };
+    // Node palette: drop on the canvas, or click (center of the view).
+    if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) paletteFocus = 1;
+    if (const ImGuiPayload* pl = ImGui::GetDragDropPayload(); pl && pl->IsDataType(kPalettePayload) && ((const char*)pl->Data)[0] == '1' &&
+        ImGui::IsMouseHoveringRect(origin, ImVec2(origin.x + size.x, origin.y + size.y))) {
+        if (ImGui::BeginDragDropTargetCustom(ImRect(origin, ImVec2(origin.x + size.x, origin.y + size.y)), ImGui::GetID("##efpaldrop"))) {
+            if (const ImGuiPayload* got = ImGui::AcceptDragDropPayload(kPalettePayload)) {
+                paletteAdd.pending = true;
+                paletteAdd.target = 1;
+                paletteAdd.key = (const char*)got->Data + 1;
+                paletteAdd.hasPos = true;
+                paletteAdd.screenPos = io.MousePos;
+            }
+            ImGui::EndDragDropTarget();
+        }
+    }
+    if (paletteAdd.pending && paletteAdd.target == 1) {
+        paletteAdd.pending = false;
+        for (auto& od : EffectGraphOps())
+            if (paletteAdd.key == od.op && OpAllowed(od, g.kind)) {
+                addAt(od, paletteAdd.hasPos ? toG(paletteAdd.screenPos) : toG(ImVec2(origin.x + size.x * 0.5f, origin.y + size.y * 0.5f)));
+                break;
+            }
+    }
     // Context menu: add node
     if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Right] < 16.0f) {
         ed.ctxPos = toG(m);
@@ -752,25 +810,6 @@ void App::DrawEffectEditor() {
         ImGui::InputTextWithHint("##s", "Rechercher...", ed.search, sizeof(ed.search));
         std::string q = ed.search;
         for (auto& c : q) c = (char)tolower((unsigned char)c);
-        auto add = [&](const EGOpDef& od) {
-            EGNode n;
-            n.id = g.nextId++;
-            n.op = od.op;
-            n.pos = ed.ctxPos;
-            n.inputs.resize(od.inputs.size());
-            if (n.op == "param") { n.name = "Valeur"; n.value = {0.5f, 0, 0, 0}; }
-            if (n.op == "param2") { n.name = "Position"; n.value = {0.5f, 0.5f, 0, 0}; }
-            if (n.op == "paramcolor") { n.name = "Couleur"; n.value = {1, 0.5f, 0.2f, 1}; }
-            if (n.op == "color") n.value = {1, 1, 1, 1};
-            if (n.op == "const") n.value = {1, 0, 0, 0};
-            if (n.op == "custom") n.text = "    return A * B;";
-            if (n.op == "mask") n.index = 7;
-            g.nodes.push_back(n);
-            ed.selected = n.id;
-            changed = true;
-            changeLabel = std::string("Ajouter ") + od.label;
-            ImGui::CloseCurrentPopup();
-        };
         std::string lastCat;
         for (auto& od : EffectGraphOps()) {
             if (std::string(od.op) == "output" || !OpAllowed(od, g.kind)) continue;
@@ -778,7 +817,7 @@ void App::DrawEffectEditor() {
                 std::string l = od.label;
                 for (auto& c : l) c = (char)tolower((unsigned char)c);
                 if (l.find(q) == std::string::npos && std::string(od.op).find(q) == std::string::npos) continue;
-                if (ImGui::MenuItem(od.label)) add(od);
+                if (ImGui::MenuItem(od.label)) { addAt(od, ed.ctxPos); ImGui::CloseCurrentPopup(); }
                 continue;
             }
             if (od.category != lastCat) {
@@ -786,7 +825,7 @@ void App::DrawEffectEditor() {
                 ImGui::TextDisabled("%s", od.category);
                 lastCat = od.category;
             }
-            if (ImGui::MenuItem(od.label)) add(od);
+            if (ImGui::MenuItem(od.label)) { addAt(od, ed.ctxPos); ImGui::CloseCurrentPopup(); }
         }
         ImGui::EndPopup();
     }

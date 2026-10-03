@@ -36,6 +36,7 @@ void SettingsReadLine(ImGuiContext*, ImGuiSettingsHandler*, void*, const char* l
     unsigned u;
     if (sscanf(line, "Tab=%d", &i) == 1) a.sideTab = a.sideTabRequest = std::clamp(i, 0, App::kSideTabs - 1);
     else if (sscanf(line, "HideBottom=%d", &i) == 1) a.hideBottom = i != 0;
+    else if (sscanf(line, "Migration=%d", &i) == 1) a.layoutMigration = i;
     else if (sscanf(line, "HideRight=%d", &i) == 1) a.hideRight = i != 0;
     else if (sscanf(line, "Bottom=0x%08X", &u) == 1) a.bottomZone = u;
     else if (sscanf(line, "Right=0x%08X", &u) == 1) a.rightZone = u;
@@ -49,6 +50,7 @@ void SettingsWriteAll(ImGuiContext*, ImGuiSettingsHandler* h, ImGuiTextBuffer* b
     buf->appendf("[%s][State]\n", h->TypeName);
     buf->appendf("Tab=%d\nHideBottom=%d\nHideRight=%d\n", a.sideTab, a.hideBottom ? 1 : 0, a.hideRight ? 1 : 0);
     buf->appendf("Bottom=0x%08X\nRight=0x%08X\n", a.bottomZone, a.rightZone);
+    buf->appendf("Migration=%d\n", a.layoutMigration);
     buf->appendf("Windows=%d\n", (int)a.extraWindows.size());
     for (size_t i = 0; i < a.extraWindows.size(); ++i) buf->appendf("WindowOpen%d=%d\n", (int)i, a.extraWindows[i] ? 1 : 0);
     for (auto& [name, f] : a.panelOpen)
@@ -71,6 +73,7 @@ void App::RegisterWorkspaceSettings() {
 float App::ToolbarWidth() const { return (38.0f + 2 * 6.0f + 2.0f) * dpi; }
 
 void App::BuildDockLayout(ImGuiID dock) {
+    layoutMigration = kLayoutMigration;  // the default layout has every panel in place
     ImVec2 work = ImGui::GetMainViewport()->WorkSize;
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
@@ -124,6 +127,7 @@ void App::BuildDockLayout(ImGuiID dock) {
                 break;
             case 2:  // Effets
                 ImGui::DockBuilderDockWindow("Effets", id);
+                ImGui::DockBuilderDockWindow("Palette de nœuds", id);
                 break;
             case 3:  // Fusion
                 ImGui::DockBuilderDockWindow("Fusions", id);
@@ -143,9 +147,15 @@ void App::BuildDockLayout(ImGuiID dock) {
                 ImGui::DockBuilderDockWindow("Génération IA", id);
                 break;
         }
-        for (ImGuiID n : {top, low})
-            if (ImGuiDockNode* node = ImGui::DockBuilderGetNode(n)) node->LocalFlags |= ImGuiDockNodeFlags_AutoHideTabBar;
         ImGui::DockBuilderFinish(id);
+        // First panel of each group in front.
+        auto front = [&](ImGuiID node, const char* window) {
+            if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(node)) n->SelectedTabId = ImGui::FindWindowByName(window) ? ImGui::FindWindowByName(window)->TabId : 0;
+        };
+        if (i == 1) front(id, "Options");
+        if (i == 2) front(id, "Effets");
+        if (i == 4) { front(top, "Couleur"); front(low, "Pinceaux"); }
+        if (i == 0) front(low, "Propriétés");
     }
     // Extra windows start empty.
     for (size_t i = 0; i < extraWindows.size(); ++i) {
@@ -180,7 +190,43 @@ void App::DrawSidePanel() {
     for (int i = 0; i < kSideTabs; ++i)
         if (i != sideTab) ImGui::DockSpace(SideTabDock(i), ImVec2(0, 0), ImGuiDockNodeFlags_KeepAliveOnly);
     ImGui::DockSpace(SideTabDock(sideTab), ImGui::GetContentRegionAvail(), ImGuiDockNodeFlags_None);
+    // Panels of the side tabs always show their tab (move / close), also with older saved layouts.
+    ImGuiContext& g = *GImGui;
+    for (int n = 0; n < g.DockContext.Nodes.Data.Size; ++n) {
+        ImGuiDockNode* node = (ImGuiDockNode*)g.DockContext.Nodes.Data[n].val_p;
+        if (!node) continue;
+        ImGuiDockNode* root = node;
+        while (root->ParentNode) root = root->ParentNode;
+        bool side = false;
+        for (int i = 0; i < kSideTabs; ++i) side |= root->ID == SideTabDock(i);
+        if (side) node->LocalFlags &= ~(ImGuiDockNodeFlags_AutoHideTabBar | ImGuiDockNodeFlags_HiddenTabBar | ImGuiDockNodeFlags_NoTabBar);
+    }
     ImGui::End();
+}
+
+void App::MigrateLayout() {
+    // Panels added in later versions, left floating by an older saved layout: put them in their tab once.
+    if (layoutMigration >= kLayoutMigration) return;
+    if (++layoutMigrationFrames < 3) return;  // windows created first
+    struct P { const char* name; int tab; bool lower; };
+    static const P panels[] = {{"Actions", 1, false}, {"Compositions de calques", 1, false}, {"Styles de texte", 1, false},
+                               {"Nuancier", 4, false}, {"Motifs", 4, true}, {"Histogramme", 0, false},
+                               {"Palette de nœuds", 2, false}};
+    for (const P& p : panels) {
+        ImGuiWindow* w = ImGui::FindWindowByName(p.name);
+        if (!w || w->DockId) continue;
+        ImGuiDockNode* n = ImGui::DockBuilderGetNode(SideTabDock(p.tab));
+        while (n && n->IsSplitNode()) n = n->ChildNodes[p.lower ? 1 : 0] ? n->ChildNodes[p.lower ? 1 : 0] : n->ChildNodes[0];
+        if (n) ImGui::DockBuilderDockWindow(p.name, n->ID);
+    }
+    layoutMigration = kLayoutMigration;
+}
+
+void App::DockNewPanel(int tab, bool lower) {
+    // A panel added after the layout was saved: docked into a leaf of the side tab (first use only).
+    ImGuiDockNode* n = ImGui::DockBuilderGetNode(SideTabDock(tab));
+    while (n && n->IsSplitNode()) n = n->ChildNodes[lower ? 1 : 0] ? n->ChildNodes[lower ? 1 : 0] : n->ChildNodes[0];
+    if (n) ImGui::SetNextWindowDockID(n->ID, ImGuiCond_FirstUseEver);
 }
 
 void App::ShowSideTab(int tab) {
@@ -303,7 +349,7 @@ void App::DeleteLayout(const std::string& name) {
 void App::DrawPanelsMenu() {
     // Closed panels come back here (also from Fenêtre).
     static const char* names[] = {"Calques", "Graphe", "Aperçu du calque", "Éditeur d'effets", "Vue 3D", "Propriétés", "Historique", "Histogramme",
-                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Assistant IA", "Génération IA"};
+                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Palette de nœuds", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Assistant IA", "Génération IA"};
     if (!ImGui::BeginMenu("Panneaux")) return;
     for (const char* n : names) {
         bool open = PanelIsOpen(n);

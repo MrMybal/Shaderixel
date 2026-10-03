@@ -1,6 +1,7 @@
 // Brushes panel: programmable brush library (search, categories, preview),
 // code editor of the current tip (Tip / Dynamics), saving to the library.
 #include "ui/App.h"
+#include <imgui_internal.h>
 #include "ui/Theme.h"
 #include "doc/Brushes.h"
 #include "gpu/ShaderSystem.h"
@@ -177,10 +178,96 @@ void App::SelectTip(BrushSettings& b, const std::string& id) {
 }
 
 void App::OpenGraphEditor(int target) {
+    // An edit session remembers the state and the panel to come back to (Annuler / Valider).
+    if (!efEd.session.active) {
+        ImGuiWindow* nav = ImGui::GetCurrentContext()->NavWindow;
+        if (nav) nav = nav->RootWindow;  // the panel, not one of its child regions
+        std::string prev = nav ? nav->Name : "";
+        BeginEditSession(prev.c_str());
+    }
+    efEd.browse = false;
     efEd.target = target;
     efEd.cachedJson.clear();
     hideBottom = false;
     ImGui::SetWindowFocus("Éditeur d'effets");
+}
+
+// Stroke preview of the current tool: white ink on a transparent (checkered) background.
+void App::BrushStrokePreview(BrushSettings& b, const BrushDef* td, float h) {
+    DocView* v = Active();
+    if (!v) return;
+    // The standard round tip has no library entry: a built-in equivalent draws its preview.
+    static BrushDefPtr round = ParseBrush("_round_preview",
+                                          "//@name Ronde\n//@category Standard\nfloat4 Tip(Brush b)\n{\n"
+                                          "    float d = length(b.local);\n    return float4(b.color, 1.0 - smoothstep(b.hardness * 0.999, 1.0, d));\n}\n");
+    const BrushDef* def = td ? td : round.get();
+    if (!def) return;
+    float w = ImGui::GetContentRegionAvail().x;
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    // Checkerboard.
+    const float c = 8 * dpi;
+    dl->PushClipRect(p, ImVec2(p.x + w, p.y + h), true);
+    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), IM_COL32(52, 52, 58, 255));
+    for (int y = 0; y * c < h; ++y)
+        for (int x = 0; x * c < w; ++x)
+            if ((x + y) & 1) dl->AddRectFilled(ImVec2(p.x + x * c, p.y + y * c), ImVec2(p.x + (x + 1) * c, p.y + (y + 1) * c), IM_COL32(38, 38, 44, 255));
+    dl->PopClipRect();
+    EffectInstance tip;
+    if (td) {
+        tip.params = b.tipParams;
+        BindTipTextures(b, *td);
+    } else if (def->def) {
+        tip.params = def->def->DefaultParams();
+    }
+    BrushSettings ps = b;
+    ps.size = std::min(b.size, h * 0.42f);
+    std::string err;
+    if (gpu::Texture* t = v->renderer.BrushPreview(*ctx, *def, tip, ps, {1, 1, 1, 1}, (u32)w, (u32)h, &err)) {
+        gpu::Texture* th = v->renderer.Thumbnail(*ctx, (1ull << 59) | 3, t, BrushPreviewVersion(ps, *def) ^ (u64)w ^ ((u64)h << 20) ^ 0xC0FFEE, (u32)w, (u32)h);
+        ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(th), ImVec2(w, h));
+    } else {
+        ImGui::Dummy(ImVec2(w, h));
+    }
+    dl->AddRect(p, ImVec2(p.x + w, p.y + h), ui::col::Border, 3);
+    if (!err.empty()) ImGui::TextColored(ImVec4(1, 0.45f, 0.45f, 1), "%s", err.substr(0, 300).c_str());
+}
+
+// Tip picker: button with the current tip, popup with search and categories.
+void App::BrushTipPicker(BrushSettings& b) {
+    auto td = TipDef(b);
+    std::string name = td && td->def ? td->def->name : "Ronde (standard)";
+    if (ImGui::Button((name + "  \xE2\x96\xBE").c_str(), ImVec2(-FLT_MIN, 0))) ImGui::OpenPopup("##tippick");
+    ui::HelpTooltip("Choisir la pointe (pinceaux programmables, pinceaux importés .abr)");
+    ImGui::SetNextWindowSizeConstraints(ImVec2(260 * dpi, 120 * dpi), ImVec2(420 * dpi, 520 * dpi));
+    if (ImGui::BeginPopup("##tippick")) {
+        if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputTextWithHint("##tsearch", "Rechercher un pinceau...", &brushEd.search);
+        std::string q = Lower(brushEd.search);
+        ImGui::BeginChild("##tiplist", ImVec2(0, 400 * dpi));
+        if (ImGui::Selectable("Ronde (standard)", !td)) { SelectTip(b, ""); ImGui::CloseCurrentPopup(); }
+        std::vector<std::string> cats;
+        for (auto& x : Brushes().All())
+            if (x->def && std::find(cats.begin(), cats.end(), x->def->category) == cats.end()) cats.push_back(x->def->category);
+        for (auto& c : cats) {
+            bool any = false;
+            for (auto& x : Brushes().All())
+                if (x->def && x->def->category == c && (q.empty() || Lower(x->def->name + " " + c).find(q) != std::string::npos)) any = true;
+            if (!any) continue;
+            ImGui::SeparatorText(c.c_str());
+            for (auto& x : Brushes().All()) {
+                if (!x->def || x->def->category != c) continue;
+                if (!q.empty() && Lower(x->def->name + " " + c).find(q) == std::string::npos) continue;
+                if (ImGui::Selectable((x->def->name + "##" + x->id).c_str(), b.tipId == x->id && b.tipCode.empty())) {
+                    SelectTip(b, x->id);
+                    ImGui::CloseCurrentPopup();
+                }
+            }
+        }
+        ImGui::EndChild();
+        ImGui::EndPopup();
+    }
 }
 
 void App::DrawBrushPanel() {

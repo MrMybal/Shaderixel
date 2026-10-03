@@ -17,6 +17,7 @@ namespace col {
 constexpr ImU32 Accent = IM_COL32(124, 92, 255, 255);
 constexpr ImU32 AccentSoft = IM_COL32(124, 92, 255, 90);
 constexpr ImU32 Accent2 = IM_COL32(46, 196, 214, 255);
+constexpr ImU32 Selection = IM_COL32(255, 140, 0, 255);  // selected graph nodes / links
 constexpr ImU32 Text = IM_COL32(222, 224, 232, 255);
 constexpr ImU32 TextDim = IM_COL32(140, 144, 158, 255);
 constexpr ImU32 Panel = IM_COL32(30, 31, 36, 255);
