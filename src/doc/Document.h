@@ -112,7 +112,8 @@ struct Layer {
     float opacity = 1.0f;
     BlendIf blendIf;
     u8 channelOff = 0;        // channels the layer leaves untouched (bit 0 R, 1 G, 2 B, 3 A)
-    EffectInstance blendFx;   // custom blend (HLSL: A below, B the layer, mask), active when it has code
+    EffectInstance blendFx;   // custom blend (code or library effect: A below, B the layer, mask), see HasCustomBlend
+    bool HasCustomBlend() const { return !blendFx.customCode.empty() || !blendFx.effectId.empty(); }
     bool visible = true;
     bool locked = false;
     Id mask = 0;              // mask surface (0 = none)

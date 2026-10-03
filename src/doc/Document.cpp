@@ -475,7 +475,7 @@ struct GraphBuilder {
     float x = 0;
 
     Id Blend(const Layer& l, Id base, Id top, Id mask, BlendMode mode, float opacity, bool clip, bool bypass, float2 pos, u32 role) {
-        if (!l.blendFx.customCode.empty()) {
+        if (l.HasCustomBlend()) {
             // Custom blend: an effect node with inputs A (below), B (layer), mask.
             Node e;
             e.id = GenId(l.id, role);
@@ -484,7 +484,7 @@ struct GraphBuilder {
             e.fx = l.blendFx;
             if (auto def = e.fx.Def())
                 for (size_t i = 0; i < def->params.size() && i < e.fx.params.size(); ++i)
-                    if (def->params[i].id == "opacity") e.fx.params[i].x = opacity;  // layer opacity drives the template's parameter
+                    if (_stricmp(def->params[i].id.c_str(), "opacity") == 0) e.fx.params[i].x = opacity;  // layer opacity drives it
             e.bypass = bypass;
             e.inputs = {base, top, mask};
             e.pos = pos;

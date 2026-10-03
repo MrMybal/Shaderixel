@@ -337,7 +337,9 @@ void App::DrawLayers() {
     ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.55f);
     bool isGroup = active && active->kind == LayerKind::Group;
     const char* curBlend = !active ? "Normal" : (isGroup && active->passThrough) ? "Traverser"
-                           : !active->blendFx.customCode.empty() ? "Personnalisé (HLSL)" : BlendModeName(active->blend);
+                           : !active->blendFx.customCode.empty() ? "Personnalisé (HLSL)"
+                           : active->HasCustomBlend() ? (active->blendFx.Def() ? active->blendFx.Def()->name.c_str() : "Fusion d'effet")
+                           : BlendModeName(active->blend);
     if (ImGui::BeginCombo("##blend", curBlend)) {
         if (isGroup && ImGui::Selectable("Traverser", active->passThrough)) {
             active->passThrough = true;
@@ -347,7 +349,7 @@ void App::DrawLayers() {
         for (int i = 0; i < kBlendMenuCount; ++i) {
             int m = kBlendMenuOrder[i];
             if (m < 0) { ImGui::Separator(); continue; }
-            if (ImGui::Selectable(BlendModeName((BlendMode)m), active && (int)active->blend == m && !(isGroup && active->passThrough) && active->blendFx.customCode.empty())) {
+            if (ImGui::Selectable(BlendModeName((BlendMode)m), active && (int)active->blend == m && !(isGroup && active->passThrough) && !active->HasCustomBlend())) {
                 active->blend = (BlendMode)m;
                 active->passThrough = false;
                 active->blendFx = {};
@@ -356,8 +358,24 @@ void App::DrawLayers() {
             }
         }
         ImGui::Separator();
+        // Library blend effects (inputs Fond, Calque, Masque), e.g. imported CyTexture blends.
+        if (ImGui::BeginMenu("Fusions d'effets")) {
+            for (auto& def : Effects().All()) {
+                if (def->inputs.size() != 3 || def->category.find("Fusion") == std::string::npos) continue;
+                if (ImGui::MenuItem(def->name.c_str(), def->category.c_str(), active && active->blendFx.effectId == def->id)) {
+                    active->blendFx = {};
+                    active->blendFx.effectId = def->id;
+                    active->blendFx.params = def->DefaultParams();
+                    active->passThrough = false;
+                    d.SyncGraph();
+                    v->history.PushState("Mode de fusion", frameBefore, d.S());
+                }
+            }
+            ImGui::EndMenu();
+        }
         if (ImGui::Selectable("Personnalisé (HLSL)...", active && !active->blendFx.customCode.empty())) {
             if (active->blendFx.customCode.empty()) {
+                active->blendFx = {};
                 active->blendFx.customCode = kCustomBlendTemplate;
                 if (auto def = active->blendFx.Def()) active->blendFx.params = def->DefaultParams();
             }
@@ -657,11 +675,12 @@ void App::DrawProperties() {
                 }
                 ui::HelpTooltip("Décochez un canal pour que le calque ne le modifie pas (il reste celui des calques du dessous).");
             }
-            if (!l->blendFx.customCode.empty()) {
-                ImGui::SeparatorText("Fusion personnalisée");
+            if (l->HasCustomBlend()) {
+                ImGui::SeparatorText(l->blendFx.customCode.empty() ? "Fusion d'effet" : "Fusion personnalisée");
                 ImGui::TextDisabled("A = dessous, B = ce calque, masque = masque du calque ; opacité = opacité du calque.");
                 if (EffectParamsUI(l->blendFx, "blendfx")) changed = true;
-                CustomCodeUI(*v, l->blendFx, 0, "blend");
+                if (!l->blendFx.customCode.empty()) CustomCodeUI(*v, l->blendFx, 0, "blend");
+                else if (ImGui::SmallButton("Convertir en HLSL éditable")) ConvertToCustomCode(*v, l->blendFx);
                 if (ImGui::SmallButton("Revenir au mode Normal")) {
                     DocState before = d.S();
                     l->blendFx = {};

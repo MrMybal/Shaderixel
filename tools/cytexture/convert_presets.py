@@ -1,0 +1,135 @@
+"""Converts tools/cytexture/presets.json (from extract_presets.py) into Shaderixel
+library effects: shaders/effects/cy_<category>_<name>.slang.
+
+Every texture input of a CyTexture preset becomes an input of the effect (one
+pin per texture on graph nodes: CyInput = Image, CyBackground = Fond,
+CyForeground = Calque, CyMask = Masque, other textures keep their name).
+Scalar parameters keep their name, default and range; vector parameters become
+colors (or 2D values when the code only reads .x/.y). The Custom-node HLSL is
+kept as written: it runs inside a function receiving UV, CyCanvasSize and the
+parameters with the types Unreal gives them (float, float3), and
+Texture2DSample(T, S, uv) reads Shaderixel input T.
+
+Brush presets are skipped: they rely on CyTexture's brush engine (CyBrush*).
+
+    python tools/cytexture/convert_presets.py
+"""
+import json
+import os
+import re
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+OUT = os.path.join(ROOT, 'shaders', 'effects')
+
+CATEGORY = {'Draw': 'CyTexture Dessin', 'Effect': 'CyTexture Effets', 'Blend': 'CyTexture Fusions', 'Mask': 'CyTexture Masques'}
+INPUT_LABEL = {'CyInput': 'Image', 'CyBackground': 'Fond', 'CyForeground': 'Calque', 'CyMask': 'Masque'}
+SYSTEM = {'CyCanvasSize', 'CyBrushPosition', 'CyBrushSize', 'CyBrushHardness', 'CyBrushFlow', 'CyBrushColor', 'CyWriteChannels'}
+POSITION_HINTS = ('center', 'position', 'offset', 'direction', 'halfsize', 'size', 'origin', 'pivot', 'point', 'handle', 'scale', 'tiling', 'axis', 'start', 'end', 'focus')
+
+
+def words(name):
+    s = re.sub(r'(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])', ' ', name)
+    return s.replace('_', ' ').strip()
+
+
+def snake(name):
+    return re.sub(r'[^a-z0-9]+', '_', words(name).lower()).strip('_')
+
+
+def num(v):
+    s = ('%.6g' % v)
+    return s
+
+
+# Unreal's HLSL silently truncates vectors where Slang does not; the few presets
+# relying on it get the intended per-channel form.
+FIXUPS = {
+    'CRTDisplay': [('float triad=', 'float3 triad=')],
+}
+
+
+def convert(p):
+    code = p['code']
+    for old, new in FIXUPS.get(p['name'], []):
+        code = code.replace(old, new)
+    textures = p['textures']
+    lines = []
+    lines.append('//@name ' + words(p['name']))
+    lines.append('//@category ' + CATEGORY[p['category']])
+    if textures:
+        for t in textures:
+            lines.append('//@input ' + INPUT_LABEL.get(t, words(t.replace('Texture', '')) or t))
+    else:
+        lines.append('//@generator')
+    # Neighborhood: only plain reads at UV stay local.
+    reads = re.findall(r'Texture2DSample\s*\(\s*\w+\s*,\s*\w+\s*,\s*([^;]*?)\)', code)
+    local = all(r.strip() == 'UV' for r in reads) and '[loop]' not in code
+    lines.append('//@halo 0' if local else '//@halo full')
+    fn_params, call_args = ['float2 UV', 'float4 CyCanvasSize'], ['ctx.uv', 'float4(ctx.size, ctx.texel)']
+    for s in p['scalars']:
+        lines.append(f'//@param {s["name"]} float {num(s["default"])} {num(s["min"])} {num(s["max"])} "{words(s["name"])}"')
+        fn_params.append('float ' + s['name'])
+        call_args.append(s['name'])
+    for v in p['vectors']:
+        n = v['name']
+        if n in SYSTEM:
+            continue  # provided by the host (canvas size...), not a user parameter
+        uses = set(re.findall(re.escape(n) + r'\b(\.[a-zA-Z]+)?', code))
+        # Used whole inside dot(): Unreal truncates float4 -> float3 silently, Slang does not.
+        in_dot = re.search(r'dot\s*\([^;]*?\b' + re.escape(n) + r'\b(?!\.)', code) is not None
+        if in_dot and not uses & {'.rgb', '.xyz'}:
+            d = v['default']
+            lines.append(f'//@param {n} color {num(d[0])} {num(d[1])} {num(d[2])} {num(d[3])} "{words(n)}"')
+            call_args.append(n)
+            fn_params.append('float4 ' + n)
+            continue
+        planar = uses and uses <= {'.xy', '.x', '.y'} and any(h in n.lower() for h in POSITION_HINTS)
+        d = v['default']
+        if planar:
+            lo, hi = (0, 1) if all(0 <= x <= 1 for x in d[:2]) else (-2, 2)
+            lines.append(f'//@param {n} float2 {num(d[0])} {num(d[1])} {lo} {hi} "{words(n)}"')
+            call_args.append(f'float3({n}, 0.0)')
+        else:
+            lines.append(f'//@param {n} color {num(d[0])} {num(d[1])} {num(d[2])} {num(d[3])} "{words(n)}"')
+            call_args.append(f'{n}.rgb')
+        fn_params.append('float3 ' + n)
+    lines.append('')
+    lines.append(f'// Imported from CyTexture ({p["category"]} / {p["group"]}): {p["description"]}')
+    lines.append('// Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.')
+    # Unconnected textures read as Unreal's default texture (white), like in CyTexture.
+    lines.append('float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }')
+    lines.append('#define Texture2DSample(T, S, UVS) CyTex(T, UVS)')
+    for i, t in enumerate(textures):
+        lines.append(f'static const uint {t} = {i};')
+    lines.append('')
+    lines.append('float4 CyPreset(' + ', '.join(fn_params) + ')')
+    lines.append('{')
+    lines.append('    ' + code)
+    lines.append('}')
+    lines.append('')
+    lines.append('float4 Effect(EffectContext ctx)')
+    lines.append('{')
+    lines.append('    return CyPreset(' + ', '.join(call_args) + ');')
+    lines.append('}')
+    return '\n'.join(lines) + '\n'
+
+
+def main():
+    presets = json.load(open(os.path.join(HERE, 'presets.json'), encoding='utf-8'))
+    written, skipped = 0, []
+    for name in os.listdir(OUT):
+        if name.startswith('cy_') and name.endswith('.slang'):
+            os.remove(os.path.join(OUT, name))
+    for p in presets:
+        if p['category'] not in CATEGORY:
+            skipped.append(p['category'] + '/' + p['name'])
+            continue
+        fname = f'cy_{p["category"].lower()}_{snake(p["name"])}.slang'
+        open(os.path.join(OUT, fname), 'w', encoding='utf-8', newline='\n').write(convert(p))
+        written += 1
+    print(f'{written} effects written to {OUT}; skipped {len(skipped)} brush presets')
+
+
+if __name__ == '__main__':
+    main()

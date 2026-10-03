@@ -292,7 +292,7 @@ Json SerializeDocument(const Document& doc) {
         if (l.surface) o["surface"] = l.surface;
         if (l.kind == LayerKind::Fill || l.kind == LayerKind::Adjustment) o["effect"] = EffectToJson(l.effect);
         if (l.channelOff) o["channelOff"] = (int)l.channelOff;
-        if (!l.blendFx.customCode.empty()) o["blendFx"] = EffectToJson(l.blendFx);
+        if (l.HasCustomBlend()) o["blendFx"] = EffectToJson(l.blendFx);
         if (!l.filters.empty()) {
             Json f = Json::Array();
             for (auto& x : l.filters) f.Push(EffectToJson(x));

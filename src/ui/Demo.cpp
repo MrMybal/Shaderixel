@@ -256,6 +256,16 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 40 && v && frameCounter == 4) {
+        // Imported CyTexture presets in the effects gallery (previews on the paint layer).
+        for (auto& l : v->doc->S().layers) if (l.name == "Peinture") v->doc->S().activeLayer = l.id;
+        char cat[64] = "CyTexture Effets";
+        GetEnvironmentVariableA("SX_FX_CATEGORY", cat, sizeof(cat));
+        fxBrowser.category = cat;
+        fxBrowser.thumb = 96;
+        fxBrowser.source = 1;
+        return;
+    }
     if (demoMode == 39 && v) {
         // Graph channel links: Combine RGBA fed with R, G, B, A of a node gives that
         // node back (full and tiled rendering).
@@ -319,9 +329,18 @@ void App::DemoTick() {
             d.SyncGraph();
         }
         if (frameCounter == 40) rb[3] = grab();
-        if (frameCounter == 50 && rb[3] && rb[3]->ready) {
+        if (frameCounter == 42) {
+            glow->blendFx = {};
+            glow->blendFx.effectId = "cy_blend_multiply";
+            if (auto def = glow->blendFx.Def()) glow->blendFx.params = def->DefaultParams();
+            d.SyncGraph();
+        }
+        static gpu::ReadbackPtr cy;
+        if (frameCounter == 70) cy = grab();
+        if (frameCounter == 80 && rb[3] && rb[3]->ready && cy && cy->ready) {
             CompareReadbacks("hidden vs all channels off", *rb[0], *rb[1], 0);
             CompareReadbacks("Multiply vs custom blend template", *rb[2], *rb[3], 2);
+            CompareReadbacks("Multiply vs CyTexture Multiply blend", *rb[2], *cy, 2);
         }
         return;
     }
