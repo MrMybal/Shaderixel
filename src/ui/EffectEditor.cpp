@@ -75,8 +75,12 @@ EffectInstance* App::EditedEffect(DocView& v, std::string* where) {
         if (where) *where = l->name;
         return &l->effect;
     }
+    if (efEd.filterIndex >= 0 && efEd.filterIndex < (int)l->filters.size()) {
+        if (where) *where = l->name + " (filtre " + std::to_string(efEd.filterIndex + 1) + ")";
+        return &l->filters[efEd.filterIndex];
+    }
     for (auto& f : l->filters)
-        if (!f.graph.empty()) {
+        if (!f.graph.empty() || !f.customCode.empty()) {
             if (where) *where = l->name + " (filtre)";
             return &f;
         }
@@ -93,6 +97,8 @@ void App::DrawEffectEditor() {
     std::string where;
     auto& ed = efEd;
     Layer* layer = d.Mode() == DocMode::Layers ? d.ActiveLayer() : nullptr;
+    static Id lastLayer = 0;  // the filter chosen from Propriétés belongs to that layer
+    if ((layer ? layer->id : 0) != lastLayer) { lastLayer = layer ? layer->id : 0; ed.filterIndex = -1; }
     BrushSettings& brushTarget = tool == Tool::Eraser ? eraser : brush;
     static EffectInstance brushProxy;  // the brush graph seen as an effect instance
     EffectInstance* fx = nullptr;
@@ -112,13 +118,31 @@ void App::DrawEffectEditor() {
     // What is edited: effect, blend of the active layer, current brush.
     ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + 8 * dpi, ImGui::GetCursorPosY() + 6 * dpi));
     ImGui::AlignTextToFramePadding();
-    ImGui::TextDisabled("Graphe de :");
+    ImGui::TextDisabled("Éditer :");
     ImGui::SameLine();
     ImGui::RadioButton("Effet", &ed.target, 0);
     ImGui::SameLine();
     ImGui::RadioButton("Fusion du calque", &ed.target, 1);
     ImGui::SameLine();
     ImGui::RadioButton("Pinceau", &ed.target, 2);
+
+    // Code and library items (graphs continue below with their canvas).
+    if (ed.target == 2 && brushTarget.tipGraph.empty()) {
+        ImGui::BeginChild("##brushcode", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding);
+        DrawBrushCodeEditor(*v, brushTarget);
+        ImGui::EndChild();
+        ImGui::End();
+        return;
+    }
+    if (fx && fx->graph.empty() && (!fx->customCode.empty() || !fx->effectId.empty())) {
+        ImGui::TextDisabled("  Édition : %s", where.c_str());
+        ImGui::BeginChild("##fxcode", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding);
+        if (!fx->customCode.empty()) DrawEffectCodeEditor(*v, *fx);
+        else DrawLibraryItemView(*v, *fx, ed.target == 1);
+        ImGui::EndChild();
+        ImGui::End();
+        return;
+    }
 
     if (!fx || fx->graph.empty()) {
         ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + 16 * dpi, ImGui::GetCursorPosY() + 12 * dpi));
@@ -131,6 +155,16 @@ void App::DrawEffectEditor() {
                     Edit e(d, v->history, "Fusion en graphe");
                     layer->blendFx = {};
                     layer->blendFx.graph = EffectGraph::DefaultBlend().Serialize();
+                    if (auto def = layer->blendFx.Def()) layer->blendFx.params = def->DefaultParams();
+                    layer->passThrough = false;
+                    d.SyncGraph();
+                    e.Commit();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Créer une fusion en code")) {
+                    Edit e(d, v->history, "Fusion personnalisée");
+                    layer->blendFx = {};
+                    layer->blendFx.customCode = kCustomBlendTemplate;
                     if (auto def = layer->blendFx.Def()) layer->blendFx.params = def->DefaultParams();
                     layer->passThrough = false;
                     d.SyncGraph();
@@ -326,7 +360,15 @@ void App::DrawEffectEditor() {
     }
     if (g.kind != EGKind::Effect) {
         // Library: blends -> shaders/effects, brushes -> shaders/brushes (graph kept for editing).
-        if (ImGui::Button(g.kind == EGKind::Brush ? "Enregistrer dans les pinceaux" : "Enregistrer dans les fusions")) SaveGraphToLibrary(g, cr.code);
+        if (ImGui::Button("Enregistrer dans la bibliothèque...")) ImGui::OpenPopup("##savegraphlib");
+        std::string savedId;
+        const LibKind lk = g.kind == EGKind::Brush ? LibKind::Brush : LibKind::Blend;
+        // The graph rides along (//@graph) so the library item opens again as a graph.
+        if (LibrarySavePopup("##savegraphlib", lk, g.name, g.category, "//@graph " + g.ToJson().Dump(0) + "\n" + cr.code, &savedId) && lk == LibKind::Brush) {
+            std::vector<float4> keep = brushTarget.tipParams;
+            SelectTip(brushTarget, savedId);
+            if (keep.size() == brushTarget.tipParams.size()) brushTarget.tipParams = keep;
+        }
     }
     if (g.kind == EGKind::Effect && ImGui::Button("Exporter vers un matériau Unreal...")) {
         std::string path = platform::SaveFileDialog(hwnd, L"Script Python Unreal (*.py)\0*.py\0", L"py");
@@ -636,6 +678,166 @@ void App::DrawEffectEditor() {
         if (changed) {
             v->history.PushState(changeLabel, *ed.pendingBefore, d.S());
             ed.pendingBefore.reset();
+        }
+    }
+}
+
+
+// ------------------------------------------------------------------ code / library views of the editor
+
+void App::DrawLibraryItemView(DocView& v, EffectInstance& fx, bool blend) {
+    // A library effect / blend: read-only here, edited as a copy kept in the document.
+    Document& d = *v.doc;
+    auto def = fx.Def();
+    if (!def) { ImGui::TextDisabled("Effet introuvable : %s", fx.effectId.c_str()); return; }
+    const LibKind kind = blend ? LibKind::Blend : LibKind::Effect;
+    ImGui::Text("%s", def->name.c_str());
+    ImGui::SameLine();
+    ImGui::TextDisabled("%s  -  bibliothèque", def->category.c_str());
+    bool user = IsUserLibraryItem(kind, fx.effectId), locked = LibraryItemLocked(kind, fx.effectId);
+    if (!user) ImGui::TextColored(ImVec4(0.55f, 0.8f, 1, 1), "Élément de base protégé : modifier crée une copie dans ce document.");
+    else {
+        ImGui::TextColored(ImVec4(0.55f, 0.8f, 1, 1), "Élément de votre bibliothèque : modifier crée une copie dans ce document.");
+        bool lk = locked;
+        if (ImGui::Checkbox("Verrouillé", &lk)) SetLibraryLock(kind, fx.effectId, lk);
+        ui::HelpTooltip("Verrouillé : l'élément ne peut plus être remplacé par un enregistrement (dans aucun projet).");
+    }
+    if (ImGui::Button("Modifier une copie (code)")) ConvertToCustomCode(v, fx);
+    if (!def->graph.empty()) {
+        ImGui::SameLine();
+        if (ImGui::Button("Modifier une copie (graphe)")) {
+            DocState before = d.S();
+            auto old = fx.Def();
+            fx.graph = def->graph;
+            fx.effectId.clear();
+            fx.customCode.clear();
+            fx.SyncParams(old);
+            d.SyncGraph();
+            v.history.PushState("Modifier une copie (graphe)", before, d.S());
+            efEd.cachedJson.clear();
+        }
+    }
+    std::string text;
+    ReadTextFile(gpu::Shaders().ShaderDir() + "/effects/" + fx.effectId + ".slang", text);
+    ImGui::PushFont(ui::GetFonts().mono, 0.0f);
+    ImGui::InputTextMultiline("##libcode", &text, ImVec2(-1, -1), ImGuiInputTextFlags_ReadOnly);
+    ImGui::PopFont();
+}
+
+void App::DrawEffectCodeEditor(DocView& v, EffectInstance& fx) {
+    Document& d = *v.doc;
+    ImGui::TextDisabled("Copie modifiable dans ce document : la bibliothèque n'est pas touchée.");
+    bool committed = CustomCodeUI(v, fx, 0, "efed");
+    if (committed && d.Mode() == DocMode::Nodes)
+        if (Node* n = d.S().graph.Find(d.S().activeNode); n && &n->fx == &fx) {
+            if (auto nd = n->fx.Def()) n->name = nd->name;
+            n->inputs.resize(NodeInputCount(*n), 0);
+        }
+}
+
+void App::DrawBrushCodeEditor(DocView& v, BrushSettings& b) {
+    auto td = TipDef(b);
+    auto newButtons = [&] {
+        if (ImGui::Button("Nouveau pinceau (code)")) {
+            b.tipId.clear();
+            b.tipGraph.clear();
+            b.tipCode = kBrushTemplate;
+            b.tipParams = ParseBrush("edit", b.tipCode)->def->DefaultParams();
+            brushEd.bufferKey.clear();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Nouveau pinceau (graphe)")) {
+            b.tipId.clear();
+            b.tipCode.clear();
+            b.tipGraph = EffectGraph::DefaultBrush().Serialize();
+            if (auto nd = TipDef(b); nd && nd->def) b.tipParams = nd->def->DefaultParams();
+            efEd.cachedJson.clear();
+        }
+    };
+    if (!td) {
+        ImGui::TextWrapped("Pointe ronde standard (non programmable). Créez un pinceau : la pointe (Tip) dessine chaque touche, "
+                           "Dynamics place les touches (suivre le trait, dispersion, aléa, temps).");
+        newButtons();
+        return;
+    }
+    std::string name = td->def ? td->def->name : "Pinceau";
+    std::string category = td->def ? td->def->category : "Mes pinceaux";
+    if (b.tipCode.empty()) {
+        // Library brush: read-only, edited as a copy in the brush settings.
+        bool user = IsUserLibraryItem(LibKind::Brush, b.tipId), locked = LibraryItemLocked(LibKind::Brush, b.tipId);
+        ImGui::Text("%s", name.c_str());
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s  -  bibliothèque", category.c_str());
+        ImGui::TextColored(ImVec4(0.55f, 0.8f, 1, 1), user ? "Pinceau de votre bibliothèque : modifier crée une copie." : "Pinceau de base protégé : modifier crée une copie.");
+        if (user) {
+            bool lk = locked;
+            if (ImGui::Checkbox("Verrouillé", &lk)) SetLibraryLock(LibKind::Brush, b.tipId, lk);
+        }
+        if (ImGui::Button("Modifier une copie (code)")) {
+            b.tipCode = td->text;
+            brushEd.bufferKey.clear();
+        }
+        ImGui::SameLine();
+        newButtons();
+        std::string text = td->text;
+        ImGui::PushFont(ui::GetFonts().mono, 0.0f);
+        ImGui::InputTextMultiline("##brushlib", &text, ImVec2(-1, -1), ImGuiInputTextFlags_ReadOnly);
+        ImGui::PopFont();
+        return;
+    }
+    // Edited copy.
+    if (brushEd.bufferKey != "edit") {
+        brushEd.bufferKey = "edit";
+        brushEd.buffer = b.tipCode;
+    }
+    ImGui::Text("%s", name.c_str());
+    ImGui::SameLine();
+    ImGui::TextDisabled("copie modifiable (réglages du pinceau) : la bibliothèque n'est pas touchée");
+    ImGui::PushFont(ui::GetFonts().mono, 0.0f);
+    ImGui::InputTextMultiline("##brushcode", &brushEd.buffer, ImVec2(-1, std::max(160.0f * dpi, ImGui::GetContentRegionAvail().y - 80 * dpi)),
+                              ImGuiInputTextFlags_AllowTabInput);
+    ImGui::PopFont();
+    bool apply = ImGui::Button("Appliquer (Ctrl+Entrée)") ||
+                 (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::IsKeyPressed(ImGuiKey_Enter) && ImGui::GetIO().KeyCtrl);
+    if (apply && brushEd.buffer != b.tipCode) {
+        auto old = td->def;
+        b.tipCode = brushEd.buffer;
+        auto nd = TipDef(b);
+        // Keep the values of parameters that still exist.
+        std::vector<float4> params = nd->def->DefaultParams();
+        if (old)
+            for (size_t i = 0; i < nd->def->params.size(); ++i)
+                for (size_t k = 0; k < old->params.size() && k < b.tipParams.size(); ++k)
+                    if (old->params[k].id == nd->def->params[i].id) params[i] = b.tipParams[k];
+        b.tipParams = params;
+        if (nd->spacing > 0) b.spacing = nd->spacing;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Enregistrer dans la bibliothèque...")) ImGui::OpenPopup("##savebrushlib");
+    std::string savedId;
+    if (LibrarySavePopup("##savebrushlib", LibKind::Brush, name, category == "Exemples" ? "Mes pinceaux" : category, brushEd.buffer, &savedId)) {
+        std::vector<float4> keep = b.tipParams;
+        SelectTip(b, savedId);
+        if (keep.size() == b.tipParams.size()) b.tipParams = keep;
+    }
+    if (!b.tipId.empty()) {
+        ImGui::SameLine();
+        if (ImGui::Button("Revenir à l'original")) {
+            b.tipCode.clear();
+            brushEd.bufferKey.clear();
+            if (auto lib = Brushes().Find(b.tipId); lib && lib->def) b.tipParams = lib->def->DefaultParams();
+        }
+    }
+    std::string err;
+    if (auto nt = TipDef(b)) {
+        if (!v.renderer.BrushPipeline(*nt, &err) && !err.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.45f, 0.45f, 1));
+            ImGui::TextWrapped("%s", err.c_str());
+            ImGui::PopStyleColor();
+        } else if (nt->def && !nt->def->error.empty()) {
+            ImGui::TextColored(ImVec4(1, 0.6f, 0.3f, 1), "%s", nt->def->error.c_str());
+        } else if (brushEd.buffer != b.tipCode) {
+            ImGui::TextDisabled("Modifications non appliquées");
         }
     }
 }

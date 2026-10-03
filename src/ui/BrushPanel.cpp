@@ -75,29 +75,6 @@ void App::OpenGraphEditor(int target) {
     ImGui::SetWindowFocus("Éditeur d'effets");
 }
 
-void App::SaveGraphToLibrary(const EffectGraph& g, const std::string& code) {
-    // The graph rides along (//@graph) so the library item opens again as a graph.
-    const bool isBrush = g.kind == EGKind::Brush;
-    std::string id = (isBrush ? "user_" : "blend_user_") + Slug(g.name);
-    std::string dir = isBrush ? Brushes().Dir() : gpu::Shaders().ShaderDir() + "/effects";
-    std::string text = "//@graph " + g.ToJson().Dump(0) + "\n" + code;
-    std::ofstream f(Utf8Path(dir + "/" + id + ".slang"), std::ios::binary);
-    f << text;
-    if (!f) { Status("Impossible d'écrire " + dir + "/" + id + ".slang"); return; }
-    f.close();
-    if (isBrush) {
-        Brushes().Reload();
-        BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
-        std::vector<float4> keep = b.tipParams;
-        SelectTip(b, id);
-        if (keep.size() == b.tipParams.size()) b.tipParams = keep;
-        Status("Pinceau enregistré : " + g.name);
-    } else {
-        Effects().Reload();
-        Status("Fusion enregistrée : " + g.name + " (panneau Fusions)");
-    }
-}
-
 void App::DrawBrushPanel() {
     if (!ImGui::Begin("Pinceaux", PanelFlag("Pinceaux"))) { ImGui::End(); return; }
     BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
@@ -144,6 +121,7 @@ void App::DrawBrushPanel() {
             b.tipCode = kBrushTemplate;
             b.tipParams = ParseBrush("edit", b.tipCode)->def->DefaultParams();
             brushEd.bufferKey.clear();
+            OpenGraphEditor(2);
         }
         ui::HelpTooltip("Pinceau écrit en HLSL : Tip() dessine la pointe, Dynamics() place les touches.");
         ImGui::SameLine();
@@ -182,7 +160,7 @@ void App::DrawBrushPanel() {
     const bool isGraph = !b.tipGraph.empty();
     ImGui::TextUnformatted(td->def ? td->def->name.c_str() : "Pinceau");
     ImGui::SameLine();
-    ImGui::TextDisabled("%s%s", td->def ? td->def->category.c_str() : "", isGraph ? "  (graphe)" : b.tipCode.empty() ? "" : "  (modifié)");
+    ImGui::TextDisabled("%s%s", td->def ? td->def->category.c_str() : "", isGraph ? "  (graphe)" : b.tipCode.empty() ? "" : "  (copie modifiée)");
     // Parameters of the tip.
     if (td->def && !td->def->params.empty()) {
         EffectInstance fx;
@@ -190,95 +168,17 @@ void App::DrawBrushPanel() {
         fx.params = b.tipParams;
         if (EffectParamsUI(fx, "tippanel")) b.tipParams = fx.params;
     }
-    if (isGraph) {
-        // Graph brush: edited in the visual editor.
-        if (ImGui::Button("Éditer le graphe")) OpenGraphEditor(2);
-        ImGui::SameLine();
-        newButtons();
-        if (ImGui::CollapsingHeader("Code généré")) {
-            ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-            std::string code = td->text;
-            ImGui::InputTextMultiline("##brushgen", &code, ImVec2(-1, 220 * dpi), ImGuiInputTextFlags_ReadOnly);
-            ImGui::PopFont();
-        }
-    } else {
-        // Code editor.
-        std::string key = b.tipCode.empty() ? "lib:" + b.tipId : "edit";
-        if (brushEd.bufferKey != key) {
-            brushEd.bufferKey = key;
-            brushEd.buffer = td->text;
-        }
-        ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-        ImGui::InputTextMultiline("##brushcode", &brushEd.buffer, ImVec2(-1, std::max(160.0f * dpi, ImGui::GetContentRegionAvail().y - 70 * dpi)),
-                                  ImGuiInputTextFlags_AllowTabInput);
-        ImGui::PopFont();
-        bool apply = ImGui::Button("Appliquer (Ctrl+Entrée)") ||
-                     (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::IsKeyPressed(ImGuiKey_Enter) && ImGui::GetIO().KeyCtrl);
-        if (apply && brushEd.buffer != td->text) {
-            auto old = td->def;
-            b.tipCode = brushEd.buffer;
-            brushEd.bufferKey = "edit";
-            auto nd = TipDef(b);
-            // Keep the values of parameters that still exist.
-            std::vector<float4> params = nd->def->DefaultParams();
-            if (old)
-                for (size_t i = 0; i < nd->def->params.size(); ++i)
-                    for (size_t k = 0; k < old->params.size() && k < b.tipParams.size(); ++k)
-                        if (old->params[k].id == nd->def->params[i].id) params[i] = b.tipParams[k];
-            b.tipParams = params;
-            if (nd->spacing > 0) b.spacing = nd->spacing;
-        }
-        ImGui::SameLine();
-        newButtons();
-        if (ImGui::Button("Enregistrer dans la bibliothèque...")) {
-            brushEd.saveName = td->def ? td->def->name : "Mon pinceau";
-            if (b.tipCode.empty() && td->def) brushEd.saveCategory = td->def->category;
-            ImGui::OpenPopup("##savebrush");
-        }
-        if (!b.tipCode.empty()) {
-            ImGui::SameLine();
-            if (ImGui::Button("Annuler les modifications")) {
-                b.tipCode.clear();
-                brushEd.bufferKey.clear();
-                if (auto lib = Brushes().Find(b.tipId); lib && lib->def) b.tipParams = lib->def->DefaultParams();
-            }
-        }
-        if (ImGui::BeginPopup("##savebrush")) {
-            ImGui::InputText("Nom", &brushEd.saveName);
-            ImGui::InputText("Catégorie", &brushEd.saveCategory);
-            std::string id = "user_" + Slug(brushEd.saveName);
-            std::string path = Brushes().Dir() + "/" + id + ".slang";
-            bool exists = std::filesystem::exists(Utf8Path(path));
-            ImGui::TextDisabled("brushes/%s.slang%s", id.c_str(), exists ? " (remplacé)" : "");
-            if (ImGui::Button("Enregistrer", ImVec2(-1, 0)) && !brushEd.saveName.empty()) {
-                // Name and category lines replaced, the rest kept.
-                std::string text = brushEd.buffer, out;
-                size_t pos = 0;
-                out = "//@name " + brushEd.saveName + "\n//@category " + brushEd.saveCategory + "\n";
-                while (pos <= text.size()) {
-                    size_t eol = text.find('\n', pos);
-                    if (eol == std::string::npos) eol = text.size();
-                    std::string line = text.substr(pos, eol - pos);
-                    if (line.rfind("//@name", 0) != 0 && line.rfind("//@category", 0) != 0) out += line + (eol < text.size() ? "\n" : "");
-                    pos = eol + 1;
-                }
-                std::ofstream(Utf8Path(path), std::ios::binary) << out;
-                Brushes().Reload();
-                SelectTip(b, id);
-                Status("Pinceau enregistré : " + brushEd.saveName);
-                ImGui::CloseCurrentPopup();
-            }
-            ImGui::EndPopup();
-        }
-    }
+    // Code / graph: edited in the effect editor (a copy, the library stays untouched).
+    if (ImGui::Button("Éditer")) OpenGraphEditor(2);
+    ui::HelpTooltip("Ouvre le pinceau dans l'Éditeur d'effets (code ou graphe).");
+    ImGui::SameLine();
+    newButtons();
     if (!err.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.45f, 0.45f, 1));
         ImGui::TextWrapped("%s", err.c_str());
         ImGui::PopStyleColor();
     } else if (td->def && !td->def->error.empty()) {
         ImGui::TextColored(ImVec4(1, 0.6f, 0.3f, 1), "%s", td->def->error.c_str());
-    } else if (!isGraph && brushEd.buffer != td->text) {
-        ImGui::TextDisabled("Modifications non appliquées");
     }
     ImGui::EndChild();
     ImGui::End();

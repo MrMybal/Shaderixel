@@ -444,6 +444,18 @@ void App::DemoTick() {
             }
         d.SyncGraph();
         tool = Tool::Brush;
+        char lib[8] = "";
+        if (GetEnvironmentVariableA("SX_LIBVIEW", lib, sizeof(lib)) > 0) {
+            // Library items in the editor: protected, edited as copies.
+            SelectTip(brush, "charcoal");
+            for (auto& l : d.S().layers)
+                if (l.name == "Lueur") {
+                    l.blendFx = {};
+                    l.blendFx.effectId = "cy_blend_multiply";
+                    if (auto def = l.blendFx.Def()) l.blendFx.params = def->DefaultParams();
+                }
+            d.SyncGraph();
+        }
         char tgt[8] = "1";
         GetEnvironmentVariableA("SX_TARGET", tgt, sizeof(tgt));
         OpenGraphEditor(atoi(tgt));

@@ -644,8 +644,7 @@ void App::DrawProperties() {
             if (l->kind == LayerKind::Fill || l->kind == LayerKind::Adjustment) {
                 ImGui::SeparatorText(l->kind == LayerKind::Fill ? "Remplissage" : "Réglage");
                 changed |= EffectParamsUI(l->effect, "main");
-                if (!l->effect.customCode.empty()) CustomCodeUI(*v, l->effect, 0, "layer");
-                else if (l->effect.graph.empty() && ImGui::SmallButton("Convertir en HLSL éditable")) ConvertToCustomCode(*v, l->effect);
+                if (ImGui::SmallButton("Éditer (code / graphe)")) { efEd.filterIndex = -1; OpenGraphEditor(0); }
             }
             if (l->mask) {
                 ImGui::SeparatorText("Masque de fusion");
@@ -683,10 +682,7 @@ void App::DrawProperties() {
                 ImGui::SeparatorText(l->blendFx.customCode.empty() ? "Fusion d'effet" : "Fusion personnalisée");
                 ImGui::TextDisabled("A = dessous, B = ce calque, masque = masque du calque ; opacité = opacité du calque.");
                 if (EffectParamsUI(l->blendFx, "blendfx")) changed = true;
-                if (!l->blendFx.customCode.empty()) CustomCodeUI(*v, l->blendFx, 0, "blend");
-                else if (!l->blendFx.graph.empty()) {
-                    if (ImGui::SmallButton("Éditer le graphe de fusion")) OpenGraphEditor(1);
-                } else if (ImGui::SmallButton("Convertir en HLSL éditable")) ConvertToCustomCode(*v, l->blendFx);
+                if (ImGui::SmallButton("Éditer la fusion (code / graphe)")) OpenGraphEditor(1);
                 if (ImGui::SmallButton("Revenir au mode Normal")) {
                     DocState before = d.S();
                     l->blendFx = {};
@@ -735,8 +731,7 @@ void App::DrawProperties() {
                 if (ui::IconButton("rm", ui::IconTrash, false, 20 * dpi, "Supprimer le filtre")) removeAt = (int)i;
                 if (open) {
                     changed |= EffectParamsUI(f, "f");
-                    if (!f.customCode.empty()) CustomCodeUI(*v, f, 0, "filter");
-                    else if (f.graph.empty() && ImGui::SmallButton("Convertir en HLSL éditable")) ConvertToCustomCode(*v, f);
+                    if (ImGui::SmallButton("Éditer (code / graphe)")) { efEd.filterIndex = (int)i; OpenGraphEditor(0); }
                     ImGui::TreePop();
                 }
                 ImGui::PopID();
@@ -822,14 +817,7 @@ void App::DrawProperties() {
                     ImGui::SeparatorText("Paramètres");
                     int oldInputs = NodeInputCount(*n);
                     EffectParamsUI(n->fx, "p");
-                    if (custom) {
-                        if (CustomCodeUI(*v, n->fx, n->id, "node")) {
-                            if (auto nd = n->fx.Def()) n->name = nd->name;
-                            n->inputs.resize(NodeInputCount(*n), 0);
-                        }
-                    } else if (ImGui::Button("Convertir en HLSL éditable") && def) {
-                        ConvertToCustomCode(*v, n->fx);
-                    }
+                    if (ImGui::Button("Éditer (code / graphe)")) OpenGraphEditor(0);
                     if (NodeInputCount(*n) != oldInputs) n->inputs.resize(NodeInputCount(*n), 0);
                     break;
                 }

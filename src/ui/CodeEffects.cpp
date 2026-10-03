@@ -255,36 +255,12 @@ bool App::CustomCodeUI(DocView& v, EffectInstance& fx, Id errorNode, const char*
     if (ImGui::Button("Compiler (Ctrl+Entrée)") || (ImGui::IsKeyPressed(ImGuiKey_Enter) && ImGui::GetIO().KeyCtrl)) commit("Modifier le code");
     ImGui::SameLine();
     if (ImGui::Button("Enregistrer dans la bibliothèque...")) ImGui::OpenPopup("##savefx");
-    ui::HelpTooltip("L'effet rejoint la galerie Effets : applicable aux pixels, en filtre, en calque de réglage ou en nœud.");
-    if (ImGui::BeginPopup("##savefx")) {
-        static std::string name, category;
-        if (ImGui::IsWindowAppearing()) {
-            auto def = fx.Def();
-            name = def ? def->name : "Mon effet";
-            category = def && !def->category.empty() && def->category != "Personnalisé" ? def->category : "Utilisateur";
-        }
-        ImGui::InputText("Nom", &name);
-        ImGui::InputText("Catégorie", &category);
-        std::string id = "user_" + Slug(name);
-        std::string path = gpu::Shaders().ShaderDir() + "/effects/" + id + ".slang";
-        bool exists = std::filesystem::exists(Utf8Path(path));
-        ImGui::TextDisabled("%s%s", ("effects/" + id + ".slang").c_str(), exists ? " (remplacé)" : "");
-        if (ImGui::Button("Enregistrer", ImVec2(-1, 0)) && !name.empty()) {
-            // Name and category lines replaced, the rest kept.
-            std::vector<Decl> dd;
-            std::vector<std::string> oo;
-            Split(buffer, dd, oo);
-            std::erase_if(oo, [](const std::string& l) { return l.rfind("//@name", 0) == 0 || l.rfind("//@category", 0) == 0; });
-            oo.insert(oo.begin(), "//@category " + category);
-            oo.insert(oo.begin(), "//@name " + name);
-            std::string text = Join(dd, oo);
-            std::ofstream(Utf8Path(path), std::ios::binary) << text;
-            Effects().Reload();
-            fxBrowser.previews.erase(id);
-            Status("Effet enregistré : " + name + " (galerie Effets, catégorie " + category + ")");
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
+    ui::HelpTooltip("Nouvel élément de la bibliothèque (les éléments de base sont protégés ; vos éléments peuvent être verrouillés).");
+    {
+        auto sd = fx.Def();
+        const bool blend = sd && sd->blend;
+        std::string cat = sd && !sd->category.empty() && sd->category != "Personnalisé" ? sd->category : blend ? "Mes fusions" : "Utilisateur";
+        if (LibrarySavePopup("##savefx", blend ? LibKind::Blend : LibKind::Effect, sd ? sd->name : "Mon effet", cat, buffer)) fxBrowser.previews.clear();
     }
     // Errors.
     std::string err;

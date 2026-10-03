@@ -111,6 +111,7 @@ struct NodeEditorState {
 
 struct EffectEditorState {
     int target = 0;  // 0 effect of the layer / node, 1 blend of the layer, 2 current brush
+    int filterIndex = -1;  // target 0 in layer mode: filter edited (-1 = the layer's own effect / first editable filter)
     float2 pan = {30, 50};
     float zoom = 1.0f;
     Id selected = 0, dragNode = 0;
@@ -494,7 +495,20 @@ private:
     void DrawMaterialPanel();
     float4 PaintColor(Document& d);  // brush color: fg, gray on masks, white on material masks
     void OpenGraphEditor(int target);  // 0 effect, 1 blend of the layer, 2 brush
-    void SaveGraphToLibrary(const EffectGraph& g, const std::string& code);
+    // Library (Library.cpp): shipped items protected, user items (//@user) lockable (//@locked).
+    enum class LibKind { Effect, Blend, Brush };
+    std::string LibraryPath(LibKind k, const std::string& name);
+    int LibraryState(const std::string& path);  // 0 free, 1 user item, 2 protected
+    bool LibraryItemLocked(LibKind k, const std::string& id);
+    bool IsUserLibraryItem(LibKind k, const std::string& id);
+    void SetLibraryLock(LibKind k, const std::string& id, bool lock);
+    bool SaveToLibrary(LibKind k, const std::string& name, const std::string& category, const std::string& text, bool lock, bool replace, std::string* err);
+    bool LibrarySavePopup(const char* popupId, LibKind k, const std::string& defName, const std::string& defCategory, const std::string& text,
+                          std::string* savedId = nullptr);
+    // Effect editor: code and library views (graphs have their canvas).
+    void DrawLibraryItemView(DocView& v, EffectInstance& fx, bool blend);
+    void DrawEffectCodeEditor(DocView& v, EffectInstance& fx);
+    void DrawBrushCodeEditor(DocView& v, BrushSettings& b);
     void DropEffectOnLayer(DocView& v, Id layer, const std::string& effectId);
     struct {
         std::string search, buffer, bufferKey, errors;
