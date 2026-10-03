@@ -181,7 +181,8 @@ class Gen:
 
     def check_inputs(self):
         """Every connection of a translated node must have been read (no silent drop)."""
-        ignored = {'apply view mipbias'}
+        # Inputs deliberately not reproduced: mip bias, noise filter width (anti-aliasing), depth fade distance (no scene depth in 2D).
+        ignored = {'apply view mipbias', 'filterwidth', 'fadedistance'}
         for gen, nid in self.S.visited:
             node = gen.nodes[nid]
             for e in node.get('inputs', []):
@@ -425,6 +426,9 @@ class Gen:
         self.S.counter += 1
         child = Gen(func, self.functions, self.S, bindings, '%sf%d_' % (self.prefix, self.S.counter))
         out_node = fnodes[target]
+        if not any('node' in e for e in out_node.get('inputs', [])):
+            # Function graphs exported without their connections would silently give 0.
+            raise Unsupported('fonction de matériau ' + base + ' : graphe interne non exporté (relancez l\'export)')
         return child.input(out_node, 0, ('0.0', 1))
 
     def function_input(self, n):
@@ -437,7 +441,9 @@ class Gen:
             return pv
         kind = str(prop(n, 'input_type', default='FUNCTION_INPUT_SCALAR')).upper()
         v = prop(n, 'preview_value', default=[0, 0, 0, 0])
-        if not isinstance(v, list):
+        if isinstance(v, dict):
+            v = [v.get('x', 0), v.get('y', 0), v.get('z', 0), v.get('w', 0)]
+        elif not isinstance(v, list):
             v = [v, 0, 0, 0]
         k = 4 if 'VECTOR4' in kind else 3 if 'VECTOR3' in kind else 2 if 'VECTOR2' in kind else 1
         if 'TEXTURE' in kind:

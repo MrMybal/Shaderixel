@@ -98,8 +98,11 @@ def dump_properties(obj, skip=()):
 
 
 class Walker:
-    def __init__(self, material):
+    def __init__(self, material, host=None):
         self.material = material
+        # Material handed to the editing library for connections: it must be a
+        # Material, also for expressions inside material functions.
+        self.host = host if host is not None else (material if isinstance(material, unreal.Material) else None)
         self.nodes = {}
         self.ids = {}
 
@@ -128,7 +131,7 @@ class Walker:
         except Exception:
             pass
         sources = []
-        for owner in (self.material, None):  # expressions inside material functions: no material
+        for owner in (self.host, self.material, None):
             try:
                 sources = list(MEL.get_inputs_for_material_expression(owner, expr))
                 break
@@ -210,9 +213,9 @@ def package_expressions(asset):
     return found
 
 
-def export_function(func):
+def export_function(func, host=None):
     """A material function: inputs, outputs and the graph between them."""
-    w = Walker(func)
+    w = Walker(func, host)
     entry = {'path': func.get_path_name(), 'name': func.get_name(), 'type': 'MaterialFunction', 'props': dump_properties(func)}
     inputs, outputs = [], []
     for expr in package_expressions(func):
@@ -255,7 +258,7 @@ def main(argv):
                         if 'function' in n and n['function'] not in functions:
                             f = unreal.load_asset(n['function'])
                             if f:
-                                functions[n['function']] = export_function(f)
+                                functions[n['function']] = export_function(f, a)
                     result['assets'].append(e)
                 elif isinstance(a, unreal.MaterialFunction):
                     functions[a.get_path_name()] = export_function(a)
@@ -264,7 +267,8 @@ def main(argv):
                                              'props': dump_properties(a)})
             except Exception as ex:
                 result['assets'].append({'path': a.get_path_name(), 'name': a.get_name(), 'error': str(ex)})
-    # Functions called from functions.
+    # Functions called from functions (any material serves as host for the editing library).
+    any_material = next((x for x in assets if isinstance(x, unreal.Material)), None)
     pending = True
     while pending:
         pending = False
@@ -274,13 +278,20 @@ def main(argv):
                 if path and path not in functions:
                     fa = unreal.load_asset(path)
                     if fa:
-                        functions[path] = export_function(fa)
+                        functions[path] = export_function(fa, any_material)
                         pending = True
     result['functions'] = list(functions.values())
     with open(out, 'w', encoding='utf-8') as f:
         json.dump(result, f, indent=1, ensure_ascii=False)
     n = sum(1 for e in result['assets'] if e.get('type') == 'Material')
     unreal.log('Shaderixel export: %d materials, %d other assets, %d functions -> %s' % (n, len(result['assets']) - n, len(functions), out))
+    # Diagnostic: function graphs must come with their connections.
+    unlinked = [f['name'] for f in functions.values()
+                if f.get('outputs') and not any('node' in e for o in f['outputs'] for e in f['nodes'][o].get('inputs', []))]
+    if unlinked:
+        unreal.log_warning('Shaderixel export: connections not read inside %d functions (%s)' % (len(unlinked), ', '.join(unlinked[:8])))
+    else:
+        unreal.log('Shaderixel export: function graphs complete')
 
 
 main(sys.argv[1:])
