@@ -244,11 +244,12 @@ void Renderer::MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, Mesh
                                    const std::vector<float4>& colors, bool erase) {
     if (!strokeSurface) return;
     // First layer: accumulates the coverage; the others composite with it.
-    MeshStrokeDabs(doc, ctx, s, dabs, b, colors.empty() ? float4{1, 1, 1, 1} : colors[0], erase);
+    const u32 sym = meshSymmetryX ? 16u : 0u;
+    MeshStrokeDabs(doc, ctx, s, dabs, b, colors.empty() ? float4{1, 1, 1, 1} : colors[0], erase, sym);
     for (size_t i = 0; i < strokeSlots.size(); ++i) {
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
-        MeshStrokeDabs(doc, ctx, s, dabs, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), erase, 2u);
+        MeshStrokeDabs(doc, ctx, s, dabs, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), erase, 2u | sym);
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
     }

@@ -3,7 +3,8 @@
 // Flags: 1 selection, 2 coverage already accumulated (other channels of a
 // multi-channel stroke: only composite), 4 decal (gDabs[0] = center, half size;
 // gDabs[1] = cos, sin of the rotation, opacity; coverage = decal alpha),
-// 8 decal color (the paint color is the decal's own color).
+// 8 decal color (the paint color is the decal's own color), 16 symmetry X (object
+// space: a texel is also painted when its mirror image is under a dab).
 #include "common.slang"
 
 cbuffer Root : register(b0)
@@ -46,16 +47,35 @@ void main(uint3 id : SV_DispatchThreadID)
     if (clip.w <= 1e-5) return;
     float3 ndc = clip.xyz / clip.w;
     float2 sp = float2(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5) * float2(gViewSize);
-    if (any(sp < 0.0) || any(sp >= float2(gViewSize))) return;
-    // Occlusion: compare with the viewport depth (small slope-scaled bias).
-    float scene = gDepth.Load(int3(int2(sp), 0));
-    if (ndc.z > scene + 0.0015) return;
+    // Occlusion: compare with the viewport depth (small slope-scaled bias); hidden texels may still be
+    // painted through the symmetry (their weight is 0 for the direct dabs).
+    bool onScreen = all(sp >= 0.0) && all(sp < float2(gViewSize));
+    float scene = onScreen ? gDepth.Load(int3(int2(sp), 0)) : -1.0;
     float3 n = normalize(gNrmMap.Load(int3(px, 0)).xyz);
     float3 v = normalize(gCamPos.xyz - pos.xyz);
     float facing = dot(n, v);
-    if (facing <= 0.05) return;
-    float facingW = saturate((facing - 0.05) * 4.0);
+    float facingW = (onScreen && ndc.z <= scene + 0.0015 && facing > 0.05) ? saturate((facing - 0.05) * 4.0) : 0.0;
+    if (facingW <= 0.0 && (gFlags & 16) == 0) return;
 
+    // Symmetry: the mirrored point, where it shows on screen (visible and facing).
+    float2 spm = float2(-1e9, -1e9);
+    float facingM = 0.0;
+    if (gFlags & 16)
+    {
+        float3 pm = float3(-pos.x, pos.y, pos.z);
+        float4 cm = mul(gViewProj, float4(pm, 1.0));
+        if (cm.w > 1e-5)
+        {
+            float3 nm = cm.xyz / cm.w;
+            float2 s2 = float2(nm.x * 0.5 + 0.5, 0.5 - nm.y * 0.5) * float2(gViewSize);
+            if (all(s2 >= 0.0) && all(s2 < float2(gViewSize)) && nm.z <= gDepth.Load(int3(int2(s2), 0)) + 0.0015)
+            {
+                float3 nrm = normalize(gNrmMap.Load(int3(px, 0)).xyz);
+                float f = dot(normalize(float3(-nrm.x, nrm.y, nrm.z)), normalize(gCamPos.xyz - pm));
+                if (f > 0.05) { spm = s2; facingM = saturate((f - 0.05) * 4.0); }
+            }
+        }
+    }
     float m = gStroke[px];
     float before = m;
     float4 decal = 0;
@@ -84,6 +104,13 @@ void main(uint3 id : SV_DispatchThreadID)
         float soft = r - inner > 1.0 ? 1.0 - smoothstep(inner, r, d) : 1.0;
         float cov = min(soft, saturate(r - d + 0.5)) * dab.w * facingW;
         m = m + (1.0 - m) * cov;
+        if (facingM > 0.0)
+        {
+            float dm = length(spm - dab.xy);
+            float softM = r - inner > 1.0 ? 1.0 - smoothstep(inner, r, dm) : 1.0;
+            float covM = min(softM, saturate(r - dm + 0.5)) * dab.w * facingM;
+            m = m + (1.0 - m) * covM;
+        }
     }
     if ((gFlags & 2) == 0)
     {

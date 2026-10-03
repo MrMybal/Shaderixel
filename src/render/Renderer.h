@@ -238,6 +238,7 @@ public:
     bool BeginStrokeMulti(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces);
     void MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
                              const std::vector<float4>& colorsLinear, bool erase);
+    bool meshSymmetryX = false;  // 3D strokes mirrored across the model's X axis
     // Decal projected from the view: center / half size in view pixels, rotation (radians); the first layer can take the image colors.
     void MeshDecalMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, gpu::Texture* image, float2 center, float2 halfSize, float rotation,
                         float opacity, const std::vector<float4>& colorsLinear, bool firstUsesImageColor);

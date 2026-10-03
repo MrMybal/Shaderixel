@@ -321,9 +321,13 @@ void App::DemoTick() {
             std::vector<float4> colors;
             std::vector<Id> targets = Paint3DTargets(*a, colors);
             Log("[demo] paint3d: layout %d, %zu targets, %zu layers, channels 0x%X", layoutKind, targets.size(), d.S().layers.size(), d.pbrChannels);
+            a->renderer.meshSymmetryX = GetEnvironmentVariableA("SX_SYM", nullptr, 0) > 0;
+            if (a->renderer.meshSymmetryX) s.yaw = 1.5707963f;  // facing the mirror plane: it is vertical on screen
+            if (a->renderer.meshSymmetryX) a->renderer.MeshRender(*ctx, s, GatherMaterial(*a), s.depth->Width(), s.depth->Height());
             if (a->renderer.BeginStrokeMulti(d, *ctx, targets)) {
                 std::vector<Dab> dabs;
                 float cx = s.depth->Width() * 0.5f, cy = s.depth->Height() * 0.5f, r = std::min(cx, cy) * 0.45f;
+                if (a->renderer.meshSymmetryX) r *= 0.4f, cx -= r * 1.4f;
                 for (int i = 0; i <= 300; ++i) {
                     float t = i / 300.0f;
                     dabs.push_back({cx - r + 2 * r * t, cy + std::sin(t * 9.0f) * r * 0.25f, 22, 1});

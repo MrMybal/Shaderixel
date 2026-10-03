@@ -281,7 +281,26 @@ void App::DrawLayers3DPanel() {
             ImGui::TextDisabled("Pinceau blanc : applique le matériau, noir : l'enlève.");
         } else {
             ImGui::TextDisabled("Pinceau / projection : peint les canaux cochés\ndans Matériau du pinceau.");
+            if (ImGui::SmallButton("Remplir avec le matériau du pinceau")) {
+                // Every checked channel of the layer, filled with the brush value (inside the selection if any).
+                std::vector<float4> colors;
+                std::vector<Id> targets = Paint3DTargets(*v, colors);
+                v->history.BeginGroup();
+                for (size_t i = 0; i < targets.size(); ++i)
+                    v->renderer.FillSelection(d, *ctx, &v->history, targets[i], 0, colors[i], 1.0f, "Remplir le calque 3D");
+                v->history.EndGroup();
+            }
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Effacer")) {
+                std::vector<float4> colors;
+                std::vector<Id> targets = Paint3DTargets(*v, colors);
+                v->history.BeginGroup();
+                for (Id t : targets) v->renderer.FillSelection(d, *ctx, &v->history, t, 1, {}, 1.0f, "Effacer le calque 3D");
+                v->history.EndGroup();
+            }
         }
+        ImGui::Checkbox("Symétrie X (pinceau 3D)", &v->renderer.meshSymmetryX);
+        ui::HelpTooltip("Chaque trait est aussi peint de l'autre côté du modèle (miroir sur l'axe X de l'objet).");
     }
     ImGui::End();
 }
