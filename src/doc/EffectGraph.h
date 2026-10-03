@@ -23,6 +23,13 @@ struct EGLink {
     int output = 0;
 };
 
+// Declared pin of a custom HLSL node: type 1..4 = float..float4, 5 = texture
+// (an image read at any UV with Texture2DSample(T, S, uv) in the code).
+struct EGPinDecl {
+    std::string name;
+    int type = 4;
+};
+
 struct EGNode {
     Id id = 0;
     std::string op;
@@ -31,8 +38,12 @@ struct EGNode {
     float4 value;                // constants / defaults
     float min = 0, max = 1;      // parameters
     std::string name;            // parameter id / label
-    std::string text;            // custom code
-    int index = 0;               // input index, mask bits...
+    std::string text;            // custom code (body of the function)
+    int index = 0;               // input index, mask bits; parameters: 1 = id is the name as written (imported effects)
+    // Custom HLSL with declared pins (empty = legacy A, B, C, D float4 -> float4).
+    std::vector<EGPinDecl> pins, outs;
+    std::string decl;            // declarations placed before the node (helper functions, constants)
+    bool HasPins() const { return !pins.empty() || !outs.empty(); }
 };
 
 enum class EGKind : int { Effect = 0, Blend = 1, Brush = 2 };
@@ -82,6 +93,10 @@ const std::vector<EGOpDef>& EffectGraphOps();
 // Operations offered for a kind of graph (no image input in brushes, blend / brush nodes).
 bool OpAllowed(const EGOpDef& op, EGKind kind);
 const EGOpDef* FindOp(const std::string& op);
+// Op definition seen by a node: a custom node with declared pins gets its own inputs / outputs
+// (names point into the node: use the result while the node is alive).
+EGOpDef EffectiveOp(const EGNode& n);
+inline constexpr int kEGTexture = 5;  // value type of texture links
 
 // Code generation -----------------------------------------------------------
 struct EGCompileResult {

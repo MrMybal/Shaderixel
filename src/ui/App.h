@@ -584,7 +584,7 @@ private:
     } blendBrowser;
     void UpdateRelativeDrag();
     // Scripted run (--demo, --capture, --dump-image, --save): never takes the focus or the real cursor.
-    bool Automated() const { return demoMode != 0 || !capturePath.empty() || !dumpPath.empty() || !cliSavePath.empty(); }  // hidden, pinned cursor while a slider/drag is dragged
+    bool Automated() const { return demoMode != 0 || testEffects || !capturePath.empty() || !dumpPath.empty() || !cliSavePath.empty(); }  // hidden, pinned cursor while a slider/drag is dragged
     // Selection -> work path (selection read back, traced on the CPU).
     struct {
         DocView* view = nullptr;

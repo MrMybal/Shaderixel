@@ -1,5 +1,6 @@
 //@name Solid Color
 //@category Dessin
+//@graph {"name":"Solid Color","category":"Dessin","inputs":0,"premultiplied":false,"nextId":7,"nodes":[{"id":1,"op":"uv","pos":[40,40],"in":[],"value":[0,0,0,0]},{"id":2,"op":"canvassize","pos":[40,130],"in":[],"value":[0,0,0,0]},{"id":3,"op":"param","pos":[40,220],"in":[],"value":[1.0,0.0,0.0,0.0],"name":"Opacity","text":"Opacity","index":1},{"id":4,"op":"paramcolor","pos":[40,330],"in":[],"value":[1.0,1.0,1.0,1.0],"name":"Color","text":"Color","index":1},{"id":5,"op":"custom","pos":[420,40],"in":[[1,0],[2,0],[3,0],[4,0]],"value":[0,0,0,0],"name":"Solid Color","text":"    return float4(Color,Opacity);","pins":[["UV",2],["CyCanvasSize",4],["Opacity",1],["Color",3]],"outs":[["Resultat",4]]},{"id":6,"op":"output","pos":[780,40],"in":[[5,0],[0,0],[0,0]],"value":[0,0,0,0]}]}
 //@generator
 //@halo 0
 //@param Opacity float 1 0 1 "Opacity"

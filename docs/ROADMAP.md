@@ -71,6 +71,7 @@
 
 ### Fusions
 - Fusions séparées des effets (`//@blend`, panneau Fusions avec modes standard et fusions de bibliothèque, aperçus sur le calque actif) : **fait**
+- Nœud « HLSL personnalisé » à broches déclarées (float à float4, textures lues à n'importe quel UV, plusieurs sorties, déclarations) ; les 182 presets importés portent leur graphe (`//@graph` : code d'origine dans le nœud, textures, UV, taille du canevas et paramètres câblés), ouvert via « Modifier une copie (graphe) » ; `--test-effects` compile aussi ces graphes : **fait**
 - Fusions en HLSL (Propriétés) ou en graphe (éditeur visuel : entrées A dessous, B calque, masque, nœuds « Opacité du calque » et « Composer la fusion »), enregistrables dans la bibliothèque : **fait**
 
 ### Peinture 3D (façon Substance Painter)

@@ -125,6 +125,26 @@ bool App::Init() {
             Log("[test-effects] %-24s %s%s", e->id.c_str(), good ? "OK" : "FAILED: ", good ? "" : p->errors.c_str());
         }
         Log("[test-effects] %d / %zu effects compiled", ok, Effects().All().size());
+        // Visual graphs carried by library effects (//@graph): compiled as a copy would be.
+        int okg = 0, ng = 0;
+        for (auto& e : Effects().All()) {
+            if (e->graph.empty()) continue;
+            ++ng;
+            EffectGraph g;
+            std::string why;
+            if (!EffectGraph::Deserialize(e->graph, g)) why = "graphe illisible";
+            EGCompileResult r = why.empty() ? CompileEffectGraph(g) : EGCompileResult{};
+            if (why.empty() && !r.error.empty()) why = r.error;
+            if (why.empty()) {
+                auto def = ParseEffect("", r.code);
+                auto p = gpu::Shaders().CompileNow(e->name + " (graphe)", BuildEffectSource(*def));
+                if (p->state.load() != gpu::Program::State::Ready) why = p->errors;
+                else if (def->params.size() != e->params.size()) why = "paramètres différents";
+            }
+            okg += why.empty();
+            if (!why.empty()) Log("[test-graphs] %-24s FAILED: %s", e->id.c_str(), why.c_str());
+        }
+        Log("[test-graphs] %d / %d effect graphs compiled", okg, ng);
         int okb = 0;
         for (auto& b : Brushes().All()) {
             auto p = gpu::Shaders().CompileNow("brush " + b->id, BuildBrushSource(*b));
@@ -356,6 +376,7 @@ void App::Frame() {
     if (frameCounter == 2) ImGui::SetWindowFocus("Canevas");  // Canvas is the default center tab
     if (demoMode && frameCounter == 3) RunDemo();
     if (aboutAtStart && frameCounter == 3) showAbout = true;
+    if (testEffects && capturePath.empty() && frameCounter == 3) autoQuit = true;  // compile test: quit once done
     if (demoMode) DemoTick();
     if (frameCounter >= 4 && frameCounter - 4 < focusAtStart.size()) ImGui::SetWindowFocus(focusAtStart[frameCounter - 4].c_str());
     if (!capturePath.empty() && frameCounter == (u64)captureFrame) captureRb = gpu::Dev().CaptureNextFrame();

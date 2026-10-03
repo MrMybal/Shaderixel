@@ -34,8 +34,8 @@ ImU32 CategoryColor(const char* cat) {
 int Rows(const EGOpDef& d) { return std::max<int>((int)std::max(d.inputs.size(), d.outputs.size()), 1); }
 
 float NodeH(const EGNode& n, const EGOpDef& d) {
-    float extra = (n.op == "const" || n.op == "const2" || n.op == "color" || n.op == "param" || n.op == "paramcolor" || n.op == "input" ||
-                   n.op == "sample" || n.op == "mask" || n.op == "custom")
+    float extra = (n.op == "const" || n.op == "const2" || n.op == "color" || n.op == "param" || n.op == "paramcolor" || n.op == "param2" ||
+                   n.op == "input" || n.op == "sample" || n.op == "texture" || n.op == "mask" || n.op == "custom")
                       ? kRowH
                       : 0.0f;
     return kHead + Rows(d) * kRowH + extra + 6;
@@ -45,8 +45,9 @@ std::string ValueText(const EGNode& n) {
     char b[96];
     if (n.op == "const") snprintf(b, sizeof(b), "%.3g", n.value.x);
     else if (n.op == "const2") snprintf(b, sizeof(b), "%.3g, %.3g", n.value.x, n.value.y);
-    else if (n.op == "param" || n.op == "paramcolor") snprintf(b, sizeof(b), "« %s »", n.name.c_str());
-    else if (n.op == "input" || n.op == "sample") snprintf(b, sizeof(b), "Entrée %d", n.index + 1);
+    else if (n.op == "param" || n.op == "paramcolor" || n.op == "param2") snprintf(b, sizeof(b), "« %s »", (n.text.empty() ? n.name : n.text).c_str());
+    else if (n.op == "texture" && !n.name.empty()) snprintf(b, sizeof(b), "Entrée %d (%s)", n.index + 1, n.name.c_str());
+    else if (n.op == "input" || n.op == "sample" || n.op == "texture") snprintf(b, sizeof(b), "Entrée %d", n.index + 1);
     else if (n.op == "mask") {
         std::string s;
         const char* c = "RGBA";
@@ -272,9 +273,13 @@ void App::DrawEffectEditor() {
         if (op == "const") track(ImGui::DragFloat("Valeur", &sel->value.x, 0.01f));
         else if (op == "const2") track(ImGui::DragFloat2("Valeur", &sel->value.x, 0.01f));
         else if (op == "color") track(ImGui::ColorEdit4("Couleur", &sel->value.x, ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR));
-        else if (op == "param" || op == "paramcolor") {
+        else if (op == "param" || op == "paramcolor" || op == "param2") {
             track(ImGui::InputText("Nom", &sel->name));
-            if (op == "param") {
+            if (op == "param2") {
+                track(ImGui::DragFloat2("Défaut", &sel->value.x, 0.01f));
+                track(ImGui::DragFloat("Min", &sel->min, 0.01f));
+                track(ImGui::DragFloat("Max", &sel->max, 0.01f));
+            } else if (op == "param") {
                 track(ImGui::DragFloat("Défaut", &sel->value.x, 0.01f));
                 track(ImGui::DragFloat("Min", &sel->min, 0.01f));
                 track(ImGui::DragFloat("Max", &sel->max, 0.01f));
@@ -282,7 +287,7 @@ void App::DrawEffectEditor() {
                 track(ImGui::ColorEdit4("Défaut", &sel->value.x, ImGuiColorEditFlags_Float));
             }
             ImGui::TextDisabled("Réglable dans Propriétés.");
-        } else if (op == "input" || op == "sample") {
+        } else if (op == "input" || op == "sample" || op == "texture") {
             int idx = sel->index + 1;
             if (ImGui::SliderInt("Entrée", &idx, 1, std::max(g.kind == EGKind::Blend ? 3 : g.inputs, 1))) { sel->index = idx - 1; changed = true; }
         } else if (op == "mask") {
@@ -295,7 +300,53 @@ void App::DrawEffectEditor() {
             }
             sel->index = bits ? bits : 1;
         } else if (op == "custom") {
-            ImGui::TextDisabled("Entrées A B C D (float4), retourner un float4.");
+            track(ImGui::InputText("Titre", &sel->name));
+            if (!sel->HasPins()) {
+                ImGui::TextDisabled("Entrées A B C D (float4), retourner un float4.");
+                if (ImGui::Button("Déclarer les broches")) {
+                    sel->pins = {{"A", 4}, {"B", 4}, {"C", 4}, {"D", 4}};
+                    sel->outs = {{"Resultat", 4}};
+                    changed = true;
+                }
+                ui::HelpTooltip("Entrées et sorties nommées et typées (float à float4, texture lue à n'importe quel UV).");
+            } else {
+                // Declared pins: name (HLSL identifier) + type; textures are read with Texture2DSample(T, S, uv).
+                static const char* kPinTypes = "float\0float2\0float3\0float4\0Texture\0";
+                static const char* kOutTypes = "float\0float2\0float3\0float4\0";
+                auto pinList = [&](std::vector<EGPinDecl>& pins, const char* title, const char* types, int maxType, bool inputs) {
+                    ImGui::TextDisabled("%s", title);
+                    int removeAt = -1;
+                    for (size_t i = 0; i < pins.size(); ++i) {
+                        ImGui::PushID((int)i + (inputs ? 0 : 1000));
+                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x * 0.5f);
+                        track(ImGui::InputText("##pn", &pins[i].name, ImGuiInputTextFlags_CharsNoBlank));
+                        ImGui::SameLine();
+                        int t = pins[i].type - 1;
+                        ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - ImGui::GetFrameHeight() - 6);
+                        if (ImGui::Combo("##pt", &t, types)) { pins[i].type = std::clamp(t + 1, 1, maxType); changed = true; }
+                        ImGui::SameLine();
+                        if (ImGui::SmallButton("x")) removeAt = (int)i;
+                        ImGui::PopID();
+                    }
+                    if (removeAt >= 0) {
+                        pins.erase(pins.begin() + removeAt);
+                        if (inputs && removeAt < (int)sel->inputs.size()) sel->inputs.erase(sel->inputs.begin() + removeAt);
+                        changed = true;
+                    }
+                    if (ImGui::SmallButton(inputs ? "+ Entrée" : "+ Sortie")) {
+                        pins.push_back({(inputs ? "In" : "Out") + std::to_string(pins.size() + 1), 4});
+                        changed = true;
+                    }
+                };
+                pinList(sel->pins, "Entrées", kPinTypes, kEGTexture, true);
+                pinList(sel->outs, "Sorties (une seule : return ; plusieurs : paramètres out)", kOutTypes, 4, false);
+                sel->inputs.resize(sel->pins.size());
+                ImGui::TextDisabled("Déclarations (fonctions, constantes)");
+                ImGui::PushFont(ui::GetFonts().mono, 0.0f);
+                track(ImGui::InputTextMultiline("##decl", &sel->decl, ImVec2(-1, 60 * dpi), ImGuiInputTextFlags_AllowTabInput));
+                ImGui::PopFont();
+            }
+            ImGui::TextDisabled("Code");
             ImGui::PushFont(ui::GetFonts().mono, 0.0f);
             track(ImGui::InputTextMultiline("##code", &sel->text, ImVec2(-1, 180 * dpi), ImGuiInputTextFlags_AllowTabInput));
             ImGui::PopFont();
@@ -431,8 +482,9 @@ void App::DrawEffectEditor() {
     if (hovered) {
         for (int k = (int)g.nodes.size() - 1; k >= 0 && !hNode && !hOutNode && !hInNode; --k) {
             const EGNode& n = g.nodes[k];
-            const EGOpDef* od = FindOp(n.op);
-            if (!od) continue;
+            if (!FindOp(n.op)) continue;
+            const EGOpDef eff = EffectiveOp(n);
+            const EGOpDef* od = &eff;
             for (int o = 0; o < (int)od->outputs.size(); ++o) if (hit(outPin(n, o), pr * 2.2f)) { hOutNode = n.id; hOut = o; }
             for (int i = 0; i < (int)od->inputs.size() && !hOutNode; ++i) if (hit(inPin(n, i), pr * 2.2f)) { hInNode = n.id; hIn = i; }
             ImVec2 a = toS(n.pos), b = toS(n.pos + float2{kW, NodeH(n, *od)});
@@ -505,6 +557,7 @@ void App::DrawEffectEditor() {
             case 2: return IM_COL32(110, 210, 120, alpha);
             case 3: return IM_COL32(235, 200, 80, alpha);
             case 4: return IM_COL32(230, 120, 210, alpha);
+            case kEGTexture: return IM_COL32(90, 170, 240, alpha);  // texture (custom node pins)
             default: return IM_COL32(150, 150, 170, alpha);
         }
     };
@@ -530,8 +583,9 @@ void App::DrawEffectEditor() {
     bool text = ed.zoom > 0.45f;
     std::set<Id> errNodes(cr.errorNodes.begin(), cr.errorNodes.end());
     for (auto& n : g.nodes) {
-        const EGOpDef* od = FindOp(n.op);
-        if (!od) continue;
+        if (!FindOp(n.op)) continue;
+        const EGOpDef eff = EffectiveOp(n);
+        const EGOpDef* od = &eff;
         float h = NodeH(n, *od);
         ImVec2 a = toS(n.pos), b = toS(n.pos + float2{kW, h});
         float r = 5 * ed.zoom;
@@ -541,7 +595,9 @@ void App::DrawEffectEditor() {
         bool selected = n.id == ed.selected;
         dl->AddRect(a, b, errNodes.count(n.id) ? ui::col::Error : selected ? ui::col::Accent : ui::col::Border, r, 0, selected ? 2.0f : 1.0f);
         if (text) {
-            std::string title = n.op == "param" || n.op == "paramcolor" ? (n.name.empty() ? od->label : n.name) : od->label;
+            std::string title = (n.op == "param" || n.op == "paramcolor" || n.op == "param2" || n.op == "custom") && !n.name.empty()
+                                    ? (n.op == "custom" ? "HLSL : " + n.name : !n.text.empty() ? n.text : n.name)
+                                    : std::string(od->label);
             dl->PushClipRect(a, ImVec2(b.x - 4, a.y + kHead * ed.zoom), true);
             dl->AddText(font, fs, ImVec2(a.x + 7 * ed.zoom, a.y + (kHead * ed.zoom - fs) * 0.5f), IM_COL32_WHITE, title.c_str());
             dl->PopClipRect();
@@ -550,8 +606,9 @@ void App::DrawEffectEditor() {
             ImVec2 p = inPin(n, i);
             bool conn = i < (int)n.inputs.size() && n.inputs[i].node;
             int t = conn ? cr.OutType(n.inputs[i].node, n.inputs[i].output) : 0;
+            int declared = n.op == "custom" && i < (int)n.pins.size() ? n.pins[i].type : 0;
             if (conn) dl->AddCircleFilled(p, pr, typeColor(t));
-            else dl->AddCircle(p, pr, IM_COL32(120, 122, 140, 255), 0, 1.5f * ed.zoom);
+            else dl->AddCircle(p, pr, declared ? typeColor(declared) : IM_COL32(120, 122, 140, 255), 0, 1.5f * ed.zoom);
             if (text) {
                 std::string lbl = od->inputs[i].name;
                 if (!conn && od->inputs[i].defValue >= 0) {  // negative: implicit source (UV, opacity...)
@@ -567,7 +624,7 @@ void App::DrawEffectEditor() {
             int t = cr.OutType(n.id, o);
             dl->AddCircleFilled(p, pr, typeColor(t));
             // Label: the output name, else its type.
-            const char* lbl = od->outputs[o][0] ? od->outputs[o] : (t >= 1 && t <= 4 ? kTypeNames[t] : "");
+            const char* lbl = od->outputs[o][0] ? od->outputs[o] : (t >= 1 && t <= 4 ? kTypeNames[t] : t == kEGTexture ? "Texture" : "");
             if (text && lbl[0]) {
                 ImVec2 ts = font->CalcTextSizeA(fs * 0.88f, FLT_MAX, 0, lbl);
                 dl->AddText(font, fs * 0.88f, ImVec2(p.x - 9 * ed.zoom - ts.x, p.y - fs * 0.45f), typeColor(t, 230), lbl);
@@ -603,6 +660,7 @@ void App::DrawEffectEditor() {
             n.pos = ed.ctxPos;
             n.inputs.resize(od.inputs.size());
             if (n.op == "param") { n.name = "Valeur"; n.value = {0.5f, 0, 0, 0}; }
+            if (n.op == "param2") { n.name = "Position"; n.value = {0.5f, 0.5f, 0, 0}; }
             if (n.op == "paramcolor") { n.name = "Couleur"; n.value = {1, 0.5f, 0.2f, 1}; }
             if (n.op == "color") n.value = {1, 1, 1, 1};
             if (n.op == "const") n.value = {1, 0, 0, 0};

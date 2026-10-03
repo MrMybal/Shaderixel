@@ -14,6 +14,8 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"input", "Image d'entrée", "Entrées", {}, {"RGBA", "RGB", "R", "G", "B", "A"}, 4},
         {"sample", "Échantillonner l'entrée (UV)", "Entrées", {{"UV", -1}}, {"RGBA", "RGB", "R", "G", "B", "A"}, 4},
         {"uv", "Coordonnées UV", "Entrées", {}, {""}, 2},
+        {"texture", "Texture d'entrée", "Entrées", {}, {"Texture"}, 5, true},
+        {"canvassize", "Taille du canevas (float4)", "Entrées", {}, {""}, 4},
         {"pixel", "Position du pixel", "Entrées", {}, {""}, 2},
         {"size", "Taille de l'image", "Entrées", {}, {""}, 2},
         {"const", "Constante", "Constantes", {}, {""}, 1, true},
@@ -21,6 +23,7 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"color", "Couleur", "Constantes", {}, {""}, 4, true},
         {"param", "Paramètre (réel)", "Paramètres", {}, {""}, 1, true},
         {"paramcolor", "Paramètre (couleur)", "Paramètres", {}, {""}, 4, true},
+        {"param2", "Paramètre (2D)", "Paramètres", {}, {""}, 2, true},
         // Math
         {"add", "Ajouter", "Maths", {{"A", 0}, {"B", 0}}, {""}},
         {"sub", "Soustraire", "Maths", {{"A", 0}, {"B", 0}}, {""}},
@@ -88,8 +91,21 @@ bool OpAllowed(const EGOpDef& op, EGKind kind) {
     std::string c = op.category, o = op.op;
     if (c == "Fusion") return kind == EGKind::Blend;
     if (c == "Pinceau") return kind == EGKind::Brush;
-    if (kind == EGKind::Brush && (o == "input" || o == "sample")) return false;
+    if (kind == EGKind::Brush && (o == "input" || o == "sample" || o == "texture")) return false;
     return true;
+}
+
+EGOpDef EffectiveOp(const EGNode& n) {
+    const EGOpDef* d = FindOp(n.op);
+    EGOpDef r = d ? *d : EGOpDef{"", "?", "", {}, {}, 0};
+    if (n.op == "custom" && n.HasPins()) {
+        r.inputs.clear();
+        for (auto& p : n.pins) r.inputs.push_back({p.name.c_str(), p.type == kEGTexture ? -5.0f : 0.0f});
+        r.outputs.clear();
+        for (auto& o : n.outs) r.outputs.push_back(o.name.c_str());
+        r.fixedOutType = 0;
+    }
+    return r;
 }
 
 const EGOpDef* FindOp(const std::string& op) {
@@ -161,6 +177,19 @@ Json EffectGraph::ToJson() const {
         if (!n.name.empty()) o["name"] = n.name;
         if (!n.text.empty()) o["text"] = n.text;
         if (n.index) o["index"] = n.index;
+        auto pinsJson = [](const std::vector<EGPinDecl>& v) {
+            Json a = Json::Array();
+            for (auto& p : v) {
+                Json e = Json::Array();
+                e.Push(p.name);
+                e.Push(p.type);
+                a.Push(e);
+            }
+            return a;
+        };
+        if (!n.pins.empty()) o["pins"] = pinsJson(n.pins);
+        if (!n.outs.empty()) o["outs"] = pinsJson(n.outs);
+        if (!n.decl.empty()) o["decl"] = n.decl;
         arr.Push(o);
     }
     j["nodes"] = arr;
@@ -195,7 +224,10 @@ bool EffectGraph::FromJson(const Json& j, EffectGraph& g) {
         n.name = o["name"].S("");
         n.text = o["text"].S("");
         n.index = o["index"].I(0);
-        if (const EGOpDef* d = FindOp(n.op)) n.inputs.resize(d->inputs.size());
+        for (auto& p : o["pins"].Elements()) n.pins.push_back({p.At(0).S(""), std::clamp(p.At(1).I(4), 1, kEGTexture)});
+        for (auto& p : o["outs"].Elements()) n.outs.push_back({p.At(0).S(""), std::clamp(p.At(1).I(4), 1, 4)});
+        n.decl = o["decl"].S("");
+        n.inputs.resize(EffectiveOp(n).inputs.size());
         g.nextId = std::max(g.nextId, n.id + 1);
         g.nodes.push_back(n);
     }
@@ -283,7 +315,7 @@ std::string F(float v) {
     return s;
 }
 
-std::string Type(int n) { return n == 1 ? "float" : "float" + std::to_string(n); }
+std::string Type(int n) { return n == kEGTexture ? "uint" : n == 1 ? "float" : "float" + std::to_string(n); }
 
 std::string Conv(const Val& v, int n) {
     if (v.n == n) return v.expr;
@@ -334,6 +366,9 @@ struct Gen {
     bool unreal;
     std::vector<std::string> lines;
     std::vector<std::string> customStructs;
+    std::vector<std::string> customDecls;
+    bool textures = false;  // a custom node reads textures: Texture2DSample helpers needed
+    std::string opacityVar = "opacity";  // blends: the layer opacity (an "Opacity" parameter of the graph, else a generated one)
     std::unordered_map<Id, std::vector<Val>> memo;
     std::set<Id> visiting;
     std::set<int> usedInputs;
@@ -357,7 +392,8 @@ struct Gen {
             if (k >= 0 && k < (int)outs.size()) return outs[k];
         }
         if (def == -1) return {UV(), 2};  // pins defaulting to the image UV
-        if (def == -2) return {"opacity", 1};  // layer opacity (blends)
+        if (def == -2) return {opacityVar, 1};  // layer opacity (blends)
+        if (def == -5) return {"31u", kEGTexture};  // unconnected texture: reads white
         if (def == -3) return {brush() ? std::string("b.local") : "(" + UV() + " * 2.0 - 1.0)", 2};
         if (def == -4) return {brush() ? "b.hardness" : "0.8", 1};
         return {F(def), 1};
@@ -368,12 +404,21 @@ struct Gen {
         if (it != memo.end()) return it->second;
         const EGNode* n = g.Find(id);
         if (!n) return {{"0.0", 1}};
-        const EGOpDef* d = FindOp(n->op);
-        if (!d) { Fail(id, "opération inconnue : " + n->op); return {{"0.0", 1}}; }
+        if (!FindOp(n->op)) { Fail(id, "opération inconnue : " + n->op); return {{"0.0", 1}}; }
+        const EGOpDef effective = EffectiveOp(*n);
+        const EGOpDef* d = &effective;
         if (!visiting.insert(id).second) { Fail(id, "cycle dans le graphe"); return {{"0.0", 1}}; }
         std::vector<Val> a;
         for (size_t i = 0; i < d->inputs.size(); ++i) a.push_back(Arg(*n, i, d->inputs[i].defValue));
         visiting.erase(id);
+        const bool pinned = n->op == "custom" && n->HasPins();
+        for (size_t i = 0; i < a.size(); ++i) {
+            bool wantTex = pinned && n->pins[i].type == kEGTexture;
+            if ((a[i].n == kEGTexture) != wantTex) {
+                Fail(id, wantTex ? "une broche texture attend une « Texture d'entrée »" : "une texture ne se branche que sur une broche texture d'un nœud HLSL");
+                a[i] = wantTex ? Val{"31u", kEGTexture} : Val{"0.0", 1};
+            }
+        }
 
         int widest = 1;
         for (auto& v : a) widest = std::max(widest, v.n);
@@ -403,8 +448,44 @@ struct Gen {
         } else if (op == "random") {
             if (!brush()) Fail(id, "nœud réservé aux pinceaux");
             one("Rand(b.seed, " + S(0) + " + 11.0)", 1);
+        } else if (op == "texture") {
+            int k = std::clamp(n->index, 0, 3);
+            usedInputs.insert(k);
+            one(std::to_string(k) + "u", kEGTexture);
+        } else if (op == "canvassize") {
+            one(unreal ? "float4(Size, 1.0 / Size)" : brush() ? "float4(b.docSize, 1.0 / b.docSize)" : "float4(ctx.size, ctx.texel)", 4);
+        } else if (op == "param2") {
+            one(paramNames[id], 2);
+        } else if (op == "custom" && pinned) {
+            // Declared pins: Run(<pins>) returns the single output, or writes several `out` parameters.
+            std::string sname = "SXC" + std::to_string(id), params;
+            for (size_t i = 0; i < n->pins.size(); ++i) {
+                if (i) params += ", ";
+                params += Type(n->pins[i].type) + " " + n->pins[i].name;
+                if (n->pins[i].type == kEGTexture) textures = true;
+            }
+            const bool single = n->outs.size() <= 1;
+            int retType = n->outs.empty() ? 4 : n->outs[0].type;
+            if (!single)
+                for (auto& o : n->outs) params += std::string(params.empty() ? "" : ", ") + "out " + Type(o.type) + " " + o.name;
+            if (!n->decl.empty()) customDecls.push_back("// " + n->name + "\n" + n->decl + "\n");
+            customStructs.push_back("struct " + sname + "\n{\n    " + (single ? Type(retType) : std::string("void")) + " Run(" + params + ")\n    {\n" + n->text +
+                                    "\n    }\n};\n");
+            std::string inst = "sxc" + std::to_string(id), args;
+            lines.push_back("    " + sname + " " + inst + ";");
+            for (size_t i = 0; i < a.size(); ++i) args += (i ? ", " : "") + (n->pins[i].type == kEGTexture ? a[i].expr : Conv(a[i], n->pins[i].type));
+            if (single) one(inst + ".Run(" + args + ")", retType);
+            else {
+                for (size_t k = 0; k < n->outs.size(); ++k) {
+                    std::string var = "n" + std::to_string(id) + "_o" + std::to_string(k);
+                    lines.push_back("    " + Type(n->outs[k].type) + " " + var + ";");
+                    args += std::string(args.empty() ? "" : ", ") + var;
+                }
+                lines.push_back("    " + inst + ".Run(" + args + ");");
+                for (size_t k = 0; k < n->outs.size(); ++k) out.push_back({"n" + std::to_string(id) + "_o" + std::to_string(k), n->outs[k].type});
+            }
         } else if (op == "opacity") {
-            one("opacity", 1);
+            one(opacityVar, 1);
         } else if (op == "blendover") {
             one("sxh.Over(" + Conv(a[0], 4) + ", " + Conv(a[1], 4) + ", " + Conv(a[2], 3) + ", " + S(3) + " * " + S(4) + ")", 4);
         } else if (op == "input") {
@@ -498,7 +579,9 @@ struct Gen {
             one("0.0", 1);
         }
         // Materialize every output into a local so shared subexpressions are computed once.
-        if (op != "output" && op != "param" && op != "paramcolor" && op != "uv" && op != "const" && op != "brush" && op != "opacity") {
+        const bool multiOut = pinned && n->outs.size() > 1;
+        if (op != "output" && op != "param" && op != "paramcolor" && op != "param2" && op != "uv" && op != "const" && op != "brush" && op != "opacity" &&
+            op != "texture" && !multiOut) {
             for (size_t k = 0; k < out.size(); ++k) {
                 std::string var = "n" + std::to_string(id) + "_" + std::to_string(k);
                 lines.push_back("    " + Type(out[k].n) + " " + var + " = " + out[k].expr + ";");
@@ -519,8 +602,9 @@ void AssignParamNames(const EffectGraph& g, Gen& gen) {
     std::set<std::string> used;
     int k = 0;
     for (auto& n : g.nodes) {
-        if (n.op != "param" && n.op != "paramcolor") continue;
+        if (n.op != "param" && n.op != "paramcolor" && n.op != "param2") continue;
         std::string base = SanitizeId(n.name, ++k), id = base;
+        if (n.index == 1 && !n.name.empty() && base == "P_" + n.name) base = id = n.name;  // imported: the original identifier
         for (int i = 2; used.count(id); ++i) id = base + "_" + std::to_string(i);
         used.insert(id);
         gen.paramNames[n.id] = id;
@@ -537,12 +621,19 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
     }
     Gen gen{g, false};
     AssignParamNames(g, gen);
+    bool ownOpacity = false;
+    for (auto& n : g.nodes)
+        if (n.op == "param" && _stricmp(gen.paramNames[n.id].c_str(), "opacity") == 0) {
+            gen.opacityVar = gen.paramNames[n.id];  // driven by the layer opacity (case-insensitive id)
+            ownOpacity = true;
+        }
     std::vector<Val> res = gen.Eval(out);
     r.error = gen.error;
     r.errorNodes = gen.errorNodes;
     {
         Gen typer{g, false};
         typer.paramNames = gen.paramNames;
+        typer.opacityVar = gen.opacityVar;
         for (auto& n : g.nodes) {
             auto outs = typer.Eval(n.id);
             for (size_t k = 0; k < outs.size(); ++k) r.outTypes[(u64)n.id * 16 + k] = outs[k].n;
@@ -569,18 +660,26 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
         for (auto& n : g.nodes) if (n.op == "sample" || n.op == "custom") global = true;
         s += global ? "//@halo full\n" : "//@halo 0\n";
     }
-    if (blend) s += "//@param opacity float 1 0 1 \"Opacité\"\n";  // driven by the layer opacity
+    if (blend && !ownOpacity) s += "//@param opacity float 1 0 1 \"Opacité\"\n";  // driven by the layer opacity
     for (auto& n : g.nodes) {
         auto it = gen.paramNames.find(n.id);
         if (it == gen.paramNames.end()) continue;
-        std::string label = n.name.empty() ? it->second : n.name;
+        std::string label = !n.text.empty() ? n.text : n.name.empty() ? it->second : n.name;  // text: display label (imported)
         if (n.op == "param")
             s += "//@param " + it->second + " float " + F(n.value.x) + " " + F(n.min) + " " + F(n.max) + " \"" + label + "\"\n";
+        else if (n.op == "param2")
+            s += "//@param " + it->second + " float2 " + F(n.value.x) + " " + F(n.value.y) + " " + F(n.min) + " " + F(n.max) + " \"" + label + "\"\n";
         else
             s += "//@param " + it->second + " color " + F(n.value.x) + " " + F(n.value.y) + " " + F(n.value.z) + " " + F(n.value.w) + " \"" + label + "\"\n";
     }
     s += "// Généré par l'éditeur visuel de Shaderixel.\n";
     s += kHelperStruct;
+    if (gen.textures) {
+        // Textures of custom nodes: read at any UV; unconnected = white (like Unreal).
+        s += "float4 SXTex(uint i, float2 uv) { return i < 4u && HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }\n";
+        s += "#define Texture2DSample(T, S, UVS) SXTex(T, UVS)\n#define Texture2DSampleLevel(T, S, UVS, LOD) SXTex(T, UVS)\n";
+    }
+    for (auto& c : gen.customDecls) s += c;
     for (auto& c : gen.customStructs) s += c;
     s += brush ? "float4 Tip(Brush b)\n{\n    SXH sxh;\n" : "float4 Effect(EffectContext ctx)\n{\n    SXH sxh;\n";
     for (auto& l : gen.lines) s += l + "\n";
@@ -614,6 +713,11 @@ EGUnrealExport ExportEffectGraphToUnreal(const EffectGraph& g, const std::string
     }
     std::string code;
     code += kHelperStruct;
+    if (gen.textures) {
+        ex.error = "les textures des nœuds HLSL personnalisés ne sont pas encore exportées vers Unreal";
+        return ex;
+    }
+    for (auto& c : gen.customDecls) code += c;
     for (auto& c : gen.customStructs) code += c;
     code += "SXH sxh;\n";
     for (auto& l : gen.lines) code += l.substr(4) + "\n";
@@ -677,7 +781,7 @@ EGUnrealExport ExportEffectGraphToUnreal(const EffectGraph& g, const std::string
         auto it = gen.paramNames.find(n.id);
         if (it == gen.paramNames.end()) continue;
         std::string v = "p" + std::to_string(n.id);
-        std::string label = n.name.empty() ? it->second : n.name;
+        std::string label = !n.text.empty() ? n.text : n.name.empty() ? it->second : n.name;  // text: display label (imported)
         for (auto& c : label) if (c == '\'') c = ' ';
         if (n.op == "param") {
             py += v + " = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -900, " + std::to_string(y) + ")\n";

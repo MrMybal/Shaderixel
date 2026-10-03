@@ -453,6 +453,12 @@ void App::DemoTick() {
                     l.blendFx = {};
                     l.blendFx.effectId = "cy_blend_multiply";
                     if (auto def = l.blendFx.Def()) l.blendFx.params = def->DefaultParams();
+                    if (GetEnvironmentVariableA("SX_GRAPHCOPY", nullptr, 0) > 0)
+                        if (auto def = l.blendFx.Def(); def && !def->graph.empty()) {
+                            // "Modifier une copie (graphe)": the imported code in a custom node with its pins wired.
+                            l.blendFx.graph = def->graph;
+                            l.blendFx.effectId.clear();
+                        }
                 }
             d.SyncGraph();
         }

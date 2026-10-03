@@ -1,5 +1,6 @@
 //@name Exposure
 //@category Traitements
+//@graph {"name":"Exposure","category":"Traitements","inputs":1,"premultiplied":false,"nextId":7,"nodes":[{"id":1,"op":"texture","pos":[40,40],"in":[],"value":[0,0,0,0],"index":0,"name":"CyInput"},{"id":2,"op":"uv","pos":[40,150],"in":[],"value":[0,0,0,0]},{"id":3,"op":"canvassize","pos":[40,240],"in":[],"value":[0,0,0,0]},{"id":4,"op":"param","pos":[40,330],"in":[],"value":[0.0,0.0,0.0,0.0],"name":"ExposureEV","text":"Exposure EV","index":1,"min":-16.0,"max":16.0},{"id":5,"op":"custom","pos":[420,40],"in":[[1,0],[2,0],[3,0],[4,0]],"value":[0,0,0,0],"name":"Exposure","text":"    float4 s=Texture2DSample(CyInput,CyInputSampler,UV); return float4(s.rgb*exp2(ExposureEV),s.a);","pins":[["CyInput",5],["UV",2],["CyCanvasSize",4],["ExposureEV",1]],"outs":[["Resultat",4]]},{"id":6,"op":"output","pos":[780,40],"in":[[5,0],[0,0],[0,0]],"value":[0,0,0,0]}]}
 //@input Image
 //@halo 0
 //@param ExposureEV float 0 -16 16 "Exposure EV"
