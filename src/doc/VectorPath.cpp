@@ -225,4 +225,69 @@ std::vector<SubPath> TraceMask(const u8* mask, int W, int H, float tolerance) {
     return out;
 }
 
+// ------------------------------------------------------------------ PSD path resources
+
+std::vector<u8> EncodePsdPath(const VectorPath& path, int W, int H) {
+    std::vector<u8> out;
+    auto put16 = [&](u16 v) { out.push_back((u8)(v >> 8)); out.push_back((u8)v); };
+    auto fixed = [&](float f) {
+        i32 v = (i32)std::lround((double)f * 16777216.0);
+        u32 u = (u32)v;
+        for (int k = 3; k >= 0; --k) out.push_back((u8)(u >> (k * 8)));
+    };
+    auto pad = [&](size_t from) { while (out.size() - from < 26) out.push_back(0); };
+    size_t at = out.size();
+    put16(6);  // path fill rule record
+    pad(at);
+    at = out.size();
+    put16(8);  // initial fill rule: start with no pixels
+    put16(0);
+    pad(at);
+    for (const SubPath& sp : path.subpaths) {
+        if (sp.pts.empty()) continue;
+        at = out.size();
+        put16(sp.closed ? 0 : 3);
+        put16((u16)std::min<size_t>(sp.pts.size(), 65535));
+        pad(at);
+        for (const PathAnchor& a : sp.pts) {
+            // Linked (smooth) when both handles exist and are opposite.
+            float2 i = a.in - a.p, o = a.out - a.p;
+            bool linked = Length(i) > 1e-3f && Length(o) > 1e-3f && std::fabs(i.x * o.y - i.y * o.x) < 1e-2f * Length(i) * Length(o);
+            at = out.size();
+            put16(sp.closed ? (linked ? 1 : 2) : (linked ? 4 : 5));
+            for (float2 q : {a.in, a.p, a.out}) {
+                fixed(q.y / (float)H);
+                fixed(q.x / (float)W);
+            }
+            pad(at);
+        }
+    }
+    return out;
+}
+
+bool DecodePsdPath(const u8* data, size_t size, int W, int H, VectorPath& path) {
+    auto get16 = [&](size_t o) { return (u16)((data[o] << 8) | data[o + 1]); };
+    auto getFixed = [&](size_t o) {
+        u32 u = ((u32)data[o] << 24) | ((u32)data[o + 1] << 16) | ((u32)data[o + 2] << 8) | data[o + 3];
+        return (float)((double)(i32)u / 16777216.0);
+    };
+    path.subpaths.clear();
+    for (size_t o = 0; o + 26 <= size; o += 26) {
+        u16 sel = get16(o);
+        if (sel == 0 || sel == 3) {
+            SubPath sp;
+            sp.closed = sel == 0;
+            path.subpaths.push_back(sp);
+        } else if (sel == 1 || sel == 2 || sel == 4 || sel == 5) {
+            if (path.subpaths.empty()) path.subpaths.push_back({});
+            PathAnchor a;
+            float2* q[3] = {&a.in, &a.p, &a.out};
+            for (int k = 0; k < 3; ++k) *q[k] = {getFixed(o + 2 + k * 8 + 4) * W, getFixed(o + 2 + k * 8) * H};
+            path.subpaths.back().pts.push_back(a);
+        }
+    }
+    std::erase_if(path.subpaths, [](const SubPath& sp) { return sp.pts.empty(); });
+    return !path.subpaths.empty();
+}
+
 }  // namespace sx

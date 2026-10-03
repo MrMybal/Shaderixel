@@ -35,4 +35,9 @@ void RasterizeContours(const std::vector<std::vector<float2>>& contours, int W, 
 // tangent handles and sharp turns stay corners (Photoshop "Make Work Path").
 std::vector<SubPath> TraceMask(const u8* mask, int W, int H, float tolerance);
 
+// Photoshop path resource data (image resources 2000-2997): 26-byte records,
+// coordinates as 8.24 fixed-point fractions of the image size.
+std::vector<u8> EncodePsdPath(const VectorPath& path, int W, int H);
+bool DecodePsdPath(const u8* data, size_t size, int W, int H, VectorPath& path);
+
 }  // namespace sx

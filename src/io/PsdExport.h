@@ -32,6 +32,7 @@ struct PsdExportJob {
     bool psb = false;  // large document format (also chosen automatically above 30000 px)
     u32 width = 0, height = 0;
     std::vector<PsdExportLayer> layers;  // bottom to top, groups bracketed
+    std::vector<VectorPath> paths;       // saved as Photoshop paths
     gpu::ReadbackPtr composite;
 };
 

@@ -284,6 +284,7 @@ void App::DemoTick() {
             }
             Log("[selpath] selection pixels %zu, differing after round trip %zu (%.3f%%)", inside, diff, 100.0 * diff / std::max<size_t>(inside, 1));
         }
+        if (frameCounter == 32) ExportPsd("demo_paths.psd", 8);
         return;
     }
     if (demoMode == 31 && v) {

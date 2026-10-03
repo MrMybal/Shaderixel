@@ -30,6 +30,23 @@ struct Writer {
     void Pad(size_t from, size_t multiple) { while ((b.size() - from) % multiple) U8(0); }
 };
 
+// Path names: Photoshop stores them in the system code page (Latin-1 here).
+std::string Utf8ToLatin1(const std::string& s) {
+    std::string out;
+    for (size_t i = 0; i < s.size();) {
+        u8 c = (u8)s[i];
+        u32 cp = c;
+        int n = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : 4;
+        if (n > 1) {
+            cp = c & (0x3F >> (n - 1));
+            for (int k = 1; k < n && i + k < s.size(); ++k) cp = (cp << 6) | ((u8)s[i + k] & 0x3F);
+        }
+        out.push_back(cp < 256 ? (char)cp : '?');
+        i += n;
+    }
+    return out;
+}
+
 // PackBits one row.
 void PackRow(const u8* p, int n, std::vector<u8>& out) {
     int i = 0;
@@ -156,6 +173,7 @@ bool StartPsdExport(Document& doc, Renderer& r, gpu::CommandContext& ctx, PsdExp
     job.width = doc.Width();
     job.height = doc.Height();
     job.layers.clear();
+    job.paths = doc.S().paths;
     auto exportImg = [&](gpu::Texture* t, bool srgb) { return job.depth == 16 ? r.ExportRGBA16(ctx, t, srgb) : r.ExportRGBA8(ctx, t, srgb); };
     job.composite = exportImg(r.EvaluateComplete(doc, ctx), true);
     if (!job.composite) return false;
@@ -246,7 +264,24 @@ bool WritePsd(const PsdExportJob& job, std::string* error) {
     w.U16((u16)job.depth);
     w.U16(3);  // RGB
     w.U32(0);  // color mode data
-    w.U32(0);  // image resources
+    // Image resources: saved paths (ids 2000+), names as Pascal strings.
+    size_t resLen = w.Reserve32();
+    size_t resStart = w.b.size();
+    for (size_t k = 0; k < job.paths.size() && k < 998; ++k) {
+        std::vector<u8> data = EncodePsdPath(job.paths[k], W, H);
+        std::string name = Utf8ToLatin1(job.paths[k].name.empty() ? "Tracé " + std::to_string(k + 1) : job.paths[k].name);
+        if (name.size() > 255) name.resize(255);
+        w.Tag("8BIM");
+        w.U16((u16)(2000 + k));
+        size_t nameStart = w.b.size();
+        w.U8((u8)name.size());
+        w.Bytes(name.data(), name.size());
+        w.Pad(nameStart, 2);
+        w.U32((u32)data.size());
+        w.Bytes(data.data(), data.size());
+        w.Pad(resStart, 2);
+    }
+    w.Patch32(resLen, (u32)(w.b.size() - resStart));
 
     // Layer and mask information.
     size_t lmiLen = reserveLen();

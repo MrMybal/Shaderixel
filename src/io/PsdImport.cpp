@@ -282,7 +282,35 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
     if (!r.ok || W <= 0 || H <= 0 || W > 300000 || H > 300000 || (depth != 8 && depth != 16 && depth != 32) || (mode != 1 && mode != 3) || channels <= 0)
         return fail("PSD RVB ou niveaux de gris 8/16/32 bits uniquement");
     r.Skip(r.U32());  // color mode data
-    r.Skip(r.U32());  // image resources
+    // Image resources: keep saved paths (ids 2000-2997).
+    std::vector<VectorPath> paths;
+    {
+        u32 resLen = r.U32();
+        size_t resEnd = r.pos + resLen;
+        if (resEnd > data.size()) return fail("fichier PSD tronqué");
+        while (r.ok && r.pos + 12 <= resEnd) {
+            if (r.Tag() != "8BIM") break;
+            u16 id = r.U16();
+            u8 nlen = r.U8();
+            std::string name;
+            for (u8 k = 0; k < nlen; ++k) {
+                u8 c = r.U8();
+                if (c < 0x80) name.push_back((char)c);
+                else { name.push_back((char)(0xC0 | (c >> 6))); name.push_back((char)(0x80 | (c & 0x3F))); }  // Latin-1 -> UTF-8
+            }
+            if ((nlen + 1) % 2) r.Skip(1);
+            u32 size = r.U32();
+            size_t start = r.pos;
+            if (!r.Can(size)) break;
+            if (id >= 2000 && id <= 2997) {
+                VectorPath p;
+                p.name = name;
+                if (DecodePsdPath(&data[start], size, W, H, p)) paths.push_back(std::move(p));
+            }
+            r.Seek(start + size + (size & 1));
+        }
+        r.Seek(resEnd);
+    }
     u64 lmLen = psb ? r.U64() : r.U32();
     size_t lmEnd = r.pos + (size_t)lmLen;
     if (!r.ok || lmLen < 4 || lmEnd > data.size()) return fail("aucun calque");
@@ -463,6 +491,10 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
             px[i * 4 + 3] = 1;
         }
         renderer.Import(*doc, ctx, job.surface, px.data(), (u32)w, (u32)h, true, {s.mleft, s.mtop});
+    }
+    for (auto& p : paths) {
+        p.id = doc->NewId();
+        st.paths.push_back(std::move(p));
     }
     doc->SyncGraph();
     doc->dirty = false;
