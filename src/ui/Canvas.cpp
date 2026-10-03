@@ -16,6 +16,12 @@ const ToolInfo kToolInfo[] = {
     {Tool::Lasso, ui::IconLasso, "Lasso", "L"},
     {Tool::PolyLasso, ui::IconPolyLasso, "Lasso polygonal", "L"},
     {Tool::MagneticLasso, ui::IconLasso, "Lasso magnétique", "L"},
+    {Tool::Patch, ui::IconHeal, "Pièce", "J"},
+    {Tool::ContentMove, ui::IconMove, "Déplacement basé sur le contenu", "J"},
+    {Tool::RedEye, ui::IconPicker, "Yeux rouges", "J"},
+    {Tool::MagicEraser, ui::IconEraser, "Gomme magique", "E"},
+    {Tool::BackgroundEraser, ui::IconEraser, "Gomme d'arrière-plan", "E"},
+    {Tool::HistoryBrush, ui::IconBrush, "Forme d'historique", "Y"},
     {Tool::Wand, ui::IconWand, "Baguette magique", "W"},
     {Tool::QuickSelect, ui::IconQuickSelect, "Sélection rapide", "W"},
     {Tool::Pen, ui::IconPen, "Plume", "P"},
@@ -47,10 +53,10 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Lasso, Tool::PolyLasso, Tool::MagneticLasso},
     {Tool::QuickSelect, Tool::Wand},
     {Tool::Crop},
-    {Tool::Brush},
-    {Tool::Eraser},
+    {Tool::Brush, Tool::HistoryBrush},
+    {Tool::Eraser, Tool::BackgroundEraser, Tool::MagicEraser},
     {Tool::Clone},
-    {Tool::Heal},
+    {Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye},
     {Tool::Text},
     {Tool::Pen},
     {Tool::Shape},
@@ -369,6 +375,14 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         MagneticLassoInput(v, canvasMin, hovered);
         return;
     }
+    if (tool == Tool::Patch || tool == Tool::ContentMove) {
+        PatchToolInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::RedEye || tool == Tool::MagicEraser) {
+        ClickToolInput(v, canvasMin, hovered);
+        return;
+    }
     if (tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || tool == Tool::PolyLasso || tool == Tool::Wand) {
         SelectionToolInput(v, canvasMin, hovered, samples);
         return;
@@ -453,6 +467,8 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
 
     if (click && target && !stroking) {
+        // History brush source: the layer as it was before its first edit (or the last snapshot).
+        if (!v.snapshots.count(target)) TakeHistorySnapshot(v, target);
         if (v.renderer.BeginStroke(doc, *ctx, target)) {
             stroking = true;
             strokeErase = tool == Tool::Eraser;
@@ -639,6 +655,17 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
         case Tool::Sharpen: rp.mode = RetouchMode::Sharpen; break;
         case Tool::Dodge: rp.mode = RetouchMode::Dodge; break;
         case Tool::Burn: rp.mode = RetouchMode::Burn; break;
+        case Tool::HistoryBrush: {
+            rp.mode = RetouchMode::History;
+            auto it = v.snapshots.find(doc.PaintTarget());
+            rp.source = it != v.snapshots.end() ? it->second.get() : nullptr;
+            if (!rp.source) return;
+            break;
+        }
+        case Tool::BackgroundEraser:
+            rp.mode = RetouchMode::BackgroundErase;
+            rp.tolerance = bgEraserTolerance;
+            break;
         default: rp.mode = spongeSaturate ? RetouchMode::Saturate : RetouchMode::Desaturate; break;
     }
     v.renderer.RetouchDabs(doc, *ctx, dabs, retouch, rp);

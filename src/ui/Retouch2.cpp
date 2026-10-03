@@ -1,0 +1,232 @@
+// Retouching beyond the brushes: content-aware fill (PatchMatch, no AI), Patch
+// tool, content-aware move, red eye, magic eraser, history brush snapshots.
+#include "ui/App.h"
+#include "render/Inpaint.h"
+
+#include <cstring>
+
+namespace sx {
+
+// ------------------------------------------------------------------ content-aware fill
+
+void App::StartContentAwareFill(DocView& v, std::function<void()> then) {
+    Document& d = *v.doc;
+    if (fillJob.active) { Status("Remplissage d'après le contenu déjà en cours..."); return; }
+    Id target = d.PaintTarget();
+    Surface* s = d.GetSurface(target);
+    Surface* sel = d.Selection();
+    if (!s || !sel) { Status("Remplissage d'après le contenu : sélectionnez la zone à remplacer sur un calque de pixels"); return; }
+    fillJob = {};
+    fillJob.active = true;
+    fillJob.view = &v;
+    fillJob.surface = target;
+    fillJob.selection = d.S().selection;
+    fillJob.pixels = ctx->ReadbackTexture(s->tex.get());
+    fillJob.mask = ctx->ReadbackTexture(sel->tex.get());
+    fillJob.then = std::move(then);
+    Status("Remplissage d'après le contenu : analyse...");
+}
+
+void App::UpdateContentAwareFill() {
+    auto& J = fillJob;
+    if (!J.active) return;
+    bool alive = false;
+    for (auto& dv : docs) alive |= dv.get() == J.view;
+    if (!alive) { J.cancel = true; if (J.work.valid()) J.work.wait(); J = {}; return; }
+    if (J.pixels) {
+        if (!J.pixels->ready || !J.mask->ready) return;
+        // Crop around the hole (with room for sources), then PatchMatch on a worker.
+        const int W = (int)J.pixels->width, H = (int)J.pixels->height;
+        const u8* m = J.mask->data.data();
+        int x0 = W, y0 = H, x1 = -1, y1 = -1;
+        for (int y = 0; y < H; ++y)
+            for (int x = 0; x < W; ++x)
+                if (m[(size_t)y * W + x] > 4) {
+                    x0 = std::min(x0, x); y0 = std::min(y0, y); x1 = std::max(x1, x); y1 = std::max(y1, y);
+                }
+        if (x1 < 0) { Status("Sélection vide"); J = {}; return; }
+        int margin = std::max(48, (int)(std::max(x1 - x0, y1 - y0) * 0.9f));
+        // Bounded work: at most ~3 Mpx around the hole.
+        while ((long long)(x1 - x0 + 2 * margin) * (y1 - y0 + 2 * margin) > 3000000 && margin > 48) margin = margin * 3 / 4;
+        J.cx = std::max(0, x0 - margin);
+        J.cy = std::max(0, y0 - margin);
+        J.cw = std::min(W, x1 + margin + 1) - J.cx;
+        J.ch = std::min(H, y1 + margin + 1) - J.cy;
+        J.rgba.assign((size_t)J.cw * J.ch * 4, 0.0f);
+        J.hole.assign((size_t)J.cw * J.ch, 0);
+        const bool half = J.pixels->format == gpu::Format::RGBA16F;
+        for (int y = 0; y < J.ch; ++y)
+            for (int x = 0; x < J.cw; ++x) {
+                size_t src = (size_t)(y + J.cy) * W + (x + J.cx);
+                size_t dst = (size_t)y * J.cw + x;
+                if (half) {
+                    const u16* h = (const u16*)J.pixels->data.data() + src * 4;
+                    for (int k = 0; k < 4; ++k) J.rgba[dst * 4 + k] = HalfToFloat(h[k]);
+                } else {
+                    memcpy(&J.rgba[dst * 4], (const float*)J.pixels->data.data() + src * 4, 16);
+                }
+                J.hole[dst] = m[src] > 4 ? 1 : 0;
+            }
+        J.pixels.reset();
+        J.mask.reset();
+        J.work = std::async(std::launch::async, [&J] { return Inpaint(J.rgba, J.cw, J.ch, J.hole, &J.cancel, &J.progress); });
+        return;
+    }
+    if (J.work.valid()) {
+        if (J.work.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+            char b[64];
+            snprintf(b, sizeof(b), "Remplissage d'après le contenu : %.0f %%", J.progress.load() * 100.0f);
+            Status(b);
+            return;
+        }
+        bool ok = J.work.get();
+        DocView& v = *J.view;
+        Document& d = *v.doc;
+        Surface* sel = d.GetSurface(J.selection);
+        if (ok && sel && d.GetSurface(J.surface)) {
+            auto crop = gpu::Dev().CreateTexture((u32)J.cw, (u32)J.ch, gpu::Format::RGBA32F, "FillCrop");
+            ctx->Upload(crop.get(), J.rgba.data(), (u32)J.cw * 16);
+            v.renderer.PasteMasked(d, *ctx, v.history, J.surface, crop.get(), {J.cx, J.cy}, sel->tex.get(), "Remplissage d'après le contenu");
+            Status("Remplissage d'après le contenu terminé");
+            auto then = std::move(J.then);
+            J = {};
+            if (then) then();
+            return;
+        }
+        Status("Remplissage d'après le contenu impossible (zone trop grande par rapport au reste ?)");
+        J = {};
+    }
+}
+
+// ------------------------------------------------------------------ patch / content-aware move
+
+void App::PatchToolInput(DocView& v, ImVec2 canvasMin, bool hovered) {
+    // No selection: draw one (lasso). In the selection: drag it to the area that replaces it (Patch)
+    // or to where its content goes (content-aware move); released: healed blend.
+    ImGuiIO& io = ImGui::GetIO();
+    Document& doc = *v.doc;
+    float2 dp = ScreenToDoc(v, canvasMin, io.MousePos);
+    bool click = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    auto& P = patchDrag;
+    if (P.probe) {
+        if (!P.probe->ready) return;
+        bool inside = !P.probe->data.empty() && P.probe->data[0] >= 128;
+        P.probe.reset();
+        if (inside && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            P.dragging = true;
+            selMoving = true;  // the selection outline follows (display only)
+            selMoveOffset = {0, 0};
+        } else {
+            // Outside: a new selection drawn with the lasso.
+            selDragging = true;
+            selDragMode = SelMode::Replace;
+            lassoPts = {P.start};
+        }
+    }
+    if (click && !P.dragging && !selDragging) {
+        P.start = dp;
+        if (doc.Selection()) {
+            int x = (int)std::floor(dp.x), y = (int)std::floor(dp.y);
+            if (x >= 0 && y >= 0 && x < (int)doc.Width() && y < (int)doc.Height()) {
+                P.probe = v.renderer.ReadPixel(*ctx, doc.Selection()->tex.get(), x, y);
+                return;
+            }
+        }
+        selDragging = true;
+        selDragMode = ModeFromModifiers();
+        lassoPts = {dp};
+        return;
+    }
+    if (selDragging) {
+        for (auto& s : frameSamples) {
+            float2 p = ScreenToDoc(v, canvasMin, ImVec2(s.x, s.y));
+            if (Length(p - lassoPts.back()) * v.zoom >= 2.0f) lassoPts.push_back(p);
+        }
+        if (Length(dp - lassoPts.back()) * v.zoom >= 2.0f) lassoPts.push_back(dp);
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            selDragging = false;
+            FinishPolygon(v);
+        }
+        return;
+    }
+    if (!P.dragging) return;
+    float2 dd = dp - P.start;
+    selMoveOffset = {(int)std::lround(dd.x), (int)std::lround(dd.y)};
+    if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) return;
+    P.dragging = false;
+    selMoving = false;
+    int2 off = selMoveOffset;
+    selMoveOffset = {0, 0};
+    if (off.x == 0 && off.y == 0) return;
+    Id target = doc.PaintTarget();
+    Surface* sel = doc.Selection();
+    if (!target || !sel) { Status("Sélectionnez un calque de pixels"); return; }
+    int radius = std::max(6, (int)(patchBlend * 40.0f));
+    if (tool == Tool::Patch) {
+        // Source mode: the selected area is rebuilt from where it was dropped.
+        v.renderer.HealRegion(doc, *ctx, v.history, target, nullptr, sel->tex.get(), off, radius, "Pièce");
+        return;
+    }
+    // Content-aware move: fill the original area, then place the content (healed) where it was dropped.
+    Surface* s = doc.GetSurface(target);
+    auto original = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "MoveSource");
+    ctx->CopyTexture(original.get(), s->tex.get());
+    DocView* vp = &v;
+    StartContentAwareFill(v, [this, vp, target, original, off, radius] {
+        Document& d = *vp->doc;
+        if (!d.GetSurface(target) || !d.Selection()) return;
+        vp->history.BeginGroup();
+        gpu::Texture* moved = vp->renderer.OffsetSelectionPreview(d, *ctx, off);
+        vp->renderer.HealRegion(d, *ctx, vp->history, target, original.get(), moved, {-off.x, -off.y}, radius, "Déplacement basé sur le contenu");
+        vp->renderer.OffsetSelection(d, *ctx, vp->history, off, "Déplacer la sélection");
+        vp->history.EndGroup();
+    });
+}
+
+// ------------------------------------------------------------------ click tools
+
+void App::ClickToolInput(DocView& v, ImVec2 canvasMin, bool hovered) {
+    ImGuiIO& io = ImGui::GetIO();
+    Document& doc = *v.doc;
+    if (!hovered || !ImGui::IsMouseClicked(ImGuiMouseButton_Left)) return;
+    float2 dp = ScreenToDoc(v, canvasMin, io.MousePos);
+    Id target = doc.PaintTarget();
+    if (!target) { Status("Sélectionnez un calque de pixels"); return; }
+    if (tool == Tool::RedEye) {
+        // One dab over the pupil: strongly red pixels become dark gray.
+        if (!v.renderer.BeginStroke(doc, *ctx, target)) return;
+        RetouchParams rp;
+        rp.mode = RetouchMode::RedEye;
+        rp.strength = redEyeDarken;
+        BrushSettings b = retouch;
+        b.hardness = 0.3f;
+        b.opacity = 1;
+        v.renderer.RetouchDabs(doc, *ctx, {{dp.x, dp.y, redEyeSize * 0.5f, 1.0f}}, b, rp);
+        v.renderer.EndStroke(doc, *ctx, v.history, "Yeux rouges");
+        return;
+    }
+    if (tool == Tool::MagicEraser && !wand.rb) {
+        // Wand on the layer pixels, then erase the result.
+        int x = (int)std::floor(dp.x), y = (int)std::floor(dp.y);
+        if (x < 0 || y < 0 || x >= (int)doc.Width() || y >= (int)doc.Height()) return;
+        Surface* s = doc.GetSurface(target);
+        if (!s) return;
+        wand.rb = v.renderer.ExportRGBA8(*ctx, s->tex.get());
+        wand.x = x;
+        wand.y = y;
+        wand.view = &v;
+        wand.fill = true;
+        wand.erase = true;
+        wand.surface = target;
+    }
+}
+
+void App::TakeHistorySnapshot(DocView& v, Id surface) {
+    Surface* s = v.doc->GetSurface(surface);
+    if (!s) return;
+    auto t = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "HistorySnapshot");
+    ctx->CopyTexture(t.get(), s->tex.get());
+    v.snapshots[surface] = t;
+}
+
+}  // namespace sx

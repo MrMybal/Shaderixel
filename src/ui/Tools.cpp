@@ -348,7 +348,8 @@ void App::UpdateWand(DocView& v) {
         auto cov = gpu::Dev().CreateTexture((u32)W, (u32)H, gpu::Format::R8, "BucketCoverage");
         if (!cov || !doc.GetSurface(wand.surface)) return;
         ctx->Upload(cov.get(), mask.data(), (u32)W);
-        v.renderer.FillSelection(doc, *ctx, &v.history, wand.surface, 0, LinearColor(fg), 1.0f, "Pot de peinture", nullptr, cov.get());
+        if (wand.erase) v.renderer.FillSelection(doc, *ctx, &v.history, wand.surface, 1, {}, 1.0f, "Gomme magique", nullptr, cov.get(), false);
+        else v.renderer.FillSelection(doc, *ctx, &v.history, wand.surface, 0, LinearColor(fg), 1.0f, "Pot de peinture", nullptr, cov.get());
         return;
     }
     WandMask(rb->data, W, H, wand.x, wand.y, (int)wandTolerance, wandContiguous, mask);

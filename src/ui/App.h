@@ -30,9 +30,12 @@ std::string ExeDir();  // folder of the executable
 enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
-    Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso, Count
+    Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, Count
 };
-inline bool IsRetouchTool(Tool t) { return t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket; }
+inline bool IsRetouchTool(Tool t) {
+    return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush;
+}
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
 
 struct DocView;
@@ -88,6 +91,7 @@ struct DocView {
     std::unordered_map<Id, u64> textHashes;   // surface -> rasterized style hash
     std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
     std::unique_ptr<MeshScene> mesh;          // 3D painting scene (optional)
+    std::unordered_map<Id, gpu::TexturePtr> snapshots;  // history brush sources (layer state before the first edit)
     // Inner document of a smart object (open in this tab): its parent and the object.
     struct {
         DocView* parent = nullptr;
@@ -470,7 +474,7 @@ private:
     float2 selStart, selEnd;
     std::vector<float2> lassoPts;
     bool polyActive = false;
-    struct WandRequest { gpu::ReadbackPtr rb; int x = 0, y = 0; SelMode mode = SelMode::Replace; DocView* view = nullptr; bool fill = false; Id surface = 0; };
+    struct WandRequest { gpu::ReadbackPtr rb; int x = 0, y = 0; SelMode mode = SelMode::Replace; DocView* view = nullptr; bool fill = false, erase = false; Id surface = 0; };
     WandRequest wand;
     int selDialog = 0;              // 1 feather, 2 expand, 3 contract, 4 color range
     float selDialogValue = 4;
@@ -574,6 +578,40 @@ private:
     void UpdateSelectSubject();
     void InstallSubjectModel();
     void UpdateSubjectInstall();
+    // Retouching (Retouch2.cpp): content-aware fill, Patch / content-aware move, red eye, magic eraser, history brush.
+    struct FillJob {
+        bool active = false;
+        DocView* view = nullptr;
+        Id surface = 0, selection = 0;
+        gpu::ReadbackPtr pixels, mask;
+        int cx = 0, cy = 0, cw = 0, ch = 0;
+        std::vector<float> rgba;
+        std::vector<u8> hole;
+        std::future<bool> work;
+        std::atomic<bool> cancel{false};
+        std::atomic<float> progress{0};
+        std::function<void()> then;
+        FillJob() = default;
+        FillJob& operator=(FillJob&& o) noexcept {
+            active = o.active; view = o.view; surface = o.surface; selection = o.selection;
+            pixels = std::move(o.pixels); mask = std::move(o.mask);
+            cx = o.cx; cy = o.cy; cw = o.cw; ch = o.ch;
+            rgba = std::move(o.rgba); hole = std::move(o.hole); work = std::move(o.work);
+            cancel = o.cancel.load(); progress = o.progress.load(); then = std::move(o.then);
+            return *this;
+        }
+    } fillJob;
+    struct {
+        gpu::ReadbackPtr probe;
+        float2 start;
+        bool dragging = false;
+    } patchDrag;
+    float patchBlend = 0.4f, redEyeSize = 40, redEyeDarken = 0.5f, bgEraserTolerance = 0.25f;
+    void StartContentAwareFill(DocView& v, std::function<void()> then = {});
+    void UpdateContentAwareFill();
+    void PatchToolInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void ClickToolInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void TakeHistorySnapshot(DocView& v, Id surface);
     Id smartEditRequest = 0;
     void ColorPickerBody();  // Couleur panel / toolbar popup
     bool colorPopupRequest = false;

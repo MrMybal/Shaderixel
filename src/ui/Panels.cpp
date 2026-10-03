@@ -1173,6 +1173,21 @@ void App::DrawBrush() {
         if (v && v->doc->S().selection) {
             if (ImGui::Button("Désélectionner (Ctrl+D)")) v->renderer.Deselect(*v->doc, v->history);
         }
+    } else if (tool == Tool::Patch || tool == Tool::ContentMove) {
+        ImGui::SeparatorText(tool == Tool::Patch ? "Pièce" : "Déplacement basé sur le contenu");
+        ImGui::SliderFloat("Fondu des bords", &patchBlend, 0.05f, 1, "%.2f");
+        ImGui::TextDisabled(tool == Tool::Patch ? "Entourez la zone à corriger, puis faites-la glisser\nsur la zone qui doit la remplacer."
+                                                : "Entourez l'objet, puis faites-le glisser :\nl'ancienne place est remplie d'après le contenu.");
+        if (v && v->doc->S().selection && ImGui::Button("Remplir d'après le contenu (Maj+F5)")) StartContentAwareFill(*v);
+    } else if (tool == Tool::RedEye) {
+        ImGui::SeparatorText("Yeux rouges");
+        ImGui::SliderFloat("Taille de la pupille", &redEyeSize, 4, 300, "%.0f px");
+        ImGui::SliderFloat("Obscurcissement", &redEyeDarken, 0, 1, "%.2f");
+        ImGui::TextDisabled("Cliquez sur chaque pupille.");
+    } else if (tool == Tool::MagicEraser) {
+        ImGui::SeparatorText("Gomme magique");
+        ImGui::SliderFloat("Tolérance", &wandTolerance, 0, 255, "%.0f");
+        ImGui::TextDisabled("Clic : efface les pixels voisins de couleur proche.");
     } else if (tool == Tool::Gradient) {
         ImGui::SeparatorText("Dégradé");
         ImGui::Combo("Style", &gradientShape, "Linéaire\0" "Radial\0" "Angle\0" "Réfléchi\0" "Losange\0");
@@ -1182,7 +1197,13 @@ void App::DrawBrush() {
         BrushSettings& b = CurrentBrush();
         static const char* titles[] = {"", "", "", "", "", "", "Pinceau", "Gomme", "Tampon de duplication", "Correcteur", "", "",
                                        "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge", "Fluidité"};
-        ImGui::SeparatorText(titles[(int)tool]);
+        ImGui::SeparatorText(tool == Tool::HistoryBrush ? "Forme d'historique" : tool == Tool::BackgroundEraser ? "Gomme d'arrière-plan"
+                                                                                                         : titles[(int)tool]);
+        if (tool == Tool::BackgroundEraser) {
+            ImGui::SliderFloat("Tolérance##bg", &bgEraserTolerance, 0.01f, 1, "%.2f");
+            ImGui::TextDisabled("Efface les couleurs proches de celle sous le centre du pinceau.");
+        }
+        if (tool == Tool::HistoryBrush) ImGui::TextDisabled("Repeint l'instantané du calque (panneau Historique).");
         if (IsRetouchTool(tool)) {
             ImGui::SliderFloat(tool == Tool::Clone || tool == Tool::Heal ? "Intensité (inutilisée)" : "Intensité", &retouchStrength, 0.01f, 1, "%.2f");
             if (tool == Tool::Dodge || tool == Tool::Burn) ImGui::Combo("Plage", &dodgeRange, "Tons foncés\0Tons moyens\0Tons clairs\0");

@@ -11,7 +11,7 @@
 - 27 modes de fusion, opacité, masques de fusion, fusion en gamma ou linéaire
 - Calques de pixels, de remplissage, de réglage, de texte, de forme ; groupes (Traverser) ; masques d'écrêtage ; filtres non destructifs par calque
 - Pinceau et gomme (pression, flux, dureté, espacement, lissage), dégradé, pot de peinture (tolérance, contigu), pipette
-- Retouche : tampon de duplication, correcteur, goutte, netteté, doigt, densité -/+, éponge
+- Retouche : tampon de duplication, correcteur, goutte, netteté, doigt, densité -/+, éponge, remplissage d'après le contenu (PatchMatch, sans IA, Maj+F5), pièce, déplacement basé sur le contenu, yeux rouges, gomme magique, gomme d'arrière-plan, forme d'historique (instantanés)
 - Sélections : rectangle, ellipse, lasso, polygonal, baguette, plage de couleurs, depuis un calque ; ajout/soustraction/intersection, contour progressif, dilater/contracter, intervertir, mode masque
 - Transformation manuelle (échelle, rotation, pivot, perspective) et outil Déplacement ; calque par copier/couper, copier/coller
 - Menu Image : taille de l'image, zone de travail, rotations, symétries, recadrage

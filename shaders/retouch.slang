@@ -1,6 +1,7 @@
 // Retouch brushes. Same coverage model as brush.slang (dabs accumulate into a
 // per-stroke mask), but the stroke applies an operation on the pre-stroke layer:
-//   0 clone stamp, 1 healing, 2 blur, 3 sharpen, 4 dodge, 5 burn, 6 sponge saturate, 7 sponge desaturate
+//   0 clone stamp, 1 healing, 2 blur, 3 sharpen, 4 dodge, 5 burn, 6 sponge saturate, 7 sponge desaturate,
+//   8 history brush (t2 = snapshot), 9 background eraser (colors close to the dab center), 10 red eye
 #include "common.slang"
 
 cbuffer Root : register(b0)
@@ -16,7 +17,7 @@ cbuffer Root : register(b0)
     float gStrength;
     int2 gSrcOffset;    // clone / heal: source = destination + offset
     uint gRange;        // dodge/burn: 0 shadows, 1 midtones, 2 highlights
-    float _pad;
+    float gTolerance;   // background eraser: color distance (0..1)
 };
 
 cbuffer Dabs : register(b1)
@@ -26,6 +27,7 @@ cbuffer Dabs : register(b1)
 
 Texture2D<float4> gPre : register(t0);
 Texture2D<float> gSel : register(t1);
+Texture2D<float4> gSnapshot : register(t2);  // history brush source
 RWTexture2D<float4> gLayer : register(u0);
 RWTexture2D<float> gStroke : register(u1);
 
@@ -66,8 +68,23 @@ void main(uint3 id : SV_DispatchThreadID)
     float2 p = float2(px) + 0.5;
 
     float m = gStroke[px];
-    for (uint i = 0; i < gDabCount; ++i)
-        m = m + (1.0 - m) * DabCoverage(p, gDabs[i]);
+    if (gMode == 9)
+    {
+        // Background eraser: a dab only removes the colors close to the one under its center.
+        float3 c0 = LinearToSrgb(saturate(Unpremultiply(Pre(px)).rgb));
+        for (uint i = 0; i < gDabCount; ++i)
+        {
+            float3 cc = LinearToSrgb(saturate(Unpremultiply(Pre(int2(gDabs[i].xy))).rgb));
+            float d = length(c0 - cc) / 1.732;
+            float close = 1.0 - smoothstep(gTolerance * 0.7, gTolerance + 1e-3, d);
+            m = m + (1.0 - m) * DabCoverage(p, gDabs[i]) * close;
+        }
+    }
+    else
+    {
+        for (uint i = 0; i < gDabCount; ++i)
+            m = m + (1.0 - m) * DabCoverage(p, gDabs[i]);
+    }
     gStroke[px] = m;
 
     float k = saturate(m * gOpacity);
@@ -87,6 +104,24 @@ void main(uint3 id : SV_DispatchThreadID)
         result = Pre(px + gSrcOffset) - Mean(px + gSrcOffset, s) + Mean(px, s);
         result = max(result, 0.0);
         result.a = saturate(result.a);
+    }
+    else if (gMode == 8)
+    {
+        result = gSnapshot.Load(int3(px, 0));
+    }
+    else if (gMode == 9)
+    {
+        result = 0;
+    }
+    else if (gMode == 10)
+    {
+        // Red eye: strongly red pixels become a dark neutral pupil.
+        float4 c = Unpremultiply(pre);
+        float redness = c.r - max(c.g, c.b);
+        float w = smoothstep(0.03, 0.15, redness) * smoothstep(0.0, 0.05, c.r);
+        float pupil = min(c.g, c.b) * (1.0 - gStrength * 0.6);
+        c.rgb = lerp(c.rgb, float3(pupil, pupil, pupil), w);
+        result = Premultiply(c);
     }
     else if (gMode == 2 || gMode == 3)
     {

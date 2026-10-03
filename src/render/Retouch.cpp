@@ -55,11 +55,13 @@ void Renderer::RetouchDabs(Document& doc, gpu::CommandContext& ctx, const std::v
         d.pipeline = k;
         d.srv[0] = strokePre.get();
         d.srv[1] = sel ? sel->tex.get() : nullptr;
+        d.srv[2] = rp.source;
         d.uav[0] = s->tex.get();
         d.uav[1] = strokeMask.get();
+        if (rp.mode == RetouchMode::BackgroundErase) d.uavNoMap |= 1;  // erasing: no sparse-page allocation needed
         MapDabs(d, 3, (const float4*)&dabs[start], count, sizeof(Dab), 2);
         SetConstants(d, RetouchRoot{r.x0, r.y0, (u32)r.Width(), (u32)r.Height(), (u32)W, (u32)H, (u32)count, b.hardness, b.opacity,
-                                    (u32)rp.mode, sel ? 1u : 0u, rp.strength, rp.srcOffset.x, rp.srcOffset.y, (u32)rp.range, 0.0f});
+                                    (u32)rp.mode, sel ? 1u : 0u, rp.strength, rp.srcOffset.x, rp.srcOffset.y, (u32)rp.range, rp.tolerance});
         d.cbData = &dabs[start];
         d.cbSize = count * sizeof(Dab);
         Dispatch2D(ctx, d, (u32)r.Width(), (u32)r.Height());

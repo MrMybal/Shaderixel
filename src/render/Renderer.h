@@ -61,12 +61,14 @@ struct BrushSettings {
 
 struct Dab { float x, y, radius, alpha; };
 
-enum class RetouchMode : u8 { Clone, Heal, Blur, Sharpen, Dodge, Burn, Saturate, Desaturate };
+enum class RetouchMode : u8 { Clone, Heal, Blur, Sharpen, Dodge, Burn, Saturate, Desaturate, History, BackgroundErase, RedEye };
 struct RetouchParams {
     RetouchMode mode = RetouchMode::Clone;
     float strength = 0.5f;
     int2 srcOffset;
     int range = 1;  // dodge/burn: 0 shadows, 1 midtones, 2 highlights
+    gpu::Texture* source = nullptr;  // history brush: snapshot of the layer
+    float tolerance = 0.25f;         // background eraser
 };
 
 // Point of a bicubic Bezier patch (4x4 control points, row-major) at (u, v).
@@ -162,6 +164,13 @@ public:
     gpu::Texture* RefineMask(gpu::CommandContext& ctx, gpu::Texture* image, gpu::Texture* selection, const RefineParams& p);
     gpu::Texture* RefinePreview(gpu::CommandContext& ctx, gpu::Texture* image, gpu::Texture* mask, int view);
     bool WriteMaskSurface(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, gpu::Texture* mask, const std::string& label);
+    // Region healing / fill paste (HealFill.cpp): membrane blend of `source` (null: the surface) shifted by
+    // `offset` into the region `mask`; paste of a computed crop through the mask. Undoable.
+    bool HealRegion(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, gpu::Texture* source, gpu::Texture* mask, int2 offset,
+                    int radius, const std::string& label);
+    bool PasteMasked(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, gpu::Texture* crop, int2 origin, gpu::Texture* mask,
+                     const std::string& label);
+    void BoxBlurInPlace(gpu::CommandContext& ctx, gpu::Texture* t, gpu::Texture* tmp, int radius, int passes);
     // Smart objects: an image as a new texture (linear premultiplied), and its placement on a layer surface.
     gpu::TexturePtr ImportTexture(gpu::CommandContext& ctx, const void* pixels, u32 w, u32 h, bool isFloat, gpu::Format format);
     void PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* content, const float2 corners[4]);
@@ -309,6 +318,7 @@ private:
     gpu::TexturePtr strokeColor, previewLayer, previewMask, previewColor;  // programmable brushes
     gpu::TexturePtr padLayer, padPre, padMask, padColor;                   // brush test pad
     gpu::TexturePtr rangeMask, refineT[3], refineMask, refineMask2, refinePreview;  // selection masks
+    gpu::TexturePtr healD, healW, healTmp;  // region healing
     bool strokeColorReady = false;
     u64 previewHash = 0;
     std::unordered_map<u64, gpu::ProgramPtr> brushPrograms;

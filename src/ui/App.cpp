@@ -81,7 +81,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -450,6 +450,7 @@ void App::Frame() {
     bridge.Pump();
     UpdateSmartChildren();
     UpdateSelectSubject();
+    UpdateContentAwareFill();
     UpdateSubjectInstall();
     if (DocView* av = Active(); av && frameCounter % 60 == 0) UpdateLinkedSmartObjects(*av, false);
     PollAiJobs();
@@ -830,6 +831,9 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Remplir avec la couleur de premier plan", "Alt+Retour", false, canFill)) FillOrErase(*v, false);
         if (ImGui::MenuItem("Effacer", "Suppr", false, canFill)) FillOrErase(*v, true);
         if (ImGui::MenuItem("Contour...", nullptr, false, canFill && v->doc->Selection() != nullptr)) selDialog = 5;
+        if (ImGui::MenuItem("Remplir d'après le contenu", "Maj+F5", false, canFill && v->doc->Selection() != nullptr && !fillJob.active))
+            StartContentAwareFill(*v);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Reconstruit la zone sélectionnée à partir du reste de l'image (PatchMatch, sans IA).");
         ImGui::Separator();
         if (ImGui::MenuItem("Transformation manuelle", "Ctrl+T", false, canFill)) TransformBegin(*v, false);
         if (ImGui::MenuItem("Déformation", nullptr, false, canFill)) WarpBegin(*v);
@@ -1168,10 +1172,18 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_U)) setTool(Tool::Shape);
     if (pressed(ImGuiKey_B)) setTool(Tool::Brush);
     if (pressed(ImGuiKey_S)) setTool(Tool::Clone);
-    if (pressed(ImGuiKey_J)) setTool(Tool::Heal);
+    if (pressed(ImGuiKey_J)) {
+        // J cycles: correcteur -> pièce -> déplacement basé sur le contenu -> yeux rouges.
+        Tool cyc[] = {Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye};
+        int k = 0;
+        for (int i = 0; i < 4; ++i) if (tool == cyc[i]) k = shift ? (i + 1) % 4 : i;
+        setTool(shift ? cyc[k] : (tool == cyc[0] || tool == cyc[1] || tool == cyc[2] || tool == cyc[3]) ? tool : Tool::Heal);
+    }
+    if (pressed(ImGuiKey_Y)) setTool(Tool::HistoryBrush);
+    if (shift && pressed(ImGuiKey_F5) && d.S().selection && d.PaintTarget()) StartContentAwareFill(*v);
     if (pressed(ImGuiKey_O)) setTool(shift ? (tool == Tool::Dodge ? Tool::Burn : tool == Tool::Burn ? Tool::Sponge : Tool::Dodge) : Tool::Dodge);
     if (pressed(ImGuiKey_R)) setTool(shift ? (tool == Tool::Blur ? Tool::Sharpen : tool == Tool::Sharpen ? Tool::Smudge : Tool::Blur) : Tool::Blur);
-    if (pressed(ImGuiKey_E)) setTool(Tool::Eraser);
+    if (pressed(ImGuiKey_E)) setTool(shift ? (tool == Tool::Eraser ? Tool::BackgroundEraser : tool == Tool::BackgroundEraser ? Tool::MagicEraser : Tool::Eraser) : Tool::Eraser);
     if (pressed(ImGuiKey_I)) setTool(Tool::Picker);
     if (pressed(ImGuiKey_G)) setTool(shift && tool == Tool::Gradient ? Tool::Bucket : Tool::Gradient);
     if (pressed(ImGuiKey_K)) setTool(Tool::Bucket);
@@ -1426,6 +1438,14 @@ void App::DrawHistory() {
     DocView* v = Active();
     if (v) {
         History& h = v->history;
+        if (Id t = v->doc->PaintTarget()) {
+            if (ImGui::SmallButton("Nouvel instantané")) TakeHistorySnapshot(*v, t);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Source de la forme d'historique (Y) pour le calque actif : son état actuel.\nSans instantané, la source est l'état du calque avant sa première retouche.");
+            ImGui::SameLine();
+            ImGui::TextDisabled(v->snapshots.count(t) ? "(instantané défini)" : "");
+            ImGui::Separator();
+        }
         if (ImGui::Selectable("Ouverture", h.Cursor() == 0)) while (h.CanUndo()) h.Undo(*v->doc, *ctx);
         for (size_t i = 0; i < h.Count(); ++i) {
             bool applied = i < h.Cursor();

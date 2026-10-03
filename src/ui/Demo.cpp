@@ -299,6 +299,89 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 53) {
+        // Retouching on SX_IMAGE: SX_OP=fill (content-aware fill of the pole), patch, move, redeye, history.
+        char path[512] = "", op[16] = "fill";
+        GetEnvironmentVariableA("SX_OP", op, sizeof(op));
+        std::string o = op;
+        if (frameCounter == 4 && GetEnvironmentVariableA("SX_IMAGE", path, sizeof(path)) > 0) OpenImage(path, false);
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        Id t = d.PaintTarget();
+        if (frameCounter == 8) {
+            if (o == "redeye") {
+                if (a->renderer.BeginStroke(d, *ctx, t)) {
+                    RetouchParams rp;
+                    rp.mode = RetouchMode::RedEye;
+                    rp.strength = redEyeDarken;
+                    BrushSettings b = retouch;
+                    b.hardness = 0.3f;
+                    b.opacity = 1;
+                    a->renderer.RetouchDabs(d, *ctx, {{220, 600, 40, 1.0f}}, b, rp);
+                    a->renderer.EndStroke(d, *ctx, a->history, "Yeux rouges");
+                }
+            } else if (o == "history") {
+                TakeHistorySnapshot(*a, t);
+                FillOrErase(*a, false);  // whole layer filled (no selection)
+            } else {
+                a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, {505, 235, 655, 635}, SelMode::Replace, true, 2, "Rectangle");
+            }
+        }
+        if (frameCounter == 10 && o == "fill") StartContentAwareFill(*a);
+        if (frameCounter == 10 && o == "magic") {
+            // Magic eraser click in the sky (same request as ClickToolInput).
+            d.S().selection = 0;
+            tool = Tool::MagicEraser;
+            wand.rb = a->renderer.ExportRGBA8(*ctx, d.GetSurface(t)->tex.get());
+            wand.x = 600;
+            wand.y = 100;
+            wand.view = a;
+            wand.fill = wand.erase = true;
+            wand.surface = t;
+        }
+        if (frameCounter == 10 && o == "patch")
+            a->renderer.HealRegion(d, *ctx, a->history, t, nullptr, d.Selection()->tex.get(), {250, 0}, std::max(6, (int)(patchBlend * 40)), "Pièce");
+        if (frameCounter == 10 && o == "move") {
+            // Same path as the tool: fill the original place, then heal the content at +300 px.
+            tool = Tool::ContentMove;
+            patchDrag.dragging = true;
+            patchDrag.start = {0, 0};
+            selMoving = true;
+        }
+        if (frameCounter == 10 && o == "history") {
+            tool = Tool::HistoryBrush;
+            if (a->renderer.BeginStroke(d, *ctx, t)) {
+                RetouchParams rp;
+                rp.mode = RetouchMode::History;
+                rp.source = a->snapshots[t].get();
+                std::vector<Dab> dabs;
+                for (float x = 100; x < 1100; x += 10) dabs.push_back({x, 400, 60, 1.0f});
+                a->renderer.RetouchDabs(d, *ctx, dabs, retouch, rp);
+                a->renderer.EndStroke(d, *ctx, a->history, "Forme d'historique");
+            }
+        }
+        if (frameCounter == 12 && o == "move") {
+            // Released at +300 px: replicates PatchToolInput's release branch.
+            patchDrag.dragging = false;
+            selMoving = false;
+            Surface* s = d.GetSurface(t);
+            auto original = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "MoveSource");
+            ctx->CopyTexture(original.get(), s->tex.get());
+            int2 off = {300, 0};
+            int radius = 16;
+            StartContentAwareFill(*a, [this, a, t, original, off, radius] {
+                Document& dd = *a->doc;
+                a->history.BeginGroup();
+                gpu::Texture* moved = a->renderer.OffsetSelectionPreview(dd, *ctx, off);
+                a->renderer.HealRegion(dd, *ctx, a->history, t, original.get(), moved, {-off.x, -off.y}, radius, "Déplacement basé sur le contenu");
+                a->renderer.OffsetSelection(dd, *ctx, a->history, off, "Déplacer la sélection");
+                a->history.EndGroup();
+            });
+        }
+        if (frameCounter % 30 == 0) Log("[demo] retouch %s: %s (job %d)", op, statusMsg.c_str(), fillJob.active ? 1 : 0);
+        return;
+    }
     if (demoMode == 52) {
         // Select > Sky on an image given by SX_IMAGE (or Subject with SX_SUBJECT: reports a missing rembg).
         char path[512] = "";
