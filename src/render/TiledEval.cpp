@@ -116,6 +116,9 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
         case NodeKind::Output:
             res = n->inputs.empty() ? TileRes{} : EvalTileInput(doc, ctx, *n, 0, need, depth + 1);
             break;
+        case NodeKind::Split:
+            res = EvalTileInput(doc, ctx, *n, 0, need, depth + 1);
+            break;
         case NodeKind::Surface:
             if (Surface* s = doc.GetSurface(n->surface)) res = {s->tex.get(), {0, 0}};
             break;

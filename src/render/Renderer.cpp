@@ -238,6 +238,9 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
             result = n->inputs.empty() ? EvalResult{} : EvalInput(doc, ctx, *n, 0, depth + 1);
             break;
         }
+        case NodeKind::Split:
+            result = EvalInput(doc, ctx, *n, 0, depth + 1);
+            break;
         case NodeKind::Surface: {
             Surface* s = doc.GetSurface(n->surface);
             if (s && s->tex) {

@@ -125,7 +125,8 @@ struct Layer {
     ShapeStyle shape;         // Shape layers (rendered into `surface`)
 };
 
-enum class NodeKind : u8 { Output, Surface, Effect, Blend };
+// Split: passes its RGBA input through; its outputs R, G, B, A are channel links (1-4).
+enum class NodeKind : u8 { Output, Surface, Effect, Blend, Split };
 
 struct Node {
     Id id = 0;
@@ -147,6 +148,13 @@ struct Node {
 
 int NodeInputCount(const Node& n);
 inline u8 InputChannel(const Node& n, size_t i) { return i < n.inputChannel.size() ? n.inputChannel[i] : 0; }
+// Value type of pins: an RGBA image or a single channel (gray image).
+enum class PinType : u8 { RGBA, Channel };
+PinType NodeInputType(const Node& n, int i);
+int NodeOutputCount(const Node& n);
+PinType NodeOutputType(const Node& n, int k);
+u8 NodeOutputChannel(const Node& n, int k);  // channel a link from output k carries
+std::string NodeOutputName(const Node& n, int k);
 std::string NodeInputName(const Node& n, int i);
 
 struct Graph {

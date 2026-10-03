@@ -278,12 +278,14 @@ void App::DemoTick() {
         if (frameCounter == 10 && src) {
             Node* out = g.Find(g.output);
             float2 p = out->pos + float2{-30, 260};
+            Id split = d.AddNode(NodeKind::Split, p + float2{-260, 0}).id;
+            d.Link(src, split, 0);
             comb = d.AddEffectNode("combine_rgba", "", p).id;
-            for (int c = 0; c < 4; ++c) d.Link(src, comb, c, (u8)(c + 1));
+            for (int c = 0; c < 4; ++c) d.Link(split, comb, c, (u8)(c + 1));
             d.Link(comb, g.output, 0);
             nodeEd.selection = {comb};
             nodeEd.zoom = 0.85f;
-            nodeEd.pan = float2{560, 30} - p;  // Combine RGBA and its source in view
+            nodeEd.pan = float2{760, 30} - p;  // Split / Combine in view
         }
         if (frameCounter == 40) rb[1] = grab();
         if (frameCounter == 42) d.forceTiled = true;

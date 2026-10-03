@@ -1,7 +1,7 @@
 //@name Combiner RGBA
 //@category Canaux
 //@input R
-//@input G
+//@input V
 //@input B
 //@input A
 //@halo 0

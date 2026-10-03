@@ -85,6 +85,7 @@ int NodeInputCount(const Node& n) {
         case NodeKind::Output: return 1;
         case NodeKind::Surface: return 0;
         case NodeKind::Blend: return 3;
+        case NodeKind::Split: return 1;
         case NodeKind::Effect: {
             auto d = n.fx.Def();
             return d ? (int)d->inputs.size() : (int)n.inputs.size();
@@ -93,10 +94,31 @@ int NodeInputCount(const Node& n) {
     return 0;
 }
 
+PinType NodeInputType(const Node& n, int i) {
+    if (n.kind == NodeKind::Blend) return i == 2 ? PinType::Channel : PinType::RGBA;
+    if (n.kind == NodeKind::Effect) {
+        // Inputs named after a single channel or a mask read one value.
+        std::string name = NodeInputName(n, i);
+        for (auto& c : name) c = (char)tolower((unsigned char)c);
+        static const char* scalar[] = {"r", "g", "v", "b", "a", "masque", "mask", "alpha", "hauteur", "height"};
+        for (const char* s : scalar) if (name == s) return PinType::Channel;
+    }
+    return PinType::RGBA;
+}
+
+int NodeOutputCount(const Node& n) { return n.kind == NodeKind::Output ? 0 : n.kind == NodeKind::Split ? 4 : 1; }
+PinType NodeOutputType(const Node& n, int) { return n.kind == NodeKind::Split ? PinType::Channel : PinType::RGBA; }
+u8 NodeOutputChannel(const Node& n, int k) { return n.kind == NodeKind::Split ? (u8)(k + 1) : 0; }
+std::string NodeOutputName(const Node& n, int k) {
+    static const char* ch[] = {"R", "V", "B", "A"};
+    return n.kind == NodeKind::Split ? ch[std::clamp(k, 0, 3)] : "RGBA";
+}
+
 std::string NodeInputName(const Node& n, int i) {
     switch (n.kind) {
         case NodeKind::Output: return "Image";
         case NodeKind::Blend: return i == 0 ? "Fond" : i == 1 ? "Calque" : "Masque";
+        case NodeKind::Split: return "RGBA";
         case NodeKind::Effect: {
             auto d = n.fx.Def();
             if (d && i < (int)d->inputs.size()) return d->inputs[i];
@@ -620,9 +642,11 @@ void Document::ConvertToNodes() {
 
 // Try to read the graph back as a linear layer stack.
 static bool ExtractLayers(const Graph& g, std::vector<Layer>& out, std::string* why) {
-    for (auto& n : g.nodes)
+    for (auto& n : g.nodes) {
+        if (n.kind == NodeKind::Split) { if (why) *why = "nœuds Séparer RGBA"; return false; }
         for (u8 c : n.inputChannel)
             if (c) { if (why) *why = "liens par canal (R, V, B, A)"; return false; }
+    }
     auto fail = [&](const std::string& msg) { if (why) *why = msg; return false; };
     // Count consumers: every node must feed at most one input.
     std::unordered_map<Id, int> uses;
@@ -739,6 +763,10 @@ Node& Document::AddNode(NodeKind kind, float2 pos) {
         case NodeKind::Blend:
             n.name = "Fusion";
             n.inputs = {0, 0, 0};
+            break;
+        case NodeKind::Split:
+            n.name = "Séparer RGBA";
+            n.inputs = {0};
             break;
         default: n.name = "Nœud"; break;
     }

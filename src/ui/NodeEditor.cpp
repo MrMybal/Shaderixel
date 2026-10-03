@@ -20,6 +20,7 @@ ImU32 HeaderColor(const Node& n) {
         case NodeKind::Output: return IM_COL32(52, 160, 110, 255);
         case NodeKind::Surface: return IM_COL32(36, 150, 168, 255);
         case NodeKind::Blend: return IM_COL32(64, 104, 200, 255);
+        case NodeKind::Split: return IM_COL32(70, 150, 90, 255);
         case NodeKind::Effect: {
             auto d = n.fx.Def();
             if (!n.fx.customCode.empty()) return IM_COL32(200, 92, 150, 255);
@@ -30,17 +31,15 @@ ImU32 HeaderColor(const Node& n) {
     return IM_COL32(90, 90, 90, 255);
 }
 
-// Each node offers its image as RGBA plus single channels (Unreal-style typed pins).
-constexpr int kOutputs = 5;
-const char* kOutNames[kOutputs] = {"RGBA", "R", "V", "B", "A"};
-ImU32 ChannelColor(int c, int alpha = 255) {
-    switch (c) {
-        case 1: return IM_COL32(235, 80, 80, alpha);
-        case 2: return IM_COL32(90, 210, 100, alpha);
-        case 3: return IM_COL32(80, 140, 255, alpha);
-        case 4: return IM_COL32(200, 200, 205, alpha);
-        default: return IM_COL32(230, 120, 210, alpha);
-    }
+// Pins and links are colored by type (Unreal-style): RGBA image pink, single channel green.
+ImU32 TypeColor(PinType t, int alpha = 255) {
+    return t == PinType::Channel ? IM_COL32(110, 210, 120, alpha) : IM_COL32(230, 120, 210, alpha);
+}
+// Labels of the Split outputs keep their channel color.
+ImU32 LabelColor(const Node& n, int k) {
+    if (n.kind != NodeKind::Split) return TypeColor(PinType::RGBA, 230);
+    static const ImU32 c[] = {IM_COL32(235, 90, 90, 255), IM_COL32(100, 215, 110, 255), IM_COL32(90, 150, 255, 255), IM_COL32(210, 210, 215, 255)};
+    return c[std::clamp(k, 0, 3)];
 }
 
 struct Layout {
@@ -52,7 +51,7 @@ struct Layout {
 Layout NodeLayout(const Node& n, float aspect) {
     Layout l;
     l.inputs = NodeInputCount(n);
-    l.outputs = n.kind == NodeKind::Output ? 0 : kOutputs;
+    l.outputs = NodeOutputCount(n);
     l.rows = std::max({l.inputs, l.outputs, 1});
     l.thumbW = kNodeW - 16;
     l.thumbH = std::clamp(l.thumbW / std::max(aspect, 0.1f), 40.0f, l.thumbW);
@@ -68,6 +67,7 @@ struct NodeEntry {
 
 std::vector<NodeEntry> NodeEntries() {
     std::vector<NodeEntry> e;
+    e.push_back({"Canaux", "Séparer RGBA (R, V, B, A)", "split channels canal", [](Document& d, float2 p) { return d.AddNode(NodeKind::Split, p).id; }});
     e.push_back({"Calques", "Calque pixel", "surface peinture", [](Document& d, float2 p) { return d.AddNode(NodeKind::Surface, p).id; }});
     e.push_back({"Fusion", "Fusion (mode de fusion)", "blend mélange", [](Document& d, float2 p) { return d.AddNode(NodeKind::Blend, p).id; }});
     e.push_back({"Fusion", "Fusion personnalisée (A, B, masque)", "blend custom hlsl mélange",
@@ -103,7 +103,7 @@ void App::DrawNodeEditor() {
     Document& d = *v->doc;
     Graph& g = d.S().graph;
     NodeEditorState& ed = nodeEd;
-    const bool editable = d.Mode() == DocMode::Nodes;
+    const bool editableAtStart = d.Mode() == DocMode::Nodes;
     ImGuiIO& io = ImGui::GetIO();
     std::erase_if(ed.selection, [&](Id id) { return !g.Find(id); });
 
@@ -165,13 +165,25 @@ void App::DrawNodeEditor() {
         }
     }
 
+    // Layer mode: editing a link (or adding a node) turns the document into a free graph.
+    bool editable = editableAtStart;
+    auto toNodeMode = [&] {
+        if (editable) return;
+        Edit e(d, v->history, "Passer en mode nodal");
+        d.ConvertToNodes();
+        e.Commit();
+        editable = true;
+        Status("Graphe modifié : le document passe en mode nodal (Ctrl+Z pour revenir aux calques)");
+    };
+    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt && !spaceHeld && (hoverOut || hoverInNode)) toNodeMode();
+
     // Mouse interactions
     bool openAddMenu = false;
     if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt && !spaceHeld) {
         if (editable && hoverOut) {
             ed.draggingLink = true;
             ed.linkFrom = hoverOut;
-            ed.linkChannel = (u8)hoverOutCh;
+            if (const Node* sn = g.Find(hoverOut)) ed.linkChannel = NodeOutputChannel(*sn, hoverOutCh);
             ed.linkTo = 0;
             ed.linkInput = -1;
         } else if (editable && hoverInNode) {
@@ -231,7 +243,10 @@ void App::DrawNodeEditor() {
         if (ed.draggingLink) {
             bool linked = false;
             if (ed.linkFrom && hoverInNode) linked = d.Link(ed.linkFrom, hoverInNode, hoverIn, ed.linkChannel);
-            else if (ed.linkTo && hoverOut) linked = d.Link(hoverOut, ed.linkTo, ed.linkInput, (u8)hoverOutCh);
+            else if (ed.linkTo && hoverOut) {
+                const Node* sn = g.Find(hoverOut);
+                linked = d.Link(hoverOut, ed.linkTo, ed.linkInput, sn ? NodeOutputChannel(*sn, hoverOutCh) : 0);
+            }
             else if (ed.linkFrom && hoverNode) {
                 // Dropped on a node: its first free input (else the first).
                 if (Node* t = g.Find(hoverNode); t && NodeInputCount(*t) > 0) {
@@ -276,7 +291,8 @@ void App::DrawNodeEditor() {
         }
     }
 
-    // Links (colored by the channel they carry)
+    auto linkPin = [&](const Node& src, int ch) { return src.kind == NodeKind::Split && ch > 0 ? ch - 1 : 0; };
+    // Links (colored by the type they carry)
     auto drawLink = [&](ImVec2 a, ImVec2 b, ImU32 col, float thick) {
         float dx = std::max(std::abs(b.x - a.x) * 0.5f, 40.0f * ed.zoom);
         dl->AddBezierCubic(a, ImVec2(a.x + dx, a.y), ImVec2(b.x - dx, b.y), b, col, thick * ed.zoom);
@@ -287,11 +303,11 @@ void App::DrawNodeEditor() {
             if (!src) continue;
             int ch = InputChannel(n, i);
             bool sel = ed.selection.count(src->id) || ed.selection.count(n.id);
-            drawLink(outPin(*src, ch), inPin(n, i), sel ? ui::col::Accent2 : ChannelColor(ch, 200), sel ? 3.0f : 2.0f);
+            drawLink(outPin(*src, linkPin(*src, ch)), inPin(n, i), sel ? ui::col::Accent2 : TypeColor(ch ? PinType::Channel : PinType::RGBA, 200), sel ? 3.0f : 2.0f);
         }
     }
     if (ed.draggingLink) {
-        if (ed.linkFrom) { if (const Node* s = g.Find(ed.linkFrom)) drawLink(outPin(*s, ed.linkChannel), mouse, ChannelColor(ed.linkChannel), 2.5f); }
+        if (ed.linkFrom) { if (const Node* s = g.Find(ed.linkFrom)) drawLink(outPin(*s, linkPin(*s, ed.linkChannel)), mouse, TypeColor(ed.linkChannel ? PinType::Channel : PinType::RGBA), 2.5f); }
         else if (const Node* t = g.Find(ed.linkTo)) drawLink(mouse, inPin(*t, ed.linkInput), ui::col::Accent, 2.5f);
     }
 
@@ -327,21 +343,27 @@ void App::DrawNodeEditor() {
             bool connected = i < (int)n.inputs.size() && n.inputs[i];
             bool hot = hoverInNode == n.id && hoverIn == i;
             float pr = pinR * (hot ? 1.4f : 1.0f);
-            if (connected) dl->AddCircleFilled(p, pr, ChannelColor(InputChannel(n, i)));
-            else dl->AddCircleFilled(p, pr, IM_COL32(52, 54, 64, 255));
-            dl->AddCircle(p, pr, connected ? IM_COL32(20, 20, 24, 255) : IM_COL32(120, 122, 140, 255), 0, 1.5f);
+            ImU32 tc = TypeColor(NodeInputType(n, i));
+            if (connected) {
+                dl->AddCircleFilled(p, pr, tc);
+                dl->AddCircle(p, pr, IM_COL32(20, 20, 24, 255), 0, 1.5f);
+            } else {
+                dl->AddCircleFilled(p, pr, IM_COL32(40, 42, 50, 255));
+                dl->AddCircle(p, pr, tc, 0, 2.0f * ed.zoom);
+            }
             if (drawText) dl->AddText(font, fs * 0.9f, ImVec2(p.x + 10 * ed.zoom, p.y - fs * 0.45f), ui::col::TextDim, NodeInputName(n, i).c_str());
         }
-        // Outputs: RGBA and single channels
+        // Outputs
         for (int o = 0; o < L.outputs; ++o) {
             ImVec2 p = outPin(n, o);
             bool hot = hoverOut == n.id && hoverOutCh == o;
-            float pr = pinR * (hot ? 1.4f : (o ? 0.85f : 1.0f));
-            dl->AddCircleFilled(p, pr, ChannelColor(o));
+            float pr = pinR * (hot ? 1.4f : 1.0f);
+            dl->AddCircleFilled(p, pr, TypeColor(NodeOutputType(n, o)));
             dl->AddCircle(p, pr, IM_COL32(20, 20, 24, 255), 0, 1.5f);
             if (drawText) {
-                ImVec2 ts = font->CalcTextSizeA(fs * 0.85f, FLT_MAX, 0, kOutNames[o]);
-                dl->AddText(font, fs * 0.85f, ImVec2(p.x - 10 * ed.zoom - ts.x, p.y - fs * 0.43f), ChannelColor(o, 230), kOutNames[o]);
+                std::string lbl = NodeOutputName(n, o);
+                ImVec2 ts = font->CalcTextSizeA(fs * 0.85f, FLT_MAX, 0, lbl.c_str());
+                dl->AddText(font, fs * 0.85f, ImVec2(p.x - 10 * ed.zoom - ts.x, p.y - fs * 0.43f), LabelColor(n, o), lbl.c_str());
             }
         }
         // Thumbnail
@@ -369,7 +391,7 @@ void App::DrawNodeEditor() {
             d.S().activeNode = hoverNode;
             if (!ed.selection.count(hoverNode)) ed.selection = {hoverNode};
             ImGui::OpenPopup("##nodectx");
-        } else if (editable) {
+        } else {
             ed.pendFrom = ed.pendTo = 0;
             openAddMenu = true;
         }
@@ -418,6 +440,7 @@ void App::DrawNodeEditor() {
         }
         ImGui::EndChild();
         if (picked) {
+            toNodeMode();
             DocState before = d.S();
             Id nid = picked->make(d, ed.contextPos);
             if (Node* nn = g.Find(nid)) {
@@ -469,7 +492,7 @@ void App::DrawNodeEditor() {
                 }
                 if (ImGui::MenuItem(ed.selection.size() > 1 ? "Supprimer la sélection" : "Supprimer", "Suppr")) deleteSelection();
             } else if (!editable) {
-                ImGui::TextDisabled("Liens en lecture seule (mode calques)");
+                ImGui::TextDisabled("Mode calques : passez en mode nodal pour modifier ce nœud ici");
             }
         }
         ImGui::EndPopup();
@@ -493,7 +516,7 @@ void App::DrawNodeEditor() {
     // Header banner
     ImVec2 bp(origin.x + 10, origin.y + 8);
     if (!editable) {
-        const char* msg = "Mode calques : graphe généré depuis les calques (nœuds déplaçables, liens fixes).";
+        const char* msg = "Mode calques : graphe généré depuis les calques. Modifier un lien ou ajouter un nœud passe en mode nodal.";
         dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + ImGui::CalcTextSize(msg).x + 190 * dpi, bp.y + ImGui::GetFrameHeight()), IM_COL32(20, 20, 26, 220), 5);
         dl->AddText(ImVec2(bp.x, bp.y + 3), ui::col::TextDim, msg);
         ImGui::SetCursorScreenPos(ImVec2(bp.x + ImGui::CalcTextSize(msg).x + 10, bp.y));

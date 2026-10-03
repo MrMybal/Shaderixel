@@ -91,7 +91,7 @@ EffectInstance EffectFromJson(const Json& j) {
 }
 
 const char* kLayerKinds[] = {"pixel", "fill", "adjustment", "group", "text", "shape"};
-const char* kNodeKinds[] = {"output", "surface", "effect", "blend"};
+const char* kNodeKinds[] = {"output", "surface", "effect", "blend", "split"};
 
 template <size_t N>
 int IndexOf(const char* (&names)[N], const std::string& s, int def) {
