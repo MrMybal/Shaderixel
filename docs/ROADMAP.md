@@ -45,6 +45,8 @@
 - LUT 3D (.cube) : **fait** (réglage Correspondance de couleur, LUT embarquée dans le .sxl, type de paramètre `lut` disponible pour les effets)
 - Déformation (Édition > Déformation, ou depuis la transformation manuelle : grille de Bézier 4×4, points, poignées, glisser la surface, sélection incluse) : **fait**
 - Marionnette (épingles, moindres carrés mobiles : rigide / normal / distorsion, densité du maillage) et déformation de la perspective (plans disposés sur l'image, scinder / ajouter, puis déformer avec une homographie par plan, redresser verticales / horizontales) : **fait**
+- Actions (enregistrement des commandes : taille, zone de travail, rotation, recadrage, filtres avec leurs paramètres, calques, sélection, remplir, fusionner, aplatir, exporter ; étapes activables, réordonnables, paramètres éditables, étape « opération » pour les outils IA / MCP) et traitement par lots (dossier source, sous-dossiers, destination, format, suffixe) : **fait**
+- Compositions de calques (visibilité, apparence, position des objets dynamiques ; appliquer, mettre à jour, exporter) et plans de travail (groupes délimités par leur masque, ajoutés à droite, préréglages de taille, export d'une image par plan) : **fait**
 - Export PSD avec calques : **fait** (8 bits RLE, groupes, masques, écrêtage, modes ; réglages/remplissages/filtres rastérisés). PSB et 16 bits (ZIP avec prédiction) en export et import : **fait**. Reste : calques de réglage natifs
 
 - Règles, repères, grille et magnétisme : **fait**

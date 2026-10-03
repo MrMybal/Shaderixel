@@ -245,6 +245,7 @@ void App::DrawCanvas() {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(v->viewTex.get()), canvasMin, ImVec2(canvasMin.x + vw, canvasMin.y + vh));
     DrawGridAndGuides(*v, canvasMin, avail, dl);
+    DrawArtboards(*v, canvasMin, dl);
 
     // Document border
     ImVec2 d0(canvasMin.x + v->pan.x, canvasMin.y + v->pan.y);

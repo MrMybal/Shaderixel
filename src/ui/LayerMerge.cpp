@@ -24,6 +24,7 @@ void MakePixelLayer(Layer& l, Id surface) {
 }  // namespace
 
 void App::MergeDown(DocView& v) {
+    RecordAction("merge_down");
     Document& d = *v.doc;
     if (d.Mode() != DocMode::Layers) return;
     Layer* L = d.ActiveLayer();
@@ -75,6 +76,7 @@ void App::MergeDown(DocView& v) {
 }
 
 void App::MergeVisible(DocView& v, bool flatten) {
+    RecordAction(flatten ? "flatten" : "merge_visible");
     Document& d = *v.doc;
     if (d.Mode() != DocMode::Layers || d.S().layers.empty()) return;
     const u32 W = d.Width(), H = d.Height();

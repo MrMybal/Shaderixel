@@ -928,6 +928,13 @@ void App::FillOrErase(DocView& v, bool erase) {
     Id target = doc.PaintTarget();
     if (!target) { Status("Aucun calque de pixels actif"); return; }
     v.renderer.FillSelection(doc, *ctx, &v.history, target, erase ? 1 : 0, LinearColor(fg), 1.0f, erase ? "Effacer" : "Remplir");
+    if (erase) RecordAction("erase");
+    else {
+        Json p = Json::Object(), c = Json::Array();
+        c.Push(fg.x); c.Push(fg.y); c.Push(fg.z); c.Push(fg.w);
+        p["color"] = c;
+        RecordAction("fill", p);
+    }
 }
 
 void App::LayerViaCopy(DocView& v, bool cut) {
@@ -1036,11 +1043,19 @@ void App::DrawSelectionMenu() {
     if (!ImGui::BeginMenu("Sélection", v != nullptr)) return;
     Document& d = *v->doc;
     bool has = d.S().selection != 0;
-    if (ImGui::MenuItem("Tout sélectionner", "Ctrl+A"))
+    if (ImGui::MenuItem("Tout sélectionner", "Ctrl+A")) {
         v->renderer.SelectShape(d, *ctx, v->history, SelShape::All, {}, SelMode::Replace, false, 0, "Tout sélectionner");
-    if (ImGui::MenuItem("Désélectionner", "Ctrl+D", false, has)) v->renderer.Deselect(d, v->history);
+        RecordSelect("all");
+    }
+    if (ImGui::MenuItem("Désélectionner", "Ctrl+D", false, has)) {
+        v->renderer.Deselect(d, v->history);
+        RecordSelect("none");
+    }
     if (ImGui::MenuItem("Resélectionner", "Ctrl+Maj+D", false, d.S().lastSelection != 0 && !has)) v->renderer.Reselect(d, v->history);
-    if (ImGui::MenuItem("Intervertir", "Ctrl+Maj+I")) v->renderer.SelectionFilter(d, *ctx, v->history, 3, 0, "Intervertir");
+    if (ImGui::MenuItem("Intervertir", "Ctrl+Maj+I")) {
+        v->renderer.SelectionFilter(d, *ctx, v->history, 3, 0, "Intervertir");
+        RecordSelect("invert");
+    }
     ImGui::Separator();
     if (ImGui::MenuItem("Sujet", nullptr, false, !subjectJob.active)) StartSelectSubject(*v, false);
     ui::HelpTooltip("Modèle de segmentation (rembg, via Python) : le sujet principal, contour affiné ensuite.");

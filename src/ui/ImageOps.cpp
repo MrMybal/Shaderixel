@@ -18,6 +18,11 @@ void App::ApplyCanvasOp(DocView& v, u32 w, u32 h, const float m[6], int interp, 
 }
 
 void App::RotateCanvas(DocView& v, int op) {
+    {
+        Json p = Json::Object();
+        p["op"] = op;
+        RecordAction("rotate", p);
+    }
     const float W = (float)v.doc->Width(), H = (float)v.doc->Height();
     // op: 0 = 90° clockwise, 1 = 90° counter-clockwise, 2 = 180°, 3 = flip H, 4 = flip V
     switch (op) {
@@ -62,6 +67,7 @@ void App::DrawImageMenu() {
     }
     ImGui::Separator();
     if (ImGui::MenuItem("Recadrer selon la sélection", nullptr, false, d.S().selection != 0)) {
+        RecordAction("crop_selection");
         if (Surface* s = d.Selection()) {
             cropBoundsRb = v->renderer.ComputeBounds(*ctx, s->tex.get(), nullptr, false, true);
             cropBoundsView = v;
@@ -128,9 +134,15 @@ void App::DrawImageDialogs() {
     ImGui::Spacing();
     if (ImGui::Button("OK", ImVec2(100 * dpi, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
         if (imageDialog == 1) {
+            Json p = Json::Object();
+            p["mode"] = "pixels"; p["w"] = dlgW; p["h"] = dlgH; p["interp"] = dlgInterp; p["pct"] = dlgW * 100.0f / W;
+            RecordAction("image_size", p);
             float m[6] = {(float)W / dlgW, 0, 0, 0, (float)H / dlgH, 0};
             ApplyCanvasOp(*v, (u32)dlgW, (u32)dlgH, m, dlgInterp, "Taille de l'image");
         } else {
+            Json p = Json::Object();
+            p["w"] = dlgW; p["h"] = dlgH; p["anchor"] = dlgAnchor;
+            RecordAction("canvas_size", p);
             int ax = dlgAnchor % 3, ay = dlgAnchor / 3;
             float ox = std::floor(ax * (dlgW - W) * 0.5f), oy = std::floor(ay * (dlgH - H) * 0.5f);
             float m[6] = {1, 0, -ox, 0, 1, -oy};

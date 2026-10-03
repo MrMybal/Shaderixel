@@ -74,6 +74,12 @@ void App::ApplyLibraryEffect(DocView& v, const std::string& id, FxApply how) {
     fx.effectId = id;
     fx.params = def->DefaultParams();
     const bool layerMode = d.Mode() == DocMode::Layers;
+    if (how == FxApply::Filter || how == FxApply::Destructive) {
+        Json p = Json::Object();
+        p["effect"] = id;
+        p["destructive"] = how == FxApply::Destructive;
+        RecordAction("filter", p);
+    }
     if (how == FxApply::Destructive) {
         Id target = d.PaintTarget();
         if (!d.GetSurface(target)) { Status("Appliquer : sélectionnez un calque de pixels"); return; }

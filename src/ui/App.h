@@ -41,6 +41,17 @@ inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser |
 struct DocView;
 
 // Free transform / move session on one surface (+ the selection, if any).
+// Actions (Actions.cpp): a command with JSON parameters, replayed on any document.
+struct ActionStep {
+    std::string cmd;
+    Json params;
+    bool enabled = true;
+};
+struct Action {
+    std::string name;
+    std::vector<ActionStep> steps;
+};
+
 struct TransformState {
     bool active = false;
     DocView* view = nullptr;
@@ -631,6 +642,61 @@ private:
     void PatchToolInput(DocView& v, ImVec2 canvasMin, bool hovered);
     void ClickToolInput(DocView& v, ImVec2 canvasMin, bool hovered);
     void TakeHistorySnapshot(DocView& v, Id surface);
+    // Actions and batch processing (Actions.cpp).
+    std::vector<Action> actions;
+    int actionSel = 0, actionRecordInto = -1;
+    bool actionRecording = false, actionReplaying = false, actionRename = false;
+    Id recordFilterLayer = 0;
+    std::unordered_map<const ActionStep*, std::string> stepJsonEdit;
+    struct ActionRun {
+        bool active = false;
+        DocView* view = nullptr;
+        std::string name, error, exportFolder, lastExport;
+        std::vector<ActionStep> steps;
+        size_t next = 0;
+        int retries = 0;
+        bool exporting = false;
+        gpu::ReadbackPtr wait;
+        std::function<void(bool)> done;
+    } actionRun;
+    struct {
+        bool open = false, running = false, cancel = false, subfolders = false, saveResult = true;
+        int action = 0, format = 0, stage = 0;
+        std::string source, dest, suffix;
+        std::vector<std::string> files, errors;
+        size_t index = 0, done = 0;
+        DocView* view = nullptr;
+    } batch;
+    std::string ActionsPath() const;
+    void LoadActions();
+    void SaveActions();
+    void RecordAction(const std::string& cmd, Json params = Json::Object());
+    void RecordSelect(const char* what) {
+        Json p = Json::Object();
+        p["what"] = what;
+        RecordAction("select", p);
+    }
+    void FinalizeRecordedFilter();
+    void StopRecording();
+    bool StartAction(DocView& v, int index, std::function<void(bool)> done = {});
+    int ExecActionStep(DocView& v, const ActionStep& s);  // 0 done, 1 wait, 2 failed
+    void UpdateActionRun();
+    void StartBatch();
+    void UpdateBatch();
+    void DrawActionsPanel();
+    // Layer comps and artboards (LayerComps.cpp).
+    Id compRename = 0;
+    void CaptureComp(Document& d, LayerComp& c);
+    void ApplyComp(DocView& v, Id compId, bool undoable);
+    void DrawLayerCompsPanel();
+    void ExportComps(DocView& v, const std::string& basePath);
+    void WriteRectMask(Document& d, Id surface, const Rect& r);
+    void NewArtboard(DocView& v);
+    void Prepare(DocView& v);
+    void DrawArtboards(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    void ExportArtboards(DocView& v, const std::string& basePath);
+    void ArtboardPropertiesUI(DocView& v, Layer& l);
+    void DrawBatchWindow();
     Id smartEditRequest = 0;
     void ColorPickerBody();  // Couleur panel / toolbar popup
     bool colorPopupRequest = false;
@@ -686,7 +752,7 @@ private:
 
     // async GPU readbacks
     gpu::ReadbackPtr pickReadback;
-    struct PendingExport { std::string path; gpu::ReadbackPtr rb; };
+    struct PendingExport { std::string path; gpu::ReadbackPtr rb; Rect crop; };  // crop: part of the image written (empty = all)
     std::vector<PendingExport> exports;
     struct PsdExportState {
         PsdExportJob job;

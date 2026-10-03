@@ -148,6 +148,24 @@ struct Layer {
     bool collapsed = false;   // groups: UI state
     TextStyle text;           // Text layers (rasterized into `surface`)
     ShapeStyle shape;         // Shape layers (rendered into `surface`)
+    bool artboard = false;    // groups: artboard (plan de travail), clipped to `board` by its mask
+    Rect board;
+};
+
+// Layer comp: visibility / appearance / smart object placement of every layer.
+struct LayerComp {
+    Id id = 0;
+    std::string name, comment;
+    bool useVisibility = true, useAppearance = true, usePosition = true;
+    struct Entry {
+        Id layer = 0;
+        bool visible = true;
+        float opacity = 1;
+        BlendMode blend = BlendMode::Normal;
+        std::vector<u8> filterOn;
+        float2 corners[4];
+    };
+    std::vector<Entry> entries;
 };
 
 // Split: passes its RGBA input through; its outputs R, G, B, A are channel links (1-4).
@@ -206,6 +224,8 @@ struct DocState {
     Id activePath = 0;
     // Layer mode: positions the user gave to generated graph nodes (by node id).
     std::map<Id, float2> layerNodePos;
+    std::vector<LayerComp> comps;
+    Id activeComp = 0;
     std::unordered_map<Id, Surface> surfaces;
     Id nextId = 100;
 };

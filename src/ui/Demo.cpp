@@ -299,6 +299,118 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 56) {
+        // Artboards + layer comps on SX_IMAGE; exports to SX_OUT (base path); .sxl round trip.
+        char path[512] = "", out[512] = "";
+        GetEnvironmentVariableA("SX_OUT", out, sizeof(out));
+        if (frameCounter == 4 && GetEnvironmentVariableA("SX_IMAGE", path, sizeof(path)) > 0) OpenImage(path, false);
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        if (frameCounter == 6) NewArtboard(*a);
+        if (frameCounter == 8) NewArtboard(*a);
+        if (frameCounter == 10) {
+            // A red layer covering everything, inside the second artboard: clipped to it.
+            Edit e(d, a->history, "Nouveau calque");
+            Layer& l = d.AddPixelLayer("Rouge");
+            Id lid = l.id, surf = l.surface;
+            Id board2 = 0;
+            for (auto& x : d.S().layers) if (x.artboard && x.name == "Plan de travail 2") board2 = x.id;
+            d.MoveLayerTo(lid, board2, true);
+            e.Commit();
+            a->renderer.Prepare(d, *ctx);
+            std::vector<float> px((size_t)d.Width() * d.Height() * 4, 0.0f);
+            for (size_t i = 0; i < (size_t)d.Width() * d.Height(); ++i) {
+                float2 p{(float)(i % d.Width()), (float)(i / d.Width())};
+                float cx = d.Width() - 600.0f, cy = 400;
+                if ((p.x - cx) * (p.x - cx) + (p.y - cy) * (p.y - cy) < 900 * 900 && (p.x - cx) * (p.x - cx) + (p.y - cy) * (p.y - cy) > 700 * 700) { px[i * 4] = 0.8f; px[i * 4 + 3] = 1; }
+            }
+            Surface* s = d.GetSurface(surf);
+            if (s->tex->GetFormat() == gpu::Format::RGBA32F) ctx->Upload(s->tex.get(), px.data(), d.Width() * 16);
+            else {
+                std::vector<u16> h(px.size());
+                for (size_t i = 0; i < px.size(); ++i) h[i] = px[i] > 0.5f ? 0x3A66 : 0;  // 0.8
+                for (size_t i = 3; i < px.size(); i += 4) h[i] = px[i] > 0.5f ? 0x3C00 : 0;
+                ctx->Upload(s->tex.get(), h.data(), d.Width() * 8);
+            }
+            d.TouchSurface(surf);
+        }
+        if (frameCounter == 12) {
+            // Comps: "Tout" (everything), "Sans rouge" (red layer hidden, background 50 %).
+            LayerComp c1;
+            c1.id = d.NewId();
+            c1.name = "Tout";
+            CaptureComp(d, c1);
+            d.S().comps.push_back(c1);
+            for (auto& l : d.S().layers) {
+                if (l.name == "Rouge") l.visible = false;
+                if (l.name == "Arrière-plan") l.opacity = 0.5f;
+            }
+            d.SyncGraph();
+            LayerComp c2;
+            c2.id = d.NewId();
+            c2.name = "Sans rouge";
+            CaptureComp(d, c2);
+            d.S().comps.push_back(c2);
+            ApplyComp(*a, c1.id, true);
+            Log("[demo] artboards: canvas %ux%u, layers %zu, comps %zu", d.Width(), d.Height(), d.S().layers.size(), d.S().comps.size());
+        }
+        if (frameCounter == 14 && out[0]) {
+            ExportArtboards(*a, std::string(out) + ".png");
+            ExportComps(*a, std::string(out) + "_comp.png");
+            SaveDocument(*a, std::string(out) + ".sxl");
+        }
+        if (frameCounter == 30 && out[0]) LoadSxl(std::string(out) + ".sxl");
+        if (frameCounter == 40 && Active()) {
+            Document& r = *Active()->doc;
+            int boards = 0;
+            for (auto& l : r.S().layers) boards += l.artboard;
+            Log("[demo] reloaded: %d artboards, %zu comps (%s / %s)", boards, r.S().comps.size(), r.S().comps.empty() ? "-" : r.S().comps[0].name.c_str(),
+                r.S().comps.size() > 1 ? r.S().comps[1].name.c_str() : "-");
+        }
+        return;
+    }
+    if (demoMode == 55) {
+        // Actions: record (rotate + invert filter + image size 50 %) on SX_IMAGE, then batch SX_SRC -> SX_DST.
+        char path[512] = "", src[512] = "", dst[512] = "";
+        GetEnvironmentVariableA("SX_SRC", src, sizeof(src));
+        GetEnvironmentVariableA("SX_DST", dst, sizeof(dst));
+        if (frameCounter == 4 && GetEnvironmentVariableA("SX_IMAGE", path, sizeof(path)) > 0) OpenImage(path, false);
+        DocView* a = Active();
+        if (frameCounter == 6 && a) {
+            actions.push_back({"_test", {}});
+            actionSel = (int)actions.size() - 1;
+            actionRecording = true;
+            actionRecordInto = actionSel;
+            RotateCanvas(*a, 0);
+            ApplyLibraryEffect(*a, "invert", FxApply::Filter);
+            Document& d = *a->doc;
+            imageDialog = 0;
+            Json p = Json::Object();
+            p["mode"] = "percent"; p["pct"] = 50; p["interp"] = 2;
+            RecordAction("image_size", p);
+            StopRecording();
+            for (auto& s : actions[actionSel].steps) Log("[demo] recorded: %s %s", s.cmd.c_str(), s.params.Dump(0).c_str());
+            (void)d;
+        }
+        if (frameCounter == 10) {
+            batch.action = actionSel;
+            batch.source = src;
+            batch.dest = dst;
+            batch.format = 0;
+            batch.suffix = "_lot";
+            batch.open = true;
+            StartBatch();
+        }
+        if (frameCounter > 10 && frameCounter % 20 == 0) Log("[demo] batch: running %d, %zu/%zu done, %zu errors", batch.running ? 1 : 0, batch.done, batch.files.size(), batch.errors.size());
+        if (frameCounter > 12 && !batch.running && actionSel < (int)actions.size() && actions[actionSel].name == "_test") {
+            actions.erase(actions.begin() + actionSel);
+            actionSel = 0;
+            SaveActions();
+            Log("[demo] batch finished: %s", statusMsg.c_str());
+        }
+        return;
+    }
     if (demoMode == 54) {
         // Puppet warp (SX_OP=puppet, SX_MODE 0..2) or perspective warp (SX_OP=persp) on SX_IMAGE.
         char path[512] = "", op[16] = "puppet", mode[8] = "0";

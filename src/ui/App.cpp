@@ -81,7 +81,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -218,6 +218,7 @@ bool App::Init() {
     eraser.hardness = 0.9f;
     settingsPath = ExeDir() + "/shaderixel_settings.json";
     LoadAiSettings();
+    LoadActions();
     RegisterAiOps();
     if (aiTest) bridge.allowWrites = true;
     if (bridge.Start(ExeDir() + "/Shaderixel") && (aiSettings.autoStart || aiTest)) {
@@ -451,6 +452,8 @@ void App::Frame() {
     UpdateSmartChildren();
     UpdateSelectSubject();
     UpdateContentAwareFill();
+    UpdateActionRun();
+    UpdateBatch();
     UpdateSubjectInstall();
     if (DocView* av = Active(); av && frameCounter % 60 == 0) UpdateLinkedSmartObjects(*av, false);
     PollAiJobs();
@@ -474,6 +477,11 @@ void App::Frame() {
     if (Shown("Options")) DrawBrush();
     if (Shown("Historique")) DrawHistory();
     if (Shown("Tracés")) DrawPathsPanel();
+    if (!ImGui::FindWindowByName("Actions")) ImGui::SetNextWindowDockID(ImHashStr("##sxside1"), ImGuiCond_FirstUseEver);
+    if (Shown("Actions")) DrawActionsPanel();
+    if (!ImGui::FindWindowByName("Compositions de calques")) ImGui::SetNextWindowDockID(ImHashStr("##sxside1"), ImGuiCond_FirstUseEver);
+    if (Shown("Compositions de calques")) DrawLayerCompsPanel();
+    DrawBatchWindow();
     UpdateHistogram();
     if (Shown("Histogramme")) DrawHistogram();
     if (Shown("Effets")) DrawEffectBrowser();
@@ -510,6 +518,18 @@ void App::Frame() {
     // Finished async readbacks.
     for (size_t i = 0; i < exports.size();) {
         auto& e = exports[i];
+        if (e.rb && e.rb->ready && !e.crop.Empty()) {
+            // Part of the image (artboards): crop in place into a copy.
+            auto c = std::make_shared<gpu::Readback>();
+            c->width = (u32)e.crop.Width();
+            c->height = (u32)e.crop.Height();
+            c->ready = true;
+            c->data.resize((size_t)c->width * c->height * 4);
+            for (u32 y = 0; y < c->height; ++y)
+                memcpy(&c->data[(size_t)y * c->width * 4], &e.rb->data[(((size_t)(y + e.crop.y0)) * e.rb->width + e.crop.x0) * 4], (size_t)c->width * 4);
+            e.rb = c;
+            e.crop = {};
+        }
         if (e.rb && e.rb->ready) {
             std::string ext = Narrow(Utf8Path(e.path).extension().wstring());
             for (auto& ch : ext) ch = (char)tolower(ch);
@@ -734,7 +754,7 @@ void App::ExportImage(const std::string& path) {
     gpu::Texture* img = v->renderer.EvaluateComplete(*v->doc, *ctx);
     if (!img) return;
     auto rb = v->renderer.ExportRGBA8(*ctx, img);
-    if (rb) exports.push_back({path, rb});
+    if (rb) exports.push_back({path, rb, {}});
 }
 
 void App::Status(const std::string& msg) {
@@ -809,6 +829,19 @@ void App::DrawMenuBar() {
         ImGui::Separator();
         if (ImGui::MenuItem("Exporter...", "Ctrl+Alt+Maj+W", false, v != nullptr))
             ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
+        if (ImGui::MenuItem("Exporter les plans de travail...", nullptr, false, v != nullptr)) {
+            std::string f = platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0", L"png");
+            if (!f.empty()) ExportArtboards(*v, f);
+        }
+        if (ImGui::MenuItem("Exporter les compositions de calques...", nullptr, false, v && !v->doc->S().comps.empty())) {
+            std::string f = platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0", L"png");
+            if (!f.empty()) ExportComps(*v, f);
+        }
+        if (ImGui::BeginMenu("Automatisation")) {
+            if (ImGui::MenuItem("Traitement par lots...")) batch.open = true;
+            if (ImGui::MenuItem("Actions")) { panelOpen["Actions"].open = true; ShowSideTab(1); ImGui::SetWindowFocus("Actions"); }
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("Exporter en PSD (calques)", v != nullptr)) {
             if (ImGui::MenuItem("8 bits par couche...")) ExportPsd(platform::SaveFileDialog(hwnd, L"Photoshop (*.psd)\0*.psd\0Grand format (*.psb)\0*.psb\0", L"psd"), 8);
             if (ImGui::MenuItem("16 bits par couche...")) ExportPsd(platform::SaveFileDialog(hwnd, L"Photoshop (*.psd)\0*.psd\0Grand format (*.psb)\0*.psb\0", L"psd"), 16);
@@ -932,7 +965,10 @@ void App::LayerMenuItems() {
     Document& d = *v->doc;
     bool layerMode = d.Mode() == DocMode::Layers;
     if (layerMode) {
+        if (ImGui::MenuItem("Nouveau plan de travail")) NewArtboard(*v);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Le premier plan de travail reprend la zone de travail et ses calques ;\nles suivants s'ajoutent à droite (la zone de travail s'agrandit).");
         if (ImGui::MenuItem("Nouveau calque", "Ctrl+Maj+N")) {
+            RecordAction("new_layer");
             Edit e(d, v->history, "Nouveau calque");
             d.AddPixelLayer("Calque " + std::to_string(d.S().layers.size() + 1));
             e.Commit();
@@ -1108,10 +1144,10 @@ void App::HandleShortcuts() {
 
     // Selection
     if (ctrl && !shift && pressed(ImGuiKey_A))
-        v->renderer.SelectShape(d, *ctx, v->history, SelShape::All, {}, SelMode::Replace, false, 0, "Tout sélectionner");
-    if (ctrl && !shift && pressed(ImGuiKey_D)) v->renderer.Deselect(d, v->history);
+        v->renderer.SelectShape(d, *ctx, v->history, SelShape::All, {}, SelMode::Replace, false, 0, "Tout sélectionner"), RecordSelect("all");
+    if (ctrl && !shift && pressed(ImGuiKey_D)) v->renderer.Deselect(d, v->history), RecordSelect("none");
     if (ctrl && shift && pressed(ImGuiKey_D)) v->renderer.Reselect(d, v->history);
-    if (ctrl && shift && pressed(ImGuiKey_I)) v->renderer.SelectionFilter(d, *ctx, v->history, 3, 0, "Intervertir");
+    if (ctrl && shift && pressed(ImGuiKey_I)) v->renderer.SelectionFilter(d, *ctx, v->history, 3, 0, "Intervertir"), RecordSelect("invert");
     if (shift && pressed(ImGuiKey_F6) && d.S().selection) { selDialog = 1; selDialogValue = 8; }
     if (ctrl && !shift && pressed(ImGuiKey_T)) TransformBegin(*v, false);
     if (ctrl && alt && pressed(ImGuiKey_I)) { imageDialog = 1; dlgW = (int)d.Width(); dlgH = (int)d.Height(); }
@@ -1123,6 +1159,7 @@ void App::HandleShortcuts() {
     if (ctrl && !shift && pressed(ImGuiKey_V)) PasteClipboard(*v);
     if (d.Mode() == DocMode::Layers) {
         if (ctrl && shift && pressed(ImGuiKey_N)) {
+            RecordAction("new_layer");
             Edit e(d, v->history, "Nouveau calque");
             d.AddPixelLayer("Calque " + std::to_string(d.S().layers.size() + 1));
             e.Commit();

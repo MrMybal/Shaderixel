@@ -242,6 +242,37 @@ Json SerializeDocument(const Document& doc) {
     j["activeLayer"] = s.activeLayer;
     j["activeNode"] = s.activeNode;
     j["selection"] = s.selection;
+    if (!s.comps.empty()) {
+        Json cs = Json::Array();
+        for (auto& c : s.comps) {
+            Json o = Json::Object();
+            o["id"] = c.id;
+            o["name"] = c.name;
+            o["comment"] = c.comment;
+            o["visibility"] = c.useVisibility;
+            o["appearance"] = c.useAppearance;
+            o["position"] = c.usePosition;
+            Json es = Json::Array();
+            for (auto& e : c.entries) {
+                Json eo = Json::Object();
+                eo["layer"] = e.layer;
+                eo["visible"] = e.visible;
+                eo["opacity"] = e.opacity;
+                eo["blend"] = (int)e.blend;
+                Json f = Json::Array();
+                for (u8 b : e.filterOn) f.Push((int)b);
+                eo["filters"] = f;
+                Json cr = Json::Array();
+                for (auto& p : e.corners) { cr.Push(p.x); cr.Push(p.y); }
+                eo["corners"] = cr;
+                es.Push(eo);
+            }
+            o["entries"] = es;
+            cs.Push(o);
+        }
+        j["layerComps"] = cs;
+        j["activeComp"] = s.activeComp;
+    }
     if (!s.guidesX.empty() || !s.guidesY.empty()) {
         Json gx = Json::Array(), gy = Json::Array();
         for (float g : s.guidesX) gx.Push(g);
@@ -293,6 +324,11 @@ Json SerializeDocument(const Document& doc) {
         if (l.kind == LayerKind::Fill || l.kind == LayerKind::Adjustment) o["effect"] = EffectToJson(l.effect);
         if (l.channelOff) o["channelOff"] = (int)l.channelOff;
         if (l.HasCustomBlend()) o["blendFx"] = EffectToJson(l.blendFx);
+        if (l.artboard) {
+            Json b = Json::Array();
+            b.Push(l.board.x0); b.Push(l.board.y0); b.Push(l.board.x1); b.Push(l.board.y1);
+            o["artboard"] = b;
+        }
         if (!l.filters.empty()) {
             Json f = Json::Array();
             for (auto& x : l.filters) f.Push(EffectToJson(x));
@@ -418,6 +454,10 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         for (auto& f : o["filters"].Elements()) l.filters.push_back(EffectFromJson(f));
         l.channelOff = (u8)(o["channelOff"].I(0) & 15);
         if (o.Has("blendFx")) l.blendFx = EffectFromJson(o["blendFx"]);
+        if (o["artboard"].Size() == 4) {
+            l.artboard = true;
+            l.board = {o["artboard"].At(0).I(), o["artboard"].At(1).I(), o["artboard"].At(2).I(), o["artboard"].At(3).I()};
+        }
         l.blend = (BlendMode)std::clamp(o["blend"].I(), 0, (int)BlendMode::Count - 1);
         l.opacity = o["opacity"].F(1);
         l.visible = o["visible"].B(true);
@@ -532,6 +572,27 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         for (size_t k = 0; k + 1 < np.size(); k += 2) s.layerNodePos[np[k].U()] = Float2FromJson(np[k + 1]);
     }
     for (auto& gv : j["guidesX"].Elements()) s.guidesX.push_back(gv.F());
+    for (auto& o : j["layerComps"].Elements()) {
+        LayerComp c;
+        c.id = o["id"].U();
+        c.name = o["name"].S("Composition");
+        c.comment = o["comment"].S("");
+        c.useVisibility = o["visibility"].B(true);
+        c.useAppearance = o["appearance"].B(true);
+        c.usePosition = o["position"].B(true);
+        for (auto& eo : o["entries"].Elements()) {
+            LayerComp::Entry e;
+            e.layer = eo["layer"].U();
+            e.visible = eo["visible"].B(true);
+            e.opacity = eo["opacity"].F(1);
+            e.blend = (BlendMode)std::clamp(eo["blend"].I(), 0, (int)BlendMode::Count - 1);
+            for (auto& b : eo["filters"].Elements()) e.filterOn.push_back((u8)b.I(1));
+            for (int k = 0; k < 4 && (size_t)k * 2 + 1 < eo["corners"].Size(); ++k) e.corners[k] = {eo["corners"].At(k * 2).F(), eo["corners"].At(k * 2 + 1).F()};
+            c.entries.push_back(std::move(e));
+        }
+        s.comps.push_back(std::move(c));
+    }
+    s.activeComp = j["activeComp"].U();
     for (auto& gv : j["guidesY"].Elements()) s.guidesY.push_back(gv.F());
     // nextId must stay above every id in the file.
     Id maxId = j["nextId"].U(100);
