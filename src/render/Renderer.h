@@ -233,7 +233,15 @@ public:
     gpu::TexturePtr BakeNormal(gpu::CommandContext& ctx, gpu::Texture* normal, gpu::Texture* height, u32 w, u32 h);
     gpu::Texture* MeshRender(gpu::CommandContext& ctx, MeshScene& s, const MeshMaterial& material, u32 w, u32 h);
     void MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
-                        float4 colorLinear, bool erase);
+                        float4 colorLinear, bool erase, u32 extraFlags = 0, gpu::Texture* decal = nullptr);
+    // Multi-channel strokes (3D projects): one coverage, several layers each with its own value.
+    bool BeginStrokeMulti(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces);
+    void MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
+                             const std::vector<float4>& colorsLinear, bool erase);
+    // Decal projected from the view: center / half size in view pixels, rotation (radians); the first layer can take the image colors.
+    void MeshDecalMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, gpu::Texture* image, float2 center, float2 halfSize, float rotation,
+                        float opacity, const std::vector<float4>& colorsLinear, bool firstUsesImageColor);
+    void EndStrokeMulti(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label);
     void RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, const ShapeStyle& s);
     // Warp: `src` drawn as the bicubic Bezier patch `grid` (4x4 control points,
     // row-major, document pixels) over what stays (unselected pixels). `mask`:
@@ -252,6 +260,11 @@ public:
 
 private:
     gpu::TexturePtr warpTarget;  // WarpPreview render target (bounding box of the warped patch)
+    struct StrokeSlot {
+        Id surface = 0;
+        gpu::TexturePtr pre;
+    };
+    std::vector<StrokeSlot> strokeSlots;  // multi-channel strokes: layers after the first
     struct NodeCache {
         gpu::TexturePtr tex, tmp;
         u64 hash = 0;

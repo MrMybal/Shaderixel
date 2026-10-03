@@ -241,6 +241,11 @@ Json SerializeDocument(const Document& doc) {
     if (!doc.iccProfile.empty()) j["iccProfile"] = doc.iccProfile;
     if (!doc.cmykProfile.empty()) j["cmykProfile"] = doc.cmykProfile;
     if (doc.colorMode) j["colorMode"] = doc.colorMode;
+    if (doc.kind) {
+        j["kind"] = doc.kind == 1 ? "paint3d" : "image";
+        j["pbrChannels"] = doc.pbrChannels;
+        j["exportTemplate"] = doc.exportTemplate;
+    }
     j["nextId"] = s.nextId;
     j["activeLayer"] = s.activeLayer;
     j["activeNode"] = s.activeNode;
@@ -487,6 +492,9 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
     doc->iccProfile = j["iccProfile"].S("");
     doc->cmykProfile = j["cmykProfile"].S("");
     doc->colorMode = j["colorMode"].I(0);
+    doc->kind = j["kind"].S("image") == "paint3d" ? 1 : 0;
+    doc->pbrChannels = j["pbrChannels"].U(0x7F);
+    doc->exportTemplate = j["exportTemplate"].I(0);
     DocState& s = doc->S();
     // Smart object contents and their inner documents are not surfaces of this document.
     std::set<Id> notSurfaces;

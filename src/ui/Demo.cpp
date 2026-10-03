@@ -300,6 +300,65 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 63) {
+        // Paint 3D project: new project (sphere), a metallic gold stroke on the paint layer, a decal (SX_DECAL), .sx3d round trip (SX_OUT).
+        char decalPath[512] = "", out[512] = "";
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.basePreset = 1;  // white plastic
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh) return;
+        Document& d = *a->doc;
+        MeshScene& s = *a->mesh;
+        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 14 && s.depth) {
+            fg = {1.0f, 0.78f, 0.34f, 1};
+            brush3D.use[(int)PbrChannel::Roughness] = brush3D.use[(int)PbrChannel::Metallic] = true;
+            brush3D.rough = 0.25f;
+            brush3D.metal = 1.0f;
+            std::vector<float4> colors;
+            std::vector<Id> targets = Paint3DTargets(*a, colors);
+            Log("[demo] paint3d: layout %d, %zu targets, %zu layers, channels 0x%X", layoutKind, targets.size(), d.S().layers.size(), d.pbrChannels);
+            if (a->renderer.BeginStrokeMulti(d, *ctx, targets)) {
+                std::vector<Dab> dabs;
+                float cx = s.depth->Width() * 0.5f, cy = s.depth->Height() * 0.5f, r = std::min(cx, cy) * 0.45f;
+                for (int i = 0; i <= 300; ++i) {
+                    float t = i / 300.0f;
+                    dabs.push_back({cx - r + 2 * r * t, cy + std::sin(t * 9.0f) * r * 0.25f, 22, 1});
+                }
+                BrushSettings b = brush;
+                b.hardness = 0.6f;
+                a->renderer.MeshStrokeDabsMulti(d, *ctx, s, dabs, b, colors, false);
+                a->renderer.EndStrokeMulti(d, *ctx, a->history, "Peinture 3D");
+            }
+        }
+        if (frameCounter == 18 && GetEnvironmentVariableA("SX_DECAL", decalPath, sizeof(decalPath)) > 0 && LoadDecal(decalPath) && s.depth) {
+            brush3D.use[(int)PbrChannel::Metallic] = false;
+            brush3D.rough = 0.8f;
+            std::vector<float4> colors;
+            std::vector<Id> targets = Paint3DTargets(*a, colors);
+            if (a->renderer.BeginStrokeMulti(d, *ctx, targets)) {
+                float cx = s.depth->Width() * 0.5f, cy = s.depth->Height() * 0.32f;
+                a->renderer.MeshDecalMulti(d, *ctx, s, decal.tex.get(), {cx, cy}, {s.depth->Height() * 0.22f, s.depth->Height() * 0.15f}, 0.2f, 1.0f, colors, true);
+                a->renderer.EndStrokeMulti(d, *ctx, a->history, "Projection");
+            }
+        }
+        if (frameCounter == 22) s.yaw += 0.35f;
+        if (frameCounter == 24 && GetEnvironmentVariableA("SX_EXPORT", out, sizeof(out)) > 0) {
+            d.exportTemplate = 1;
+            ExportProjectTextures(*a, out);
+        }
+        if (frameCounter == 26 && GetEnvironmentVariableA("SX_OUT", out, sizeof(out)) > 0) SaveDocument(*a, out);
+        if (frameCounter == 36 && GetEnvironmentVariableA("SX_OUT", out, sizeof(out)) > 0) LoadSxl(out);
+        if (frameCounter == 44 && Active()) {
+            DocView* r = Active();
+            Log("[demo] reloaded project: kind %d, mesh %s, %zu layers, layout %d", r->doc->kind, r->mesh ? r->mesh->data.name.c_str() : "none",
+                r->doc->S().layers.size(), layoutKind);
+        }
+        return;
+    }
     if (demoMode == 62) {
         // Effect editor library page (SX_OP=browse) or an opened template (SX_OP=open) / original of a brush (SX_OP=brush).
         char op[16] = "browse";

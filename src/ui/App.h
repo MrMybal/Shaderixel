@@ -31,7 +31,7 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
@@ -41,6 +41,10 @@ inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser |
 
 struct DocView;
 struct PhotoJob;
+// Material presets (MaterialLayers.cpp).
+int MaterialPresetCount();
+const char* MaterialPresetName(int i);
+void MaterialPresetValues(int i, float3& color, float& rough, float& metal, float& height, bool& hasColor, bool& hasRough, bool& hasMetal, bool& hasHeight);
 
 // Free transform / move session on one surface (+ the selection, if any).
 // Actions (Actions.cpp): a command with JSON parameters, replayed on any document.
@@ -227,6 +231,8 @@ public:
     std::map<std::string, PanelOpenFlag> panelOpen;  // closed panels (tab cross)
     static constexpr int kLayoutMigration = 2;
     int layoutMigration = 0, layoutMigrationFrames = 0;  // saved layouts from older versions start at 0
+    int layoutKind = 0;  // workspace currently built for: 0 image documents, 1 Paint 3D projects
+    std::vector<std::string> focusAfterLayout;
 
 private:
     std::string pendingLayoutIni, pendingLayoutName, layoutName;
@@ -275,7 +281,7 @@ private:
     Id FindChannelGroup(Document& d, PbrChannel c);
     gpu::Texture* ChannelTexture(DocView& v, PbrChannel c);
     MeshMaterial GatherMaterial(DocView& v);
-    void CreatePbrChannels(DocView& v);
+    void CreatePbrChannels(DocView& v, bool project = false);
     void ExportPbrTextures(DocView& v, const std::string& pngBasePath);
     // Recent files (stored next to the executable).
     std::vector<std::string> recentFiles;
@@ -787,6 +793,45 @@ private:
     void WriteMaskData(Document& d, Id surface, const std::vector<float>& m, int mw, int mh);
     bool OpenWithWic(const std::string& path, bool asLayer);
     void DrawPhotoDialog();
+    // Paint 3D projects (Paint3D.cpp).
+    struct {
+        bool open = false;
+        int mesh = 0, resolution = 1, exportTemplate = 1, basePreset = 1;
+        std::string meshPath;
+        bool channels[7] = {true, true, true, true, false, true, true};
+    } p3dNew;
+    struct {
+        bool use[7] = {true, true, false, false, false, false, false};
+        float rough = 0.45f, metal = 0.0f, height = 0.6f;
+        float4 emissive = {1, 0.6f, 0.2f, 1};
+    } brush3D;
+    struct {
+        gpu::TexturePtr tex;
+        int w = 0, h = 0;
+        std::string path;
+        float size = 0.4f, rotation = 0, opacity = 1;
+        bool imageColor = true;
+    } decal;
+    struct PackJob {
+        std::string path;
+        bool unity = false;
+        gpu::ReadbackPtr ao, rough, metal;
+    };
+    std::vector<PackJob> packJobs;
+    std::string layoutSlot[2];        // saved workspace of each kind
+    Json MeshToJson(const MeshData& m);
+    bool MeshFromJson(const Json& j, MeshData& m);
+    void NewPaint3DProject();
+    Id AddPaintLayer3D(DocView& v, const std::string& name);
+    bool IsPaintLayer3D(Document& d, Id material);
+    std::vector<Id> Paint3DTargets(DocView& v, std::vector<float4>& colors);
+    void DrawLayers3DPanel();
+    void DrawBrushMaterialPanel();
+    bool LoadDecal(const std::string& path);
+    void ExportProjectTextures(DocView& v, const std::string& basePath);
+    void UpdatePaint3D();
+    void DrawPaint3DNewDialog();
+    void SwitchWorkspaceKind();
     // Resources (Resources.cpp): patterns, swatches, .abr / .pat import.
     struct PatternEntry {
         std::string name, path;

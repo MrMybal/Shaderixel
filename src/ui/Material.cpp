@@ -43,7 +43,7 @@ MeshMaterial App::GatherMaterial(DocView& v) {
     return m;
 }
 
-void App::CreatePbrChannels(DocView& v) {
+void App::CreatePbrChannels(DocView& v, bool project) {
     Document& d = *v.doc;
     if (d.Mode() != DocMode::Layers) { Status("Les canaux PBR utilisent le mode calques"); return; }
     Edit e(d, v.history, "Créer les canaux PBR");
@@ -57,9 +57,22 @@ void App::CreatePbrChannels(DocView& v) {
         g.visible = c == PbrChannel::BaseColor;
         return g;
     };
+    auto solidDef = Effects().Find("solid_color");
     if (!FindChannelGroup(d, PbrChannel::BaseColor)) {
         Layer g = makeGroup(PbrChannel::BaseColor);
         for (auto& l : L) if (l.parent == 0) l.parent = g.id;
+        if (project && solidDef) {
+            // Project: a neutral base color under the layers.
+            Layer f;
+            f.id = d.NewId();
+            f.kind = LayerKind::Fill;
+            f.name = "Couleur de base (valeur)";
+            f.parent = g.id;
+            f.effect.effectId = "solid_color";
+            f.effect.params = solidDef->DefaultParams();
+            f.effect.params[0] = {SrgbToLinear(0.5f), SrgbToLinear(0.5f), SrgbToLinear(0.5f), 1};
+            L.push_back(f);
+        }
         L.push_back(g);
     }
     // Default values (visual gray levels), as solid fills inside each group.
@@ -71,6 +84,7 @@ void App::CreatePbrChannels(DocView& v) {
     Id paintLayer = 0;
     for (const Def& df : defs) {
         if (FindChannelGroup(d, df.c)) continue;
+        if (project && !(d.pbrChannels & (1u << (int)df.c))) continue;
         Layer g = makeGroup(df.c);
         if (df.fill && solid) {
             Layer f;
@@ -82,6 +96,10 @@ void App::CreatePbrChannels(DocView& v) {
             f.effect.params = solid->DefaultParams();
             f.effect.params[0] = {SrgbToLinear(df.value.x), SrgbToLinear(df.value.y), SrgbToLinear(df.value.z), 1};
             L.push_back(f);
+        }
+        if (project) {
+            L.push_back(g);
+            continue;
         }
         Layer p;  // layer to paint the channel
         p.id = d.NewId();

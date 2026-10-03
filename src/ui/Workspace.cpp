@@ -37,6 +37,7 @@ void SettingsReadLine(ImGuiContext*, ImGuiSettingsHandler*, void*, const char* l
     if (sscanf(line, "Tab=%d", &i) == 1) a.sideTab = a.sideTabRequest = std::clamp(i, 0, App::kSideTabs - 1);
     else if (sscanf(line, "HideBottom=%d", &i) == 1) a.hideBottom = i != 0;
     else if (sscanf(line, "Migration=%d", &i) == 1) a.layoutMigration = i;
+    else if (sscanf(line, "Kind=%d", &i) == 1) a.layoutKind = std::clamp(i, 0, 1);
     else if (sscanf(line, "HideRight=%d", &i) == 1) a.hideRight = i != 0;
     else if (sscanf(line, "Bottom=0x%08X", &u) == 1) a.bottomZone = u;
     else if (sscanf(line, "Right=0x%08X", &u) == 1) a.rightZone = u;
@@ -50,7 +51,7 @@ void SettingsWriteAll(ImGuiContext*, ImGuiSettingsHandler* h, ImGuiTextBuffer* b
     buf->appendf("[%s][State]\n", h->TypeName);
     buf->appendf("Tab=%d\nHideBottom=%d\nHideRight=%d\n", a.sideTab, a.hideBottom ? 1 : 0, a.hideRight ? 1 : 0);
     buf->appendf("Bottom=0x%08X\nRight=0x%08X\n", a.bottomZone, a.rightZone);
-    buf->appendf("Migration=%d\n", a.layoutMigration);
+    buf->appendf("Migration=%d\nKind=%d\n", a.layoutMigration, a.layoutKind);
     buf->appendf("Windows=%d\n", (int)a.extraWindows.size());
     for (size_t i = 0; i < a.extraWindows.size(); ++i) buf->appendf("WindowOpen%d=%d\n", (int)i, a.extraWindows[i] ? 1 : 0);
     for (auto& [name, f] : a.panelOpen)
@@ -86,11 +87,22 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.30f, &bottom, &center);
     ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Right, 0.21f, &bottomRight, &bottomLeft);
     ImGui::DockBuilderDockWindow("Outils", left);
-    ImGui::DockBuilderDockWindow("Canevas", center);
-    ImGui::DockBuilderDockWindow("Vue 3D", center);
-    ImGui::DockBuilderDockWindow("Éditeur d'effets", center);
-    ImGui::DockBuilderDockWindow("Graphe", bottomLeft);
-    ImGui::DockBuilderDockWindow("Calques", bottomLeft);
+    const bool p3d = layoutKind == 1;
+    if (p3d) {
+        // Paint 3D: the model first, the texture (UV) next to it; materials shelf at the bottom.
+        ImGui::DockBuilderDockWindow("Vue 3D", center);
+        ImGui::DockBuilderDockWindow("Canevas", center);
+        ImGui::DockBuilderDockWindow("Éditeur d'effets", center);
+        ImGui::DockBuilderDockWindow("Matériaux", bottomLeft);
+        ImGui::DockBuilderDockWindow("Calques", bottomLeft);
+        ImGui::DockBuilderDockWindow("Graphe", bottomLeft);
+    } else {
+        ImGui::DockBuilderDockWindow("Canevas", center);
+        ImGui::DockBuilderDockWindow("Vue 3D", center);
+        ImGui::DockBuilderDockWindow("Éditeur d'effets", center);
+        ImGui::DockBuilderDockWindow("Graphe", bottomLeft);
+        ImGui::DockBuilderDockWindow("Calques", bottomLeft);
+    }
     ImGui::DockBuilderDockWindow("Aperçu du calque", bottomRight);
     ImGui::DockBuilderDockWindow("Panneaux", right);
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(left)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoResizeX;
@@ -98,7 +110,9 @@ void App::BuildDockLayout(ImGuiID dock) {
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(right)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingOverMe;
     ImGui::DockBuilderFinish(dock);
     panelOpen.clear();  // the default layout shows every panel
-    if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(bottomLeft)) n->SelectedTabId = ImHashStr("Graphe");
+    // Tabs in front once the windows exist (next frames).
+    focusAfterLayout = {p3d ? "Matériaux" : "Graphe", p3d ? "Vue 3D" : "Canevas"};
+    if (p3d) sideTabRequest = 5;
     bottomZone = bottom;
     rightZone = right;
 
@@ -139,8 +153,11 @@ void App::BuildDockLayout(ImGuiID dock) {
                 ImGui::DockBuilderDockWindow("Pinceaux", low);
                 ImGui::DockBuilderDockWindow("Motifs", low);
                 break;
-            case 5:  // 3D (material layers)
-                ImGui::DockBuilderDockWindow("Matériaux", id);
+            case 5:  // 3D: project layers and brush material (+ the materials shelf for image documents)
+                two(0.55f);
+                ImGui::DockBuilderDockWindow("Calques 3D", top);
+                ImGui::DockBuilderDockWindow("Matériau du pinceau", low);
+                if (!p3d) ImGui::DockBuilderDockWindow("Matériaux", top);
                 break;
             case 6:  // IA
                 ImGui::DockBuilderDockWindow("Assistant IA", id);
@@ -156,6 +173,7 @@ void App::BuildDockLayout(ImGuiID dock) {
         if (i == 2) front(id, "Effets");
         if (i == 4) { front(top, "Couleur"); front(low, "Pinceaux"); }
         if (i == 0) front(low, "Propriétés");
+        if (i == 5) front(top, "Calques 3D");
     }
     // Extra windows start empty.
     for (size_t i = 0; i < extraWindows.size(); ++i) {
@@ -220,6 +238,34 @@ void App::MigrateLayout() {
         if (n) ImGui::DockBuilderDockWindow(p.name, n->ID);
     }
     layoutMigration = kLayoutMigration;
+}
+
+void App::SwitchWorkspaceKind() {
+    // Image documents and Paint 3D projects each have their workspace (saved separately).
+    DocView* v = Active();
+    if (!v || !layoutBuilt) return;
+    const int want = v->doc->kind == 1 ? 1 : 0;
+    if (want == layoutKind) return;
+    size_t n = 0;
+    const char* ini = ImGui::SaveIniSettingsToMemory(&n);
+    layoutSlot[layoutKind].assign(ini, n);
+    {
+        std::error_code ec;
+        std::filesystem::create_directories(Utf8Path(LayoutDir()), ec);
+        std::ofstream f(Utf8Path(LayoutDir() + "/_espace_" + std::to_string(layoutKind) + ".ini"), std::ios::binary);
+        f << layoutSlot[layoutKind];
+    }
+    layoutKind = want;
+    if (layoutSlot[want].empty()) {
+        std::ifstream f(Utf8Path(LayoutDir() + "/_espace_" + std::to_string(want) + ".ini"), std::ios::binary);
+        if (f) layoutSlot[want].assign((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    }
+    if (!layoutSlot[want].empty() && layoutSlot[want].find("Kind=" + std::to_string(want)) != std::string::npos) {
+        pendingLayoutIni = layoutSlot[want];
+        pendingLayoutName = want ? "espace Paint 3D" : "espace Image";
+    } else {
+        resetLayout = true;  // default workspace of that kind
+    }
 }
 
 void App::DockNewPanel(int tab, bool lower) {
@@ -303,7 +349,7 @@ void App::ScanLayouts() {
     savedLayouts.clear();
     std::error_code ec;
     for (auto& e : std::filesystem::directory_iterator(Utf8Path(LayoutDir()), ec))
-        if (e.path().extension() == ".ini") savedLayouts.push_back(Narrow(e.path().stem().wstring()));
+        if (e.path().extension() == ".ini" && e.path().stem().wstring().rfind(L"_espace_", 0) != 0) savedLayouts.push_back(Narrow(e.path().stem().wstring()));
     std::sort(savedLayouts.begin(), savedLayouts.end());
 }
 
@@ -349,7 +395,7 @@ void App::DeleteLayout(const std::string& name) {
 void App::DrawPanelsMenu() {
     // Closed panels come back here (also from Fenêtre).
     static const char* names[] = {"Calques", "Graphe", "Aperçu du calque", "Éditeur d'effets", "Vue 3D", "Propriétés", "Historique", "Histogramme",
-                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Palette de nœuds", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Assistant IA", "Génération IA"};
+                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Palette de nœuds", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Calques 3D", "Matériau du pinceau", "Assistant IA", "Génération IA"};
     if (!ImGui::BeginMenu("Panneaux")) return;
     for (const char* n : names) {
         bool open = PanelIsOpen(n);

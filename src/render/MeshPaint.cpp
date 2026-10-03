@@ -182,7 +182,7 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
 }
 
 void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
-                              float4 color, bool erase) {
+                              float4 color, bool erase, u32 extraFlags, gpu::Texture* decal) {
     if (!strokeSurface || dabs.empty() || !s.posMap || !s.depth) {
         Log("MeshStrokeDabs skipped: stroke=%u dabs=%zu pos=%d depth=%d", strokeSurface, dabs.size(), (int)(bool)s.posMap, (int)(bool)s.depth);
         return;
@@ -211,9 +211,10 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
         d.srv[2] = s.nrmMap.get();
         d.srv[3] = s.depth.get();
         d.srv[4] = sel ? sel->tex.get() : nullptr;
+        d.srv[5] = decal;
         d.uav[0] = sf->tex.get();
         d.uav[1] = strokeMask.get();
-        BrushRootM root = {W, H, s.depth->Width(), s.depth->Height(), (u32)count, b.hardness, b.opacity, erase ? 1u : 0u, sel ? 1u : 0u, {0, 0, 0}};
+        BrushRootM root = {W, H, s.depth->Width(), s.depth->Height(), (u32)count, b.hardness, b.opacity, erase ? 1u : 0u, (sel ? 1u : 0u) | extraFlags, {0, 0, 0}};
         memcpy(d.constants, &root, sizeof(root));
         d.numConstants = sizeof(root) / 4;
         d.cbData = &cb;
@@ -222,6 +223,77 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
     }
     strokeRect = {0, 0, (int)W, (int)H};
     doc.TouchSurface(strokeSurface);
+}
+
+bool Renderer::BeginStrokeMulti(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces) {
+    strokeSlots.clear();
+    if (surfaces.empty() || !BeginStroke(doc, ctx, surfaces[0])) return false;
+    for (size_t i = 1; i < surfaces.size(); ++i) {
+        Surface* s = doc.GetSurface(surfaces[i]);
+        if (!s) continue;
+        StrokeSlot slot;
+        slot.surface = surfaces[i];
+        slot.pre = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "StrokePreSlot");
+        ctx.CopyTexture(slot.pre.get(), s->tex.get());
+        strokeSlots.push_back(std::move(slot));
+    }
+    return true;
+}
+
+void Renderer::MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
+                                   const std::vector<float4>& colors, bool erase) {
+    if (!strokeSurface) return;
+    // First layer: accumulates the coverage; the others composite with it.
+    MeshStrokeDabs(doc, ctx, s, dabs, b, colors.empty() ? float4{1, 1, 1, 1} : colors[0], erase);
+    for (size_t i = 0; i < strokeSlots.size(); ++i) {
+        std::swap(strokeSurface, strokeSlots[i].surface);
+        std::swap(strokePre, strokeSlots[i].pre);
+        MeshStrokeDabs(doc, ctx, s, dabs, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), erase, 2u);
+        std::swap(strokeSurface, strokeSlots[i].surface);
+        std::swap(strokePre, strokeSlots[i].pre);
+    }
+}
+
+void Renderer::MeshDecalMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, gpu::Texture* image, float2 center, float2 halfSize,
+                              float rotation, float opacity, const std::vector<float4>& colors, bool firstUsesImageColor) {
+    if (!strokeSurface || !image) return;
+    // The decal rides in the dab constants: [0] center + half size, [1] cos, sin, opacity.
+    std::vector<Dab> d = {{center.x, center.y, halfSize.x, halfSize.y}, {std::cos(rotation), std::sin(rotation), opacity, 0}};
+    BrushSettings b;
+    b.hardness = 1;
+    b.opacity = 1;
+    MeshStrokeDabs(doc, ctx, s, d, b, colors.empty() ? float4{1, 1, 1, 1} : colors[0], false, 4u | (firstUsesImageColor ? 8u : 0u), image);
+    for (size_t i = 0; i < strokeSlots.size(); ++i) {
+        std::swap(strokeSurface, strokeSlots[i].surface);
+        std::swap(strokePre, strokeSlots[i].pre);
+        MeshStrokeDabs(doc, ctx, s, d, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), false, 4u | 2u, image);
+        std::swap(strokeSurface, strokeSlots[i].surface);
+        std::swap(strokePre, strokeSlots[i].pre);
+    }
+}
+
+void Renderer::EndStrokeMulti(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label) {
+    hist.BeginGroup();
+    for (auto& slot : strokeSlots) {
+        std::swap(strokeSurface, slot.surface);
+        std::swap(strokePre, slot.pre);
+        Surface* s = doc.GetSurface(strokeSurface);
+        if (s && !strokeRect.Empty()) {
+            auto fmt = s->tex->GetFormat();
+            auto before = gpu::Dev().CreateTexture(strokeRect.Width(), strokeRect.Height(), fmt, "UndoBefore");
+            auto after = gpu::Dev().CreateTexture(strokeRect.Width(), strokeRect.Height(), fmt, "UndoAfter");
+            if (before && after) {
+                ctx.CopyRegion(before.get(), 0, 0, strokePre.get(), strokeRect);
+                ctx.CopyRegion(after.get(), 0, 0, s->tex.get(), strokeRect);
+                hist.PushPaint(label, strokeSurface, strokeRect, before, after);
+            }
+        }
+        std::swap(strokeSurface, slot.surface);
+        std::swap(strokePre, slot.pre);
+    }
+    EndStroke(doc, ctx, hist, label);
+    hist.EndGroup();
+    strokeSlots.clear();
 }
 
 bool LoadEnvironment(MeshScene& s, const std::string& path, std::string* error) {

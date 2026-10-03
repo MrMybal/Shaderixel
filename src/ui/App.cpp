@@ -40,8 +40,8 @@ std::string ShaderDir() {
 }
 
 const wchar_t* kImageFilter =
-    L"Documents et images\0*.sxl;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif;*.tif;*.tiff;*.webp;*.heic;*.dng;*.cr2;*.cr3;*.nef;*.arw;*.orf;*.rw2;*.raf;*.pef;*.srw\0"
-    L"Documents Shaderixel (*.sxl)\0*.sxl\0Images\0*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif;*.tif;*.tiff;*.webp;*.heic\0"
+    L"Documents et images\0*.sxl;*.sx3d;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif;*.tif;*.tiff;*.webp;*.heic;*.dng;*.cr2;*.cr3;*.nef;*.arw;*.orf;*.rw2;*.raf;*.pef;*.srw\0"
+    L"Documents Shaderixel (*.sxl, *.sx3d)\0*.sxl;*.sx3d\0Images\0*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif;*.tif;*.tiff;*.webp;*.heic\0"
     L"Camera RAW\0*.dng;*.cr2;*.cr3;*.nef;*.arw;*.orf;*.rw2;*.raf;*.pef;*.srw\0Tous les fichiers\0*.*\0";
 }  // namespace
 
@@ -86,7 +86,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -362,6 +362,7 @@ void App::DrawWelcome() {
     float bw = (colW - ImGui::GetStyle().ItemSpacing.x) * 0.5f;
     ImGui::SetCursorPos(ImVec2(x, y));
     if (ImGui::Button("Nouveau document   Ctrl+N", ImVec2(bw, fs * 2))) showNewDoc = true;
+    if (ImGui::Button("Nouveau projet Paint 3D", ImVec2(bw, fs * 2))) p3dNew.open = true;
     ImGui::SameLine();
     if (ImGui::Button("Ouvrir...   Ctrl+O", ImVec2(bw, fs * 2))) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
     y += fs * 3;
@@ -393,6 +394,7 @@ void App::Frame() {
     gpu::Dev().ImGuiNewFrame();
     ImGui_ImplWin32_NewFrame();
     UpdateRelativeDrag();  // before NewFrame: feeds the cursor motion of slider drags
+    SwitchWorkspaceKind();
     ApplyPendingLayout();
     ImGui::NewFrame();
     frameSamples = platform::TakeSamples();
@@ -427,6 +429,10 @@ void App::Frame() {
     if (testEffects && capturePath.empty() && frameCounter == 3) autoQuit = true;  // compile test: quit once done
     if (demoMode) DemoTick();
     if (frameCounter >= 4 && frameCounter - 4 < focusAtStart.size()) ImGui::SetWindowFocus(focusAtStart[frameCounter - 4].c_str());
+    if (!focusAfterLayout.empty() && ImGui::FindWindowByName(focusAfterLayout.front().c_str())) {
+        ImGui::SetWindowFocus(focusAfterLayout.front().c_str());
+        focusAfterLayout.erase(focusAfterLayout.begin());
+    }
     if (!capturePath.empty() && frameCounter == (u64)captureFrame) captureRb = gpu::Dev().CaptureNextFrame();
     if (!cliSavePath.empty() && frameCounter == (u64)captureFrame && Active()) {
         SaveDocument(*Active(), cliSavePath);
@@ -462,6 +468,7 @@ void App::Frame() {
     UpdateColorJobs();
     UpdatePhotoJob();
     UpdateResources();
+    UpdatePaint3D();
     UpdateBatch();
     UpdateSubjectInstall();
     if (DocView* av = Active(); av && frameCounter % 60 == 0) UpdateLinkedSmartObjects(*av, false);
@@ -499,9 +506,14 @@ void App::Frame() {
     if (Shown("Nuancier")) DrawSwatchesPanel();
     if (!ImGui::FindWindowByName("Motifs")) DockNewPanel(4, true);
     if (Shown("Motifs")) DrawPatternsPanel();
+    if (!ImGui::FindWindowByName("Calques 3D")) DockNewPanel(5, false);
+    if (Shown("Calques 3D")) DrawLayers3DPanel();
+    if (!ImGui::FindWindowByName("Matériau du pinceau")) DockNewPanel(5, true);
+    if (Shown("Matériau du pinceau")) DrawBrushMaterialPanel();
     DrawBatchWindow();
     DrawColorDialogs();
     DrawPhotoDialog();
+    DrawPaint3DNewDialog();
     UpdateHistogram();
     if (Shown("Histogramme")) DrawHistogram();
     if (Shown("Effets")) DrawEffectBrowser();
@@ -674,7 +686,7 @@ void App::OpenImage(const std::string& path, bool asLayer) {
     {
         std::string ext = Narrow(Utf8Path(path).extension().wstring());
         for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
-        if (ext == ".sxl") {
+        if (ext == ".sxl" || ext == ".sx3d") {
             LoadSxl(path);
             return;
         }
@@ -837,6 +849,8 @@ void App::DrawMenuBar() {
     ImGui::Separator();
     if (ImGui::BeginMenu("Fichier")) {
         if (ImGui::MenuItem("Nouveau...", "Ctrl+N")) showNewDoc = true;
+        if (ImGui::MenuItem("Nouveau projet Paint 3D...")) p3dNew.open = true;
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Texturer un modèle 3D : canaux PBR, calques de peinture et de matériau,\nprojection de décalques, export Unreal / Unity (fichier .sx3d, espace de travail dédié).");
         if (ImGui::MenuItem("Ouvrir une image...", "Ctrl+O")) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
         if (ImGui::MenuItem("Importer comme calque...", "Ctrl+Shift+O", false, v != nullptr)) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), true);
         if (ImGui::MenuItem("Importer (objet dynamique incorporé)...", nullptr, false, v != nullptr))
@@ -883,6 +897,10 @@ void App::DrawMenuBar() {
                 if (!f.empty()) { LoadSwatchLibrary(f); swatchesLoaded = true; }
             }
             ImGui::EndMenu();
+        }
+        if (v && v->doc->kind == 1 && ImGui::MenuItem("Exporter les textures du projet...")) {
+            std::string f = platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png");
+            if (!f.empty()) ExportProjectTextures(*v, f);
         }
         if (ImGui::MenuItem("Exporter en TIFF CMJN...", nullptr, false, v != nullptr))
             ExportCmykTiff(*v, platform::SaveFileDialog(hwnd, L"TIFF CMJN (*.tif)\0*.tif;*.tiff\0", L"tif"));
@@ -1625,8 +1643,10 @@ void App::SaveCurrent(bool saveAs) {
     std::string path = v->doc->path;
     std::string ext = Narrow(Utf8Path(path).extension().wstring());
     for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
-    if (saveAs || path.empty() || ext != ".sxl") {
-        path = platform::SaveFileDialog(hwnd, L"Document Shaderixel (*.sxl)\0*.sxl\0", L"sxl");
+    const bool p3d = v->doc->kind == 1;
+    if (saveAs || path.empty() || ext != (p3d ? ".sx3d" : ".sxl")) {
+        path = p3d ? platform::SaveFileDialog(hwnd, L"Projet Paint 3D Shaderixel (*.sx3d)\0*.sx3d\0", L"sx3d")
+                   : platform::SaveFileDialog(hwnd, L"Document Shaderixel (*.sxl)\0*.sxl\0", L"sxl");
         if (path.empty()) return;
     }
     SaveDocument(*v, path);
@@ -1690,6 +1710,8 @@ void App::SaveDocument(DocView& v, const std::string& path) {
         smartArr.Push(o);
     }
     if (smartArr.Size()) job->meta["smartObjects"] = smartArr;
+    // Paint 3D project: the mesh travels with the file.
+    if (d.kind == 1 && v.mesh) job->meta["mesh"] = MeshToJson(v.mesh->data);
     d.path = path;
     d.SetName(Narrow(Utf8Path(path).filename().wstring()));
     d.dirty = false;
@@ -1796,6 +1818,10 @@ bool App::LoadSxl(const std::string& path) {
     doc->dirty = false;
     auto view = std::make_unique<DocView>();
     view->doc = std::move(doc);
+    if (meta.Has("mesh")) {
+        MeshData m;
+        if (MeshFromJson(meta["mesh"], m)) AttachMesh(*view, std::move(m));
+    }
     docs.push_back(std::move(view));
     activeDoc = (int)docs.size() - 1;
     focusDocRequest = activeDoc;

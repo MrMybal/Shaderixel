@@ -60,9 +60,21 @@ void App::DrawView3D() {
         bool missing = false;
         for (int c = 1; c < (int)PbrChannel::Count; ++c) if (!FindChannelGroup(doc, (PbrChannel)c)) missing = true;
         bool hasChannels = FindChannelGroup(doc, PbrChannel::Roughness) != 0;
-        if (missing && button(hasChannels ? "Compléter les canaux PBR" : "Créer les canaux PBR")) CreatePbrChannels(*v);
-        if (hasChannels && button("Exporter les textures PBR..."))
-            ExportPbrTextures(*v, platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png"));
+        if (doc.kind == 1) {
+            // Project: channels chosen at creation, exports by template.
+            if (button("Exporter les textures...")) {
+                std::string f = platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png");
+                if (!f.empty()) ExportProjectTextures(*v, f);
+            }
+            flow(150 * dpi);
+            ImGui::SetNextItemWidth(150 * dpi);
+            ImGui::Combo("##exptpl", &doc.exportTemplate, "Textures séparées\0Unreal (ORM)\0Unity HDRP\0");
+            ui::HelpTooltip("Modèle d'export des textures");
+        } else {
+            if (missing && button(hasChannels ? "Compléter les canaux PBR" : "Créer les canaux PBR")) CreatePbrChannels(*v);
+            if (hasChannels && button("Exporter les textures PBR..."))
+                ExportPbrTextures(*v, platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png"));
+        }
         if (button(v->mesh->envAtlas || !v->mesh->envPixels.empty() ? "HDRI (actif)" : "HDRI...")) {
             std::string path = platform::OpenFileDialog(hwnd, L"Environnement HDR (*.hdr)\0*.hdr\0Images\0*.png;*.jpg;*.exr\0");
             std::string err;
@@ -129,7 +141,11 @@ void App::DrawView3D() {
         float k = s.distance * 0.0015f;
         s.target = s.target - right * (io.MouseDelta.x * k) + up * (io.MouseDelta.y * k);
     }
-    if (hovered && io.MouseWheel != 0) s.distance *= std::pow(0.88f, io.MouseWheel);
+    // Projection tool: Ctrl+wheel resizes, Shift+wheel turns the decal; otherwise the wheel zooms.
+    if (hovered && io.MouseWheel != 0 && tool == Tool::Projection && (io.KeyCtrl || io.KeyShift)) {
+        if (io.KeyCtrl) decal.size = std::clamp(decal.size * std::pow(1.1f, io.MouseWheel), 0.02f, 3.0f);
+        else decal.rotation = std::fmod(decal.rotation + io.MouseWheel * 5.0f + 540.0f, 360.0f) - 180.0f;
+    } else if (hovered && io.MouseWheel != 0) s.distance *= std::pow(0.88f, io.MouseWheel);
 
     MeshPrepare3D(*v);
 
@@ -138,17 +154,35 @@ void App::DrawView3D() {
     Id target = doc.PaintTarget();
     bool paintTool = tool == Tool::Brush || tool == Tool::Eraser;
     auto local = [&](float x, float y) { return float2{x - origin.x, y - origin.y}; };
+    // Layers painted together (3D project paint layer: one per channel) and their values.
+    std::vector<float4> meshColors;
+    std::vector<Id> meshTargets = Paint3DTargets(*v, meshColors);
     if (paintTool && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt) {
-        if (!target) Status("Sélectionnez un calque de pixels pour peindre en 3D");
-        else if (v->renderer.BeginStroke(doc, *ctx, target)) {
+        if (!target || meshTargets.empty()) Status("Sélectionnez un calque de pixels pour peindre en 3D");
+        else if (v->renderer.BeginStrokeMulti(doc, *ctx, meshTargets)) {
             meshStroking = true;
             float2 p = local(io.MousePos.x, io.MousePos.y);
             meshLastDab = p;
             meshDabRemainder = 0;
             const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
             float pr = platform::PenActive() ? PenPressure(platform::LastPressure()) : 1.0f;
-            v->renderer.MeshStrokeDabs(doc, *ctx, s, {{p.x, p.y, b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f), b.flow}}, b,
-                                       PaintColor(doc), tool == Tool::Eraser);
+            v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, {{p.x, p.y, b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f), b.flow}}, b,
+                                            meshColors, tool == Tool::Eraser);
+        }
+    }
+    // Projection: the decal is placed where it is seen (occlusion and facing like the brush).
+    const float decalH = decal.size * (float)h * 0.5f;
+    const float decalW = decal.h > 0 ? decalH * decal.w / decal.h : decalH;
+    if (tool == Tool::Projection && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt) {
+        if (!decal.tex) Status("Projection : choisissez une image (panneau Matériau du pinceau)");
+        else if (meshTargets.empty()) Status("Sélectionnez un calque pour projeter");
+        else if (v->renderer.BeginStrokeMulti(doc, *ctx, meshTargets)) {
+            v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);  // depth of this frame
+            float2 p = local(io.MousePos.x, io.MousePos.y);
+            Layer* al = doc.ActiveLayer();
+            bool imageColor = decal.imageColor && al && al->material && IsPaintLayer3D(doc, al->material) && brush3D.use[(int)PbrChannel::BaseColor];
+            v->renderer.MeshDecalMulti(doc, *ctx, s, decal.tex.get(), p, {decalW, decalH}, decal.rotation * 0.0174533f, decal.opacity, meshColors, imageColor);
+            v->renderer.EndStrokeMulti(doc, *ctx, v->history, "Projection");
         }
     }
     if (meshStroking) {
@@ -172,9 +206,9 @@ void App::DrawView3D() {
         }
         // Render first so the occlusion test uses this frame's depth.
         v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
-        if (!dabs.empty()) v->renderer.MeshStrokeDabs(doc, *ctx, s, dabs, b, PaintColor(doc), tool == Tool::Eraser);
+        if (!dabs.empty()) v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, dabs, b, meshColors, tool == Tool::Eraser);
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            v->renderer.EndStroke(doc, *ctx, v->history, "Peinture 3D");
+            v->renderer.EndStrokeMulti(doc, *ctx, v->history, "Peinture 3D");
             meshStroking = false;
         }
     }
@@ -184,6 +218,15 @@ void App::DrawView3D() {
     gpu::Texture* img = v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
     ImDrawList* dl = ImGui::GetWindowDrawList();
     if (img) dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(img), origin, ImVec2(origin.x + w, origin.y + h));
+    if (hovered && tool == Tool::Projection && !orbit && decal.tex) {
+        // Decal preview at the cursor (rotated quad).
+        float c = std::cos(decal.rotation * 0.0174533f), sn = std::sin(decal.rotation * 0.0174533f);
+        auto corner = [&](float x, float y) { return ImVec2(io.MousePos.x + c * x - sn * y, io.MousePos.y + sn * x + c * y); };
+        ImVec2 q[4] = {corner(-decalW, -decalH), corner(decalW, -decalH), corner(decalW, decalH), corner(-decalW, decalH)};
+        dl->AddImageQuad((ImTextureID)gpu::Dev().UiTextureId(decal.tex.get()), q[0], q[1], q[2], q[3], ImVec2(0, 0), ImVec2(1, 0), ImVec2(1, 1), ImVec2(0, 1),
+                         IM_COL32(255, 255, 255, 150));
+        dl->AddPolyline(q, 4, IM_COL32(255, 140, 0, 220), ImDrawFlags_Closed, 1.5f);
+    }
     if (hovered && paintTool && !orbit) {
         const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
         float r = std::max(b.size * 0.5f, 1.0f);

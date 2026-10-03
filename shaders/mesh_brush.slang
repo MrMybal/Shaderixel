@@ -1,5 +1,9 @@
 // Projection painting: every texel of the layer is projected through the 3D
 // camera; dabs are screen-space discs, occlusion uses the viewport depth.
+// Flags: 1 selection, 2 coverage already accumulated (other channels of a
+// multi-channel stroke: only composite), 4 decal (gDabs[0] = center, half size;
+// gDabs[1] = cos, sin of the rotation, opacity; coverage = decal alpha),
+// 8 decal color (the paint color is the decal's own color).
 #include "common.slang"
 
 cbuffer Root : register(b0)
@@ -10,7 +14,7 @@ cbuffer Root : register(b0)
     float gHardness;
     float gOpacity;
     uint gMode;         // 0 paint, 1 erase
-    uint gFlags;        // 1 has selection
+    uint gFlags;        // 1 has selection, 2 coverage only read, 4 decal, 8 decal color
     float3 _pad;
 };
 
@@ -27,6 +31,7 @@ Texture2D<float4> gPosMap : register(t1);
 Texture2D<float4> gNrmMap : register(t2);
 Texture2D<float> gDepth : register(t3);
 Texture2D<float> gSel : register(t4);
+Texture2D<float4> gDecal : register(t5);
 RWTexture2D<float4> gLayer : register(u0);
 RWTexture2D<float> gStroke : register(u1);
 
@@ -53,7 +58,24 @@ void main(uint3 id : SV_DispatchThreadID)
 
     float m = gStroke[px];
     float before = m;
-    for (uint i = 0; i < gDabCount; ++i)
+    float4 decal = 0;
+    if (gFlags & 4)
+    {
+        // Decal: the image placed on screen (rotated rectangle), projected like the dabs.
+        float2 rel = sp - gDabs[0].xy;
+        float2 cr = gDabs[1].xy;
+        float2 q = float2(cr.x * rel.x + cr.y * rel.y, -cr.y * rel.x + cr.x * rel.y) / max(gDabs[0].zw, 1.0);
+        if (all(abs(q) <= 1.0))
+        {
+            uint dw, dh;
+            gDecal.GetDimensions(dw, dh);
+            decal = gDecal.SampleLevel(sLinearClamp, q * 0.5 + 0.5, 0);  // straight sRGB-encoded
+            float cov = decal.a * gDabs[1].z * facingW;
+            if (!(gFlags & 2)) m = m + (1.0 - m) * cov;
+        }
+        else if (gFlags & 2) return;
+    }
+    for (uint i = 0; (gFlags & 4) == 0 && (gFlags & 2) == 0 && i < gDabCount; ++i)
     {
         float4 dab = gDabs[i];
         float r = max(dab.z, 0.5);
@@ -63,8 +85,12 @@ void main(uint3 id : SV_DispatchThreadID)
         float cov = min(soft, saturate(r - d + 0.5)) * dab.w * facingW;
         m = m + (1.0 - m) * cov;
     }
-    if (m == before) return;
-    gStroke[px] = m;
+    if ((gFlags & 2) == 0)
+    {
+        if (m == before) return;
+        gStroke[px] = m;
+    }
+    else if (m <= 0.0) return;
     float k = saturate(m * gOpacity);
     if (gFlags & 1) k *= gSel.Load(int3(px, 0));
     float4 pre = gPre.Load(int3(px, 0));
@@ -72,7 +98,9 @@ void main(uint3 id : SV_DispatchThreadID)
     if (gMode == 1) result = pre * (1.0 - k);
     else
     {
-        float4 paint = float4(gColor.rgb * gColor.a, gColor.a);
+        float4 col = gColor;
+        if ((gFlags & 8) && decal.a > 0.0) col = float4(SrgbToLinear(decal.rgb), 1.0);
+        float4 paint = float4(col.rgb * col.a, col.a);
         result = paint * k + pre * (1.0 - k * gColor.a);
     }
     gLayer[px] = result;

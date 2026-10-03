@@ -258,6 +258,10 @@ public:
     // document mode (0 RGB, 1 CMYK: colors kept in the CMYK gamut and shown through it, 2 Lab).
     std::string iccProfile, cmykProfile;
     int colorMode = 0;
+    // Document kind: 0 image (Photoshop-like), 1 Paint 3D project (texture set of a mesh, .sx3d).
+    int kind = 0;
+    u32 pbrChannels = 0x7F;  // Paint 3D: channels of the texture set (bit per PbrChannel)
+    int exportTemplate = 0;  // Paint 3D: 0 separate maps, 1 Unreal (ORM), 2 Unity (mask map)
     bool dirty = false;
 
     DocState& S() { return state; }

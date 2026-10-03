@@ -45,6 +45,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Crop, ui::IconCrop, "Recadrage", "C"},
     {Tool::Text, ui::IconText, "Texte", "T"},
     {Tool::Shape, ui::IconShape, "Forme", "U"},
+    {Tool::Projection, ui::IconStamp, "Projection (décalque 3D)", "P"},
 };
 
 // Toolbar slots; tools sharing a slot appear in a flyout (right-click).
@@ -55,6 +56,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::QuickSelect, Tool::Wand},
     {Tool::Crop},
     {Tool::Brush, Tool::HistoryBrush},
+    {Tool::Projection},
     {Tool::Eraser, Tool::BackgroundEraser, Tool::MagicEraser},
     {Tool::Clone, Tool::PatternStamp},
     {Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye},
@@ -80,8 +82,15 @@ void App::DrawToolbar() {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4 * dpi, 3 * dpi));
     if (ImGui::Begin("Outils", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar)) {
         float size = std::min(ImGui::GetContentRegionAvail().x, 38.0f * dpi);
+        // Paint 3D projects: painting tools only.
+        const bool p3d = Active() && Active()->doc->kind == 1;
+        auto allowed3D = [](Tool t) {
+            return t == Tool::Brush || t == Tool::Eraser || t == Tool::Projection || t == Tool::Clone || t == Tool::Blur || t == Tool::Picker ||
+                   t == Tool::Hand || t == Tool::Zoom || t == Tool::Lasso || t == Tool::RectSelect;
+        };
         for (size_t g = 0; g < kGroups.size(); ++g) {
             const auto& group = kGroups[g];
+            if (p3d ? !allowed3D(group[0]) : group[0] == Tool::Projection) continue;
             if (g == 1 || g == 5 || g == 14) {
                 ImVec2 c = ImGui::GetCursorScreenPos();
                 ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);

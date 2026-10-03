@@ -50,6 +50,20 @@ float4 ChannelValue(PbrChannel c, float3 color, float v) {
 }
 }  // namespace
 
+int MaterialPresetCount() { return (int)Presets().size(); }
+const char* MaterialPresetName(int i) { return Presets()[std::clamp(i, 0, (int)Presets().size() - 1)].name; }
+void MaterialPresetValues(int i, float3& color, float& rough, float& metal, float& height, bool& hasColor, bool& hasRough, bool& hasMetal, bool& hasHeight) {
+    const MatPreset& p = Presets()[std::clamp(i, 0, (int)Presets().size() - 1)];
+    color = p.color;
+    rough = p.rough;
+    metal = p.metal;
+    height = p.height;
+    hasColor = p.hasColor;
+    hasRough = p.hasRough;
+    hasMetal = p.hasMetal;
+    hasHeight = p.hasHeight;
+}
+
 std::vector<Id> App::MaterialIds(Document& d) {
     std::vector<Id> ids;
     for (int i = (int)d.S().layers.size() - 1; i >= 0; --i) {
