@@ -122,6 +122,17 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Tablette graphique : Options &gt; Tablette (Windows Ink ou Wintab, courbe de pression). Les pinceaux reçoivent la pression, l'inclinaison, la rotation du stylet et la vitesse ; réglez les réactions dans l'éditeur de pinceau et essayez-les dans sa zone d'essai. Le pinceau « Texture » (Formes) utilise une image : choisissez-la dans ses réglages.</li>
     <li>Onglet Peinture : pinceaux en code ou « Nouveau (graphe) » ; l'éditeur visuel règle aussi le placement (espacement, aérographe, suivre le trait, dispersion, aléas).</li>
   </ol></div>
+  <div class="card"><h3>Mode Paint 3D (texturer un modèle)</h3><ol>
+    <li>Fichier &gt; Nouveau projet Paint 3D : maillage (sphère, cube, plan ou OBJ / glTF avec UV), résolution, canaux, modèle d'export, matériau de base. Le projet (.sx3d) a son propre espace de travail.</li>
+    <li>Onglet 3D : Calques 3D (« + Peinture » peint plusieurs canaux d'un coup, « + Matériau » ajoute un matériau à masque) et Matériau du pinceau (canaux cochés et leurs valeurs, préréglages).</li>
+    <li>Outil Projection : choisissez une image, puis cliquez sur le modèle (<kbd>Ctrl</kbd>+molette : taille, <kbd>Maj</kbd>+molette : rotation). Symétrie X dans Calques 3D.</li>
+    <li>Vue 3D &gt; « Exporter les textures... » : séparées, Unreal (BaseColor, Normal, ORM) ou Unity HDRP (BaseMap, Normal, MaskMap).</li>
+  </ol></div>
+  <div class="card"><h3>Éditeur d'effets et graphes</h3><ol>
+    <li>« ◀ Bibliothèque » : effets, fusions et pinceaux avec recherche ; « Nouveau à partir de ce modèle » (copie) ou « Éditer l'original » (après déverrouillage). « Annuler les modifications » revient à l'état et au panneau d'avant.</li>
+    <li>Palette de nœuds (onglet Effets) : glissez un nœud sur le graphe des calques ou sur le graphe d'effet, ou cliquez pour l'ajouter au centre.</li>
+    <li>Barre d'état : Vue finale / calque seul / jusqu'au calque (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>).</li>
+  </ol></div>
   <div class="card"><h3>Retouche et déformation</h3><ol>
     <li>Sélectionnez un objet puis Édition &gt; Remplir d'après le contenu (<kbd>Maj</kbd>+<kbd>F5</kbd>) : la zone est reconstruite depuis le reste de l'image, sans IA.</li>
     <li>Groupe du correcteur (<kbd>J</kbd>, <kbd>Maj</kbd>+<kbd>J</kbd> pour changer) : Pièce, Déplacement basé sur le contenu, Yeux rouges. Gommes (<kbd>Maj</kbd>+<kbd>E</kbd>) : gomme d'arrière-plan, gomme magique. Forme d'historique (<kbd>Y</kbd>) : instantané dans le panneau Historique.</li>
