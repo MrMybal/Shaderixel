@@ -21,6 +21,10 @@ struct SurfaceBlob {
     std::vector<u8> data;  // tightly packed rows
 };
 
+// Blob ids at or above this bit hold the surfaces of smart objects' inner documents
+// (id = kSmartChildBlobBit | (smart object index << 22) | inner surface id).
+inline constexpr Id kSmartChildBlobBit = 0x80000000u;
+
 // Structure of the document (no pixels) and the surfaces it references.
 Json SerializeDocument(const Document& doc);
 std::vector<Id> ReferencedSurfaces(const Document& doc);

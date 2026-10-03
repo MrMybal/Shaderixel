@@ -441,6 +441,7 @@ void App::DrawLayers() {
                 d.S().activeLayer = l.id;
                 d.S().editMask = false;
                 if (group && ImGui::IsMouseDoubleClicked(0)) l.collapsed = !l.collapsed;
+                if (l.kind == LayerKind::Smart && ImGui::IsMouseDoubleClicked(0)) smartEditRequest = l.id;
             }
         }
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) && !group) ImGui::SetTooltip("Ctrl+clic : sélectionner les pixels du calque");
@@ -497,7 +498,7 @@ void App::DrawLayers() {
             ImVec2 tp(x0, rowMin.y + 4);
             gpu::Texture* src = nullptr;
             u64 hash = 0;
-            if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text || l.kind == LayerKind::Shape) {
+            if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text || l.kind == LayerKind::Shape || l.kind == LayerKind::Smart) {
                 if (Surface* s = d.GetSurface(l.surface)) { src = s->tex.get(); hash = s->version; }
             } else {
                 for (auto& n : d.S().graph.nodes)
@@ -512,7 +513,14 @@ void App::DrawLayers() {
                 dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), tp, ImVec2(tp.x + thumb, tp.y + thumb));
             }
             if (l.kind == LayerKind::Text) ui::DrawIcon(dl, ui::IconText, ImVec2(tp.x + thumb * 0.5f, tp.y + thumb * 0.5f), thumb * 0.55f, IM_COL32(255, 255, 255, 220));
-            else if (l.kind != LayerKind::Pixel) ui::DrawIcon(dl, ui::IconFx, ImVec2(tp.x + thumb * 0.5f, tp.y + thumb * 0.5f), thumb * 0.5f, IM_COL32(255, 255, 255, 200));
+            else if (l.kind == LayerKind::Smart) {
+                // Smart object badge (bottom right of the thumbnail).
+                ImVec2 b0(tp.x + thumb - 12 * dpi, tp.y + thumb - 12 * dpi), b1(tp.x + thumb, tp.y + thumb);
+                dl->AddRectFilled(b0, b1, IM_COL32(30, 30, 36, 230), 2);
+                dl->AddRect(ImVec2(b0.x + 2 * dpi, b0.y + 2 * dpi), ImVec2(b1.x - 2 * dpi, b1.y - 2 * dpi), IM_COL32(230, 230, 240, 255), 1);
+                SmartObject* so = d.GetSmart(l.smart);
+                if (so && !so->linkedPath.empty()) dl->AddLine(ImVec2(b0.x + 3 * dpi, b1.y - 3 * dpi), ImVec2(b1.x - 3 * dpi, b0.y + 3 * dpi), ui::col::Accent2, 1.5f);
+            } else if (l.kind != LayerKind::Pixel) ui::DrawIcon(dl, ui::IconFx, ImVec2(tp.x + thumb * 0.5f, tp.y + thumb * 0.5f), thumb * 0.5f, IM_COL32(255, 255, 255, 200));
             bool contentSel = selected && !d.S().editMask;
             dl->AddRect(ImVec2(tp.x - 1, tp.y - 1), ImVec2(tp.x + thumb + 1, tp.y + thumb + 1), contentSel ? ui::col::Accent2 : ui::col::Border, 0, 0, contentSel ? 2.0f : 1.0f);
             textX = tp.x + thumb + 8;
@@ -553,6 +561,10 @@ void App::DrawLayers() {
     }
     ImGui::Dummy(ImVec2(1, 1));
     ImGui::EndChild();
+    if (smartEditRequest) {
+        if (Layer* sl = d.FindLayer(smartEditRequest)) EditSmartContents(*v, *sl);
+        smartEditRequest = 0;
+    }
     if (fxDrop.first) DropEffectOnLayer(*v, fxDrop.first, fxDrop.second);
     if (dragId && dropTarget && dragId != dropTarget) {
         Edit e(d, v->history, "Déplacer le calque");
@@ -639,7 +651,7 @@ void App::DrawProperties() {
             ImGui::InputText("Nom", &l->name);
             TrackUndo("Renommer");
             if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
-            const char* kinds[] = {"Calque de pixels", "Calque de remplissage", "Calque de réglage", "Groupe", "Calque de texte", "Calque de forme"};
+            const char* kinds[] = {"Calque de pixels", "Calque de remplissage", "Calque de réglage", "Groupe", "Calque de texte", "Calque de forme", "Objet dynamique"};
             ImGui::TextDisabled("%s", kinds[(int)l->kind]);
             if (ImGui::Checkbox("Visible", &l->visible)) changed = true;
             TrackUndo("Visibilité");
@@ -648,6 +660,7 @@ void App::DrawProperties() {
             TrackUndo("Verrouillage");
             if (l->kind == LayerKind::Text) TextPropertiesUI(*v, *l);
             if (l->kind == LayerKind::Shape) ShapePropertiesUI(*v, *l);
+            if (l->kind == LayerKind::Smart) SmartPropertiesUI(*v, *l);
             if (l->kind == LayerKind::Fill || l->kind == LayerKind::Adjustment) {
                 ImGui::SeparatorText(l->kind == LayerKind::Fill ? "Remplissage" : "Réglage");
                 changed |= EffectParamsUI(l->effect, "main");

@@ -169,6 +169,9 @@ Document::Document(u32 w, u32 h, Precision p, DocMode mode, const std::string& n
     state.graph.output = kOutputId;
 }
 
+SmartObject::SmartObject() = default;
+SmartObject::~SmartObject() = default;
+
 Id Document::CreateSurface(const float4& clear) {
     Id id = NewId();
     Surface s;
@@ -527,7 +530,7 @@ struct GraphBuilder {
         x += 320.0f;
         y = 0;
         Id src;
-        if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text || l.kind == LayerKind::Shape) {
+        if (l.kind == LayerKind::Pixel || l.kind == LayerKind::Text || l.kind == LayerKind::Shape || l.kind == LayerKind::Smart) {
             Node n;
             n.id = GenId(l.id, RoleSource);
             n.kind = NodeKind::Surface;

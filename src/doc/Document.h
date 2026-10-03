@@ -58,7 +58,28 @@ private:
     mutable std::string cachedCode;
 };
 
-enum class LayerKind : u8 { Pixel, Fill, Adjustment, Group, Text, Shape };
+enum class LayerKind : u8 { Pixel, Fill, Adjustment, Group, Text, Shape, Smart };
+
+class Document;
+
+// Smart object (objet dynamique): contents kept at their own resolution, placed
+// on the layer by a projective transform recomputed from the source (lossless
+// transforms). Embedded (an inner layered document, edited in its own tab) or
+// linked to a file (reloaded when the file changes). Shared by duplicated layers.
+struct SmartObject {
+    Id id = 0;
+    std::string name;
+    std::string linkedPath;            // linked file; empty = embedded
+    long long linkedTime = 0;          // file time of the linked contents
+    u32 width = 0, height = 0;
+    gpu::TexturePtr content;           // contents, linear premultiplied
+    u64 version = 1;                   // bumped when the contents change
+    std::unique_ptr<Document> child;   // embedded layered document (null while it is open in a tab)
+    bool childOpen = false;
+    SmartObject();
+    ~SmartObject();  // defined where Document is complete
+};
+using SmartObjectPtr = std::shared_ptr<SmartObject>;
 
 // Vector shape layer (rendered by shaders/shape.slang).
 struct ShapeStyle {
@@ -120,6 +141,8 @@ struct Layer {
     bool maskEnabled = true;
     Id parent = 0;            // enclosing group (0 = root)
     Id material = 0;          // material layer (one fill per PBR channel group, shared mask), 0 = none
+    Id smart = 0;             // Smart layers: smart object (Document::smartObjects)
+    float2 smartCorners[4];   // Smart layers: where the contents go (TL TR BR BL, document pixels)
     bool clipped = false;     // clipping mask: clipped to the layer below
     bool passThrough = true;  // groups: blend children straight into the parent stack
     bool collapsed = false;   // groups: UI state
@@ -242,6 +265,12 @@ public:
     Layer& DuplicateLayer(Id id);
     void AddMask(Id layerId);
     std::vector<std::pair<Id, Id>> pendingCopies;  // (dst surface, src surface)
+    // Smart objects referenced by layers (kept when layers are deleted, for undo).
+    std::map<Id, SmartObjectPtr> smartObjects;
+    SmartObject* GetSmart(Id id) {
+        auto it = smartObjects.find(id);
+        return it == smartObjects.end() ? nullptr : it->second.get();
+    }
 
     // Rebuild the generated graph (call after any layer change in layer mode).
     void SyncGraph();

@@ -299,6 +299,100 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 49) {
+        // Smart objects: convert, shrink to 20 % then back to 100 % (must be lossless), linked image,
+        // contents edited in their tab (the layer follows), save + reload.
+        static DocView* parent = nullptr;
+        static Id layerId = 0;
+        static gpu::ReadbackPtr before, after;
+        static std::string savePath;
+        if (frameCounter == 4 && v) {
+            parent = v;
+            Document& d = *v->doc;
+            for (auto& l : d.S().layers) if (l.name == "Peinture") { d.S().activeLayer = l.id; layerId = l.id; }
+            v->renderer.Prepare(d, *ctx);
+            before = v->renderer.ExportRGBA8(*ctx, d.GetSurface(d.ActiveLayer()->surface)->tex.get(), false);
+            ConvertToSmartObject(*v);
+            // Shrink (Ctrl+T, 20 %, rotated), commit.
+            TransformBegin(*v, false);
+            xf.w *= 0.2f;
+            xf.h *= 0.2f;
+            xf.angle = 0.5f;
+            TransformUpdateCorners();
+            xf.dirty = true;
+            TransformCommit(*v);
+        }
+        if (frameCounter == 6 && parent) {
+            // Back to 100 %, no rotation.
+            TransformBegin(*parent, false);
+            xf.w *= 5.0f;
+            xf.h *= 5.0f;
+            xf.angle = 0.0f;
+            TransformUpdateCorners();
+            xf.dirty = true;
+            TransformCommit(*parent);
+            if (Layer* l = parent->doc->FindLayer(layerId))
+                Log("[demo] smart corners after restore: %.3f,%.3f %.3f,%.3f %.3f,%.3f %.3f,%.3f", l->smartCorners[0].x, l->smartCorners[0].y, l->smartCorners[1].x,
+                    l->smartCorners[1].y, l->smartCorners[2].x, l->smartCorners[2].y, l->smartCorners[3].x, l->smartCorners[3].y);
+        }
+        if (frameCounter == 9 && parent) {
+            Document& d = *parent->doc;
+            after = parent->renderer.ExportRGBA8(*ctx, d.GetSurface(d.FindLayer(layerId)->surface)->tex.get(), false);
+            // A linked image, then the contents of the first object in their own tab.
+            PlaceSmartFile(*parent, ExeDir() + "/../../assets/logo.png", true);
+            if (Layer* l = d.FindLayer(layerId)) EditSmartContents(*parent, *l);
+        }
+        if (frameCounter == 12) {
+            DocView* child = Active();
+            if (child && child->smartLink.parent) {
+                // Paint in the inner document: a big yellow stroke.
+                Document& cd = *child->doc;
+                child->renderer.Prepare(cd, *ctx);
+                Id target = 0;
+                for (auto& l : cd.S().layers) if (l.kind == LayerKind::Pixel) target = l.surface;
+                if (target && child->renderer.BeginStroke(cd, *ctx, target)) {
+                    std::vector<Dab> dabs;
+                    for (float x = 200; x < 1400; x += 6) dabs.push_back({x, 820 + std::sin(x * 0.01f) * 60, 45, 1});
+                    BrushSettings b = brush;
+                    b.tipId.clear();
+                    b.tipCode.clear();
+                    b.tipGraph.clear();
+                    child->renderer.StrokeDabs(cd, *ctx, dabs, b, LinearColor({1, 0.9f, 0.1f, 1}), false);
+                    child->renderer.EndStroke(cd, *ctx, child->history, "Pinceau");
+                }
+            } else {
+                Log("[demo] smart: no child tab");
+            }
+        }
+        if (frameCounter == 16 && before && after && before->ready && after->ready) {
+            // Premultiplied difference (colors of fully transparent pixels do not matter).
+            float maxDiff = 0;
+            for (size_t i = 0; i + 3 < before->data.size() && i + 3 < after->data.size(); i += 4)
+                for (int c = 0; c < 4; ++c) {
+                    float ka = c == 3 ? 1.0f : before->data[i + 3] / 255.0f, kb = c == 3 ? 1.0f : after->data[i + 3] / 255.0f;
+                    maxDiff = std::max(maxDiff, std::abs(before->data[i + c] * ka - after->data[i + c] * kb));
+                }
+            Log("[demo] smart: shrink 20 %% + back to 100 %%: max difference %.2f / 255 (premultiplied)", maxDiff);
+        }
+        if (frameCounter == 18) {
+            // Back to the parent (closing the inner tab), save, reload.
+            for (int i = 0; i < (int)docs.size(); ++i)
+                if (docs[i]->smartLink.parent) { CloseDocument(i, true); break; }
+            for (int i = 0; i < (int)docs.size(); ++i) if (docs[i].get() == parent) activeDoc = focusDocRequest = i;
+            savePath = ExeDir() + "/smart_test.sxl";
+            SaveDocument(*parent, savePath);
+        }
+        if (frameCounter >= 30 && !savePath.empty() && saves.empty()) {
+            LoadSxl(savePath);
+            DocView* r = Active();
+            int smartLayers = 0, withChild = 0;
+            for (auto& l : r->doc->S().layers) smartLayers += l.kind == LayerKind::Smart;
+            for (auto& [id, so] : r->doc->smartObjects) withChild += so->child != nullptr;
+            Log("[demo] smart: reloaded %d smart layers, %zu objects, %d with inner document", smartLayers, r->doc->smartObjects.size(), withChild);
+            savePath.clear();
+        }
+        return;
+    }
     if (demoMode == 48 && v) {
         // Tablet + brush textures: simulated pen (pressure, tilt turning along the stroke, rotation)
         // with the imported TextureBrush, a graph brush reacting to tilt with a texture node, and the test pad.

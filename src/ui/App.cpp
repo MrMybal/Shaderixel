@@ -81,7 +81,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -448,6 +448,8 @@ void App::Frame() {
     }
 
     bridge.Pump();
+    UpdateSmartChildren();
+    if (DocView* av = Active(); av && frameCounter % 60 == 0) UpdateLinkedSmartObjects(*av, false);
     PollAiJobs();
     UpdateGenerativeFill();
     UpdateSelectionToPath();
@@ -584,6 +586,7 @@ void App::CloseDocument(int index, bool force) {
     if (xf.active && xf.view == docs[index].get()) xf = TransformState{};
     if (wand.view == docs[index].get()) wand = WandRequest{};
     gpu::Dev().WaitIdle();
+    DetachSmartChild(*docs[index]);
     docs.erase(docs.begin() + index);
     activeDoc = std::min(activeDoc, (int)docs.size() - 1);
 }
@@ -771,6 +774,10 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Nouveau...", "Ctrl+N")) showNewDoc = true;
         if (ImGui::MenuItem("Ouvrir une image...", "Ctrl+O")) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
         if (ImGui::MenuItem("Importer comme calque...", "Ctrl+Shift+O", false, v != nullptr)) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), true);
+        if (ImGui::MenuItem("Importer (objet dynamique incorporé)...", nullptr, false, v != nullptr))
+            PlaceSmartFile(*v, platform::OpenFileDialog(hwnd, L"Images\0*.png;*.jpg;*.jpeg;*.tga;*.bmp;*.psd;*.hdr\0"), false);
+        if (ImGui::MenuItem("Importer (objet dynamique lié)...", nullptr, false, v != nullptr))
+            PlaceSmartFile(*v, platform::OpenFileDialog(hwnd, L"Images\0*.png;*.jpg;*.jpeg;*.tga;*.bmp;*.psd;*.hdr\0"), true);
         if (ImGui::MenuItem("Importer un effet HLSL...", nullptr, false, v != nullptr)) {
             std::string path = platform::OpenFileDialog(hwnd, L"HLSL (*.hlsl, *.fx, *.txt)\0*.hlsl;*.fx;*.txt\0");
             std::string src, err;
@@ -828,6 +835,8 @@ void App::DrawMenuBar() {
     }
     if (ImGui::BeginMenu("Calque", v != nullptr)) {
         LayerMenuItems();
+        ImGui::Separator();
+        SmartObjectsMenu(v);
         ImGui::EndMenu();
     }
     DrawImageMenu();
@@ -1430,6 +1439,13 @@ void App::SaveCurrent(bool saveAs) {
     DocView* v = Active();
     if (!v) return;
     if (xf.active && xf.view == v) TransformCommit(*v);
+    if (v->smartLink.parent) {
+        // Inner document of a smart object: saving = updating the object (already live).
+        v->smartLink.syncKey = 0;
+        v->doc->dirty = false;
+        Status("Objet dynamique mis à jour");
+        return;
+    }
     std::string path = v->doc->path;
     std::string ext = Narrow(Utf8Path(path).extension().wstring());
     for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
@@ -1456,6 +1472,48 @@ void App::SaveDocument(DocView& v, const std::string& path) {
         job->blobs.push_back(std::move(b));
         job->readbacks.push_back(ctx->ReadbackTexture(s->tex.get()));
     }
+    // Smart objects used by layers: contents + inner document (its surfaces get ids above kSmartChildBlobBit).
+    Json smartArr = Json::Array();
+    u32 smartIndex = 0;
+    for (auto& [sid, so] : d.smartObjects) {
+        bool used = false;
+        for (auto& l : d.S().layers) used |= l.kind == LayerKind::Smart && l.smart == sid;
+        if (!used || !so->content) continue;
+        Json o = Json::Object();
+        o["id"] = sid;
+        o["name"] = so->name;
+        if (!so->linkedPath.empty()) o["linked"] = so->linkedPath;
+        SurfaceBlob cb;
+        cb.id = sid;
+        cb.width = so->content->Width();
+        cb.height = so->content->Height();
+        cb.format = so->content->GetFormat();
+        job->blobs.push_back(std::move(cb));
+        job->readbacks.push_back(ctx->ReadbackTexture(so->content.get()));
+        Document* child = so->child.get();
+        for (auto& dv : docs)
+            if (dv->smartLink.parent == &v && dv->smartLink.smart == sid) child = dv->doc.get();
+        if (child && smartIndex < 512) {
+            Id base = kSmartChildBlobBit | (smartIndex << 22);
+            Json cj = SerializeDocument(*child);
+            cj["blobBase"] = base;
+            for (Id cid : ReferencedSurfaces(*child)) {
+                Surface* cs = child->GetSurface(cid);
+                if (!cs || cid >= (1u << 22)) continue;
+                SurfaceBlob b;
+                b.id = base | cid;
+                b.width = cs->tex->Width();
+                b.height = cs->tex->Height();
+                b.format = cs->tex->GetFormat();
+                job->blobs.push_back(std::move(b));
+                job->readbacks.push_back(ctx->ReadbackTexture(cs->tex.get()));
+            }
+            o["child"] = cj;
+            ++smartIndex;
+        }
+        smartArr.Push(o);
+    }
+    if (smartArr.Size()) job->meta["smartObjects"] = smartArr;
     d.path = path;
     d.SetName(Narrow(Utf8Path(path).filename().wstring()));
     d.dirty = false;
@@ -1510,12 +1568,52 @@ bool App::LoadSxl(const std::string& path) {
         Status("Document invalide : " + err);
         return false;
     }
-    for (auto& b : blobs) {
-        Surface* s = doc->GetSurface(b.id);
-        if (!s || !s->tex || s->tex->Width() != b.width || s->tex->Height() != b.height || s->tex->GetFormat() != b.format) continue;
-        if (b.data.size() < (size_t)b.width * b.height * gpu::BytesPerPixel(b.format)) continue;
-        ctx->Upload(s->tex.get(), b.data.data(), b.width * gpu::BytesPerPixel(b.format));
-        doc->TouchSurface(b.id);
+    auto upload = [&](Document& target, const std::vector<SurfaceBlob>& list) {
+        for (auto& b : list) {
+            Surface* s = target.GetSurface(b.id);
+            if (!s || !s->tex || s->tex->Width() != b.width || s->tex->Height() != b.height || s->tex->GetFormat() != b.format) continue;
+            if (b.data.size() < (size_t)b.width * b.height * gpu::BytesPerPixel(b.format)) continue;
+            ctx->Upload(s->tex.get(), b.data.data(), b.width * gpu::BytesPerPixel(b.format));
+            target.TouchSurface(b.id);
+        }
+    };
+    upload(*doc, blobs);
+    // Smart objects: contents (blob with the object id) and inner documents.
+    for (auto& o : meta["smartObjects"].Elements()) {
+        auto so = std::make_shared<SmartObject>();
+        so->id = o["id"].U();
+        so->name = o["name"].S("Objet dynamique");
+        so->linkedPath = o["linked"].S("");
+        if (!so->linkedPath.empty()) {
+            // Reloaded from the file at the next check if it changed since the save.
+            std::error_code ec;
+            auto t = std::filesystem::last_write_time(Utf8Path(so->linkedPath), ec);
+            so->linkedTime = ec ? 0 : (long long)t.time_since_epoch().count();
+        }
+        for (auto& b : blobs)
+            if (b.id == so->id && b.data.size() >= (size_t)b.width * b.height * gpu::BytesPerPixel(b.format)) {
+                so->content = gpu::Dev().CreateTexture(b.width, b.height, b.format, "SmartContent");
+                ctx->Upload(so->content.get(), b.data.data(), b.width * gpu::BytesPerPixel(b.format));
+                so->width = b.width;
+                so->height = b.height;
+            }
+        if (o.Has("child")) {
+            Id base = o["child"]["blobBase"].U();
+            std::vector<SurfaceBlob> childBlobs;
+            for (auto& b : blobs)
+                if (b.id >= kSmartChildBlobBit && (b.id & 0xFFC00000u) == base) {
+                    SurfaceBlob c = b;
+                    c.id = b.id & 0x3FFFFFu;
+                    childBlobs.push_back(std::move(c));
+                }
+            std::string cerr;
+            if (auto child = DeserializeDocument(o["child"], childBlobs, &cerr)) {
+                upload(*child, childBlobs);
+                child->dirty = false;
+                so->child = std::move(child);
+            }
+        }
+        if (so->content) doc->smartObjects[so->id] = so;
     }
     doc->path = path;
     doc->SetName(Narrow(Utf8Path(path).filename().wstring()));

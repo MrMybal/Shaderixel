@@ -90,7 +90,7 @@ EffectInstance EffectFromJson(const Json& j) {
     return fx;
 }
 
-const char* kLayerKinds[] = {"pixel", "fill", "adjustment", "group", "text", "shape"};
+const char* kLayerKinds[] = {"pixel", "fill", "adjustment", "group", "text", "shape", "smart"};
 const char* kNodeKinds[] = {"output", "surface", "effect", "blend", "split"};
 
 template <size_t N>
@@ -304,6 +304,12 @@ Json SerializeDocument(const Document& doc) {
         o["locked"] = l.locked;
         if (l.mask) { o["mask"] = l.mask; o["maskEnabled"] = l.maskEnabled; }
         if (l.parent) o["parent"] = l.parent;
+        if (l.kind == LayerKind::Smart) {
+            o["smart"] = l.smart;
+            Json c = Json::Array();
+            for (auto& p : l.smartCorners) { c.Push(p.x); c.Push(p.y); }
+            o["smartCorners"] = c;
+        }
         if (l.material) o["material"] = l.material;
         if (l.clipped) o["clipped"] = true;
         if (l.blendIf.Active()) {
@@ -396,7 +402,11 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
     auto doc = std::make_unique<Document>(w, h, prec, mode, j["name"].S("Sans titre"));
     doc->blendInGamma = j["blendInGamma"].B(true);
     DocState& s = doc->S();
-    for (auto& b : blobs) doc->CreateSurfaceWithId(b.id, b.format);
+    // Smart object contents and their inner documents are not surfaces of this document.
+    std::set<Id> notSurfaces;
+    for (auto& so : j["smartObjects"].Elements()) notSurfaces.insert(so["id"].U());
+    for (auto& b : blobs)
+        if (!notSurfaces.count(b.id) && b.id < kSmartChildBlobBit) doc->CreateSurfaceWithId(b.id, b.format);
 
     for (auto& o : j["layers"].Elements()) {
         Layer l;
@@ -415,6 +425,9 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         l.mask = o["mask"].U();
         l.maskEnabled = o["maskEnabled"].B(true);
         l.parent = o["parent"].U();
+        l.smart = o["smart"].U();
+        for (int k = 0; k < 4 && (size_t)k * 2 + 1 < o["smartCorners"].Size(); ++k)
+            l.smartCorners[k] = {o["smartCorners"].At(k * 2).F(), o["smartCorners"].At(k * 2 + 1).F()};
         l.material = o["material"].U();
         l.clipped = o["clipped"].B(false);
         if (o.Has("blendIf")) {

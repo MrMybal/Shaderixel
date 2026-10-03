@@ -171,6 +171,7 @@ void App::DrawCanvas() {
         // Hidden canvas (other tab active): keep the document evaluated for previews and the 3D view.
         v->renderer.Prepare(*v->doc, *ctx);
         SyncTextLayers(*v);
+        SyncSmartLayers(*v);
         v->lastImage = v->renderer.Evaluate(*v->doc, *ctx);
     }
     if (!visible || !v) {
@@ -204,6 +205,7 @@ void App::DrawCanvas() {
     bool hovered = ImGui::IsItemHovered();
     v->renderer.Prepare(doc, *ctx);
     SyncTextLayers(*v);
+    SyncSmartLayers(*v);
     if (xf.active && xf.view != v) TransformCancel(*xf.view);
     UpdateWand(*v);
     UpdateQuickSelect(*v);

@@ -393,6 +393,32 @@ bool App::TransformBegin(DocView& v, bool moveOnly) {
     Document& doc = *v.doc;
     Id target = doc.PaintTarget();
     Surface* s = doc.GetSurface(target);
+    if (Layer* al = doc.ActiveLayer(); al && al->kind == LayerKind::Smart && doc.Mode() == DocMode::Layers && !doc.S().editMask) {
+        // Smart object: the corners move, the contents are re-placed from the source (no loss).
+        SmartObject* so = doc.GetSmart(al->smart);
+        if (!so || !so->content) return false;
+        xf = TransformState{};
+        xf.active = true;
+        xf.view = &v;
+        xf.moveOnly = moveOnly;
+        xf.surface = al->surface;
+        xf.smartLayer = al->id;
+        xf.before = doc.S();
+        for (int i = 0; i < 4; ++i) xf.smartStart[i] = xf.corners[i] = al->smartCorners[i];
+        xf.src = {0, 0, (int)so->width, (int)so->height};
+        const float2* c = al->smartCorners;
+        float2 ex = c[1] - c[0], ey = c[3] - c[0];
+        xf.center = (c[0] + c[2]) * 0.5f;
+        xf.w = Length(ex);
+        xf.h = Length(ey);
+        xf.angle = std::atan2(ex.y, ex.x);
+        // Not a rotated rectangle (skew / perspective): free corners.
+        float2 rebuilt = c[0] + ex + ey;
+        xf.freeCorners = Length(rebuilt - c[2]) > 0.5f || std::abs(ex.x * ey.x + ex.y * ey.y) > 1e-3f * xf.w * xf.h;
+        if (!xf.freeCorners) TransformUpdateCorners();
+        xf.pivot = xf.center;
+        return true;
+    }
     if (Layer* al = doc.ActiveLayer(); al && (al->kind == LayerKind::Text || al->kind == LayerKind::Shape) && doc.Mode() == DocMode::Layers) {
         Status("Calque vectoriel : utilisez Calque > Pixelliser pour le transformer");
         return false;
@@ -467,6 +493,10 @@ void App::TransformApply(DocView& v) {
     }
     if (!xf.dirty) return;
     xf.dirty = false;
+    if (xf.smartLayer) {
+        if (Layer* l = doc.FindLayer(xf.smartLayer)) for (int i = 0; i < 4; ++i) l->smartCorners[i] = xf.corners[i];
+        return;  // SyncSmartLayers re-places the contents
+    }
     if (xf.warp) {
         Surface* sel = xf.selectionOnly ? nullptr : doc.GetSurface(xf.selection);
         v.renderer.WarpPreview(doc, *ctx, xf.surface, xf.original.get(), sel ? sel->tex.get() : nullptr, xf.src, xf.grid, xf.selectionOnly);
@@ -497,6 +527,13 @@ void App::TransformCommit(DocView& v) {
     if (xf.boundsRb) { xf = TransformState{}; return; }
     Document& doc = *v.doc;
     TransformApply(v);
+    if (xf.smartLayer) {
+        bool moved = false;
+        for (int i = 0; i < 4; ++i) moved |= Length(xf.corners[i] - xf.smartStart[i]) > 1e-3f;
+        if (moved) v.history.PushState(xf.moveOnly ? "Déplacement" : "Transformation (objet dynamique)", xf.before, doc.S());
+        xf = TransformState{};
+        return;
+    }
     // Warp: compare the grid with the undeformed one.
     bool warped = false;
     if (xf.warp)
@@ -573,6 +610,11 @@ void App::TransformCancel(DocView& v) {
     Document& doc = *v.doc;
     if (xf.selectionOnly) {
         doc.S().selection = xf.before.selection;
+        xf = TransformState{};
+        return;
+    }
+    if (xf.smartLayer) {
+        if (Layer* l = doc.FindLayer(xf.smartLayer)) for (int i = 0; i < 4; ++i) l->smartCorners[i] = xf.smartStart[i];
         xf = TransformState{};
         return;
     }

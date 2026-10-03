@@ -46,6 +46,8 @@ struct TransformState {
     Id surface = 0;
     Id selection = 0;           // selection surface at start (0 = none)
     bool selectionOnly = false; // Select > Transform Selection: transform the outline only
+    Id smartLayer = 0;          // smart object layer: the corners change, the pixels are re-placed from the source
+    float2 smartStart[4];
     DocState before;            // selection-only: state to restore / undo to
     gpu::TexturePtr original;   // surface content before the transform
     gpu::ReadbackPtr boundsRb;  // pending content bounds
@@ -86,6 +88,12 @@ struct DocView {
     std::unordered_map<Id, u64> textHashes;   // surface -> rasterized style hash
     std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
     std::unique_ptr<MeshScene> mesh;          // 3D painting scene (optional)
+    // Inner document of a smart object (open in this tab): its parent and the object.
+    struct {
+        DocView* parent = nullptr;
+        Id smart = 0;
+        u64 syncKey = 0;
+    } smartLink;
 };
 
 struct NodeEditorState {
@@ -500,6 +508,21 @@ private:
     void SelectTip(BrushSettings& b, const std::string& id);
     void DrawBrushPanel();
     void DrawBlendPanel();
+    // Smart objects (SmartObjects.cpp).
+    gpu::TexturePtr LoadImageTexture(DocView& v, const std::string& path, u32& w, u32& h);
+    SmartObject* NewSmartObject(Document& d, const std::string& name, gpu::TexturePtr content);
+    Layer* AddSmartLayer(DocView& v, SmartObject& so, const float2 corners[4]);
+    void SyncSmartLayers(DocView& v);
+    void ConvertToSmartObject(DocView& v);
+    void PlaceSmartFile(DocView& v, const std::string& path, bool linked);
+    void ReplaceSmartContents(DocView& v, SmartObject& so, const std::string& path);
+    void UpdateLinkedSmartObjects(DocView& v, bool force);
+    void EditSmartContents(DocView& parent, Layer& l);
+    void UpdateSmartChildren();
+    void DetachSmartChild(DocView& v);
+    void SmartPropertiesUI(DocView& v, Layer& l);
+    void SmartObjectsMenu(DocView* v);
+    Id smartEditRequest = 0;
     void ColorPickerBody();  // Couleur panel / toolbar popup
     bool colorPopupRequest = false;
     // Closable panels (tab cross), reopened from Affichage > Panneaux; saved with the layout.
