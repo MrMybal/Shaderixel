@@ -159,7 +159,7 @@ public:
     int Run();
 
     // Workspace state (saved in the ImGui ini / layouts, see Workspace.cpp).
-    static constexpr int kSideTabs = 6;  // Général, Outils, Effets, Fusion, Peinture, 3D
+    static constexpr int kSideTabs = 7;  // Général, Outils, Effets, Fusion, Peinture, 3D, IA
     int sideTab = 0;
     int sideTabRequest = -1;  // selects a side tab on the next frame
     bool hideBottom = false, hideRight = false;

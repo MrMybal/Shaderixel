@@ -14,7 +14,7 @@
 namespace sx {
 
 namespace {
-const char* kSideTabNames[App::kSideTabs] = {"Général", "Outils", "Effets", "Fusion", "Peinture", "3D"};
+const char* kSideTabNames[App::kSideTabs] = {"Général", "Outils", "Effets", "Fusion", "Peinture", "3D", "IA"};
 
 ImGuiID SideTabDock(int i) {
     char id[32];
@@ -72,27 +72,31 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderRemoveNode(dock);
     ImGui::DockBuilderAddNode(dock, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(dock, work);
-    ImGuiID left, rest, right, center, bottom, rightTop, rightBottom;
+    // Toolbar | center (canvas, 3D view, effect editor) over the bottom zone (graph,
+    // layers | layer preview) | right column = side tabs.
+    ImGuiID left, rest, right, center, bottom, bottomLeft, bottomRight;
     ImGui::DockBuilderSplitNode(dock, ImGuiDir_Left, ToolbarWidth() / std::max(work.x, 1.0f), &left, &rest);
     ImGui::DockBuilderSplitNode(rest, ImGuiDir_Right, 0.25f, &right, &center);
-    ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.32f, &bottom, &center);
-    ImGui::DockBuilderSplitNode(right, ImGuiDir_Up, 0.62f, &rightTop, &rightBottom);
+    ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, 0.30f, &bottom, &center);
+    ImGui::DockBuilderSplitNode(bottom, ImGuiDir_Right, 0.21f, &bottomRight, &bottomLeft);
     ImGui::DockBuilderDockWindow("Outils", left);
     ImGui::DockBuilderDockWindow("Canevas", center);
     ImGui::DockBuilderDockWindow("Vue 3D", center);
-    ImGui::DockBuilderDockWindow("Graphe", bottom);
-    ImGui::DockBuilderDockWindow("Éditeur d'effets", bottom);
-    ImGui::DockBuilderDockWindow("Panneaux", rightTop);
-    ImGui::DockBuilderDockWindow("Calques", rightBottom);
-    ImGui::DockBuilderDockWindow("Tracés", rightBottom);
+    ImGui::DockBuilderDockWindow("Éditeur d'effets", center);
+    ImGui::DockBuilderDockWindow("Graphe", bottomLeft);
+    ImGui::DockBuilderDockWindow("Calques", bottomLeft);
+    ImGui::DockBuilderDockWindow("Aperçu du calque", bottomRight);
+    ImGui::DockBuilderDockWindow("Panneaux", right);
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(left)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoResizeX;
-    if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(rightTop)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+    // The side tabs host: nothing docks over it (a panel dropped there would vanish behind it).
+    if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(right)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingOverMe;
     ImGui::DockBuilderFinish(dock);
+    if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(bottomLeft)) n->SelectedTabId = ImHashStr("Graphe");
     bottomZone = bottom;
     rightZone = right;
 
     // One dockspace per side tab; hidden tabs keep their panels docked.
-    ImVec2 sideSize(work.x * 0.25f, work.y * 0.62f - ImGui::GetFrameHeight() * 2);
+    ImVec2 sideSize(work.x * 0.25f, work.y - ImGui::GetFrameHeight() * 3);
     for (int i = 0; i < kSideTabs; ++i) {
         ImGuiID id = SideTabDock(i);
         ImGui::DockBuilderRemoveNode(id);
@@ -103,15 +107,13 @@ void App::BuildDockLayout(ImGuiID dock) {
         switch (i) {
             case 0:  // Général
                 two(0.45f);
-                ImGui::DockBuilderDockWindow("Aperçu du calque", top);
                 ImGui::DockBuilderDockWindow("Histogramme", top);
                 ImGui::DockBuilderDockWindow("Propriétés", low);
                 ImGui::DockBuilderDockWindow("Historique", low);
-                ImGui::DockBuilderDockWindow("Assistant IA", low);
-                ImGui::DockBuilderDockWindow("Génération IA", low);
                 break;
             case 1:  // Outils
                 ImGui::DockBuilderDockWindow("Options", id);
+                ImGui::DockBuilderDockWindow("Tracés", id);
                 break;
             case 2:  // Effets
                 ImGui::DockBuilderDockWindow("Effets", id);
@@ -126,6 +128,10 @@ void App::BuildDockLayout(ImGuiID dock) {
                 break;
             case 5:  // 3D (material layers)
                 ImGui::DockBuilderDockWindow("Matériaux", id);
+                break;
+            case 6:  // IA
+                ImGui::DockBuilderDockWindow("Assistant IA", id);
+                ImGui::DockBuilderDockWindow("Génération IA", id);
                 break;
         }
         for (ImGuiID n : {top, low})

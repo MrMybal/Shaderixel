@@ -145,7 +145,7 @@ bool App::Init() {
     RegisterWorkspaceSettings();
     ScanLayouts();
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout_v11.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v12.ini";
     LoadRecent();
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
@@ -393,8 +393,8 @@ void App::Frame() {
     if (Shown("Panneaux")) DrawSidePanel();
     else for (int i = 0; i < kSideTabs; ++i) ImGui::DockSpace(ImHashStr(("##sxside" + std::to_string(i)).c_str()), ImVec2(0, 0), ImGuiDockNodeFlags_KeepAliveOnly);
     DrawExtraWindows();
+    if (Shown("Graphe")) DrawNodeEditor();  // first: tab order of the bottom zone
     if (Shown("Calques")) DrawLayers();
-    if (Shown("Graphe")) DrawNodeEditor();
     if (Shown("Vue 3D")) DrawView3D();
     if (Shown("Éditeur d'effets")) DrawEffectEditor();
     if (Shown("Assistant IA")) DrawAiPanel();
