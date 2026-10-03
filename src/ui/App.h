@@ -11,6 +11,7 @@
 #include "doc/EffectGraph.h"
 #include "ai/Bridge.h"
 #include "render/MeshPaint.h"
+#include "mesh/UvUnwrap.h"
 
 #include <mutex>
 
@@ -41,6 +42,7 @@ inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser |
 
 struct DocView;
 struct PhotoJob;
+struct UvJob;
 // Material presets (MaterialLayers.cpp).
 int MaterialPresetCount();
 const char* MaterialPresetName(int i);
@@ -802,6 +804,7 @@ private:
         int mesh = 0, resolution = 1, exportTemplate = 1, basePreset = 1;
         std::string meshPath;
         bool channels[7] = {true, true, true, true, false, true, true};
+        bool autoUv = false;  // xatlas UVs at creation (meshes without usable UVs)
     } p3dNew;
     struct {
         bool use[7] = {true, true, false, false, false, false, false};
@@ -835,6 +838,22 @@ private:
     void UpdatePaint3D();
     void DrawPaint3DNewDialog();
     void SwitchWorkspaceKind();
+    // Automatic UVs (UvTool.cpp, xatlas).
+    struct {
+        bool open = false, hasResult = false, preview = false, transfer = true;
+        int preset = 0;
+        UnwrapOptions options{.resolution = 0};
+        std::string message;
+        std::shared_ptr<MeshData> previousMesh;
+        std::unique_ptr<MeshScene> scene;
+        const void* sceneFor = nullptr;
+        gpu::TexturePtr checker;
+    } uvTool;
+    std::shared_ptr<UvJob> uvJob;
+    void StartUvUnwrap(DocView& v);
+    void ApplyUvUnwrap(DocView& v);
+    void DrawUvToolWindow();
+    gpu::Texture* UvPreviewRender(DocView& v, u32 w, u32 h);
     // Resources (Resources.cpp): patterns, swatches, .abr / .pat import.
     struct PatternEntry {
         std::string name, path;

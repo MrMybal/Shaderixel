@@ -51,6 +51,8 @@ void App::DrawView3D() {
         }
     }
     if (v->mesh) {
+        if (button("UV automatiques...")) uvTool.open = true;
+        ui::HelpTooltip("Dépliage UV automatique (xatlas) avec options et aperçu avant d'appliquer.");
         if (button("Recentrer")) {
             v->mesh->yaw = 0.7f;
             v->mesh->pitch = 0.35f;
@@ -216,6 +218,7 @@ void App::DrawView3D() {
     // Re-evaluate the document (cached) so the mesh shows the latest paint, then render.
     v->lastImage = v->renderer.Evaluate(doc, *ctx);
     gpu::Texture* img = v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
+    if (gpu::Texture* pv = UvPreviewRender(*v, w, h)) img = pv;  // UV tool: checker on the new layout
     ImDrawList* dl = ImGui::GetWindowDrawList();
     if (img) dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(img), origin, ImVec2(origin.x + w, origin.y + h));
     if (hovered && tool == Tool::Projection && !orbit && decal.tex) {

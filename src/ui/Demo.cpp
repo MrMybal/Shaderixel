@@ -300,6 +300,50 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 64) {
+        // Automatic UVs: project on a cube (SX_MESH=cube) or sphere, a stroke, preview (frame 40), apply with transfer (SX_APPLY).
+        char meshName[16] = "";
+        GetEnvironmentVariableA("SX_MESH", meshName, sizeof(meshName));
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.mesh = std::string(meshName) == "cube" ? 1 : 0;
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh) return;
+        Document& d = *a->doc;
+        MeshScene& s = *a->mesh;
+        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 12 && s.depth) {
+            fg = {0.9f, 0.15f, 0.1f, 1};
+            std::vector<float4> colors;
+            std::vector<Id> targets = Paint3DTargets(*a, colors);
+            if (a->renderer.BeginStrokeMulti(d, *ctx, targets)) {
+                std::vector<Dab> dabs;
+                float cx = s.depth->Width() * 0.5f, cy = s.depth->Height() * 0.5f, r = std::min(cx, cy) * 0.5f;
+                for (int i = 0; i <= 300; ++i) {
+                    float t = i / 300.0f * 6.2831853f;
+                    dabs.push_back({cx + std::cos(t) * r, cy + std::sin(t) * r * 0.7f, 18, 1});
+                }
+                a->renderer.MeshStrokeDabsMulti(d, *ctx, s, dabs, brush, colors, false);
+                a->renderer.EndStrokeMulti(d, *ctx, a->history, "Peinture 3D");
+            }
+        }
+        if (frameCounter == 14) {
+            uvTool.open = true;
+            uvTool.preset = 0;
+            uvTool.options = {};
+            uvTool.options.resolution = (int)d.Width();
+            StartUvUnwrap(*a);
+        }
+        if (frameCounter == 40) Log("[demo] uv: result %d, %s, charts %u", uvTool.hasResult ? 1 : 0, uvTool.message.c_str(), uvJob ? uvJob->result.charts : 0u);
+        if (frameCounter == 44 && GetEnvironmentVariableA("SX_APPLY", nullptr, 0) > 0) {
+            ApplyUvUnwrap(*a);
+            uvTool.open = false;
+            Log("[demo] uv applied: %zu vertices", a->mesh ? a->mesh->data.vertices.size() : 0);
+        }
+        return;
+    }
     if (demoMode == 63) {
         // Paint 3D project: new project (sphere), a metallic gold stroke on the paint layer, a decal (SX_DECAL), .sx3d round trip (SX_OUT).
         char decalPath[512] = "", out[512] = "";

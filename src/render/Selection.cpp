@@ -390,23 +390,8 @@ WarpMesh BezierWarpMesh(const float2 grid[16], const Rect& src, int n) {
 
 void Renderer::WarpPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection, const Rect& src,
                            const WarpMesh& mesh, bool mask) {
-    Surface* s = doc.GetSurface(surface);
-    auto* combine = Kernel("warp_combine.slang");
-    const gpu::GraphicsPipeline* pipe = s && original ? WarpPipeline(s->tex->GetFormat()) : nullptr;
-    if (!s || !original || !combine || !pipe || src.Empty()) return;
-    const u32 W = s->tex->Width(), H = s->tex->Height();
-    // Tessellation and its bounding box (clipped to the document).
     const int NX = mesh.nx, NY = mesh.ny;
     if (NX <= 0 || NY <= 0 || mesh.dst.size() != (size_t)(NX + 1) * (NY + 1) || mesh.src.size() != mesh.dst.size()) return;
-    struct Vtx { float pos[3], nrm[3], uv[2]; };
-    std::vector<Vtx> verts;
-    verts.reserve(mesh.dst.size());
-    float bx0 = 1e30f, by0 = 1e30f, bx1 = -1e30f, by1 = -1e30f;
-    for (size_t i = 0; i < mesh.dst.size(); ++i) {
-        float2 p = mesh.dst[i];
-        bx0 = std::min(bx0, p.x); by0 = std::min(by0, p.y); bx1 = std::max(bx1, p.x); by1 = std::max(by1, p.y);
-        verts.push_back({{p.x, p.y, 0}, {0, 0, 1}, {mesh.src[i].x, mesh.src[i].y}});
-    }
     std::vector<u32> idx;
     idx.reserve((size_t)NX * NY * 6);
     for (int y = 0; y < NY; ++y)
@@ -414,6 +399,25 @@ void Renderer::WarpPreview(Document& doc, gpu::CommandContext& ctx, Id surface, 
             u32 a = y * (NX + 1) + x, b = a + 1, c = a + NX + 1, d = c + 1;
             idx.insert(idx.end(), {a, b, d, a, d, c});
         }
+    WarpTriangles(doc, ctx, surface, original, selection, src, mesh.dst, mesh.src, idx, mask);
+}
+
+void Renderer::WarpTriangles(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection, const Rect& src,
+                             const std::vector<float2>& dst, const std::vector<float2>& srcPts, const std::vector<u32>& idx, bool mask) {
+    Surface* s = doc.GetSurface(surface);
+    auto* combine = Kernel("warp_combine.slang");
+    const gpu::GraphicsPipeline* pipe = s && original ? WarpPipeline(s->tex->GetFormat()) : nullptr;
+    if (!s || !original || !combine || !pipe || src.Empty() || dst.size() != srcPts.size() || idx.empty()) return;
+    const u32 W = s->tex->Width(), H = s->tex->Height();
+    struct Vtx { float pos[3], nrm[3], uv[2]; };
+    std::vector<Vtx> verts;
+    verts.reserve(dst.size());
+    float bx0 = 1e30f, by0 = 1e30f, bx1 = -1e30f, by1 = -1e30f;
+    for (size_t i = 0; i < dst.size(); ++i) {
+        float2 p = dst[i];
+        bx0 = std::min(bx0, p.x); by0 = std::min(by0, p.y); bx1 = std::max(bx1, p.x); by1 = std::max(by1, p.y);
+        verts.push_back({{p.x, p.y, 0}, {0, 0, 1}, {srcPts[i].x, srcPts[i].y}});
+    }
     Rect box = Rect{(int)std::floor(bx0) - 2, (int)std::floor(by0) - 2, (int)std::ceil(bx1) + 2, (int)std::ceil(by1) + 2}.Clipped((int)W, (int)H);
     gpu::TexturePtr warped;
     if (!box.Empty()) {

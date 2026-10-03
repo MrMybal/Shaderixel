@@ -36,6 +36,13 @@ add_library(imgui STATIC
 target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends ${IMGUI_DIR}/misc/cpp)
 target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS)
 
+# ---------------------------------------------------------------- xatlas (automatic UV unwrapping, MIT)
+add_library(xatlas STATIC ${EXT}/xatlas/source/xatlas/xatlas.cpp)
+target_include_directories(xatlas PUBLIC ${EXT}/xatlas/source/xatlas)
+if(MSVC)
+    target_compile_options(xatlas PRIVATE /W0 /O2)
+endif()
+
 # ---------------------------------------------------------------- Slang (prebuilt)
 add_library(slang SHARED IMPORTED)
 set_target_properties(slang PROPERTIES
@@ -61,7 +68,7 @@ endforeach()
 function(sx_app target)
     add_executable(${target} WIN32 ${SX_SOURCES} ${ARGN} ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc)
     target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${EXT}/stb)
-    target_link_libraries(${target} PRIVATE imgui slang comdlg32 shell32 ole32)
+    target_link_libraries(${target} PRIVATE imgui slang xatlas comdlg32 shell32 ole32)
     target_compile_definitions(${target} PRIVATE
         NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE
         SX_SHADER_DIR="${CMAKE_SOURCE_DIR}/shaders")

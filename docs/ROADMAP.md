@@ -83,6 +83,7 @@
 
 ### Peinture 3D (façon Substance Painter)
 - Mode Paint 3D (projets .sx3d, espace de travail dédié) : nouveau projet (maillage, résolution, canaux, modèle d'export, matériau de base), calques 3D (peinture multi-canal ou matériau à masque partagé), Matériau du pinceau (couleur, rugosité, métal, hauteur, émissif ; préréglages), outil Projection (décalque projeté depuis la vue), exports séparés / Unreal ORM / Unity mask map, maillage enregistré dans le fichier : **fait**
+- UV automatiques (xatlas) : préréglages, réglages des îlots et de l'empaquetage, aperçu des UV actuelles / nouvelles (îlots colorés), damier sur le modèle, application avec report de la peinture existante, option à la création d'un projet : **fait**
 - Calques de matériau : un remplissage par canal PBR (couleur, rugosité, métal, hauteur, émissif) partageant un masque ; peindre le masque (2D ou sur le modèle) applique tous les canaux : **fait**
 - Étagère de matériaux, pile des calques de matériau, propriétés par canal, espace « Peinture 3D » (vue 3D + texture) : **fait**
 - À venir : masques intelligents (courbure, occlusion, usure des arêtes), matériaux texturés, plusieurs ensembles de textures

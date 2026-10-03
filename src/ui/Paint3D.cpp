@@ -61,6 +61,14 @@ void App::NewPaint3DProject() {
     } else {
         mesh = P.mesh == 1 ? MakeCube() : P.mesh == 2 ? MakePlane() : MakeSphere();
     }
+    if (P.autoUv) {
+        // New UVs before anything is painted (models without UVs, or overlapping ones).
+        UnwrapOptions o;
+        o.resolution = (int)res;
+        UnwrapResult r;
+        if (UnwrapMesh(mesh, o, r)) mesh = std::move(r.mesh);
+        else Status("UV automatiques : " + r.error);
+    }
     std::string name = (mesh.name.empty() ? std::string("Projet") : mesh.name) + " (3D)";
     NewDocument(res, res, Precision::Half16, DocMode::Layers, 3, name);
     DocView* v = Active();
@@ -458,7 +466,8 @@ void App::DrawPaint3DNewDialog() {
             std::string f = platform::OpenFileDialog(hwnd, L"Maillages (*.obj, *.gltf, *.glb)\0*.obj;*.gltf;*.glb\0");
             if (!f.empty()) P.meshPath = f;
         }
-        ImGui::TextDisabled("Le maillage doit avoir des coordonnées UV sans chevauchement.");
+        ImGui::Checkbox("Générer des UV automatiques (xatlas)", &P.autoUv);
+        ui::HelpTooltip("Pour les modèles sans UV ou aux UV superposées. Réglages fins ensuite : Vue 3D > UV automatiques.");
     }
     ImGui::SeparatorText("Texture");
     ImGui::Combo("Résolution", &P.resolution, "1024 x 1024\0" "2048 x 2048\0" "4096 x 4096\0");

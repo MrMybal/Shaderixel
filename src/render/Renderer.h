@@ -253,6 +253,9 @@ public:
                      const float2 grid[16], bool mask) {
         WarpPreview(doc, ctx, surface, original, selection, src, BezierWarpMesh(grid, src), mask);
     }
+    // Triangles: dst / src document pixels per vertex (UV remapping of 3D textures).
+    void WarpTriangles(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection, const Rect& src,
+                       const std::vector<float2>& dst, const std::vector<float2>& srcPts, const std::vector<u32>& indices, bool mask);
     // Any deformation mesh (puppet warp, perspective warp).
     void WarpPreview(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* original, gpu::Texture* selection, const Rect& src,
                      const WarpMesh& mesh, bool mask);
