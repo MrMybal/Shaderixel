@@ -25,7 +25,7 @@
 
 **Spécifique Shaderixel**
 - Nœuds HLSL personnalisés et **éditeur d'effets visuel** (façon éditeur de matériaux Unreal) avec **export vers un matériau Unreal** (script Python : nœud Custom + paramètres + textures)
-- **IA** : pont MCP compatible CyToolsCore (17 opérations `shaderixel.*`, écriture soumise à autorisation), compagnon CyUEMCPSDK lancé automatiquement, assistant intégré, génération d'images OpenAI / Gemini
+- **IA** : pont MCP compatible CyToolsCore (26 opérations `shaderixel.*`, écriture soumise à autorisation), compagnon CyUEMCPSDK lancé automatiquement, assistant intégré, génération d'images OpenAI / Gemini
 - **Peinture 3D** : vue 3D (OBJ, primitives), document en texture, pinceau projeté avec occultation
 
 ## Prochaines étapes
@@ -57,7 +57,7 @@
 ### IA
 - Remplissage génératif depuis la sélection (OpenAI /images/edits avec masque, Gemini) : **fait** (chaîne validée avec SX_AI_MOCK=1 ; appels réels non testés sans clé)
 - ComfyUI (workflows API)
-- Opérations MCP supplémentaires (graphes d'effets, nœuds)
+- Opérations MCP : graphe nodal (graph_info, node_add/link/update/delete), graphes d’effets visuels (effect_graph_ops/get/set avec compilation), tracé depuis la sélection : **fait**
 
 ### Multi-plateforme
 - Backend Vulkan : **fait** (ShaderixelVk.exe sous Windows, mêmes shaders via SPIR-V ; écarts avec D3D12 limités à la précision numérique). Format `.sxl` v2 portable (deflate maison, morceaux en parallèle ; v1 XPRESS toujours lisible sous Windows) : **fait**. Surfaces creuses Vulkan (images à résidence partielle) : **fait** (16K : 8,35 → 4,8 Go). Reste : couche plateforme Linux (fenêtre, dialogues, stylet), backend Metal (macOS)

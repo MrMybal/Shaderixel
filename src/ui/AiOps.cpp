@@ -590,6 +590,298 @@ void App::RegisterAiOps() {
                          j["note"] = "écriture asynchrone (terminée en quelques images)";
                          return AiResult::Ok(j);
                      }});
+
+    // ------------------------------------------------------------------ node graph (node mode)
+
+    const char* kNodeKinds[] = {"output", "surface", "effect", "blend"};
+    auto nodeJson = [kNodeKinds](const Node& n) {
+        Json o = Json::Object();
+        o["id"] = n.id;
+        o["kind"] = kNodeKinds[(int)n.kind];
+        o["name"] = n.name;
+        o["pos"] = Arr({n.pos.x, n.pos.y});
+        Json in = Json::Array();
+        for (int i = 0; i < (int)n.inputs.size(); ++i) {
+            Json pin = Json::Object();
+            pin["index"] = i;
+            pin["name"] = NodeInputName(n, i);
+            pin["from"] = n.inputs[i];
+            in.Push(pin);
+        }
+        o["inputs"] = in;
+        if (n.bypass) o["bypass"] = true;
+        if (n.kind == NodeKind::Effect) o["effect"] = EffectJson(n.fx);
+        if (n.kind == NodeKind::Blend) {
+            o["blend"] = kBlendKeys[(int)n.blend];
+            o["opacity"] = n.opacity;
+        }
+        return o;
+    };
+    auto needNodes = [this, need](AiResult& err) -> DocView* {
+        DocView* v = need(err);
+        if (v && v->doc->Mode() != DocMode::Nodes) {
+            err = AiResult::Fail("WrongMode", "Document en mode calques : le graphe est généré depuis les calques (créez un document en mode nodal)");
+            return nullptr;
+        }
+        return v;
+    };
+
+    bridge.Register({"shaderixel.graph_info",
+                     "Graphe du document en mode nodal : nœuds (id, type, nom, entrées reliées, effet et paramètres) et nœud de sortie.",
+                     Schema({}), false, {}, [this, need, nodeJson](const Json&, const std::string&) {
+                         AiResult e;
+                         DocView* v = need(e);
+                         if (!v) return e;
+                         Document& d = *v->doc;
+                         Json j = Json::Object();
+                         j["mode"] = d.Mode() == DocMode::Layers ? "layers" : "nodes";
+                         j["output"] = d.S().graph.output;
+                         Json nodes = Json::Array();
+                         for (auto& n : d.S().graph.nodes) nodes.Push(nodeJson(n));
+                         j["nodes"] = nodes;
+                         if (d.Mode() == DocMode::Layers) j["note"] = "graphe généré depuis les calques (lecture seule)";
+                         return AiResult::Ok(j);
+                     }});
+
+    bridge.Register({"shaderixel.node_add",
+                     "Ajoute un nœud (mode nodal) : kind = effect (avec `effect` id de la bibliothèque, ou `code` HLSL), surface (calque de pixels) "
+                     "ou blend (fusion). Option : pos [x, y], params.",
+                     Schema({{"kind", T("string")}, {"effect", T("string")}, {"code", T("string")}, {"pos", T("array")}, {"params", T("object")},
+                             {"name", T("string")}},
+                            {"kind"}),
+                     true, {}, [this, needNodes, nodeJson](const Json& p, const std::string&) {
+                         AiResult e;
+                         DocView* v = needNodes(e);
+                         if (!v) return e;
+                         Document& d = *v->doc;
+                         std::string kind = p["kind"].S("");
+                         float2 pos = {p["pos"].At(0).F(0), p["pos"].At(1).F(0)};
+                         Edit edit(d, v->history, "IA : nœud");
+                         Node* n = nullptr;
+                         std::string warn;
+                         if (kind == "effect") {
+                             std::string code = p["code"].S("");
+                             std::string id = p["effect"].S("");
+                             if (code.empty() && !Effects().Find(id)) return AiResult::Fail("InvalidParameters", "effet inconnu (voir shaderixel.effects_list)");
+                             n = &d.AddEffectNode(code.empty() ? id : "", code, pos);
+                             warn = ApplyParams(n->fx, p["params"]);
+                         } else if (kind == "surface") {
+                             n = &d.AddNode(NodeKind::Surface, pos);
+                         } else if (kind == "blend") {
+                             n = &d.AddNode(NodeKind::Blend, pos);
+                         } else {
+                             return AiResult::Fail("InvalidParameters", "kind = effect, surface ou blend");
+                         }
+                         if (!p["name"].S("").empty()) n->name = p["name"].S("");
+                         Json j = nodeJson(*n);
+                         edit.Commit();
+                         if (!warn.empty()) j["warning"] = "paramètres inconnus : " + warn;
+                         return AiResult::Ok(j);
+                     }});
+
+    bridge.Register({"shaderixel.node_link",
+                     "Relie la sortie du nœud `from` à l'entrée `input` (index, 0 par défaut) du nœud `to` ; from = 0 débranche. "
+                     "Le nœud de sortie a une entrée (index 0).",
+                     Schema({{"from", T("integer")}, {"to", T("integer")}, {"input", T("integer")}}, {"from", "to"}), true, {},
+                     [this, needNodes](const Json& p, const std::string&) {
+                         AiResult e;
+                         DocView* v = needNodes(e);
+                         if (!v) return e;
+                         Document& d = *v->doc;
+                         Id from = p["from"].U(), to = p["to"].U();
+                         int input = p["input"].I(0);
+                         const Node* dst = d.S().graph.Find(to);
+                         if (!dst) return AiResult::Fail("InvalidParameters", "nœud `to` introuvable");
+                         if (input < 0 || input >= std::max(1, NodeInputCount(*dst))) return AiResult::Fail("InvalidParameters", "entrée hors limites");
+                         Edit edit(d, v->history, "IA : liaison");
+                         if (from == 0) d.Unlink(to, input);
+                         else if (!d.Link(from, to, input)) return AiResult::Fail("InvalidParameters", "liaison impossible (nœud introuvable ou cycle)");
+                         edit.Commit();
+                         return AiResult::Ok(Json::Object());
+                     }});
+
+    bridge.Register({"shaderixel.node_update",
+                     "Modifie un nœud : name, params (effet), blend et opacity (fusion), bypass, pos.",
+                     Schema({{"id", T("integer")}, {"name", T("string")}, {"params", T("object")}, {"blend", T("string")}, {"opacity", T("number")},
+                             {"bypass", T("boolean")}, {"pos", T("array")}},
+                            {"id"}),
+                     true, {}, [this, needNodes, nodeJson](const Json& p, const std::string&) {
+                         AiResult e;
+                         DocView* v = needNodes(e);
+                         if (!v) return e;
+                         Document& d = *v->doc;
+                         Node* n = d.S().graph.Find(p["id"].U());
+                         if (!n) return AiResult::Fail("InvalidParameters", "nœud introuvable");
+                         Edit edit(d, v->history, "IA : nœud");
+                         std::string warn;
+                         if (p.Has("name")) n->name = p["name"].S(n->name);
+                         if (p.Has("params") && n->kind == NodeKind::Effect) warn = ApplyParams(n->fx, p["params"]);
+                         if (p.Has("blend")) {
+                             int b = BlendFromKey(p["blend"].S(""));
+                             if (b < 0) return AiResult::Fail("InvalidParameters", "mode de fusion inconnu");
+                             n->blend = (BlendMode)b;
+                         }
+                         if (p.Has("opacity")) n->opacity = std::clamp(p["opacity"].F(1), 0.0f, 1.0f);
+                         if (p.Has("bypass")) n->bypass = p["bypass"].B(false);
+                         if (p.Has("pos")) n->pos = {p["pos"].At(0).F(n->pos.x), p["pos"].At(1).F(n->pos.y)};
+                         Json j = nodeJson(*n);
+                         edit.Commit();
+                         if (!warn.empty()) j["warning"] = "paramètres inconnus : " + warn;
+                         return AiResult::Ok(j);
+                     }});
+
+    bridge.Register({"shaderixel.node_delete", "Supprime un nœud (sauf la sortie).", Schema({{"id", T("integer")}}, {"id"}), true, {},
+                     [this, needNodes](const Json& p, const std::string&) {
+                         AiResult e;
+                         DocView* v = needNodes(e);
+                         if (!v) return e;
+                         Document& d = *v->doc;
+                         Id id = p["id"].U();
+                         if (!d.S().graph.Find(id)) return AiResult::Fail("InvalidParameters", "nœud introuvable");
+                         if (id == d.S().graph.output) return AiResult::Fail("InvalidParameters", "le nœud de sortie ne peut pas être supprimé");
+                         Edit edit(d, v->history, "IA : supprimer le nœud");
+                         d.RemoveNode(id);
+                         edit.Commit();
+                         return AiResult::Ok(Json::Object());
+                     }});
+
+    // ------------------------------------------------------------------ visual effect graphs
+
+    bridge.Register({"shaderixel.effect_graph_ops",
+                     "Opérations disponibles pour les graphes d'effets visuels (op, libellé, catégorie, entrées avec défaut, sorties).",
+                     Schema({}), false, {}, [](const Json&, const std::string&) {
+                         Json a = Json::Array();
+                         for (const EGOpDef& op : EffectGraphOps()) {
+                             Json o = Json::Object();
+                             o["op"] = op.op;
+                             o["label"] = op.label;
+                             o["category"] = op.category;
+                             Json in = Json::Array();
+                             for (auto& pin : op.inputs) {
+                                 Json q = Json::Object();
+                                 q["name"] = pin.name;
+                                 q["default"] = pin.defValue;
+                                 in.Push(q);
+                             }
+                             o["inputs"] = in;
+                             Json out = Json::Array();
+                             for (auto* name : op.outputs) out.Push(name);
+                             o["outputs"] = out;
+                             if (op.hasValue) o["hasValue"] = true;
+                             a.Push(o);
+                         }
+                         Json j = Json::Object();
+                         j["ops"] = a;
+                         j["example"] = EffectGraph::Default().ToJson();
+                         return AiResult::Ok(j);
+                     }});
+
+    // Effect instance of a layer (adjustment/fill) or an effect node.
+    auto effectTarget = [](Document& d, const Json& p, std::string& err) -> EffectInstance* {
+        if (p.Has("layer")) {
+            Layer* l = d.FindLayer(p["layer"].U());
+            if (!l || (l->kind != LayerKind::Adjustment && l->kind != LayerKind::Fill)) { err = "calque de réglage/remplissage introuvable"; return nullptr; }
+            return &l->effect;
+        }
+        Node* n = d.S().graph.Find(p["node"].U());
+        if (!n || n->kind != NodeKind::Effect) { err = "nœud d'effet introuvable (paramètre `layer` ou `node`)"; return nullptr; }
+        if (d.Mode() == DocMode::Layers) { err = "en mode calques, désignez le calque (`layer`)"; return nullptr; }
+        return &n->fx;
+    };
+
+    bridge.Register({"shaderixel.effect_graph_get",
+                     "Graphe d'effet visuel d'un calque (`layer`) ou d'un nœud (`node`) : JSON du graphe, HLSL généré, erreurs.",
+                     Schema({{"layer", T("integer")}, {"node", T("integer")}}), false, {}, [this, need, effectTarget](const Json& p, const std::string&) {
+                         AiResult e;
+                         DocView* v = need(e);
+                         if (!v) return e;
+                         std::string err;
+                         EffectInstance* fx = effectTarget(*v->doc, p, err);
+                         if (!fx) return AiResult::Fail("InvalidParameters", err);
+                         if (fx->graph.empty()) return AiResult::Fail("InvalidParameters", "cet effet n'est pas un graphe visuel");
+                         EffectGraph g;
+                         if (!EffectGraph::Deserialize(fx->graph, g)) return AiResult::Fail("Internal", "graphe illisible");
+                         EGCompileResult cr = CompileEffectGraph(g);
+                         Json j = Json::Object();
+                         j["graph"] = g.ToJson();
+                         j["hlsl"] = cr.code;
+                         if (!cr.error.empty()) j["error"] = cr.error;
+                         return AiResult::Ok(j);
+                     }});
+
+    bridge.Register({"shaderixel.effect_graph_set",
+                     "Remplace l'effet d'un calque de réglage/remplissage (`layer`) ou d'un nœud d'effet (`node`) par un graphe visuel "
+                     "(`graph`, même format que effect_graph_get / l'exemple de effect_graph_ops). Renvoie le HLSL généré ou l'erreur.",
+                     Schema({{"layer", T("integer")}, {"node", T("integer")}, {"graph", T("object")}}, {"graph"}), true, {},
+                     [this, need, effectTarget](const Json& p, const std::string&) {
+                         AiResult e;
+                         DocView* v = need(e);
+                         if (!v) return e;
+                         Document& d = *v->doc;
+                         EffectGraph g;
+                         if (!EffectGraph::FromJson(p["graph"], g)) return AiResult::Fail("InvalidParameters", "graphe invalide");
+                         EGCompileResult cr = CompileEffectGraph(g);
+                         if (!cr.error.empty()) {
+                             AiResult r = AiResult::Fail("CompileError", cr.error);
+                             return r;
+                         }
+                         std::string err;
+                         if (!effectTarget(d, p, err)) return AiResult::Fail("InvalidParameters", err);
+                         Edit edit(d, v->history, "IA : graphe d'effet");
+                         EffectInstance* fx = effectTarget(d, p, err);
+                         auto old = fx->Def();
+                         fx->effectId.clear();
+                         fx->customCode.clear();
+                         fx->graph = g.Serialize();
+                         fx->SyncParams(old);
+                         if (Node* n = p.Has("node") ? d.S().graph.Find(p["node"].U()) : nullptr) {
+                             n->name = g.name;
+                             n->inputs.resize(NodeInputCount(*n), 0);
+                         }
+                         d.SyncGraph();
+                         edit.Commit();
+                         Json j = Json::Object();
+                         size_t at = cr.code.find("float4 Effect(");
+                         j["hlsl"] = at == std::string::npos ? cr.code : cr.code.substr(at);  // body only (helpers omitted)
+                         return AiResult::Ok(j);
+                     }});
+
+    // ------------------------------------------------------------------ paths
+
+    bridge.Register({"shaderixel.path_from_selection",
+                     "Crée un tracé (panneau Tracés) qui suit le contour de la sélection ; tolerance en pixels (2 par défaut).",
+                     Schema({{"tolerance", T("number")}}), true, {}, [this, need](const Json& p, const std::string&) {
+                         AiResult e;
+                         DocView* v = need(e);
+                         if (!v) return e;
+                         if (!v->doc->Selection()) return AiResult::Fail("InvalidParameters", "aucune sélection");
+                         selToPath.tolerance = std::clamp(p["tolerance"].F(2.0f), 0.25f, 50.0f);
+                         MakePathFromSelection(*v);
+                         // Finished when the readback is traced (a few frames).
+                         AiResult r;
+                         r.done = false;
+                         size_t before = v->doc->S().paths.size();
+                         r.poll = [this, v, before](AiResult& out) {
+                             if (selToPath.mask) return false;
+                             bool alive = false;
+                             for (auto& d : docs) alive |= d.get() == v;
+                             if (!alive || v->doc->S().paths.size() <= before) {
+                                 out = AiResult::Fail("Failed", "aucun contour trouvé");
+                                 return true;
+                             }
+                             const VectorPath& path = v->doc->S().paths.back();
+                             size_t anchors = 0;
+                             for (auto& sp : path.subpaths) anchors += sp.pts.size();
+                             Json j = Json::Object();
+                             j["id"] = path.id;
+                             j["name"] = path.name;
+                             j["subpaths"] = (int)path.subpaths.size();
+                             j["anchors"] = (int)anchors;
+                             out = AiResult::Ok(j);
+                             return true;
+                         };
+                         return r;
+                     }});
 }
 
 }  // namespace sx
