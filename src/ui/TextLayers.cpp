@@ -2,6 +2,7 @@
 #include "ui/App.h"
 #include "ui/Theme.h"
 
+#include <imgui_internal.h>
 #include <imgui_stdlib.h>
 
 namespace sx {
@@ -25,12 +26,13 @@ void App::SyncTextLayers(DocView& v) {
             continue;
         }
         if (l.kind != LayerKind::Text || !l.surface) continue;
-        u64 h = l.text.Hash() ^ ((u64)d.Width() << 32) ^ d.Height();
+        TextStyleTable table{&d.S().charStyles, &d.S().paraStyles};
+        u64 h = l.text.Hash() ^ ((u64)d.Width() << 32) ^ d.Height() ^ (table.Hash() * 31);
         auto it = v.textHashes.find(l.surface);
         if (it != v.textHashes.end() && it->second == h) continue;
         std::vector<float> rgba;
         Rect r;
-        if (!RasterizeText(l.text, (int)d.Width(), (int)d.Height(), rgba, r)) continue;
+        if (!RasterizeText(l.text, (int)d.Width(), (int)d.Height(), rgba, r, &table)) continue;
         d.pendingClears.push_back({l.surface, {0, 0, 0, 0}});
         v.renderer.Prepare(d, *ctx);
         if (!r.Empty() && !rgba.empty())
@@ -129,6 +131,27 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             TextStyle s = textDefaults;
             s.color = fg;
             s.pos = {std::round(dp.x), std::round(dp.y)};
+            // Click on the active path: the text follows it.
+            if (VectorPath* vp = ActivePath(d)) {
+                auto polys = FlattenPath(*vp, 0.5f);
+                if (!polys.empty() && polys[0].size() >= 2) {
+                    const auto& pl = polys[0];
+                    float best = 1e30f, at = 0, acc = 0;
+                    for (size_t i = 1; i < pl.size(); ++i) {
+                        float2 a = pl[i - 1], b = pl[i], ab = b - a;
+                        float len = Length(ab);
+                        float tt = len > 0 ? std::clamp(((dp.x - a.x) * ab.x + (dp.y - a.y) * ab.y) / (len * len), 0.0f, 1.0f) : 0.0f;
+                        float dd = Length(dp - (a + ab * tt));
+                        if (dd < best) { best = dd; at = acc + len * tt; }
+                        acc += len;
+                    }
+                    if (best * v.zoom < 10.0f) {
+                        s.path = pl;
+                        s.pathOffset = at;
+                        Status("Texte sur le tracé « " + vp->name + " » (Propriétés : décalage, côté)");
+                    }
+                }
+            }
             if (s.content.empty()) s.content = "Texte";
             d.AddTextLayer(s);
             e.Commit();
@@ -162,6 +185,11 @@ void App::TextOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
     ImVec2 a(canvasMin.x + v.pan.x + r.x0 * v.zoom, canvasMin.y + v.pan.y + r.y0 * v.zoom);
     ImVec2 b(canvasMin.x + v.pan.x + r.x1 * v.zoom, canvasMin.y + v.pan.y + r.y1 * v.zoom);
     dl->AddRect(a, b, ui::col::Accent2, 0, 0, 1.0f);
+    if (al->kind == LayerKind::Text && al->text.path.size() >= 2) {
+        std::vector<ImVec2> pts;
+        for (auto& p : al->text.path) pts.push_back(ImVec2(canvasMin.x + v.pan.x + p.x * v.zoom, canvasMin.y + v.pan.y + p.y * v.zoom));
+        dl->AddPolyline(pts.data(), (int)pts.size(), IM_COL32(120, 180, 255, 200), 0, 1.5f);
+    }
     if (al->kind == LayerKind::Text) {
         ImVec2 anchor(canvasMin.x + v.pan.x + al->text.pos.x * v.zoom, canvasMin.y + v.pan.y + al->text.pos.y * v.zoom);
         dl->AddCircleFilled(anchor, 3.5f, ui::col::Accent2);
@@ -177,7 +205,27 @@ void App::TextPropertiesUI(DocView& v, Layer& l) {
         ImGui::SetKeyboardFocusHere();
         focusTextEdit = false;
     }
-    if (ImGui::InputTextMultiline("##content", &t.content, ImVec2(-1, 90 * dpi))) {
+    const std::string oldContent = t.content;
+    bool edited = ImGui::InputTextMultiline("##content", &t.content, ImVec2(-1, 90 * dpi));
+    if (ImGuiInputTextState* st = ImGui::GetInputTextState(ImGui::GetItemID())) {
+        // Selection kept (in codepoints) for the character / paragraph styles.
+        int a = std::min(st->GetSelectionStart(), st->GetSelectionEnd()), b = std::max(st->GetSelectionStart(), st->GetSelectionEnd());
+        textSelStart = Utf8CodepointIndex(t.content, a);
+        textSelEnd = Utf8CodepointIndex(t.content, b);
+        textSelLayer = l.id;
+    }
+    if (edited) {
+        // Runs follow the edit (common prefix / suffix).
+        auto oc = Utf8Length(oldContent), nc = Utf8Length(t.content);
+        size_t pre = 0;
+        while (pre < oldContent.size() && pre < t.content.size() && oldContent[pre] == t.content[pre]) ++pre;
+        int preCp = Utf8CodepointIndex(oldContent, (int)pre);
+        int delta = nc - oc;
+        for (auto& r : t.runs) {
+            if (r.start >= preCp) r.start = std::max(preCp, r.start + delta);
+            if (r.end > preCp) r.end = std::max(preCp, r.end + delta);
+        }
+        std::erase_if(t.runs, [](const TextRun& r) { return r.end <= r.start; });
         changed = true;
         std::string first = t.content.substr(0, std::min<size_t>(t.content.find('\n'), 32));
         if (!first.empty()) l.name = first;
@@ -213,6 +261,37 @@ void App::TextPropertiesUI(DocView& v, Layer& l) {
     TrackUndo("Faux gras");
     if (ImGui::DragFloat2("Position", &t.pos.x, 1.0f, -100000, 100000, "%.0f")) changed = true;
     TrackUndo("Position du texte");
+    if (!t.runs.empty() || !t.paraStyles.empty())
+        ImGui::TextDisabled("%zu plage(s) de style, %zu paragraphe(s) stylé(s) (panneau Styles de texte)", t.runs.size(),
+                            (size_t)std::count_if(t.paraStyles.begin(), t.paraStyles.end(), [](Id p) { return p != 0; }));
+    ImGui::SeparatorText("Texte sur tracé");
+    if (t.path.size() >= 2) {
+        if (ImGui::DragFloat("Décalage", &t.pathOffset, 1.0f, -100000, 100000, "%.0f px")) changed = true;
+        TrackUndo("Décalage sur le tracé");
+        if (ImGui::Checkbox("De l'autre côté", &t.pathFlip)) changed = true;
+        TrackUndo("Côté du tracé");
+        if (ImGui::Button("Détacher du tracé")) {
+            Edit e(d, v.history, "Détacher du tracé");
+            t.path.clear();
+            e.Commit();
+            changed = true;
+        }
+    } else {
+        VectorPath* vp = ActivePath(d);
+        ImGui::BeginDisabled(!vp);
+        if (ImGui::Button("Placer sur le tracé actif") && vp) {
+            auto polys = FlattenPath(*vp, 0.5f);
+            if (!polys.empty() && polys[0].size() >= 2) {
+                Edit e(d, v.history, "Texte sur tracé");
+                t.path = polys[0];
+                t.pathOffset = 0;
+                e.Commit();
+                changed = true;
+            }
+        }
+        ImGui::EndDisabled();
+        if (!vp) ImGui::TextDisabled("Tracez un chemin à la plume (P), puis cliquez dessus\navec l'outil Texte, ou utilisez ce bouton.");
+    }
     if (changed) d.dirty = true;
 }
 

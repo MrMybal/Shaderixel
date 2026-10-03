@@ -226,6 +226,8 @@ struct DocState {
     std::map<Id, float2> layerNodePos;
     std::vector<LayerComp> comps;
     Id activeComp = 0;
+    std::vector<CharStyle> charStyles;  // text styles shared by the text layers
+    std::vector<ParaStyle> paraStyles;
     std::unordered_map<Id, Surface> surfaces;
     Id nextId = 100;
 };

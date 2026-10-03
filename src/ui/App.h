@@ -522,6 +522,10 @@ private:
     bool textDragging = false;
     float2 textDragStart, textPosStart;
     char fontFilter[64] = {};
+    int textSelStart = 0, textSelEnd = 0;  // last selection in the text field (codepoints)
+    Id textSelLayer = 0;
+    Id charStyleSel = 0, paraStyleSel = 0;
+    void DrawTextStylesPanel();
     int imageDialog = 0;            // 1 image size, 2 canvas size
     int dlgW = 0, dlgH = 0, dlgAnchor = 4, dlgInterp = 2;
     bool dlgKeepRatio = true;

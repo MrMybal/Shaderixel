@@ -16,7 +16,7 @@
 - Transformation manuelle (échelle, rotation, pivot, perspective) et outil Déplacement ; calque par copier/couper, copier/coller
 - Menu Image : taille de l'image, zone de travail, rotations, symétries, recadrage
 - 37 effets dont Courbes, Niveaux, Teinte/Saturation, flous, styles de calque (ombre portée/interne, lueur, contour, incrustations, biseau)
-- Texte (polices système, multi-ligne, alignement, approche, interligne)
+- Texte (polices système, multi-ligne, alignement, approche, interligne, styles de caractère sur des plages : police, taille, couleur, approche, faux gras, souligné, capitales, décalage de ligne de base ; styles de paragraphe : alignement, interligne, espace avant, retraits, style de caractère de base ; texte sur tracé : décalage, côté)
 - Formes vectorielles SDF (rectangle arrondi, ellipse, ligne, polygone, étoile ; fond + contour)
 - Historique groupé, annulable partout
 

@@ -120,6 +120,7 @@ void App::BuildDockLayout(ImGuiID dock) {
                 ImGui::DockBuilderDockWindow("Tracés", id);
                 ImGui::DockBuilderDockWindow("Actions", id);
                 ImGui::DockBuilderDockWindow("Compositions de calques", id);
+                ImGui::DockBuilderDockWindow("Styles de texte", id);
                 break;
             case 2:  // Effets
                 ImGui::DockBuilderDockWindow("Effets", id);
@@ -300,7 +301,7 @@ void App::DeleteLayout(const std::string& name) {
 void App::DrawPanelsMenu() {
     // Closed panels come back here (also from Fenêtre).
     static const char* names[] = {"Calques", "Graphe", "Aperçu du calque", "Éditeur d'effets", "Vue 3D", "Propriétés", "Historique", "Histogramme",
-                                  "Options", "Tracés", "Actions", "Compositions de calques", "Effets", "Fusions", "Couleur", "Pinceaux", "Matériaux", "Assistant IA", "Génération IA"};
+                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Fusions", "Couleur", "Pinceaux", "Matériaux", "Assistant IA", "Génération IA"};
     if (!ImGui::BeginMenu("Panneaux")) return;
     for (const char* n : names) {
         bool open = PanelIsOpen(n);

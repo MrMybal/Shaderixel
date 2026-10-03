@@ -300,6 +300,73 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 59) {
+        // Text: character / paragraph styles and text on a path; .sxl round trip with SX_OUT.
+        if (frameCounter == 4) NewDocument(1600, 900, Precision::Half16, DocMode::Layers, 0, "Texte");
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        if (frameCounter == 6) {
+            CharStyle title;
+            title.id = d.NewId();
+            title.name = "Titre";
+            title.size = 110;
+            title.color = {0.75f, 0.1f, 0.1f, 1};
+            title.underline = true;
+            CharStyle accent;
+            accent.id = d.NewId();
+            accent.name = "Accent";
+            accent.color = {0.1f, 0.3f, 0.9f, 1};
+            accent.faux = true;
+            accent.allCaps = true;
+            accent.baseline = 12;
+            d.S().charStyles = {title, accent};
+            ParaStyle head;
+            head.id = d.NewId();
+            head.name = "Titre";
+            head.charStyle = title.id;
+            ParaStyle body;
+            body.id = d.NewId();
+            body.name = "Corps";
+            body.indentLeft = 40;
+            body.indentFirst = 60;
+            body.spaceBefore = 30;
+            body.lineSpacing = 1.4f;
+            d.S().paraStyles = {head, body};
+            TextStyle t = textDefaults;
+            t.content = "Styles de texte\nCorps avec un mot accentué au milieu\nTroisième paragraphe en retrait";
+            t.size = 56;
+            t.color = {0.1f, 0.1f, 0.1f, 1};
+            t.pos = {80, 40};
+            t.paraStyles = {head.id, body.id, body.id};
+            int start = Utf8Length("Styles de texte\nCorps avec un mot ");
+            t.runs = {{start, start + Utf8Length("accentué"), accent.id}};
+            d.AddTextLayer(t);
+            // Text on an arc (upper half circle, left to right).
+            TextStyle p = textDefaults;
+            p.content = "Texte qui suit un tracé courbe";
+            p.size = 52;
+            p.color = {0.05f, 0.45f, 0.2f, 1};
+            p.align = 1;
+            for (int i = 0; i <= 64; ++i) {
+                float ang = 3.14159265f * (1.0f + i / 64.0f);
+                p.path.push_back({1150 + std::cos(ang) * 320, 780 + std::sin(ang) * 320});
+            }
+            p.pathOffset = 3.14159265f * 320 * 0.5f;
+            d.AddTextLayer(p);
+            d.SyncGraph();
+        }
+        char out[512] = "";
+        if (frameCounter == 12 && GetEnvironmentVariableA("SX_OUT", out, sizeof(out)) > 0) SaveDocument(*a, out);
+        if (frameCounter == 24 && GetEnvironmentVariableA("SX_OUT", out, sizeof(out)) > 0) LoadSxl(out);
+        if (frameCounter == 32 && Active()) {
+            Document& r = *Active()->doc;
+            size_t runs = 0, path = 0;
+            for (auto& l : r.S().layers) { runs += l.text.runs.size(); path += l.text.path.size(); }
+            Log("[demo] text reloaded: %zu char styles, %zu para styles, %zu runs, %zu path points", r.S().charStyles.size(), r.S().paraStyles.size(), runs, path);
+        }
+        return;
+    }
     if (demoMode == 58) {
         // Photo tools: SX_OP = pano | hdr (files SX_FILES, ';' separated) | align | stack (first file opened, others as layers).
         char filesBuf[4096] = "", op[16] = "pano";

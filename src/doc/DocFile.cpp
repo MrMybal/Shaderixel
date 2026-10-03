@@ -245,6 +245,24 @@ Json SerializeDocument(const Document& doc) {
     j["activeLayer"] = s.activeLayer;
     j["activeNode"] = s.activeNode;
     j["selection"] = s.selection;
+    if (!s.charStyles.empty() || !s.paraStyles.empty()) {
+        Json cs = Json::Array(), ps = Json::Array();
+        for (auto& c : s.charStyles) {
+            Json o = Json::Object();
+            o["id"] = c.id; o["name"] = c.name; o["font"] = c.font; o["size"] = c.size; o["color"] = ToJson(c.color);
+            o["useColor"] = c.useColor; o["tracking"] = c.tracking; o["faux"] = c.faux; o["baseline"] = c.baseline;
+            o["underline"] = c.underline; o["allCaps"] = c.allCaps;
+            cs.Push(o);
+        }
+        for (auto& p : s.paraStyles) {
+            Json o = Json::Object();
+            o["id"] = p.id; o["name"] = p.name; o["align"] = p.align; o["lineSpacing"] = p.lineSpacing; o["spaceBefore"] = p.spaceBefore;
+            o["indentLeft"] = p.indentLeft; o["indentFirst"] = p.indentFirst; o["charStyle"] = p.charStyle;
+            ps.Push(o);
+        }
+        j["charStyles"] = cs;
+        j["paraStyles"] = ps;
+    }
     if (!s.comps.empty()) {
         Json cs = Json::Array();
         for (auto& c : s.comps) {
@@ -391,6 +409,23 @@ Json SerializeDocument(const Document& doc) {
             t["lineSpacing"] = l.text.lineSpacing;
             t["tracking"] = l.text.tracking;
             t["faux"] = l.text.faux;
+            if (!l.text.runs.empty()) {
+                Json rs = Json::Array();
+                for (auto& r : l.text.runs) { Json a = Json::Array(); a.Push(r.start); a.Push(r.end); a.Push(r.style); rs.Push(a); }
+                t["runs"] = rs;
+            }
+            if (!l.text.paraStyles.empty()) {
+                Json ps = Json::Array();
+                for (Id p : l.text.paraStyles) ps.Push(p);
+                t["paraStyles"] = ps;
+            }
+            if (!l.text.path.empty()) {
+                Json pp = Json::Array();
+                for (auto& p : l.text.path) { pp.Push(p.x); pp.Push(p.y); }
+                t["path"] = pp;
+                t["pathOffset"] = l.text.pathOffset;
+                t["pathFlip"] = l.text.pathFlip;
+            }
             o["text"] = t;
         }
         layers.Push(o);
@@ -522,6 +557,12 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
             l.text.lineSpacing = t["lineSpacing"].F(1.2f);
             l.text.tracking = t["tracking"].F(0);
             l.text.faux = t["faux"].B(false);
+            for (auto& r : t["runs"].Elements())
+                if (r.Size() >= 3) l.text.runs.push_back({r.At(0).I(), r.At(1).I(), r.At(2).U()});
+            for (auto& p : t["paraStyles"].Elements()) l.text.paraStyles.push_back(p.U());
+            for (size_t k = 0; k + 1 < t["path"].Size(); k += 2) l.text.path.push_back({t["path"].At(k).F(), t["path"].At(k + 1).F()});
+            l.text.pathOffset = t["pathOffset"].F(0);
+            l.text.pathFlip = t["pathFlip"].B(false);
         }
         if (l.surface && !s.surfaces.count(l.surface)) l.surface = doc->CreateSurface({0, 0, 0, 0});
         if (l.mask && !s.surfaces.count(l.mask)) l.mask = 0;
@@ -578,6 +619,19 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         for (size_t k = 0; k + 1 < np.size(); k += 2) s.layerNodePos[np[k].U()] = Float2FromJson(np[k + 1]);
     }
     for (auto& gv : j["guidesX"].Elements()) s.guidesX.push_back(gv.F());
+    for (auto& o : j["charStyles"].Elements()) {
+        CharStyle c;
+        c.id = o["id"].U(); c.name = o["name"].S("Style"); c.font = o["font"].S(""); c.size = o["size"].F(0);
+        c.color = Float4FromJson(o["color"], {0, 0, 0, 1}); c.useColor = o["useColor"].B(true); c.tracking = o["tracking"].F(0);
+        c.faux = o["faux"].B(false); c.baseline = o["baseline"].F(0); c.underline = o["underline"].B(false); c.allCaps = o["allCaps"].B(false);
+        s.charStyles.push_back(c);
+    }
+    for (auto& o : j["paraStyles"].Elements()) {
+        ParaStyle p;
+        p.id = o["id"].U(); p.name = o["name"].S("Style"); p.align = o["align"].I(0); p.lineSpacing = o["lineSpacing"].F(1.2f);
+        p.spaceBefore = o["spaceBefore"].F(0); p.indentLeft = o["indentLeft"].F(0); p.indentFirst = o["indentFirst"].F(0); p.charStyle = o["charStyle"].U();
+        s.paraStyles.push_back(p);
+    }
     for (auto& o : j["layerComps"].Elements()) {
         LayerComp c;
         c.id = o["id"].U();
