@@ -62,10 +62,27 @@
 ### Multi-plateforme
 - Backend Vulkan : **fait** (ShaderixelVk.exe sous Windows, mêmes shaders via SPIR-V ; écarts avec D3D12 limités à la précision numérique). Format `.sxl` v2 portable (deflate maison, morceaux en parallèle ; v1 XPRESS toujours lisible sous Windows) : **fait**. Surfaces creuses Vulkan (images à résidence partielle) : **fait** (16K : 8,35 → 4,8 Go). Reste : couche plateforme Linux (fenêtre, dialogues, stylet), backend Metal (macOS)
 
+### Espace de travail
+- Colonne de droite en onglets (Général, Outils, Effets, Fusion, Peinture, 3D), chacun avec son propre agencement de panneaux : **fait**
+- Zone du graphe et colonne de droite masquables (Tab / Maj+Tab, barre d'état) : **fait** ; colonne d'outils ajustée à ses icônes : **fait**
+- Multi-fenêtres / multi-écrans : panneaux détachables hors de la fenêtre principale (viewports ImGui, D3D12 et Vulkan), « Nouvelle fenêtre » pour regrouper des panneaux sur un autre écran : **fait**
+- Dispositions enregistrées (Fenêtre > Dispositions) avec onglet, zones masquées et fenêtres : **fait**
+- Glisser-déposer des effets : nœud de calque (filtre), lien (inséré), vide (nouveau nœud), liste des calques, image : **fait**
+
+### Fusions
+- Fusions séparées des effets (`//@blend`, panneau Fusions avec modes standard et fusions de bibliothèque, aperçus sur le calque actif) : **fait**
+- Fusions en HLSL (Propriétés) ou en graphe (éditeur visuel : entrées A dessous, B calque, masque, nœuds « Opacité du calque » et « Composer la fusion »), enregistrables dans la bibliothèque : **fait**
+
+### Peinture 3D (façon Substance Painter)
+- Calques de matériau : un remplissage par canal PBR (couleur, rugosité, métal, hauteur, émissif) partageant un masque ; peindre le masque (2D ou sur le modèle) applique tous les canaux : **fait**
+- Étagère de matériaux, pile des calques de matériau, propriétés par canal, espace « Peinture 3D » (vue 3D + texture) : **fait**
+- À venir : masques intelligents (courbure, occlusion, usure des arêtes), matériaux texturés, plusieurs ensembles de textures
+
 ### Pinceaux programmables
 - Pinceaux codés dans l'application (`shaders/brushes/*.slang`, prélude `brush_common.slang`) : `Tip(Brush b)` dessine la pointe (couleur + couverture, position locale, pression, graine, temps, distance, direction), `Dynamics(inout Dab d)` place chaque touche (suivre le trait, dispersion, taille/rotation/teinte aléatoires, variation dans le temps) ; réglages `//@spacing`, `//@airbrush` (touches par seconde tant qu'on reste appuyé), `//@extent`, `//@selfflow`, paramètres `//@param` réglables dans Options : **fait**
 - Panneau « Pinceaux » : liste par catégories + recherche, aperçu de trait, éditeur de code (Ctrl+Entrée), nouveau pinceau depuis un modèle, enregistrement dans la bibliothèque : **fait**
 - 4 exemples (plume, aérographe, fusain, dispersion d'étoiles) + 33 pinceaux CyTexture ; `--test-effects` compile aussi les pinceaux, démo `--demo brushes` : **fait**
+- Pinceaux en graphe (éditeur visuel : nœud « Touche du pinceau », pointe ronde, aléatoire par touche ; placement : espacement, aérographe, suivre le trait, dispersion, taille/angle/opacité aléatoires), enregistrables (graphe conservé `//@graph`) : **fait**
 - À venir : textures d'entrée pour les pinceaux (TextureBrush), gomme/masque avec pointes programmables testés en profondeur
 
 ### Import CyTexture
