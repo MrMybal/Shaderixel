@@ -130,6 +130,8 @@ def main():
         if f.lower().endswith(('.exe', '.dll')):
             shutil.copy2(os.path.join(BUILD, f), dist)
     shutil.copytree(os.path.join(ROOT, 'shaders'), os.path.join(dist, 'shaders'))
+    # Skills for AI assistants (Claude Code, other agents): writing effects in HLSL, importing them.
+    shutil.copytree(os.path.join(ROOT, '.claude', 'skills'), os.path.join(dist, 'IA', 'skills'))
     ex = os.path.join(dist, 'Exemples')
     shots = os.path.join(dist, 'Guide_images')
     os.makedirs(ex)

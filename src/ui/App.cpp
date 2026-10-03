@@ -1,4 +1,5 @@
 #include "ui/App.h"
+#include "doc/HlslImport.h"
 #include "doc/Brushes.h"
 #include "ui/Theme.h"
 #include "gpu/ShaderSystem.h"
@@ -80,7 +81,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -117,8 +118,11 @@ bool App::Init() {
     for (const char* s : {"composite.slang", "display.slang", "brush.slang", "clear.slang", "clear_r.slang", "gradient.slang"})
         gpu::Shaders().Builtin(s);
     if (testEffects) {
+        // SX_TEST_ONLY=hlsl: only the HLSL import samples (quick iteration).
+        const bool onlyHlsl = GetEnvironmentVariableA("SX_TEST_ONLY", nullptr, 0) > 0;
         int ok = 0;
         for (auto& e : Effects().All()) {
+            if (onlyHlsl) break;
             auto p = gpu::Shaders().CompileNow(e->name, BuildEffectSource(*e));
             bool good = p->state.load() == gpu::Program::State::Ready;
             ok += good;
@@ -128,6 +132,7 @@ bool App::Init() {
         // Visual graphs carried by library effects (//@graph): compiled as a copy would be.
         int okg = 0, ng = 0;
         for (auto& e : Effects().All()) {
+            if (onlyHlsl) break;
             if (e->graph.empty()) continue;
             ++ng;
             EffectGraph g;
@@ -145,8 +150,41 @@ bool App::Init() {
             if (!why.empty()) Log("[test-graphs] %-24s FAILED: %s", e->id.c_str(), why.c_str());
         }
         Log("[test-graphs] %d / %d effect graphs compiled", okg, ng);
+        // HLSL import: function with annotations, out parameters, body only, blend.
+        const char* samples[] = {
+            "//@name Vignette\n//@in Amount float 0.6 0 1 \"Intensité\" \"Réglages\"\n//@in Tint color 0 0 0 1 \"Couleur\" \"Couleur\"\n"
+            "float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float4 Tint)\n"
+            "{ float4 c = Image.Sample(S, UV); float k = smoothstep(0.8, 0.3, length(UV - 0.5)); return float4(lerp(Tint.rgb, c.rgb, lerp(1.0, k, Amount)), c.a); }\n",
+            "//@name Séparer\n//@main Split\nfloat Luma(float3 c) { return dot(c, float3(0.2126, 0.7152, 0.0722)); }\n"
+            "void Split(Texture2D Src, float2 uv, int Steps, bool Flip, out float4 Color, out float Gray)\n"
+            "{ Color = Texture2DSample(Src, SrcSampler, uv); Gray = Luma(Color.rgb); if (Flip) Gray = 1.0 - Gray; Gray = floor(Gray * Steps) / Steps; }\n",
+            "//@name Corps seul\n//@in Image texture\n//@in UV float2\n//@in Gain float 2 0 4\n//@out Result float3\n"
+            "return Texture2DSample(Image, ImageSampler, UV).rgb * Gain;\n",
+            "//@name Fusion douce\n//@kind blend\n//@in Opacity float 1 0 1\n"
+            "float4 Mix(Texture2D A, Texture2D B, Texture2D M, float2 UV, float Opacity)\n"
+            "{ float4 a = A.Sample(s, UV), b = B.Sample(s, UV); float k = b.a * Opacity * M.Sample(s, UV).r; return float4(lerp(a.rgb, a.rgb * b.rgb, k), max(a.a, k)); }\n",
+        };
+        int okh = 0;
+        for (const char* src : samples) {
+            EffectGraph g;
+            std::string why;
+            if (GraphFromHlsl(src, g, &why)) {
+                auto def = ParseEffect("", CompileEffectGraph(g).code);
+                auto p = gpu::Shaders().CompileNow("HLSL import " + g.name, BuildEffectSource(*def));
+                if (p->state.load() != gpu::Program::State::Ready) why = p->errors;
+                else {
+                    std::string ps;
+                    for (auto& pd : def->params) ps += pd.id + "[" + pd.group + "] ";
+                    Log("[test-hlsl] %s OK: inputs %zu, params %s", g.name.c_str(), def->inputs.size(), ps.c_str());
+                }
+            }
+            okh += why.empty();
+            if (!why.empty()) Log("[test-hlsl] FAILED: %s", why.c_str());
+        }
+        Log("[test-hlsl] %d / %zu HLSL imports compiled", okh, std::size(samples));
         int okb = 0;
         for (auto& b : Brushes().All()) {
+            if (onlyHlsl) break;
             auto p = gpu::Shaders().CompileNow("brush " + b->id, BuildBrushSource(*b));
             bool good = p->state.load() == gpu::Program::State::Ready;
             okb += good;
@@ -446,7 +484,15 @@ void App::Frame() {
     UpdateSaves();
     UpdateTitle();
     if (!pendingDrop.empty()) {
-        OpenImage(pendingDrop, false);
+        std::string ext = Narrow(Utf8Path(pendingDrop).extension().wstring());
+        for (auto& c : ext) c = (char)tolower((unsigned char)c);
+        std::string src, err;
+        if ((ext == ".hlsl" || ext == ".fx") && Active()) {
+            // HLSL file dropped: a new effect with its inputs / outputs.
+            if (ReadTextFile(pendingDrop, src) && !CreateEffectFromHlsl(*Active(), src, &err)) Status("Import HLSL : " + err);
+        } else {
+            OpenImage(pendingDrop, false);
+        }
         pendingDrop.clear();
     }
 
@@ -722,6 +768,11 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Nouveau...", "Ctrl+N")) showNewDoc = true;
         if (ImGui::MenuItem("Ouvrir une image...", "Ctrl+O")) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
         if (ImGui::MenuItem("Importer comme calque...", "Ctrl+Shift+O", false, v != nullptr)) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), true);
+        if (ImGui::MenuItem("Importer un effet HLSL...", nullptr, false, v != nullptr)) {
+            std::string path = platform::OpenFileDialog(hwnd, L"HLSL (*.hlsl, *.fx, *.txt)\0*.hlsl;*.fx;*.txt\0");
+            std::string src, err;
+            if (!path.empty() && ReadTextFile(path, src) && !CreateEffectFromHlsl(*v, src, &err)) Status("Import HLSL : " + err);
+        }
         if (ImGui::BeginMenu("Ouvrir les fichiers récents", !recentFiles.empty())) {
             std::string open;
             for (auto& r : recentFiles) {

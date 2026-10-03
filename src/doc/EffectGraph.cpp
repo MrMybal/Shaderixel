@@ -505,11 +505,21 @@ struct Gen {
             int retType = n->outs.empty() ? kPinFloat4 : n->outs[0].type;
             if (!single)
                 for (auto& o : n->outs) params += std::string(params.empty() ? "" : ", ") + "out " + PinHlslType(o.type) + " " + o.name;
-            if (!n->decl.empty()) customDecls.push_back("// " + n->name + "\n" + n->decl + "\n");
-            customStructs.push_back("struct " + sname + "\n{\n    " + (single ? std::string(PinHlslType(retType)) : std::string("void")) + " Run(" + params +
-                                    ")\n    {\n" + n->text + "\n    }\n};\n");
+            std::string st = "struct " + sname + "\n{\n    " + (single ? std::string(PinHlslType(retType)) : std::string("void")) + " Run(" + params +
+                             ")\n    {\n" + n->text + "\n    }\n};\n";
+            std::string qualified = sname;
+            if (!n->decl.empty() && !unreal) {
+                // Declarations live in a namespace with the node: their names never clash with
+                // the prelude (Luma...) or with another node's helpers.
+                std::string ns = "SXD" + std::to_string(id);
+                customDecls.push_back("// " + n->name + "\nnamespace " + ns + "\n{\n" + n->decl + "\n" + st + "}\n");
+                qualified = ns + "::" + sname;
+            } else {
+                if (!n->decl.empty()) customDecls.push_back("// " + n->name + "\n" + n->decl + "\n");
+                customStructs.push_back(st);
+            }
             std::string inst = "sxc" + std::to_string(id), args;
-            lines.push_back("    " + sname + " " + inst + ";");
+            lines.push_back("    " + qualified + " " + inst + ";");
             auto toPin = [&](const Val& v, int t) -> std::string {
                 if (t == kEGTexture) return v.expr;
                 if (t == kPinInt) return "(int)(" + Conv(v, 1) + ")";
@@ -520,7 +530,9 @@ struct Gen {
                 const EGPinDecl& pin = n->pins[i];
                 bool linked = i < n->inputs.size() && n->inputs[i].node;
                 std::string expr;
-                if (!linked && pin.type != kEGTexture) {
+                if (!linked && g.kind == EGKind::Blend && _stricmp(pin.name.c_str(), "opacity") == 0 && PinValueSize(pin.type) == 1) {
+                    expr = opacityVar;  // blends: the layer opacity
+                } else if (!linked && pin.type != kEGTexture) {
                     // Unconnected: a parameter of the effect (default, range, category).
                     std::string pid = "P_n" + std::to_string(id) + "_" + SanitizeId(pin.name, (int)i).substr(2);
                     if (std::find_if(pinParams.begin(), pinParams.end(), [&](const PinParam& q) { return q.id == pid; }) == pinParams.end())

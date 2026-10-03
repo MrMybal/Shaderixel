@@ -299,6 +299,37 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 47 && v && frameCounter == 4) {
+        // HLSL import: the popup with an annotated function, or (SX_CREATE) the created effect.
+        const char* src =
+        R"SX(//@name Vignette douce
+//@category Mes effets
+//@in Amount float 0.6 0 1 "Intensité" "Réglages"
+//@in Radius float 0.75 0.1 1.5 "Rayon" "Réglages"
+//@in Tint color 0.05 0 0.1 1 "Couleur du bord" "Couleur"
+//@out Result float4
+
+float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float Radius, float4 Tint)
+{
+    float4 c = Image.Sample(S, UV);
+    float d = length(UV - 0.5) * 1.41421;
+    float k = smoothstep(Radius, Radius - 0.5, d);
+    return float4(lerp(Tint.rgb, c.rgb, lerp(1.0, k, Amount)), c.a);
+}
+)SX";
+        hlslImportBuffer = src;
+        OpenGraphEditor(0);
+        if (GetEnvironmentVariableA("SX_CREATE", nullptr, 0) > 0) {
+            std::string err;
+            if (!CreateEffectFromHlsl(*v, src, &err)) Log("[demo] hlsl import: %s", err.c_str());
+            ShowSideTab(0);
+            ImGui::SetWindowFocus("Propriétés");
+        } else {
+            for (auto& l : v->doc->S().layers) if (l.name == "Peinture") v->doc->S().activeLayer = l.id;
+        }
+        return;
+    }
+    if (demoMode == 47 && frameCounter == 8 && GetEnvironmentVariableA("SX_CREATE", nullptr, 0) == 0) hlslImportRequest = true;  // editor shown by now
     if (demoMode == 46 && v && frameCounter == 4) {
         // Custom HLSL node with typed pins: texture + UV wired, the other inputs unconnected
         // become parameters (range, category) in Propriétés.

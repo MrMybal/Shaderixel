@@ -508,6 +508,11 @@ private:
     // Effect editor: code and library views (graphs have their canvas).
     void DrawLibraryItemView(DocView& v, EffectInstance& fx, bool blend);
     void DrawEffectCodeEditor(DocView& v, EffectInstance& fx);
+    // HLSL import (annotated HLSL or a function -> custom node with its pins).
+    bool CreateEffectFromHlsl(DocView& v, const std::string& source, std::string* error);
+    void DrawHlslImportPopup(EffectGraph* g, float2 pos, bool* changed);
+    std::string hlslImportBuffer, hlslImportError;
+    bool hlslImportRequest = false;
     void DrawBrushCodeEditor(DocView& v, BrushSettings& b);
     void DropEffectOnLayer(DocView& v, Id layer, const std::string& effectId);
     struct {

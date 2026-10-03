@@ -1,5 +1,6 @@
 // Operations exposed to AI agents through the CyToolsCore bridge (MCP tools).
 #include "ui/App.h"
+#include "doc/HlslImport.h"
 #include "doc/EffectGraph.h"
 #include "gpu/ShaderSystem.h"
 
@@ -846,6 +847,57 @@ void App::RegisterAiOps() {
                          Json j = Json::Object();
                          size_t at = cr.code.find("float4 Effect(");
                          j["hlsl"] = at == std::string::npos ? cr.code : cr.code.substr(at);  // body only (helpers omitted)
+                         return AiResult::Ok(j);
+                     }});
+
+    bridge.Register({"shaderixel.effect_from_hlsl",
+                     "Crée un effet depuis du HLSL (annoté //@in //@out ou une fonction) : un nœud HLSL avec ses entrées / sorties dans un graphe. "
+                     "target = \"document\" (calque de réglage, de remplissage ou fusion du calque actif) ou \"library\" (bibliothèque, éléments de base protégés). "
+                     "Le shader est compilé : en cas d'erreur, le message du compilateur est renvoyé et rien n'est créé. Voir le skill shaderixel-hlsl-effect.",
+                     Schema({{"code", T("string")}, {"target", T("string")}, {"lock", T("boolean")}, {"replace", T("boolean")}}, {"code"}), true, {},
+                     [this, need](const Json& p, const std::string&) {
+                         std::string code = p["code"].S(""), err;
+                         EffectGraph g;
+                         if (!GraphFromHlsl(code, g, &err)) return AiResult::Fail("ParseError", err);
+                         EGCompileResult cr = CompileEffectGraph(g);
+                         auto def = ParseEffect("", cr.code);
+                         auto prog = gpu::Shaders().CompileNow("IA " + g.name, BuildEffectSource(*def));
+                         if (prog->state.load() != gpu::Program::State::Ready) return AiResult::Fail("CompileError", prog->errors);
+                         Json j = Json::Object();
+                         Json ins = Json::Array(), outs = Json::Array(), params = Json::Array();
+                         for (auto& n : g.nodes)
+                             if (n.op == "custom") {
+                                 for (auto& pin : n.pins) {
+                                     Json o = Json::Object();
+                                     o["name"] = pin.name;
+                                     o["type"] = PinTypeName(pin.type);
+                                     if (!pin.category.empty()) o["category"] = pin.category;
+                                     ins.Push(o);
+                                 }
+                                 for (auto& pin : n.outs) {
+                                     Json o = Json::Object();
+                                     o["name"] = pin.name;
+                                     o["type"] = PinTypeName(pin.type);
+                                     outs.Push(o);
+                                 }
+                             }
+                         for (auto& pd : def->params) params.Push(Json(pd.id + " (" + pd.label + ")"));
+                         j["name"] = g.name;
+                         j["inputs"] = ins;
+                         j["outputs"] = outs;
+                         j["parameters"] = params;
+                         if (p["target"].S("document") == "library") {
+                             LibKind k = g.kind == EGKind::Blend ? LibKind::Blend : LibKind::Effect;
+                             if (!SaveToLibrary(k, g.name, g.category, "//@graph " + g.ToJson().Dump(0) + "\n" + cr.code, p["lock"].B(false), p["replace"].B(false), &err))
+                                 return AiResult::Fail("LibraryError", err);
+                             j["saved"] = Narrow(Utf8Path(LibraryPath(k, g.name)).filename().wstring());
+                             return AiResult::Ok(j);
+                         }
+                         AiResult e;
+                         DocView* v = need(e);
+                         if (!v) return e;
+                         if (!CreateEffectFromHlsl(*v, code, &err)) return AiResult::Fail("InvalidParameters", err);
+                         j["created"] = v->doc->Mode() == DocMode::Layers ? (g.kind == EGKind::Blend ? "fusion du calque actif" : "calque") : "nœud";
                          return AiResult::Ok(j);
                      }});
 

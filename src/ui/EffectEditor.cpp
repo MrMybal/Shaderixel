@@ -2,6 +2,7 @@
 #include "ui/App.h"
 #include "ui/Theme.h"
 #include "doc/Brushes.h"
+#include "doc/HlslImport.h"
 #include "doc/EffectGraph.h"
 
 #include <imgui_internal.h>
@@ -200,6 +201,9 @@ void App::DrawEffectEditor() {
             d.SyncGraph();
             v->history.PushState("Créer un graphe d'effet", before, d.S());
         }
+        if (ImGui::Button("Nouvel effet depuis du HLSL...")) hlslImportRequest = true;
+        ui::HelpTooltip("Colle ou ouvre du HLSL : entrées et sorties créées depuis les annotations //@in //@out ou la signature de la fonction.");
+        DrawHlslImportPopup(nullptr, {}, nullptr);
         if (ImGui::Button("Nouveau calque de réglage « Effet visuel »")) {
             Edit e(d, v->history, "Effet visuel");
             if (d.Mode() == DocMode::Layers) {
@@ -443,6 +447,9 @@ void App::DrawEffectEditor() {
         ImGui::PopStyleColor();
         ImGui::PopFont();
     } else ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1), "OK");
+    if (ImGui::Button("Importer du HLSL...")) hlslImportRequest = true;
+    ui::HelpTooltip("Colle ou ouvre du HLSL : un nœud est créé avec ses entrées et sorties\n(annotations //@in //@out, ou signature d'une fonction).");
+    DrawHlslImportPopup(&g, ed.ctxPos.x == 0 && ed.ctxPos.y == 0 ? float2{120, 120} : ed.ctxPos, &changed);
     if (ImGui::Button("Voir le HLSL généré")) ImGui::OpenPopup("##hlsl");
     if (ImGui::BeginPopup("##hlsl")) {
         ImGui::PushFont(ui::GetFonts().mono, 0.0f);
@@ -960,6 +967,105 @@ void App::DrawBrushCodeEditor(DocView& v, BrushSettings& b) {
             ImGui::TextDisabled("Modifications non appliquées");
         }
     }
+}
+
+
+// ------------------------------------------------------------------ HLSL import
+
+bool App::CreateEffectFromHlsl(DocView& v, const std::string& source, std::string* error) {
+    Document& d = *v.doc;
+    EffectGraph g;
+    if (!GraphFromHlsl(source, g, error)) return false;
+    Edit e(d, v.history, "Effet HLSL importé");
+    if (d.Mode() == DocMode::Layers) {
+        if (g.kind == EGKind::Blend) {
+            Layer* l = d.ActiveLayer();
+            if (!l) { if (error) *error = "sélectionnez le calque qui recevra la fusion"; return false; }
+            l->blendFx = {};
+            l->blendFx.graph = g.Serialize();
+            if (auto def = l->blendFx.Def()) l->blendFx.params = def->DefaultParams();
+            l->passThrough = false;
+            efEd.target = 1;
+        } else {
+            Layer& l = d.AddEffectLayer(g.inputs == 0 ? LayerKind::Fill : LayerKind::Adjustment, "");
+            l.name = g.name;
+            l.effect.graph = g.Serialize();
+            if (auto def = l.effect.Def()) l.effect.params = def->DefaultParams();
+            efEd.target = 0;
+            efEd.filterIndex = -1;
+        }
+        d.SyncGraph();
+    } else {
+        Node& n = d.AddEffectNode("", "", nodeEd.contextPos);
+        n.fx.graph = g.Serialize();
+        n.name = g.name;
+        if (auto def = n.fx.Def()) n.fx.params = def->DefaultParams();
+        n.inputs.assign(NodeInputCount(n), 0);
+        d.S().activeNode = n.id;
+        efEd.target = 0;
+    }
+    e.Commit();
+    efEd.cachedJson.clear();
+    Status("Effet HLSL importé : " + g.name);
+    return true;
+}
+
+void App::DrawHlslImportPopup(EffectGraph* g, float2 pos, bool* changed) {
+    // g: add the node to this graph; null: a new effect (layer / node) in the document.
+    if (hlslImportRequest) {
+        ImGui::OpenPopup("##hlslimport");
+        hlslImportRequest = false;
+        hlslImportError.clear();
+    }
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+    if (!ImGui::BeginPopup("##hlslimport")) return;
+    ImGui::TextUnformatted(g ? "Importer du HLSL dans ce graphe" : "Nouvel effet depuis du HLSL");
+    ImGui::TextDisabled("Annotations : //@name, //@category, //@in nom type défaut min max \"Libellé\" \"Catégorie\", //@out nom type, //@main fonction");
+    ImGui::TextDisabled("Types : float float2 float3 float4 int bool color texture ; textures lues par Texture2DSample(T, S, uv) ou T.Sample(S, uv).");
+    if (ImGui::Button("Ouvrir un fichier...")) {
+        std::string path = platform::OpenFileDialog(hwnd, L"HLSL (*.hlsl, *.fx, *.slang, *.txt)\0*.hlsl;*.fx;*.slang;*.txt\0");
+        if (!path.empty()) ReadTextFile(path, hlslImportBuffer);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Exemple")) {
+        hlslImportBuffer =
+            "//@name Vignette douce\n//@category Mes effets\n"
+            "//@in Amount float 0.6 0 1 \"Intensité\" \"Réglages\"\n"
+            "//@in Radius float 0.75 0.1 1.5 \"Rayon\" \"Réglages\"\n"
+            "//@in Tint color 0 0 0 1 \"Couleur\" \"Couleur\"\n"
+            "//@out Result float4\n\n"
+            "float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float Radius, float4 Tint)\n"
+            "{\n"
+            "    float4 c = Image.Sample(S, UV);\n"
+            "    float d = length(UV - 0.5) * 1.41421;\n"
+            "    float k = smoothstep(Radius, Radius - 0.5, d);\n"
+            "    return float4(lerp(Tint.rgb, c.rgb, lerp(1.0, k, Amount)), c.a);\n"
+            "}\n";
+    }
+    ImGui::PushFont(ui::GetFonts().mono, 0.0f);
+    ImGui::InputTextMultiline("##hlslsrc", &hlslImportBuffer, ImVec2(760 * dpi, 420 * dpi), ImGuiInputTextFlags_AllowTabInput);
+    ImGui::PopFont();
+    if (ImGui::Button(g ? "Ajouter le nœud" : "Créer l'effet")) {
+        hlslImportError.clear();
+        if (g) {
+            HlslImport imp = ParseHlslNode(hlslImportBuffer);
+            if (!imp.error.empty()) hlslImportError = imp.error;
+            else {
+                efEd.selected = AddHlslNode(*g, imp, pos);
+                if (changed) *changed = true;
+                ImGui::CloseCurrentPopup();
+            }
+        } else if (DocView* v = Active()) {
+            if (CreateEffectFromHlsl(*v, hlslImportBuffer, &hlslImportError)) ImGui::CloseCurrentPopup();
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Fermer")) ImGui::CloseCurrentPopup();
+    if (!hlslImportError.empty()) {
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1, 0.5f, 0.4f, 1), "%s", hlslImportError.c_str());
+    }
+    ImGui::EndPopup();
 }
 
 }  // namespace sx
