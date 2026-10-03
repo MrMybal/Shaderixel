@@ -489,7 +489,12 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     if (click && target && !stroking) {
         // History brush source: the layer as it was before its first edit (or the last snapshot).
         if (!v.snapshots.count(target)) TakeHistorySnapshot(v, target);
-        if (v.renderer.BeginStroke(doc, *ctx, target)) {
+        // 3D project paint layer: the brush paints every checked channel (shared coverage).
+        strokeTargets.clear();
+        if (doc.kind == 1 && (tool == Tool::Brush || tool == Tool::Eraser)) strokeTargets = Paint3DTargets(v, strokeColors);
+        bool begun = strokeTargets.size() > 1 ? v.renderer.BeginStrokeMulti(doc, *ctx, strokeTargets) : v.renderer.BeginStroke(doc, *ctx, target);
+        if (strokeTargets.size() <= 1) strokeTargets.clear();
+        if (begun) {
             stroking = true;
             strokeErase = tool == Tool::Eraser;
             if (tool == Tool::Clone || tool == Tool::Heal) {
@@ -555,7 +560,9 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
             static const char* names[] = {"", "", "", "", "", "", "Pinceau", "Gomme", "Tampon de duplication", "Correcteur", "", "",
                                           "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge", "Fluidité"};
             int ti = (int)tool;
-            v.renderer.EndStroke(doc, *ctx, v.history, strokeErase ? "Gomme" : (ti < 19 && names[ti][0] ? names[ti] : "Pinceau"));
+            if (!strokeTargets.empty()) v.renderer.EndStrokeMulti(doc, *ctx, v.history, strokeErase ? "Gomme" : "Peinture 3D");
+            else v.renderer.EndStroke(doc, *ctx, v.history, strokeErase ? "Gomme" : (ti < 19 && names[ti][0] ? names[ti] : "Pinceau"));
+            strokeTargets.clear();
             stroking = false;
             lastStrokeEnd = lastDabPos;
             haveStrokeEnd = true;
@@ -639,7 +646,14 @@ float4 App::PaintColor(Document& d) {
 void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<float4>* extra) {
     Document& doc = *v.doc;
     if (strokeErase || tool == Tool::Brush || tool == Tool::Eraser) {
-        float4 color = PaintColor(doc);
+        float4 color = strokeTargets.empty() ? PaintColor(doc) : strokeColors[0];
+        struct ApplySlots {
+            App& a;
+            DocView& v;
+            ~ApplySlots() {
+                if (!a.strokeTargets.empty()) a.ApplyStrokeSlots(v);
+            }
+        } applySlots{*this, v};
         const BrushSettings& bs = strokeErase ? eraser : brush;
         if (auto td = TipDef(bs)) {
             // Programmable tip: shape, color and placement come from the brush code.

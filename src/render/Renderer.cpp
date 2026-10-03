@@ -626,6 +626,35 @@ void Renderer::StrokeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
     doc.TouchSurface(strokeSurface, &touched);
 }
 
+void Renderer::StrokeApplySlots(Document& doc, gpu::CommandContext& ctx, const BrushSettings& b, const std::vector<float4>& colors, bool erase) {
+    auto* p = Shaders().Builtin("brush.slang");
+    if (!p || strokeSlots.empty() || strokeRect.Empty()) return;
+    static const Dab none = {0, 0, 0.5f, 0.0f};  // no new coverage: composite only
+    Surface* sel = doc.Selection();
+    for (size_t i = 0; i < strokeSlots.size(); ++i) {
+        Surface* s = doc.GetSurface(strokeSlots[i].surface);
+        if (!s) continue;
+        const int W = (int)s->tex->Width(), H = (int)s->tex->Height();
+        Rect r = strokeRect.Clipped(W, H);
+        if (r.Empty()) continue;
+        float4 color = i + 1 < colors.size() ? colors[i + 1] : colors.empty() ? float4{1, 1, 1, 1} : colors.back();
+        gpu::DispatchDesc d;
+        d.pipeline = p;
+        d.srv[0] = strokeSlots[i].pre.get();
+        d.srv[1] = sel ? sel->tex.get() : nullptr;
+        d.uav[0] = s->tex.get();
+        d.uav[1] = strokeMask.get();
+        BrushRoot root = {r.x0, r.y0, (u32)r.Width(), (u32)r.Height(), (u32)W, (u32)H, 1u, b.hardness, b.opacity, erase ? 1u : 0u, sel ? 1u : 0u, 0.0f, color};
+        SetConstants(d, root);
+        d.cbData = &none;
+        d.cbSize = sizeof(Dab);
+        d.threadsX = r.Width();
+        d.threadsY = r.Height();
+        ctx.Dispatch(d);
+        doc.TouchSurface(strokeSlots[i].surface, &r);
+    }
+}
+
 void Renderer::EndStroke(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label) {
     if (!strokeSurface) return;
     Surface* s = doc.GetSurface(strokeSurface);

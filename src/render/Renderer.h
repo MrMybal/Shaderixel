@@ -239,6 +239,8 @@ public:
     void MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
                              const std::vector<float4>& colorsLinear, bool erase);
     bool meshSymmetryX = false;  // 3D strokes mirrored across the model's X axis
+    // 2D multi-channel strokes: the other layers rebuilt from the shared coverage (after StrokeDabs / StrokeProgram).
+    void StrokeApplySlots(Document& doc, gpu::CommandContext& ctx, const BrushSettings& b, const std::vector<float4>& colorsLinear, bool erase);
     // Decal projected from the view: center / half size in view pixels, rotation (radians); the first layer can take the image colors.
     void MeshDecalMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, gpu::Texture* image, float2 center, float2 halfSize, float rotation,
                         float opacity, const std::vector<float4>& colorsLinear, bool firstUsesImageColor);

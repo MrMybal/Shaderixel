@@ -349,6 +349,21 @@ void App::DemoTick() {
                 a->renderer.EndStrokeMulti(d, *ctx, a->history, "Projection");
             }
         }
+        if (frameCounter == 20 && GetEnvironmentVariableA("SX_2D", nullptr, 0) > 0) {
+            // 2D stroke on the texture (UV canvas): same channels, shared coverage.
+            brush3D.use[(int)PbrChannel::Metallic] = true;
+            brush3D.metal = 1;
+            brush3D.rough = 0.1f;
+            std::vector<float4> colors;
+            std::vector<Id> targets = Paint3DTargets(*a, colors);
+            if (a->renderer.BeginStrokeMulti(d, *ctx, targets)) {
+                std::vector<Dab> dabs;
+                for (float x = 200; x < 1850; x += 6) dabs.push_back({x, 1600 + std::sin(x / 120) * 150, 40, 1});
+                a->renderer.StrokeDabs(d, *ctx, dabs, brush, colors[0], false);
+                a->renderer.StrokeApplySlots(d, *ctx, brush, colors, false);
+                a->renderer.EndStrokeMulti(d, *ctx, a->history, "Peinture 3D");
+            }
+        }
         if (frameCounter == 22) s.yaw += 0.35f;
         if (frameCounter == 24 && GetEnvironmentVariableA("SX_EXPORT", out, sizeof(out)) > 0) {
             d.exportTemplate = 1;

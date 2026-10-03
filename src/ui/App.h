@@ -395,6 +395,9 @@ private:
     u64 BrushPreviewVersion(const BrushSettings& b, const struct BrushDef& td) const;
     void BrushStrokePreview(BrushSettings& b, const struct BrushDef* td, float h);
     void BrushTipPicker(BrushSettings& b);
+    std::vector<Id> strokeTargets;    // 3D project: layers of the current 2D stroke (several channels)
+    std::vector<float4> strokeColors;
+    void ApplyStrokeSlots(DocView& v) { v.renderer.StrokeApplySlots(*v.doc, *ctx, strokeErase ? eraser : brush, strokeColors, strokeErase); }
     void BeginEditSession(const char* prevWindow);
     void EndEditSession(bool cancel);
     std::string LibraryTextOf(const EffectInstance& fx);
