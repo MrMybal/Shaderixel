@@ -256,6 +256,31 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 34 && v) {
+        // ComfyUI (run tools/mock_comfyui.py or a real server; SX_COMFY_URL overrides the endpoint):
+        // image-to-image from the current composite, result imported as a layer.
+        static size_t layersBefore = 0;
+        if (frameCounter == 5) {
+            aiSettings.imageProvider = "comfyui";
+            char url[512] = {};
+            if (GetEnvironmentVariableA("SX_COMFY_URL", url, sizeof(url)) > 0) aiSettings.comfyEndpoint = url;
+            aiSettings.comfyWorkflow.clear();
+            genPrompt = "aquarelle, vagues lumineuses";
+            genUseImage = true;
+            genNewDoc = false;
+            layersBefore = v->doc->S().layers.size();
+            StartImageGeneration();
+        }
+        if (frameCounter > 5 && frameCounter % 10 == 0 && !genBusy) {
+            static bool logged = false;
+            if (!logged) {
+                logged = true;
+                Log("[comfy] layers %zu -> %zu, active \"%s\"", layersBefore, v->doc->S().layers.size(),
+                    v->doc->ActiveLayer() ? v->doc->ActiveLayer()->name.c_str() : "-");
+            }
+        }
+        return;
+    }
     if (demoMode == 33 && v) {
         // Warp: bulge the paint strokes, commit, then undo back to the original.
         Document& d = *v->doc;

@@ -1,5 +1,6 @@
 // AI panels: MCP bridge / companion control, assistant chat, image generation.
 #include "ui/App.h"
+#include "ai/Comfy.h"
 #include "ui/Theme.h"
 
 #include <imgui_stdlib.h>
@@ -284,6 +285,130 @@ void App::DrawAiPanel() {
 
 // ------------------------------------------------------------------ image generation
 
+void App::StartImageGeneration() {
+    if (genBusy || genPrompt.empty()) return;
+    const int provider = aiSettings.imageProvider == "gemini" ? 1 : aiSettings.imageProvider == "comfyui" ? 2 : 0;
+    std::string* endpoint = provider == 1 ? &aiSettings.geminiEndpoint : provider == 2 ? &aiSettings.comfyEndpoint : &aiSettings.openaiEndpoint;
+    std::string* model = provider == 1 ? &aiSettings.geminiModel : &aiSettings.openaiModel;
+    std::string* keyEnv = provider == 1 ? &aiSettings.geminiKeyEnv : &aiSettings.openaiKeyEnv;
+    genBusy = true;
+    std::string prov = aiSettings.imageProvider, ep = *endpoint, mdl = *model, key = EnvSet(*keyEnv), prompt = genPrompt;
+    static const char* sizes[] = {"1024x1024", "1536x1024", "1024x1536"};
+    std::string size = sizes[std::clamp(genSize, 0, 2)];
+    // Optional reference image (Gemini): export the composite synchronously via readback first.
+    std::string refPng;
+    if ((prov == "gemini" || prov == "comfyui") && genUseImage && Active() && Active()->lastImage) refPng = "pending";
+    // ComfyUI job (workflow file read now, on the main thread).
+    comfy::Job cj;
+    if (prov == "comfyui") {
+        cj.endpoint = ep;
+        cj.checkpoint = aiSettings.comfyCheckpoint;
+        cj.negative = aiSettings.comfyNegative;
+        cj.steps = aiSettings.comfySteps;
+        cj.denoise = aiSettings.comfyDenoise;
+        cj.prompt = prompt;
+        cj.width = std::atoi(size.c_str());
+        cj.height = std::atoi(size.c_str() + size.find('x') + 1);
+        if (!aiSettings.comfyWorkflow.empty() && !ReadTextFile(aiSettings.comfyWorkflow, cj.workflow)) {
+            genBusy = false;
+            Status("ComfyUI : workflow introuvable (" + aiSettings.comfyWorkflow + ")");
+            return;
+        }
+    }
+    auto launch = [this, prov, ep, mdl, key, prompt, size, cj](std::string ref) {
+        AiAsync([this, prov, ep, mdl, key, prompt, size, ref, cj]() -> std::function<void()> {
+            std::vector<u8> png;
+            std::string err;
+            if (prov == "comfyui") {
+                comfy::Job job = cj;
+                if (!ref.empty()) job.inputPng = net::Base64Decode(ref);
+                comfy::Run(job, png, err);
+            } else if (key.empty()) err = "clé API absente (variable d'environnement)";
+            else if (prov == "openai") {
+                Json b = Json::Object();
+                b["model"] = mdl;
+                b["prompt"] = prompt;
+                b["n"] = 1;
+                b["size"] = size;
+                auto r = net::Http("POST", ep + "/images/generations", {{"Authorization", "Bearer " + key}, {"Content-Type", "application/json"}}, b.Dump(0), 180000);
+                Json j;
+                if (!r.error.empty()) err = r.error;
+                else if (!Json::Parse(r.body, j)) err = "réponse invalide (HTTP " + std::to_string(r.status) + ")";
+                else if (j.Has("error")) err = j["error"]["message"].S("erreur");
+                else if (j["data"].Size() > 0) png = net::Base64Decode(j["data"].At(0)["b64_json"].S(""));
+            } else {
+                Json parts = Json::Array();
+                Json t = Json::Object();
+                t["text"] = prompt;
+                parts.Push(t);
+                if (!ref.empty()) {
+                    Json inl = Json::Object();
+                    inl["mimeType"] = "image/png";
+                    inl["data"] = ref;
+                    Json part = Json::Object();
+                    part["inlineData"] = inl;
+                    parts.Push(part);
+                }
+                Json content = Json::Object();
+                content["role"] = "user";
+                content["parts"] = parts;
+                Json contents = Json::Array();
+                contents.Push(content);
+                Json mods = Json::Array();
+                mods.Push("IMAGE");
+                Json gc = Json::Object();
+                gc["responseModalities"] = mods;
+                Json b = Json::Object();
+                b["contents"] = contents;
+                b["generationConfig"] = gc;
+                auto r = net::Http("POST", ep + "/models/" + mdl + ":generateContent", {{"x-goog-api-key", key}, {"Content-Type", "application/json"}}, b.Dump(0), 180000);
+                Json j;
+                if (!r.error.empty()) err = r.error;
+                else if (!Json::Parse(r.body, j)) err = "réponse invalide (HTTP " + std::to_string(r.status) + ")";
+                else if (j.Has("error")) err = j["error"]["message"].S("erreur");
+                else
+                    for (auto& c : j["candidates"].Elements())
+                        for (auto& part : c["content"]["parts"].Elements())
+                            if (part["inlineData"].IsObject() && png.empty()) png = net::Base64Decode(part["inlineData"]["data"].S(""));
+            }
+            if (err.empty() && png.empty()) err = "aucune image dans la réponse";
+            return [this, png, err, prompt] {
+                genBusy = false;
+                if (!err.empty()) { Status("Génération : " + err); return; }
+                // Save next to the settings and open/import through the regular path.
+                std::string dir = Narrow(fs::temp_directory_path().wstring());
+                std::string path = dir + "\\shaderixel_gen_" + std::to_string(GetTickCount64()) + ".png";
+                std::ofstream(Utf8Path(path), std::ios::binary).write((const char*)png.data(), png.size());
+                OpenImage(path, !genNewDoc && Active() != nullptr);
+                if (DocView* v = Active())
+                    if (Layer* l = v->doc->ActiveLayer()) l->name = "IA : " + prompt.substr(0, 40);
+                Status("Image générée");
+            };
+        });
+    };
+    if (refPng == "pending") {
+        auto rb = Active()->renderer.ExportRGBA8(*ctx, Active()->renderer.EvaluateComplete(*Active()->doc, *ctx));
+        genRefReadback = rb;
+        genPendingLaunch = launch;
+    } else {
+        launch("");
+    }
+}
+
+// Launches a generation waiting for its reference image (every frame, panel shown or not).
+void App::UpdateImageGeneration() {
+    if (genRefReadback && genRefReadback->ready && genPendingLaunch) {
+        auto rb = genRefReadback;
+        std::string pngData;
+        stbi_write_png_to_func([](void* ctxp, void* data, int size) { ((std::string*)ctxp)->append((const char*)data, size); }, &pngData,
+                               rb->width, rb->height, 4, rb->data.data(), rb->width * 4);
+        auto fn = genPendingLaunch;
+        genRefReadback.reset();
+        genPendingLaunch = nullptr;
+        fn(net::Base64Encode(pngData.data(), pngData.size()));
+    }
+}
+
 void App::DrawImageGenPanel() {
     if (!ImGui::Begin("Génération IA")) { ImGui::End(); return; }
     ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.35f);
@@ -303,98 +428,33 @@ void App::DrawImageGenPanel() {
         ImGui::TextColored(has ? ImVec4(0.45f, 0.9f, 0.55f, 1) : ImVec4(1, 0.6f, 0.3f, 1), has ? "Clé trouvée dans l'environnement" : "Variable d'environnement absente");
         ui::HelpTooltip("La clé n'est jamais enregistrée par Shaderixel : elle est lue dans la variable d'environnement au moment de la requête.");
     } else {
-        ImGui::TextDisabled("ComfyUI : prévu (workflow API).");
+        if (ImGui::InputText("Workflow (API)", &aiSettings.comfyWorkflow)) SaveAiSettings();
+        ui::HelpTooltip("Fichier JSON exporté par ComfyUI avec « Save (API format) ». Vide : graphe intégré (checkpoint ci-dessous).\n"
+                        "Le prompt remplace {prompt} (ou le texte des nœuds CLIPTextEncode), la graine est tirée au hasard,\n"
+                        "la taille va aux latents vides et l'image actuelle aux nœuds LoadImage.");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("...")) {
+            std::string path = platform::OpenFileDialog(hwnd, L"Workflow ComfyUI (*.json)\0*.json\0");
+            if (!path.empty()) { aiSettings.comfyWorkflow = path; SaveAiSettings(); }
+        }
+        if (aiSettings.comfyWorkflow.empty()) {
+            if (ImGui::InputText("Checkpoint", &aiSettings.comfyCheckpoint)) SaveAiSettings();
+            if (ImGui::SliderInt("Étapes", &aiSettings.comfySteps, 1, 80)) SaveAiSettings();
+        }
+        if (ImGui::InputText("Prompt négatif", &aiSettings.comfyNegative)) SaveAiSettings();
     }
     ImGui::TextUnformatted("Prompt");
     ImGui::InputTextMultiline("##prompt", &genPrompt, ImVec2(-1, 100 * dpi));
     ImGui::Combo("Format", &genSize, "1024 x 1024\0" "1536 x 1024 (paysage)\0" "1024 x 1536 (portrait)\0");
     if (provider == 1) ImGui::Checkbox("Envoyer l'image actuelle comme référence", &genUseImage);
+    if (provider == 2) {
+        ImGui::Checkbox("Partir de l'image actuelle (img2img)", &genUseImage);
+        if (genUseImage && aiSettings.comfyWorkflow.empty() && ImGui::SliderFloat("Force", &aiSettings.comfyDenoise, 0.05f, 1.0f, "%.2f")) SaveAiSettings();
+    }
     ImGui::Checkbox("Nouveau document", &genNewDoc);
     bool busy = genBusy;
-    ImGui::BeginDisabled(busy || genPrompt.empty() || provider == 2);
-    if (ImGui::Button(busy ? "Génération en cours..." : "Générer", ImVec2(-1, 0))) {
-        genBusy = true;
-        std::string prov = aiSettings.imageProvider, ep = *endpoint, mdl = *model, key = EnvSet(*keyEnv), prompt = genPrompt;
-        static const char* sizes[] = {"1024x1024", "1536x1024", "1024x1536"};
-        std::string size = sizes[std::clamp(genSize, 0, 2)];
-        // Optional reference image (Gemini): export the composite synchronously via readback first.
-        std::string refPng;
-        if (prov == "gemini" && genUseImage && Active() && Active()->lastImage) refPng = "pending";
-        auto launch = [this, prov, ep, mdl, key, prompt, size](std::string ref) {
-            AiAsync([this, prov, ep, mdl, key, prompt, size, ref]() -> std::function<void()> {
-                std::vector<u8> png;
-                std::string err;
-                if (key.empty()) err = "clé API absente (variable d'environnement)";
-                else if (prov == "openai") {
-                    Json b = Json::Object();
-                    b["model"] = mdl;
-                    b["prompt"] = prompt;
-                    b["n"] = 1;
-                    b["size"] = size;
-                    auto r = net::Http("POST", ep + "/images/generations", {{"Authorization", "Bearer " + key}, {"Content-Type", "application/json"}}, b.Dump(0), 180000);
-                    Json j;
-                    if (!r.error.empty()) err = r.error;
-                    else if (!Json::Parse(r.body, j)) err = "réponse invalide (HTTP " + std::to_string(r.status) + ")";
-                    else if (j.Has("error")) err = j["error"]["message"].S("erreur");
-                    else if (j["data"].Size() > 0) png = net::Base64Decode(j["data"].At(0)["b64_json"].S(""));
-                } else {
-                    Json parts = Json::Array();
-                    Json t = Json::Object();
-                    t["text"] = prompt;
-                    parts.Push(t);
-                    if (!ref.empty()) {
-                        Json inl = Json::Object();
-                        inl["mimeType"] = "image/png";
-                        inl["data"] = ref;
-                        Json part = Json::Object();
-                        part["inlineData"] = inl;
-                        parts.Push(part);
-                    }
-                    Json content = Json::Object();
-                    content["role"] = "user";
-                    content["parts"] = parts;
-                    Json contents = Json::Array();
-                    contents.Push(content);
-                    Json mods = Json::Array();
-                    mods.Push("IMAGE");
-                    Json gc = Json::Object();
-                    gc["responseModalities"] = mods;
-                    Json b = Json::Object();
-                    b["contents"] = contents;
-                    b["generationConfig"] = gc;
-                    auto r = net::Http("POST", ep + "/models/" + mdl + ":generateContent", {{"x-goog-api-key", key}, {"Content-Type", "application/json"}}, b.Dump(0), 180000);
-                    Json j;
-                    if (!r.error.empty()) err = r.error;
-                    else if (!Json::Parse(r.body, j)) err = "réponse invalide (HTTP " + std::to_string(r.status) + ")";
-                    else if (j.Has("error")) err = j["error"]["message"].S("erreur");
-                    else
-                        for (auto& c : j["candidates"].Elements())
-                            for (auto& part : c["content"]["parts"].Elements())
-                                if (part["inlineData"].IsObject() && png.empty()) png = net::Base64Decode(part["inlineData"]["data"].S(""));
-                }
-                if (err.empty() && png.empty()) err = "aucune image dans la réponse";
-                return [this, png, err, prompt] {
-                    genBusy = false;
-                    if (!err.empty()) { Status("Génération : " + err); return; }
-                    // Save next to the settings and open/import through the regular path.
-                    std::string dir = Narrow(fs::temp_directory_path().wstring());
-                    std::string path = dir + "\\shaderixel_gen_" + std::to_string(GetTickCount64()) + ".png";
-                    std::ofstream(Utf8Path(path), std::ios::binary).write((const char*)png.data(), png.size());
-                    OpenImage(path, !genNewDoc && Active() != nullptr);
-                    if (DocView* v = Active())
-                        if (Layer* l = v->doc->ActiveLayer()) l->name = "IA : " + prompt.substr(0, 40);
-                    Status("Image générée");
-                };
-            });
-        };
-        if (refPng == "pending") {
-            auto rb = Active()->renderer.ExportRGBA8(*ctx, Active()->renderer.EvaluateComplete(*Active()->doc, *ctx));
-            genRefReadback = rb;
-            genPendingLaunch = launch;
-        } else {
-            launch("");
-        }
-    }
+    ImGui::BeginDisabled(busy || genPrompt.empty());
+    if (ImGui::Button(busy ? "Génération en cours..." : "Générer", ImVec2(-1, 0))) StartImageGeneration();
     ImGui::EndDisabled();
     ImGui::SeparatorText("Remplissage génératif");
     {
@@ -404,16 +464,6 @@ void App::DrawImageGenPanel() {
         if (ImGui::Button(genFill.busy ? "Remplissage en cours..." : "Remplir la sélection", ImVec2(-1, 0))) StartGenerativeFill(*v, genPrompt);
         ImGui::EndDisabled();
         ImGui::TextDisabled("Remplace la zone sélectionnée par le contenu décrit dans le prompt (nouveau calque masqué).");
-    }
-    if (genRefReadback && genRefReadback->ready && genPendingLaunch) {
-        auto rb = genRefReadback;
-        std::string pngData;
-        stbi_write_png_to_func([](void* ctxp, void* data, int size) { ((std::string*)ctxp)->append((const char*)data, size); }, &pngData,
-                               rb->width, rb->height, 4, rb->data.data(), rb->width * 4);
-        auto fn = genPendingLaunch;
-        genRefReadback.reset();
-        genPendingLaunch = nullptr;
-        fn(net::Base64Encode(pngData.data(), pngData.size()));
     }
     ImGui::PopItemWidth();
     ImGui::End();

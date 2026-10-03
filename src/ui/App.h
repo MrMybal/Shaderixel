@@ -493,6 +493,8 @@ private:
     std::string genPrompt;
     int genSize = 0;
     bool genUseImage = false, genNewDoc = false, genBusy = false;
+    void StartImageGeneration();
+    void UpdateImageGeneration();  // provider, prompt and options from the Génération IA panel
     gpu::ReadbackPtr genRefReadback;
     std::function<void(std::string)> genPendingLaunch;
     // Generative fill (GenFill.cpp)

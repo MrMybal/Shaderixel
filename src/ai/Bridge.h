@@ -49,6 +49,11 @@ struct AiSettings {
     std::string geminiModel = "gemini-2.5-flash-image";
     std::string geminiKeyEnv = "GEMINI_API_KEY";
     std::string comfyEndpoint = "http://127.0.0.1:8188";
+    std::string comfyWorkflow;  // API-format workflow file (empty = built-in graph)
+    std::string comfyCheckpoint = "sd_xl_base_1.0.safetensors";
+    std::string comfyNegative = "blurry, low quality, watermark, text";
+    int comfySteps = 25;
+    float comfyDenoise = 0.6f;
     std::string assistantConnector = "codex";
     std::string assistantModel;
     Json ToJson() const;

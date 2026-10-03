@@ -852,7 +852,9 @@ void App::DrawColor() {
                 PushRecentColor(c);
             }
         }
-        ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + sw + off + st.ItemSpacing.y));
+        // Back under the swatches through an item (a bare SetCursorPos must not grow the window).
+        ImGui::SetCursorScreenPos(ImVec2(p.x, p.y + sw + off));
+        ImGui::Dummy(ImVec2(0, 0));
     }
 
     // Square + hue bar sized to fit, keeping room for the sliders and recent colors when possible.
@@ -909,7 +911,8 @@ void App::DrawColor() {
         if (ImGui::IsItemDeactivated()) released = true;
         float hy = h0.y + hue * sq;
         dl->AddRect(ImVec2(h0.x - 2, hy - 3), ImVec2(h0.x + barW + 2, hy + 3), IM_COL32_WHITE, 2, 0, 1.5f);
-        ImGui::SetCursorScreenPos(ImVec2(p0.x, p0.y + sq + st.ItemSpacing.y));
+        ImGui::SetCursorScreenPos(ImVec2(p0.x, p0.y + sq));
+        ImGui::Dummy(ImVec2(0, 0));
     }
     if (edited) {
         float r, g, b;

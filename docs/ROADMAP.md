@@ -56,7 +56,7 @@
 
 ### IA
 - Remplissage génératif depuis la sélection (OpenAI /images/edits avec masque, Gemini) : **fait** (chaîne validée avec SX_AI_MOCK=1 ; appels réels non testés sans clé)
-- ComfyUI (workflows API)
+- ComfyUI : graphe intégré (texte → image, image → image) ou workflow exporté au format API, prompt/graine/taille/image substitués, résultat importé en calque : **fait** (validé avec tools/mock_comfyui.py ; pas encore avec un vrai serveur)
 - Opérations MCP : graphe nodal (graph_info, node_add/link/update/delete), graphes d’effets visuels (effect_graph_ops/get/set avec compilation), tracé depuis la sélection : **fait**
 
 ### Multi-plateforme

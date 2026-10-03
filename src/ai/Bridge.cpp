@@ -49,6 +49,11 @@ Json AiSettings::ToJson() const {
     j["geminiModel"] = geminiModel;
     j["geminiKeyEnv"] = geminiKeyEnv;
     j["comfyEndpoint"] = comfyEndpoint;
+    j["comfyWorkflow"] = comfyWorkflow;
+    j["comfyCheckpoint"] = comfyCheckpoint;
+    j["comfyNegative"] = comfyNegative;
+    j["comfySteps"] = comfySteps;
+    j["comfyDenoise"] = comfyDenoise;
     j["assistantConnector"] = assistantConnector;
     j["assistantModel"] = assistantModel;
     return j;
@@ -68,6 +73,11 @@ void AiSettings::FromJson(const Json& j) {
     geminiModel = j["geminiModel"].S(d.geminiModel);
     geminiKeyEnv = j["geminiKeyEnv"].S(d.geminiKeyEnv);
     comfyEndpoint = j["comfyEndpoint"].S(d.comfyEndpoint);
+    comfyWorkflow = j["comfyWorkflow"].S(d.comfyWorkflow);
+    comfyCheckpoint = j["comfyCheckpoint"].S(d.comfyCheckpoint);
+    comfyNegative = j["comfyNegative"].S(d.comfyNegative);
+    comfySteps = j["comfySteps"].I(d.comfySteps);
+    comfyDenoise = j["comfyDenoise"].F(d.comfyDenoise);
     assistantConnector = j["assistantConnector"].S(d.assistantConnector);
     assistantModel = j["assistantModel"].S(d.assistantModel);
 }
