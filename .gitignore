@@ -4,3 +4,4 @@ external/
 shadercache/
 shaderixel_layout.ini
 dist/
+tools/unreal/export.json

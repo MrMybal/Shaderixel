@@ -262,6 +262,8 @@ void App::DemoTick() {
         char cat[64] = "CyTexture Effets";
         GetEnvironmentVariableA("SX_FX_CATEGORY", cat, sizeof(cat));
         fxBrowser.category = cat;
+        char search[64] = "";
+        if (GetEnvironmentVariableA("SX_FX_SEARCH", search, sizeof(search)) > 0) fxBrowser.search = search;
         fxBrowser.thumb = 96;
         fxBrowser.source = 1;
         return;

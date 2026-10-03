@@ -34,6 +34,16 @@ INPUT_LABEL = {'CyInput': 'Image', 'CyInputTexture': 'Image', 'CyBackground': 'F
 CY_CATEGORY = {'Draw': 'CyTexture Dessin', 'Effect': 'CyTexture Effets', 'Blend': 'CyTexture Fusions', 'Mask': 'CyTexture Masques'}
 
 
+# Implicit float4 -> float3 truncations Unreal accepts and Slang does not (exact code fragments).
+CODE_FIXUPS = [
+    ('OffsetCoord + (Dir*DistanceRadial*(0.5*Chroma)) ) * saturate(1.0-abs(3*(u/OffsetStep)-float3(0.0,1.0,2.0)))',
+     'OffsetCoord + (Dir*DistanceRadial*(0.5*Chroma)) ).rgb * saturate(1.0-abs(3*(u/OffsetStep)-float3(0.0,1.0,2.0)))'),
+    ('RandomSamp += Texture2DSample(Tex,TexSampler,ScenePixels);', 'RandomSamp += Texture2DSample(Tex,TexSampler,ScenePixels).xy;'),
+    ('float TempAARotation = RandomSamp;', 'float TempAARotation = RandomSamp.x;'),
+    ('float TempAADistance = Spiral*RandomSamp;', 'float TempAADistance = Spiral*RandomSamp.x;'),
+]
+
+
 class Unsupported(Exception):
     pass
 
@@ -46,6 +56,18 @@ def words(name):
 def ident(s):
     s = re.sub(r'\W', '_', s)
     return s if s and not s[0].isdigit() else '_' + s
+
+
+RESERVED = set("""abs acos all any asin atan atan2 ceil clamp cos cosh cross ddx ddy degrees determinant distance dot exp exp2 floor fmod frac
+length lerp log log2 max min mul normalize pow radians reflect refract round rsqrt saturate sign sin sinh smoothstep sqrt step tan tanh
+trunc float float2 float3 float4 int uint bool half true false return in out inout sample Sample Input InputUV Prev PrevUV HasInput ctx UV
+View CyTex Effect""".split())
+
+
+def pident(s):
+    """HLSL name of a material parameter (prefixed when it would shadow an intrinsic)."""
+    i = ident(s)
+    return 'p_' + i if i in RESERVED else i
 
 
 def F(v):
@@ -83,25 +105,51 @@ def pname(node):
     return str(v)
 
 
-class Gen:
-    def __init__(self, mat, functions):
-        self.mat = mat
-        self.nodes = mat['nodes']
-        self.functions = functions
+class Shared:
+    """State shared by a material and the function graphs inlined into it."""
+    def __init__(self):
         self.lines = []
-        self.memo = {}
         self.textures = []      # texture parameter names (effect inputs, in order)
         self.params = {}        # name -> ('float'|'color', default, min, max)
         self.customs = []       # helper functions
         self.missing = set()
         self.global_reads = False
+        self.counter = 0
+        self.read = set()       # id() of input entries consumed by the translation
+        self.visited = []       # (generator, node id) translated
+
+
+class Gen:
+    def __init__(self, mat, functions, shared=None, bindings=None, prefix=''):
+        self.mat = mat
+        self.nodes = mat['nodes']
+        self.functions = functions
+        self.S = shared or Shared()
+        self.bindings = bindings or {}   # function inputs: name -> value thunk (inlined function graphs)
+        self.prefix = prefix
+        self.memo = {}
         self.base = {}          # node -> full value of multi-output nodes (computed once)
+
+    # Shared containers under their historical names.
+    lines = property(lambda self: self.S.lines)
+    textures = property(lambda self: self.S.textures)
+    params = property(lambda self: self.S.params)
+    customs = property(lambda self: self.S.customs)
+    missing = property(lambda self: self.S.missing)
+
+    @property
+    def global_reads(self):
+        return self.S.global_reads
+
+    @global_reads.setter
+    def global_reads(self, v):
+        self.S.global_reads = v
 
     def once(self, nid, make):
         """Full value of a node computed a single time (shared by its outputs)."""
         if nid not in self.base:
             e, k = make()
-            var = 'b_%s' % nid
+            var = 'b_%s%s' % (self.prefix, nid)
             self.lines.append('    %s %s = %s;' % (T(k), var, e))
             self.base[nid] = (var, k)
         return self.base[nid]
@@ -118,13 +166,27 @@ class Gen:
         if isinstance(idx_or_name, int):
             entry = ins[idx_or_name] if idx_or_name < len(ins) else None
         else:
+            wanted = [x.lower() for x in idx_or_name.split('|')]  # "Exponent|Exp": aliases
             for e in ins:
-                if e.get('name', '').lower() == idx_or_name.lower():
+                if e.get('name', '').lower() in wanted:
                     entry = e
                     break
+            # Unnamed main input (exported as "None"): the first slot.
+            if entry is None and ins and ins[0].get('name', '') in ('None', '') and wanted[0] in ('input', 'value', 'x', 'coordinate', 'in'):
+                entry = ins[0]
         if entry and 'node' in entry:
+            self.S.read.add(id(entry))
             return self.value(entry['node'], entry.get('output', ''))
         return default
+
+    def check_inputs(self):
+        """Every connection of a translated node must have been read (no silent drop)."""
+        ignored = {'apply view mipbias'}
+        for gen, nid in self.S.visited:
+            node = gen.nodes[nid]
+            for e in node.get('inputs', []):
+                if 'node' in e and id(e) not in self.S.read and e.get('name', '').lower() not in ignored:
+                    raise Unsupported('entrée non traduite : %s.%s' % (node['class'].replace('MaterialExpression', ''), e.get('name', '')))
 
     def connected(self, node, name):
         return any(e.get('name', '').lower() == name.lower() and 'node' in e for e in node.get('inputs', []))
@@ -134,10 +196,11 @@ class Gen:
         if key in self.memo:
             return self.memo[key]
         node = self.nodes[nid]
+        self.S.visited.append((self, nid))
         v = self.translate(nid, node, output or '')
         # Materialize non-trivial values once.
         if v[0] and not re.fullmatch(r'[\w.]+|\d[\d.e+-]*', v[0]) and not v[0].startswith('TEX:'):
-            var = 'v_%s_%s' % (nid, ident(output or 'o'))
+            var = 'v_%s%s_%s' % (self.prefix, nid, ident(output or 'o'))
             self.lines.append('    %s %s = %s;' % (T(v[1]), var, v[0]))
             v = (var, v[1])
         self.memo[key] = v
@@ -165,6 +228,15 @@ class Gen:
     def translate(self, nid, n, output):
         c = n['class'].replace('MaterialExpression', '')
         A = lambda name, d=0.0: self.input(n, name, (F(d), 1))
+        if c == 'FunctionInput':
+            return self.function_input(n)
+        if c == 'FunctionOutput':
+            return self.input(n, 0, ('0.0', 1))
+        if c == 'Noise':
+            return self.noise(n)
+        if c == 'DepthFade':
+            # Scene depth does not exist in 2D: the opacity passes through.
+            return self.input(n, 'InOpacity') or self.input(n, 'Opacity') or (F(prop(n, 'opacity_default', default=1.0)), 1)
         if c in ('Reroute', 'NamedRerouteUsage', 'NamedRerouteDeclaration'):
             return self.input(n, 0, ('0.0', 1))
         if c == 'TextureCoordinate':
@@ -184,6 +256,20 @@ class Gen:
             col = prop(n, 'constant', default=[0, 0, 0, 1])
             k = 3 if c == 'Constant3Vector' else 4
             return self.channel_out(('%s(%s)' % (T(k), ', '.join(F(x) for x in col[:k])), k), output)
+        if c in ('StaticSwitch', 'StaticSwitchParameter'):
+            # Static switch: a runtime branch on the switch value (parameter or input).
+            tv, fv = self.input(n, 'True', ('0.0', 1)), self.input(n, 'False', ('0.0', 1))
+            k = max(tv[1], fv[1])
+            if c == 'StaticSwitchParameter':
+                name = pname(n)
+                self.params.setdefault(name, ('float', [1.0 if prop(n, 'default_value', default=False) else 0.0], 0.0, 1.0))
+                cond = pident(name)
+            else:
+                cv = self.input(n, 'Value', ('1.0' if prop(n, 'default_value', default=False) else '0.0', 1))
+                cond = conv(cv, 1)
+            return ('((%s > 0.5) ? %s : %s)' % (cond, conv(tv, k), conv(fv, k)), k)
+        if c == 'StaticBool':
+            return ('1.0' if prop(n, 'value', default=False) else '0.0', 1)
         if c in ('ScalarParameter', 'StaticBoolParameter'):
             name = pname(n)
             if name in SYSTEM:
@@ -191,14 +277,14 @@ class Gen:
             d = prop(n, 'default_value', default=0.0)
             lo, hi = prop(n, 'slider_min', default=0.0), prop(n, 'slider_max', default=0.0)
             self.params.setdefault(name, ('float', [float(d)], float(lo), float(hi)))
-            return (ident(name), 1)
+            return (pident(name), 1)
         if c == 'VectorParameter':
             name = pname(n)
             if name in SYSTEM:
                 return self.channel_out(SYSTEM[name], output)
             d = prop(n, 'default_value', default=[0, 0, 0, 1])
             self.params.setdefault(name, ('color', d, 0, 1))
-            v = (ident(name), 4)
+            v = (pident(name), 4)
             return self.channel_out(v, output) if output else (conv(v, 3), 3)
         if c in ('TextureObjectParameter', 'TextureObject'):
             name = pname(n) or 'Texture%s' % nid
@@ -229,7 +315,7 @@ class Gen:
             return ('%s(%s, %s)' % (c.lower(), conv(a, k), conv(b, k)), k)
         if c == 'Power':
             a = self.input(n, 'Base', ('1.0', 1))
-            b = self.input(n, 'Exponent', (F(prop(n, 'const_exponent', default=2)), 1))
+            b = self.input(n, 'Exponent|Exp', (F(prop(n, 'const_exponent', default=2)), 1))
             return ('pow(max(%s, 0.0), %s)' % (a[0], conv(b, a[1])), a[1])
         if c == 'LinearInterpolate':
             a = self.input(n, 'A', (F(prop(n, 'const_a', default=0)), 1))
@@ -300,15 +386,108 @@ class Gen:
             return self.input(n, 'Coordinate', ('UV', 2))
         if c == 'MaterialFunctionCall':
             f = n.get('function', '') or str(prop(n, 'material_function', default=''))
+            if isinstance(f, dict):
+                f = f.get('object', '')
             base = f.rsplit('.', 1)[-1]
+            # Screen-space helpers: a document pixel is a screen pixel here.
             if base == 'ScreenAlignedPixelToPixelUVs':
                 return ('UV', 2)
             if base == 'DitherTemporalAA':
                 return self.input(n, 0, ('0.0', 1))
-            raise Unsupported('fonction de matériau ' + base)
+            return self.call_function(nid, n, f, base, output)
         if c == 'Custom':
             return self.channel_out(self.once(nid, lambda: self.custom(nid, n, output)), output)
         raise Unsupported(c)
+
+    def call_function(self, nid, n, path, base, output):
+        """Inlines a material function graph (exported with its nodes)."""
+        func = self.functions.get(path)
+        if not func or not func.get('nodes'):
+            raise Unsupported('fonction de matériau ' + base + ' (graphe non exporté : relancez l\'export)')
+        fnodes = func['nodes']
+        outs = [o for o in func.get('outputs', []) if o in fnodes]
+        if not outs:
+            raise Unsupported('fonction de matériau ' + base + ' sans sortie')
+        def out_name(o):
+            return str(prop(fnodes[o], 'output_name', default='') or '')
+        outs.sort(key=lambda o: (prop(fnodes[o], 'sort_priority', default=0) or 0, out_name(o)))
+        target = outs[0]
+        if output:
+            for o in outs:
+                if out_name(o).lower() == output.lower():
+                    target = o
+        # Inputs of the call, by function input name (lazy: evaluated in this graph).
+        bindings = {}
+        for e in n.get('inputs', []):
+            if 'node' in e:
+                self.S.read.add(id(e))  # handed to the function (which may not use every input)
+                bindings[e.get('name', '').lower()] = (lambda e=e: self.value(e['node'], e.get('output', '')))
+        self.S.counter += 1
+        child = Gen(func, self.functions, self.S, bindings, '%sf%d_' % (self.prefix, self.S.counter))
+        out_node = fnodes[target]
+        return child.input(out_node, 0, ('0.0', 1))
+
+    def function_input(self, n):
+        name = str(prop(n, 'input_name', default='') or '').lower()
+        if name in self.bindings:
+            return self.bindings[name]()
+        # Unconnected: the function's preview value (graph or constant).
+        pv = self.input(n, 'Preview')
+        if pv is not None:
+            return pv
+        kind = str(prop(n, 'input_type', default='FUNCTION_INPUT_SCALAR')).upper()
+        v = prop(n, 'preview_value', default=[0, 0, 0, 0])
+        if not isinstance(v, list):
+            v = [v, 0, 0, 0]
+        k = 4 if 'VECTOR4' in kind else 3 if 'VECTOR3' in kind else 2 if 'VECTOR2' in kind else 1
+        if 'TEXTURE' in kind:
+            raise Unsupported('entrée texture de fonction non reliée')
+        return ('%s(%s)' % (T(k), ', '.join(F(x) for x in v[:k])) if k > 1 else F(v[0]), k)
+
+    def noise(self, n):
+        """Unreal's Noise node approximated by fractal gradient noise (same parameters)."""
+        pos = self.input(n, 'Position|World Position')
+        p = conv(pos, 3) if pos else 'float3(UV * ctx.size / 64.0, 0.0)'
+        scale = F(prop(n, 'scale', default=1.0))
+        levels = int(prop(n, 'levels', default=6) or 1)
+        lo, hi = F(prop(n, 'output_min', default=-1.0)), F(prop(n, 'output_max', default=1.0))
+        lscale = F(prop(n, 'level_scale', default=2.0))
+        turb = 1.0 if prop(n, 'turbulence', default=True) else 0.0
+        fn = str(prop(n, 'noise_function', default='')).upper()
+        cell = 'VORONOI' in fn
+        self.S.counter += 1
+        name = 'Noise_%s%d' % (self.prefix, self.S.counter)
+        body = (
+            'float h(float3 p) { return frac(sin(dot(p, float3(127.1, 311.7, 74.7))) * 43758.5453); }\n'
+            if False else '')
+        self.customs.append("""float %(name)s_h(float3 p) { return frac(sin(dot(p, float3(127.1, 311.7, 74.7))) * 43758.5453); }
+float %(name)s_one(float3 p)
+{
+    float3 i = floor(p), f = frac(p);
+%(core)s
+}
+float %(name)s(float3 p)
+{
+    float sum = 0.0, amp = 1.0, norm = 0.0;
+    [loop] for (int l = 0; l < %(levels)d; ++l)
+    {
+        float v = %(name)s_one(p);
+        v = %(turb)s ? abs(v) : v;
+        sum += v * amp; norm += amp;
+        p *= %(lscale)s; amp *= 0.5;
+    }
+    return sum / max(norm, 1e-4);
+}
+""" % {'name': name, 'levels': max(1, min(levels, 10)), 'turb': 'true' if turb else 'false', 'lscale': lscale,
+       'core': ('    float d = 8.0;\n    [unroll] for (int z = -1; z <= 1; ++z) [unroll] for (int y = -1; y <= 1; ++y) [unroll] for (int x = -1; x <= 1; ++x)\n'
+                '    { float3 o = float3(x, y, z); float3 r = o + float3(%(n)s_h(i + o), %(n)s_h(i + o + 17.0), %(n)s_h(i + o + 31.0)) - f; d = min(d, dot(r, r)); }\n'
+                '    return sqrt(d) * 2.0 - 1.0;' % {'n': name}) if cell else
+               ('    float3 u = f * f * (3.0 - 2.0 * f);\n'
+                '    float n000 = %(n)s_h(i), n100 = %(n)s_h(i + float3(1, 0, 0)), n010 = %(n)s_h(i + float3(0, 1, 0)), n110 = %(n)s_h(i + float3(1, 1, 0));\n'
+                '    float n001 = %(n)s_h(i + float3(0, 0, 1)), n101 = %(n)s_h(i + float3(1, 0, 1)), n011 = %(n)s_h(i + float3(0, 1, 1)), n111 = %(n)s_h(i + 1.0);\n'
+                '    float v = lerp(lerp(lerp(n000, n100, u.x), lerp(n010, n110, u.x), u.y), lerp(lerp(n001, n101, u.x), lerp(n011, n111, u.x), u.y), u.z);\n'
+                '    return v * 2.0 - 1.0;' % {'n': name})})
+        return ('lerp(%s, %s, saturate(%s(%s * %s) * 0.5 + 0.5))' % (lo, hi, name, p, scale), 1)
 
     def custom(self, nid, n, output):
         code = str(prop(n, 'code', default=''))
@@ -325,7 +504,10 @@ class Gen:
             if not nm:
                 continue
             if nm in SYSTEM:
-                e, k = SYSTEM[nm]
+                e, k = SYSTEM[nm]  # provided by Shaderixel: the connected parameter is not needed
+                for entry in n.get('inputs', []):
+                    if entry.get('name') == nm:
+                        self.S.read.add(id(entry))
             else:
                 v = self.input(n, nm)
                 if v is None:
@@ -341,10 +523,17 @@ class Gen:
                 continue
             params.append('%s %s' % (T(k), ident(nm)))
             args.append(e)
-        fname = 'Custom_%s' % nid
-        self.customs.append('%s %s(%s)\n{\n%s\n}\n' % (T(k_out), fname, ', '.join(params), code.replace('\r\n', '\n')))
+        fname = 'Custom_%s%s' % (self.prefix, nid)
+        # Unreal pads/truncates returned vectors implicitly: returns go through SXRet
+        # (float4); self-referencing declarations ("float a = a = x") are simplified.
+        body = code.replace('\r\n', '\n')
+        for old, new in CODE_FIXUPS:
+            body = body.replace(old, new)
+        body = re.sub(r'\b((?:float[234]?|int|half[234]?)\s+(\w+))\s*=\s*\2\s*=', r'\1 =', body)
+        body = re.sub(r'\breturn\b([^;]+);', r'return SXRet(\1);', body)
+        self.customs.append('float4 %s(%s)\n{\n%s\n}\n' % (fname, ', '.join(params), body))
         self.global_reads = True
-        return ('%s(%s)' % (fname, ', '.join(args)), k_out)
+        return ('(%s(%s))%s' % (fname, ', '.join(args), {1: '.x', 2: '.xy', 3: '.xyz', 4: ''}[k_out]), k_out)
 
 
 def contracts_by_material(data):
@@ -357,7 +546,26 @@ def contracts_by_material(data):
     return out
 
 
-def convert(mat, contract, prefix, category, functions):
+def material_and_overrides(target, by_path):
+    """A material, or the parent material of an instance with its parameter values."""
+    overrides = {}
+    seen = 0
+    while target and target.get('type') == 'MaterialInstanceConstant' and seen < 8:
+        p = target.get('props', {})
+        for key in ('scalar_parameter_values', 'vector_parameter_values'):
+            for e in p.get(key, []) or []:
+                try:
+                    name = str(e['parameter_info']['name'])
+                    overrides.setdefault(name, e['parameter_value'])
+                except Exception:
+                    pass
+        parent = p.get('parent')
+        target = by_path.get(parent.get('object')) if isinstance(parent, dict) else None
+        seen += 1
+    return target, overrides
+
+
+def convert(mat, contract, category, functions, overrides, display_name=None):
     g = Gen(mat, functions)
     outs = mat.get('outputs', {})
     color_key = 'emissive' if 'emissive' in outs else 'base_color' if 'base_color' in outs else None
@@ -370,30 +578,28 @@ def convert(mat, contract, prefix, category, functions):
         if k in outs:
             alpha = g.value(outs[k]['node'], outs[k].get('output', ''))
             break
+    g.check_inputs()
     if g.missing:
         raise Unsupported(', '.join(sorted(g.missing)))
     result = 'float4(%s, %s)' % (conv(color, 3), conv(alpha, 1) if alpha else '1.0')
 
-    name = mat['name']
+    name = display_name or mat['name']
     cat, desc = category, ''
-    ranges = {}
+    exposed = {}
     if contract:
         p = contract.get('props', {})
-        name = contract['name']
-        for pre in ('CT_Cy', 'CT_'):
-            if name.startswith(pre):
-                name = name[len(pre):]
-        if '_' in name:
-            kind, name = name.split('_', 1)
-            cat = CY_CATEGORY.get(kind, cat)
         desc = str(p.get('description', '') or '')
         for e in p.get('exposed_parameters', []) or []:
             if isinstance(e, dict) and e.get('name'):
-                ranges[str(e['name'])] = (e.get('minimum'), e.get('maximum'))
-    for pre in ('M_Cy', 'M_'):
+                exposed[str(e['name'])] = e
+    for pre in ('M_Cy', 'MI_Cy', 'M_', 'MI_'):
         if name.startswith(pre):
             name = name[len(pre):]
-    name = name.replace('Advanced', 'Advanced ', 1) if name.startswith('Advanced') else name
+    if '_' in name and name.split('_', 1)[0] in CY_CATEGORY:
+        kind, name = name.split('_', 1)
+        cat = CY_CATEGORY[kind]
+    if name.startswith('Advanced'):
+        name = 'Advanced ' + name[len('Advanced'):]
 
     L = ['//@name ' + words(name).replace('  ', ' '), '//@category ' + cat]
     if g.textures:
@@ -403,30 +609,51 @@ def convert(mat, contract, prefix, category, functions):
         L.append('//@generator')
     L.append('//@halo full' if g.global_reads else '//@halo 0')
     for pn, (kind, d, lo, hi) in g.params.items():
-        if pn in ranges and ranges[pn][0] is not None and ranges[pn][1] is not None and ranges[pn][1] > ranges[pn][0]:
-            lo, hi = ranges[pn]
+        e = exposed.get(pn)
         if kind == 'float':
+            dv = float(overrides.get(pn, e['scalar'] if e and isinstance(e.get('scalar'), (int, float)) else d[0]))
+            if e and e.get('maximum') is not None and e.get('minimum') is not None and e['maximum'] > e['minimum']:
+                lo, hi = e['minimum'], e['maximum']
             if not hi > lo:
-                lo, hi = (min(0.0, d[0]), max(1.0, d[0] * 2 if d[0] > 0 else 1.0))
-            L.append('//@param %s float %s %s %s "%s"' % (ident(pn), F(d[0]), F(lo), F(hi), words(pn)))
+                lo, hi = (min(0.0, dv), max(1.0, dv * 2 if dv > 0 else 1.0))
+            L.append('//@param %s float %s %s %s "%s"' % (pident(pn), F(dv), F(lo), F(hi), words(pn)))
         else:
-            d = (list(d) + [0, 0, 0, 1])[:4]
-            L.append('//@param %s color %s "%s"' % (ident(pn), ' '.join(F(x) for x in d), words(pn)))
+            dv = overrides.get(pn) or (e.get('vector') if e and isinstance(e.get('vector'), list) else d)
+            if isinstance(dv, dict):
+                dv = [dv.get(k, 0) for k in ('r', 'g', 'b', 'a')]
+            dv = (list(dv) + [0, 0, 0, 1])[:4]
+            L.append('//@param %s color %s "%s"' % (pident(pn), ' '.join(F(x) for x in dv), words(pn)))
     L.append('')
     L.append('// Imported from Unreal material %s%s' % (mat['path'], (': ' + desc) if desc else ''))
     L.append('float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }  // unconnected = white, as Unreal')
     L.append('#define Texture2DSample(T, S, UVS) CyTex(T, UVS)')
     L.append('#define Texture2DSampleLevel(T, S, UVS, LOD) CyTex(T, UVS)')
+    L.append('static EffectContext ctx;  // for helper functions (noise) reading the document size')
+    L.append('// Unreal view values and helpers used by Custom nodes (a document pixel = a screen pixel).')
+    L.append('struct SXView { float4 ViewSizeAndInvSize; float4 BufferSizeAndInvSize; float4 TemporalAAParams; };')
+    L.append('static SXView View;')
+    L.append('static SXView ResolvedView;')
+    L.append('float2 ViewportUVToBufferUV(float2 uv) { return uv; }')
+    L.append('float2 BufferUVToViewportUV(float2 uv) { return uv; }')
+    L.append('float4 SXRet(float v) { return float4(v, v, v, 1.0); }')
+    L.append('float4 SXRet(float2 v) { return float4(v, 0.0, 1.0); }')
+    L.append('float4 SXRet(float3 v) { return float4(v, 1.0); }')
+    L.append('float4 SXRet(float4 v) { return v; }')
     L.append('')
     for f in g.customs:
         L.append(f)
-    L.append('float4 Effect(EffectContext ctx)')
+    L.append('float4 Effect(EffectContext context)')
     L.append('{')
+    L.append('    ctx = context;')
+    L.append('    View.ViewSizeAndInvSize = float4(ctx.size, ctx.texel);')
+    L.append('    View.BufferSizeAndInvSize = View.ViewSizeAndInvSize;')
+    L.append('    View.TemporalAAParams = 0;  // no temporal jitter in a document')
+    L.append('    ResolvedView = View;')
     L.append('    float2 UV = ctx.uv;')
     L.extend(g.lines)
     L.append('    return %s;' % result)
     L.append('}')
-    return name, '\n'.join(L) + '\n'
+    return name, cat, '\n'.join(L) + '\n'
 
 
 def main():
@@ -435,33 +662,54 @@ def main():
     ap.add_argument('--prefix', default='ue')
     ap.add_argument('--category', default='Unreal')
     ap.add_argument('--out', default=OUT)
+    ap.add_argument('--all-cytexture', action='store_true', help='also the CyTexture presets already imported from its source')
     args = ap.parse_args()
     data = json.load(open(args.export, encoding='utf-8'))
-    contracts = contracts_by_material(data)
+    by_path = {a['path']: a for a in data.get('assets', [])}
     functions = {f['path']: f for f in data.get('functions', [])}
+    jobs = []  # (target asset, contract)
+    targeted = set()
+    for a in data.get('assets', []):
+        m = a.get('props', {}).get('material')
+        if isinstance(m, dict) and m.get('object') in by_path:
+            # CyTexture contract. Presets without "Advanced" come from CyTexture's generator
+            # source and are already imported (tools/cytexture), unless --all-cytexture.
+            cname = a['name'].split('_', 2)[-1]
+            if not cname.startswith('Advanced') and not args.all_cytexture:
+                targeted.add(m['object'])
+                continue
+            jobs.append((by_path[m['object']], a))
+            targeted.add(m['object'])
+    for a in data.get('assets', []):
+        if a.get('type') == 'Material' and a['path'] not in targeted:
+            jobs.append((a, None))
+    # Previous outputs of this converter are replaced (other effects are left alone).
+    for fn in os.listdir(args.out):
+        fp = os.path.join(args.out, fn)
+        if fn.endswith('.slang') and 'Imported from Unreal material' in open(fp, encoding='utf-8', errors='ignore').read(4000):
+            os.remove(fp)
     written, failed = [], []
-    for mat in data.get('assets', []):
-        if mat.get('type') != 'Material':
+    for target, contract in jobs:
+        mat, overrides = material_and_overrides(target, by_path)
+        if not mat or not mat.get('nodes') and not mat.get('outputs'):
+            failed.append((target['path'], 'matériau parent introuvable'))
             continue
-        contract = contracts.get(mat['path'])
-        prefix = 'cy' if contract or mat['path'].startswith('/CyTexture/') else args.prefix
         try:
-            name, text = convert(mat, contract, prefix, args.category, functions)
+            name, cat, text = convert(mat, contract, args.category, functions, overrides, target['name'])
         except Unsupported as e:
-            failed.append((mat['path'], str(e)))
+            failed.append((target['path'], str(e)))
             continue
+        kind = {v: k for k, v in CY_CATEGORY.items()}.get(cat)
+        prefix = ('cy_' + kind.lower()) if kind else args.prefix
         fname = '%s_%s.slang' % (prefix, re.sub(r'[^a-z0-9]+', '_', words(name).lower()).strip('_'))
-        path = os.path.join(args.out, fname)
-        if os.path.exists(path) and prefix == 'cy' and not name.startswith('Advanced'):
-            continue  # presets already imported from CyTexture's generator source
-        open(path, 'w', encoding='utf-8', newline='\n').write(text)
+        open(os.path.join(args.out, fname), 'w', encoding='utf-8', newline='\n').write(text)
         written.append(fname)
     print('%d effects written to %s' % (len(written), args.out))
     if failed:
-        print('%d materials not converted:' % len(failed))
+        print('%d not converted:' % len(failed))
         reasons = {}
         for p, r in failed:
-            reasons.setdefault(r, []).append(p.rsplit('/', 1)[-1])
+            reasons.setdefault(r, []).append(p.rsplit('/', 1)[-1].split('.')[0])
         for r, ps in sorted(reasons.items(), key=lambda x: -len(x[1])):
             print('  %s (%d): %s' % (r, len(ps), ', '.join(ps[:6]) + (' ...' if len(ps) > 6 else '')))
 

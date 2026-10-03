@@ -196,17 +196,32 @@ def export_material(mat):
     return entry
 
 
+def package_expressions(asset):
+    """Expressions stored in an asset's package (material functions expose no
+    expression list to Python: loaded objects of the package are scanned)."""
+    pkg = asset.get_outermost()
+    found = []
+    for expr in unreal.ObjectIterator(unreal.MaterialExpression):
+        try:
+            if expr.get_outermost() == pkg:
+                found.append(expr)
+        except Exception:
+            pass
+    return found
+
+
 def export_function(func):
-    """A material function: its expressions reached from its outputs."""
+    """A material function: inputs, outputs and the graph between them."""
     w = Walker(func)
     entry = {'path': func.get_path_name(), 'name': func.get_name(), 'type': 'MaterialFunction', 'props': dump_properties(func)}
-    roots = []
-    try:
-        for expr in MEL.get_material_function_outputs(func):  # UE 5.x where available
-            roots.append(w.visit(expr))
-    except Exception:
-        pass
-    entry['outputs'] = roots
+    inputs, outputs = [], []
+    for expr in package_expressions(func):
+        if isinstance(expr, unreal.MaterialExpressionFunctionOutput):
+            outputs.append(w.visit(expr))
+        elif isinstance(expr, unreal.MaterialExpressionFunctionInput):
+            inputs.append(w.visit(expr))
+    entry['outputs'] = outputs
+    entry['inputs'] = inputs
     entry['nodes'] = w.nodes
     return entry
 
@@ -249,6 +264,18 @@ def main(argv):
                                              'props': dump_properties(a)})
             except Exception as ex:
                 result['assets'].append({'path': a.get_path_name(), 'name': a.get_name(), 'error': str(ex)})
+    # Functions called from functions.
+    pending = True
+    while pending:
+        pending = False
+        for f in list(functions.values()):
+            for n in f['nodes'].values():
+                path = n.get('function')
+                if path and path not in functions:
+                    fa = unreal.load_asset(path)
+                    if fa:
+                        functions[path] = export_function(fa)
+                        pending = True
     result['functions'] = list(functions.values())
     with open(out, 'w', encoding='utf-8') as f:
         json.dump(result, f, indent=1, ensure_ascii=False)
