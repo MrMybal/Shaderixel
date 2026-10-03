@@ -565,6 +565,7 @@ bool Renderer::BeginStroke(Document& doc, gpu::CommandContext& ctx, Id surface) 
     d.threadsY = strokeMask->Height();
     ctx.Dispatch(d);
     strokeSurface = surface;
+    strokeColorReady = false;
     strokeRect = {};
     haveSmudge = false;
     return true;
@@ -631,6 +632,7 @@ void Renderer::EndStroke(Document& doc, gpu::CommandContext& ctx, History& hist,
         // Very large documents: release the full-size stroke scratch buffers between strokes.
         strokePre.reset();
         strokeMask.reset();
+        strokeColor.reset();
         smudgeSnap.reset();
     }
 }

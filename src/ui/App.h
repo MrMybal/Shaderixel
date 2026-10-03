@@ -266,7 +266,7 @@ private:
     // Canvas interaction
     void CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hovered);
     void PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSample>& samples, bool release);
-    void EmitDabs(DocView& v, const std::vector<Dab>& dabs);
+    void EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<float4>* extra = nullptr);
     BrushSettings& CurrentBrush() { return tool == Tool::Eraser ? eraser : IsRetouchTool(tool) ? retouch : brush; }
     float2 ScreenToDoc(const DocView& v, ImVec2 canvasMin, ImVec2 p) const;
     float4 LinearColor(const float4& srgb) const;
@@ -430,6 +430,17 @@ private:
     float2 smoothPos, lastDabPos, lastStrokeEnd;
     float lastPressure = 1.0f;
     float dabRemainder = 0;
+    // Programmable brushes: per-stroke dab information.
+    double strokeStart = 0;
+    float strokeDist = 0, lastDirAngle = 0, airAccum = 0;
+    u32 dabCounter = 0;
+    std::shared_ptr<const struct BrushDef> TipDef(const BrushSettings& b);
+    void SelectTip(BrushSettings& b, const std::string& id);
+    void DrawBrushPanel();
+    struct {
+        std::string search, buffer, bufferKey, errors;
+        std::string saveName, saveCategory = "Mes pinceaux";
+    } brushEd;
     bool haveStrokeEnd = false;
     bool gradientDrag = false;
     float2 gradientStart, gradientEnd;

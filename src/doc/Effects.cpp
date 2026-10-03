@@ -213,12 +213,8 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
     return def;
 }
 
-std::string BuildEffectSource(const EffectDef& def) {
+std::string EffectParamFields(const EffectDef& def) {
     std::string s;
-    s += "#define EFFECT_PREMULTIPLIED ";
-    s += def.premultiplied ? "1\n" : "0\n";
-    s += gpu::Shaders().File("effect_common.slang");
-    s += "\ncbuffer EffectParams : register(b1)\n{\n";
     int pad = 0;
     for (auto& p : def.params) {
         switch (p.type) {
@@ -233,6 +229,16 @@ std::string BuildEffectSource(const EffectDef& def) {
         }
     }
     if (def.params.empty()) s += "    float4 _unused;\n";
+    return s;
+}
+
+std::string BuildEffectSource(const EffectDef& def) {
+    std::string s;
+    s += "#define EFFECT_PREMULTIPLIED ";
+    s += def.premultiplied ? "1\n" : "0\n";
+    s += gpu::Shaders().File("effect_common.slang");
+    s += "\ncbuffer EffectParams : register(b1)\n{\n";
+    s += EffectParamFields(def);
     s += "};\n\n";
     for (auto& p : def.params) {
         if (p.type != ParamType::Curve) continue;

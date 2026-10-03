@@ -82,6 +82,8 @@ int EffectHalo(const EffectDef& def, const std::vector<float4>& values);
 
 // Complete Slang source for an effect: prelude + generated params cbuffer + body + entry.
 std::string BuildEffectSource(const EffectDef& def);
+// cbuffer fields of the parameters (one float4 slot each, curves 64), as packed by PackParams.
+std::string EffectParamFields(const EffectDef& def);
 
 // Pack parameter values into the cbuffer layout used by BuildEffectSource
 // (one float4 slot per param; int/bool/enum written as int bits).

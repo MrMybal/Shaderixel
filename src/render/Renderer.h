@@ -50,6 +50,9 @@ struct BrushSettings {
     float smoothing = 0.25f;
     bool pressureSize = true;
     bool pressureOpacity = false;
+    // Programmable tip (shaders/brushes): library id, or edited code (overrides the id).
+    std::string tipId, tipCode;
+    std::vector<float4> tipParams;
 };
 
 struct Dab { float x, y, radius, alpha; };
@@ -65,8 +68,26 @@ struct RetouchParams {
 // Point of a bicubic Bezier patch (4x4 control points, row-major) at (u, v).
 float2 BezierPatch(const float2 grid[16], float u, float v);
 
+struct BrushDef;
+
 class Renderer {
 public:
+    // Programmable brushes (doc/Brushes.h): dabs + per-dab extras (pressure, direction angle, time, distance).
+    struct BrushTargets {
+        gpu::Texture* pre;
+        gpu::Texture* sel;
+        gpu::Texture* layer;
+        gpu::Texture* mask;
+        gpu::Texture* color;
+        u32 w, h;
+        bool preview;
+    };
+    const gpu::ComputePipeline* BrushPipeline(const BrushDef& b, std::string* errors = nullptr);
+    bool StrokeProgram(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const std::vector<float4>& extra, const BrushDef& b,
+                       const EffectInstance& tip, const BrushSettings& s, float4 color, bool erase, u32 dabBase);
+    // Sample stroke of a brush (S curve with a pressure ramp) for the brush panel.
+    gpu::Texture* BrushPreview(gpu::CommandContext& ctx, const BrushDef& b, const EffectInstance& tip, const BrushSettings& s, float4 color,
+                               u32 w, u32 h, std::string* errors = nullptr);
     // Process queued surface clears/copies; call once per frame before evaluation.
     void Prepare(Document& doc, gpu::CommandContext& ctx);
 
@@ -260,6 +281,12 @@ private:
     gpu::TexturePtr boundsTex;
     Id strokeSurface = 0;
     gpu::TexturePtr strokePre, strokeMask;
+    gpu::TexturePtr strokeColor, previewLayer, previewMask, previewColor;  // programmable brushes
+    bool strokeColorReady = false;
+    u64 previewHash = 0;
+    std::unordered_map<u64, gpu::ProgramPtr> brushPrograms;
+    void RunBrush(gpu::CommandContext& ctx, const gpu::ComputePipeline* pipe, const BrushDef& b, const EffectInstance& tip, const std::vector<Dab>& dabs,
+                  const std::vector<float4>& extra, u32 base, const BrushSettings& s, float4 color, bool erase, const BrushTargets& t, Rect* touched);
     Rect strokeRect;
     gpu::TexturePtr smudgeSnap;
     gpu::TexturePtr liqDisp, liqSnap;  // stroke displacement field, per-dab snapshot

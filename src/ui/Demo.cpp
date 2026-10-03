@@ -2,6 +2,7 @@
 #include "ui/App.h"
 #include "gpu/ShaderSystem.h"
 #include "doc/EffectGraph.h"
+#include "doc/Brushes.h"
 
 #include <fstream>
 #include <stb_image_write.h>
@@ -254,6 +255,63 @@ void App::DemoTick() {
             h.Bytes(a->data.data(), a->data.size());
             Log("[lut] image checksum %016llx", (unsigned long long)h.h);
         }
+        return;
+    }
+    if (demoMode == 41 && v && frameCounter == 4) {
+        // Programmable brushes: one stroke per brush on a new layer (direction,
+        // pressure and time extras like a real stroke), then the star brush selected.
+        Document& d = *v->doc;
+        Edit e(d, v->history, "Nouveau calque");
+        Id surf = d.AddPixelLayer("Pinceaux programmables").surface;
+        e.Commit();
+        v->renderer.Prepare(d, *ctx);
+        const char* ids[] = {"calligraphy", "star_scatter", "charcoal", "airbrush", "cy_bristle", "cy_watercolor", "cy_grass", "cy_chain", "cy_sparkle"};
+        float4 colors[] = {{1, 0.95f, 0.85f, 1}, {1, 0.8f, 0.2f, 1}, {0.05f, 0.05f, 0.08f, 1}, {0.3f, 0.9f, 1, 1}, {0.9f, 0.3f, 0.2f, 1},
+                           {0.2f, 0.4f, 1, 1}, {0.3f, 0.85f, 0.25f, 1}, {0.85f, 0.85f, 0.9f, 1}, {1, 1, 0.7f, 1}};
+        int row = 0;
+        for (const char* id : ids) {
+            auto td = Brushes().Find(id);
+            if (!td) { Log("[demo] brush %s missing", id); continue; }
+            BrushSettings b = brush;
+            b.size = std::string(id) == "star_scatter" ? 40.0f : 56.0f;
+            b.hardness = 0.7f;
+            SelectTip(b, id);
+            if (std::string(id) == "calligraphy") b.tipParams[2].x = 1.0f;  // follow the stroke
+            EffectInstance tip;
+            tip.params = b.tipParams;
+            std::string err;
+            for (int w = 0; w < 6000 && !v->renderer.BrushPipeline(*td, &err) && err.empty(); ++w) Sleep(10);
+            if (!err.empty()) Log("[demo] brush %s: %s", id, err.c_str());
+            float y0 = 90.0f + row * 100.0f;
+            float sp = std::max(1.0f, b.size * std::max(b.spacing, 0.02f));
+            std::vector<Dab> dabs;
+            std::vector<float4> extra;
+            float prevX = 120, prevY = y0, dist = 0;
+            for (float x = 120; x < 1480; x += sp) {
+                float t = (x - 120) / 1360.0f;
+                float y = y0 + std::sin(t * 12.0f) * 30.0f;
+                float pr = 0.3f + 0.7f * std::sin(t * 3.14159f);
+                float ang = std::atan2(y - prevY, std::max(x - prevX, 0.001f));
+                dist += std::sqrt((x - prevX) * (x - prevX) + (y - prevY) * (y - prevY));
+                dabs.push_back({x, y, b.size * 0.5f * (0.4f + 0.6f * pr), pr});
+                extra.push_back({pr, ang, t * 2.0f, dist});
+                prevX = x;
+                prevY = y;
+            }
+            if (v->renderer.BeginStroke(d, *ctx, surf)) {
+                for (size_t i = 0; i < dabs.size(); i += 256) {
+                    size_t n = std::min<size_t>(256, dabs.size() - i);
+                    std::vector<Dab> part(dabs.begin() + i, dabs.begin() + i + n);
+                    std::vector<float4> ex(extra.begin() + i, extra.begin() + i + n);
+                    if (!v->renderer.StrokeProgram(d, *ctx, part, ex, *td, tip, b, LinearColor(colors[row]), false, (u32)i))
+                        Log("[demo] brush %s not ready", id);
+                }
+                v->renderer.EndStroke(d, *ctx, v->history, "Pinceau");
+            }
+            ++row;
+        }
+        tool = Tool::Brush;
+        SelectTip(brush, "star_scatter");
         return;
     }
     if (demoMode == 40 && v && frameCounter == 4) {

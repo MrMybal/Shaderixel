@@ -1,5 +1,6 @@
 // Layers, properties, color and brush panels.
 #include "ui/App.h"
+#include "doc/Brushes.h"
 #include "ui/Theme.h"
 
 #include <imgui_internal.h>
@@ -1177,6 +1178,50 @@ void App::DrawBrush() {
             }
             ImGui::Separator();
         }
+        // Programmable tip (brush and eraser).
+        auto td = (tool == Tool::Brush || tool == Tool::Eraser) ? TipDef(b) : nullptr;
+        if (tool == Tool::Brush || tool == Tool::Eraser) {
+            const char* tipName = td && td->def ? td->def->name.c_str() : "Ronde (standard)";
+            if (ImGui::BeginCombo("Pointe", tipName)) {
+                if (ImGui::Selectable("Ronde (standard)", !td)) SelectTip(b, "");
+                std::vector<std::string> cats;
+                for (auto& x : Brushes().All())
+                    if (x->def && std::find(cats.begin(), cats.end(), x->def->category) == cats.end()) cats.push_back(x->def->category);
+                for (auto& c : cats) {
+                    ImGui::SeparatorText(c.c_str());
+                    for (auto& x : Brushes().All())
+                        if (x->def && x->def->category == c && ImGui::Selectable((x->def->name + "##" + x->id).c_str(), b.tipId == x->id && b.tipCode.empty()))
+                            SelectTip(b, x->id);
+                }
+                ImGui::EndCombo();
+            }
+            ui::HelpTooltip("Pointes programmables : forme, couleur et placement des touches écrits en shader (panneau Pinceaux).");
+        }
+        if (td) {
+            EffectInstance fx;
+            fx.customCode = td->text;
+            fx.params = b.tipParams;
+            if (EffectParamsUI(fx, "tip")) b.tipParams = fx.params;
+            if (ImGui::SmallButton("Modifier le code du pinceau")) ImGui::SetWindowFocus("Pinceaux");
+            if (td->airbrush > 0) {
+                ImGui::SameLine();
+                ImGui::TextDisabled("aérographe %.0f/s", td->airbrush);
+            }
+        }
+        if (td && v) {
+            // Sample stroke rendered with the tip.
+            std::string err;
+            float w = ImGui::GetContentRegionAvail().x, h = 70 * dpi;
+            EffectInstance tip;
+            tip.params = b.tipParams;
+            BrushSettings ps = b;
+            ps.size = std::min(b.size, h * 0.4f / dpi * dpi);
+            if (gpu::Texture* t = v->renderer.BrushPreview(*ctx, *td, tip, ps, LinearColor(fg), (u32)w, (u32)h, &err)) {
+                gpu::Texture* th = v->renderer.Thumbnail(*ctx, (1ull << 59) | 1, t, std::hash<std::string>{}(td->text) ^ (u64)w, (u32)w, (u32)h);
+                ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(th), ImVec2(w, h));
+            }
+            if (!err.empty()) ImGui::TextColored(ImVec4(1, 0.45f, 0.45f, 1), "%s", err.substr(0, 300).c_str());
+        } else {
         // Live preview of the dab profile.
         ImVec2 p = ImGui::GetCursorScreenPos();
         float w = ImGui::GetContentRegionAvail().x, h = 30 * dpi;
@@ -1194,6 +1239,7 @@ void App::DrawBrush() {
             dl->AddRectFilled(ImVec2(x0, p.y + h - 4 - bh), ImVec2(x0 + (w - 8) / N, p.y + h - 4), ui::col::Accent);
         }
         ImGui::Dummy(ImVec2(w, h));
+        }
         ImGui::SliderFloat("Taille", &b.size, 1, 2000, "%.0f px", ImGuiSliderFlags_Logarithmic);
         ImGui::SliderFloat("Dureté", &b.hardness, 0, 1, "%.2f");
         ImGui::SliderFloat("Opacité", &b.opacity, 0, 1, "%.2f");

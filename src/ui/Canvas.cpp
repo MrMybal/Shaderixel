@@ -1,5 +1,6 @@
 // Canvas viewport, toolbar and painting tools.
 #include "ui/App.h"
+#include "doc/Brushes.h"
 #include "ui/Theme.h"
 
 #include <imgui_internal.h>
@@ -447,7 +448,12 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
             float rad = b.size * 0.5f * (b.pressureSize ? std::max(pressure, 0.05f) : 1.0f);
             float alpha = b.flow * (b.pressureOpacity ? pressure : 1.0f);
             dabs.push_back({start.x, start.y, rad, alpha});
-            EmitDabs(v, dabs);
+            strokeStart = ImGui::GetTime();
+            strokeDist = 0;
+            dabCounter = 0;
+            airAccum = 0;
+            std::vector<float4> extra{{pressure, lastDirAngle, 0.0f, 0.0f}};
+            EmitDabs(v, dabs, &extra);
             if (io.KeyShift && haveStrokeEnd) {
                 samples.insert(samples.begin(), first.begin(), first.end());
                 smoothPos = start;
@@ -458,6 +464,20 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         bool release = !ImGui::IsMouseDown(ImGuiMouseButton_Left);
         if (samples.empty()) samples.push_back({mouse.x, mouse.y, platform::PenActive() ? platform::LastPressure() : 1.0f, platform::PenActive(), false});
         PaintSamples(v, canvasMin, samples, release);
+        // Airbrush brushes keep painting at the cursor while the button is held.
+        if (!release && (tool == Tool::Brush || tool == Tool::Eraser))
+            if (auto td = TipDef(strokeErase ? eraser : CurrentBrush()); td && td->airbrush > 0) {
+                const BrushSettings& b = strokeErase ? eraser : CurrentBrush();
+                airAccum += io.DeltaTime * td->airbrush;
+                std::vector<Dab> dabs;
+                std::vector<float4> extra;
+                for (; airAccum >= 1.0f && dabs.size() < 256; airAccum -= 1.0f) {
+                    float rad = b.size * 0.5f * (b.pressureSize ? std::max(lastPressure, 0.05f) : 1.0f);
+                    dabs.push_back({smoothPos.x, smoothPos.y, rad, b.flow * (b.pressureOpacity ? lastPressure : 1.0f)});
+                    extra.push_back({lastPressure, lastDirAngle, (float)(ImGui::GetTime() - strokeStart), strokeDist});
+                }
+                if (!dabs.empty()) EmitDabs(v, dabs, &extra);
+            }
         if (release) {
             static const char* names[] = {"", "", "", "", "", "", "Pinceau", "Gomme", "Tampon de duplication", "Correcteur", "", "",
                                           "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge", "Fluidité"};
@@ -473,12 +493,17 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
 void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSample>& samples, bool release) {
     const BrushSettings& b = strokeErase ? eraser : CurrentBrush();
     std::vector<Dab> dabs;
+    std::vector<float4> extra;  // pressure, direction angle, time, distance (programmable brushes)
+    const float now = (float)(ImGui::GetTime() - strokeStart);
+    auto tipDef = TipDef(b);
+    const float tipSpacing = tipDef && tipDef->spacing > 0 ? tipDef->spacing : b.spacing;
     float smooth = std::clamp(b.smoothing, 0.0f, 0.98f);
     auto emitTo = [&](float2 target, float pressure) {
         float2 d = target - lastDabPos;
         float len = Length(d);
-        float spacing = std::max(1.0f, b.size * std::max(b.spacing, 0.01f) * (b.pressureSize ? std::max(pressure, 0.1f) : 1.0f));
+        float spacing = std::max(1.0f, b.size * std::max(tipSpacing, 0.01f) * (b.pressureSize ? std::max(pressure, 0.1f) : 1.0f));
         float t = spacing - dabRemainder;
+        if (len > 1e-3f) lastDirAngle = std::atan2(d.y, d.x);
         while (t <= len) {
             float k = t / std::max(len, 1e-5f);
             float2 p = lastDabPos + d * k;
@@ -486,8 +511,10 @@ void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSa
             float rad = b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f);
             float alpha = b.flow * (b.pressureOpacity ? pr : 1.0f);
             dabs.push_back({p.x, p.y, rad, alpha});
+            extra.push_back({pr, lastDirAngle, now, strokeDist + t});
             t += spacing;
         }
+        strokeDist += len;
         dabRemainder = len - (t - spacing);
         if (dabRemainder < 0) dabRemainder = 0;
         // Advance anchor to target while keeping remainder for next segment.
@@ -513,16 +540,27 @@ void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSa
         dabs.push_back({smoothPos.x, smoothPos.y, b.size * 0.5f, b.flow});
     }
     if (dabs.empty()) return;
-    EmitDabs(v, dabs);
+    EmitDabs(v, dabs, &extra);
 }
 
-void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs) {
+void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<float4>* extra) {
     Document& doc = *v.doc;
     if (strokeErase || tool == Tool::Brush || tool == Tool::Eraser) {
         float4 color = LinearColor(fg);
         if (doc.S().editMask) {
             float l = 0.2126f * color.x + 0.7152f * color.y + 0.0722f * color.z;
             color = {l, l, l, 1};
+        }
+        const BrushSettings& bs = strokeErase ? eraser : brush;
+        if (auto td = TipDef(bs)) {
+            // Programmable tip: shape, color and placement come from the brush code.
+            EffectInstance tip;
+            tip.params = bs.tipParams;
+            static const std::vector<float4> none;
+            if (v.renderer.StrokeProgram(doc, *ctx, dabs, extra ? *extra : none, *td, tip, bs, color, strokeErase, dabCounter)) {
+                dabCounter += (u32)dabs.size();
+                return;
+            }
         }
         v.renderer.StrokeDabs(doc, *ctx, dabs, strokeErase ? eraser : brush, color, strokeErase);
         return;

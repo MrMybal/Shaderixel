@@ -1,4 +1,5 @@
 #include "ui/App.h"
+#include "doc/Brushes.h"
 #include "ui/Theme.h"
 #include "gpu/ShaderSystem.h"
 #include "io/PsdImport.h"
@@ -79,7 +80,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -110,6 +111,7 @@ bool App::Init() {
     std::string shaderDir = ShaderDir();
     gpu::Shaders().Init(shaderDir, ExeDir() + "/shadercache");
     Effects().Load(shaderDir + "/effects");
+    Brushes().Load(shaderDir + "/brushes");
     // Warm up builtin kernels in the background.
     for (const char* s : {"composite.slang", "display.slang", "brush.slang", "clear.slang", "clear_r.slang", "gradient.slang"})
         gpu::Shaders().Builtin(s);
@@ -122,6 +124,14 @@ bool App::Init() {
             Log("[test-effects] %-24s %s%s", e->id.c_str(), good ? "OK" : "FAILED: ", good ? "" : p->errors.c_str());
         }
         Log("[test-effects] %d / %zu effects compiled", ok, Effects().All().size());
+        int okb = 0;
+        for (auto& b : Brushes().All()) {
+            auto p = gpu::Shaders().CompileNow("brush " + b->id, BuildBrushSource(*b));
+            bool good = p->state.load() == gpu::Program::State::Ready;
+            okb += good;
+            Log("[test-brushes] %-24s %s%s", b->id.c_str(), good ? "OK" : "FAILED: ", good ? "" : p->errors.c_str());
+        }
+        Log("[test-brushes] %d / %zu brushes compiled", okb, Brushes().All().size());
     }
 
     IMGUI_CHECKVERSION();
@@ -129,7 +139,7 @@ bool App::Init() {
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
     io.ConfigWindowsMoveFromTitleBarOnly = true;
-    static std::string iniPath = ExeDir() + "/shaderixel_layout_v9.ini";
+    static std::string iniPath = ExeDir() + "/shaderixel_layout_v10.ini";
     LoadRecent();
     io.IniFilename = iniPath.c_str();
     ui::ApplyTheme(dpi);
@@ -300,6 +310,7 @@ void App::DrawWelcome() {
 void App::Frame() {
     gpu::Shaders().Update();
     Effects().ReloadIfChanged();
+    Brushes().ReloadIfChanged();
     ctx = &gpu::Dev().BeginFrame();
     if (!logoTried) LoadLogo();
 
@@ -381,6 +392,7 @@ void App::Frame() {
     UpdateHistogram();
     DrawHistogram();
     DrawEffectBrowser();
+    DrawBrushPanel();
     DrawLayerPreview();
     DrawNewDocDialog();
     DrawShaderErrors();
@@ -662,6 +674,7 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderDockWindow("Graphe", bottom);
     ImGui::DockBuilderDockWindow("Éditeur d'effets", bottom);
     ImGui::DockBuilderDockWindow("Effets", bottom);
+    ImGui::DockBuilderDockWindow("Pinceaux", bottom);
     ImGui::DockBuilderDockWindow("Couleur", rightTop);
     ImGui::DockBuilderDockWindow("Options", rightTop);
     ImGui::DockBuilderDockWindow("Histogramme", rightTop);
