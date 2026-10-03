@@ -843,6 +843,7 @@ void App::DrawSelectionMenu() {
     }
     ImGui::Separator();
     if (ImGui::MenuItem("Transformer la sélection", nullptr, false, v->doc->Selection() != nullptr)) TransformSelectionBegin(*v);
+    if (ImGui::MenuItem("Créer un tracé depuis la sélection", nullptr, false, v->doc->Selection() != nullptr)) MakePathFromSelection(*v);
     if (ImGui::MenuItem("Transformation manuelle", "Ctrl+T")) TransformBegin(*v, false);
     ImGui::MenuItem("Mode Masque", "Q", &quickMask);
     ImGui::EndMenu();

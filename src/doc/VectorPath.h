@@ -30,4 +30,9 @@ std::vector<std::vector<float2>> FlattenPath(const VectorPath& path, float toler
 // exact horizontal coverage). Returns the covered rectangle and its coverage.
 void RasterizeContours(const std::vector<std::vector<float2>>& contours, int W, int H, bool aa, Rect& r, std::vector<u8>& cov);
 
+// Outline of a coverage mask (R8, 50% threshold) as closed Bezier subpaths:
+// sub-pixel contour, simplified to `tolerance` pixels, smooth points get
+// tangent handles and sharp turns stay corners (Photoshop "Make Work Path").
+std::vector<SubPath> TraceMask(const u8* mask, int W, int H, float tolerance);
+
 }  // namespace sx

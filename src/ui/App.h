@@ -452,6 +452,14 @@ private:
     void LoadLogo();
     void DrawAbout();
     void DrawWelcome();
+    // Selection -> work path (selection read back, traced on the CPU).
+    struct {
+        DocView* view = nullptr;
+        gpu::ReadbackPtr mask;
+        float tolerance = 2.0f;
+    } selToPath;
+    void MakePathFromSelection(DocView& v);
+    void UpdateSelectionToPath();
     bool showShaderErrors = false;
     bool showDemo = false;
     bool layoutBuilt = false;

@@ -40,7 +40,7 @@
 ### Photoshop
 - Déplacer le contour de sélection (glisser à l'intérieur, flèches) : **fait** , Transformer la sélection : **fait** , Sélection rapide (croissance géodésique sensible aux bords) : **fait**
 - Blend-If (options de fusion) : **fait** (gris, poignées séparables, import/export PSD) ; reste : par canal R/V/B
-- Tracés vectoriels : **fait** (outil Plume, édition Ctrl, panneau Tracés : sélection, remplissage, contour au pinceau ; sauvegardés dans le .sxl). Reste : formes personnalisées depuis un tracé, sélection → tracé, export des tracés PSD
+- Tracés vectoriels : **fait** (outil Plume, édition Ctrl, panneau Tracés : sélection, remplissage, contour au pinceau ; sauvegardés dans le .sxl). Sélection → tracé (contour sous-pixel, simplification, angles conservés ; aller-retour à 0,1 % près) : **fait**. Reste : formes personnalisées depuis un tracé, export des tracés PSD
 - Fluidité (pinceau : déformation avant, tourbillons, contraction, dilatation, reconstruction) : **fait**
 - LUT 3D (.cube) : **fait** (réglage Correspondance de couleur, LUT embarquée dans le .sxl, type de paramètre `lut` disponible pour les effets)
 - Filtre de déformation (marionnette / grille)

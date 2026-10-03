@@ -195,6 +195,38 @@ bool App::PathToSelection(DocView& v, SelMode mode) {
     return true;
 }
 
+void App::MakePathFromSelection(DocView& v) {
+    Surface* sel = v.doc->Selection();
+    if (!sel) { Status("Créer un tracé : faites d'abord une sélection"); return; }
+    selToPath.view = &v;
+    selToPath.mask = ctx->ReadbackTexture(sel->tex.get());
+}
+
+void App::UpdateSelectionToPath() {
+    if (!selToPath.mask || !selToPath.mask->ready) return;
+    gpu::ReadbackPtr rb = std::move(selToPath.mask);
+    DocView* v = selToPath.view;
+    selToPath = {nullptr, nullptr, selToPath.tolerance};
+    bool alive = false;
+    for (auto& d : docs) alive |= d.get() == v;
+    if (!alive || rb->data.empty()) return;
+    Document& doc = *v->doc;
+    std::vector<SubPath> subs = TraceMask(rb->data.data(), (int)rb->width, (int)rb->height, selToPath.tolerance);
+    if (subs.empty()) { Status("Créer un tracé : sélection vide"); return; }
+    DocState before = doc.S();
+    VectorPath p;
+    p.id = doc.NewId();
+    p.name = "Tracé " + std::to_string(doc.S().paths.size() + 1);
+    p.subpaths = std::move(subs);
+    size_t anchors = 0;
+    for (auto& sp : p.subpaths) anchors += sp.pts.size();
+    doc.S().paths.push_back(std::move(p));
+    doc.S().activePath = doc.S().paths.back().id;
+    pen.drawing = false;
+    v->history.PushState("Tracé depuis la sélection", before, doc.S());
+    Status("Tracé créé : " + std::to_string(doc.S().paths.back().subpaths.size()) + " contour(s), " + std::to_string(anchors) + " points");
+}
+
 void App::FillPath(DocView& v) {
     Document& doc = *v.doc;
     VectorPath* path = ActivePath(doc);
@@ -307,6 +339,13 @@ void App::DrawPathsPanel() {
         v->history.PushState("Supprimer le tracé", before, d.S());
     }
     ImGui::EndDisabled();
+    ImGui::BeginDisabled(!d.Selection() || selToPath.mask);
+    if (ImGui::Button("Depuis la sélection")) MakePathFromSelection(*v);
+    ImGui::EndDisabled();
+    ui::HelpTooltip("Crée un tracé qui suit le contour de la sélection");
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x));
+    ImGui::SliderFloat("##tol", &selToPath.tolerance, 0.5f, 10.0f, "Tolérance %.1f px");
     ImGui::TextDisabled("Contour : pinceau et couleur de premier plan actuels.");
     ImGui::End();
 }

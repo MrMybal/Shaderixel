@@ -256,6 +256,36 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 32 && v) {
+        // Selection -> path: ellipse with a rectangular hole plus a separate disc,
+        // traced into a path, turned back into a selection and compared.
+        Document& d = *v->doc;
+        static gpu::ReadbackPtr before, after;
+        tool = Tool::Pen;
+        if (frameCounter == 6) v->renderer.SelectShape(d, *ctx, v->history, SelShape::Ellipse, {250, 200, 950, 800}, SelMode::Replace, true, 0, "Ellipse");
+        if (frameCounter == 7) v->renderer.SelectShape(d, *ctx, v->history, SelShape::Rect, {450, 420, 750, 580}, SelMode::Subtract, true, 0, "Rectangle");
+        if (frameCounter == 8) v->renderer.SelectShape(d, *ctx, v->history, SelShape::Ellipse, {1050, 300, 1400, 650}, SelMode::Add, true, 0, "Disque");
+        if (frameCounter == 10) before = ctx->ReadbackTexture(d.Selection()->tex.get());
+        if (frameCounter == 12) MakePathFromSelection(*v);
+        if (frameCounter == 20) {
+            if (VectorPath* p = ActivePath(d)) {
+                size_t n = 0;
+                for (auto& sp : p->subpaths) n += sp.pts.size();
+                Log("[selpath] %zu subpaths, %zu anchors", p->subpaths.size(), n);
+            }
+            PathToSelection(*v, SelMode::Replace);
+        }
+        if (frameCounter == 24) after = ctx->ReadbackTexture(d.Selection()->tex.get());
+        if (frameCounter == 30 && before && after && before->ready && after->ready) {
+            size_t diff = 0, inside = 0;
+            for (size_t i = 0; i < before->data.size(); ++i) {
+                inside += before->data[i] > 127;
+                diff += (before->data[i] > 127) != (after->data[i] > 127);
+            }
+            Log("[selpath] selection pixels %zu, differing after round trip %zu (%.3f%%)", inside, diff, 100.0 * diff / std::max<size_t>(inside, 1));
+        }
+        return;
+    }
     if (demoMode == 31 && v) {
         // PSD 16-bit and PSB exports, re-imported and compared with the original composite.
         static gpu::ReadbackPtr orig, back[2];
