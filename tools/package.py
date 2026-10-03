@@ -132,6 +132,8 @@ def main():
     shutil.copytree(os.path.join(ROOT, 'shaders'), os.path.join(dist, 'shaders'))
     # Skills for AI assistants (Claude Code, other agents): writing effects in HLSL, importing them.
     shutil.copytree(os.path.join(ROOT, '.claude', 'skills'), os.path.join(dist, 'IA', 'skills'))
+    # Python helpers run by the app (Select > Subject).
+    shutil.copytree(os.path.join(ROOT, 'tools', 'ai'), os.path.join(dist, 'ai'))
     ex = os.path.join(dist, 'Exemples')
     shots = os.path.join(dist, 'Guide_images')
     os.makedirs(ex)

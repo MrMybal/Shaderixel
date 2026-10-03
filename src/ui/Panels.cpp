@@ -1136,6 +1136,10 @@ void App::DrawBrush() {
     } else if (tool == Tool::Move) {
         ImGui::SeparatorText("Déplacement");
         ImGui::TextWrapped("Glissez pour déplacer le calque actif (ou la sélection). Flèches : 1 px, Maj+flèches : 10 px. Ctrl+T : transformation manuelle.");
+    } else if (tool == Tool::MagneticLasso) {
+        ImGui::SeparatorText("Lasso magnétique");
+        ImGui::SliderFloat("Fréquence des points", &magLasso.anchorEvery, 30, 300, "%.0f px");
+        ImGui::TextDisabled("Clic : point d'ancrage. Double-clic / Entrée / clic sur le départ : fermer.\nRetour arrière : retirer le dernier point. Échap : annuler.");
     } else if (tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || tool == Tool::PolyLasso || tool == Tool::Wand) {
         ImGui::SeparatorText("Sélection");
         const char* modes[] = {"Nouvelle", "Ajouter", "Soustraire", "Intersection"};

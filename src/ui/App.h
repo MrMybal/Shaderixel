@@ -30,7 +30,7 @@ std::string ExeDir();  // folder of the executable
 enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
-    Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, Count
+    Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso, Count
 };
 inline bool IsRetouchTool(Tool t) { return t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket; }
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
@@ -522,6 +522,58 @@ private:
     void DetachSmartChild(DocView& v);
     void SmartPropertiesUI(DocView& v, Layer& l);
     void SmartObjectsMenu(DocView* v);
+    // Selection tools (SelectTools.cpp): Color Range, Select and Mask.
+    struct {
+        bool open = false;
+        int preset = 0, mode = 0, pickOp = 0;
+        float fuzz = 40;
+        bool invert = false;
+        std::vector<float4> samples;  // straight linear colors
+        gpu::ReadbackPtr pick;
+        gpu::Texture* mask = nullptr;
+        u64 hash = 0, version = 0;
+    } colorRange;
+    struct {
+        bool open = false;
+        Renderer::RefineParams params;
+        int view = 0, output = 0;
+        gpu::Texture* mask = nullptr;
+        gpu::Texture* preview = nullptr;
+        u64 hash = 0;
+    } selectMask;
+    bool SelectToolsCanvasInput(DocView& v, float2 dp, bool click);
+    void DrawSelectToolsOverlay(DocView& v, ImVec2 d0, ImVec2 d1, ImDrawList* dl);
+    void DrawColorRangeWindow();
+    void DrawSelectMaskWindow();
+    // Magnetic lasso (MagneticLasso.cpp): edge cost map + live-wire path.
+    struct {
+        gpu::ReadbackPtr rb;
+        std::vector<float> cost;
+        int w = 0, h = 0, scale = 1;
+        float2 anchor, lastCursor;
+        std::vector<float2> live;
+        std::vector<size_t> anchors;  // lassoPts sizes at each anchor
+        float anchorEvery = 90.0f;    // document pixels between automatic anchors
+    } magLasso;
+    void MagneticBuildCost();
+    std::vector<float2> MagneticPath(float2 from, float2 to);
+    void MagneticLassoInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void MagneticLassoUndoAnchor();
+    // Select > Subject / Sky (SelectSubject.cpp).
+    struct {
+        bool active = false, sky = false;
+        DocView* view = nullptr;
+        gpu::ReadbackPtr rb;
+        std::future<int> proc;
+        std::string in, out;
+        int w = 0, h = 0;
+    } subjectJob;
+    std::future<int> subjectInstall;
+    bool subjectInstallPrompt = false;
+    void StartSelectSubject(DocView& v, bool sky);
+    void UpdateSelectSubject();
+    void InstallSubjectModel();
+    void UpdateSubjectInstall();
     Id smartEditRequest = 0;
     void ColorPickerBody();  // Couleur panel / toolbar popup
     bool colorPopupRequest = false;

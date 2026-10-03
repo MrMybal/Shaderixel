@@ -299,6 +299,87 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 52) {
+        // Select > Sky on an image given by SX_IMAGE (or Subject with SX_SUBJECT: reports a missing rembg).
+        char path[512] = "";
+        if (frameCounter == 4 && GetEnvironmentVariableA("SX_IMAGE", path, sizeof(path)) > 0) OpenImage(path, false);
+        if (frameCounter == 10 && Active()) StartSelectSubject(*Active(), GetEnvironmentVariableA("SX_SUBJECT", nullptr, 0) == 0);
+        if (frameCounter == 60) Log("[demo] select sky/subject: %s, selection %s", statusMsg.c_str(), Active() && Active()->doc->Selection() ? "yes" : "no");
+        return;
+    }
+    if (demoMode == 51 && v) {
+        // Magnetic lasso: edge-following path from anchors around the top stroke, closed into a selection.
+        if (frameCounter == 4 && v->lastImage) {
+            tool = Tool::MagneticLasso;
+            magLasso.rb = v->renderer.ExportRGBA8(*ctx, v->lastImage, true);
+        }
+        if (frameCounter == 10) {
+            MagneticBuildCost();
+            auto cost = [&](const std::vector<float2>& path) {
+                float c = 0;
+                for (auto& p : path) c += magLasso.cost[(size_t)std::clamp((int)p.y, 0, magLasso.h - 1) * magLasso.w + std::clamp((int)p.x, 0, magLasso.w - 1)];
+                return path.empty() ? 0.0f : c / path.size();
+            };
+            // Anchors on the upper edge of the cyan wave (y = 300 + sin(...) * 120 - half width).
+            std::vector<float2> pts;
+            float2 a{150, 0};
+            auto edgeY = [](float x) { float t = (x - 120) / 1360.0f; return 300 + std::sin(t * 9.0f) * 120 - 28; };
+            a.y = edgeY(a.x);
+            float straight = 0, magnetic = 0;
+            selDragMode = SelMode::Replace;
+            lassoPts = {a};
+            polyActive = true;
+            for (float x = 350; x <= 1450; x += 200) {
+                float2 b{x, edgeY(x) + 25};  // anchors placed 25 px off the edge on purpose
+                auto path = MagneticPath(lassoPts.back(), b);
+                magnetic += cost(path);
+                straight += cost({lassoPts.back(), (lassoPts.back() + b) * 0.5f, b});
+                for (size_t i = 1; i < path.size(); ++i) lassoPts.push_back(path[i]);
+            }
+            Log("[demo] magnetic lasso: mean edge cost %.3f along the path, %.3f on straight segments", magnetic / 6, straight / 6);
+            lassoPts.push_back({1450, 60});
+            lassoPts.push_back({150, 60});
+            magLasso.live.clear();
+            FinishPolygon(*v);
+        }
+        return;
+    }
+    if (demoMode == 50 && v) {
+        // Selection tools: Color Range (SX_RANGE: preset index, eyedropper sample on the cyan stroke)
+        // or Select and Mask (rough ellipse around the top stroke, refined by the image).
+        Document& d = *v->doc;
+        char b[16] = "";
+        bool range = GetEnvironmentVariableA("SX_RANGE", b, sizeof(b)) > 0;
+        if (frameCounter == 5) {
+            if (range) {
+                colorRange.open = true;
+                colorRange.preset = atoi(b);
+                colorRange.samples.clear();
+                if (colorRange.preset == 0) colorRange.pick = v->renderer.ReadPixel(*ctx, v->lastImage, 800, 210);
+                colorRange.pickOp = 0;
+                colorRange.fuzz = 45;
+            } else {
+                v->renderer.SelectShape(d, *ctx, v->history, SelShape::Ellipse, {150, 120, 1450, 470}, SelMode::Replace, true, 0, "Ellipse");
+            }
+        }
+        if (frameCounter == 8 && !range) {
+            selectMask.open = true;
+            selectMask.params.radius = 40;
+            selectMask.view = atoi(GetEnvironmentVariableA("SX_VIEW", b, sizeof(b)) > 0 ? b : "0");
+        }
+        if (frameCounter == 20 && GetEnvironmentVariableA("SX_APPLY", nullptr, 0) > 0) {
+            // Apply: refined selection, then Color Range OK.
+            if (selectMask.open && selectMask.mask) {
+                v->renderer.SelectFrom(d, *ctx, v->history, selectMask.mask, SelSource::Mask, SelMode::Replace, {}, 0, "Sélectionner et masquer");
+                selectMask.open = false;
+            }
+            if (colorRange.open && colorRange.mask) {
+                v->renderer.SelectFrom(d, *ctx, v->history, colorRange.mask, SelSource::Mask, SelMode::Replace, {}, 0, "Plage de couleurs");
+                colorRange.open = false;
+            }
+        }
+        return;
+    }
     if (demoMode == 49) {
         // Smart objects: convert, shrink to 20 % then back to 100 % (must be lossless), linked image,
         // contents edited in their tab (the layer follows), save + reload.

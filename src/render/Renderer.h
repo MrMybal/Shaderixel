@@ -33,7 +33,7 @@ struct ViewParams {
 
 enum class SelMode : u8 { Replace, Add, Subtract, Intersect };
 enum class SelShape : u8 { Rect, Ellipse, Coverage, All, None };
-enum class SelSource : u8 { Alpha, Luminance, ColorRange };
+enum class SelSource : u8 { Alpha, Luminance, ColorRange, Mask };  // Mask: red channel of a mask texture
 
 // Projective transform state shared by free transform and the move tool.
 struct TransformParams {
@@ -153,6 +153,15 @@ public:
     void FillTexture(gpu::CommandContext& ctx, gpu::Texture* dst, float4 value);
 
     void Import(Document& doc, gpu::CommandContext& ctx, Id surface, const void* pixels, u32 w, u32 h, bool isFloat, int2 offset);
+    // Selection masks (SelectRefine.cpp).
+    struct RefineParams {
+        float radius = 8, smooth = 0, feather = 0, contrast = 0, shift = 0, eps = 0.003f;
+        bool smartRadius = true;
+    };
+    gpu::Texture* ColorRangeMask(gpu::CommandContext& ctx, gpu::Texture* image, const std::vector<float4>& samplesLinear, int preset, float fuzz, bool invert);
+    gpu::Texture* RefineMask(gpu::CommandContext& ctx, gpu::Texture* image, gpu::Texture* selection, const RefineParams& p);
+    gpu::Texture* RefinePreview(gpu::CommandContext& ctx, gpu::Texture* image, gpu::Texture* mask, int view);
+    bool WriteMaskSurface(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, gpu::Texture* mask, const std::string& label);
     // Smart objects: an image as a new texture (linear premultiplied), and its placement on a layer surface.
     gpu::TexturePtr ImportTexture(gpu::CommandContext& ctx, const void* pixels, u32 w, u32 h, bool isFloat, gpu::Format format);
     void PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* content, const float2 corners[4]);
@@ -299,6 +308,7 @@ private:
     gpu::TexturePtr strokePre, strokeMask;
     gpu::TexturePtr strokeColor, previewLayer, previewMask, previewColor;  // programmable brushes
     gpu::TexturePtr padLayer, padPre, padMask, padColor;                   // brush test pad
+    gpu::TexturePtr rangeMask, refineT[3], refineMask, refineMask2, refinePreview;  // selection masks
     bool strokeColorReady = false;
     u64 previewHash = 0;
     std::unordered_map<u64, gpu::ProgramPtr> brushPrograms;

@@ -15,6 +15,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::EllipseSelect, ui::IconEllipseSel, "Ellipse de sélection", "M"},
     {Tool::Lasso, ui::IconLasso, "Lasso", "L"},
     {Tool::PolyLasso, ui::IconPolyLasso, "Lasso polygonal", "L"},
+    {Tool::MagneticLasso, ui::IconLasso, "Lasso magnétique", "L"},
     {Tool::Wand, ui::IconWand, "Baguette magique", "W"},
     {Tool::QuickSelect, ui::IconQuickSelect, "Sélection rapide", "W"},
     {Tool::Pen, ui::IconPen, "Plume", "P"},
@@ -43,7 +44,7 @@ const ToolInfo kToolInfo[] = {
 const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Move},
     {Tool::RectSelect, Tool::EllipseSelect},
-    {Tool::Lasso, Tool::PolyLasso},
+    {Tool::Lasso, Tool::PolyLasso, Tool::MagneticLasso},
     {Tool::QuickSelect, Tool::Wand},
     {Tool::Crop},
     {Tool::Brush},
@@ -243,6 +244,7 @@ void App::DrawCanvas() {
     ImVec2 d0(canvasMin.x + v->pan.x, canvasMin.y + v->pan.y);
     ImVec2 d1(d0.x + doc.Width() * v->zoom, d0.y + doc.Height() * v->zoom);
     dl->AddRect(ImVec2(d0.x - 1, d0.y - 1), ImVec2(d1.x + 1, d1.y + 1), IM_COL32(0, 0, 0, 120));
+    DrawSelectToolsOverlay(*v, d0, d1, dl);
 
     // Overlays
     ImVec2 mouse = ImGui::GetMousePos();
@@ -343,6 +345,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
 
     float2 dp = ScreenToDoc(v, canvasMin, mouse);
     bool click = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+    if (SelectToolsCanvasInput(v, dp, click)) return;
     bool alt = io.KeyAlt;
 
     if (xf.active) {
@@ -360,6 +363,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (tool == Tool::Crop) {
         CropInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::MagneticLasso) {
+        MagneticLassoInput(v, canvasMin, hovered);
         return;
     }
     if (tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || tool == Tool::PolyLasso || tool == Tool::Wand) {

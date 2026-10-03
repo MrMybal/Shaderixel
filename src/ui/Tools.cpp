@@ -313,6 +313,12 @@ void App::SelectionToolInput(DocView& v, ImVec2 canvasMin, bool hovered, const s
 
 void App::FinishPolygon(DocView& v) {
     Document& doc = *v.doc;
+    if (tool == Tool::MagneticLasso) {
+        // The live path to the cursor is part of the outline.
+        for (size_t i = 1; i < magLasso.live.size(); ++i) lassoPts.push_back(magLasso.live[i]);
+        magLasso.live.clear();
+        magLasso.anchors.clear();
+    }
     polyActive = false;
     selDragging = false;
     if (lassoPts.size() < 3) {
@@ -372,7 +378,16 @@ void App::DrawSelectionOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
     }
     if ((selDragging && tool == Tool::Lasso) || polyActive) {
         for (size_t i = 0; i + 1 < lassoPts.size(); ++i) dashed(toScreen(lassoPts[i]), toScreen(lassoPts[i + 1]));
-        if (polyActive && !lassoPts.empty()) {
+        if (polyActive && tool == Tool::MagneticLasso) {
+            // Live path snapped to the edges, anchors as small squares.
+            for (size_t i = 0; i + 1 < magLasso.live.size(); ++i) dashed(toScreen(magLasso.live[i]), toScreen(magLasso.live[i + 1]));
+            for (size_t a : magLasso.anchors)
+                if (a > 0 && a <= lassoPts.size()) {
+                    ImVec2 p = toScreen(lassoPts[a - 1]);
+                    dl->AddRect(ImVec2(p.x - 3, p.y - 3), ImVec2(p.x + 3, p.y + 3), IM_COL32_WHITE);
+                }
+            if (magLasso.cost.empty()) dl->AddText(ImVec2(ImGui::GetIO().MousePos.x + 14, ImGui::GetIO().MousePos.y + 10), IM_COL32(255, 220, 120, 255), "analyse des contours...");
+        } else if (polyActive && !lassoPts.empty()) {
             dashed(toScreen(lassoPts.back()), ImGui::GetIO().MousePos);
             dl->AddCircle(toScreen(lassoPts.front()), 6, IM_COL32_WHITE);
         }
@@ -1017,7 +1032,23 @@ void App::DrawSelectionMenu() {
     if (ImGui::MenuItem("Resélectionner", "Ctrl+Maj+D", false, d.S().lastSelection != 0 && !has)) v->renderer.Reselect(d, v->history);
     if (ImGui::MenuItem("Intervertir", "Ctrl+Maj+I")) v->renderer.SelectionFilter(d, *ctx, v->history, 3, 0, "Intervertir");
     ImGui::Separator();
-    if (ImGui::MenuItem("Plage de couleurs (premier plan)...")) { selDialog = 4; selDialogValue = 32; }
+    if (ImGui::MenuItem("Sujet", nullptr, false, !subjectJob.active)) StartSelectSubject(*v, false);
+    ui::HelpTooltip("Modèle de segmentation (rembg, via Python) : le sujet principal, contour affiné ensuite.");
+    if (ImGui::MenuItem("Ciel", nullptr, false, !subjectJob.active)) StartSelectSubject(*v, true);
+    if (subjectInstallPrompt || ImGui::GetIO().KeyShift)
+        if (ImGui::MenuItem("Installer le modèle de sujet (rembg)...", nullptr, false, !subjectInstall.valid())) {
+            InstallSubjectModel();
+            subjectInstallPrompt = false;
+        }
+    if (ImGui::MenuItem("Plage de couleurs...")) {
+        colorRange.open = true;
+        colorRange.hash = 0;
+        if (colorRange.samples.empty()) colorRange.samples.push_back({SrgbToLinear(fg.x), SrgbToLinear(fg.y), SrgbToLinear(fg.z), 1});
+    }
+    if (ImGui::MenuItem("Sélectionner et masquer...", "Alt+Ctrl+R", false, has)) {
+        selectMask.open = true;
+        selectMask.hash = 0;
+    }
     if (ImGui::MenuItem("Pixels du calque actif", nullptr, false, d.Mode() == DocMode::Layers && d.ActiveLayer()))
         SelectFromLayer(*v, *d.ActiveLayer(), SelMode::Replace);
     if (ImGui::BeginMenu("Modifier", has)) {

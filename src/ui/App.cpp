@@ -81,7 +81,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -449,6 +449,8 @@ void App::Frame() {
 
     bridge.Pump();
     UpdateSmartChildren();
+    UpdateSelectSubject();
+    UpdateSubjectInstall();
     if (DocView* av = Active(); av && frameCounter % 60 == 0) UpdateLinkedSmartObjects(*av, false);
     PollAiJobs();
     UpdateGenerativeFill();
@@ -479,6 +481,8 @@ void App::Frame() {
     if (Shown("Pinceaux")) DrawBrushPanel();
     if (Shown("Aperçu du calque")) DrawLayerPreview();
     DrawLayoutSavePopup();
+    DrawColorRangeWindow();
+    DrawSelectMaskWindow();
     DrawNewDocDialog();
     DrawShaderErrors();
     DrawSelectionDialog();
@@ -1065,12 +1069,17 @@ void App::HandleShortcuts() {
     if (polyActive && v) {
         if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) { FinishPolygon(*v); return; }
         if (pressed(ImGuiKey_Escape)) { polyActive = false; lassoPts.clear(); return; }
+        if (pressed(ImGuiKey_Backspace) && tool == Tool::MagneticLasso) { MagneticLassoUndoAnchor(); return; }
         if (pressed(ImGuiKey_Backspace) && lassoPts.size() > 1) { lassoPts.pop_back(); return; }
     }
 
     if (pressed(ImGuiKey_Tab) && !ctrl && !alt) { (shift ? hideRight : hideBottom) ^= true; return; }
     for (int i = 0; i < kSideTabs; ++i)
         if (alt && !ctrl && pressed((ImGuiKey)(ImGuiKey_1 + i))) { ShowSideTab(i); return; }
+    if (ctrl && alt && pressed(ImGuiKey_R) && v && v->doc->Selection()) {
+        selectMask.open = true;
+        selectMask.hash = 0;
+    }
     if (ctrl && pressed(ImGuiKey_Z)) { shift ? Redo() : Undo(); }
     if (ctrl && pressed(ImGuiKey_Y)) Redo();
     if (ctrl && !shift && pressed(ImGuiKey_N)) showNewDoc = true;
@@ -1148,7 +1157,11 @@ void App::HandleShortcuts() {
 
     if (pressed(ImGuiKey_V)) setTool(Tool::Move);
     if (pressed(ImGuiKey_M)) setTool(shift ? (tool == Tool::RectSelect ? Tool::EllipseSelect : Tool::RectSelect) : Tool::RectSelect);
-    if (pressed(ImGuiKey_L)) setTool(shift ? Tool::PolyLasso : Tool::Lasso);
+    if (pressed(ImGuiKey_L)) {
+        // L cycles through the lassos (Shift+L: polygonal).
+        if (shift) setTool(Tool::PolyLasso);
+        else setTool(tool == Tool::Lasso ? Tool::MagneticLasso : Tool::Lasso);
+    }
     if (pressed(ImGuiKey_W)) setTool(shift ? (tool == Tool::Wand ? Tool::QuickSelect : Tool::Wand) : Tool::QuickSelect);
     if (pressed(ImGuiKey_C)) setTool(Tool::Crop);
     if (pressed(ImGuiKey_T)) setTool(Tool::Text);
@@ -1170,7 +1183,8 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_X)) std::swap(fg, bg);
     if (pressed(ImGuiKey_D)) { fg = {0, 0, 0, 1}; bg = {1, 1, 1, 1}; }
 
-    bool selTool = tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || tool == Tool::PolyLasso || tool == Tool::Wand || tool == Tool::QuickSelect;
+    bool selTool = tool == Tool::RectSelect || tool == Tool::EllipseSelect || tool == Tool::Lasso || tool == Tool::PolyLasso || tool == Tool::Wand || tool == Tool::QuickSelect ||
+                   tool == Tool::MagneticLasso;
     if (selTool && v->doc->Selection() && !xf.active) {
         int step = shift ? 10 : 1;
         int2 o = {0, 0};

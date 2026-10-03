@@ -1,5 +1,5 @@
 // Selection from image content, combined with the previous selection.
-// Ops: 0 alpha, 1 luminance, 2 color range (tolerance on sRGB values).
+// Ops: 0 alpha, 1 luminance, 2 color range (tolerance on sRGB values), 3 mask (red channel).
 #include "common.slang"
 
 cbuffer Root : register(b0)
@@ -24,6 +24,7 @@ void main(uint3 id : SV_DispatchThreadID)
     float v;
     if (gOp == 0) v = saturate(c.a);
     else if (gOp == 1) v = saturate(LinearToSrgb1(Luma(Unpremultiply(c).rgb)));
+    else if (gOp == 3) v = saturate(c.r);  // mask texture
     else
     {
         float4 s = Unpremultiply(c);
