@@ -52,7 +52,12 @@ const Json& JobOutputs(const Json& job) {
 void App::LoadAiSettings() {
     std::string text;
     Json j;
-    if (ReadTextFile(settingsPath, text) && Json::Parse(text, j)) aiSettings.FromJson(j["ai"]);
+    if (ReadTextFile(settingsPath, text) && Json::Parse(text, j)) {
+        aiSettings.FromJson(j["ai"]);
+        penPressureGamma = std::clamp(j["tablet"]["pressureGamma"].F(1.0f), 0.2f, 5.0f);
+        if (j["tablet"]["api"].S("ink") == "wintab" && !platform::SetTabletApi(platform::TabletApi::Wintab))
+            Log("Tablet: Wintab unavailable, Windows Ink used");
+    }
     if (aiSettings.companionScript.empty()) {
         for (const char* c : {"<CyUEMCPSDK>/Bridge/run.py"})
             if (fs::exists(c)) aiSettings.companionScript = c;
@@ -68,6 +73,10 @@ void App::SaveAiSettings() {
     Json j = Json::Object();
     aiSettings.allowWrites = bridge.allowWrites;
     j["ai"] = aiSettings.ToJson();
+    Json t = Json::Object();
+    t["api"] = platform::GetTabletApi() == platform::TabletApi::Wintab ? "wintab" : "ink";
+    t["pressureGamma"] = penPressureGamma;
+    j["tablet"] = t;
     std::ofstream(Utf8Path(settingsPath), std::ios::binary) << j.Dump(1);
 }
 

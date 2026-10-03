@@ -6,6 +6,12 @@
 
 namespace sx {
 
+struct BrushTextureDecl {
+    std::string name;   // identifier in the code (BrushTex(name, uv))
+    std::string label;
+    std::string path;   // default image, relative to the brushes folder
+};
+
 struct BrushDef {
     std::string id;           // file stem
     std::string text;         // full source (metadata + code)
@@ -15,6 +21,7 @@ struct BrushDef {
     float extent = 1.0f;      // //@extent: reach in radii (scatter, scale)
     bool selfFlow = false;    // //@selfflow
     bool dynamics = false;    // defines Dynamics()
+    std::vector<BrushTextureDecl> textures;  // //@texture (up to 4)
 };
 using BrushDefPtr = std::shared_ptr<const BrushDef>;
 
@@ -22,7 +29,7 @@ using BrushDefPtr = std::shared_ptr<const BrushDef>;
 BrushDefPtr ParseBrush(const std::string& id, const std::string& text);
 // Complete compute shader of a brush.
 std::string BuildBrushSource(const BrushDef& b);
-constexpr int kMaxBrushDabs = 960;  // per dispatch (2 float4 per dab after color, settings and parameters)
+constexpr int kMaxBrushDabs = 960;  // per dispatch (3 float4 per dab after color, settings and parameters)
 
 class BrushLibrary {
 public:

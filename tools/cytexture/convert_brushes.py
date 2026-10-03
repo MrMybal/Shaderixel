@@ -14,8 +14,9 @@ Additions on top of the presets:
   - presets with a Rotation parameter get "Suivre le trait": the tip turns
     with the stroke direction.
 
-Brushes reading a texture (TextureBrush) are skipped: brushes have no image
-inputs yet.
+Brushes reading a texture (TextureBrush) get a //@texture slot per texture,
+read with Texture2DSample as in CyTexture; the default image comes from
+shaders/brushes/textures (the user picks another one in the brush settings).
 
     python tools/cytexture/convert_brushes.py
 """
@@ -57,7 +58,10 @@ def convert(p):
     lines = ['//@name ' + title,
              '//@category ' + GROUPS.get(p['group'], 'Pinceaux'),
              '//@selfflow',
-             '//@spacing ' + num(SPACING.get(p['group'], 0.15))]
+             '//@spacing ' + num(0.35 if p['textures'] else SPACING.get(p['group'], 0.15))]
+    for t in p['textures']:
+        lines.append(f'//@texture {t} "{words(t)}" textures/splatter.png')
+    textured = bool(p['textures'])
     fn_params = ['float2 UV', 'float CyBrushHardness', 'float CyBrushFlow', 'float4 CyBrushPosition',
                  'float3 CyBrushColor', 'float4 CyCanvasSize']
     call_args = ['b.uv', 'b.hardness', 'b.flow', 'float4(b.px, b.pressure, 0.0)', 'b.color',
@@ -75,6 +79,10 @@ def convert(p):
         lines.append('//@param RandomSeed float 1 0 1 "Graine par touche"')
     if rotating:
         lines.append('//@param FollowStroke float 0 0 1 "Suivre le trait"')
+    if textured:
+        # Stamped image: random turn of each dab by default (natural texture), or along the stroke.
+        lines.append('//@param RandomAngle float 1 0 1 "Rotation aléatoire"')
+        lines.append('//@param FollowStroke float 0 0 1 "Suivre le trait"')
     lines.append('')
     lines.append(f'// Imported preset (Brush / {p["group"]}): {p["description"]}')
     lines.append('// Unreal Custom-node code kept as written (UV = tip space, CyBrushPosition.z = pressure).')
@@ -88,6 +96,12 @@ def convert(p):
     lines.append('{')
     lines.append('    return CyPreset(' + ', '.join(call_args) + ');')
     lines.append('}')
+    if textured:
+        lines.append('')
+        lines.append('void Dynamics(inout Dab d)')
+        lines.append('{')
+        lines.append('    d.angle = Rand(d.seed, 4.0) * 6.2831853 * RandomAngle + FollowStroke * atan2(d.direction.y, d.direction.x);')
+        lines.append('}')
     if rotating:
         lines.append('')
         lines.append('void Dynamics(inout Dab d)')
@@ -107,13 +121,10 @@ def main():
     for p in presets:
         if p['category'] != 'Brush':
             continue
-        if p['textures']:
-            skipped.append(p['name'])
-            continue
         fname = 'cy_' + snake(p['name'][:-5] if p['name'].endswith('Brush') else p['name']) + '.slang'
         open(os.path.join(OUT, fname), 'w', encoding='utf-8', newline='\n').write(convert(p))
         written += 1
-    print(f'{written} brushes written to {OUT}; skipped (texture inputs): {", ".join(skipped) or "none"}')
+    print(f'{written} brushes written to {OUT}')
 
 
 if __name__ == '__main__':

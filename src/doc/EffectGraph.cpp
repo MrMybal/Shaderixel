@@ -76,7 +76,9 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"blendover", "Composer la fusion", "Fusion", {{"A (dessous)", 0}, {"B (calque)", 0}, {"Mélange RGB", 0}, {"Masque", 1}, {"Opacité", -2}}, {""}, 4},
         // Brushes
         {"brush", "Touche du pinceau", "Pinceau", {},
-         {"Position locale", "UV", "Pixel", "Pression", "Couleur", "Dureté", "Flux", "Rayon", "Graine", "Temps", "Distance", "Direction"}, 0},
+         {"Position locale", "UV", "Pixel", "Pression", "Couleur", "Dureté", "Flux", "Rayon", "Graine", "Temps", "Distance", "Direction",
+          "Inclinaison", "Rotation stylet", "Vitesse"}, 0},
+        {"brushtex", "Texture du pinceau", "Pinceau", {{"UV", -1}}, {"RGBA", "RGB", "R", "G", "B", "A"}, 4, true},
         {"roundtip", "Pointe ronde", "Pinceau", {{"Position locale", -3}, {"Dureté", -4}}, {""}, 1},
         {"random", "Aléatoire par touche", "Pinceau", {{"Canal", 0}}, {""}, 1},
         // Custom
@@ -159,6 +161,10 @@ Json EffectGraph::ToJson() const {
     j["premultiplied"] = premultiplied;
     if (kind != EGKind::Effect) j["kind"] = (int)kind;
     if (kind == EGKind::Brush) {
+        j["tiltAngle"] = tiltAngle;
+        j["tiltSize"] = tiltSize;
+        j["twistAngle"] = twistAngle;
+        j["speedSize"] = speedSize;
         j["spacing"] = spacing;
         j["airbrush"] = airbrush;
         j["follow"] = follow;
@@ -230,6 +236,10 @@ bool EffectGraph::FromJson(const Json& j, EffectGraph& g) {
     g.sizeJitter = j["sizeJitter"].F(0);
     g.angleJitter = j["angleJitter"].F(0);
     g.opacityJitter = j["opacityJitter"].F(0);
+    g.tiltAngle = j["tiltAngle"].F(0);
+    g.tiltSize = j["tiltSize"].F(0);
+    g.twistAngle = j["twistAngle"].F(0);
+    g.speedSize = j["speedSize"].F(0);
     g.nextId = j["nextId"].U(1);
     for (auto& o : j["nodes"].Elements()) {
         EGNode n;
@@ -480,6 +490,14 @@ struct Gen {
             if (!brush()) Fail(id, "nœud réservé aux pinceaux");
             one("b.local", 2); one("b.uv", 2); one("b.px", 2); one("b.pressure", 1); one("b.color", 3); one("b.hardness", 1);
             one("b.flow", 1); one("b.radius", 1); one("b.seed", 1); one("b.time", 1); one("b.distance", 1); one("b.direction", 2);
+            one("b.tilt", 2); one("b.twist", 1); one("b.speed", 1);
+        } else if (op == "brushtex") {
+            if (!brush()) Fail(id, "nœud réservé aux pinceaux");
+            std::string v = "n" + std::to_string(id) + "_img";
+            lines.push_back("    float4 " + v + " = BrushTex(" + std::to_string(std::clamp(n->index, 0, 3)) + "u, " + Conv(a[0], 2) + ");");
+            one(v, 4);
+            one(v + ".rgb", 3);
+            for (const char* c : {".r", ".g", ".b", ".a"}) one(v + c, 1);
         } else if (op == "roundtip") {
             one("(1.0 - smoothstep(saturate(" + S(1) + ") * 0.999, 1.0, length(" + Conv(a[0], 2) + ")))", 1);
         } else if (op == "random") {
@@ -723,7 +741,14 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
     if (brush) {
         s += "//@spacing " + F(std::clamp(g.spacing, 0.01f, 4.0f)) + "\n";
         if (g.airbrush > 0) s += "//@airbrush " + F(g.airbrush) + "\n";
-        if (g.scatter > 0) s += "//@extent " + F(1.0f + g.scatter) + "\n";
+        if (g.scatter > 0 || g.tiltSize > 0) s += "//@extent " + F(1.0f + g.scatter + g.tiltSize) + "\n";
+        // Brush textures used by the graph (index -> //@texture TexN "label" default image).
+        std::set<int> texDone;
+        for (int k = 0; k < 4; ++k)
+            for (auto& n : g.nodes)
+                if (n.op == "brushtex" && std::clamp(n.index, 0, 3) == k && texDone.insert(k).second)
+                    s += "//@texture Tex" + std::to_string(k + 1) + " \"" + (n.name.empty() ? "Texture " + std::to_string(k + 1) : n.name) + "\" " +
+                         (n.text.empty() ? std::string("textures/grain.png") : n.text) + "\n";
     } else if (blend) {
         s += "//@blend\n//@input A (dessous)\n//@input B (calque)\n//@input Masque\n";
     } else {
@@ -792,13 +817,19 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
     s += brush ? "float4 Tip(Brush b)\n{\n    SXH sxh;\n" : "float4 Effect(EffectContext ctx)\n{\n    SXH sxh;\n";
     for (auto& l : gen.lines) s += l + "\n";
     s += "    return " + (res.empty() ? std::string("float4(0, 0, 0, 0)") : Conv(res[0], 4)) + ";\n}\n";
-    if (brush && (g.follow != 0 || g.scatter != 0 || g.sizeJitter != 0 || g.angleJitter != 0 || g.opacityJitter != 0)) {
+    if (brush && (g.follow != 0 || g.scatter != 0 || g.sizeJitter != 0 || g.angleJitter != 0 || g.opacityJitter != 0 || g.tiltAngle != 0 ||
+                  g.tiltSize != 0 || g.twistAngle != 0 || g.speedSize != 0)) {
         // Placement of each dab: follow the stroke, scatter, random size / angle / opacity.
         s += "\nvoid Dynamics(inout Dab d)\n{\n";
         s += "    d.angle = " + F(g.follow) + " * atan2(d.direction.y, d.direction.x) + (Rand(d.seed, 4.0) - 0.5) * 6.2831853 * " + F(g.angleJitter) + ";\n";
         s += "    d.pos += (Rand2(d.seed) - 0.5) * 2.0 * d.radius * " + F(g.scatter) + ";\n";
         s += "    d.radius *= lerp(1.0, Rand(d.seed, 3.0), " + F(g.sizeJitter) + ");\n";
         s += "    d.opacity *= lerp(1.0, Rand(d.seed, 6.0), " + F(g.opacityJitter) + ");\n";
+        // Pen: tilt direction / barrel rotation turn the tip, tilt widens it, speed thins or thickens it.
+        if (g.tiltAngle != 0) s += "    d.angle = lerp(d.angle, TiltAngle(d), " + F(g.tiltAngle) + " * TiltAmount(d));\n";
+        if (g.twistAngle != 0) s += "    d.angle += d.twist * " + F(g.twistAngle) + ";\n";
+        if (g.tiltSize != 0) s += "    d.radius *= 1.0 + TiltAmount(d) * " + F(g.tiltSize) + ";\n";
+        if (g.speedSize != 0) s += "    d.radius *= max(0.1, 1.0 + saturate(d.speed / 3000.0) * " + F(g.speedSize) + ");\n";
         s += "}\n";
     }
     r.code = s;

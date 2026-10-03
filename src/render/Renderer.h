@@ -55,6 +55,8 @@ struct BrushSettings {
     std::string tipId, tipCode;
     std::string tipGraph;  // visual brush graph (JSON), compiled to tip code
     std::vector<float4> tipParams;
+    std::vector<std::string> tipTextures;  // images chosen for the tip's //@texture slots ("" = default)
+    std::array<gpu::Texture*, 4> tipTexBound{};  // bound for the next stroke / preview (runtime)
 };
 
 struct Dab { float x, y, radius, alpha; };
@@ -74,7 +76,8 @@ struct BrushDef;
 
 class Renderer {
 public:
-    // Programmable brushes (doc/Brushes.h): dabs + per-dab extras (pressure, direction angle, time, distance).
+    // Programmable brushes (doc/Brushes.h): dabs + per-dab extras: one float4 per dab (pressure, direction angle,
+    // time, distance), or two interleaved per dab, the second being the pen (tilt x, tilt y, rotation, speed).
     struct BrushTargets {
         gpu::Texture* pre;
         gpu::Texture* sel;
@@ -90,6 +93,12 @@ public:
     // Sample stroke of a brush (S curve with a pressure ramp) for the brush panel.
     gpu::Texture* BrushPreview(gpu::CommandContext& ctx, const BrushDef& b, const EffectInstance& tip, const BrushSettings& s, float4 color,
                                u32 w, u32 h, std::string* errors = nullptr);
+    // Test pad of the brush editor: a small canvas painted with the brush (strokes composited like on a layer).
+    gpu::Texture* PadTexture() const { return padLayer.get(); }
+    void PadClear(gpu::CommandContext& ctx, u32 w, u32 h);
+    void PadBeginStroke(gpu::CommandContext& ctx);
+    bool PadStroke(gpu::CommandContext& ctx, const BrushDef& b, const EffectInstance& tip, const BrushSettings& s, float4 color,
+                   const std::vector<Dab>& dabs, const std::vector<float4>& extra, bool erase, u32 dabBase);
     // Process queued surface clears/copies; call once per frame before evaluation.
     void Prepare(Document& doc, gpu::CommandContext& ctx);
 
@@ -286,6 +295,7 @@ private:
     Id strokeSurface = 0;
     gpu::TexturePtr strokePre, strokeMask;
     gpu::TexturePtr strokeColor, previewLayer, previewMask, previewColor;  // programmable brushes
+    gpu::TexturePtr padLayer, padPre, padMask, padColor;                   // brush test pad
     bool strokeColorReady = false;
     u64 previewHash = 0;
     std::unordered_map<u64, gpu::ProgramPtr> brushPrograms;

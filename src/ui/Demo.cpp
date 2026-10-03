@@ -299,6 +299,153 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 48 && v) {
+        // Tablet + brush textures: simulated pen (pressure, tilt turning along the stroke, rotation)
+        // with the imported TextureBrush, a graph brush reacting to tilt with a texture node, and the test pad.
+        Document& d = *v->doc;
+        static EffectGraph g;
+        auto penStroke = [&](BrushSettings b, float y0, float4 color, Id surf) {
+            auto td = TipDef(b);
+            if (!td) { Log("[demo] tablet: no tip"); return; }
+            std::string err;
+            for (int w = 0; w < 6000 && !v->renderer.BrushPipeline(*td, &err) && err.empty(); ++w) Sleep(10);
+            if (!err.empty()) { Log("[demo] tablet brush: %s", err.c_str()); return; }
+            BindTipTextures(b, *td);
+            EffectInstance tip;
+            tip.params = b.tipParams;
+            std::vector<Dab> dabs;
+            std::vector<float4> extra;
+            float sp = std::max(1.0f, b.size * std::max(td->spacing > 0 ? td->spacing : b.spacing, 0.02f)), dist = 0;
+            float2 prev{120, y0};
+            for (float x = 120; x < 1480; x += sp) {
+                float t = (x - 120) / 1360.0f, y = y0 + std::sin(t * 6.28f) * 60;
+                float pr = 0.25f + 0.75f * std::sin(t * 3.14159f);
+                float tiltDeg = 50.0f * t;                       // the pen leans more and more
+                float az = t * 6.2831853f;                       // ... and turns around
+                float2 dir{x - prev.x, y - prev.y};
+                dist += Length(dir);
+                dabs.push_back({x, y, b.size * 0.5f * (0.3f + 0.7f * pr), pr});
+                extra.push_back({pr, std::atan2(dir.y, dir.x), t, dist});
+                extra.push_back({std::cos(az) * tiltDeg, std::sin(az) * tiltDeg, t * 3.0f, 800.0f});
+                prev = {x, y};
+            }
+            if (v->renderer.BeginStroke(d, *ctx, surf)) {
+                v->renderer.StrokeProgram(d, *ctx, dabs, extra, *td, tip, b, LinearColor(color), false, 0);
+                v->renderer.EndStroke(d, *ctx, v->history, "Pinceau");
+            }
+        };
+        if (frameCounter == 4) {
+            Edit e(d, v->history, "Nouveau calque");
+            Id surf = d.AddPixelLayer("Tablette").surface;
+            e.Commit();
+            v->renderer.Prepare(d, *ctx);
+            // 1. Imported TextureBrush (splatter image, then bristles).
+            BrushSettings b = brush;
+            b.size = 70;
+            SelectTip(b, "cy_texture");
+            penStroke(b, 180, {1, 0.85f, 0.3f, 1}, surf);
+            b.tipTextures = {Brushes().Dir() + "/textures/bristles.png"};
+            penStroke(b, 360, {0.3f, 0.9f, 1, 1}, surf);
+            // 2. Graph brush: round tip x brush texture, turned by the tilt and wider when the pen leans.
+            g = EffectGraph::DefaultBrush();
+            g.name = "Feutre incliné";
+            g.tiltAngle = 1;
+            g.tiltSize = 1.2f;
+            g.spacing = 0.08f;
+            Id br = 0, rt = 0, outId = 0;
+            for (auto& n : g.nodes) {
+                if (n.op == "brush") br = n.id;
+                if (n.op == "roundtip") rt = n.id;
+                if (n.op == "output") outId = n.id;
+            }
+            EGNode tx;
+            tx.id = g.nextId++;
+            tx.op = "brushtex";
+            tx.pos = {340, 220};
+            tx.text = "textures/grain.png";
+            tx.name = "Grain";
+            tx.inputs = {{br, 1}};
+            g.nodes.push_back(tx);
+            EGNode mul;
+            mul.id = g.nextId++;
+            mul.op = "mul";
+            mul.pos = {620, 160};
+            mul.inputs = {{rt, 0}, {tx.id, 5}};
+            g.nodes.push_back(mul);
+            // Flatten the tip: local position scaled on y (a felt nib).
+            for (auto& n : g.nodes) {
+                if (n.id == outId) n.inputs[2] = {mul.id, 0};
+                if (n.id == rt) {
+                    EGNode sc;
+                    sc.id = g.nextId++;
+                    sc.op = "mul";
+                    sc.pos = {200, 60};
+                    EGNode k;
+                    k.id = g.nextId++;
+                    k.op = "const2";
+                    k.value = {1, 3, 0, 0};
+                    k.pos = {40, 300};
+                    sc.inputs = {{br, 0}, {k.id, 0}};
+                    n.inputs[0] = {sc.id, 0};
+                    g.nodes.push_back(k);
+                    g.nodes.push_back(sc);
+                    break;
+                }
+            }
+            brush.tipId.clear();
+            brush.tipCode.clear();
+            brush.tipGraph = g.Serialize();
+            if (auto td = TipDef(brush); td && td->def) brush.tipParams = td->def->DefaultParams();
+            BrushSettings gb = brush;
+            gb.size = 46;
+            penStroke(gb, 560, {0.95f, 0.35f, 0.5f, 1}, surf);
+            // 3. Code brush using the pen in Dynamics(): tilt -> angle, rotation, speed.
+            BrushSettings cb = brush;
+            cb.tipGraph.clear();
+            cb.tipCode = R"(//@name Calame
+//@category Essais
+//@spacing 0.04
+float4 Tip(Brush b)
+{
+    float2 p = b.local * float2(1.0, 6.0);
+    return float4(b.color, 1.0 - smoothstep(0.8, 1.0, length(p)));
+}
+void Dynamics(inout Dab d)
+{
+    d.angle = TiltAngle(d) + d.twist;
+    d.radius *= lerp(0.6, 1.4, TiltAmount(d));
+}
+)";
+            cb.size = 50;
+            if (auto td = TipDef(cb); td && td->def) cb.tipParams = td->def->DefaultParams();
+            penStroke(cb, 760, {0.2f, 0.2f, 0.25f, 1}, surf);
+            tool = Tool::Brush;
+            OpenGraphEditor(2);
+        }
+        if (frameCounter == 10 && v->renderer.PadTexture()) {
+            // Pad: one pen stroke drawn with the graph brush.
+            auto td = TipDef(brush);
+            if (td) {
+                BrushSettings b = brush;
+                b.size = 30;
+                BindTipTextures(b, *td);
+                EffectInstance tip;
+                tip.params = b.tipParams;
+                std::vector<Dab> dabs;
+                std::vector<float4> extra;
+                float W = (float)v->renderer.PadTexture()->Width(), H = (float)v->renderer.PadTexture()->Height();
+                v->renderer.PadBeginStroke(*ctx);
+                for (float x = 20; x < W - 20; x += 2.5f) {
+                    float t = (x - 20) / (W - 40);
+                    dabs.push_back({x, H * 0.5f + std::sin(t * 9.0f) * H * 0.25f, b.size * 0.5f, 1.0f});
+                    extra.push_back({1.0f, 0.0f, t, x});
+                    extra.push_back({std::cos(t * 6.28f) * 45.0f, std::sin(t * 6.28f) * 45.0f, 0.0f, 500.0f});
+                }
+                v->renderer.PadStroke(*ctx, *td, tip, b, LinearColor({0.1f, 0.3f, 0.8f, 1}), dabs, extra, false, 0);
+            }
+        }
+        return;
+    }
     if (demoMode == 47 && v && frameCounter == 4) {
         // HLSL import: the popup with an annotated function, or (SX_CREATE) the created effect.
         const char* src =

@@ -3,6 +3,8 @@
 #include "ui/Theme.h"
 #include "doc/Brushes.h"
 #include "doc/HlslImport.h"
+
+#include <filesystem>
 #include "doc/EffectGraph.h"
 
 #include <imgui_internal.h>
@@ -36,7 +38,7 @@ int Rows(const EGOpDef& d) { return std::max<int>((int)std::max(d.inputs.size(),
 
 float NodeH(const EGNode& n, const EGOpDef& d) {
     float extra = (n.op == "const" || n.op == "const2" || n.op == "color" || n.op == "param" || n.op == "paramcolor" || n.op == "param2" ||
-                   n.op == "input" || n.op == "sample" || n.op == "texture" || n.op == "mask" || n.op == "custom")
+                   n.op == "input" || n.op == "sample" || n.op == "texture" || n.op == "mask" || n.op == "custom" || n.op == "brushtex")
                       ? kRowH
                       : 0.0f;
     return kHead + Rows(d) * kRowH + extra + 6;
@@ -48,6 +50,7 @@ std::string ValueText(const EGNode& n) {
     else if (n.op == "const2") snprintf(b, sizeof(b), "%.3g, %.3g", n.value.x, n.value.y);
     else if (n.op == "param" || n.op == "paramcolor" || n.op == "param2") snprintf(b, sizeof(b), "« %s »", (n.text.empty() ? n.name : n.text).c_str());
     else if (n.op == "texture" && !n.name.empty()) snprintf(b, sizeof(b), "Entrée %d (%s)", n.index + 1, n.name.c_str());
+    else if (n.op == "brushtex") snprintf(b, sizeof(b), "Texture %d%s%s", n.index + 1, n.text.empty() ? "" : " : ", n.text.c_str());
     else if (n.op == "input" || n.op == "sample" || n.op == "texture") snprintf(b, sizeof(b), "Entrée %d", n.index + 1);
     else if (n.op == "mask") {
         std::string s;
@@ -131,6 +134,7 @@ void App::DrawEffectEditor() {
     // Code and library items (graphs continue below with their canvas).
     if (ed.target == 2 && brushTarget.tipGraph.empty()) {
         ImGui::BeginChild("##brushcode", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding);
+        if (TipDef(brushTarget)) DrawBrushPad(*v, brushTarget);
         DrawBrushCodeEditor(*v, brushTarget);
         ImGui::EndChild();
         ImGui::End();
@@ -265,6 +269,17 @@ void App::DrawEffectEditor() {
         trackLive(ImGui::SliderFloat("Taille aléatoire", &g.sizeJitter, 0, 1));
         trackLive(ImGui::SliderFloat("Angle aléatoire", &g.angleJitter, 0, 1));
         trackLive(ImGui::SliderFloat("Opacité aléatoire", &g.opacityJitter, 0, 1));
+        ImGui::SeparatorText("Réaction au stylet");
+        trackLive(ImGui::SliderFloat("Inclinaison -> angle", &g.tiltAngle, 0, 1));
+        ui::HelpTooltip("La pointe s'oriente dans la direction où le stylet penche.");
+        trackLive(ImGui::SliderFloat("Inclinaison -> taille", &g.tiltSize, 0, 2));
+        ui::HelpTooltip("Stylet couché : touche plus large (comme un crayon sur la tranche).");
+        trackLive(ImGui::SliderFloat("Rotation -> angle", &g.twistAngle, 0, 1));
+        ui::HelpTooltip("Rotation du stylet sur lui-même (stylets type Art Pen).");
+        trackLive(ImGui::SliderFloat("Vitesse -> taille", &g.speedSize, -1, 1));
+        ui::HelpTooltip("Négatif : plus fin quand on va vite ; positif : plus épais.");
+        ImGui::TextDisabled("Pression : Options > Tablette (taille, flux, courbe).");
+        DrawBrushPad(*v, brushTarget);
     }
     EGNode* sel = g.Find(ed.selected);
     if (sel) {
@@ -292,6 +307,21 @@ void App::DrawEffectEditor() {
                 track(ImGui::ColorEdit4("Défaut", &sel->value.x, ImGuiColorEditFlags_Float));
             }
             ImGui::TextDisabled("Réglable dans Propriétés.");
+        } else if (op == "brushtex") {
+            int idx = sel->index + 1;
+            if (ImGui::SliderInt("Texture", &idx, 1, 4)) { sel->index = idx - 1; changed = true; }
+            track(ImGui::InputText("Libellé", &sel->name));
+            track(ImGui::InputText("Image par défaut", &sel->text));
+            ui::HelpTooltip("Chemin relatif au dossier des pinceaux (ex. textures/grain.png).\nL'utilisateur choisit une autre image dans les réglages du pinceau.");
+            if (ImGui::SmallButton("Bibliothèque")) ImGui::OpenPopup("##btexlib");
+            if (ImGui::BeginPopup("##btexlib")) {
+                std::error_code ec;
+                for (auto& e : std::filesystem::directory_iterator(Utf8Path(Brushes().Dir() + "/textures"), ec)) {
+                    std::string rel = "textures/" + Narrow(e.path().filename().wstring());
+                    if (ImGui::Selectable(rel.c_str(), rel == sel->text)) { sel->text = rel; changed = true; }
+                }
+                ImGui::EndPopup();
+            }
         } else if (op == "input" || op == "sample" || op == "texture") {
             int idx = sel->index + 1;
             if (ImGui::SliderInt("Entrée", &idx, 1, std::max(g.kind == EGKind::Blend ? 3 : g.inputs, 1))) { sel->index = idx - 1; changed = true; }
@@ -1066,6 +1096,95 @@ void App::DrawHlslImportPopup(EffectGraph* g, float2 pos, bool* changed) {
         ImGui::TextColored(ImVec4(1, 0.5f, 0.4f, 1), "%s", hlslImportError.c_str());
     }
     ImGui::EndPopup();
+}
+
+// ------------------------------------------------------------------ brush test pad
+
+void App::DrawBrushPad(DocView& v, BrushSettings& b) {
+    // Paint with the brush being edited (mouse or pen: pressure, tilt, rotation, speed).
+    auto td = TipDef(b);
+    const float h = 150 * dpi;
+    const float w = std::max(120.0f, ImGui::GetContentRegionAvail().x);
+    const u32 pw = (u32)w, ph = (u32)h;
+    if (!pad.ready || !v.renderer.PadTexture() || v.renderer.PadTexture()->Width() != pw || v.renderer.PadTexture()->Height() != ph) {
+        v.renderer.PadClear(*ctx, pw, ph);
+        pad.ready = true;
+    }
+    ImVec2 o = ImGui::GetCursorScreenPos();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    // Light paper behind (dark brushes stay visible), the pad on top.
+    dl->AddRectFilled(o, ImVec2(o.x + w, o.y + h), IM_COL32(236, 234, 228, 255), 4);
+    if (gpu::Texture* t = v.renderer.PadTexture()) dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), o, ImVec2(o.x + w, o.y + h));
+    ImGui::InvisibleButton("##brushpad", ImVec2(w, h));
+    bool hovered = ImGui::IsItemHovered();
+    dl->AddRect(o, ImVec2(o.x + w, o.y + h), hovered ? ui::col::Accent : ui::col::Border, 4);
+    if (!pad.stroking) dl->AddText(ImVec2(o.x + 8, o.y + 6), IM_COL32(90, 90, 100, 255), "Zone d'essai : dessinez ici (souris ou stylet)");
+    if (hovered) {
+        float r = std::max(b.size * 0.5f, 1.0f);
+        ImVec2 m = ImGui::GetIO().MousePos;
+        dl->AddCircle(m, r, IM_COL32(40, 40, 50, 200), 0, 1.0f);
+    }
+    if (!td) return;
+    const bool erase = tool == Tool::Eraser;
+    EffectInstance tip;
+    tip.params = b.tipParams;
+    BrushSettings bound = b;
+    BindTipTextures(bound, *td);
+    float4 color = erase ? float4{1, 1, 1, 1} : LinearColor(fg);
+    const float tipSpacing = td->spacing > 0 ? td->spacing : b.spacing;
+    auto emit = [&](const std::vector<PointerSample>& samples) {
+        std::vector<Dab> dabs;
+        std::vector<float4> extra;
+        for (auto& s : samples) {
+            float2 p{s.x - o.x, s.y - o.y};
+            float pr = s.pen ? PenPressure(s.pressure) : 1.0f;
+            float2 d = p - pad.last;
+            float len = Length(d);
+            float spacing = std::max(1.0f, b.size * std::max(tipSpacing, 0.01f) * (b.pressureSize ? std::max(pr, 0.1f) : 1.0f));
+            float angle = len > 1e-3f ? std::atan2(d.y, d.x) : 0.0f;
+            float t = spacing - pad.remainder;
+            while (t <= len) {
+                float2 q = pad.last + d * (t / std::max(len, 1e-5f));
+                dabs.push_back({q.x, q.y, b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f), b.flow * (b.pressureOpacity ? pr : 1.0f)});
+                extra.push_back({pr, angle, (float)(ImGui::GetTime() - pad.start), pad.dist + t});
+                extra.push_back(PenExtra(s));
+                t += spacing;
+            }
+            pad.remainder = len > 0 ? len - (t - spacing) : pad.remainder;
+            pad.dist += len;
+            if (len > 0) pad.last = p;
+        }
+        if (!dabs.empty() && v.renderer.PadStroke(*ctx, *td, tip, bound, color, dabs, extra, erase, pad.dabs)) pad.dabs += (u32)dabs.size();
+    };
+    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        v.renderer.PadBeginStroke(*ctx);
+        pad.stroking = true;
+        ImVec2 m = ImGui::GetIO().MousePos;
+        pad.last = {m.x - o.x, m.y - o.y};
+        pad.remainder = 0;
+        pad.dist = 0;
+        pad.dabs = 0;
+        pad.start = ImGui::GetTime();
+        PointerSample first = platform::PenActive() ? platform::LastPenSample() : PointerSample{m.x, m.y, 1.0f, false, false};
+        first.x = m.x;
+        first.y = m.y;
+        pad.remainder = b.size * std::max(tipSpacing, 0.01f);  // first dab at the click
+        emit({first});
+    }
+    if (pad.stroking) {
+        std::vector<PointerSample> samples = frameSamples;
+        if (samples.empty()) {
+            PointerSample s = platform::PenActive() ? platform::LastPenSample() : PointerSample{0, 0, 1.0f, false, false};
+            s.x = ImGui::GetIO().MousePos.x;
+            s.y = ImGui::GetIO().MousePos.y;
+            samples.push_back(s);
+        }
+        emit(samples);
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) pad.stroking = false;
+    }
+    if (ImGui::SmallButton("Effacer la zone d'essai")) v.renderer.PadClear(*ctx, pw, ph);
+    ImGui::SameLine();
+    ImGui::TextDisabled("%s", platform::PenActive() ? platform::TabletStatus().c_str() : "Souris : pression 1, sans inclinaison");
 }
 
 }  // namespace sx

@@ -12,6 +12,8 @@
 #include <fstream>
 #include <map>
 
+#include <stb_image.h>
+
 namespace sx {
 
 namespace {
@@ -30,6 +32,111 @@ std::string Slug(const std::string& name) {
     return s.empty() ? "pinceau" : s;
 }
 }  // namespace
+
+std::string App::TipTexturePath(const BrushSettings& b, const BrushDef& td, size_t i) const {
+    if (i < b.tipTextures.size() && !b.tipTextures[i].empty()) return b.tipTextures[i];
+    if (i >= td.textures.size() || td.textures[i].path.empty()) return "";
+    std::filesystem::path p = Utf8Path(td.textures[i].path);
+    return p.is_absolute() ? td.textures[i].path : Brushes().Dir() + "/" + td.textures[i].path;
+}
+
+gpu::Texture* App::BrushTexture(const std::string& path) {
+    if (path.empty()) return nullptr;
+    auto it = brushTextures.find(path);
+    if (it != brushTextures.end()) return it->second.get();
+    gpu::TexturePtr tex;
+    FILE* f = nullptr;
+    if (_wfopen_s(&f, Widen(path).c_str(), L"rb") == 0 && f) {
+        int w = 0, h = 0, comp = 0;
+        stbi_uc* px = stbi_load_from_file(f, &w, &h, &comp, 4);
+        fclose(f);
+        if (px && w > 0 && h > 0) {
+            tex = gpu::Dev().CreateTexture((u32)w, (u32)h, gpu::Format::RGBA8, "BrushTexture");
+            if (comp < 4) {
+                // Images without alpha: the luminance is the shape (white = paint).
+                for (int k = 0; k < w * h; ++k) {
+                    stbi_uc* q = px + k * 4;
+                    q[3] = (stbi_uc)((q[0] * 54 + q[1] * 183 + q[2] * 19) >> 8);
+                }
+            }
+            ctx->Upload(tex.get(), px, (u32)w * 4);
+        }
+        if (px) stbi_image_free(px);
+    }
+    if (!tex) Status("Texture de pinceau illisible : " + path);
+    return (brushTextures[path] = tex).get();
+}
+
+void App::BindTipTextures(BrushSettings& b, const BrushDef& td) {
+    b.tipTexBound = {};
+    for (size_t i = 0; i < td.textures.size() && i < 4; ++i) b.tipTexBound[i] = BrushTexture(TipTexturePath(b, td, i));
+}
+
+u64 App::BrushPreviewVersion(const BrushSettings& b, const BrushDef& td) const {
+    u64 h = std::hash<std::string>{}(td.text);
+    auto mix = [&](const void* p, size_t n) {
+        const unsigned char* c = (const unsigned char*)p;
+        for (size_t i = 0; i < n; ++i) h = (h ^ c[i]) * 1099511628211ull;
+    };
+    if (!b.tipParams.empty()) mix(b.tipParams.data(), b.tipParams.size() * sizeof(float4));
+    for (auto* t : b.tipTexBound) mix(&t, sizeof(t));
+    mix(&b.size, sizeof(float) * 4);
+    mix(&fg, sizeof(fg));
+    return h;
+}
+
+bool App::TipTexturesUI(BrushSettings& b, const BrushDef& td) {
+    // One row per //@texture slot: thumbnail, choose an image, back to the default.
+    bool changed = false;
+    if (td.textures.empty()) return false;
+    ImGui::SeparatorText("Textures du pinceau");
+    for (size_t i = 0; i < td.textures.size() && i < 4; ++i) {
+        ImGui::PushID((int)i);
+        std::string path = TipTexturePath(b, td, i);
+        float s = ImGui::GetFrameHeight() * 2;
+        if (gpu::Texture* t = BrushTexture(path)) {
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddRectFilled(p, ImVec2(p.x + s, p.y + s), IM_COL32(40, 40, 48, 255), 3);
+            ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(t), ImVec2(s, s));
+        } else {
+            ImGui::Dummy(ImVec2(s, s));
+        }
+        ImGui::SameLine();
+        ImGui::BeginGroup();
+        ImGui::TextUnformatted(td.textures[i].label.c_str());
+        ImGui::TextDisabled("%s", path.empty() ? "aucune image (blanc)" : Narrow(Utf8Path(path).filename().wstring()).c_str());
+        if (ImGui::SmallButton("Image...")) {
+            std::string pick = platform::OpenFileDialog(hwnd, L"Images\0*.png;*.jpg;*.jpeg;*.tga;*.bmp\0");
+            if (!pick.empty()) {
+                if (b.tipTextures.size() <= i) b.tipTextures.resize(i + 1);
+                b.tipTextures[i] = pick;
+                changed = true;
+            }
+        }
+        ImGui::SameLine();
+        // Images shipped with the brushes (textures folder).
+        if (ImGui::SmallButton("Bibliothèque")) ImGui::OpenPopup("##texlib");
+        if (ImGui::BeginPopup("##texlib")) {
+            std::error_code ec;
+            for (auto& e : std::filesystem::directory_iterator(Utf8Path(Brushes().Dir() + "/textures"), ec)) {
+                std::string full = Narrow(e.path().wstring());
+                if (ImGui::Selectable(Narrow(e.path().filename().wstring()).c_str(), full == path)) {
+                    if (b.tipTextures.size() <= i) b.tipTextures.resize(i + 1);
+                    b.tipTextures[i] = full;
+                    changed = true;
+                }
+            }
+            ImGui::EndPopup();
+        }
+        if (i < b.tipTextures.size() && !b.tipTextures[i].empty()) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Défaut")) { b.tipTextures[i].clear(); changed = true; }
+        }
+        ImGui::EndGroup();
+        ImGui::PopID();
+    }
+    return changed;
+}
 
 BrushDefPtr App::TipDef(const BrushSettings& b) {
     if (!b.tipGraph.empty()) {
@@ -60,6 +167,7 @@ void App::SelectTip(BrushSettings& b, const std::string& id) {
     b.tipCode.clear();
     b.tipGraph.clear();
     b.tipParams.clear();
+    b.tipTextures.clear();
     if (auto td = Brushes().Find(id)) {
         if (td->def) b.tipParams = td->def->DefaultParams();
         if (td->def && !td->def->graph.empty()) b.tipGraph = td->def->graph;  // saved from the graph editor
@@ -150,10 +258,11 @@ void App::DrawBrushPanel() {
         float w = ImGui::GetContentRegionAvail().x, h = 90 * dpi;
         EffectInstance tip;
         tip.params = b.tipParams;
+        BindTipTextures(b, *td);
         BrushSettings ps = b;
         ps.size = std::min(b.size, h * 0.4f);
         if (gpu::Texture* t = v->renderer.BrushPreview(*ctx, *td, tip, ps, LinearColor(fg), (u32)w, (u32)h, &err)) {
-            gpu::Texture* th = v->renderer.Thumbnail(*ctx, (1ull << 59) | 2, t, std::hash<std::string>{}(td->text) ^ (u64)w ^ ((u64)h << 20), (u32)w, (u32)h);
+            gpu::Texture* th = v->renderer.Thumbnail(*ctx, (1ull << 59) | 2, t, BrushPreviewVersion(ps, *td) ^ (u64)w ^ ((u64)h << 20), (u32)w, (u32)h);
             ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(th), ImVec2(w, h));
         }
     }
@@ -168,6 +277,7 @@ void App::DrawBrushPanel() {
         fx.params = b.tipParams;
         if (EffectParamsUI(fx, "tippanel")) b.tipParams = fx.params;
     }
+    TipTexturesUI(b, *td);
     // Code / graph: edited in the effect editor (a copy, the library stays untouched).
     if (ImGui::Button("Éditer")) OpenGraphEditor(2);
     ui::HelpTooltip("Ouvre le pinceau dans l'Éditeur d'effets (code ou graphe).");

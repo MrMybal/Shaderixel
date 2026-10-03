@@ -1207,6 +1207,7 @@ void App::DrawBrush() {
             fx.customCode = td->text;
             fx.params = b.tipParams;
             if (EffectParamsUI(fx, "tip")) b.tipParams = fx.params;
+            TipTexturesUI(b, *td);
             if (ImGui::SmallButton("Modifier le code du pinceau")) ImGui::SetWindowFocus("Pinceaux");
             if (td->airbrush > 0) {
                 ImGui::SameLine();
@@ -1219,10 +1220,11 @@ void App::DrawBrush() {
             float w = ImGui::GetContentRegionAvail().x, h = 70 * dpi;
             EffectInstance tip;
             tip.params = b.tipParams;
+            BindTipTextures(b, *td);
             BrushSettings ps = b;
             ps.size = std::min(b.size, h * 0.4f / dpi * dpi);
             if (gpu::Texture* t = v->renderer.BrushPreview(*ctx, *td, tip, ps, LinearColor(fg), (u32)w, (u32)h, &err)) {
-                gpu::Texture* th = v->renderer.Thumbnail(*ctx, (1ull << 59) | 1, t, std::hash<std::string>{}(td->text) ^ (u64)w, (u32)w, (u32)h);
+                gpu::Texture* th = v->renderer.Thumbnail(*ctx, (1ull << 59) | 1, t, BrushPreviewVersion(ps, *td) ^ (u64)w, (u32)w, (u32)h);
                 ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(th), ImVec2(w, h));
             }
             if (!err.empty()) ImGui::TextColored(ImVec4(1, 0.45f, 0.45f, 1), "%s", err.substr(0, 300).c_str());
@@ -1254,7 +1256,36 @@ void App::DrawBrush() {
         ImGui::SeparatorText("Tablette");
         ImGui::Checkbox("Pression -> taille", &b.pressureSize);
         ImGui::Checkbox("Pression -> flux", &b.pressureOpacity);
-        ImGui::TextDisabled(platform::PenActive() ? "Stylet détecté (pression %.2f)" : "Souris", platform::LastPressure());
+        {
+            // Driver API: Windows Ink (default) or Wintab (Wacom-style drivers with Windows Ink disabled).
+            int api = (int)platform::GetTabletApi();
+            if (ImGui::Combo("Pilote", &api, "Windows Ink\0Wintab\0")) {
+                if (!platform::SetTabletApi((platform::TabletApi)api)) Status("Wintab indisponible (wintab32.dll absent) : Windows Ink conservé");
+                SaveAiSettings();
+            }
+            ui::HelpTooltip("Windows Ink : pilote standard de Windows.\nWintab : pilotes Wacom / Huion / XP-Pen avec « Windows Ink » désactivé.");
+            if (ImGui::SliderFloat("Courbe de pression", &penPressureGamma, 0.3f, 3.0f, "%.2f", ImGuiSliderFlags_Logarithmic)) {}
+            if (ImGui::IsItemDeactivatedAfterEdit()) SaveAiSettings();
+            ui::HelpTooltip("< 1 : plus sensible (peu de force suffit), > 1 : plus ferme.");
+            // Curve preview.
+            ImVec2 p = ImGui::GetCursorScreenPos();
+            float w = std::min(ImGui::GetContentRegionAvail().x, 140 * dpi), hh = 50 * dpi;
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            dl->AddRectFilled(p, ImVec2(p.x + w, p.y + hh), IM_COL32(20, 20, 24, 255), 3);
+            ImVec2 prev(p.x, p.y + hh);
+            for (int i = 1; i <= 24; ++i) {
+                float x = i / 24.0f;
+                ImVec2 q(p.x + x * w, p.y + hh * (1 - PenPressure(x)));
+                dl->AddLine(prev, q, ui::col::Accent, 1.5f);
+                prev = q;
+            }
+            if (platform::PenActive()) {
+                float x = platform::LastPressure();
+                dl->AddCircleFilled(ImVec2(p.x + x * w, p.y + hh * (1 - PenPressure(x))), 3.5f, IM_COL32_WHITE);
+            }
+            ImGui::Dummy(ImVec2(w, hh));
+            ImGui::TextDisabled("%s", platform::PenActive() ? platform::TabletStatus().c_str() : "Souris (aucun stylet détecté)");
+        }
     } else if (tool == Tool::Bucket) {
         ImGui::SeparatorText("Pot de peinture");
         ImGui::SliderFloat("Tolérance", &bucketTolerance, 0, 255, "%.0f");

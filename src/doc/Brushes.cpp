@@ -33,6 +33,8 @@ const char* kBrushTemplate =
     "}\n"
     "\n"
     "// Facultatif : comment chaque touche est posée (décommentez ce qui vous intéresse).\n"
+    "// Stylet : d.pressure, d.tilt (inclinaison x/y en degrés), d.twist (rotation, radians),\n"
+    "// d.speed (pixels/s), TiltAmount(d) 0..1, TiltAngle(d).\n"
     "// //@extent 2 si les touches peuvent s'écarter du trait ou grossir.\n"
     "// //@airbrush 30 pour peindre en continu (touches par seconde) quand on reste appuyé.\n"
     "void Dynamics(inout Dab d)\n"
@@ -42,6 +44,10 @@ const char* kBrushTemplate =
     "    // d.radius *= lerp(0.6, 1.2, Rand(d.seed, 1));        // taille aléatoire\n"
     "    // d.opacity *= lerp(0.5, 1.0, Rand(d.seed, 2));       // opacité aléatoire\n"
     "    // d.angle += d.time * 6.0;                             // rotation dans le temps\n"
+    "    // d.angle = TiltAngle(d);                              // suit l'inclinaison du stylet\n"
+    "    // d.radius *= lerp(1.0, 1.8, TiltAmount(d));          // plus large quand le stylet est couché\n"
+    "    // d.angle += d.twist;                                  // rotation du stylet (Art Pen)\n"
+    "    // d.radius *= lerp(1.0, 0.5, saturate(d.speed / 3000.0)); // plus fin quand on va vite\n"
     "}\n";
 
 BrushDefPtr ParseBrush(const std::string& id, const std::string& text) {
@@ -59,6 +65,23 @@ BrushDefPtr ParseBrush(const std::string& id, const std::string& text) {
         else if (key == "airbrush") t >> b->airbrush;
         else if (key == "extent") t >> b->extent;
         else if (key == "selfflow") b->selfFlow = true;
+        else if (key == "texture" && b->textures.size() < 4) {
+            // //@texture Name "Label" path
+            BrushTextureDecl tx;
+            t >> tx.name;
+            std::string rest;
+            std::getline(t, rest);
+            size_t q0 = rest.find('"'), q1 = q0 == std::string::npos ? q0 : rest.find('"', q0 + 1);
+            if (q1 != std::string::npos) {
+                tx.label = rest.substr(q0 + 1, q1 - q0 - 1);
+                rest = rest.substr(q1 + 1);
+            }
+            rest.erase(0, rest.find_first_not_of(" \t"));
+            while (!rest.empty() && (rest.back() == '\r' || rest.back() == ' ')) rest.pop_back();
+            tx.path = rest;
+            if (tx.label.empty()) tx.label = tx.name;
+            if (!tx.name.empty()) b->textures.push_back(tx);
+        }
     }
     b->extent = std::clamp(b->extent, 1.0f, 16.0f);
     b->dynamics = text.find("Dynamics(") != std::string::npos;
@@ -72,8 +95,9 @@ std::string BuildBrushSource(const BrushDef& b) {
     s += "    float4 gColor;          // brush color, linear straight\n";
     s += "    float4 gBrushSettings;  // opacity, hardness, flow\n";
     s += EffectParamFields(def);
-    s += "    float4 gDabs[" + std::to_string(kMaxBrushDabs * 2) + "];\n};\n\n";
+    s += "    float4 gDabs[" + std::to_string(kMaxBrushDabs * 3) + "];\n};\n\n";
     if (b.dynamics) s += "#define SX_DYNAMICS 1\n";
+    for (size_t i = 0; i < b.textures.size(); ++i) s += "static const uint " + b.textures[i].name + " = " + std::to_string(i) + "u;\n";
     if (b.selfFlow) s += "#define SX_SELFFLOW 1\n";
     s += "#line 1\n";
     s += def.body;
@@ -81,7 +105,7 @@ std::string BuildBrushSource(const BrushDef& b) {
 
 Dab SXLoadDab(uint i)
 {
-    float4 a = gDabs[i * 2], e = gDabs[i * 2 + 1];
+    float4 a = gDabs[i * 3], e = gDabs[i * 3 + 1], pen = gDabs[i * 3 + 2];
     Dab d;
     d.pos = a.xy;
     d.radius = a.z;
@@ -94,6 +118,9 @@ Dab SXLoadDab(uint i)
     d.seed = Hash1(float(d.index) * 0.6180339 + 0.5);
     d.angle = 0.0;
     d.color = gColor.rgb;
+    d.tilt = pen.xy;
+    d.twist = pen.z;
+    d.speed = pen.w;
     return d;
 }
 
@@ -131,6 +158,9 @@ void main(uint3 id : SV_DispatchThreadID)
         b.time = d.time;
         b.distance = d.distance;
         b.direction = d.direction;
+        b.tilt = d.tilt;
+        b.twist = d.twist;
+        b.speed = d.speed;
         float4 t = Tip(b);
 #ifdef SX_SELFFLOW
         float c = saturate(t.a);

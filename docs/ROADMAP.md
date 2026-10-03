@@ -85,7 +85,10 @@
 - Panneau « Pinceaux » : liste par catégories + recherche, aperçu de trait, éditeur de code (Ctrl+Entrée), nouveau pinceau depuis un modèle, enregistrement dans la bibliothèque : **fait**
 - 4 exemples (plume, aérographe, fusain, dispersion d'étoiles) + 33 pinceaux CyTexture ; `--test-effects` compile aussi les pinceaux, démo `--demo brushes` : **fait**
 - Pinceaux en graphe (éditeur visuel : nœud « Touche du pinceau », pointe ronde, aléatoire par touche ; placement : espacement, aérographe, suivre le trait, dispersion, taille/angle/opacité aléatoires), enregistrables (graphe conservé `//@graph`) : **fait**
-- À venir : textures d'entrée pour les pinceaux (TextureBrush), gomme/masque avec pointes programmables testés en profondeur
+- Textures de pinceau (`//@texture Nom "Libellé" textures/image.png`, jusqu'à 4, lues par `BrushTex(Nom, uv)` / `Texture2DSample`) ; images choisies dans les réglages du pinceau (fichier ou bibliothèque `shaders/brushes/textures`) ; nœud « Texture du pinceau » dans les graphes ; TextureBrush de CyTexture importé (34/34) : **fait**
+- Tablette : Windows Ink ou Wintab (Options > Tablette), pression avec courbe réglable, inclinaison, rotation du stylet, vitesse transmises aux pinceaux (`d.tilt`, `d.twist`, `d.speed`, `TiltAmount`, `TiltAngle`) ; réactions réglables dans les graphes de pinceau (inclinaison -> angle / taille, rotation -> angle, vitesse -> taille) ; zone d'essai dans l'éditeur de pinceau : **fait** (Wintab non testé sans pilote installé)
+- Correction : positions de peinture en coordonnées écran avec le multi-fenêtres (décalage de la barre de titre)
+- À venir : gomme/masque avec pointes programmables testés en profondeur
 
 ### Import CyTexture
 - 182 presets de CyTexture importés (Dessin 31, Effets 92, Fusions 47, Masques 12) depuis les définitions de `CyTextureMaterialPresetGenerator.cpp` (lu, jamais modifié) : `tools/cytexture/extract_presets.py` puis `convert_presets.py` ; chaque texture devient une entrée de nœud, les 221 effets compilent. Fusions utilisables comme mode de fusion de calque (« Fusions d'effets »). « Advanced » : 93 sur 94 importés via `tools/unreal` (export depuis l’éditeur Unreal, graphes de matériau et de fonctions traduits) ; pinceaux : 33 sur 34 importés en pinceaux programmables (`tools/cytexture/convert_brushes.py`, reste TextureBrush qui lit une texture)

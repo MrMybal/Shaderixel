@@ -305,6 +305,30 @@ private:
     void CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hovered);
     void PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSample>& samples, bool release);
     void EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<float4>* extra = nullptr);
+    // Tablet: pressure curve (exponent) and the pen state of each dab.
+    float penPressureGamma = 1.0f;
+    float strokeSpeed = 0;     // document pixels / second (smoothed)
+    double lastSampleTime = 0;
+    // Brush textures (//@texture): images loaded once per path; bound into BrushSettings::tipTexBound.
+    std::map<std::string, gpu::TexturePtr> brushTextures;
+    gpu::Texture* BrushTexture(const std::string& path);
+    void BindTipTextures(BrushSettings& b, const struct BrushDef& td);
+    std::string TipTexturePath(const BrushSettings& b, const struct BrushDef& td, size_t i) const;
+    bool TipTexturesUI(BrushSettings& b, const struct BrushDef& td);
+    u64 BrushPreviewVersion(const BrushSettings& b, const struct BrushDef& td) const;
+    std::vector<PointerSample> frameSamples;  // pointer samples of this frame (canvas, 3D view, brush pad)
+    struct {
+        bool stroking = false, ready = false;
+        float2 last;
+        float remainder = 0, dist = 0;
+        double start = 0;
+        u32 dabs = 0;
+    } pad;
+    void DrawBrushPad(DocView& v, BrushSettings& b);
+    float PenPressure(float raw) const { return std::pow(std::clamp(raw, 0.0f, 1.0f), penPressureGamma); }
+    float4 PenExtra(const PointerSample& s) const {  // tilt x, tilt y (deg), rotation (rad), speed
+        return s.pen ? float4{s.tiltX, s.tiltY, s.twist * 0.01745329f, strokeSpeed} : float4{0, 0, 0, strokeSpeed};
+    }
     BrushSettings& CurrentBrush() { return tool == Tool::Eraser ? eraser : IsRetouchTool(tool) ? retouch : brush; }
     float2 ScreenToDoc(const DocView& v, ImVec2 canvasMin, ImVec2 p) const;
     float4 LinearColor(const float4& srgb) const;

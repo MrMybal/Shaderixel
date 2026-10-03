@@ -49,13 +49,16 @@ void Renderer::RunBrush(gpu::CommandContext& ctx, const gpu::ComputePipeline* pi
     for (size_t start = 0; start < dabs.size(); start += kMaxBrushDabs) {
         size_t count = std::min<size_t>(kMaxBrushDabs, dabs.size() - start);
         std::vector<float4> cb = params;
-        cb.resize(params.size() + kMaxBrushDabs * 2);
+        cb.resize(params.size() + kMaxBrushDabs * 3);
         std::vector<Dab> bounds;
         Rect r;
+        const bool pen = !dabs.empty() && extra.size() >= dabs.size() * 2;  // interleaved (stroke, pen) per dab
         for (size_t i = 0; i < count; ++i) {
             const Dab& d = dabs[start + i];
-            cb[params.size() + i * 2] = {d.x, d.y, d.radius, d.alpha};
-            cb[params.size() + i * 2 + 1] = start + i < extra.size() ? extra[start + i] : float4{1, 0, 0, 0};
+            size_t k = start + i;
+            cb[params.size() + i * 3] = {d.x, d.y, d.radius, d.alpha};
+            cb[params.size() + i * 3 + 1] = pen ? extra[k * 2] : k < extra.size() ? extra[k] : float4{1, 0, 0, 0};
+            cb[params.size() + i * 3 + 2] = pen ? extra[k * 2 + 1] : float4{0, 0, 0, 0};
             float rr = d.radius * reach + 2;
             bounds.push_back({d.x, d.y, rr, 0});
             r.Merge(Rect{(int)std::floor(d.x - rr), (int)std::floor(d.y - rr), (int)std::ceil(d.x + rr), (int)std::ceil(d.y + rr)});
@@ -70,13 +73,19 @@ void Renderer::RunBrush(gpu::CommandContext& ctx, const gpu::ComputePipeline* pi
         d.uav[0] = t.layer;
         d.uav[1] = t.mask;
         d.uav[2] = t.color;
+        u32 texBits = 0;
+        for (int k = 0; k < 4; ++k)
+            if (s.tipTexBound[k]) {
+                d.srv[2 + k] = s.tipTexBound[k];
+                texBits |= 4u << k;
+            }
         if (erase) d.uavNoMap |= 1;
         MapDabs(d, 7, (const float4*)bounds.data(), bounds.size(), sizeof(Dab), 0);
         BrushProgRoot root = {r.x0, r.y0, (u32)r.Width(), (u32)r.Height(), t.w, t.h, (u32)count, base + (u32)start,
-                              erase ? 1u : 0u, (t.sel ? 1u : 0u) | (t.preview ? 2u : 0u)};
+                              erase ? 1u : 0u, (t.sel ? 1u : 0u) | (t.preview ? 2u : 0u) | texBits};
         SetConstants(d, root);
         d.cbData = cb.data();
-        d.cbSize = (params.size() + count * 2) * sizeof(float4);
+        d.cbSize = (params.size() + count * 3) * sizeof(float4);
         Dispatch2D(ctx, d, (u32)r.Width(), (u32)r.Height());
     }
 }
@@ -127,6 +136,7 @@ gpu::Texture* Renderer::BrushPreview(gpu::CommandContext& ctx, const BrushDef& b
     hh.Pod(color);
     hh.Pod(w);
     hh.Pod(h);
+    for (auto* tx : s.tipTexBound) hh.Pod(tx);
     if (previewHash == hh.h && previewLayer) return previewLayer.get();
     Ensure(previewLayer, w, h, gpu::Format::RGBA16F, "BrushPreview");
     Ensure(previewMask, w, h, gpu::Format::R32F, "BrushPreviewMask");
@@ -166,12 +176,59 @@ gpu::Texture* Renderer::BrushPreview(gpu::CommandContext& ctx, const BrushDef& b
         float2 dir = p - prev;
         dabs.push_back({p.x, p.y, rad, alpha});
         extra.push_back({pressure, std::atan2(dir.y, dir.x), u * 1.5f, dist});
+        extra.push_back({std::sin(u * 6.2831853f) * 40.0f, 20.0f, u * 3.14159265f, 600.0f});  // preview: some tilt and rotation
         prev = p;
     }
     BrushTargets t{nullptr, nullptr, previewLayer.get(), previewMask.get(), previewColor.get(), w, h, true};
     RunBrush(ctx, pipe, b, tip, dabs, extra, 0, s, color, false, t, nullptr);
     previewHash = hh.h;
     return previewLayer.get();
+}
+
+// ------------------------------------------------------------------ test pad
+
+void Renderer::PadClear(gpu::CommandContext& ctx, u32 w, u32 h) {
+    Ensure(padLayer, w, h, gpu::Format::RGBA16F, "BrushPad");
+    Ensure(padPre, w, h, gpu::Format::RGBA16F, "BrushPadPre");
+    Ensure(padMask, w, h, gpu::Format::R32F, "BrushPadMask");
+    Ensure(padColor, w, h, gpu::Format::RGBA16F, "BrushPadColor");
+    auto* clear = Kernel("clear.slang");
+    if (!clear) return;
+    for (gpu::Texture* t : {padLayer.get(), padPre.get()}) {
+        gpu::DispatchDesc c;
+        c.pipeline = clear;
+        c.uav[0] = t;
+        SetConstants(c, ClearRootB{0, 0, w, h, {0, 0, 0, 0}});
+        Dispatch2D(ctx, c, w, h);
+    }
+}
+
+void Renderer::PadBeginStroke(gpu::CommandContext& ctx) {
+    if (!padLayer) return;
+    const u32 w = padLayer->Width(), h = padLayer->Height();
+    ctx.CopyTexture(padPre.get(), padLayer.get());
+    auto* clear = Kernel("clear.slang");
+    auto* clearR = Kernel("clear_r.slang");
+    if (!clear || !clearR) return;
+    gpu::DispatchDesc c;
+    c.pipeline = clear;
+    c.uav[0] = padColor.get();
+    SetConstants(c, ClearRootB{0, 0, w, h, {0, 0, 0, 0}});
+    Dispatch2D(ctx, c, w, h);
+    gpu::DispatchDesc m;
+    m.pipeline = clearR;
+    m.uav[0] = padMask.get();
+    SetConstants(m, ClearRRootB{w, h, 0.0f});
+    Dispatch2D(ctx, m, w, h);
+}
+
+bool Renderer::PadStroke(gpu::CommandContext& ctx, const BrushDef& b, const EffectInstance& tip, const BrushSettings& s, float4 color,
+                         const std::vector<Dab>& dabs, const std::vector<float4>& extra, bool erase, u32 dabBase) {
+    const gpu::ComputePipeline* pipe = BrushPipeline(b);
+    if (!pipe || !padLayer || dabs.empty()) return false;
+    BrushTargets t{padPre.get(), nullptr, padLayer.get(), padMask.get(), padColor.get(), padLayer->Width(), padLayer->Height(), false};
+    RunBrush(ctx, pipe, b, tip, dabs, extra, dabBase, s, color, erase, t, nullptr);
+    return true;
 }
 
 }  // namespace sx

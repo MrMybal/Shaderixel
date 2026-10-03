@@ -134,7 +134,7 @@ void App::DrawView3D() {
     MeshPrepare3D(*v);
 
     // Painting
-    std::vector<PointerSample> samples = platform::TakeSamples();
+    std::vector<PointerSample> samples = frameSamples;
     Id target = doc.PaintTarget();
     bool paintTool = tool == Tool::Brush || tool == Tool::Eraser;
     auto local = [&](float x, float y) { return float2{x - origin.x, y - origin.y}; };
@@ -146,7 +146,7 @@ void App::DrawView3D() {
             meshLastDab = p;
             meshDabRemainder = 0;
             const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
-            float pr = platform::PenActive() ? platform::LastPressure() : 1.0f;
+            float pr = platform::PenActive() ? PenPressure(platform::LastPressure()) : 1.0f;
             v->renderer.MeshStrokeDabs(doc, *ctx, s, {{p.x, p.y, b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f), b.flow}}, b,
                                        PaintColor(doc), tool == Tool::Eraser);
         }
@@ -158,7 +158,7 @@ void App::DrawView3D() {
         float spacing = std::max(1.0f, b.size * std::max(b.spacing, 0.02f));
         for (auto& sm : samples) {
             float2 p = local(sm.x, sm.y);
-            float pr = sm.pen ? sm.pressure : 1.0f;
+            float pr = sm.pen ? PenPressure(sm.pressure) : 1.0f;
             float2 d = p - meshLastDab;
             float len = Length(d);
             float t = spacing - meshDabRemainder;

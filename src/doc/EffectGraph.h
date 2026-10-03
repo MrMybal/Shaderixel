@@ -65,6 +65,8 @@ struct EffectGraph {
     bool premultiplied = false;
     // Brushes: placement of the dabs (generated Dynamics()).
     float spacing = 0.1f, airbrush = 0, follow = 0, scatter = 0, sizeJitter = 0, angleJitter = 0, opacityJitter = 0;
+    // Brushes: reaction to the pen (tablet): tilt direction -> angle, tilt -> size, barrel rotation -> angle, speed -> size.
+    float tiltAngle = 0, tiltSize = 0, twistAngle = 0, speedSize = 0;
     std::vector<EGNode> nodes;
     Id nextId = 1;
 

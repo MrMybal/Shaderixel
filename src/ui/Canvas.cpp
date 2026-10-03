@@ -318,7 +318,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     ImGuiIO& io = ImGui::GetIO();
     Document& doc = *v.doc;
     ImVec2 mouse = io.MousePos;
-    std::vector<PointerSample> samples = platform::TakeSamples();
+    std::vector<PointerSample> samples = frameSamples;
 
     // Zoom with the wheel around the cursor.
     if (hovered && io.MouseWheel != 0.0f) {
@@ -454,7 +454,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
                 }
             }
             if (!samples.empty() && samples.back().pen && samples.back().eraser) strokeErase = true;
-            float pressure = platform::PenActive() ? platform::LastPressure() : 1.0f;
+            float pressure = platform::PenActive() ? PenPressure(platform::LastPressure()) : 1.0f;
             float2 start = dp;
             if (io.KeyShift && haveStrokeEnd) start = lastStrokeEnd;  // Shift+click: straight line
             smoothPos = lastDabPos = start;
@@ -471,7 +471,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
             strokeDist = 0;
             dabCounter = 0;
             airAccum = 0;
-            std::vector<float4> extra{{pressure, lastDirAngle, 0.0f, 0.0f}};
+            strokeSpeed = 0;
+            lastSampleTime = 0;
+            std::vector<float4> extra{{pressure, lastDirAngle, 0.0f, 0.0f}, PenExtra(platform::LastPenSample())};
+            if (!platform::PenActive()) extra[1] = {0, 0, 0, 0};
             EmitDabs(v, dabs, &extra);
             if (io.KeyShift && haveStrokeEnd) {
                 samples.insert(samples.begin(), first.begin(), first.end());
@@ -481,7 +484,12 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (stroking) {
         bool release = !ImGui::IsMouseDown(ImGuiMouseButton_Left);
-        if (samples.empty()) samples.push_back({mouse.x, mouse.y, platform::PenActive() ? platform::LastPressure() : 1.0f, platform::PenActive(), false});
+        if (samples.empty()) {
+            PointerSample s = platform::PenActive() ? platform::LastPenSample() : PointerSample{0, 0, 1.0f, false, false};
+            s.x = mouse.x;
+            s.y = mouse.y;
+            samples.push_back(s);
+        }
         PaintSamples(v, canvasMin, samples, release);
         // Airbrush brushes keep painting at the cursor while the button is held.
         if (!release && (tool == Tool::Brush || tool == Tool::Eraser))
@@ -494,6 +502,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
                     float rad = b.size * 0.5f * (b.pressureSize ? std::max(lastPressure, 0.05f) : 1.0f);
                     dabs.push_back({smoothPos.x, smoothPos.y, rad, b.flow * (b.pressureOpacity ? lastPressure : 1.0f)});
                     extra.push_back({lastPressure, lastDirAngle, (float)(ImGui::GetTime() - strokeStart), strokeDist});
+                    extra.push_back(platform::PenActive() ? PenExtra(platform::LastPenSample()) : float4{0, 0, 0, 0});
                 }
                 if (!dabs.empty()) EmitDabs(v, dabs, &extra);
             }
@@ -512,7 +521,8 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
 void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSample>& samples, bool release) {
     const BrushSettings& b = strokeErase ? eraser : CurrentBrush();
     std::vector<Dab> dabs;
-    std::vector<float4> extra;  // pressure, direction angle, time, distance (programmable brushes)
+    std::vector<float4> extra;  // per dab: (pressure, direction angle, time, distance), (tilt x, tilt y, rotation, speed)
+    float4 pen = {0, 0, 0, 0};
     const float now = (float)(ImGui::GetTime() - strokeStart);
     auto tipDef = TipDef(b);
     const float tipSpacing = tipDef && tipDef->spacing > 0 ? tipDef->spacing : b.spacing;
@@ -531,6 +541,7 @@ void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSa
             float alpha = b.flow * (b.pressureOpacity ? pr : 1.0f);
             dabs.push_back({p.x, p.y, rad, alpha});
             extra.push_back({pr, lastDirAngle, now, strokeDist + t});
+            extra.push_back(pen);
             t += spacing;
         }
         strokeDist += len;
@@ -544,7 +555,14 @@ void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSa
     };
     for (const auto& s : samples) {
         float2 p = ScreenToDoc(v, canvasMin, ImVec2(s.x, s.y));
-        float pressure = s.pen ? s.pressure : 1.0f;
+        float pressure = s.pen ? PenPressure(s.pressure) : 1.0f;
+        // Speed (document pixels / second), smoothed over a few samples.
+        if (lastSampleTime > 0 && s.time > lastSampleTime) {
+            float inst = Length(p - smoothPos) / (float)std::max(s.time - lastSampleTime, 1e-4);
+            strokeSpeed += (std::min(inst, 20000.0f) - strokeSpeed) * 0.3f;
+        }
+        if (s.time > 0) lastSampleTime = s.time;
+        pen = PenExtra(s);
         // Exponential smoothing (lazy brush).
         smoothPos = smoothPos + (p - smoothPos) * (1.0f - smooth);
         emitTo(smoothPos, pressure);
@@ -582,8 +600,10 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
             // Programmable tip: shape, color and placement come from the brush code.
             EffectInstance tip;
             tip.params = bs.tipParams;
+            BrushSettings bound = bs;
+            BindTipTextures(bound, *td);
             static const std::vector<float4> none;
-            if (v.renderer.StrokeProgram(doc, *ctx, dabs, extra ? *extra : none, *td, tip, bs, color, strokeErase, dabCounter)) {
+            if (v.renderer.StrokeProgram(doc, *ctx, dabs, extra ? *extra : none, *td, tip, bound, color, strokeErase, dabCounter)) {
                 dabCounter += (u32)dabs.size();
                 return;
             }
