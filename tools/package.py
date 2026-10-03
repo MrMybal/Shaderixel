@@ -137,13 +137,13 @@ def main():
     # Third-party licenses (libraries built in or shipped).
     lic = os.path.join(dist, 'licences')
     os.makedirs(lic, exist_ok=True)
-    for name in ('imgui', 'stb', 'slang', 'volk', 'vulkan-headers', 'xatlas'):
-        base = os.path.join(ROOT, 'external', name)
+    for lib in ('imgui', 'stb', 'slang', 'volk', 'vulkan-headers', 'xatlas'):
+        base = os.path.join(ROOT, 'external', lib)
         for f in ('LICENSE', 'LICENSE.txt', 'LICENSE.md'):
             if os.path.exists(os.path.join(base, f)):
-                shutil.copy2(os.path.join(base, f), os.path.join(lic, name + '_' + f))
+                shutil.copy2(os.path.join(base, f), os.path.join(lic, lib + '_' + f))
         if os.path.isdir(os.path.join(base, 'LICENSES')):
-            shutil.copytree(os.path.join(base, 'LICENSES'), os.path.join(lic, name + '_LICENSES'))
+            shutil.copytree(os.path.join(base, 'LICENSES'), os.path.join(lic, lib + '_LICENSES'))
     ex = os.path.join(dist, 'Exemples')
     shots = os.path.join(dist, 'Guide_images')
     os.makedirs(ex)
