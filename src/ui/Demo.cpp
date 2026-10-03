@@ -300,6 +300,42 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 61) {
+        // Shape booleans: four shapes, one per operation, plus a .sxl round trip (SX_OUT).
+        if (frameCounter == 4) NewDocument(1200, 400, Precision::Half16, DocMode::Layers, 0, "Booléens");
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        if (frameCounter == 6) {
+            for (int op = 0; op < 4; ++op) {
+                ShapeStyle s;
+                s.type = 0;
+                s.radius = 20;
+                float x = 40 + op * 290.0f;
+                s.rect = {x, 80, x + 180, 260};
+                s.fill = {0.2f, 0.45f, 0.9f, 1};
+                s.strokeOn = true;
+                s.stroke = {0.05f, 0.05f, 0.1f, 1};
+                s.strokeWidth = 4;
+                ShapePart p;
+                p.op = op;
+                p.type = 1;
+                p.rect = {x + 90, 150, x + 250, 330};
+                s.parts.push_back(p);
+                d.AddShapeLayer(s);
+            }
+            d.SyncGraph();
+        }
+        char out[512] = "";
+        if (frameCounter == 12 && GetEnvironmentVariableA("SX_OUT", out, sizeof(out)) > 0) SaveDocument(*a, out);
+        if (frameCounter == 24 && GetEnvironmentVariableA("SX_OUT", out, sizeof(out)) > 0) LoadSxl(out);
+        if (frameCounter == 30 && Active()) {
+            size_t parts = 0;
+            for (auto& l : Active()->doc->S().layers) parts += l.shape.parts.size();
+            Log("[demo] shapes reloaded: %zu boolean parts", parts);
+        }
+        return;
+    }
     if (demoMode == 60) {
         // Resources: .abr / .pat / .ase / .aco import (files in SX_DIR), pattern fill and pattern stamp.
         char dir[512] = "";

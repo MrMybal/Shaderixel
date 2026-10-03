@@ -21,7 +21,12 @@ void App::SyncTextLayers(DocView& v) {
                 v.textHashes[l.surface] = h;
                 const float4& r = l.shape.rect;
                 float pad = l.shape.strokeWidth + 2;
-                v.textRects[l.surface] = Rect{(int)(std::min(r.x, r.z) - pad), (int)(std::min(r.y, r.w) - pad), (int)(std::max(r.x, r.z) + pad), (int)(std::max(r.y, r.w) + pad)};
+                Rect box{(int)(std::min(r.x, r.z) - pad), (int)(std::min(r.y, r.w) - pad), (int)(std::max(r.x, r.z) + pad), (int)(std::max(r.y, r.w) + pad)};
+                for (auto& p : l.shape.parts)
+                    if (p.op == 0 || p.op == 3)
+                        box.Merge({(int)(std::min(p.rect.x, p.rect.z) - pad), (int)(std::min(p.rect.y, p.rect.w) - pad), (int)(std::max(p.rect.x, p.rect.z) + pad),
+                                   (int)(std::max(p.rect.y, p.rect.w) + pad)});
+                v.textRects[l.surface] = box;
             }
             continue;
         }
@@ -55,6 +60,32 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     Layer* al = d.ActiveLayer();
     // Shape tool: drag a new shape.
     if (tool == Tool::Shape) {
+        const bool combine = al && al->kind == LayerKind::Shape && (io.KeyShift || io.KeyAlt) && al->shape.parts.size() < 8;
+        if (hovered && ImGui::IsMouseClicked(0) && combine) {
+            // Photoshop: Shift unite, Alt subtract, Shift+Alt intersect.
+            ShapePart p;
+            p.op = io.KeyShift && io.KeyAlt ? 2 : io.KeyAlt ? 1 : 0;
+            p.type = shapeDefaults.type == 2 ? 0 : shapeDefaults.type;
+            p.sides = shapeDefaults.sides;
+            p.radius = shapeDefaults.radius;
+            p.rect = {dp.x, dp.y, dp.x + 1, dp.y + 1};
+            editBefore = frameBefore;
+            al->shape.parts.push_back(p);
+            shapeDragging = true;
+            shapePartDrag = true;
+            shapeStart = dp;
+        }
+        if (shapeDragging && shapePartDrag) {
+            Layer* l = d.ActiveLayer();
+            if (l && l->kind == LayerKind::Shape && !l->shape.parts.empty())
+                l->shape.parts.back().rect = {std::min(shapeStart.x, dp.x), std::min(shapeStart.y, dp.y), std::max(shapeStart.x, dp.x), std::max(shapeStart.y, dp.y)};
+            if (!ImGui::IsMouseDown(0)) {
+                shapeDragging = shapePartDrag = false;
+                if (editBefore) v.history.PushState("Composant de forme", *editBefore, d.S());
+                editBefore.reset();
+            }
+            return;
+        }
         if (hovered && ImGui::IsMouseClicked(0)) {
             shapeDragging = true;
             shapeStart = dp;
@@ -100,7 +131,9 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
         if (shapeDragging) {
             float2 dd = dp - shapeStart;
             if (io.KeyShift) { if (std::abs(dd.x) > std::abs(dd.y)) dd.y = 0; else dd.x = 0; }
+            float2 step = {shapeRectStart.x + dd.x - al->shape.rect.x, shapeRectStart.y + dd.y - al->shape.rect.y};
             al->shape.rect = {shapeRectStart.x + dd.x, shapeRectStart.y + dd.y, shapeRectStart.z + dd.x, shapeRectStart.w + dd.y};
+            for (auto& p : al->shape.parts) p.rect = {p.rect.x + step.x, p.rect.y + step.y, p.rect.z + step.x, p.rect.w + step.y};
             if (!ImGui::IsMouseDown(0)) {
                 shapeDragging = false;
                 if (editBefore) v.history.PushState("Déplacer la forme", *editBefore, d.S());
@@ -320,6 +353,48 @@ void App::ShapePropertiesUI(DocView& v, Layer& l) {
     TrackUndo("Couleur du contour");
     ImGui::SliderFloat("Épaisseur", &s.strokeWidth, 0.5f, 300, "%.1f px", ImGuiSliderFlags_Logarithmic);
     TrackUndo("Épaisseur");
+    ImGui::SeparatorText("Opérations booléennes");
+    static const char* ops[] = {"Unir", "Soustraire", "Intersection", "Exclure"};
+    int remove = -1;
+    for (int i = 0; i < (int)s.parts.size(); ++i) {
+        ShapePart& p = s.parts[i];
+        ImGui::PushID(i);
+        ImGui::SetNextItemWidth(110 * dpi);
+        if (ImGui::Combo("##op", &p.op, "Unir\0Soustraire\0Intersection\0Exclure\0")) v.history.PushState("Opération booléenne", frameBefore, d.S());
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(110 * dpi);
+        if (ImGui::Combo("##type", &p.type, "Rectangle\0Ellipse\0Ligne\0Polygone\0Étoile\0")) v.history.PushState("Type de composant", frameBefore, d.S());
+        ImGui::SameLine();
+        if (ImGui::SmallButton("x")) remove = i;
+        ImGui::DragFloat4("Cadre", &p.rect.x, 1.0f, -100000, 100000, "%.0f");
+        TrackUndo("Cadre du composant");
+        if (p.type == 0) { ImGui::SliderFloat("Rayon", &p.radius, 0, 1000, "%.0f px"); TrackUndo("Rayon"); }
+        if (p.type >= 3) { ImGui::SliderInt("Côtés", &p.sides, 3, 32); TrackUndo("Côtés"); }
+        if (p.type != 2) { ImGui::SliderFloat("Rotation", &p.rotation, -180, 180, "%.1f°"); TrackUndo("Rotation"); }
+        ImGui::PopID();
+    }
+    if (remove >= 0) {
+        Edit e(d, v.history, "Supprimer le composant");
+        s.parts.erase(s.parts.begin() + remove);
+        e.Commit();
+    }
+    if (s.parts.size() < 8) {
+        for (int op = 0; op < 4; ++op) {
+            if (op) ImGui::SameLine();
+            if (ImGui::SmallButton(ops[op])) {
+                // New component overlapping the shape's right half.
+                Edit e(d, v.history, "Composant de forme");
+                ShapePart p;
+                p.op = op;
+                float w = std::abs(s.rect.z - s.rect.x), h = std::abs(s.rect.w - s.rect.y);
+                float cx = std::max(s.rect.x, s.rect.z) - w * 0.15f, cy = (s.rect.y + s.rect.w) * 0.5f;
+                p.rect = {cx - w * 0.3f, cy - h * 0.3f, cx + w * 0.3f, cy + h * 0.3f};
+                s.parts.push_back(p);
+                e.Commit();
+            }
+        }
+        ImGui::TextDisabled("Outil Forme sur ce calque : Maj unir, Alt soustraire,\nMaj+Alt intersection.");
+    }
 }
 
 }  // namespace sx

@@ -82,6 +82,16 @@ struct SmartObject {
 using SmartObjectPtr = std::shared_ptr<SmartObject>;
 
 // Vector shape layer (rendered by shaders/shape.slang).
+// Extra component of a shape layer, combined with the shape by a boolean operation.
+struct ShapePart {
+    int op = 0;                      // 0 unite, 1 subtract, 2 intersect, 3 exclude
+    int type = 1;
+    float4 rect = {0, 0, 100, 100};
+    float radius = 0;
+    int sides = 5;
+    float rotation = 0;
+};
+
 struct ShapeStyle {
     int type = 0;                    // 0 rectangle, 1 ellipse, 2 line, 3 polygon, 4 star
     float4 rect = {0, 0, 100, 100};  // x0 y0 x1 y1 (line: endpoints)
@@ -92,10 +102,12 @@ struct ShapeStyle {
     float4 fill = {0.2f, 0.45f, 0.9f, 1};  // sRGB straight
     float4 stroke = {0, 0, 0, 1};
     float strokeWidth = 4;
+    std::vector<ShapePart> parts;    // boolean components (up to 8)
     u64 Hash() const {
         Hasher h;
         h.Pod(type); h.Pod(rect); h.Pod(radius); h.Pod(sides); h.Pod(rotation); h.Pod(fillOn); h.Pod(strokeOn);
         h.Pod(fill); h.Pod(stroke); h.Pod(strokeWidth);
+        for (auto& p : parts) { h.Pod(p.op); h.Pod(p.type); h.Pod(p.rect); h.Pod(p.radius); h.Pod(p.sides); h.Pod(p.rotation); }
         return h.h;
     }
 };

@@ -53,6 +53,8 @@ struct ShapeCB {
     u32 w, h, type, flags;
     float radius, strokeWidth, rotation;
     i32 sides;
+    u32 partCount, pad[3];
+    float4 partRect[8], partParam[8], partOp[8];
 };
 }  // namespace
 
@@ -73,15 +75,27 @@ void Renderer::RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, 
     cb.strokeWidth = s.strokeWidth;
     cb.rotation = s.rotation * 3.14159265f / 180.0f;
     cb.sides = s.sides;
+    cb.partCount = (u32)std::min<size_t>(s.parts.size(), 8);
+    for (u32 i = 0; i < cb.partCount; ++i) {
+        const ShapePart& p = s.parts[i];
+        cb.partRect[i] = p.rect;
+        cb.partParam[i] = {(float)p.type, p.radius, (float)p.sides, p.rotation * 3.14159265f / 180.0f};
+        cb.partOp[i] = {(float)p.op, 0, 0, 0};
+    }
     gpu::DispatchDesc d;
     d.pipeline = k;
     d.uav[0] = sf->tex.get();
     {
         // Only the shape's (rotated) extent receives non-zero pixels.
-        float cx = (s.rect.x + s.rect.z) * 0.5f, cy = (s.rect.y + s.rect.w) * 0.5f;
-        float rad = 0.5f * std::sqrt((s.rect.z - s.rect.x) * (s.rect.z - s.rect.x) + (s.rect.w - s.rect.y) * (s.rect.w - s.rect.y)) +
-                    s.strokeWidth + 4;
-        d.uavRect[0] = {(int)std::floor(cx - rad), (int)std::floor(cy - rad), (int)std::ceil(cx + rad), (int)std::ceil(cy + rad)};
+        Rect all;
+        auto add = [&](const float4& r) {
+            float cx = (r.x + r.z) * 0.5f, cy = (r.y + r.w) * 0.5f;
+            float rad = 0.5f * std::sqrt((r.z - r.x) * (r.z - r.x) + (r.w - r.y) * (r.w - r.y)) + s.strokeWidth + 4;
+            all.Merge({(int)std::floor(cx - rad), (int)std::floor(cy - rad), (int)std::ceil(cx + rad), (int)std::ceil(cy + rad)});
+        };
+        add(s.rect);
+        for (u32 i = 0; i < cb.partCount; ++i) if (s.parts[i].op == 0 || s.parts[i].op == 3) add(s.parts[i].rect);
+        d.uavRect[0] = all;
     }
     d.cbData = &cb;
     d.cbSize = sizeof(cb);

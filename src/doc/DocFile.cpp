@@ -396,6 +396,15 @@ Json SerializeDocument(const Document& doc) {
             t["fill"] = ToJson(l.shape.fill);
             t["stroke"] = ToJson(l.shape.stroke);
             t["strokeWidth"] = l.shape.strokeWidth;
+            if (!l.shape.parts.empty()) {
+                Json ps = Json::Array();
+                for (auto& p : l.shape.parts) {
+                    Json po = Json::Object();
+                    po["op"] = p.op; po["type"] = p.type; po["rect"] = ToJson(p.rect); po["radius"] = p.radius; po["sides"] = p.sides; po["rotation"] = p.rotation;
+                    ps.Push(po);
+                }
+                t["parts"] = ps;
+            }
             o["shape"] = t;
         }
         if (l.kind == LayerKind::Text) {
@@ -540,6 +549,12 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
             l.shape.radius = t["radius"].F(0);
             l.shape.sides = t["sides"].I(5);
             l.shape.rotation = t["rotation"].F(0);
+            for (auto& po : t["parts"].Elements()) {
+                ShapePart p;
+                p.op = po["op"].I(0); p.type = po["type"].I(1); p.rect = Float4FromJson(po["rect"]); p.radius = po["radius"].F(0);
+                p.sides = po["sides"].I(5); p.rotation = po["rotation"].F(0);
+                l.shape.parts.push_back(p);
+            }
             l.shape.fillOn = t["fillOn"].B(true);
             l.shape.strokeOn = t["strokeOn"].B(false);
             l.shape.fill = Float4FromJson(t["fill"], {0, 0, 0, 1});

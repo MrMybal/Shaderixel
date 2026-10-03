@@ -1,6 +1,10 @@
 // Vector shape layer rendered from signed distance fields (antialiased fill + stroke).
 // Types: 0 rectangle (rounded), 1 ellipse, 2 line, 3 regular polygon, 4 star.
+// Extra components combine with the main shape in order (boolean operations on the
+// distances): 0 unite (min), 1 subtract (max(a, -b)), 2 intersect (max), 3 exclude (xor).
 #include "common.slang"
+
+#define MAX_PARTS 8
 
 cbuffer Shape : register(b1)
 {
@@ -14,6 +18,11 @@ cbuffer Shape : register(b1)
     float gStrokeWidth;
     float gRotation;    // radians
     int gSides;
+    uint gPartCount;
+    uint3 gPad;
+    float4 gPartRect[MAX_PARTS];
+    float4 gPartParam[MAX_PARTS];   // type, radius, sides, rotation (radians)
+    float4 gPartOp[MAX_PARTS];      // x: operation
 };
 
 RWTexture2D<float4> gOut : register(u0);
@@ -60,38 +69,44 @@ float SdStar(float2 p, float r, int n, float inner)
     return inside ? -d : d;
 }
 
+float ShapeSd(float2 p, uint type, float4 rect, float radius, int sides, float rotation)
+{
+    float2 c = (rect.xy + rect.zw) * 0.5;
+    float2 ext = abs(rect.zw - rect.xy) * 0.5;
+    float2 q = p - c;
+    float cs = cos(-rotation), sn = sin(-rotation);
+    q = float2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);
+    if (type == 0) return SdBox(q, ext, radius);
+    if (type == 1) return SdEllipse(q, ext);
+    if (type == 2) return SdSegment(p, rect.xy, rect.zw) - max(gStrokeWidth, 1.0) * 0.5;
+    float2 s = q / max(ext, 1e-3) * min(ext.x, ext.y);
+    if (type == 3) return SdStar(s, min(ext.x, ext.y), sides, cos(3.14159265 / max(sides, 3)));
+    return SdStar(s, min(ext.x, ext.y), sides, saturate(radius));
+}
+
 [numthreads(8, 8, 1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
     if (any(id.xy >= gSize)) return;
     float2 p = float2(id.xy) + 0.5;
-    float2 c = (gRect.xy + gRect.zw) * 0.5;
-    float2 ext = abs(gRect.zw - gRect.xy) * 0.5;
-    float2 q = p - c;
-    float cs = cos(-gRotation), sn = sin(-gRotation);
-    q = float2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);
-
-    float d;
-    if (gType == 0) d = SdBox(q, ext, gRadius);
-    else if (gType == 1) d = SdEllipse(q, ext);
-    else if (gType == 2) d = SdSegment(p, gRect.xy, gRect.zw) - max(gStrokeWidth, 1.0) * 0.5;
-    else if (gType == 3)
+    float d = ShapeSd(p, gType, gRect, gRadius, gSides, gRotation);
+    for (uint i = 0; i < min(gPartCount, (uint)MAX_PARTS); ++i)
     {
-        float2 s = q / max(ext, 1e-3) * min(ext.x, ext.y);
-        d = SdStar(s, min(ext.x, ext.y), gSides, cos(3.14159265 / max(gSides, 3)));
+        float4 pp = gPartParam[i];
+        float b = ShapeSd(p, (uint)pp.x, gPartRect[i], pp.y, (int)pp.z, pp.w);
+        uint op = (uint)gPartOp[i].x;
+        if (op == 0) d = min(d, b);
+        else if (op == 1) d = max(d, -b);
+        else if (op == 2) d = max(d, b);
+        else d = max(min(d, b), -max(d, b));
     }
-    else
-    {
-        float2 s = q / max(ext, 1e-3) * min(ext.x, ext.y);
-        d = SdStar(s, min(ext.x, ext.y), gSides, saturate(gRadius));
-    }
-
+    const bool line = gType == 2 && gPartCount == 0;
     float fill = (gFlags & 1) ? saturate(0.5 - d) : 0.0;
-    if (gType == 2) fill = saturate(0.5 - d);  // a line is drawn with the stroke color
+    if (line) fill = saturate(0.5 - d);  // a lone line is drawn with the stroke color
     float stroke = 0.0;
-    if ((gFlags & 2) && gType != 2) stroke = saturate(0.5 - (abs(d) - gStrokeWidth * 0.5));
+    if ((gFlags & 2) && !line) stroke = saturate(0.5 - (abs(d) - gStrokeWidth * 0.5));
 
-    float4 f = gType == 2 ? gStroke : gFill;
+    float4 f = line ? gStroke : gFill;
     float4 col = Premultiply(float4(f.rgb, f.a * fill));
     float4 st = Premultiply(float4(gStroke.rgb, gStroke.a * stroke));
     gOut[id.xy] = st + col * (1.0 - st.a);

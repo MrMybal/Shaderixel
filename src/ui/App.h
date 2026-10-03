@@ -523,6 +523,7 @@ private:
     bool textDragging = false;
     float2 textDragStart, textPosStart;
     char fontFilter[64] = {};
+    bool shapePartDrag = false;
     int textSelStart = 0, textSelEnd = 0;  // last selection in the text field (codepoints)
     Id textSelLayer = 0;
     Id charStyleSel = 0, paraStyleSel = 0;
