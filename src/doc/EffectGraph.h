@@ -13,6 +13,7 @@
 #include "core/Json.h"
 
 #include <functional>
+#include <map>
 #include <memory>
 
 namespace sx {
@@ -78,6 +79,13 @@ struct EGCompileResult {
     std::string code;            // Shaderixel effect text (metadata + body)
     std::string error;
     std::vector<Id> errorNodes;
+    // Component count (1 scalar, 2 vector2, 3 RGB, 4 RGBA) of every node output,
+    // key = node id * 16 + output index; for typed pins and links in the editor.
+    std::map<u64, int> outTypes;
+    int OutType(Id node, int output) const {
+        auto it = outTypes.find((u64)node * 16 + output);
+        return it == outTypes.end() ? 0 : it->second;
+    }
 };
 EGCompileResult CompileEffectGraph(const EffectGraph& g);
 

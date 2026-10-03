@@ -365,6 +365,17 @@ void App::DrawEffectEditor() {
         }
     }
 
+    // Typed pins and links: scalar gray, vector 2 green, RGB yellow, RGBA pink (Unreal colors).
+    auto typeColor = [](int t, int alpha = 255) {
+        switch (t) {
+            case 1: return IM_COL32(170, 172, 180, alpha);
+            case 2: return IM_COL32(110, 210, 120, alpha);
+            case 3: return IM_COL32(235, 200, 80, alpha);
+            case 4: return IM_COL32(230, 120, 210, alpha);
+            default: return IM_COL32(150, 150, 170, alpha);
+        }
+    };
+    static const char* kTypeNames[] = {"", "x", "xy", "RGB", "RGBA"};
     // Links
     auto link = [&](ImVec2 a, ImVec2 b, ImU32 col) {
         float dx = std::max(std::abs(b.x - a.x) * 0.5f, 30.0f * ed.zoom);
@@ -373,7 +384,7 @@ void App::DrawEffectEditor() {
     for (auto& n : g.nodes)
         for (int i = 0; i < (int)n.inputs.size(); ++i) {
             const EGNode* s = n.inputs[i].node ? g.Find(n.inputs[i].node) : nullptr;
-            if (s) link(outPin(*s, n.inputs[i].output), inPin(n, i), (s->id == ed.selected || n.id == ed.selected) ? ui::col::Accent2 : IM_COL32(150, 150, 170, 190));
+            if (s) link(outPin(*s, n.inputs[i].output), inPin(n, i), (s->id == ed.selected || n.id == ed.selected) ? ui::col::Accent2 : typeColor(cr.OutType(s->id, n.inputs[i].output), 200));
         }
     if (ed.dragLink) {
         if (ed.linkFrom) { if (const EGNode* s = g.Find(ed.linkFrom)) link(outPin(*s, ed.linkFromOut), m, ui::col::Accent); }
@@ -405,7 +416,9 @@ void App::DrawEffectEditor() {
         for (int i = 0; i < (int)od->inputs.size(); ++i) {
             ImVec2 p = inPin(n, i);
             bool conn = i < (int)n.inputs.size() && n.inputs[i].node;
-            dl->AddCircleFilled(p, pr, conn ? ui::col::Accent2 : IM_COL32(70, 72, 86, 255));
+            int t = conn ? cr.OutType(n.inputs[i].node, n.inputs[i].output) : 0;
+            if (conn) dl->AddCircleFilled(p, pr, typeColor(t));
+            else dl->AddCircle(p, pr, IM_COL32(120, 122, 140, 255), 0, 1.5f * ed.zoom);
             if (text) {
                 std::string lbl = od->inputs[i].name;
                 if (!conn && od->inputs[i].defValue != -1) {
@@ -418,10 +431,13 @@ void App::DrawEffectEditor() {
         }
         for (int o = 0; o < (int)od->outputs.size(); ++o) {
             ImVec2 p = outPin(n, o);
-            dl->AddCircleFilled(p, pr, ui::col::Accent);
-            if (text && od->outputs[o][0]) {
-                ImVec2 ts = font->CalcTextSizeA(fs * 0.88f, FLT_MAX, 0, od->outputs[o]);
-                dl->AddText(font, fs * 0.88f, ImVec2(p.x - 9 * ed.zoom - ts.x, p.y - fs * 0.45f), ui::col::TextDim, od->outputs[o]);
+            int t = cr.OutType(n.id, o);
+            dl->AddCircleFilled(p, pr, typeColor(t));
+            // Label: the output name, else its type.
+            const char* lbl = od->outputs[o][0] ? od->outputs[o] : (t >= 1 && t <= 4 ? kTypeNames[t] : "");
+            if (text && lbl[0]) {
+                ImVec2 ts = font->CalcTextSizeA(fs * 0.88f, FLT_MAX, 0, lbl);
+                dl->AddText(font, fs * 0.88f, ImVec2(p.x - 9 * ed.zoom - ts.x, p.y - fs * 0.45f), typeColor(t, 230), lbl);
             }
         }
         std::string vt = ValueText(n);

@@ -840,10 +840,10 @@ void App::RunDemo() {
         g.name = "Teinte bruitée";
         Id in = g.nodes[0].id, out = g.nodes[1].id;
         auto add = [&](const char* op, float2 pos) { EGNode n; n.id = g.nextId++; n.op = op; n.pos = pos; n.inputs.resize(FindOp(op)->inputs.size()); g.nodes.push_back(n); return n.id; };
-        Id nz = add("noise", {40, 220});
-        Id scale = add("const", {-160, 260});
+        Id nz = add("noise", {40, 330});
+        Id scale = add("const", {-160, 370});
         g.Find(scale)->value = {6, 0, 0, 0};
-        Id tint = add("paramcolor", {40, 360});
+        Id tint = add("paramcolor", {40, 450});
         g.Find(tint)->name = "Teinte";
         g.Find(tint)->value = {0.2f, 0.7f, 1.0f, 1};
         Id mul = add("mul", {260, 200});

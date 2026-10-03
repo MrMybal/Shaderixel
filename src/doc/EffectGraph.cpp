@@ -11,8 +11,8 @@ namespace sx {
 const std::vector<EGOpDef>& EffectGraphOps() {
     static const std::vector<EGOpDef> ops = {
         // Sources
-        {"input", "Image d'entrée", "Entrées", {}, {""}, 4},
-        {"sample", "Échantillonner l'entrée (UV)", "Entrées", {{"UV", -1}}, {""}, 4},
+        {"input", "Image d'entrée", "Entrées", {}, {"RGBA", "RGB", "R", "G", "B", "A"}, 4},
+        {"sample", "Échantillonner l'entrée (UV)", "Entrées", {{"UV", -1}}, {"RGBA", "RGB", "R", "G", "B", "A"}, 4},
         {"uv", "Coordonnées UV", "Entrées", {}, {""}, 2},
         {"pixel", "Position du pixel", "Entrées", {}, {""}, 2},
         {"size", "Taille de l'image", "Entrées", {}, {""}, 2},
@@ -54,6 +54,8 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"split", "Séparer (R G B A)", "Vecteurs", {{"Entrée", 0}}, {"R", "G", "B", "A"}, 1},
         {"append", "Concaténer", "Vecteurs", {{"A", 0}, {"B", 0}}, {""}},
         {"make4", "Composer RGBA", "Vecteurs", {{"R", 0}, {"G", 0}, {"B", 0}, {"A", 1}}, {""}, 4},
+        {"make3", "Composer RGB", "Vecteurs", {{"R", 0}, {"G", 0}, {"B", 0}}, {""}, 3},
+        {"make2", "Composer vecteur 2", "Vecteurs", {{"X", 0}, {"Y", 0}}, {""}, 2},
         {"mask", "Masque de composantes", "Vecteurs", {{"Entrée", 0}}, {""}, 0, true},
         // Color
         {"luma", "Luminance", "Couleur", {{"Couleur", 0}}, {""}, 1},
@@ -69,7 +71,7 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         // Custom
         {"custom", "HLSL personnalisé", "Personnalisé", {{"A", 0}, {"B", 0}, {"C", 0}, {"D", 0}}, {""}, 4, true},
         // Output
-        {"output", "Sortie", "Sortie", {{"Couleur", 0}}, {}, 0},
+        {"output", "Sortie", "Sortie", {{"RGBA", 0}, {"RGB", 0}, {"Alpha", 1}}, {}, 0},
     };
     return ops;
 }
@@ -296,12 +298,20 @@ struct Gen {
         const std::string& op = n->op;
         auto one = [&](std::string e, int k) { out.push_back({std::move(e), k}); };
         std::string idx = std::to_string(std::clamp(n->index, 0, 3));
+        // Image reads: one load, then RGBA, RGB, R, G, B, A outputs.
+        auto channels = [&](const std::string& load) {
+            std::string v = "n" + std::to_string(id) + "_img";
+            lines.push_back("    float4 " + v + " = " + load + ";");
+            one(v, 4);
+            one(v + ".rgb", 3);
+            for (const char* c : {".r", ".g", ".b", ".a"}) one(v + c, 1);
+        };
         if (op == "input") {
             usedInputs.insert(std::clamp(n->index, 0, 3));
-            one(unreal ? SampleAt(std::clamp(n->index, 0, 3), "UV") : "Input(" + idx + ", ctx.px)", 4);
+            channels(unreal ? SampleAt(std::clamp(n->index, 0, 3), "UV") : "Input(" + idx + ", ctx.px)");
         } else if (op == "sample") {
             usedInputs.insert(std::clamp(n->index, 0, 3));
-            one(SampleAt(std::clamp(n->index, 0, 3), Conv(a[0], 2)), 4);
+            channels(SampleAt(std::clamp(n->index, 0, 3), Conv(a[0], 2)));
         } else if (op == "uv") one(UV(), 2);
         else if (op == "pixel") one(Pixel(), 2);
         else if (op == "size") one(Size(), 2);
@@ -343,6 +353,8 @@ struct Gen {
             one("float" + std::to_string(k) + "(" + a[0].expr + ", " + Conv(a[1], std::max(nb, 1)) + ")", k);
             if (k == 1) out.back() = a[0];
         } else if (op == "make4") one("float4(" + S(0) + ", " + S(1) + ", " + S(2) + ", " + S(3) + ")", 4);
+        else if (op == "make3") one("float3(" + S(0) + ", " + S(1) + ", " + S(2) + ")", 3);
+        else if (op == "make2") one("float2(" + S(0) + ", " + S(1) + ")", 2);
         else if (op == "mask") {
             std::string sw;
             const char* comps = "xyzw";
@@ -373,7 +385,13 @@ struct Gen {
             lines.push_back("    " + sname + " " + inst + ";");
             one(inst + ".Run(" + Conv(a[0], 4) + ", " + Conv(a[1], 4) + ", " + Conv(a[2], 4) + ", " + Conv(a[3], 4) + ")", 4);
         } else if (op == "output") {
-            one(Conv(a[0], 4), 4);
+            // RGBA, then the RGB and Alpha pins override their part when connected.
+            auto linked = [&](size_t i) { return i < n->inputs.size() && n->inputs[i].node; };
+            std::string c = Conv(a[0], 4);
+            if (linked(1)) c = "float4(" + Conv(a[1], 3) + ", (" + c + ").a)";
+            if (linked(2)) c = "float4((" + c + ").rgb, " + S(2) + ")";
+            if (!linked(0) && !linked(1) && linked(2)) c = "float4(0.0, 0.0, 0.0, " + S(2) + ")";
+            one(c, 4);
         } else {
             Fail(id, "opération non gérée : " + op);
             one("0.0", 1);
@@ -421,6 +439,14 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
     std::vector<Val> res = gen.Eval(out);
     r.error = gen.error;
     r.errorNodes = gen.errorNodes;
+    {
+        Gen typer{g, false};
+        typer.paramNames = gen.paramNames;
+        for (auto& n : g.nodes) {
+            auto outs = typer.Eval(n.id);
+            for (size_t k = 0; k < outs.size(); ++k) r.outTypes[(u64)n.id * 16 + k] = outs[k].n;
+        }
+    }
 
     std::string s;
     s += "//@name " + g.name + "\n";
