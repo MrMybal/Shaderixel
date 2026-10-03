@@ -51,9 +51,9 @@ float TempAADistance = Spiral*RandomSamp.x;
 
 float PI = 6.28318530;
 float RadialStepAngle = PI / RadialStep * Spiral;
-float Angle;
-float2 StepVector;
-float2 Coord;
+float Angle = (float )0;
+float2 StepVector = (float2 )0;
+float2 Coord = (float2 )0;
 float4 Result = Texture2DSample(CyInputTexture, CyInputTextureSampler, UV);
 
 for( int i = 0 ; i<RadialStep ; ++i )
@@ -80,9 +80,9 @@ float4 Custom_n24(float2 UV, float RadialStep, float Spiral, float Blur, float I
 
 float PI = 6.28318530;
 float RadialStepAngle = PI / RadialStep * Spiral;
-float Angle;
-float2 StepVector;
-float2 Coord;
+float Angle = (float )0;
+float2 StepVector = (float2 )0;
+float2 Coord = (float2 )0;
 float4 Result = Texture2DSample(CyInputTexture, CyInputTextureSampler, UV);
 
 for( int i = 0 ; i<RadialStep ; ++i )

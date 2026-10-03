@@ -30,9 +30,9 @@ float ShapeRadius = Length / 2;
 const float PI = 3.14159265;
 float Result = 1 ;
 float2 Points[64] ;
-float2 CurPoint ;
-int v ;
-float DotP ;
+float2 CurPoint = (float2 )0;
+int v = (int )0;
+float DotP = (float )0;
 
 for (int i = 0; i < RadialStep; i++)
 {

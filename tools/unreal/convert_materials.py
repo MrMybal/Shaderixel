@@ -41,6 +41,11 @@ CODE_FIXUPS = [
     ('RandomSamp += Texture2DSample(Tex,TexSampler,ScenePixels);', 'RandomSamp += Texture2DSample(Tex,TexSampler,ScenePixels).xy;'),
     ('float TempAARotation = RandomSamp;', 'float TempAARotation = RandomSamp.x;'),
     ('float TempAADistance = Spiral*RandomSamp;', 'float TempAADistance = Spiral*RandomSamp.x;'),
+    # Engine functions SpiralBlur-Texture and AbberatedBlur-Texture.
+    ('float3 newSample=Texture2DSample(Tex,TexSampler,NewUV);', 'float3 newSample=Texture2DSample(Tex,TexSampler,NewUV).rgb;'),
+    ('float3 CurrentAbberationValue=saturate(1.0-abs(3*(i/Steps)-float4(0.0,1.0,2.0,3.0)));',
+     'float3 CurrentAbberationValue=saturate(1.0-abs(3*(i/Steps)-float4(0.0,1.0,2.0,3.0))).xyz;'),
+    ('CurColor += Texture2DSample(Tex,TexSampler,NewUV)*distpow;', 'CurColor += Texture2DSample(Tex,TexSampler,NewUV).rgb*distpow;'),
 ]
 
 
@@ -368,8 +373,31 @@ class Gen:
             return ('(%s).%s' % (conv(x, 4), sw), len(sw))
         if c == 'AppendVector':
             a, b = self.input(n, 'A', ('0.0', 1)), self.input(n, 'B', ('0.0', 1))
+            if a[1] >= 4:
+                return a  # nothing left to append to
             k = min(a[1] + b[1], 4)
             return ('%s(%s, %s)' % (T(k), a[0], conv(b, k - a[1])), k)
+        if c == 'SphereMask':
+            a, b = self.input(n, 'A', ('UV', 2)), self.input(n, 'B', ('float2(0.5, 0.5)', 2))
+            r = self.input(n, 'Radius', (F(prop(n, 'attenuation_radius', default=256.0)), 1))
+            h = self.input(n, 'Hardness', (F(prop(n, 'hardness_percent', default=100.0) / 100.0), 1))
+            k = max(a[1], b[1])
+            return ('saturate((1.0 - distance(%s, %s) / max(%s, 1e-5)) / max(1.0 - %s, 1e-5))' % (conv(a, k), conv(b, k), conv(r, 1), conv(h, 1)), 1)
+        if c == 'RotateAboutAxis':
+            # Offset from Position to Position rotated around the axis (angle in turns / Period).
+            axis = conv(self.input(n, 'NormalizedRotationAxis', ('float3(0.0, 0.0, 1.0)', 3)), 3)
+            ang = conv(self.input(n, 'RotationAngle', ('0.0', 1)), 1)
+            pivot = conv(self.input(n, 'PivotPoint', ('float3(0.0, 0.0, 0.0)', 3)), 3)
+            pos = conv(self.input(n, 'Position', ('float3(UV, 0.0)', 3)), 3)
+            period = prop(n, 'period', default=1.0) or 1.0
+            self.S.counter += 1
+            fn = 'RotateAboutAxis_%d' % self.S.counter
+            self.customs.append('float3 %s(float3 axis, float angle, float3 pivot, float3 pos)\n{\n'
+                                '    float3 c = pivot + axis * dot(axis, pos - pivot);\n'
+                                '    float3 u = pos - c, v = cross(axis, u);\n'
+                                '    float s, co;\n    sincos(angle * %s, s, co);\n'
+                                '    return c + u * co + v * s - pos;\n}\n' % (fn, F(6.283185307 / period)))
+            return ('%s(%s, %s, %s, %s)' % (fn, axis, ang, pivot, pos), 3)
         if c == 'If':
             a, b = self.input(n, 'A', ('0.0', 1)), self.input(n, 'B', (F(prop(n, 'const_b', default=0)), 1))
             gt, eq, lt = self.input(n, 'A > B', ('0.0', 1)), self.input(n, 'A == B', None), self.input(n, 'A < B', ('0.0', 1))
@@ -433,6 +461,9 @@ class Gen:
 
     def function_input(self, n):
         name = str(prop(n, 'input_name', default='') or '').lower()
+        for e in n.get('inputs', []):
+            if e.get('name', '').lower() == 'preview':
+                self.S.read.add(id(e))  # used only when the call leaves the input unconnected
         if name in self.bindings:
             return self.bindings[name]()
         # Unconnected: the function's preview value (graph or constant).
@@ -537,6 +568,9 @@ float %(name)s(float3 p)
             body = body.replace(old, new)
         body = re.sub(r'\b((?:float[234]?|int|half[234]?)\s+(\w+))\s*=\s*\2\s*=', r'\1 =', body)
         body = re.sub(r'\breturn\b([^;]+);', r'return SXRet(\1);', body)
+        # Locals declared without a value start at zero (Unreal's compiler leaves them at 0 in
+        # practice and some engine functions rely on it; Slang does not initialize them).
+        body = re.sub(r'(^|[;{}\n]\s*)((?:float[234]?|int|uint|half[234]?|bool)\s+)(\w+)\s*;', r'\1\2\3 = (\2)0;', body)
         self.customs.append('float4 %s(%s)\n{\n%s\n}\n' % (fname, ', '.join(params), body))
         self.global_reads = True
         return ('(%s(%s))%s' % (fname, ', '.join(args), {1: '.x', 2: '.xy', 3: '.xyz', 4: ''}[k_out]), k_out)

@@ -31,15 +31,15 @@ float4 Custom_n0(float2 UV, float Step, float Length)
 //UV
 
 float2 Center = float2(0.5, 0.5);
-float2 ShapePoint ;
+float2 ShapePoint = (float2 )0;
 const float PI = 3.14159265;
 float RadialStep = Step ;
 float RadialStepAngle = ( 2 * PI ) / RadialStep ;
 float Result = 0 ;
 float2 Points[12] ;
-float2 CurPoint ;
-int v ;
-float DotP ;
+float2 CurPoint = (float2 )0;
+int v = (int )0;
+float DotP = (float )0;
 
 
 for (int i = 0; i < RadialStep; i++)

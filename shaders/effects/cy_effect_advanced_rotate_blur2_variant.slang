@@ -37,9 +37,9 @@ float4 Custom_n3(float2 UV, float Step, float Blur, float2 Center, float ID, flo
 
 float PI = 6.28318548;
 float2 BaseUV = ( Center * -1 ) + UV;
-float2 Rot;
-float Rotate;
-float4 Result;
+float2 Rot = (float2 )0;
+float Rotate = (float )0;
+float4 Result = (float4 )0;
 
 for( int i = 0 ; i<Step ; ++i )
 {

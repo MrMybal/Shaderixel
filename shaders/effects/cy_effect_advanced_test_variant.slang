@@ -41,8 +41,8 @@ float4 Custom_n0(float2 UV, float RadialStep, float OffsetStep, float DistanceRa
 const float PI = 6.28318530;
 float2 Dir = Center - UV ;
 float RadialStepAngle = PI / OffsetStep;
-float3 Result;
-float2 OffsetCoord;
+float3 Result = (float3 )0;
+float2 OffsetCoord = (float2 )0;
 
 for( int i = 0 ; i<OffsetStep ; ++i)
 {

@@ -37,9 +37,9 @@ float4 Custom_n3(float2 UV, float RadialStep, float Blur, float ID, float Filter
 
 float PI = 6.28318530;
 float RadialStepAngle = PI / RadialStep;
-float Angle;
-float2 StepVector;
-float2 Coord;
+float Angle = (float )0;
+float2 StepVector = (float2 )0;
+float2 Coord = (float2 )0;
 float4 Result = Texture2DSample(CyInputTexture, CyInputTextureSampler, UV);
 
 for( int i = 0 ; i<RadialStep ; ++i )
