@@ -10,6 +10,7 @@
 #include "doc/History.h"
 #include "gpu/ShaderSystem.h"
 
+#include <array>
 #include <unordered_map>
 
 namespace sx {
@@ -52,6 +53,7 @@ struct BrushSettings {
     bool pressureOpacity = false;
     // Programmable tip (shaders/brushes): library id, or edited code (overrides the id).
     std::string tipId, tipCode;
+    std::string tipGraph;  // visual brush graph (JSON), compiled to tip code
     std::vector<float4> tipParams;
 };
 
@@ -133,6 +135,8 @@ public:
                    BlendMode mode, float opacity, bool clip, const BlendIf* blendIf);
     // `refW/refH`: reference size the effect sees as the document (0 = the document's).
     gpu::TexturePtr ApplyEffect(Document& doc, gpu::CommandContext& ctx, const EffectInstance& fx, gpu::Texture* in, u32 refW = 0, u32 refH = 0);
+    // Several inputs (blends: A, B, mask); output sized like the first input.
+    gpu::TexturePtr ApplyEffectInputs(Document& doc, gpu::CommandContext& ctx, const EffectInstance& fx, std::array<gpu::Texture*, 4> in, u32 refW = 0, u32 refH = 0);
     // Small copy of `src` fitted into w x h (aspect kept, centered), for previews.
     gpu::TexturePtr PreviewCopy(gpu::CommandContext& ctx, gpu::Texture* src, u32 w, u32 h);
     // Destructive filter on a pixel surface (selection-limited), recorded in the history.

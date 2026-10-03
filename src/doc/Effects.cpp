@@ -68,6 +68,7 @@ const char* kCustomEffectTemplate =
 const char* kCustomBlendTemplate =
     "//@name Fusion personnalisée\n"
     "//@category Fusion\n"
+    "//@blend\n"
     "//@input A (dessous)\n"
     "//@input B (calque)\n"
     "//@input Masque\n"
@@ -140,6 +141,8 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
         else if (key == "category") def->category = rest(1);
         else if (key == "generator") generator = true;
         else if (key == "premultiplied") def->premultiplied = true;
+        else if (key == "blend") def->blend = true;
+        else if (key == "graph") def->graph = rest(1);
         else if (key == "halo" && t.size() > 1) {
             // //@halo full | //@halo <px> | //@halo <param> <scale> [<param> <scale>...] [<offset>]
             def->haloTerms.clear();
@@ -209,6 +212,8 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
         }
     }
     if (!generator && !explicitInputs) def->inputs.push_back("Image");
+    // Older blend files (imported CyTexture blends): 3 inputs in a "Fusion" category.
+    if (def->inputs.size() == 3 && def->category.find("Fusion") != std::string::npos) def->blend = true;
     def->body = body;
     return def;
 }

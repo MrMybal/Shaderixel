@@ -456,23 +456,33 @@ bool Renderer::ApplyEffectToSurface(Document& doc, gpu::CommandContext& ctx, His
 gpu::TexturePtr Renderer::ApplyEffect(Document& doc, gpu::CommandContext& ctx, const EffectInstance& fx, gpu::Texture* in, u32 refW, u32 refH) {
     EffectDefPtr def = fx.Def();
     if (!def || !in) return nullptr;
+    return ApplyEffectInputs(doc, ctx, fx, {in, nullptr, nullptr, nullptr}, refW, refH);  // generators: size reference only
+}
+
+gpu::TexturePtr Renderer::ApplyEffectInputs(Document& doc, gpu::CommandContext& ctx, const EffectInstance& fx, std::array<gpu::Texture*, 4> in, u32 refW, u32 refH) {
+    EffectDefPtr def = fx.Def();
+    gpu::Texture* first = nullptr;
+    for (auto* t : in) if (t && !first) first = t;
+    if (!def || !first) return nullptr;
     auto prog = ProgramFor(def);
     if (prog->state.load() != gpu::Program::State::Ready) return nullptr;
-    const u32 W = in->Width(), H = in->Height();
-    auto out = gpu::Dev().CreateTexture(W, H, in->GetFormat(), "EffectOut");
-    auto tmp = def->passes > 1 ? gpu::Dev().CreateTexture(W, H, in->GetFormat(), "EffectTmp") : nullptr;
+    const u32 W = first->Width(), H = first->Height();
+    auto out = gpu::Dev().CreateTexture(W, H, first->GetFormat(), "EffectOut");
+    auto tmp = def->passes > 1 ? gpu::Dev().CreateTexture(W, H, first->GetFormat(), "EffectTmp") : nullptr;
     auto packed = PackParams(*def, fx.params, &fx.curves, &fx.luts);
+    u32 mask = 0;
+    for (int i = 0; i < 4; ++i) if (in[i] && i < (int)def->inputs.size()) mask |= 1u << i;
     for (int p = 0; p < def->passes; ++p) {
         bool toMain = ((def->passes - 1 - p) % 2) == 0;
         gpu::Texture* dst = toMain ? out.get() : tmp.get();
         gpu::Texture* prev = toMain ? tmp.get() : out.get();
         gpu::DispatchDesc d;
         d.pipeline = prog->pipeline.get();
-        d.srv[0] = def->inputs.empty() ? nullptr : in;
+        for (int i = 0; i < 4; ++i) d.srv[i] = (mask >> i) & 1 ? in[i] : nullptr;
         d.srv[4] = p > 0 ? prev : nullptr;
         BindLuts(ctx, d, *def, fx);
         d.uav[0] = dst;
-        SetConstants(d, EffectRoot{W, H, 0, 0, refW ? refW : doc.Width(), refH ? refH : doc.Height(), (u32)p, def->inputs.empty() ? 0u : 1u, {0, 0, 0, 0, 0, 0, 0, 0}});
+        SetConstants(d, EffectRoot{W, H, 0, 0, refW ? refW : doc.Width(), refH ? refH : doc.Height(), (u32)p, mask, {0, 0, 0, 0, 0, 0, 0, 0}});
         d.cbData = packed.data();
         d.cbSize = packed.size() * sizeof(float4);
         Dispatch2D(ctx, d, W, H);

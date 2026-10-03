@@ -498,6 +498,77 @@ void App::DrawNodeEditor() {
         ImGui::EndPopup();
     }
 
+    // Effect dropped from the effects browser: on a layer node -> filter of that
+    // layer, on a link -> inserted into it, elsewhere -> new node.
+    if (const ImGuiPayload* pl = ImGui::GetDragDropPayload(); pl && pl->IsDataType(kEffectPayload) &&
+        ImGui::IsMouseHoveringRect(origin, ImVec2(origin.x + size.x, origin.y + size.y))) {
+        Id overNode = 0;
+        for (int k = (int)g.nodes.size() - 1; k >= 0 && !overNode; --k) {
+            const Node& n = g.nodes[k];
+            ImVec2 a = toScreen(n.pos), b = toScreen(n.pos + float2{kNodeW, NodeLayout(n, aspect).h});
+            if (mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y) overNode = n.id;
+        }
+        Id linkSrc = 0, linkDst = 0;
+        int linkIn = -1;
+        u8 linkCh = 0;
+        if (!overNode) {
+            float best = 9.0f * dpi;
+            for (const Node& n : g.nodes)
+                for (int i = 0; i < (int)n.inputs.size() && i < NodeInputCount(n); ++i) {
+                    const Node* src = n.inputs[i] ? g.Find(n.inputs[i]) : nullptr;
+                    if (!src) continue;
+                    int ch = InputChannel(n, i);
+                    ImVec2 a = outPin(*src, linkPin(*src, ch)), b = inPin(n, i);
+                    float dx = std::max(std::abs(b.x - a.x) * 0.5f, 40.0f * ed.zoom);
+                    for (int t = 0; t <= 24; ++t) {
+                        ImVec2 p = ImBezierCubicCalc(a, ImVec2(a.x + dx, a.y), ImVec2(b.x - dx, b.y), b, t / 24.0f);
+                        float dd = std::sqrt((p.x - mouse.x) * (p.x - mouse.x) + (p.y - mouse.y) * (p.y - mouse.y));
+                        if (dd < best) { best = dd; linkSrc = src->id; linkDst = n.id; linkIn = i; linkCh = (u8)ch; }
+                    }
+                }
+        }
+        const Node* on = g.Find(overNode);
+        Id layerOf = on && !editable ? on->layer : 0;
+        // Feedback.
+        if (on) {
+            Layout L = NodeLayout(*on, aspect);
+            dl->AddRect(toScreen(on->pos), toScreen(on->pos + float2{kNodeW, L.h}), ui::col::Accent2, 6 * ed.zoom, 0, 3.0f);
+        } else if (const Node* s2 = g.Find(linkSrc); s2 && g.Find(linkDst)) {
+            drawLink(outPin(*s2, linkPin(*s2, linkCh)), inPin(*g.Find(linkDst), linkIn), ui::col::Accent2, 4.0f);
+        }
+        const char* what = layerOf ? "Filtre sur ce calque" : on ? "Insérer après ce nœud" : linkSrc ? "Insérer dans le lien" : "Nouveau nœud";
+        ImVec2 ts = ImGui::CalcTextSize(what);
+        dl->AddRectFilled(ImVec2(mouse.x + 14, mouse.y - 22), ImVec2(mouse.x + 22 + ts.x, mouse.y - 18 + ts.y), IM_COL32(20, 20, 26, 230), 4);
+        dl->AddText(ImVec2(mouse.x + 18, mouse.y - 20), ui::col::Accent2, what);
+        if (ImGui::BeginDragDropTargetCustom(ImRect(origin, ImVec2(origin.x + size.x, origin.y + size.y)), ImGui::GetID("##graphdrop"))) {
+            if (const ImGuiPayload* got = ImGui::AcceptDragDropPayload(kEffectPayload)) {
+                std::string id((const char*)got->Data);
+                float2 at = toGraph(mouse) - float2{kNodeW * 0.5f, 20};
+                if (layerOf) {
+                    DropEffectOnLayer(*v, layerOf, id);
+                } else if (Effects().Find(id)) {
+                    toNodeMode();
+                    Edit e(d, v->history, "Ajouter un effet");
+                    Id nid = d.AddEffectNode(id, "", at).id;
+                    if (overNode && overNode != g.output) {
+                        // After the node: its consumers now read the effect.
+                        Id src = overNode;
+                        for (auto& n : g.nodes)
+                            for (auto& in : n.inputs) if (in == src && n.id != nid) in = nid;
+                        d.Link(src, nid, 0);
+                    } else if (linkSrc) {
+                        d.Link(linkSrc, nid, 0, linkCh);
+                        d.Link(nid, linkDst, linkIn);
+                    }
+                    d.S().activeNode = nid;
+                    ed.selection = {nid};
+                    e.Commit();
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+    }
+
     // Keyboard
     if (focused && editable && !io.WantTextInput && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))) deleteSelection();
     if (focused && !io.WantTextInput && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) for (auto& n : g.nodes) ed.selection.insert(n.id);

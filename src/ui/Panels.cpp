@@ -402,6 +402,7 @@ void App::DrawLayers() {
     ImGui::BeginChild("##layerlist", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() - 4), ImGuiChildFlags_Borders);
     auto& layers = d.S().layers;
     Id dragId = 0, dropTarget = 0;
+    std::pair<Id, std::string> fxDrop;  // effect dropped on a layer row
     bool dropInto = false;
     auto hiddenByCollapse = [&](const Layer& l) {
         Id p = l.parent;
@@ -449,6 +450,7 @@ void App::DrawLayers() {
                 // Dropping on the lower half of a group row puts the layer inside it.
                 dropInto = group && ImGui::GetMousePos().y > rowMin.y + rowH * 0.5f;
             }
+            if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload(kEffectPayload)) fxDrop = {l.id, std::string((const char*)p->Data)};
             ImGui::EndDragDropTarget();
         }
         if (ImGui::BeginPopupContextItem("##ctx")) {
@@ -544,6 +546,7 @@ void App::DrawLayers() {
     }
     ImGui::Dummy(ImVec2(1, 1));
     ImGui::EndChild();
+    if (fxDrop.first) DropEffectOnLayer(*v, fxDrop.first, fxDrop.second);
     if (dragId && dropTarget && dragId != dropTarget) {
         Edit e(d, v->history, "Déplacer le calque");
         d.MoveLayerTo(dragId, dropTarget, dropInto);
@@ -681,7 +684,9 @@ void App::DrawProperties() {
                 ImGui::TextDisabled("A = dessous, B = ce calque, masque = masque du calque ; opacité = opacité du calque.");
                 if (EffectParamsUI(l->blendFx, "blendfx")) changed = true;
                 if (!l->blendFx.customCode.empty()) CustomCodeUI(*v, l->blendFx, 0, "blend");
-                else if (ImGui::SmallButton("Convertir en HLSL éditable")) ConvertToCustomCode(*v, l->blendFx);
+                else if (!l->blendFx.graph.empty()) {
+                    if (ImGui::SmallButton("Éditer le graphe de fusion")) OpenGraphEditor(1);
+                } else if (ImGui::SmallButton("Convertir en HLSL éditable")) ConvertToCustomCode(*v, l->blendFx);
                 if (ImGui::SmallButton("Revenir au mode Normal")) {
                     DocState before = d.S();
                     l->blendFx = {};

@@ -291,6 +291,15 @@ void App::DrawCanvas() {
     if (doc.Mode() == DocMode::Layers && doc.S().editMask) {
         dl->AddText(ImVec2(canvasMin.x + 10, canvasMin.y + 8), IM_COL32(255, 255, 255, 200), "Édition du masque de fusion");
     }
+    // Effect dropped on the image: filter (or blend) of the active layer.
+    if (const ImGuiPayload* pl = ImGui::GetDragDropPayload(); pl && pl->IsDataType(kEffectPayload) && doc.Mode() == DocMode::Layers && doc.ActiveLayer()) {
+        ImRect r(canvasMin, ImVec2(canvasMin.x + avail.x, canvasMin.y + avail.y));
+        if (ImGui::BeginDragDropTargetCustom(r, ImGui::GetID("##canvasdrop"))) {
+            dl->AddRect(r.Min, r.Max, ui::col::Accent2, 0, 0, 3.0f);
+            if (const ImGuiPayload* got = ImGui::AcceptDragDropPayload(kEffectPayload)) DropEffectOnLayer(*v, doc.S().activeLayer, (const char*)got->Data);
+            ImGui::EndDragDropTarget();
+        }
+    }
     DrawRulers(*v, rulerOrigin, canvasMin, avail);
     ImGui::End();
 }

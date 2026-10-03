@@ -287,6 +287,67 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_EXTRA", b, sizeof(b)) > 0) NewExtraWindow();
         return;
     }
+    if (demoMode == 43 && v && frameCounter == 4) {
+        // Graphs: a brush built in nodes (scatter, random size, follow the stroke) painted
+        // on a new layer, and a blend built in nodes on the glow layer.
+        Document& d = *v->doc;
+        EffectGraph bg = EffectGraph::DefaultBrush();
+        bg.scatter = 0.8f;
+        bg.sizeJitter = 0.6f;
+        bg.follow = 1.0f;
+        bg.spacing = 0.35f;
+        // Square-ish tip: roundtip on a scaled local position, tinted by a random hue.
+        for (auto& n : bg.nodes)
+            if (n.op == "roundtip") n.inputs[1] = {};  // hardness from the default (brush hardness)
+        brush.tipId.clear();
+        brush.tipCode.clear();
+        brush.tipGraph = bg.Serialize();
+        auto td = TipDef(brush);
+        if (!td) { Log("[demo] brush graph failed"); return; }
+        brush.tipParams = td->def ? td->def->DefaultParams() : std::vector<float4>{};
+        std::string err;
+        for (int w = 0; w < 6000 && !v->renderer.BrushPipeline(*td, &err) && err.empty(); ++w) Sleep(10);
+        if (!err.empty()) Log("[demo] brush graph: %s", err.c_str());
+        Edit e(d, v->history, "Nouveau calque");
+        Id surf = d.AddPixelLayer("Pinceau en graphe").surface;
+        e.Commit();
+        v->renderer.Prepare(d, *ctx);
+        BrushSettings b = brush;
+        b.size = 50;
+        b.spacing = bg.spacing;
+        std::vector<Dab> dabs;
+        std::vector<float4> extra;
+        float prevX = 150, prevY = 500, dist = 0;
+        for (float x = 150; x < 1450; x += b.size * b.spacing) {
+            float t = (x - 150) / 1300.0f, y = 500 + std::sin(t * 9.0f) * 150;
+            float ang = std::atan2(y - prevY, std::max(x - prevX, 0.001f));
+            dist += std::hypot(x - prevX, y - prevY);
+            dabs.push_back({x, y, b.size * 0.5f, 1.0f});
+            extra.push_back({1.0f, ang, t, dist});
+            prevX = x;
+            prevY = y;
+        }
+        EffectInstance tip;
+        tip.params = brush.tipParams;
+        if (v->renderer.BeginStroke(d, *ctx, surf)) {
+            if (!v->renderer.StrokeProgram(d, *ctx, dabs, extra, *td, tip, b, LinearColor({1, 0.85f, 0.2f, 1}), false, 0)) Log("[demo] brush graph not ready");
+            v->renderer.EndStroke(d, *ctx, v->history, "Pinceau");
+        }
+        for (auto& l : d.S().layers)
+            if (l.name == "Lueur") {
+                l.blendFx = {};
+                l.blendFx.graph = EffectGraph::DefaultBlend().Serialize();
+                if (auto def = l.blendFx.Def()) l.blendFx.params = def->DefaultParams();
+                d.S().activeLayer = l.id;
+            }
+        d.SyncGraph();
+        tool = Tool::Brush;
+        char tgt[8] = "1";
+        GetEnvironmentVariableA("SX_TARGET", tgt, sizeof(tgt));
+        OpenGraphEditor(atoi(tgt));
+        efEd.zoom = 0.8f;
+        return;
+    }
     if (demoMode == 41 && v && frameCounter == 4) {
         // Programmable brushes: one stroke per brush on a new layer (direction,
         // pressure and time extras like a real stroke), then the star brush selected.

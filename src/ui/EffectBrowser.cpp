@@ -48,6 +48,22 @@ gpu::Texture* ActiveContent(DocView& v, u64& hash) {
 }
 }  // namespace
 
+gpu::Texture* ActiveLayerContent(DocView& v, u64& hash) { return ActiveContent(v, hash); }
+
+gpu::Texture* LayerBelow(DocView& v, u64& hash) {
+    // Input A of the active layer's blend node: everything under the layer.
+    Document& d = *v.doc;
+    const Layer* l = d.Mode() == DocMode::Layers ? d.ActiveLayer() : nullptr;
+    if (!l) return nullptr;
+    for (auto& n : d.S().graph.nodes)
+        if (n.kind == NodeKind::Blend && n.layer == l->id && !n.inputs.empty() && n.inputs[0])
+            if (gpu::Texture* t = v.renderer.NodeOutput(n.inputs[0])) {
+                hash = v.renderer.NodeHash(n.inputs[0]);
+                return t;
+            }
+    return nullptr;
+}
+
 // ------------------------------------------------------------------ applying an effect
 
 void App::ApplyLibraryEffect(DocView& v, const std::string& id, FxApply how) {
@@ -93,6 +109,40 @@ void App::ApplyLibraryEffect(DocView& v, const std::string& id, FxApply how) {
     e.Commit();
 }
 
+void App::DropEffectOnLayer(DocView& v, Id layer, const std::string& effectId) {
+    Document& d = *v.doc;
+    auto def = Effects().Find(effectId);
+    Layer* l = d.FindLayer(layer);
+    if (!def || !l) return;
+    if (def->blend) {
+        // A blend dropped on a layer becomes its blend mode.
+        Edit e(d, v.history, "Mode de fusion");
+        l->blendFx = {};
+        l->blendFx.effectId = effectId;
+        l->blendFx.params = def->DefaultParams();
+        l->passThrough = false;
+        d.SyncGraph();
+        e.Commit();
+        Status("Fusion « " + def->name + " » sur " + l->name);
+        return;
+    }
+    if (def->inputs.empty()) {
+        // Generator: new fill layer above.
+        d.S().activeLayer = layer;
+        ApplyLibraryEffect(v, effectId, FxApply::Adjustment);
+        return;
+    }
+    Edit e(d, v.history, "Filtre");
+    EffectInstance fx;
+    fx.effectId = effectId;
+    fx.params = def->DefaultParams();
+    l->filters.push_back(fx);
+    d.S().activeLayer = layer;
+    d.SyncGraph();
+    e.Commit();
+    Status(def->name + " : filtre ajouté à " + l->name);
+}
+
 // ------------------------------------------------------------------ effects browser
 
 void App::DrawEffectBrowser() {
@@ -130,6 +180,10 @@ void App::DrawEffectBrowser() {
     flowChip("Favoris");
     if (chip("Favoris", B.favoritesOnly)) { B.favoritesOnly = !B.favoritesOnly; B.category.clear(); }
     for (const std::string& cat : Effects().Categories()) {
+        // Blends live in the Fusions panel.
+        bool effects = false;
+        for (auto& def : Effects().All()) if (def->category == cat && !def->blend) { effects = true; break; }
+        if (!effects) continue;
         ImGui::SameLine();
         flowChip(cat.c_str());
         if (chip(cat.c_str(), B.category == cat)) { B.category = B.category == cat ? "" : cat; B.favoritesOnly = false; }
@@ -167,6 +221,7 @@ void App::DrawEffectBrowser() {
     std::vector<EffectDefPtr> list;
     std::string q = Lower(B.search);
     for (auto& def : Effects().All()) {
+        if (def->blend) continue;
         if (B.favoritesOnly && !B.favorites.count(def->id)) continue;
         if (!B.category.empty() && def->category != B.category) continue;
         if (!q.empty() && Lower(def->name).find(q) == std::string::npos && Lower(def->category).find(q) == std::string::npos &&
@@ -206,6 +261,13 @@ void App::DrawEffectBrowser() {
         if (ImGui::InvisibleButton("##card", ImVec2(cardW, cardH))) B.selected = def.id;
         bool hovered = ImGui::IsItemHovered();
         if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) applyNow = def.id;
+        // Drag to the graph (new node, on a link: inserted, on a layer node: filter), the layers or the canvas.
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_SourceAllowNullID)) {
+            ImGui::SetDragDropPayload(kEffectPayload, def.id.c_str(), def.id.size() + 1);
+            ImGui::TextUnformatted(def.name.c_str());
+            ImGui::TextDisabled("Graphe : nœud (sur un lien : inséré)  |  Calque : filtre");
+            ImGui::EndDragDropSource();
+        }
         if (ImGui::BeginPopupContextItem("##ctx")) {
             B.selected = def.id;
             if (v) {

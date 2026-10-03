@@ -64,6 +64,8 @@ struct EffectDef {
     std::vector<ParamDef> params;
     int passes = 1;
     bool premultiplied = false;
+    bool blend = false;
+    std::string graph;     // //@graph <json>: source visual graph (library files saved from the graph editor)    // //@blend: a blend mode (inputs A below, B layer, mask), listed in Fusions, not in Effets
     std::string body;      // code after metadata (the Effect function)
     // Neighborhood read by the effect (tiled rendering): offset + sum(param * scale), or full image.
     bool haloDeclared = false, haloFull = false;

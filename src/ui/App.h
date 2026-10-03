@@ -110,6 +110,7 @@ struct NodeEditorState {
 };
 
 struct EffectEditorState {
+    int target = 0;  // 0 effect of the layer / node, 1 blend of the layer, 2 current brush
     float2 pan = {30, 50};
     float zoom = 1.0f;
     Id selected = 0, dragNode = 0;
@@ -145,6 +146,13 @@ struct AssistantState {
         eventCursor = 0;
     }
 };
+
+// Rendered content of the active layer (filters included) / of everything below it.
+gpu::Texture* ActiveLayerContent(DocView& v, u64& hash);
+gpu::Texture* LayerBelow(DocView& v, u64& hash);
+
+// Drag & drop payload: a library effect id (effects browser -> graph, layers, canvas).
+inline constexpr const char* kEffectPayload = "SX_EFFECT";
 
 class App {
 public:
@@ -464,6 +472,9 @@ private:
     void SelectTip(BrushSettings& b, const std::string& id);
     void DrawBrushPanel();
     void DrawBlendPanel();
+    void OpenGraphEditor(int target);  // 0 effect, 1 blend of the layer, 2 brush
+    void SaveGraphToLibrary(const EffectGraph& g, const std::string& code);
+    void DropEffectOnLayer(DocView& v, Id layer, const std::string& effectId);
     struct {
         std::string search, buffer, bufferKey, errors;
         std::string saveName, saveCategory = "Mes pinceaux";
@@ -530,6 +541,12 @@ private:
         u64 sourceHash = 0, sourceFrame = 0;
         std::map<std::string, gpu::TexturePtr> previews;
     } fxBrowser;
+    struct {
+        std::string search, category;
+        gpu::TexturePtr a, b;  // small copies of below / layer
+        u64 sourceHash = 0, sourceFrame = 0;
+        std::map<std::string, gpu::TexturePtr> previews;
+    } blendBrowser;
     void UpdateRelativeDrag();
     // Scripted run (--demo, --capture, --dump-image, --save): never takes the focus or the real cursor.
     bool Automated() const { return demoMode != 0 || !capturePath.empty() || !dumpPath.empty() || !cliSavePath.empty(); }  // hidden, pinned cursor while a slider/drag is dragged

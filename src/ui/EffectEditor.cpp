@@ -1,6 +1,7 @@
 // Visual effect editor (Unreal-material-editor style) for graph-based effects.
 #include "ui/App.h"
 #include "ui/Theme.h"
+#include "doc/Brushes.h"
 #include "doc/EffectGraph.h"
 
 #include <imgui_internal.h>
@@ -25,6 +26,8 @@ ImU32 CategoryColor(const char* cat) {
     if (c == "Couleur") return IM_COL32(170, 90, 60, 255);
     if (c == "Procédural") return IM_COL32(170, 130, 50, 255);
     if (c == "Personnalisé") return IM_COL32(200, 92, 150, 255);
+    if (c == "Fusion") return IM_COL32(190, 70, 110, 255);
+    if (c == "Pinceau") return IM_COL32(60, 130, 200, 255);
     return IM_COL32(52, 160, 110, 255);  // output
 }
 
@@ -88,12 +91,68 @@ void App::DrawEffectEditor() {
     if (!open || !v) { ImGui::End(); return; }
     Document& d = *v->doc;
     std::string where;
-    EffectInstance* fx = EditedEffect(*v, &where);
     auto& ed = efEd;
+    Layer* layer = d.Mode() == DocMode::Layers ? d.ActiveLayer() : nullptr;
+    BrushSettings& brushTarget = tool == Tool::Eraser ? eraser : brush;
+    static EffectInstance brushProxy;  // the brush graph seen as an effect instance
+    EffectInstance* fx = nullptr;
+    if (ed.target == 1 && layer) {
+        fx = &layer->blendFx;
+        where = layer->name + " (fusion)";
+    } else if (ed.target == 2) {
+        if (brushProxy.graph != brushTarget.tipGraph) brushProxy.graph = brushTarget.tipGraph;
+        brushProxy.params = brushTarget.tipParams;
+        fx = &brushProxy;
+        where = tool == Tool::Eraser ? "pinceau de la gomme" : "pinceau";
+    } else {
+        fx = EditedEffect(*v, &where);
+    }
+    const bool brushMode = ed.target == 2;
+
+    // What is edited: effect, blend of the active layer, current brush.
+    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + 8 * dpi, ImGui::GetCursorPosY() + 6 * dpi));
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextDisabled("Graphe de :");
+    ImGui::SameLine();
+    ImGui::RadioButton("Effet", &ed.target, 0);
+    ImGui::SameLine();
+    ImGui::RadioButton("Fusion du calque", &ed.target, 1);
+    ImGui::SameLine();
+    ImGui::RadioButton("Pinceau", &ed.target, 2);
 
     if (!fx || fx->graph.empty()) {
         ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + 16 * dpi, ImGui::GetCursorPosY() + 12 * dpi));
         ImGui::BeginGroup();
+        if (ed.target == 1) {
+            if (!layer) ImGui::TextWrapped("Sélectionnez un calque (mode calques) : sa fusion avec les calques du dessous se construit ici en graphe.");
+            else {
+                ImGui::TextWrapped("Fusion de « %s » : A = calques du dessous, B = ce calque, masque, opacité du calque.", layer->name.c_str());
+                if (ImGui::Button("Créer une fusion en graphe")) {
+                    Edit e(d, v->history, "Fusion en graphe");
+                    layer->blendFx = {};
+                    layer->blendFx.graph = EffectGraph::DefaultBlend().Serialize();
+                    if (auto def = layer->blendFx.Def()) layer->blendFx.params = def->DefaultParams();
+                    layer->passThrough = false;
+                    d.SyncGraph();
+                    e.Commit();
+                }
+            }
+            ImGui::EndGroup();
+            ImGui::End();
+            return;
+        }
+        if (ed.target == 2) {
+            ImGui::TextWrapped("Le pinceau actif n'est pas un graphe. Un graphe de pinceau dessine la pointe (nœud « Touche du pinceau » : position, pression, graine, temps...) ; le placement des touches se règle à gauche.");
+            if (ImGui::Button("Créer un pinceau en graphe")) {
+                brushTarget.tipId.clear();
+                brushTarget.tipCode.clear();
+                brushTarget.tipGraph = EffectGraph::DefaultBrush().Serialize();
+                if (auto td = TipDef(brushTarget); td && td->def) brushTarget.tipParams = td->def->DefaultParams();
+            }
+            ImGui::EndGroup();
+            ImGui::End();
+            return;
+        }
         ImGui::TextWrapped("Sélectionnez un effet basé sur un graphe (nœud, calque de réglage ou de remplissage).");
         ImGui::Spacing();
         if (fx && ImGui::Button("Convertir cet effet en graphe vide")) {
@@ -147,8 +206,26 @@ void App::DrawEffectEditor() {
     if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
     if (ImGui::InputText("Catégorie", &g.category)) live = true;
     if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
-    if (ImGui::SliderInt("Entrées", &g.inputs, 0, 4)) changed = true;
-    if (ImGui::Checkbox("Prémultiplié", &g.premultiplied)) changed = true;
+    auto trackLive = [&](bool edited) {
+        if (edited) live = true;
+        if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+    };
+    if (g.kind == EGKind::Effect) {
+        if (ImGui::SliderInt("Entrées", &g.inputs, 0, 4)) changed = true;
+        if (ImGui::Checkbox("Prémultiplié", &g.premultiplied)) changed = true;
+    } else if (g.kind == EGKind::Blend) {
+        ImGui::TextDisabled("Entrée 1 = A (dessous), 2 = B (calque), 3 = masque.");
+    } else {
+        ImGui::SeparatorText("Placement des touches");
+        trackLive(ImGui::SliderFloat("Espacement", &g.spacing, 0.01f, 2.0f, "%.2f"));
+        trackLive(ImGui::SliderFloat("Aérographe", &g.airbrush, 0, 120, g.airbrush > 0 ? "%.0f /s" : "non"));
+        ui::HelpTooltip("Touches par seconde tant que le bouton reste appuyé (0 : seulement en bougeant).");
+        trackLive(ImGui::SliderFloat("Suivre le trait", &g.follow, 0, 1));
+        trackLive(ImGui::SliderFloat("Dispersion", &g.scatter, 0, 4));
+        trackLive(ImGui::SliderFloat("Taille aléatoire", &g.sizeJitter, 0, 1));
+        trackLive(ImGui::SliderFloat("Angle aléatoire", &g.angleJitter, 0, 1));
+        trackLive(ImGui::SliderFloat("Opacité aléatoire", &g.opacityJitter, 0, 1));
+    }
     EGNode* sel = g.Find(ed.selected);
     if (sel) {
         const EGOpDef* od = FindOp(sel->op);
@@ -173,7 +250,7 @@ void App::DrawEffectEditor() {
             ImGui::TextDisabled("Réglable dans Propriétés.");
         } else if (op == "input" || op == "sample") {
             int idx = sel->index + 1;
-            if (ImGui::SliderInt("Entrée", &idx, 1, std::max(g.inputs, 1))) { sel->index = idx - 1; changed = true; }
+            if (ImGui::SliderInt("Entrée", &idx, 1, std::max(g.kind == EGKind::Blend ? 3 : g.inputs, 1))) { sel->index = idx - 1; changed = true; }
         } else if (op == "mask") {
             int bits = sel->index ? sel->index : 7;
             const char* names[] = {"R", "G", "B", "A"};
@@ -209,6 +286,8 @@ void App::DrawEffectEditor() {
     for (auto& n : d.S().graph.nodes)
         if (n.kind == NodeKind::Effect && n.fx.graph == fx->graph) renderNode = n.id;
     bool failed = renderNode && v->renderer.NodeFailed(renderNode, &shaderErr);
+    if (brushMode)
+        if (auto td = TipDef(brushTarget)) failed = !v->renderer.BrushPipeline(*td, &shaderErr) && !shaderErr.empty();
     if (!cr.error.empty()) ImGui::TextColored(ImVec4(1, 0.5f, 0.4f, 1), "%s", cr.error.c_str());
     else if (failed) {
         ImGui::PushFont(ui::GetFonts().mono, 0.0f);
@@ -225,7 +304,15 @@ void App::DrawEffectEditor() {
         ImGui::PopFont();
         ImGui::EndPopup();
     }
-    if (ImGui::Button("Convertir en HLSL éditable")) {
+    if (brushMode) {
+        if (ImGui::Button("Convertir en HLSL éditable")) {
+            brushTarget.tipCode = cr.code;
+            brushTarget.tipGraph.clear();
+            ImGui::EndChild();
+            ImGui::End();
+            return;
+        }
+    } else if (ImGui::Button("Convertir en HLSL éditable")) {
         DocState before = d.S();
         auto old = fx->Def();
         fx->customCode = cr.code;
@@ -237,7 +324,11 @@ void App::DrawEffectEditor() {
         ImGui::End();
         return;
     }
-    if (ImGui::Button("Exporter vers un matériau Unreal...")) {
+    if (g.kind != EGKind::Effect) {
+        // Library: blends -> shaders/effects, brushes -> shaders/brushes (graph kept for editing).
+        if (ImGui::Button(g.kind == EGKind::Brush ? "Enregistrer dans les pinceaux" : "Enregistrer dans les fusions")) SaveGraphToLibrary(g, cr.code);
+    }
+    if (g.kind == EGKind::Effect && ImGui::Button("Exporter vers un matériau Unreal...")) {
         std::string path = platform::SaveFileDialog(hwnd, L"Script Python Unreal (*.py)\0*.py\0", L"py");
         if (!path.empty()) {
             std::string matName = "M_SX_";
@@ -421,7 +512,7 @@ void App::DrawEffectEditor() {
             else dl->AddCircle(p, pr, IM_COL32(120, 122, 140, 255), 0, 1.5f * ed.zoom);
             if (text) {
                 std::string lbl = od->inputs[i].name;
-                if (!conn && od->inputs[i].defValue != -1) {
+                if (!conn && od->inputs[i].defValue >= 0) {  // negative: implicit source (UV, opacity...)
                     char b2[32];
                     snprintf(b2, sizeof(b2), " (%.3g)", od->inputs[i].defValue);
                     lbl += b2;
@@ -483,7 +574,7 @@ void App::DrawEffectEditor() {
         };
         std::string lastCat;
         for (auto& od : EffectGraphOps()) {
-            if (std::string(od.op) == "output") continue;
+            if (std::string(od.op) == "output" || !OpAllowed(od, g.kind)) continue;
             if (!q.empty()) {
                 std::string l = od.label;
                 for (auto& c : l) c = (char)tolower((unsigned char)c);
@@ -515,6 +606,17 @@ void App::DrawEffectEditor() {
     dl->PopClipRect();
     ImGui::End();
 
+    // Write back: brush graph -> brush settings (no document change).
+    if (brushMode && (changed || live)) {
+        auto old = fx->Def();
+        fx->graph = g.Serialize();
+        ed.cachedJson = fx->graph;
+        fx->SyncParams(old);
+        brushTarget.tipGraph = fx->graph;
+        brushTarget.tipParams = fx->params;
+        if (g.spacing > 0) brushTarget.spacing = g.spacing;
+        return;
+    }
     // Write back to the effect instance.
     if (changed || live) {
         auto old = fx->Def();

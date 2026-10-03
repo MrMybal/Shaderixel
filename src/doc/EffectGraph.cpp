@@ -68,12 +68,28 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"noise", "Bruit", "Procédural", {{"UV", -1}, {"Échelle", 8}}, {""}, 1},
         {"checker", "Damier", "Procédural", {{"UV", -1}, {"Cases", 8}}, {""}, 1},
         {"rotateuv", "Rotation UV", "Procédural", {{"UV", -1}, {"Angle", 0}, {"Centre", 0.5f}}, {""}, 2},
+        // Blends (A below, B layer)
+        {"opacity", "Opacité du calque", "Fusion", {}, {""}, 1},
+        {"blendover", "Composer la fusion", "Fusion", {{"A (dessous)", 0}, {"B (calque)", 0}, {"Mélange RGB", 0}, {"Masque", 1}, {"Opacité", -2}}, {""}, 4},
+        // Brushes
+        {"brush", "Touche du pinceau", "Pinceau", {},
+         {"Position locale", "UV", "Pixel", "Pression", "Couleur", "Dureté", "Flux", "Rayon", "Graine", "Temps", "Distance", "Direction"}, 0},
+        {"roundtip", "Pointe ronde", "Pinceau", {{"Position locale", -3}, {"Dureté", -4}}, {""}, 1},
+        {"random", "Aléatoire par touche", "Pinceau", {{"Canal", 0}}, {""}, 1},
         // Custom
         {"custom", "HLSL personnalisé", "Personnalisé", {{"A", 0}, {"B", 0}, {"C", 0}, {"D", 0}}, {""}, 4, true},
         // Output
         {"output", "Sortie", "Sortie", {{"RGBA", 0}, {"RGB", 0}, {"Alpha", 1}}, {}, 0},
     };
     return ops;
+}
+
+bool OpAllowed(const EGOpDef& op, EGKind kind) {
+    std::string c = op.category, o = op.op;
+    if (c == "Fusion") return kind == EGKind::Blend;
+    if (c == "Pinceau") return kind == EGKind::Brush;
+    if (kind == EGKind::Brush && (o == "input" || o == "sample")) return false;
+    return true;
 }
 
 const EGOpDef* FindOp(const std::string& op) {
@@ -115,6 +131,16 @@ Json EffectGraph::ToJson() const {
     j["category"] = category;
     j["inputs"] = inputs;
     j["premultiplied"] = premultiplied;
+    if (kind != EGKind::Effect) j["kind"] = (int)kind;
+    if (kind == EGKind::Brush) {
+        j["spacing"] = spacing;
+        j["airbrush"] = airbrush;
+        j["follow"] = follow;
+        j["scatter"] = scatter;
+        j["sizeJitter"] = sizeJitter;
+        j["angleJitter"] = angleJitter;
+        j["opacityJitter"] = opacityJitter;
+    }
     j["nextId"] = nextId;
     Json arr = Json::Array();
     for (auto& n : nodes) {
@@ -148,6 +174,14 @@ bool EffectGraph::FromJson(const Json& j, EffectGraph& g) {
     g.category = j["category"].S("Graphes");
     g.inputs = std::clamp(j["inputs"].I(1), 0, 4);
     g.premultiplied = j["premultiplied"].B(false);
+    g.kind = (EGKind)std::clamp(j["kind"].I(0), 0, 2);
+    g.spacing = j["spacing"].F(0.1f);
+    g.airbrush = j["airbrush"].F(0);
+    g.follow = j["follow"].F(0);
+    g.scatter = j["scatter"].F(0);
+    g.sizeJitter = j["sizeJitter"].F(0);
+    g.angleJitter = j["angleJitter"].F(0);
+    g.opacityJitter = j["opacityJitter"].F(0);
     g.nextId = j["nextId"].U(1);
     for (auto& o : j["nodes"].Elements()) {
         EGNode n;
@@ -185,6 +219,51 @@ EffectGraph EffectGraph::Default() {
     out.pos = {420, 80};
     out.inputs = {{in.id, 0}};
     g.nodes = {in, out};
+    return g;
+}
+
+namespace {
+EGNode& AddNode(EffectGraph& g, const char* op, float2 pos, int index = 0) {
+    EGNode n;
+    n.id = g.nextId++;
+    n.op = op;
+    n.pos = pos;
+    n.index = index;
+    if (const EGOpDef* d = FindOp(op)) n.inputs.resize(d->inputs.size());
+    g.nodes.push_back(n);
+    return g.nodes.back();
+}
+}  // namespace
+
+EffectGraph EffectGraph::DefaultBlend() {
+    // A x B (Produit) composed over A with the layer's mask and opacity.
+    EffectGraph g;
+    g.kind = EGKind::Blend;
+    g.name = "Fusion visuelle";
+    g.category = "Mes fusions";
+    g.inputs = 3;
+    Id a = AddNode(g, "input", {40, 40}, 0).id, b = AddNode(g, "input", {40, 230}, 1).id, m = AddNode(g, "input", {40, 420}, 2).id;
+    Id mul = AddNode(g, "mul", {300, 120}).id;
+    g.Find(mul)->inputs = {{a, 1}, {b, 1}};
+    Id over = AddNode(g, "blendover", {540, 140}).id;
+    g.Find(over)->inputs = {{a, 0}, {b, 0}, {mul, 0}, {m, 2}, {}};
+    Id out = AddNode(g, "output", {820, 160}).id;
+    g.Find(out)->inputs = {{over, 0}, {}, {}};
+    return g;
+}
+
+EffectGraph EffectGraph::DefaultBrush() {
+    // Round tip with the brush color.
+    EffectGraph g;
+    g.kind = EGKind::Brush;
+    g.name = "Pinceau visuel";
+    g.category = "Mes pinceaux";
+    g.inputs = 0;
+    Id br = AddNode(g, "brush", {40, 40}).id;
+    Id tip = AddNode(g, "roundtip", {340, 60}).id;
+    g.Find(tip)->inputs = {{br, 0}, {br, 5}};
+    Id out = AddNode(g, "output", {620, 60}).id;
+    g.Find(out)->inputs = {{}, {br, 4}, {tip, 0}};
     return g;
 }
 
@@ -245,6 +324,8 @@ const char* kHelperStruct =
     "    float3 ToSrgb(float3 c) { return float3(ToSrgb1(c.r), ToSrgb1(c.g), ToSrgb1(c.b)); }\n"
     "    float3 ToLinear(float3 c) { return float3(ToLinear1(c.r), ToLinear1(c.g), ToLinear1(c.b)); }\n"
     "    float4 F4(float3 v) { return float4(v, 1.0); }\n"
+    "    float4 Over(float4 A, float4 B, float3 m, float k) { float ab = saturate(B.a * k); float a = ab + A.a * (1.0 - ab);\n"
+    "        float3 rgb = ab * (1.0 - A.a) * B.rgb + ab * A.a * m + (1.0 - ab) * A.a * A.rgb; return float4(a > 0.0 ? rgb / a : (float3)0.0, a); }\n"
     "    float4 F4(float4 v) { return v; }\n"
     "};\n";
 
@@ -260,9 +341,10 @@ struct Gen {
     std::vector<Id> errorNodes;
     std::unordered_map<Id, std::string> paramNames;
 
-    std::string UV() const { return unreal ? "UV" : "ctx.uv"; }
-    std::string Pixel() const { return unreal ? "(UV * Size)" : "float2(ctx.px)"; }
-    std::string Size() const { return unreal ? "Size" : "ctx.size"; }
+    bool brush() const { return g.kind == EGKind::Brush; }
+    std::string UV() const { return unreal ? "UV" : brush() ? "b.uv" : "ctx.uv"; }
+    std::string Pixel() const { return unreal ? "(UV * Size)" : brush() ? "b.px" : "float2(ctx.px)"; }
+    std::string Size() const { return unreal ? "Size" : brush() ? "b.docSize" : "ctx.size"; }
     std::string SampleAt(int i, const std::string& uv) const {
         if (unreal) return "Texture2DSample(Tex" + std::to_string(i) + ", Tex" + std::to_string(i) + "Sampler, " + uv + ")";
         return "InputUV(" + std::to_string(i) + ", " + uv + ")";
@@ -275,6 +357,9 @@ struct Gen {
             if (k >= 0 && k < (int)outs.size()) return outs[k];
         }
         if (def == -1) return {UV(), 2};  // pins defaulting to the image UV
+        if (def == -2) return {"opacity", 1};  // layer opacity (blends)
+        if (def == -3) return {brush() ? std::string("b.local") : "(" + UV() + " * 2.0 - 1.0)", 2};
+        if (def == -4) return {brush() ? "b.hardness" : "0.8", 1};
         return {F(def), 1};
     }
 
@@ -306,7 +391,23 @@ struct Gen {
             one(v + ".rgb", 3);
             for (const char* c : {".r", ".g", ".b", ".a"}) one(v + c, 1);
         };
-        if (op == "input") {
+        if ((op == "input" || op == "sample") && brush()) {
+            Fail(id, "un pinceau n'a pas d'image d'entrée");
+            one("float4(0.0, 0.0, 0.0, 0.0)", 4);
+        } else if (op == "brush") {
+            if (!brush()) Fail(id, "nœud réservé aux pinceaux");
+            one("b.local", 2); one("b.uv", 2); one("b.px", 2); one("b.pressure", 1); one("b.color", 3); one("b.hardness", 1);
+            one("b.flow", 1); one("b.radius", 1); one("b.seed", 1); one("b.time", 1); one("b.distance", 1); one("b.direction", 2);
+        } else if (op == "roundtip") {
+            one("(1.0 - smoothstep(saturate(" + S(1) + ") * 0.999, 1.0, length(" + Conv(a[0], 2) + ")))", 1);
+        } else if (op == "random") {
+            if (!brush()) Fail(id, "nœud réservé aux pinceaux");
+            one("Rand(b.seed, " + S(0) + " + 11.0)", 1);
+        } else if (op == "opacity") {
+            one("opacity", 1);
+        } else if (op == "blendover") {
+            one("sxh.Over(" + Conv(a[0], 4) + ", " + Conv(a[1], 4) + ", " + Conv(a[2], 3) + ", " + S(3) + " * " + S(4) + ")", 4);
+        } else if (op == "input") {
             usedInputs.insert(std::clamp(n->index, 0, 3));
             channels(unreal ? SampleAt(std::clamp(n->index, 0, 3), "UV") : "Input(" + idx + ", ctx.px)");
         } else if (op == "sample") {
@@ -397,7 +498,7 @@ struct Gen {
             one("0.0", 1);
         }
         // Materialize every output into a local so shared subexpressions are computed once.
-        if (op != "output" && op != "param" && op != "paramcolor" && op != "uv" && op != "const") {
+        if (op != "output" && op != "param" && op != "paramcolor" && op != "uv" && op != "const" && op != "brush" && op != "opacity") {
             for (size_t k = 0; k < out.size(); ++k) {
                 std::string var = "n" + std::to_string(id) + "_" + std::to_string(k);
                 lines.push_back("    " + Type(out[k].n) + " " + var + " = " + out[k].expr + ";");
@@ -449,16 +550,26 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
     }
 
     std::string s;
+    const bool brush = g.kind == EGKind::Brush, blend = g.kind == EGKind::Blend;
     s += "//@name " + g.name + "\n";
     s += "//@category " + g.category + "\n";
-    if (g.inputs == 0) s += "//@generator\n";
-    for (int i = 0; i < g.inputs; ++i) s += "//@input " + std::string(i == 0 ? "Image" : "Image " + std::to_string(i + 1)) + "\n";
-    if (g.premultiplied) s += "//@premultiplied\n";
-    {
+    if (brush) {
+        s += "//@spacing " + F(std::clamp(g.spacing, 0.01f, 4.0f)) + "\n";
+        if (g.airbrush > 0) s += "//@airbrush " + F(g.airbrush) + "\n";
+        if (g.scatter > 0) s += "//@extent " + F(1.0f + g.scatter) + "\n";
+    } else if (blend) {
+        s += "//@blend\n//@input A (dessous)\n//@input B (calque)\n//@input Masque\n";
+    } else {
+        if (g.inputs == 0) s += "//@generator\n";
+        for (int i = 0; i < g.inputs; ++i) s += "//@input " + std::string(i == 0 ? "Image" : "Image " + std::to_string(i + 1)) + "\n";
+    }
+    if (g.premultiplied && !brush) s += "//@premultiplied\n";
+    if (!brush) {
         bool global = false;
         for (auto& n : g.nodes) if (n.op == "sample" || n.op == "custom") global = true;
         s += global ? "//@halo full\n" : "//@halo 0\n";
     }
+    if (blend) s += "//@param opacity float 1 0 1 \"Opacité\"\n";  // driven by the layer opacity
     for (auto& n : g.nodes) {
         auto it = gen.paramNames.find(n.id);
         if (it == gen.paramNames.end()) continue;
@@ -468,12 +579,21 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
         else
             s += "//@param " + it->second + " color " + F(n.value.x) + " " + F(n.value.y) + " " + F(n.value.z) + " " + F(n.value.w) + " \"" + label + "\"\n";
     }
-    s += "// Généré par l'éditeur d'effets de Shaderixel.\n";
+    s += "// Généré par l'éditeur visuel de Shaderixel.\n";
     s += kHelperStruct;
     for (auto& c : gen.customStructs) s += c;
-    s += "float4 Effect(EffectContext ctx)\n{\n    SXH sxh;\n";
+    s += brush ? "float4 Tip(Brush b)\n{\n    SXH sxh;\n" : "float4 Effect(EffectContext ctx)\n{\n    SXH sxh;\n";
     for (auto& l : gen.lines) s += l + "\n";
     s += "    return " + (res.empty() ? std::string("float4(0, 0, 0, 0)") : Conv(res[0], 4)) + ";\n}\n";
+    if (brush && (g.follow != 0 || g.scatter != 0 || g.sizeJitter != 0 || g.angleJitter != 0 || g.opacityJitter != 0)) {
+        // Placement of each dab: follow the stroke, scatter, random size / angle / opacity.
+        s += "\nvoid Dynamics(inout Dab d)\n{\n";
+        s += "    d.angle = " + F(g.follow) + " * atan2(d.direction.y, d.direction.x) + (Rand(d.seed, 4.0) - 0.5) * 6.2831853 * " + F(g.angleJitter) + ";\n";
+        s += "    d.pos += (Rand2(d.seed) - 0.5) * 2.0 * d.radius * " + F(g.scatter) + ";\n";
+        s += "    d.radius *= lerp(1.0, Rand(d.seed, 3.0), " + F(g.sizeJitter) + ");\n";
+        s += "    d.opacity *= lerp(1.0, Rand(d.seed, 6.0), " + F(g.opacityJitter) + ");\n";
+        s += "}\n";
+    }
     r.code = s;
     return r;
 }

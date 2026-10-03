@@ -57,6 +57,8 @@ def convert(p):
     lines = []
     lines.append('//@name ' + words(p['name']))
     lines.append('//@category ' + CATEGORY[p['category']])
+    if p['category'] == 'Blend':
+        lines.append('//@blend')
     if textures:
         for t in textures:
             lines.append('//@input ' + INPUT_LABEL.get(t, words(t.replace('Texture', '')) or t))

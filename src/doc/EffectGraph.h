@@ -35,11 +35,16 @@ struct EGNode {
     int index = 0;               // input index, mask bits...
 };
 
+enum class EGKind : int { Effect = 0, Blend = 1, Brush = 2 };
+
 struct EffectGraph {
     std::string name = "Effet visuel";
     std::string category = "Graphes";
-    int inputs = 1;              // image inputs (0 = generator)
+    EGKind kind = EGKind::Effect;
+    int inputs = 1;              // image inputs (0 = generator); blends: A below, B layer, mask
     bool premultiplied = false;
+    // Brushes: placement of the dabs (generated Dynamics()).
+    float spacing = 0.1f, airbrush = 0, follow = 0, scatter = 0, sizeJitter = 0, angleJitter = 0, opacityJitter = 0;
     std::vector<EGNode> nodes;
     Id nextId = 1;
 
@@ -53,6 +58,8 @@ struct EffectGraph {
     std::string Serialize() const { return ToJson().Dump(0); }
     static bool Deserialize(const std::string& s, EffectGraph& out);
     static EffectGraph Default();
+    static EffectGraph DefaultBlend();
+    static EffectGraph DefaultBrush();
 };
 
 // Operation registry --------------------------------------------------------
@@ -72,6 +79,8 @@ struct EGOpDef {
 };
 
 const std::vector<EGOpDef>& EffectGraphOps();
+// Operations offered for a kind of graph (no image input in brushes, blend / brush nodes).
+bool OpAllowed(const EGOpDef& op, EGKind kind);
 const EGOpDef* FindOp(const std::string& op);
 
 // Code generation -----------------------------------------------------------
