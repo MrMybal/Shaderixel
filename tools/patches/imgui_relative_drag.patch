@@ -1,0 +1,80 @@
+diff --git a/imgui_widgets.cpp b/imgui_widgets.cpp
+index d7f4186..000547a 100644
+--- a/imgui_widgets.cpp
++++ b/imgui_widgets.cpp
+@@ -2548,6 +2548,27 @@ TYPE ImGui::RoundScalarWithFormatT(const char* format, ImGuiDataType data_type,
+ //-------------------------------------------------------------------------
+ 
+ // This is called by DragBehavior() when the widget is active (held by mouse or being manipulated with Nav controls)
++// Shaderixel: relative mouse drags for sliders and drags. Sliders no longer jump
++// to the click: the value follows the mouse motion at a reduced base speed,
++// Shift = faster, Ctrl (while dragging) = slower. The application hides the
++// cursor and keeps it in place while GSXRelativeDragFrame == current frame,
++// supplies the true cursor motion in GSXMouseDelta (GSXUseMouseDelta) since the
++// cursor is warped back while dragging.
++ImVec2 GSXMouseDelta = ImVec2(0.0f, 0.0f);
++bool GSXUseMouseDelta = false;
++int GSXRelativeDragFrame = -1;
++float GSXDragSpeed = 0.6f, GSXDragFast = 4.0f, GSXDragSlow = 0.1f;
++static float SXDragDelta(ImGuiAxis axis, ImGuiSliderFlags flags)
++{
++    ImGuiContext& g = *GImGui;
++    GSXRelativeDragFrame = g.FrameCount;
++    ImGui::SetMouseCursor(ImGuiMouseCursor_None);
++    float d = GSXUseMouseDelta ? GSXMouseDelta[axis] : g.IO.MouseDelta[axis];
++    if (flags & ImGuiSliderFlags_NoSpeedTweaks)
++        return d * GSXDragSpeed;
++    return d * GSXDragSpeed * (g.IO.KeyShift ? GSXDragFast : 1.0f) * (g.IO.KeyCtrl ? GSXDragSlow : 1.0f);
++}
++
+ template<typename TYPE, typename SIGNEDTYPE, typename FLOATTYPE>
+ bool ImGui::DragBehaviorT(ImGuiDataType data_type, TYPE* v, float v_speed, const TYPE v_min, const TYPE v_max, const char* format, ImGuiSliderFlags flags)
+ {
+@@ -2564,13 +2585,9 @@ bool ImGui::DragBehaviorT(ImGuiDataType data_type, TYPE* v, float v_speed, const
+ 
+     // Inputs accumulates into g.DragCurrentAccum, which is flushed into the current value as soon as it makes a difference with our precision settings
+     float adjust_delta = 0.0f;
+-    if (g.ActiveIdSource == ImGuiInputSource_Mouse && IsMousePosValid() && IsMouseDragPastThreshold(0, g.IO.MouseDragThreshold * DRAG_MOUSE_THRESHOLD_FACTOR))
++    if (g.ActiveIdSource == ImGuiInputSource_Mouse && IsMousePosValid() && (GSXUseMouseDelta || IsMouseDragPastThreshold(0, g.IO.MouseDragThreshold * DRAG_MOUSE_THRESHOLD_FACTOR)))
+     {
+-        adjust_delta = g.IO.MouseDelta[axis];
+-        if (g.IO.KeyAlt && !(flags & ImGuiSliderFlags_NoSpeedTweaks))
+-            adjust_delta *= 1.0f / 100.0f;
+-        if (g.IO.KeyShift && !(flags & ImGuiSliderFlags_NoSpeedTweaks))
+-            adjust_delta *= 10.0f;
++        adjust_delta = SXDragDelta(axis, flags);
+     }
+     else if (g.ActiveIdSource == ImGuiInputSource_Keyboard || g.ActiveIdSource == ImGuiInputSource_Gamepad)
+     {
+@@ -3184,21 +3201,19 @@ bool ImGui::SliderBehaviorT(const ImRect& bb, ImGuiID id, ImGuiDataType data_typ
+         float clicked_t = 0.0f;
+         if (g.ActiveIdSource == ImGuiInputSource_Mouse)
+         {
+-            const float mouse_pos = g.IO.MousePos[axis];
++            // Shaderixel: relative drag (see SXDragDelta). The ratio accumulates
++            // unrounded in SliderGrabClickOffset so slow drags still progress.
+             if (g.ActiveIdIsJustActivated)
++                g.SliderGrabClickOffset = ScaleRatioFromValueT<TYPE, SIGNEDTYPE, FLOATTYPE>(data_type, *v, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize);
++            float delta = SXDragDelta(axis, flags) / ImMax(slider_usable_sz, 1.0f);
++            if (axis == ImGuiAxis_Y)
++                delta = -delta;
++            if (delta != 0.0f)
+             {
+-                float grab_t = ScaleRatioFromValueT<TYPE, SIGNEDTYPE, FLOATTYPE>(data_type, *v, v_min, v_max, logarithmic_zero_epsilon, zero_deadzone_halfsize);
+-                if (axis == ImGuiAxis_Y)
+-                    grab_t = 1.0f - grab_t;
+-                const float grab_pos = ImLerp(slider_usable_pos_min, slider_usable_pos_max, grab_t);
+-                const bool clicked_around_grab = (mouse_pos >= grab_pos - grab_sz * 0.5f - 1.0f) && (mouse_pos <= grab_pos + grab_sz * 0.5f + 1.0f); // No harm being extra generous here.
+-                g.SliderGrabClickOffset = (clicked_around_grab && is_floating_point) ? mouse_pos - grab_pos : 0.0f;
++                g.SliderGrabClickOffset = ImSaturate(g.SliderGrabClickOffset + delta);
++                clicked_t = g.SliderGrabClickOffset;
++                set_new_value = true;
+             }
+-            if (slider_usable_sz > 0.0f)
+-                clicked_t = ImSaturate((mouse_pos - g.SliderGrabClickOffset - slider_usable_pos_min) / slider_usable_sz);
+-            if (axis == ImGuiAxis_Y)
+-                clicked_t = 1.0f - clicked_t;
+-            set_new_value = true;
+         }
+         else if (g.ActiveIdSource == ImGuiInputSource_Keyboard || g.ActiveIdSource == ImGuiInputSource_Gamepad)
+         {

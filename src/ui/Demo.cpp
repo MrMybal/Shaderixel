@@ -256,6 +256,45 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 35) {
+        // Relative sliders/drags, driven through ImGui's input queue only (the real
+        // cursor and keyboard are never touched): 100 px plain, with Shift, with Ctrl.
+        static float slider = 50, drag = 0;
+        ImGui::SetNextWindowPos(ImVec2(100, 100));
+        ImGui::SetNextWindowSize(ImVec2(460, 120));
+        ImGui::Begin("##slidertest", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings);
+        ImGui::SetNextItemWidth(400);
+        ImGui::SliderFloat("##s", &slider, 0, 100);
+        ImVec2 sp = ImGui::GetItemRectMin();
+        ImGui::SetNextItemWidth(400);
+        ImGui::DragFloat("##d", &drag, 1.0f);
+        ImVec2 dp = ImGui::GetItemRectMin();
+        ImGui::End();
+        ImGuiIO& io = ImGui::GetIO();
+        io.MouseDoubleClickTime = 0.0f;  // successive scripted clicks are not double-clicks
+        static float before = 0;
+        auto stroke = [&](int f0, ImVec2 at, ImGuiKey mod, float* value, const char* what) {
+            int f = (int)frameCounter - f0;
+            if (f == 0) io.AddMousePosEvent(at.x + 200, at.y + 8);
+            if (f == 1) before = *value;
+            // Ctrl at click time is ImGui's text entry: it is pressed once the drag has started (as a user would).
+            if (mod != ImGuiKey_None && f == (mod == ImGuiMod_Ctrl ? 3 : 1)) io.AddKeyEvent(mod, true);
+            if (f == 2) io.AddMouseButtonEvent(0, true);
+            if (f >= 3 && f < 13) io.AddMousePosEvent(at.x + 200 + (f - 2) * 10.0f, at.y + 8);
+            if (f == 14) io.AddMouseButtonEvent(0, false);
+            if (f == 15) {
+                if (mod != ImGuiKey_None) io.AddKeyEvent(mod, false);
+                Log("[sliders] %s: %.2f -> %.2f (%+.2f for 100 px)", what, before, *value, *value - before);
+            }
+        };
+        if (frameCounter >= 10 && frameCounter < 30) stroke(10, sp, ImGuiKey_None, &slider, "slider");
+        if (frameCounter >= 30 && frameCounter < 50) { if (frameCounter == 30) slider = 10; stroke(30, sp, ImGuiMod_Shift, &slider, "slider + Maj"); }
+        if (frameCounter >= 50 && frameCounter < 70) stroke(50, sp, ImGuiMod_Ctrl, &slider, "slider + Ctrl");
+        if (frameCounter >= 70 && frameCounter < 90) stroke(70, dp, ImGuiKey_None, &drag, "drag");
+        if (frameCounter >= 90 && frameCounter < 110) stroke(90, dp, ImGuiMod_Shift, &drag, "drag + Maj");
+        if (frameCounter >= 110 && frameCounter < 130) stroke(110, dp, ImGuiMod_Ctrl, &drag, "drag + Ctrl");
+        return;
+    }
     if (demoMode == 34 && v) {
         // ComfyUI (run tools/mock_comfyui.py or a real server; SX_COMFY_URL overrides the endpoint):
         // image-to-image from the current composite, result imported as a layer.

@@ -79,7 +79,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -148,7 +148,16 @@ bool App::Init() {
         std::string err;
         if (!bridge.LaunchCompanion(aiSettings, &err)) Log("Companion: %s", err.c_str());
     }
-    ShowWindow(hwnd, SW_SHOWMAXIMIZED);
+    if (Automated()) {
+        // Scripted run (demo / capture / dump): full size but behind the user's
+        // windows and without taking the focus, so the PC stays usable.
+        RECT wa;
+        SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0);
+        SetWindowPos(hwnd, HWND_BOTTOM, wa.left, wa.top, wa.right - wa.left, wa.bottom - wa.top, SWP_NOACTIVATE);
+        ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+    } else {
+        ShowWindow(hwnd, SW_SHOWMAXIMIZED);
+    }
     UpdateWindow(hwnd);
     // No document at launch: the canvas shows the welcome screen (logo, new/open, recent files).
     return true;
@@ -164,6 +173,50 @@ void App::Shutdown() {
     ImGui::DestroyContext();
     gpu::Shaders().Shutdown();
     gpu::Dev().Shutdown();
+}
+
+}  // namespace sx
+// Shared with the patched imgui_widgets.cpp (tools/patches/imgui_relative_drag.patch).
+extern ImVec2 GSXMouseDelta;
+extern bool GSXUseMouseDelta;
+extern int GSXRelativeDragFrame;
+namespace sx {
+
+void App::UpdateRelativeDrag() {
+    // Called before ImGui::NewFrame. While a slider/drag follows the mouse (it
+    // hides the cursor), the cursor is pulled back to where the drag started
+    // whenever it wanders, so the drag never hits a screen edge; the true motion
+    // is measured here and handed to the widgets. On release the cursor
+    // reappears where the drag started.
+    GSXUseMouseDelta = false;
+    if (Automated()) return;  // scripted runs: widgets use ImGui's own mouse delta, the real cursor is left alone
+    static bool dragging = false;
+    static POINT anchor = {}, last = {};
+    bool active = GSXRelativeDragFrame == ImGui::GetFrameCount();  // previous frame's widgets
+    POINT cur;
+    GetCursorPos(&cur);
+    if (active && !dragging) {
+        dragging = true;
+        ImVec2 c = ImGui::GetIO().MouseClickedPos[0];
+        anchor = {(LONG)c.x, (LONG)c.y};
+        ClientToScreen(hwnd, &anchor);
+        last = cur;
+    }
+    if (!dragging) return;
+    if (!active) {
+        SetCursorPos(anchor.x, anchor.y);
+        dragging = false;
+        return;
+    }
+    GSXMouseDelta = ImVec2((float)(cur.x - last.x), (float)(cur.y - last.y));
+    GSXUseMouseDelta = true;
+    long dx = cur.x - anchor.x, dy = cur.y - anchor.y;
+    if (dx * dx + dy * dy > 80 * 80) {
+        SetCursorPos(anchor.x, anchor.y);
+        last = anchor;
+    } else {
+        last = cur;
+    }
 }
 
 void App::LoadLogo() {
@@ -252,6 +305,7 @@ void App::Frame() {
 
     gpu::Dev().ImGuiNewFrame();
     ImGui_ImplWin32_NewFrame();
+    UpdateRelativeDrag();  // before NewFrame: feeds the cursor motion of slider drags
     ImGui::NewFrame();
 
     if (DocView* v = Active()) {

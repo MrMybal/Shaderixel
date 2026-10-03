@@ -14,6 +14,17 @@ set(IMGUI_DIR ${EXT}/imgui)
 set(SLANG_DIR ${EXT}/slang)
 
 # ---------------------------------------------------------------- Dear ImGui
+# Shaderixel patch: relative slider/drag behavior with speed modifiers (tools/patches).
+file(READ ${IMGUI_DIR}/imgui_widgets.cpp SX_IMGUI_WIDGETS)
+string(FIND "${SX_IMGUI_WIDGETS}" "GSXRelativeDragFrame" SX_IMGUI_PATCHED)
+if(SX_IMGUI_PATCHED EQUAL -1)
+    execute_process(COMMAND git apply --ignore-whitespace ${CMAKE_SOURCE_DIR}/tools/patches/imgui_relative_drag.patch
+                    WORKING_DIRECTORY ${IMGUI_DIR} RESULT_VARIABLE SX_IMGUI_PATCH_RESULT)
+    if(NOT SX_IMGUI_PATCH_RESULT EQUAL 0)
+        message(FATAL_ERROR "Could not apply tools/patches/imgui_relative_drag.patch to ${IMGUI_DIR}")
+    endif()
+endif()
+
 add_library(imgui STATIC
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_draw.cpp
