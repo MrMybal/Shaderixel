@@ -92,6 +92,7 @@ class EffectLibrary {
 public:
     void Load(const std::string& dir);
     void ReloadIfChanged();  // re-scan when shader files changed (hot reload)
+    void Reload() { Load(dir); }
     EffectDefPtr Find(const std::string& id) const;
     const std::vector<EffectDefPtr>& All() const { return effects; }
     std::vector<std::string> Categories() const;

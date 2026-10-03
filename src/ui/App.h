@@ -469,6 +469,10 @@ private:
     enum class FxApply { Filter, Adjustment, Destructive, Node };
     void ApplyLibraryEffect(DocView& v, const std::string& id, FxApply how);
     void DrawEffectBrowser();
+    // Custom code: declarations (inputs/params) + code + compile + save to library.
+    // Returns true when the instance changed. `errorNode`: node whose compile errors to show (0 = find).
+    bool CustomCodeUI(DocView& v, EffectInstance& fx, Id errorNode, const char* key);
+    void ConvertToCustomCode(DocView& v, EffectInstance& fx);
     void DrawLayerPreview();
     struct {
         std::string search, category, selected;

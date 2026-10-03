@@ -256,6 +256,18 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 37 && v && frameCounter == 4) {
+        // Custom HLSL adjustment layer with two inputs-free params, shown in Propriétés.
+        Document& d = *v->doc;
+        Edit e(d, v->history, "Calque HLSL");
+        Layer& l = d.AddEffectLayer(LayerKind::Adjustment, "");
+        l.name = "HLSL personnalisé";
+        l.effect.customCode = kCustomEffectTemplate;
+        if (auto def = l.effect.Def()) l.effect.params = def->DefaultParams();
+        d.SyncGraph();
+        e.Commit();
+        return;
+    }
     if (demoMode == 36 && v) {
         // Effects gallery + layer preview; destructive apply (and its undo); a moved
         // node keeps its place when the layer graph is rebuilt.

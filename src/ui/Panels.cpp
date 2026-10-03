@@ -609,6 +609,8 @@ void App::DrawProperties() {
             if (l->kind == LayerKind::Fill || l->kind == LayerKind::Adjustment) {
                 ImGui::SeparatorText(l->kind == LayerKind::Fill ? "Remplissage" : "Réglage");
                 changed |= EffectParamsUI(l->effect, "main");
+                if (!l->effect.customCode.empty()) CustomCodeUI(*v, l->effect, 0, "layer");
+                else if (l->effect.graph.empty() && ImGui::SmallButton("Convertir en HLSL éditable")) ConvertToCustomCode(*v, l->effect);
             }
             if (l->mask) {
                 ImGui::SeparatorText("Masque de fusion");
@@ -666,6 +668,8 @@ void App::DrawProperties() {
                 if (ui::IconButton("rm", ui::IconTrash, false, 20 * dpi, "Supprimer le filtre")) removeAt = (int)i;
                 if (open) {
                     changed |= EffectParamsUI(f, "f");
+                    if (!f.customCode.empty()) CustomCodeUI(*v, f, 0, "filter");
+                    else if (f.graph.empty() && ImGui::SmallButton("Convertir en HLSL éditable")) ConvertToCustomCode(*v, f);
                     ImGui::TreePop();
                 }
                 ImGui::PopID();
@@ -678,6 +682,16 @@ void App::DrawProperties() {
             }
             if (ImGui::Button("+ Ajouter un filtre")) ImGui::OpenPopup("##addfilter");
             if (ImGui::BeginPopup("##addfilter")) {
+                if (ImGui::MenuItem("Filtre HLSL personnalisé")) {
+                    DocState before = d.S();
+                    EffectInstance fx;
+                    fx.customCode = kCustomEffectTemplate;
+                    if (auto def = fx.Def()) fx.params = def->DefaultParams();
+                    l->filters.push_back(fx);
+                    d.SyncGraph();
+                    v->history.PushState("Ajouter un filtre", before, d.S());
+                }
+                ImGui::Separator();
                 EffectMenu([&](const std::string& id) {
                     DocState before = d.S();
                     EffectInstance fx;
@@ -731,46 +745,12 @@ void App::DrawProperties() {
                     int oldInputs = NodeInputCount(*n);
                     EffectParamsUI(n->fx, "p");
                     if (custom) {
-                        ImGui::SeparatorText("Code HLSL / Slang");
-                        static Id editingNode = 0;
-                        static std::string buffer;
-                        if (editingNode != n->id) { editingNode = n->id; buffer = n->fx.customCode; }
-                        ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-                        ImGui::InputTextMultiline("##code", &buffer, ImVec2(-1, std::max(220.0f * dpi, ImGui::GetContentRegionAvail().y - 90 * dpi)), ImGuiInputTextFlags_AllowTabInput);
-                        ImGui::PopFont();
-                        bool apply = ImGui::Button("Compiler (Ctrl+Entrée)") || (ImGui::IsKeyPressed(ImGuiKey_Enter) && ImGui::GetIO().KeyCtrl);
-                        if (apply && buffer != n->fx.customCode) {
-                            DocState before = d.S();
-                            n->fx.customCode = buffer;
-                            auto nd = n->fx.Def();
-                            std::vector<float4> params = nd->DefaultParams();
-                            // Keep values of params that still exist.
-                            if (def)
-                                for (size_t i = 0; i < nd->params.size(); ++i)
-                                    for (size_t k = 0; k < def->params.size() && k < n->fx.params.size(); ++k)
-                                        if (def->params[k].id == nd->params[i].id) params[i] = n->fx.params[k];
-                            n->fx.params = params;
-                            n->name = nd->name;
+                        if (CustomCodeUI(*v, n->fx, n->id, "node")) {
+                            if (auto nd = n->fx.Def()) n->name = nd->name;
                             n->inputs.resize(NodeInputCount(*n), 0);
-                            v->history.PushState("Modifier le code", before, d.S());
-                        }
-                        std::string err;
-                        if (v->renderer.NodeFailed(n->id, &err)) {
-                            ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.45f, 0.45f, 1));
-                            ImGui::TextWrapped("%s", err.c_str());
-                            ImGui::PopStyleColor();
-                            ImGui::PopFont();
-                        } else if (def && !def->error.empty()) {
-                            ImGui::TextColored(ImVec4(1, 0.6f, 0.3f, 1), "%s", def->error.c_str());
                         }
                     } else if (ImGui::Button("Convertir en HLSL éditable") && def) {
-                        DocState before = d.S();
-                        std::string text;
-                        ReadTextFile(gpu::Shaders().ShaderDir() + "/effects/" + n->fx.effectId + ".slang", text);
-                        n->fx.customCode = text.empty() ? kCustomEffectTemplate : text;
-                        n->fx.effectId.clear();
-                        v->history.PushState("Convertir en HLSL", before, d.S());
+                        ConvertToCustomCode(*v, n->fx);
                     }
                     if (NodeInputCount(*n) != oldInputs) n->inputs.resize(NodeInputCount(*n), 0);
                     break;
