@@ -138,6 +138,28 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     cb.envIntensity = s.envIntensity;
     cb.envRotation = s.envRotation;
     cb.viewMode = (float)s.viewChannel;
+    bool sky = false;
+    if (s.envAtlas && s.envBackground && s.viewChannel == 0) {
+        if (auto* k = Kernel("mesh_sky.slang")) {
+            // Camera basis (left-handed look-at) scaled by the frustum half extents.
+            float3 fwd = Normalize(s.target - s.camPos);
+            float3 right = Normalize(Cross(float3{0, 1, 0}, fwd));
+            float3 up = Cross(fwd, right);
+            float ty = std::tan(s.fov * 0.5f), tx = ty * (float)w / h;
+            struct { float4 right, up, fwd; float rotation; float pad[3]; } scb = {
+                {right.x * tx, right.y * tx, right.z * tx, 0}, {up.x * ty, up.y * ty, up.z * ty, 0}, {fwd.x, fwd.y, fwd.z, 0}, s.envRotation, {}};
+            struct { u32 w, h; float blur, intensity; } root = {w, h, s.envBlur, s.envIntensity};
+            gpu::DispatchDesc sd;
+            sd.pipeline = k;
+            sd.srv[0] = s.envAtlas.get();
+            sd.uav[0] = s.color.get();
+            sd.cbData = &scb;
+            sd.cbSize = sizeof(scb);
+            SetConstants(sd, root);
+            Dispatch2D(ctx, sd, w, h);
+            sky = true;
+        }
+    }
     gpu::DrawDesc d;
     d.pipeline = p;
     for (int c = 0; c < (int)PbrChannel::Count; ++c) {
@@ -147,7 +169,8 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     }
     d.rt[0] = s.color.get();
     d.depth = s.depth.get();
-    d.clearColor = d.clearDepth = true;
+    d.clearColor = !sky;
+    d.clearDepth = true;
     d.clearValue = {0.09f, 0.095f, 0.11f, 1};
     d.cbData = &cb;
     d.cbSize = sizeof(cb);

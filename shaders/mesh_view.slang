@@ -2,7 +2,7 @@
 // Channels (t0..t5): base color, roughness, metallic, normal (tangent space,
 // DirectX/Unreal convention), emissive, ambient occlusion. Data channels are
 // read as their visual (sRGB-encoded) value so a 50% gray means 0.5.
-#include "common.slang"
+#include "env_common.slang"
 
 cbuffer View : register(b1)
 {
@@ -87,27 +87,9 @@ float3 Sky(float3 d)
     return lerp(float3(0.20, 0.19, 0.18), float3(0.55, 0.60, 0.70), t);
 }
 
-float3 EnvLevel(float3 d, int k)
-{
-    uint aw, ah;
-    gEnv.GetDimensions(aw, ah);
-    float W = aw, H = aw * 0.5;
-    float s = sin(gEnvRotation), c = cos(gEnvRotation);
-    d = float3(c * d.x + s * d.z, d.y, -s * d.x + c * d.z);
-    float2 uv = float2(atan2(d.x, -d.z) / (2.0 * PI) + 0.5, acos(clamp(d.y, -1.0, 1.0)) / PI);
-    float w = W / exp2(k), h = H / exp2(k);
-    float y0 = 2.0 * H - 2.0 * h;
-    float2 px = float2(frac(uv.x) * w, clamp(uv.y * h, 0.5, h - 0.5));
-    px.x = clamp(px.x, 0.5, w - 0.5);
-    return gEnv.SampleLevel(sLinearClamp, (px + float2(0, y0)) / float2(aw, ah), 0).rgb;
-}
-
 float3 Env(float3 d, float lod)
 {
-    lod = clamp(lod, 0.0, 5.0);
-    int k0 = (int)floor(lod);
-    int k1 = min(k0 + 1, 5);
-    return lerp(EnvLevel(d, k0), EnvLevel(d, k1), lod - k0) * gEnvIntensity;
+    return EnvSample(gEnv, d, lod, gEnvRotation) * gEnvIntensity;
 }
 
 float4 psMain(VSOut i, bool front : SV_IsFrontFace) : SV_Target0

@@ -51,7 +51,7 @@
 
 ### 3D
 - Import glTF 2.0 (.gltf / .glb) : **fait** ; reste : FBX, plusieurs matériaux / UDIM
-- Canaux PBR (couleur, rugosité, métal, normale, émissif, occlusion) en groupes de calques, rendu PBR GGX, export textures + script de matériau Unreal : **fait** , canal Hauteur (relief en vue 3D, cuit dans la normale à l'export) : **fait** , éclairage HDRI (préfiltré par rugosité, intensité/rotation) : **fait** , affichage d'un canal seul : **fait** ; reste : fond HDRI visible
+- Canaux PBR (couleur, rugosité, métal, normale, émissif, occlusion) en groupes de calques, rendu PBR GGX, export textures + script de matériau Unreal : **fait** , canal Hauteur (relief en vue 3D, cuit dans la normale à l'export) : **fait** , éclairage HDRI (préfiltré par rugosité, intensité/rotation) : **fait** , affichage d'un canal seul : **fait**, fond HDRI visible (flou réglable) : **fait**
 - Pinceau en espace UV / triplanar, masquage par ID de matériau
 
 ### IA
@@ -60,4 +60,4 @@
 - Opérations MCP supplémentaires (graphes d'effets, nœuds)
 
 ### Multi-plateforme
-- Backend Vulkan : **fait** (ShaderixelVk.exe sous Windows, mêmes shaders via SPIR-V ; écarts avec D3D12 limités à la précision numérique). Format `.sxl` v2 portable (deflate maison, morceaux en parallèle ; v1 XPRESS toujours lisible sous Windows) : **fait**. Reste : surfaces creuses Vulkan, couche plateforme Linux (fenêtre, dialogues, stylet), backend Metal (macOS)
+- Backend Vulkan : **fait** (ShaderixelVk.exe sous Windows, mêmes shaders via SPIR-V ; écarts avec D3D12 limités à la précision numérique). Format `.sxl` v2 portable (deflate maison, morceaux en parallèle ; v1 XPRESS toujours lisible sous Windows) : **fait**. Surfaces creuses Vulkan (images à résidence partielle) : **fait** (16K : 8,35 → 4,8 Go). Reste : couche plateforme Linux (fenêtre, dialogues, stylet), backend Metal (macOS)

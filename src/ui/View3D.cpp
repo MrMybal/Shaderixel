@@ -76,6 +76,14 @@ void App::DrawView3D() {
             ImGui::SetNextItemWidth(110 * dpi);
             float deg = v->mesh->envRotation * 57.29578f;
             if (ImGui::SliderFloat("##envR", &deg, -180, 180, "Rotation %.0f°")) v->mesh->envRotation = deg / 57.29578f;
+            flow(ImGui::GetFrameHeight() + ImGui::CalcTextSize("Fond").x + 12 * dpi);
+            ImGui::Checkbox("Fond", &v->mesh->envBackground);
+            ui::HelpTooltip("Afficher l'environnement derrière le modèle");
+            if (v->mesh->envBackground) {
+                flow(90 * dpi);
+                ImGui::SetNextItemWidth(90 * dpi);
+                ImGui::SliderFloat("##envB", &v->mesh->envBlur, 0.0f, 5.0f, "Flou %.1f");
+            }
             if (button("Sans HDRI")) v->mesh->envAtlas.reset();
         }
         {
