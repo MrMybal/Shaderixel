@@ -61,7 +61,7 @@ void App::NewPaint3DProject() {
     } else {
         mesh = P.mesh == 1 ? MakeCube() : P.mesh == 2 ? MakePlane() : MakeSphere();
     }
-    if (P.autoUv) {
+    if (P.autoUv || !mesh.hasUvs) {
         // New UVs before anything is painted (models without UVs, or overlapping ones).
         UnwrapOptions o;
         o.resolution = (int)res;

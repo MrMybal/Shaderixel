@@ -300,6 +300,237 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 65) {
+        // Example Paint 3D project: SX_MESHFILE (a mug without UVs -> xatlas), gold rim (material + mask),
+        // blue glossy pattern (paint layer, several channels), logo decal (SX_DECAL), saved to SX_OUT.
+        char meshFile[512] = "", decalPath[512] = "", out[512] = "";
+        GetEnvironmentVariableA("SX_MESHFILE", meshFile, sizeof(meshFile));
+        GetEnvironmentVariableA("SX_DECAL", decalPath, sizeof(decalPath));
+        GetEnvironmentVariableA("SX_OUT", out, sizeof(out));
+        auto presetIndex = [](const char* name) {
+            for (int i = 0; i < MaterialPresetCount(); ++i) if (std::string(MaterialPresetName(i)) == name) return i;
+            return 0;
+        };
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.mesh = 3;
+            p3dNew.meshPath = meshFile;
+            p3dNew.basePreset = presetIndex("Plastique blanc");
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh || a->doc->kind != 1) return;
+        Document& d = *a->doc;
+        MeshScene& s = *a->mesh;
+        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        // World points -> view pixels (the depth buffer is the view).
+        auto toScreen = [&](float3 p) {
+            float4 c = s.viewProj.Transform({p.x, p.y, p.z, 1});
+            return float2{(c.x / c.w * 0.5f + 0.5f) * s.depth->Width(), (0.5f - c.y / c.w * 0.5f) * s.depth->Height()};
+        };
+        float yMin = 1e9f, yMax = -1e9f;
+        for (auto& vtx : s.data.vertices) { yMin = std::min(yMin, vtx.pos.y); yMax = std::max(yMax, vtx.pos.y); }
+        auto radiusAt = [&](float y) {
+            float r = 0;
+            for (auto& vtx : s.data.vertices)
+                if (std::abs(vtx.pos.y - y) < (yMax - yMin) * 0.02f && vtx.pos.x <= 0)  // the side without the handle
+                    r = std::max(r, std::sqrt(vtx.pos.x * vtx.pos.x + vtx.pos.z * vtx.pos.z));
+            return r;
+        };
+        // Strokes around the mug: four views, the visible half each time.
+        auto ring = [&](float y, float wave, float waves, float radiusPx, std::function<void()> select) {
+            float r = radiusAt(y) * 1.01f;
+            for (int k = 0; k < 16; ++k) {
+                s.yaw = k * 0.3926991f;
+                a->renderer.MeshRender(*ctx, s, GatherMaterial(*a), s.depth->Width(), s.depth->Height());
+                select();
+                std::vector<float4> colors;
+                std::vector<Id> targets = Paint3DTargets(*a, colors);
+                if (!a->renderer.BeginStrokeMulti(d, *ctx, targets)) continue;
+                std::vector<Dab> dabs;
+                for (int i = 0; i <= 720; ++i) {
+                    float t = i / 720.0f * 6.2831853f;
+                    float yy = y + std::sin(t * waves) * wave;
+                    float3 p{std::cos(t) * r, yy, std::sin(t) * r};
+                    // Only the points facing the camera (the back of the ring would project onto the front).
+                    float3 toCam = Normalize(s.camPos - p);
+                    if (std::cos(t) * toCam.x + std::sin(t) * toCam.z < 0.7f) continue;
+                    if (std::cos(t) > 0.75f) continue;  // the handle side stays clean
+                    float2 sp = toScreen(p);
+                    dabs.push_back({sp.x, sp.y, radiusPx, 1});
+                }
+                if (dabs.empty()) { a->renderer.EndStrokeMulti(d, *ctx, a->history, "Peinture 3D"); continue; }
+                BrushSettings b = brush;
+                b.hardness = 0.75f;
+                a->renderer.MeshStrokeDabsMulti(d, *ctx, s, dabs, b, colors, false);
+                a->renderer.EndStrokeMulti(d, *ctx, a->history, "Peinture 3D");
+            }
+        };
+        const float H = yMax - yMin;
+        if (frameCounter == 12 && s.depth) {
+            // Gold rim: a material whose mask is painted white along the top.
+            AddMaterialLayer(*a, presetIndex("Or"));
+            Id gold = materialSel;
+            // Its mask, computed per texel from the surface: the rim (top of the outside, over the edge)
+            // and a thin band near the foot. Triangles rasterized in UV space with the 3D position.
+            const int W = (int)d.Width();
+            std::vector<float> mask((size_t)W * W, 0.0f);
+            const auto& V = s.data.vertices;
+            const auto& I = s.data.indices;
+            float bodyR[65];  // body radius by height (handle excluded)
+            for (int k = 0; k <= 64; ++k) bodyR[k] = radiusAt(yMin + H * k / 64.0f);
+            auto value = [&](float3 p, float3 n) {
+                float rad = std::sqrt(p.x * p.x + p.z * p.z);
+                float outward = rad > 1e-4f ? (n.x * p.x + n.z * p.z) / rad : 0.0f;
+                float y = (p.y - yMin) / H;
+                float br = bodyR[std::clamp((int)std::lround(y * 64), 0, 64)];
+                if (rad > br * 1.08f) return 0.0f;                                    // not on the handle
+                float rim = std::clamp((y - 0.93f) / 0.01f, 0.0f, 1.0f);              // top 7 %, over the edge
+                if (outward < -0.2f && y < 0.97f) rim = 0;                             // outside and lip only
+                float band = outward > 0.3f ? std::clamp(1.0f - std::abs(y - 0.12f) / 0.015f, 0.0f, 1.0f) : 0.0f;
+                return std::max(rim, band);
+            };
+            for (size_t t = 0; t + 2 < I.size(); t += 3) {
+                const MeshVertex &a0 = V[I[t]], &a1 = V[I[t + 1]], &a2 = V[I[t + 2]];
+                float2 p0 = {a0.uv.x * W, a0.uv.y * W}, p1 = {a1.uv.x * W, a1.uv.y * W}, p2 = {a2.uv.x * W, a2.uv.y * W};
+                int x0 = std::max(0, (int)std::floor(std::min({p0.x, p1.x, p2.x})) - 2), x1 = std::min(W - 1, (int)std::ceil(std::max({p0.x, p1.x, p2.x})) + 2);
+                int y0 = std::max(0, (int)std::floor(std::min({p0.y, p1.y, p2.y})) - 2), y1 = std::min(W - 1, (int)std::ceil(std::max({p0.y, p1.y, p2.y})) + 2);
+                float den = (p1.y - p2.y) * (p0.x - p2.x) + (p2.x - p1.x) * (p0.y - p2.y);
+                if (std::abs(den) < 1e-9f) continue;
+                for (int y = y0; y <= y1; ++y)
+                    for (int x = x0; x <= x1; ++x) {
+                        float px = x + 0.5f, py = y + 0.5f;
+                        float l0 = ((p1.y - p2.y) * (px - p2.x) + (p2.x - p1.x) * (py - p2.y)) / den;
+                        float l1 = ((p2.y - p0.y) * (px - p2.x) + (p0.x - p2.x) * (py - p2.y)) / den;
+                        float l2 = 1 - l0 - l1;
+                        // A little outside the triangle too: covers the island padding.
+                        if (l0 < -0.08f || l1 < -0.08f || l2 < -0.08f) continue;
+                        float3 pos = a0.pos * l0 + a1.pos * l1 + a2.pos * l2;
+                        float3 nrm = a0.normal * l0 + a1.normal * l1 + a2.normal * l2;
+                        float& m = mask[(size_t)y * W + x];
+                        m = std::max(m, value(pos, nrm));
+                    }
+            }
+            for (auto& l : d.S().layers)
+                if (l.material == gold) {
+                    l.name = "Or (bord)";
+                    if (l.mask) {
+                        a->renderer.Prepare(d, *ctx);
+                        WriteMaskData(d, l.mask, mask, W, W);
+                        break;
+                    }
+                }
+        }
+        if (frameCounter == 16 && s.depth) {
+            // Paint layer "Vagues": two waves all around the body, written per texel into the layer's
+            // channels (color, roughness: glossy, height: slight relief).
+            Id paint = AddPaintLayer3D(*a, "Vagues");
+            const int W = (int)d.Width();
+            float bodyR[65];
+            for (int k = 0; k <= 64; ++k) bodyR[k] = radiusAt(yMin + H * k / 64.0f);
+            struct Px { float4 color, data; };  // data: x = roughness, y = height, w = coverage
+            std::vector<Px> img((size_t)W * W, Px{{0, 0, 0, 0}, {0, 0, 0, 0}});
+            auto shade = [&](float3 p, float3 n) {
+                Px out{{0, 0, 0, 0}, {0, 0, 0, 0}};
+                float rad = std::sqrt(p.x * p.x + p.z * p.z);
+                float y = (p.y - yMin) / H;
+                float br = bodyR[std::clamp((int)std::lround(y * 64), 0, 64)];
+                float outward = rad > 1e-4f ? (n.x * p.x + n.z * p.z) / rad : 0.0f;
+                if (rad > br * 1.08f || outward < 0.3f) return out;
+                float t = std::atan2(p.z, p.x);
+                auto wave = [&](float c, float amp, float k, float half) {
+                    float dist = std::abs(y - (c + amp * std::sin(t * k)));
+                    return std::clamp((half - dist) / 0.004f, 0.0f, 1.0f);
+                };
+                float blue = wave(0.42f, 0.06f, 6, 0.035f), orange = wave(0.30f, 0.035f, 9, 0.016f);
+                float3 col = blue > 0 ? float3{0.12f, 0.38f, 0.85f} : float3{0.95f, 0.55f, 0.15f};
+                float cov = std::max(blue, orange);
+                if (orange > 0 && blue > 0) col = float3{0.95f, 0.55f, 0.15f} * orange + float3{0.12f, 0.38f, 0.85f} * (1 - orange);
+                out.color = {col.x, col.y, col.z, cov};
+                out.data = {0.15f, blue > 0.5f ? 0.62f : 0.57f, 0, cov};
+                return out;
+            };
+            const auto& V = s.data.vertices;
+            const auto& I = s.data.indices;
+            for (size_t ti = 0; ti + 2 < I.size(); ti += 3) {
+                const MeshVertex &a0 = V[I[ti]], &a1 = V[I[ti + 1]], &a2 = V[I[ti + 2]];
+                float2 p0 = {a0.uv.x * W, a0.uv.y * W}, p1 = {a1.uv.x * W, a1.uv.y * W}, p2 = {a2.uv.x * W, a2.uv.y * W};
+                int x0 = std::max(0, (int)std::floor(std::min({p0.x, p1.x, p2.x})) - 2), x1 = std::min(W - 1, (int)std::ceil(std::max({p0.x, p1.x, p2.x})) + 2);
+                int y0 = std::max(0, (int)std::floor(std::min({p0.y, p1.y, p2.y})) - 2), y1 = std::min(W - 1, (int)std::ceil(std::max({p0.y, p1.y, p2.y})) + 2);
+                float den = (p1.y - p2.y) * (p0.x - p2.x) + (p2.x - p1.x) * (p0.y - p2.y);
+                if (std::abs(den) < 1e-9f) continue;
+                for (int y = y0; y <= y1; ++y)
+                    for (int x = x0; x <= x1; ++x) {
+                        float px = x + 0.5f, py = y + 0.5f;
+                        float l0 = ((p1.y - p2.y) * (px - p2.x) + (p2.x - p1.x) * (py - p2.y)) / den;
+                        float l1 = ((p2.y - p0.y) * (px - p2.x) + (p0.x - p2.x) * (py - p2.y)) / den;
+                        float l2 = 1 - l0 - l1;
+                        if (l0 < -0.08f || l1 < -0.08f || l2 < -0.08f) continue;
+                        Px v = shade(a0.pos * l0 + a1.pos * l1 + a2.pos * l2, a0.normal * l0 + a1.normal * l1 + a2.normal * l2);
+                        Px& o = img[(size_t)y * W + x];
+                        if (v.color.w > o.color.w) o = v;
+                    }
+            }
+            // Into the channel layers (premultiplied linear; data channels hold visual gray levels).
+            auto upload = [&](PbrChannel c, auto value) {
+                Layer* l = MaterialChannelLayer(d, paint, c);
+                Surface* sf = l ? d.GetSurface(l->surface) : nullptr;
+                if (!sf) return;
+                a->renderer.Prepare(d, *ctx);
+                std::vector<float> f((size_t)W * W * 4);
+                for (size_t i = 0; i < img.size(); ++i) {
+                    float4 v = value(img[i]);
+                    f[i * 4] = v.x * v.w;
+                    f[i * 4 + 1] = v.y * v.w;
+                    f[i * 4 + 2] = v.z * v.w;
+                    f[i * 4 + 3] = v.w;
+                }
+                if (sf->tex->GetFormat() == gpu::Format::RGBA32F) {
+                    ctx->Upload(sf->tex.get(), f.data(), W * 16);
+                } else {
+                    std::vector<u16> h(f.size());
+                    for (size_t i = 0; i < f.size(); ++i) {
+                        float x = f[i];
+                        u32 b;
+                        memcpy(&b, &x, 4);
+                        int e = (int)((b >> 23) & 255) - 127 + 15;
+                        h[i] = x <= 0 || e <= 0 ? 0 : e >= 31 ? 0x7BFF : (u16)((e << 10) | ((b >> 13) & 0x3FF));
+                    }
+                    ctx->Upload(sf->tex.get(), h.data(), W * 8);
+                }
+                d.CancelPendingClear(l->surface);
+                d.TouchSurface(l->surface);
+            };
+            upload(PbrChannel::BaseColor, [](const Px& p) { return float4{SrgbToLinear(p.color.x), SrgbToLinear(p.color.y), SrgbToLinear(p.color.z), p.color.w}; });
+            upload(PbrChannel::Roughness, [](const Px& p) { float g = SrgbToLinear(p.data.x); return float4{g, g, g, p.data.w}; });
+            upload(PbrChannel::Height, [](const Px& p) { float g = SrgbToLinear(p.data.y); return float4{g, g, g, p.data.w}; });
+            brush3D.use[(int)PbrChannel::Height] = false;
+        }
+        if (frameCounter == 20 && s.depth && decalPath[0] && LoadDecal(decalPath)) {
+            // Logo on the side (+Z), a quarter turn from the handle (+X): both show in the final view.
+            s.yaw = 3.1415927f;
+            a->renderer.MeshRender(*ctx, s, GatherMaterial(*a), s.depth->Width(), s.depth->Height());
+            Id logo = AddPaintLayer3D(*a, "Logo");
+            brush3D.use[(int)PbrChannel::Height] = false;
+            brush3D.rough = 0.35f;
+            std::vector<float4> colors;
+            std::vector<Id> targets = Paint3DTargets(*a, colors);
+            (void)logo;
+            if (a->renderer.BeginStrokeMulti(d, *ctx, targets)) {
+                float2 c = toScreen({0, yMin + H * 0.62f, radiusAt(yMin + H * 0.62f) * 1.01f});
+                float hh = s.depth->Height() * 0.11f;
+                a->renderer.MeshDecalMulti(d, *ctx, s, decal.tex.get(), c, {hh * decal.w / std::max(decal.h, 1), hh}, 0, 1, colors, true);
+                a->renderer.EndStrokeMulti(d, *ctx, a->history, "Projection");
+            }
+        }
+        if (frameCounter == 24) {
+            s.yaw = 2.35f;
+            s.pitch = 0.3f;
+            a->history.Clear();
+        }
+        if (frameCounter == 28 && out[0]) SaveDocument(*a, out);
+        return;
+    }
     if (demoMode == 64) {
         // Automatic UVs: project on a cube (SX_MESH=cube) or sphere, a stroke, preview (frame 40), apply with transfer (SX_APPLY).
         char meshName[16] = "";
@@ -350,6 +581,8 @@ void App::DemoTick() {
         if (frameCounter == 4) {
             p3dNew = {};
             p3dNew.basePreset = 1;  // white plastic
+            char mf[512] = "";
+            if (GetEnvironmentVariableA("SX_MESHFILE", mf, sizeof(mf)) > 0) { p3dNew.mesh = 3; p3dNew.meshPath = mf; }
             NewPaint3DProject();
         }
         DocView* a = Active();

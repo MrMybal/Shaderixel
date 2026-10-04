@@ -117,6 +117,80 @@ EXAMPLES = [
 ]
 
 
+def make_mug_obj(path, seg=96):
+    """Mug with a handle, positions and normals only (no UVs: the example unwraps it with xatlas)."""
+    verts, norms, faces = [], [], []
+
+    def revolve(profile):
+        # profile: list of (radius, y) from outside bottom over the rim to inside bottom; smooth normals per ring.
+        base = len(verts)
+        n = len(profile)
+        for i, (r, y) in enumerate(profile):
+            # Normal of the profile curve (2D), rotated around Y.
+            r0, y0 = profile[max(i - 1, 0)]
+            r1, y1 = profile[min(i + 1, n - 1)]
+            tr, ty = r1 - r0, y1 - y0
+            nr, ny = ty, -tr
+            ln = math.hypot(nr, ny) or 1.0
+            nr, ny = nr / ln, ny / ln
+            for s in range(seg):
+                a = 2 * math.pi * s / seg
+                verts.append((r * math.cos(a), y, r * math.sin(a)))
+                norms.append((nr * math.cos(a), ny, nr * math.sin(a)))
+        for i in range(n - 1):
+            for s in range(seg):
+                a, b = base + i * seg + s, base + i * seg + (s + 1) % seg
+                c, d = base + (i + 1) * seg + s, base + (i + 1) * seg + (s + 1) % seg
+                faces.append((a, c, b))
+                faces.append((b, c, d))
+
+    # Outside (bottom center -> rounded foot -> wall -> rounded rim), then inside down to the inner bottom.
+    prof = [(0.0, 0.0), (0.30, 0.0), (0.38, 0.015), (0.40, 0.05)]
+    for k in range(1, 12):
+        t = k / 12.0
+        prof.append((0.40 + 0.03 * math.sin(t * math.pi), 0.05 + 0.85 * t))
+    prof += [(0.43, 0.92), (0.425, 0.95), (0.40, 0.955), (0.375, 0.945)]
+    for k in range(1, 10):
+        t = k / 10.0
+        prof.append((0.375 + 0.02 * math.sin((1 - t) * math.pi), 0.94 - 0.84 * t))
+    prof += [(0.34, 0.09), (0.2, 0.08), (0.0, 0.08)]
+    revolve(prof)
+    # Handle: a tube along an arc on the +X side.
+    base = len(verts)
+    rings, sides, R, r = 40, 16, 0.24, 0.045
+    cx, cy = 0.42, 0.5
+    arc = []
+    for i in range(rings + 1):
+        a = -math.pi * 0.42 + math.pi * 0.84 * i / rings
+        arc.append((cx + R * math.cos(a) * 0.9, cy + R * math.sin(a) * 1.25))
+    for i, (px, py) in enumerate(arc):
+        qx, qy = arc[min(i + 1, rings)]
+        ox, oy = arc[max(i - 1, 0)]
+        tx, ty = qx - ox, qy - oy
+        lt = math.hypot(tx, ty)
+        tx, ty = tx / lt, ty / lt
+        nx, ny = -ty, tx
+        for s in range(sides):
+            b = 2 * math.pi * s / sides
+            dx, dy, dz = nx * math.cos(b), ny * math.cos(b), math.sin(b)
+            verts.append((px + dx * r, py + dy * r, dz * r * 1.4))
+            norms.append((dx, dy, dz))
+    for i in range(rings):
+        for s in range(sides):
+            a, b = base + i * sides + s, base + i * sides + (s + 1) % sides
+            c, d = base + (i + 1) * sides + s, base + (i + 1) * sides + (s + 1) % sides
+            faces.append((a, b, c))
+            faces.append((b, d, c))
+    with open(path, 'w') as f:
+        f.write('# Mug: no UV coordinates (unwrapped with xatlas in Shaderixel)' + chr(10) + 'o Tasse' + chr(10))
+        for v in verts:
+            f.write('v %.5f %.5f %.5f\n' % v)
+        for n in norms:
+            f.write('vn %.5f %.5f %.5f\n' % n)
+        for a, b, c in faces:
+            f.write('f %d//%d %d//%d %d//%d\n' % (a + 1, a + 1, b + 1, b + 1, c + 1, c + 1))
+
+
 def main():
     if '--no-build' not in sys.argv:
         run_build()
@@ -167,6 +241,13 @@ def main():
         if os.path.exists(os.path.join(work, src)):
             shutil.copy2(os.path.join(work, src), os.path.join(ex, dst))
     make_torus_glb(os.path.join(ex, 'Tore.glb'))
+    # Paint 3D example: a mug without UVs (unwrapped by xatlas at creation), gold rim material,
+    # waves on a paint layer, logo projected with the Projection tool.
+    make_mug_obj(os.path.join(ex, 'Tasse.obj'))
+    print('Example 16_Tasse_Paint3D')
+    subprocess.run([exe, '--demo', 'example3d', '--frames', '40', '--capture', os.path.join(shots, '16_Tasse_Paint3D.png')], cwd=work, timeout=300,
+                   env=dict(os.environ, SX_MESHFILE=os.path.join(ex, 'Tasse.obj'), SX_DECAL=os.path.join(ROOT, 'assets', 'logo.png'),
+                            SX_OUT=os.path.join(ex, '16_Tasse_Paint3D.sx3d')))
     shutil.rmtree(work, ignore_errors=True)
     # Runtime files the demos left next to the exe.
     for f in os.listdir(dist):

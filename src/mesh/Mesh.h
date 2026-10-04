@@ -41,6 +41,7 @@ struct MeshData {
     std::vector<MeshVertex> vertices;
     std::vector<u32> indices;
     float3 boundsMin, boundsMax;
+    bool hasUvs = true;  // false: loaded without texture coordinates (unwrap before painting)
 };
 
 bool LoadObj(const std::string& path, MeshData& out, std::string* error);

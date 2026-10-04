@@ -564,6 +564,8 @@ gpu::Texture* Renderer::Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Textur
 // ------------------------------------------------------------------ painting
 
 bool Renderer::BeginStroke(Document& doc, gpu::CommandContext& ctx, Id surface) {
+    // A layer created this frame still has its initial clear pending: run it first (it would wipe the stroke).
+    if (!doc.pendingClears.empty() || !doc.pendingCopies.empty()) Prepare(doc, ctx);
     Surface* s = doc.GetSurface(surface);
     auto* clearR = Shaders().Builtin("clear_r.slang");
     if (!s || !s->tex || !clearR || !Shaders().Builtin("brush.slang")) return false;

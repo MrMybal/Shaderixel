@@ -196,7 +196,7 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
     }
     if (!g.error.empty()) return fail(g.error);
     if (out.indices.empty()) return fail("aucun triangle");
-    if (!hasUv) return fail("le maillage n'a pas de coordonnées UV");
+    out.hasUvs = hasUv;  // without UVs: loaded anyway, the UV tool (xatlas) unwraps it
     NormalizeMesh(out);
     return true;
 }

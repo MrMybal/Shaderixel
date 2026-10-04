@@ -123,7 +123,7 @@ bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
         }
     }
     if (out.indices.empty()) { if (error) *error = "aucune face"; return false; }
-    if (uvs.empty()) { if (error) *error = "le maillage n'a pas de coordonnées UV"; return false; }
+    out.hasUvs = !uvs.empty();  // without UVs: loaded anyway, the UV tool (xatlas) unwraps it
     if (!hasNormals) {
         for (auto& v : out.vertices) v.normal = {};
         for (size_t i = 0; i + 2 < out.indices.size(); i += 3) {

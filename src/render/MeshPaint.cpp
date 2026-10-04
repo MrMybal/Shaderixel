@@ -227,7 +227,7 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
 
 bool Renderer::BeginStrokeMulti(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces) {
     strokeSlots.clear();
-    if (surfaces.empty() || !BeginStroke(doc, ctx, surfaces[0])) return false;
+    if (surfaces.empty() || !BeginStroke(doc, ctx, surfaces[0])) return false;  // runs the pending clears of every layer
     for (size_t i = 1; i < surfaces.size(); ++i) {
         Surface* s = doc.GetSurface(surfaces[i]);
         if (!s) continue;

@@ -46,8 +46,16 @@ void App::DrawView3D() {
         if (!path.empty()) {
             MeshData m;
             std::string err;
-            if (LoadMesh(path, m, &err)) AttachMesh(*v, std::move(m));
-            else Status("Maillage : " + err);
+            if (LoadMesh(path, m, &err)) {
+                bool noUv = !m.hasUvs;
+                AttachMesh(*v, std::move(m));
+                if (noUv) {
+                    // Nothing can be painted without UVs: straight to the unwrap tool.
+                    uvTool.open = true;
+                    StartUvUnwrap(*v);
+                    Status("Maillage sans UV : dépliage automatique proposé (aperçu, puis « Appliquer »)");
+                }
+            } else Status("Maillage : " + err);
         }
     }
     if (v->mesh) {
