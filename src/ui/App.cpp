@@ -86,7 +86,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -97,6 +97,7 @@ void App::ParseCommandLine() {
         else if (a == "--dump-image" && i + 1 < argc) dumpPath = Narrow(argv[++i]);  // document composite at the capture frame
         else if (a == "--sparse-threshold" && i + 1 < argc) gpu::Dev().SetSparseThreshold((u64)_wtoi64(argv[++i]));
         else if (a == "--frames" && i + 1 < argc) captureFrame = std::max(3, _wtoi(argv[++i]));
+        else if (a == "--link" && i + 1 < argc) pendingLinkOpen = Narrow(argv[++i]);  // Unreal plugin session
         else if (a.rfind("--", 0) != 0) pendingDrop = a;  // open a file given on the command line
     }
     LocalFree(argv);
@@ -227,6 +228,7 @@ bool App::Init() {
     monitorProfile = color::MonitorPath(hwnd);
     RegisterAiOps();
     if (aiTest) bridge.allowWrites = true;
+    InitLink();
     if (bridge.Start(ExeDir() + "/Shaderixel") && (aiSettings.autoStart || aiTest)) {
         std::string err;
         if (!bridge.LaunchCompanion(aiSettings, &err)) Log("Companion: %s", err.c_str());
@@ -247,6 +249,7 @@ bool App::Init() {
 }
 
 void App::Shutdown() {
+    ShutdownLink();
     bridge.Shutdown();
     for (auto& j : aiJobs) j.wait();
     gpu::Dev().WaitIdle();
@@ -469,6 +472,7 @@ void App::Frame() {
     UpdatePhotoJob();
     UpdateResources();
     UpdatePaint3D();
+    UpdateLink();
     UpdateBatch();
     UpdateSubjectInstall();
     if (DocView* av = Active(); av && frameCounter % 60 == 0) UpdateLinkedSmartObjects(*av, false);
@@ -889,6 +893,10 @@ void App::DrawMenuBar() {
         ImGui::Separator();
         if (ImGui::MenuItem("Enregistrer", "Ctrl+S", false, v != nullptr)) SaveCurrent(false);
         if (ImGui::MenuItem("Enregistrer sous...", "Ctrl+Maj+S", false, v != nullptr)) SaveCurrent(true);
+        if (v && v->link) {
+            if (ImGui::MenuItem("Envoyer vers Unreal", "Ctrl+S")) SendToUnreal(*v);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Écrit les textures et les réimporte dans Unreal (plugin Shaderixel Link).");
+        }
         ImGui::Separator();
         if (ImGui::MenuItem("Exporter...", "Ctrl+Alt+Maj+W", false, v != nullptr))
             ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
@@ -1393,6 +1401,13 @@ void App::DrawStatusBar() {
         if (ImGui::BeginMenuBar()) {
             DocView* v = Active();
             if (v) {
+                if (v->link) {
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.85f, 0.45f, 0.05f, 1));
+                    if (ImGui::SmallButton("Envoyer vers Unreal")) SendToUnreal(*v);
+                    ImGui::PopStyleColor();
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Document ouvert depuis Unreal (plugin Shaderixel Link) : Ctrl+S renvoie aussi les textures.");
+                    ImGui::Separator();
+                }
                 ImGui::Text("%.0f %%", v->zoom * 100.0f);
                 ImGui::Separator();
                 ImGui::Text("%u x %u  %s  %s", v->doc->Width(), v->doc->Height(),
@@ -1649,6 +1664,11 @@ void App::SaveCurrent(bool saveAs) {
         Status("Objet dynamique mis à jour");
         return;
     }
+    if (v->link && !saveAs) {
+        // Opened from Unreal: saving sends the textures back (and keeps the project next to the session).
+        SendToUnreal(*v);
+        return;
+    }
     std::string path = v->doc->path;
     std::string ext = Narrow(Utf8Path(path).extension().wstring());
     for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
@@ -1728,7 +1748,7 @@ void App::SaveDocument(DocView& v, const std::string& path) {
         if (v.render) job->meta["render"] = RenderToJson(*v.render);
     }
     d.path = path;
-    d.SetName(Narrow(Utf8Path(path).filename().wstring()));
+    if (!v.link) d.SetName(Narrow(Utf8Path(path).filename().wstring()));  // linked: keeps the Unreal asset name
     d.dirty = false;
     saves.push_back(std::move(job));
     Status("Enregistrement de " + path + "...");

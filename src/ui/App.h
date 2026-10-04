@@ -44,6 +44,7 @@ inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser |
 struct DocView;
 struct PhotoJob;
 struct UvJob;
+struct LinkSession;  // Unreal live link (UnrealLink.cpp)
 // Material presets (MaterialLayers.cpp).
 int MaterialPresetCount();
 const char* MaterialPresetName(int i);
@@ -124,6 +125,7 @@ struct DocView {
     std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
     std::unique_ptr<MeshScene> mesh;          // 3D painting scene (optional)
     std::unique_ptr<PtRenderState> render;    // render mode scene (3D projects)
+    std::shared_ptr<LinkSession> link;        // opened from the Unreal plugin (sent back on Ctrl+S)
     std::unordered_map<Id, gpu::TexturePtr> snapshots;  // history brush sources (layer state before the first edit)
     int viewMode = 0;                         // 0 final image, 1 active layer only, 2 up to the active layer
     std::string displayLutKey;                // color management chain of displayLut
@@ -807,6 +809,7 @@ private:
         std::string meshPath;
         bool channels[7] = {true, true, true, true, false, true, true};
         bool autoUv = false;  // xatlas UVs at creation (meshes without usable UVs)
+        bool skipPaintLayer = false;  // no "Peinture 1" (the caller adds its layers first)
     } p3dNew;
     struct {
         bool use[7] = {true, true, false, false, false, false, false};
@@ -867,6 +870,14 @@ private:
     void DrawRenderView();
     void DrawRenderScenePanel();
     void DemoExample3D();  // example projects for the package (DemoExamples.cpp)
+    // Unreal live link (UnrealLink.cpp).
+    void InitLink();
+    void ShutdownLink();
+    bool OpenLinkSession(const std::string& sessionFile);
+    void SendToUnreal(DocView& v);
+    void UpdateLink();
+    bool linkInstanceFile = false;
+    std::string pendingLinkOpen;  // --link <session.json>, opened once the app runs
     // Resources (Resources.cpp): patterns, swatches, .abr / .pat import.
     struct PatternEntry {
         std::string name, path;

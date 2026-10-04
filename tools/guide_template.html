@@ -132,6 +132,12 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Outil Projection : choisissez une image, puis cliquez sur le modèle (<kbd>Ctrl</kbd>+molette : taille, <kbd>Maj</kbd>+molette : rotation). Symétrie X dans Calques 3D.</li>
     <li>Vue 3D &gt; « Exporter les textures... » : séparées, Unreal (BaseColor, Normal, ORM) ou Unity HDRP (BaseMap, Normal, MaskMap).</li>
   </ol></div>
+  <div class="card"><h3>Plugin Unreal Engine (Shaderixel Link)</h3><ol>
+    <li>Copiez <code>Unreal/&lt;version&gt;/ShaderixelLink</code> (4.27 à 5.8) dans le dossier <code>Plugins</code> de votre projet, puis activez « Shaderixel Link » (Edit &gt; Plugins).</li>
+    <li>Content Browser, clic droit sur un Static Mesh &gt; <b>Peindre dans Shaderixel</b> &gt; emplacement de matériau : un projet Paint 3D s'ouvre avec le maillage (ses UV) et les textures du matériau dans un calque « Unreal (textures d'origine) ».</li>
+    <li>Peignez, puis <kbd>Ctrl</kbd>+<kbd>S</kbd> (ou « Envoyer vers Unreal » dans la barre d'état) : les textures sont réimportées en place. Sans texture au départ : nouvelles BaseColor / Normal / ORM et une instance de matériau assignée.</li>
+    <li>Clic droit sur une Texture 2D &gt; <b>Éditer dans Shaderixel</b> ; Tools &gt; Shaderixel &gt; Importer un export Shaderixel (<code>.sxue.json</code> écrit par « Exporter les textures » en modèle Unreal ORM).</li>
+  </ol></div>
   <div class="card"><h3>Mode Rendu (path tracing)</h3><p><img src="Guide_images/16_Tasse_Rendu.png" alt="" style="width:100%;border-radius:6px"></p><ol>
     <li>Onglet « Rendu » (à côté de la Vue 3D d'un projet .sx3d) : le modèle peint est rendu en path tracing progressif ; l'image s'affine au fil des échantillons. Clic gauche / droit : orbite, molette : zoom, clic molette : déplacer.</li>
     <li>Calcul GPU par défaut (toute carte graphique : NVIDIA, AMD, Intel) ou CPU (tous les cœurs, même résultat). Pause, Recommencer, « Exporter l'image... » en PNG, JPEG ou HDR (Radiance, valeurs linéaires).</li>

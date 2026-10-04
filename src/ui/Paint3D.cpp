@@ -10,6 +10,8 @@
 #include "render/MeshPaint.h"
 #include "ai/Net.h"
 
+#include <fstream>
+
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <stb_image.h>
@@ -87,7 +89,7 @@ void App::NewPaint3DProject() {
         v->renderer.Prepare(d, *ctx);  // the mask's initial clear first
         v->renderer.FillSelection(d, *ctx, nullptr, l->mask, 0, {1, 1, 1, 1}, 1.0f, "Masque", nullptr, nullptr, false);
     }
-    AddPaintLayer3D(*v, "Peinture 1");
+    if (!P.skipPaintLayer) AddPaintLayer3D(*v, "Peinture 1");
     v->history.Clear();
     d.dirty = false;
     Status("Projet Paint 3D : " + std::to_string(res) + " px. Peignez sur le modèle (canaux du pinceau : panneau Matériau du pinceau).");
@@ -420,7 +422,27 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
     put(baked ? baked.get() : n, "_Normal.png");
     if (d.pbrChannels & (1u << (int)PbrChannel::Emissive)) put(ChannelTexture(v, PbrChannel::Emissive), "_Emissive.png");
     v.renderer.DropNodeCaches(d);
-    Status("Export des textures : " + stem + "_*.png");
+    if (!job.unity) {
+        // Manifest read by the Unreal plugin (Tools > Shaderixel > Importer un export Shaderixel...).
+        Json m = Json::Object();
+        m["format"] = "shaderixel-textures";
+        m["version"] = 1;
+        m["name"] = Narrow(p.stem().wstring());
+        Json texs = Json::Array();
+        auto add = [&](const char* role, const char* suffix) {
+            Json t = Json::Object();
+            t["role"] = role;
+            t["file"] = Narrow(p.stem().wstring()) + suffix;
+            texs.Push(t);
+        };
+        add("BaseColor", "_BaseColor.png");
+        add("Normal", "_Normal.png");
+        add("ORM", "_ORM.png");
+        if (d.pbrChannels & (1u << (int)PbrChannel::Emissive)) add("Emissive", "_Emissive.png");
+        m["textures"] = texs;
+        std::ofstream(Utf8Path(stem + ".sxue.json"), std::ios::binary) << m.Dump(1);
+    }
+    Status("Export des textures : " + stem + "_*.png" + (job.unity ? "" : " (+ .sxue.json pour le plugin Unreal)"));
 }
 
 void App::UpdatePaint3D() {

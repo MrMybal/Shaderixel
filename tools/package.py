@@ -398,6 +398,17 @@ def main():
     shutil.copytree(os.path.join(ROOT, '.claude', 'skills'), os.path.join(dist, 'IA', 'skills'))
     # Python helpers run by the app (Select > Subject).
     shutil.copytree(os.path.join(ROOT, 'tools', 'ai'), os.path.join(dist, 'ai'))
+    # Unreal Engine plugin: built for each engine (tools/build_unreal_plugin.py), plus the sources.
+    ue = os.path.join(dist, 'Unreal')
+    built = os.path.join(ROOT, 'build', 'ue')
+    if os.path.isdir(built):
+        for ver in sorted(os.listdir(built)):
+            src = os.path.join(built, ver, 'ShaderixelLink')
+            if ver[0].isdigit() and os.path.isdir(os.path.join(src, 'Binaries')):
+                shutil.copytree(src, os.path.join(ue, ver, 'ShaderixelLink'), ignore=shutil.ignore_patterns('Intermediate', '*.pdb'))
+    shutil.copytree(os.path.join(ROOT, 'unreal', 'ShaderixelLink'), os.path.join(ue, 'Sources', 'ShaderixelLink'),
+                    ignore=shutil.ignore_patterns('Binaries', 'Intermediate'))
+    shutil.copy2(os.path.join(ROOT, 'unreal', 'ShaderixelLink', 'README.md'), os.path.join(ue, 'LISEZMOI_Unreal.md'))
     # Third-party licenses (libraries built in or shipped).
     lic = os.path.join(dist, 'licences')
     os.makedirs(lic, exist_ok=True)

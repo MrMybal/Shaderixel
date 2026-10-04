@@ -300,6 +300,42 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 68) {
+        // Linked document (--link): a red stroke on the model (or the image), then "Envoyer vers Unreal".
+        static int sentAt = -1;
+        for (int i = 0; i < (int)docs.size(); ++i)
+            if (docs[i]->link && activeDoc != i && sentAt < 0) { activeDoc = i; focusDocRequest = i; }
+        DocView* a = Active();
+        if (!a || !a->link) return;
+        if (sentAt < 0 && frameCounter > 20) {
+            Document& d = *a->doc;
+            if (a->mesh && a->mesh->depth) {
+                MeshScene& s = *a->mesh;
+                fg = {0.9f, 0.1f, 0.1f, 1};
+                std::vector<float4> colors;
+                std::vector<Id> targets = Paint3DTargets(*a, colors);
+                if (a->renderer.BeginStrokeMulti(d, *ctx, targets)) {
+                    std::vector<Dab> dabs;
+                    float cx = s.depth->Width() * 0.5f, cy = s.depth->Height() * 0.5f;
+                    for (int i = 0; i <= 200; ++i) dabs.push_back({cx - 150 + i * 1.5f, cy + 40 * std::sin(i * 0.06f), 14, 1});
+                    a->renderer.MeshStrokeDabsMulti(d, *ctx, s, dabs, brush, colors, false);
+                    a->renderer.EndStrokeMulti(d, *ctx, a->history, "Peinture 3D");
+                }
+            } else if (Id target = d.PaintTarget()) {
+                fg = {0.9f, 0.1f, 0.1f, 1};
+                if (a->renderer.BeginStroke(d, *ctx, target)) {
+                    std::vector<Dab> dabs;
+                    for (int i = 0; i <= 200; ++i) dabs.push_back({d.Width() * (0.2f + i * 0.003f), d.Height() * 0.5f, d.Width() * 0.02f, 1});
+                    a->renderer.StrokeDabs(d, *ctx, dabs, brush, fg, false);
+                    a->renderer.EndStroke(d, *ctx, a->history, "Pinceau");
+                }
+            }
+            SendToUnreal(*a);
+            sentAt = (int)frameCounter;
+        }
+        if (sentAt > 0 && frameCounter == (u64)sentAt + 30) Log("[demo] linksend: sent (%s)", a->link ? "ok" : "-");
+        return;
+    }
     if (demoMode == 67) {
         DemoExample3D();
         return;
