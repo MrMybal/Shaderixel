@@ -866,6 +866,7 @@ private:
     void ExportRender(DocView& v, const std::string& path);
     void DrawRenderView();
     void DrawRenderScenePanel();
+    void DemoExample3D();  // example projects for the package (DemoExamples.cpp)
     // Resources (Resources.cpp): patterns, swatches, .abr / .pat import.
     struct PatternEntry {
         std::string name, path;

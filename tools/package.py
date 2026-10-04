@@ -202,6 +202,185 @@ def make_mug_obj(path, seg=96):
             f.write('f %d//%d %d//%d %d//%d\n' % (a + 1, a + 1, b + 1, b + 1, c + 1, c + 1))
 
 
+class _Mesh:
+    """Positions, normals and triangles for the procedural example models (OBJ without UVs)."""
+
+    def __init__(self):
+        self.v, self.n, self.f = [], [], []
+
+    def lathe(self, profile, seg):
+        # profile: (radius, y) points; smooth normals along it (split calls for sharp corners).
+        base = len(self.v)
+        cnt = len(profile)
+        for i, (r, y) in enumerate(profile):
+            r0, y0 = profile[max(i - 1, 0)]
+            r1, y1 = profile[min(i + 1, cnt - 1)]
+            nr, ny = y1 - y0, -(r1 - r0)
+            ln = math.hypot(nr, ny) or 1.0
+            nr, ny = nr / ln, ny / ln
+            for k in range(seg):
+                a = 2 * math.pi * k / seg
+                self.v.append((r * math.cos(a), y, r * math.sin(a)))
+                self.n.append((nr * math.cos(a), ny, nr * math.sin(a)))
+        for i in range(cnt - 1):
+            for k in range(seg):
+                a, b = base + i * seg + k, base + i * seg + (k + 1) % seg
+                c, d = base + (i + 1) * seg + k, base + (i + 1) * seg + (k + 1) % seg
+                self.f.append((a, c, b))
+                self.f.append((b, c, d))
+
+    def tube(self, path, radius, sides=12):
+        # path: points (x, y) in the XY plane (z = 0); a round tube along it.
+        base = len(self.v)
+        rings = len(path)
+        for i, (px, py) in enumerate(path):
+            qx, qy = path[min(i + 1, rings - 1)]
+            ox, oy = path[max(i - 1, 0)]
+            tx, ty = qx - ox, qy - oy
+            lt = math.hypot(tx, ty) or 1.0
+            nx, ny = -ty / lt, tx / lt
+            for k in range(sides):
+                b = 2 * math.pi * k / sides
+                dx, dy, dz = nx * math.cos(b), ny * math.cos(b), math.sin(b)
+                self.v.append((px + dx * radius, py + dy * radius, dz * radius))
+                self.n.append((dx, dy, dz))
+        for i in range(rings - 1):
+            for k in range(sides):
+                a, b = base + i * sides + k, base + i * sides + (k + 1) % sides
+                c, d = base + (i + 1) * sides + k, base + (i + 1) * sides + (k + 1) % sides
+                self.f.append((a, b, c))
+                self.f.append((b, d, c))
+
+    def quad(self, p0, p1, p2, p3, nrm, steps=1):
+        # Flat quad p0 p1 p2 p3 (counterclockwise seen from the normal side), subdivided.
+        base = len(self.v)
+        for j in range(steps + 1):
+            for i in range(steps + 1):
+                u, w = i / steps, j / steps
+                a = [p0[c] + (p1[c] - p0[c]) * u for c in range(3)]
+                b = [p3[c] + (p2[c] - p3[c]) * u for c in range(3)]
+                self.v.append(tuple(a[c] + (b[c] - a[c]) * w for c in range(3)))
+                self.n.append(nrm)
+        for j in range(steps):
+            for i in range(steps):
+                a = base + j * (steps + 1) + i
+                b, c, d = a + 1, a + steps + 1, a + steps + 2
+                self.f.append((a, b, d))
+                self.f.append((a, d, c))
+
+    def box(self, x0, x1, y0, y1, z0, z1, steps=1, skip=()):
+        faces = {
+            '-z': ((x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0), (0, 0, -1)),
+            '+z': ((x1, y0, z1), (x0, y0, z1), (x0, y1, z1), (x1, y1, z1), (0, 0, 1)),
+            '-x': ((x0, y0, z1), (x0, y0, z0), (x0, y1, z0), (x0, y1, z1), (-1, 0, 0)),
+            '+x': ((x1, y0, z0), (x1, y0, z1), (x1, y1, z1), (x1, y1, z0), (1, 0, 0)),
+            '+y': ((x0, y1, z0), (x1, y1, z0), (x1, y1, z1), (x0, y1, z1), (0, 1, 0)),
+            '-y': ((x0, y0, z1), (x1, y0, z1), (x1, y0, z0), (x0, y0, z0), (0, -1, 0)),
+        }
+        for k, (a, b, c, d, nrm) in faces.items():
+            if k not in skip:
+                self.quad(a, b, c, d, nrm, steps)
+
+    def write(self, path, name, comment):
+        with open(path, 'w') as f:
+            f.write('# ' + comment + chr(10) + 'o ' + name + chr(10))
+            for v in self.v:
+                f.write('v %.5f %.5f %.5f' % v + chr(10))
+            for n in self.n:
+                f.write('vn %.5f %.5f %.5f' % n + chr(10))
+            for a, b, c in self.f:
+                f.write('f %d//%d %d//%d %d//%d' % (a + 1, a + 1, b + 1, b + 1, c + 1, c + 1) + chr(10))
+
+
+def make_barrel_obj(path, seg=128):
+    """Barrel: bulging staves, recessed heads (no UVs)."""
+    m = _Mesh()
+    H = 1.1
+    m.lathe([(0.36 + 0.07 * math.sin(math.pi * k / 40), H * k / 40) for k in range(41)], seg)
+    m.lathe([(0.36, H), (0.335, H)], seg)
+    m.lathe([(0.335, H), (0.335, H - 0.05)], seg)
+    m.lathe([(0.335, H - 0.05), (0.0, H - 0.05)], seg)
+    m.lathe([(0.0, 0.05), (0.335, 0.05)], seg)
+    m.lathe([(0.335, 0.05), (0.335, 0.0)], seg)
+    m.lathe([(0.335, 0.0), (0.36, 0.0)], seg)
+    m.write(path, 'Tonneau', 'Barrel: no UV coordinates (unwrapped with xatlas in Shaderixel)')
+
+
+def _catmull(points, per=8):
+    out = []
+    for i in range(len(points) - 1):
+        p0, p1 = points[max(i - 1, 0)], points[i]
+        p2, p3 = points[i + 1], points[min(i + 2, len(points) - 1)]
+        for k in range(per):
+            t = k / per
+            t2, t3 = t * t, t * t * t
+            out.append(tuple(0.5 * (2 * p1[c] + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2
+                                    + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3) for c in range(2)))
+    out.append(points[-1])
+    return out
+
+
+def make_vase_obj(path, seg=128):
+    """Greek amphora: foot, round body, neck, flared lip, two handles (no UVs)."""
+    m = _Mesh()
+    m.lathe([(0.0, 0.0), (0.17, 0.0)], seg)
+    m.lathe([(0.17, 0.0), (0.17, 0.04), (0.12, 0.07)], seg)
+    body = [(0.12, 0.07), (0.22, 0.15), (0.33, 0.30), (0.37, 0.45), (0.33, 0.60), (0.22, 0.72), (0.12, 0.80), (0.10, 0.88), (0.12, 0.95), (0.165, 0.99), (0.165, 1.0)]
+    m.lathe(_catmull(body, 8), seg)
+    m.lathe([(0.165, 1.0), (0.14, 1.0)], seg)
+    m.lathe([(0.14, 1.0), (0.11, 0.93), (0.085, 0.84), (0.08, 0.80)], seg)
+    m.lathe([(0.08, 0.80), (0.0, 0.80)], seg)
+    for side in (1, -1):
+        p0, p1, p2 = (0.26, 0.66), (0.44, 0.97), (0.105, 0.90)
+        pts = []
+        for i in range(41):
+            t = i / 40
+            x = (1 - t) ** 2 * p0[0] + 2 * (1 - t) * t * p1[0] + t * t * p2[0]
+            y = (1 - t) ** 2 * p0[1] + 2 * (1 - t) * t * p1[1] + t * t * p2[1]
+            pts.append((x * side, y))
+        m.tube(pts, 0.022, 14)
+    m.write(path, 'Vase', 'Amphora: no UV coordinates (unwrapped with xatlas in Shaderixel)')
+
+
+def make_chest_obj(path):
+    """Treasure chest: box body, half-cylinder lid with end caps, lock plate (no UVs)."""
+    m = _Mesh()
+    m.box(-0.6, 0.6, 0.0, 0.55, -0.38, 0.38, steps=8)
+    # Lid: half cylinder along X (front at -z), smooth normals, then flat end caps.
+    seg, R, cy = 48, 0.39, 0.55
+    base = len(m.v)
+    xs = [-0.61 + 1.22 * i / 16 for i in range(17)]
+    for j in range(seg + 1):
+        th = math.pi * j / seg
+        for x in xs:
+            m.v.append((x, cy + R * math.sin(th), R * math.cos(th)))
+            m.n.append((0.0, math.sin(th), math.cos(th)))
+    for j in range(seg):
+        for i in range(16):
+            a = base + j * 17 + i
+            b, c, d = a + 1, a + 17, a + 18
+            m.f.append((a, d, b))
+            m.f.append((a, c, d))
+    for sx in (-0.61, 0.61):
+        c0 = len(m.v)
+        m.v.append((sx, cy, 0.0))
+        m.n.append((math.copysign(1.0, sx), 0.0, 0.0))
+        for j in range(seg + 1):
+            th = math.pi * j / seg
+            m.v.append((sx, cy + R * math.sin(th), R * math.cos(th)))
+            m.n.append((math.copysign(1.0, sx), 0.0, 0.0))
+        for j in range(seg):
+            if sx > 0:
+                m.f.append((c0, c0 + 1 + j, c0 + 2 + j))
+            else:
+                m.f.append((c0, c0 + 2 + j, c0 + 1 + j))
+    # Lid underside (closed chest): flat at the hinge height.
+    m.quad((-0.61, cy, 0.39), (0.61, cy, 0.39), (0.61, cy, -0.39), (-0.61, cy, -0.39), (0, -1, 0))
+    # Lock plate on the front.
+    m.box(-0.07, 0.07, 0.42, 0.60, -0.41, -0.38, steps=4, skip=('+z',))
+    m.write(path, 'Coffre', 'Treasure chest: no UV coordinates (unwrapped with xatlas in Shaderixel)')
+
+
 def main():
     if '--no-build' not in sys.argv:
         run_build()
@@ -259,6 +438,18 @@ def main():
     subprocess.run([exe, '--demo', 'example3d', '--frames', '40', '--capture', os.path.join(shots, '16_Tasse_Paint3D.png')], cwd=work, timeout=300,
                    env=dict(os.environ, SX_MESHFILE=os.path.join(ex, 'Tasse.obj'), SX_DECAL=os.path.join(ROOT, 'assets', 'logo.png'),
                             SX_OUT=os.path.join(ex, '16_Tasse_Paint3D.sx3d')))
+    # More Paint 3D examples: procedural models painted per texel, with material layers and a render scene.
+    for num, kind, obj, maker, title in [(17, 'tonneau', 'Tonneau.obj', make_barrel_obj, 'Tonneau'),
+                                         (18, 'vase', 'Vase.obj', make_vase_obj, 'Vase_grec'),
+                                         (19, 'coffre', 'Coffre.obj', make_chest_obj, 'Coffre')]:
+        maker(os.path.join(ex, obj))
+        sx3d = os.path.join(ex, '%d_%s_Paint3D.sx3d' % (num, title))
+        print('Example %d_%s' % (num, title))
+        subprocess.run([exe, '--demo', 'example3dx', '--frames', '40', '--capture', os.path.join(shots, '%d_%s_Paint3D.png' % (num, title))], cwd=work,
+                       timeout=300, env=dict(os.environ, SX_KIND=kind, SX_MESHFILE=os.path.join(ex, obj), SX_OUT=sx3d))
+        subprocess.run([exe, '--demo', 'render', '--frames', '3000', '--capture', os.path.join(work, '%d_%s_capture.png' % (num, title)), sx3d],
+                       cwd=work, timeout=600, env=dict(os.environ, SX_SAMPLES='1024', SX_SIZE='1600x900',
+                                                       SX_EXPORT=os.path.join(shots, '%d_%s_Rendu.png' % (num, title))))
     # Render mode on that project (path traced, glass sphere and gold cube added for the picture).
     print('Render 16_Tasse_Paint3D')
     subprocess.run([exe, '--demo', 'render', '--frames', '200', '--focus', 'Rendu', '--capture', os.path.join(shots, '16_Tasse_Rendu.png'),

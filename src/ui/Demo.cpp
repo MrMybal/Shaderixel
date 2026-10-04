@@ -300,6 +300,10 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 67) {
+        DemoExample3D();
+        return;
+    }
     if (demoMode == 66) {
         // Render mode on the project given on the command line: SX_HDRI (file), SX_CPU (CPU renderer),
         // SX_SCENE (extra objects: glass sphere, gold cube, spot), SX_SAMPLES, SX_EXPORT (image written at frame 150).
@@ -369,6 +373,7 @@ void App::DemoTick() {
             GetEnvironmentVariableA("SX_EXPORT", b, sizeof(b)) > 0) {
             ExportRender(*a, b);
             exported = true;
+            captureFrame = std::min(captureFrame, (int)frameCounter + 20);  // done: capture and quit soon after
             Log("[demo] render exported at frame %d", frameCounter);
         }
         return;
