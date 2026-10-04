@@ -359,7 +359,18 @@ void App::DemoTick() {
         }
         if (frameCounter == 22) ImGui::SetWindowFocus("Rendu");
         if (frameCounter % 30 == 0 && a->render) Log("[demo] render: %d samples (%s)", RenderSamples(*a->render), a->render->settings.device ? "CPU" : "GPU");
-        if (frameCounter == 150 && GetEnvironmentVariableA("SX_EXPORT", b, sizeof(b)) > 0) ExportRender(*a, b);
+        // Export once every sample is done (SX_SIZE=WxH: fixed resolution instead of the view size).
+        if (frameCounter == 20 && GetEnvironmentVariableA("SX_SIZE", b, sizeof(b)) > 0) {
+            PtRenderState& r = RenderStateFor(*a);
+            if (sscanf(b, "%dx%d", &r.settings.width, &r.settings.height) == 2) r.settings.viewSize = false;
+        }
+        static bool exported = false;
+        if (!exported && frameCounter > 30 && a->render && RenderSamples(*a->render) >= a->render->settings.maxSamples &&
+            GetEnvironmentVariableA("SX_EXPORT", b, sizeof(b)) > 0) {
+            ExportRender(*a, b);
+            exported = true;
+            Log("[demo] render exported at frame %d", frameCounter);
+        }
         return;
     }
     if (demoMode == 65) {
