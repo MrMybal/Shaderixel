@@ -129,6 +129,12 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Outil Projection : choisissez une image, puis cliquez sur le modèle (<kbd>Ctrl</kbd>+molette : taille, <kbd>Maj</kbd>+molette : rotation). Symétrie X dans Calques 3D.</li>
     <li>Vue 3D &gt; « Exporter les textures... » : séparées, Unreal (BaseColor, Normal, ORM) ou Unity HDRP (BaseMap, Normal, MaskMap).</li>
   </ol></div>
+  <div class="card"><h3>Mode Rendu (path tracing)</h3><p><img src="Guide_images/16_Tasse_Rendu.png" alt="" style="width:100%;border-radius:6px"></p><ol>
+    <li>Onglet « Rendu » (à côté de la Vue 3D d'un projet .sx3d) : le modèle peint est rendu en path tracing progressif ; l'image s'affine au fil des échantillons. Clic gauche / droit : orbite, molette : zoom, clic molette : déplacer.</li>
+    <li>Calcul GPU par défaut (toute carte graphique : NVIDIA, AMD, Intel) ou CPU (tous les cœurs, même résultat). Pause, Recommencer, « Exporter l'image... » en PNG, JPEG ou HDR (Radiance, valeurs linéaires).</li>
+    <li>Panneau « Scène de rendu » (onglet 3D) : objets (sol, fond cyclo, cube, sphère, maillages OBJ / glTF importés, copies du modèle) avec position, rotation, échelle et matériau (préréglages, verre, métal, émission) ; lumières ponctuelles, spots, surfaciques et soleil ; environnement studio intégré ou fichier HDRI (intensité, rotation, visible en fond).</li>
+    <li>Caméra : champ de vision, profondeur de champ (ouverture, mise au point) ; réglages : échantillons, rebonds, taille de la vue ou résolution fixe (jusqu'à 8K), exposition, courbe ACES / Reinhard. La scène est enregistrée dans le .sx3d.</li>
+  </ol></div>
   <div class="card"><h3>Éditeur d'effets et graphes</h3><ol>
     <li>« ◀ Bibliothèque » : effets, fusions et pinceaux avec recherche ; « Nouveau à partir de ce modèle » (copie) ou « Éditer l'original » (après déverrouillage). « Annuler les modifications » revient à l'état et au panneau d'avant.</li>
     <li>Palette de nœuds (onglet Effets) : glissez un nœud sur le graphe des calques ou sur le graphe d'effet, ou cliquez pour l'ajouter au centre.</li>

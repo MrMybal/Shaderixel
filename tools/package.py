@@ -17,6 +17,17 @@ import subprocess
 import sys
 import zipfile
 
+# Demo captures start minimized without taking the focus (the PC stays usable meanwhile).
+_run = subprocess.run
+def _run_minimized(*args, **kwargs):
+    if os.name == 'nt' and 'startupinfo' not in kwargs:
+        si = subprocess.STARTUPINFO()
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 7  # SW_SHOWMINNOACTIVE
+        kwargs['startupinfo'] = si
+    return _run(*args, **kwargs)
+subprocess.run = _run_minimized
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD = os.path.join(ROOT, 'build', 'Release')
 
@@ -248,6 +259,10 @@ def main():
     subprocess.run([exe, '--demo', 'example3d', '--frames', '40', '--capture', os.path.join(shots, '16_Tasse_Paint3D.png')], cwd=work, timeout=300,
                    env=dict(os.environ, SX_MESHFILE=os.path.join(ex, 'Tasse.obj'), SX_DECAL=os.path.join(ROOT, 'assets', 'logo.png'),
                             SX_OUT=os.path.join(ex, '16_Tasse_Paint3D.sx3d')))
+    # Render mode on that project (path traced, glass sphere and gold cube added for the picture).
+    print('Render 16_Tasse_Paint3D')
+    subprocess.run([exe, '--demo', 'render', '--frames', '200', '--focus', 'Rendu', '--capture', os.path.join(shots, '16_Tasse_Rendu.png'),
+                    os.path.join(ex, '16_Tasse_Paint3D.sx3d')], cwd=work, timeout=300, env=dict(os.environ, SX_SCENE='1', SX_SAMPLES='512'))
     shutil.rmtree(work, ignore_errors=True)
     # Runtime files the demos left next to the exe.
     for f in os.listdir(dist):

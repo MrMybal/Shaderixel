@@ -318,6 +318,9 @@ void App::DemoTick() {
             if (GetEnvironmentVariableA("SX_CPU", b, sizeof(b)) > 0) r.settings.device = 1;
             if (GetEnvironmentVariableA("SX_SAMPLES", b, sizeof(b)) > 0) r.settings.maxSamples = atoi(b);
             if (GetEnvironmentVariableA("SX_SCENE", b, sizeof(b)) > 0) {
+                // The model turned so the render camera sees it as the 3D view does (logo side).
+                for (auto& o : r.objects)
+                    if (o.type == PtObjectType::Project) o.rotation.x = (a->mesh->yaw - r.yaw) * 57.29578f;
                 float floor = 1e30f;
                 for (auto& v : a->mesh->data.vertices) floor = std::min(floor, v.pos.y);
                 PtObject glass;

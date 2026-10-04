@@ -124,12 +124,10 @@ PtRenderState& App::RenderStateFor(DocView& v) {
     Aim(key, {0, 0, 0});
     r.lights.push_back(key);
     r.settings.envIntensity = 0.5f;
-    if (v.mesh) {
-        r.yaw = v.mesh->yaw;
-        r.pitch = std::max(v.mesh->pitch, 0.05f);
-        r.distance = v.mesh->distance * 1.15f;
-        r.target = v.mesh->target;
-    }
+    // Facing the backdrop (behind the model along +z), slightly from the side and above.
+    r.yaw = 0.35f;
+    r.pitch = 0.2f;
+    r.distance = v.mesh ? std::max(v.mesh->distance * 1.15f, 2.5f) : 3.4f;
     r.settings.focusDistance = r.distance;
     return r;
 }

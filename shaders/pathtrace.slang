@@ -297,7 +297,7 @@ float3 Radiance(float3 o, float3 d, inout uint rng)
         for (uint li = 0; li < gNumLights; ++li)
         {
             float t;
-            if (LightType(li) == 2 && AreaLightHit(li, o, d, t) && t < h.t)
+            if (bounce > 0 && LightType(li) == 2 && AreaLightHit(li, o, d, t) && t < h.t)
             {
                 h.t = t;
                 h.light = (int)li;

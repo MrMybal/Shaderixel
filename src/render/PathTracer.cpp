@@ -261,11 +261,11 @@ void BuildEnvTables(PtEnvironment& e) {
 }
 
 MeshData MakeBackdrop() {
-    // Floor (z from -3 to 1) bending up into a wall at z > 1 (radius 1.2), 6 wide.
+    // Floor (z from -3 to 1) bending up into a wall at z > 1 (radius 1.2), 20 wide.
     MeshData m;
     m.name = "Fond";
     const int sx = 24, sz = 48;
-    const float half = 4.0f, R = 1.2f;
+    const float half = 10.0f, R = 1.2f;
     std::vector<float3> prof;  // (z, y) along the profile, with normals
     std::vector<float3> nrm;
     for (int i = 0; i <= sz; ++i) {
@@ -500,10 +500,10 @@ float3 PtTrace(const PtScene& sc, const PtProjectTextures* tex, const PtSettings
     for (int bounce = 0; bounce <= s.maxBounces; ++bounce) {
         Hit h;
         Intersect(sc, o, d, h, false, 1e30f);
-        // Area lights in front of the geometry.
+        // Area lights in front of the geometry (seen in reflections and bounces, not by the camera).
         for (int i = 0; i < (int)sc.lights.size(); ++i) {
             float t;
-            if (sc.lights[i].type == PtLightType::Area && AreaLightHit(sc.lights[i], o, d, t) && t < h.t) { h.t = t; h.light = i; h.tri = -1; }
+            if (bounce > 0 && sc.lights[i].type == PtLightType::Area && AreaLightHit(sc.lights[i], o, d, t) && t < h.t) { h.t = t; h.light = i; h.tri = -1; }
         }
         auto add = [&](float3 c) {
             if (bounce > 0 && s.clampIndirect > 0) {
