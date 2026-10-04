@@ -321,6 +321,11 @@ void App::DemoTick() {
             if (GetEnvironmentVariableA("SX_HDRI", b, sizeof(b)) > 0) r.settings.hdri = b;
             if (GetEnvironmentVariableA("SX_CPU", b, sizeof(b)) > 0) r.settings.device = 1;
             if (GetEnvironmentVariableA("SX_SAMPLES", b, sizeof(b)) > 0) r.settings.maxSamples = atoi(b);
+            if (GetEnvironmentVariableA("SX_TONEMAP", b, sizeof(b)) > 0) r.settings.tonemap = atoi(b);
+            if (GetEnvironmentVariableA("SX_EXPOSURE", b, sizeof(b)) > 0) r.settings.exposure = (float)atof(b);
+            if (GetEnvironmentVariableA("SX_COAT", b, sizeof(b)) > 0)
+                for (auto& o : r.objects)
+                    if (o.type == PtObjectType::Project) o.material.coat = (float)atof(b);
             if (GetEnvironmentVariableA("SX_SCENE", b, sizeof(b)) > 0) {
                 // The model turned so the render camera sees it as the 3D view does (logo side).
                 for (auto& o : r.objects)
@@ -605,6 +610,14 @@ void App::DemoTick() {
             s.yaw = 2.35f;
             s.pitch = 0.3f;
             a->history.Clear();
+        }
+        if (frameCounter == 26) {
+            // Render scene saved with the example: glazed (varnish over the painted base).
+            a->render.reset();
+            PtRenderState& r = RenderStateFor(*a);
+            r.objects[0].material.coat = 1.0f;
+            r.objects[0].material.coatRoughness = 0.04f;
+            r.objects[0].rotation.x = (2.35f - r.yaw) * 57.29578f;  // logo side towards the render camera
         }
         if (frameCounter == 28 && out[0]) SaveDocument(*a, out);
         return;

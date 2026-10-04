@@ -386,6 +386,8 @@ void App::DemoExample3D() {
             }
             r.distance = 3.4f;
             r.pitch = 0.3f;
+            r.objects[0].material.coat = 0.6f;  // varnished wood
+            r.objects[0].material.coatRoughness = 0.12f;
         }
         r.settings.focusDistance = r.distance;
         a->history.Clear();

@@ -199,31 +199,33 @@ std::shared_ptr<PtEnvironment> LoadPtEnvironment(const std::string& path, std::s
 }
 
 std::shared_ptr<PtEnvironment> MakeStudioEnvironment() {
-    // Gray gradient (darker floor), a large soft box above the front, a strip on the side, a fill on the other side.
+    // Photo studio: dark surroundings, a key soft box (front left, above), a large dim overhead,
+    // a tall strip behind on the right (rim light on the edges), a small fill low on the left.
     auto env = std::make_shared<PtEnvironment>();
     env->width = 1024;
     env->height = 512;
     env->pixels.resize((size_t)env->width * env->height);
-    struct Box { float3 dir; float size; float3 color; };
-    const Box boxes[] = {{Normalize({-0.45f, 0.75f, -0.5f}), 0.32f, {9.0f, 8.6f, 8.2f}},
-                         {Normalize({0.95f, 0.25f, 0.2f}), 0.14f, {3.5f, 3.7f, 4.2f}},
-                         {Normalize({-0.6f, 0.15f, 0.8f}), 0.22f, {1.2f, 1.2f, 1.25f}}};
+    struct Box { float3 dir; float size, aspect; float3 color; };  // size: half height (tangent), aspect: width / height
+    const Box boxes[] = {{Normalize({-0.55f, 0.6f, -0.6f}), 0.30f, 1.4f, {9.0f, 8.7f, 8.3f}},
+                         {Normalize({0.0f, 1.0f, 0.25f}), 0.55f, 1.0f, {1.6f, 1.6f, 1.65f}},
+                         {Normalize({0.75f, 0.25f, 0.65f}), 0.42f, 0.25f, {7.0f, 7.2f, 7.8f}},
+                         {Normalize({-0.95f, 0.08f, 0.15f}), 0.22f, 1.0f, {0.9f, 0.9f, 0.95f}}};
     for (int y = 0; y < env->height; ++y)
         for (int x = 0; x < env->width; ++x) {
             float u = (x + 0.5f) / env->width, v = (y + 0.5f) / env->height;
             float phi = (u - 0.5f) * 2 * kPi, th = v * kPi;
             float3 d = {std::sin(th) * std::sin(phi), std::cos(th), -std::sin(th) * std::cos(phi)};
             float t = d.y;
-            float3 c = t > 0 ? Lerp3({0.16f, 0.16f, 0.17f}, {0.30f, 0.31f, 0.33f}, std::min(t * 1.5f, 1.0f))
-                             : Lerp3({0.16f, 0.16f, 0.17f}, {0.05f, 0.05f, 0.05f}, std::min(-t * 4.0f, 1.0f));
+            float3 c = t > 0 ? Lerp3({0.055f, 0.055f, 0.06f}, {0.11f, 0.11f, 0.12f}, std::min(t * 1.5f, 1.0f))
+                             : Lerp3({0.055f, 0.055f, 0.06f}, {0.02f, 0.02f, 0.02f}, std::min(-t * 4.0f, 1.0f));
             for (const Box& b : boxes) {
                 // Soft rectangle around b.dir (angular distance in the box's tangent plane).
                 float3 bu = Normalize(Cross({0, 1, 0}, b.dir)), bv = Cross(b.dir, bu);
                 float cd = Dot(d, b.dir);
                 if (cd <= 0) continue;
                 float px = Dot(d, bu) / cd, py = Dot(d, bv) / cd;
-                float e = std::max(std::abs(px) / (b.size * 1.6f), std::abs(py) / b.size);
-                float k = std::clamp((1.0f - e) / 0.12f, 0.0f, 1.0f);
+                float e = std::max(std::abs(px) / (b.size * b.aspect), std::abs(py) / b.size);
+                float k = std::clamp((1.0f - e) / 0.15f, 0.0f, 1.0f);
                 c = c + b.color * (k * k * (3 - 2 * k));
             }
             env->pixels[(size_t)y * env->width + x] = {c.x, c.y, c.z, 1};
@@ -461,9 +463,19 @@ void Basis(float3 n, float3& t, float3& b) {
 struct Surf {
     float3 p, n, ng, base, emission;
     float rough, metal, transmission, ior;
+    float coat = 0, coatRough = 0.05f;
 };
+float CoatProb(const Surf& s) { return s.coat * 0.35f; }
 
 // BSDF value (times cos) and pdf for a direction pair (opaque lobes).
+// Directional albedo of the GGX lobe (Karis' fit): F0 * A + B.
+void EnvBrdfApprox(float nv, float rough, float& A, float& B) {
+    float r0 = rough * -1 + 1, r1 = rough * -0.0275f + 0.0425f, r2 = rough * -0.572f + 1.04f, r3 = rough * 0.022f - 0.04f;
+    float a004 = std::min(r0 * r0, std::exp2(-9.28f * nv)) * r0 + r1;
+    A = -1.04f * a004 + r2;
+    B = 1.04f * a004 + r3;
+}
+
 float3 BsdfEval(const Surf& s, float3 wo, float3 wi, float pSpec, float& pdf) {
     float nl = Dot(s.n, wi), nv = Dot(s.n, wo);
     pdf = 0;
@@ -474,10 +486,27 @@ float3 BsdfEval(const Surf& s, float3 wo, float3 wi, float pSpec, float& pdf) {
     float3 f0 = Lerp3({0.04f, 0.04f, 0.04f}, s.base, s.metal);
     float3 F = FSchlick(f0, vh);
     float D = D_GGX(nh, a), G = G1(nl, a) * G1(nv, a);
-    float3 spec = F * (D * G / (4 * nv + 1e-6f));
-    float3 diff = Mul(s.base * ((1 - s.metal) / kPi), float3{1, 1, 1} - F) * nl;
+    // Multiple scattering compensation, diffuse = what the specular layer does not reflect.
+    float A, B;
+    EnvBrdfApprox(nv, s.rough, A, B);
+    float inv = 1.0f / std::max(A + B, 0.05f) - 1.0f;
+    float3 ems = {1 + f0.x * inv, 1 + f0.y * inv, 1 + f0.z * inv};
+    float3 spec = Mul(F * (D * G / (4 * nv + 1e-6f)), ems);
+    float3 diff = Mul(s.base * ((1 - s.metal) / kPi), float3{1 - (f0.x * A + B), 1 - (f0.y * A + B), 1 - (f0.z * A + B)}) * nl;
     pdf = pSpec * D * nh / (4 * vh + 1e-6f) + (1 - pSpec) * nl / kPi;
-    return spec + diff;
+    float3 res = spec + diff;
+    if (s.coat > 0) {
+        // Varnish: a smooth dielectric GGX lobe on top; the base gets what it lets through.
+        float ac = std::max(s.coatRough * s.coatRough, 0.002f);
+        float Dc = D_GGX(nh, ac), Gc = G1(nl, ac) * G1(nv, ac);
+        float Fc = (0.04f + 0.96f * std::pow(1.0f - vh, 5.0f)) * s.coat;
+        float Ac, Bc;
+        EnvBrdfApprox(nv, s.coatRough, Ac, Bc);
+        res = res * (1.0f - (0.04f * Ac + Bc) * s.coat) + float3{1, 1, 1} * (Fc * Dc * Gc / (4 * nv + 1e-6f));
+        float pc = CoatProb(s);
+        pdf = pc * Dc * nh / (4 * vh + 1e-6f) + (1 - pc) * pdf;
+    }
+    return res;
 }
 
 float FresnelDielectric(float cosi, float eta) {
@@ -548,6 +577,8 @@ float3 PtTrace(const PtScene& sc, const PtProjectTextures* tex, const PtSettings
         su.emission = m.emission * m.emissionStrength;
         su.transmission = m.transmission;
         su.ior = m.ior;
+        su.coat = m.coat;
+        su.coatRough = std::clamp(m.coatRoughness, 0.02f, 1.0f);
         if (m.useProject && tex) {
             float4 b = tex->base.Sample(uv);
             if (b.w > 1e-4f) su.base = {b.x, b.y, b.z};  // packed straight (pt_pack)
@@ -679,8 +710,9 @@ float3 PtTrace(const PtScene& sc, const PtProjectTextures* tex, const PtSettings
         float3 t, b;
         Basis(su.n, t, b);
         float3 wi;
-        if (Rnd(rng) < pSpec) {
-            float a = std::max(su.rough * su.rough, 0.002f);
+        const bool coatLobe = Rnd(rng) < CoatProb(su);
+        if (coatLobe || Rnd(rng) < pSpec) {
+            float a = coatLobe ? std::max(su.coatRough * su.coatRough, 0.002f) : std::max(su.rough * su.rough, 0.002f);
             float r1 = Rnd(rng), r2 = Rnd(rng);
             float th = std::atan(a * std::sqrt(r1 / (1 - r1 + 1e-6f))), ph = 2 * kPi * r2;
             float3 hm = t * (std::sin(th) * std::cos(ph)) + b * (std::sin(th) * std::sin(ph)) + su.n * std::cos(th);

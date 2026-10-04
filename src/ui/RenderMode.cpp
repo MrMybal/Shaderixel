@@ -62,14 +62,15 @@ void Aim(PtLight& l, float3 to) {
 struct MaterialPreset {
     const char* name;
     float3 color;
-    float rough, metal, transmission, ior, emission;
+    float rough, metal, transmission, ior, emission, coat;
 };
 const MaterialPreset kPresets[] = {
-    {"Plastique blanc", {0.8f, 0.8f, 0.8f}, 0.35f, 0, 0, 1.45f, 0},   {"Fond studio", {0.62f, 0.62f, 0.64f}, 0.75f, 0, 0, 1.45f, 0},
-    {"Céramique", {0.85f, 0.83f, 0.8f}, 0.12f, 0, 0, 1.5f, 0},       {"Caoutchouc noir", {0.03f, 0.03f, 0.03f}, 0.85f, 0, 0, 1.45f, 0},
-    {"Or", {1.0f, 0.71f, 0.29f}, 0.22f, 1, 0, 1.45f, 0},             {"Chrome", {0.95f, 0.95f, 0.95f}, 0.05f, 1, 0, 1.45f, 0},
-    {"Aluminium brossé", {0.91f, 0.92f, 0.92f}, 0.4f, 1, 0, 1.45f, 0}, {"Verre", {1, 1, 1}, 0.02f, 0, 1, 1.5f, 0},
-    {"Verre dépoli", {0.95f, 0.97f, 1.0f}, 0.3f, 0, 1, 1.5f, 0},     {"Émissif", {1, 1, 1}, 0.5f, 0, 0, 1.45f, 8},
+    {"Plastique blanc", {0.8f, 0.8f, 0.8f}, 0.35f, 0, 0, 1.45f, 0, 0},     {"Fond studio", {0.62f, 0.62f, 0.64f}, 0.75f, 0, 0, 1.45f, 0, 0},
+    {"Céramique émaillée", {0.85f, 0.83f, 0.8f}, 0.45f, 0, 0, 1.5f, 0, 1}, {"Caoutchouc noir", {0.03f, 0.03f, 0.03f}, 0.85f, 0, 0, 1.45f, 0, 0},
+    {"Or", {1.0f, 0.71f, 0.29f}, 0.22f, 1, 0, 1.45f, 0, 0},               {"Chrome", {0.95f, 0.95f, 0.95f}, 0.05f, 1, 0, 1.45f, 0, 0},
+    {"Aluminium brossé", {0.91f, 0.92f, 0.92f}, 0.4f, 1, 0, 1.45f, 0, 0},   {"Verre", {1, 1, 1}, 0.02f, 0, 1, 1.5f, 0, 0},
+    {"Verre dépoli", {0.95f, 0.97f, 1.0f}, 0.3f, 0, 1, 1.5f, 0, 0},       {"Laque rouge", {0.55f, 0.03f, 0.03f}, 0.4f, 0, 0, 1.45f, 0, 1},
+    {"Bois verni", {0.35f, 0.18f, 0.08f}, 0.6f, 0, 0, 1.45f, 0, 0.8f},     {"Émissif", {1, 1, 1}, 0.5f, 0, 0, 1.45f, 8, 0},
 };
 
 }  // namespace
@@ -123,7 +124,7 @@ PtRenderState& App::RenderStateFor(DocView& v) {
     key.intensity = 60.0f;
     Aim(key, {0, 0, 0});
     r.lights.push_back(key);
-    r.settings.envIntensity = 0.5f;
+    r.settings.envIntensity = 1.0f;
     // Facing the backdrop (behind the model along +z), slightly from the side and above.
     r.yaw = 0.35f;
     r.pitch = 0.2f;
@@ -153,6 +154,8 @@ Json App::RenderToJson(const PtRenderState& r) {
         oj["transmission"] = m.transmission;
         oj["ior"] = m.ior;
         oj["project"] = m.useProject;
+        oj["coat"] = m.coat;
+        oj["coatRough"] = m.coatRoughness;
         objs.Push(oj);
     }
     j["objects"] = objs;
@@ -223,6 +226,8 @@ void App::RenderFromJson(DocView& v, const Json& j) {
         m.transmission = oj["transmission"].F(0);
         m.ior = oj["ior"].F(1.45f);
         m.useProject = oj["project"].B(false);
+        m.coat = oj["coat"].F(0);
+        m.coatRoughness = oj["coatRough"].F(0.05f);
         r.objects.push_back(o);
     }
     r.lights.clear();
@@ -251,7 +256,7 @@ void App::RenderFromJson(DocView& v, const Json& j) {
     s.width = sj["width"].I(s.width);
     s.height = sj["height"].I(s.height);
     s.exposure = sj["exposure"].F(0);
-    s.tonemap = sj["tonemap"].I(1);
+    s.tonemap = sj["tonemap"].I(3);
     s.aperture = sj["aperture"].F(0);
     s.focusDistance = sj["focus"].F(s.focusDistance);
     s.fov = sj["fov"].F(s.fov);
@@ -350,7 +355,7 @@ gpu::Texture* App::UpdateRender(DocView& v, u32 w, u32 h) {
         const PtMaterial& m = o.material;
         Key(sk, m.baseColor);
         Key(sk, m.emission);
-        for (float f : {m.roughness, m.metallic, m.emissionStrength, m.transmission, m.ior, m.useProject ? 1.0f : 0.0f}) Key(sk, f);
+        for (float f : {m.roughness, m.metallic, m.emissionStrength, m.transmission, m.ior, m.useProject ? 1.0f : 0.0f, m.coat, m.coatRoughness}) Key(sk, f);
     }
     for (auto& l : r.lights) {
         sk += std::to_string((int)l.type) + (l.visible ? "v" : "h");
@@ -648,6 +653,8 @@ void App::DrawRenderScenePanel() {
                             m.ior = p.ior;
                             m.emission = p.emission > 0 ? p.color : float3{0, 0, 0};
                             m.emissionStrength = p.emission;
+                            m.coat = p.coat;
+                            m.coatRoughness = 0.05f;
                             m.useProject = false;
                         }
                     ImGui::EndCombo();
@@ -657,6 +664,9 @@ void App::DrawRenderScenePanel() {
                 ImGui::SliderFloat("Rugosité", &m.roughness, 0, 1);
                 ImGui::SliderFloat("Métal", &m.metallic, 0, 1);
                 ImGui::EndDisabled();
+                ImGui::SliderFloat("Vernis", &m.coat, 0, 1);
+                ui::HelpTooltip("Couche transparente brillante par-dessus (émail, laque, bois verni) :\nreflets nets sur une base mate ou colorée. S'applique aussi aux textures du projet.");
+                if (m.coat > 0) ImGui::SliderFloat("Rugosité du vernis", &m.coatRoughness, 0, 1);
                 ImGui::SliderFloat("Transmission", &m.transmission, 0, 1);
                 ui::HelpTooltip("Verre / matière transparente (réfraction)");
                 if (m.transmission > 0) ImGui::SliderFloat("Indice (IOR)", &m.ior, 1.0f, 2.5f);
@@ -772,7 +782,8 @@ void App::DrawRenderScenePanel() {
             }
         }
         ImGui::SliderFloat("Exposition", &s.exposure, -6, 6, "%.2f IL");
-        ImGui::Combo("Courbe", &s.tonemap, "Linéaire\0ACES (film)\0Reinhard\0");
+        ImGui::Combo("Courbe", &s.tonemap, "Linéaire\0ACES (film)\0Reinhard\0PBR Neutral (couleurs fidèles)\0AgX (film, naturel)\0");
+        ui::HelpTooltip("PBR Neutral : les couleurs des matières restent celles peintes (rendu produit).\nAgX : courbe de film douce, hautes lumières naturelles.");
         ImGui::DragFloat("Limite indirecte", &s.clampIndirect, 0.5f, 0, 1000, "%.1f");
         ui::HelpTooltip("Écrête les reflets indirects très forts (lucioles). 0 = sans limite.");
     }

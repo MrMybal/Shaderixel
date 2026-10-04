@@ -24,6 +24,7 @@ struct PtMaterial {
     float3 emission = {0, 0, 0};
     float emissionStrength = 0.0f;
     float transmission = 0.0f, ior = 1.45f;
+    float coat = 0.0f, coatRoughness = 0.05f;  // clear varnish over the base (glaze, lacquer, varnished wood)
     bool useProject = false;  // base color / roughness / metal / emissive / normal from the project textures
 };
 
@@ -62,7 +63,7 @@ struct PtSettings {
     bool viewSize = true;      // render at the view's size; otherwise width x height
     int width = 1920, height = 1080;
     float exposure = 0.0f;     // stops
-    int tonemap = 1;           // 0 linear, 1 ACES, 2 Reinhard
+    int tonemap = 3;           // 0 linear, 1 ACES, 2 Reinhard, 3 Khronos PBR Neutral, 4 AgX
     float aperture = 0.0f;     // lens radius (scene units), 0 = pinhole
     float focusDistance = 2.8f;
     float fov = 0.8f;          // vertical, radians

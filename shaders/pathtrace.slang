@@ -30,7 +30,7 @@ cbuffer Scene : register(b1)
     uint gPad0;
     float4 gBackground;  // rgb, HDRI intensity
     float4 gEnvInfo;     // luminance total, indirect clamp
-    float4 gMat[96];     // 32 materials: (base, roughness) (emission, metallic) (transmission, ior, project, 0)
+    float4 gMat[128];    // 32 materials: (base, roughness) (emission, metallic) (transmission, ior, project, 0) (coat, coat roughness, 0, 0)
     float4 gLight[64];   // 16 lights: (pos, type) (dir, size) (radiance, cos outer) (cos inner, 0, 0, 0)
 };
 
@@ -243,7 +243,20 @@ struct Surf
 {
     float3 p, n, ng, base, emission;
     float rough, metal, transmission, ior;
+    float coat, coatRough;  // clear varnish layer over the base (glaze, lacquer)
 };
+
+float CoatProb(Surf s) { return s.coat * 0.35; }
+
+// Directional albedo of the GGX lobe (Karis' fit): F0 * A + B.
+float2 EnvBrdfApprox(float nv, float rough)
+{
+    const float4 c0 = float4(-1, -0.0275, -0.572, 0.022);
+    const float4 c1 = float4(1, 0.0425, 1.04, -0.04);
+    float4 r = rough * c0 + c1;
+    float a004 = min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
+    return float2(-1.04, 1.04) * a004 + r.zw;
+}
 
 float3 BsdfEval(Surf s, float3 wo, float3 wi, float pSpec, out float pdf)
 {
@@ -256,10 +269,26 @@ float3 BsdfEval(Surf s, float3 wo, float3 wi, float pSpec, out float pdf)
     float3 f0 = lerp(float3(0.04, 0.04, 0.04), s.base, s.metal);
     float3 F = FSchlick(f0, vh);
     float D = D_GGX(nh, a), G = G1(nl, a) * G1(nv, a);
-    float3 spec = F * (D * G / (4 * nv + 1e-6));
-    float3 diff = s.base * ((1 - s.metal) / PI) * (1.0 - F) * nl;
+    // Multiple scattering compensation (rough surfaces keep their energy), and the diffuse
+    // lobe gets what the specular layer does not reflect.
+    float2 AB = EnvBrdfApprox(nv, s.rough);
+    float3 ems = 1.0 + f0 * (1.0 / max(AB.x + AB.y, 0.05) - 1.0);
+    float3 spec = F * (D * G / (4 * nv + 1e-6)) * ems;
+    float3 diff = s.base * ((1 - s.metal) / PI) * (1.0 - (f0 * AB.x + AB.y)) * nl;
     pdf = pSpec * D * nh / (4 * vh + 1e-6) + (1 - pSpec) * nl / PI;
-    return spec + diff;
+    float3 res = spec + diff;
+    if (s.coat > 0)
+    {
+        // Varnish: a smooth dielectric GGX lobe on top; the base gets what it lets through.
+        float ac = max(s.coatRough * s.coatRough, 0.002);
+        float Dc = D_GGX(nh, ac), Gc = G1(nl, ac) * G1(nv, ac);
+        float Fc = (0.04 + 0.96 * pow(1.0 - vh, 5.0)) * s.coat;
+        float2 ABc = EnvBrdfApprox(nv, s.coatRough);
+        res = res * (1.0 - (0.04 * ABc.x + ABc.y) * s.coat) + Fc * Dc * Gc / (4 * nv + 1e-6);
+        float pc = CoatProb(s);
+        pdf = pc * Dc * nh / (4 * vh + 1e-6) + (1 - pc) * pdf;
+    }
+    return res;
 }
 
 float FresnelDielectric(float cosi, float eta)
@@ -337,7 +366,7 @@ float3 Radiance(float3 o, float3 d, inout uint rng)
         float2 uv0 = float2(T1.w, T2.w), uv1 = float2(T3.w, T4.w), uv2 = float2(T5.w, T6.x);
         float2 uv = uv0 * b0 + uv1 * h.b1 + uv2 * h.b2;
         uint mi = min((uint)T0.w, 31u);
-        float4 m0 = gMat[mi * 3], m1 = gMat[mi * 3 + 1], m2 = gMat[mi * 3 + 2];
+        float4 m0 = gMat[mi * 4], m1 = gMat[mi * 4 + 1], m2 = gMat[mi * 4 + 2], m3 = gMat[mi * 4 + 3];
         Surf su;
         su.p = o + d * h.t;
         su.ng = normalize(cross(T1.xyz - T0.xyz, T2.xyz - T0.xyz));
@@ -348,6 +377,8 @@ float3 Radiance(float3 o, float3 d, inout uint rng)
         su.emission = m1.rgb;
         su.transmission = m2.x;
         su.ior = m2.y;
+        su.coat = m3.x;
+        su.coatRough = clamp(m3.y, 0.02, 1.0);
         if (m2.z > 0.5 && (gFlags & 4))
         {
             float4 b = gBase.SampleLevel(sLinearWrap, uv, 0);
@@ -488,9 +519,10 @@ float3 Radiance(float3 o, float3 d, inout uint rng)
         float3 t, b;
         Basis(su.n, t, b);
         float3 wi;
-        if (Rnd(rng) < pSpec)
+        const bool coatLobe = Rnd(rng) < CoatProb(su);
+        if (coatLobe || Rnd(rng) < pSpec)
         {
-            float a = max(su.rough * su.rough, 0.002);
+            float a = coatLobe ? max(su.coatRough * su.coatRough, 0.002) : max(su.rough * su.rough, 0.002);
             float r1 = Rnd(rng), r2 = Rnd(rng);
             float th = atan(a * sqrt(r1 / (1 - r1 + 1e-6))), ph = 2 * PI * r2;
             float3 hm = t * (sin(th) * cos(ph)) + b * (sin(th) * sin(ph)) + su.n * cos(th);

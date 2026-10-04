@@ -18,7 +18,7 @@ struct SceneCB {
     u32 maxBounces, numLights, numMaterials, flags;
     u32 nodeBase, envW, envH, pad0;
     float4 background, envInfo;
-    float4 mat[kMaxMaterials * 3];
+    float4 mat[kMaxMaterials * 4];
     float4 light[kMaxLights * 4];
 };
 
@@ -130,9 +130,10 @@ bool PtGpuRenderer::Render(gpu::CommandContext& ctx, const std::vector<PtMateria
     for (u32 i = 0; i < cb.numMaterials; ++i) {
         const PtMaterial& m = materials[i];
         float3 e = m.emission * m.emissionStrength;
-        cb.mat[i * 3] = {m.baseColor.x, m.baseColor.y, m.baseColor.z, m.roughness};
-        cb.mat[i * 3 + 1] = {e.x, e.y, e.z, m.metallic};
-        cb.mat[i * 3 + 2] = {m.transmission, m.ior, m.useProject ? 1.0f : 0.0f, 0};
+        cb.mat[i * 4] = {m.baseColor.x, m.baseColor.y, m.baseColor.z, m.roughness};
+        cb.mat[i * 4 + 1] = {e.x, e.y, e.z, m.metallic};
+        cb.mat[i * 4 + 2] = {m.transmission, m.ior, m.useProject ? 1.0f : 0.0f, 0};
+        cb.mat[i * 4 + 3] = {m.coat, m.coatRoughness, 0, 0};
     }
     u32 nl = 0;
     for (const PtLight& l : lights) {
