@@ -181,7 +181,8 @@ bool ExportTexturePng(UTexture2D* Texture, const FString& File, FString& Error)
 	return FFileHelper::SaveArrayToFile(Bytes, *File);
 }
 
-// OBJ of the triangles of one material slot (LOD 0), Y up (cyclic axis permutation: no mirroring), meters.
+// OBJ of the triangles of one material slot (LOD 0), meters. OBJ is right-handed Y up (Shaderixel flips z when
+// loading): Unreal (x, y, z) -> (y, z, -x), so the model is not mirrored once loaded.
 bool BuildMeshObj(UStaticMesh* Mesh, int32 Slot, int32 UVChannel, FString& Out, FString& Error)
 {
 	const FStaticMeshRenderData* RenderData = Mesh->GetRenderData();
@@ -231,12 +232,12 @@ bool BuildMeshObj(UStaticMesh* Mesh, int32 Slot, int32 UVChannel, FString& Out, 
 	for (uint32 V : Used)
 	{
 		const auto& P = LOD.VertexBuffers.PositionVertexBuffer.VertexPosition(V);
-		Out += FString::Printf(TEXT("v %.6f %.6f %.6f\n"), P.Y * 0.01f, P.Z * 0.01f, P.X * 0.01f);
+		Out += FString::Printf(TEXT("v %.6f %.6f %.6f\n"), P.Y * 0.01f, P.Z * 0.01f, -P.X * 0.01f);
 	}
 	for (uint32 V : Used)
 	{
 		const auto N = LOD.VertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(V);
-		Out += FString::Printf(TEXT("vn %.5f %.5f %.5f\n"), (float)N.Y, (float)N.Z, (float)N.X);
+		Out += FString::Printf(TEXT("vn %.5f %.5f %.5f\n"), (float)N.Y, (float)N.Z, -(float)N.X);
 	}
 	for (uint32 V : Used)
 	{

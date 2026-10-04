@@ -36,17 +36,30 @@ struct MeshVertex {
 };
 static_assert(sizeof(MeshVertex) == 32, "vertex layout");
 
+// Material of a part of an imported model (render scenes).
+struct MeshMaterialInfo {
+    std::string name;
+    float4 baseColor = {0.8f, 0.8f, 0.8f, 1.0f};
+    float roughness = 0.5f, metallic = 0.0f;
+    float3 emissive;
+    std::string baseColorPath;      // texture file (absolute, or relative to the model)
+    std::vector<u8> baseColorData;  // embedded texture (encoded image)
+};
+
 struct MeshData {
     std::string name;
     std::vector<MeshVertex> vertices;
     std::vector<u32> indices;
+    std::vector<MeshMaterialInfo> materials;  // imported models: one per part (optional)
+    std::vector<u16> triMaterial;             // per triangle, index into materials (empty: one material)
     float3 boundsMin, boundsMax;
     bool hasUvs = true;  // false: loaded without texture coordinates (unwrap before painting)
 };
 
 bool LoadObj(const std::string& path, MeshData& out, std::string* error);
 bool LoadGltf(const std::string& path, MeshData& out, std::string* error);  // .gltf / .glb
-// By extension (.obj, .gltf, .glb).
+bool LoadFbx(const std::string& path, MeshData& out, std::string* error);
+// By extension (.obj, .gltf, .glb, .fbx).
 bool LoadMesh(const std::string& path, MeshData& out, std::string* error);
 MeshData MakeSphere(int segments = 64, int rings = 32);
 MeshData MakeCube();

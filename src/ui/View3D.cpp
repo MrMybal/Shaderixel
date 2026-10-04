@@ -43,7 +43,17 @@ void App::DrawView3D() {
     if (button("Cube")) AttachMesh(*v, MakeCube());
     if (button("Plan")) AttachMesh(*v, MakePlane());
     if (button("Ouvrir un maillage...")) {
-        std::string path = platform::OpenFileDialog(hwnd, L"Maillages (*.obj, *.gltf, *.glb)\0*.obj;*.gltf;*.glb\0");
+        std::string path = platform::OpenFileDialog(hwnd, L"Maillages (*.obj, *.fbx, *.gltf, *.glb, *.uasset)\0*.obj;*.fbx;*.gltf;*.glb;*.uasset\0");
+        if (!path.empty() && Narrow(Utf8Path(path).extension().wstring()) == ".uasset") {
+            DocView* target = v;
+            ConvertUAssetAsync(path, [this, target](const std::string& glb) {
+                MeshData m;
+                std::string err;
+                for (auto& d : docs)
+                    if (d.get() == target && LoadMesh(glb, m, &err)) AttachMesh(*target, std::move(m));
+            });
+            path.clear();
+        }
         if (!path.empty()) {
             MeshData m;
             std::string err;

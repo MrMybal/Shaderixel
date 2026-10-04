@@ -34,11 +34,8 @@ void FitCorners(const Document& d, u32 w, u32 h, float2 out[4]) {
 }  // namespace
 
 gpu::TexturePtr App::LoadImageTexture(DocView& v, const std::string& path, u32& w, u32& h) {
-    FILE* f = nullptr;
-    if (_wfopen_s(&f, Widen(path).c_str(), L"rb") != 0 || !f) return nullptr;
-    int iw = 0, ih = 0, comp = 0;
-    stbi_uc* px = stbi_load_from_file(f, &iw, &ih, &comp, 4);
-    fclose(f);
+    int iw = 0, ih = 0;
+    stbi_uc* px = LoadImagePixels(path, iw, ih);  // images and Unreal textures
     if (!px) return nullptr;
     w = (u32)iw;
     h = (u32)ih;
@@ -125,7 +122,7 @@ void App::ConvertToSmartObject(DocView& v) {
     Status("Objet dynamique : transformations sans perte, filtres dynamiques, contenu modifiable (double-clic sur la vignette)");
 }
 
-void App::PlaceSmartFile(DocView& v, const std::string& path, bool linked) {
+void App::PlaceSmartFile(DocView& v, const std::string& path, bool linked, bool nativeSize) {
     if (path.empty()) return;
     Document& d = *v.doc;
     if (d.Mode() != DocMode::Layers) { Status("Les objets dynamiques utilisent le mode calques"); return; }
@@ -140,6 +137,14 @@ void App::PlaceSmartFile(DocView& v, const std::string& path, bool linked) {
     }
     float2 c[4];
     FitCorners(d, w, h, c);
+    if (nativeSize) {
+        // At its own size (1 pixel = 1 pixel), centered: Ctrl+T transforms it without loss.
+        float x0 = (d.Width() - (float)w) * 0.5f, y0 = (d.Height() - (float)h) * 0.5f;
+        c[0] = {x0, y0};
+        c[1] = {x0 + w, y0};
+        c[2] = {x0 + w, y0 + h};
+        c[3] = {x0, y0 + h};
+    }
     AddSmartLayer(v, *so, c);
     e.Commit();
     Status(std::string(linked ? "Objet dynamique lié : " : "Objet dynamique incorporé : ") + so->name + " (" + std::to_string(w) + " x " + std::to_string(h) + ")");

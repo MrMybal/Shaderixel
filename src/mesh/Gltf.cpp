@@ -140,6 +140,36 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
 
     out = MeshData{};
     out.name = Narrow(Utf8Path(path).stem().wstring());
+    for (auto& m : g.doc["materials"].Elements()) {
+        MeshMaterialInfo info;
+        info.name = m["name"].S("");
+        const Json& pbr = m["pbrMetallicRoughness"];
+        if (pbr["baseColorFactor"].Size() == 4)
+            info.baseColor = {pbr["baseColorFactor"].At(0).F(), pbr["baseColorFactor"].At(1).F(), pbr["baseColorFactor"].At(2).F(), 1.0f};
+        info.roughness = pbr["roughnessFactor"].F(1.0f);
+        info.metallic = pbr["metallicFactor"].F(1.0f);
+        if (m["emissiveFactor"].Size() == 3) info.emissive = {m["emissiveFactor"].At(0).F(), m["emissiveFactor"].At(1).F(), m["emissiveFactor"].At(2).F()};
+        if (pbr.Has("baseColorTexture")) {
+            int ti = pbr["baseColorTexture"]["index"].I(-1);
+            int si = ti >= 0 && (size_t)ti < g.doc["textures"].Size() ? g.doc["textures"].At(ti)["source"].I(-1) : -1;
+            if (si >= 0 && (size_t)si < g.doc["images"].Size()) {
+                const Json& img = g.doc["images"].At(si);
+                std::string uri = img["uri"].S("");
+                if (uri.rfind("data:", 0) == 0) {
+                    size_t comma = uri.find(',');
+                    info.baseColorData = net::Base64Decode(comma == std::string::npos ? "" : uri.substr(comma + 1));
+                } else if (!uri.empty()) {
+                    info.baseColorPath = Narrow((dir / Utf8Path(uri)).wstring());
+                } else if (img.Has("bufferView")) {
+                    const Json& bv = g.doc["bufferViews"].At(img["bufferView"].I());
+                    size_t b = (size_t)bv["buffer"].I(), off = (size_t)bv["byteOffset"].I(0), len = (size_t)bv["byteLength"].I(0);
+                    if (b < g.buffers.size() && off + len <= g.buffers[b].size())
+                        info.baseColorData.assign(g.buffers[b].begin() + off, g.buffers[b].begin() + off + len);
+                }
+            }
+        }
+        out.materials.push_back(info);
+    }
     bool hasUv = false;
     std::function<void(int, const M4&)> visit = [&](int ni, const M4& parent) {
         const Json& node = g.doc["nodes"].At(ni);
@@ -170,11 +200,13 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
                     if (!T.empty()) v.uv = {T[i * 2], T[i * 2 + 1]};
                     out.vertices.push_back(v);
                 }
+                const int mat = std::clamp(prim["material"].I(0), 0, std::max((int)out.materials.size() - 1, 0));
                 for (size_t i = 0; i + 2 < I.size(); i += 3) {
                     if (I[i] >= nv || I[i + 1] >= nv || I[i + 2] >= nv) continue;
                     out.indices.push_back(base + I[i]);
                     out.indices.push_back(base + I[i + 2]);  // reversed with the z flip
                     out.indices.push_back(base + I[i + 1]);
+                    out.triMaterial.push_back((u16)mat);
                 }
                 if (N.empty()) {  // flat-ish normals from faces
                     for (size_t i = 0; i + 2 < I.size(); i += 3) {
@@ -197,6 +229,7 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
     if (!g.error.empty()) return fail(g.error);
     if (out.indices.empty()) return fail("aucun triangle");
     out.hasUvs = hasUv;  // without UVs: loaded anyway, the UV tool (xatlas) unwraps it
+    if (out.materials.empty()) out.triMaterial.clear();
     NormalizeMesh(out);
     return true;
 }
@@ -205,6 +238,7 @@ bool LoadMesh(const std::string& path, MeshData& out, std::string* error) {
     std::string ext = Narrow(Utf8Path(path).extension().wstring());
     for (auto& c : ext) c = (char)tolower((unsigned char)c);
     if (ext == ".gltf" || ext == ".glb") return LoadGltf(path, out, error);
+    if (ext == ".fbx") return LoadFbx(path, out, error);
     return LoadObj(path, out, error);
 }
 

@@ -135,11 +135,23 @@ float3 PtLight::Direction() const {
     return Normalize({std::cos(p) * std::sin(y), std::sin(p), std::cos(p) * std::cos(y)});
 }
 
-void BuildPtScene(const std::vector<PtObject>& objects, const std::vector<PtLight>& lights, PtScene& out) {
-    out = {};
+std::vector<PtMaterial> SceneMaterials(const std::vector<PtObject>& objects) {
+    std::vector<PtMaterial> m;
     for (auto& o : objects) {
-        out.materials.push_back(o.material);
-        int mat = (int)out.materials.size() - 1;
+        if (o.UsesParts()) m.insert(m.end(), o.parts.begin(), o.parts.end());
+        else m.push_back(o.material);
+    }
+    return m;
+}
+
+void BuildPtScene(const std::vector<PtObject>& objects, const std::vector<PtLight>& lights, PtScene& out, const std::vector<float4>* tiles) {
+    out = {};
+    out.materials = SceneMaterials(objects);
+    int matBase = 0;
+    for (auto& o : objects) {
+        const bool parts = o.UsesParts();
+        const int base = matBase;
+        matBase += parts ? (int)o.parts.size() : 1;
         if (!o.visible || !o.mesh) continue;
         Rot R(o.rotation);
         const MeshData& m = *o.mesh;
@@ -151,7 +163,12 @@ void BuildPtScene(const std::vector<PtObject>& objects, const std::vector<PtLigh
                 tri.n[k] = Normalize(R(v.normal));
                 tri.uv[k] = v.uv;
             }
-            tri.material = mat;
+            tri.material = parts ? base + std::min((int)m.triMaterial[t / 3], (int)o.parts.size() - 1) : base;
+            const PtMaterial& pm = out.materials[tri.material];
+            if (pm.useProject && tiles && pm.texSet >= 0 && pm.texSet < (int)tiles->size()) {
+                const float4 tl = (*tiles)[pm.texSet];  // into the set's atlas tile
+                for (auto& uv : tri.uv) uv = {tl.x + uv.x * tl.z, tl.y + uv.y * tl.w};
+            }
             out.triangles.push_back(tri);
         }
     }

@@ -78,12 +78,51 @@ bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
     bool hasNormals = false;
     std::string line;
     auto key = [](int a, int b, int c) { return ((u64)(u32)a << 42) ^ ((u64)(u32)b << 21) ^ (u64)(u32)c; };
+    std::unordered_map<std::string, int> matByName;
+    int curMat = -1;
+    auto loadMtl = [&](const std::string& file) {
+        auto mp = Utf8Path(path).parent_path() / Utf8Path(file);
+        std::ifstream mf(mp);
+        std::string ml;
+        MeshMaterialInfo* m = nullptr;
+        while (std::getline(mf, ml)) {
+            std::istringstream ms(ml);
+            std::string t;
+            ms >> t;
+            if (t == "newmtl") {
+                MeshMaterialInfo info;
+                std::getline(ms >> std::ws, info.name);
+                matByName[info.name] = (int)out.materials.size();
+                out.materials.push_back(info);
+                m = &out.materials.back();
+            } else if (!m) continue;
+            else if (t == "Kd") { float r, g, b; ms >> r >> g >> b; m->baseColor = {SrgbToLinear(r), SrgbToLinear(g), SrgbToLinear(b), 1}; }
+            else if (t == "Ke") { float r, g, b; ms >> r >> g >> b; m->emissive = {r, g, b}; }
+            else if (t == "Ns") { float ns; ms >> ns; m->roughness = std::clamp(std::sqrt(2.0f / (ns + 2.0f)), 0.02f, 1.0f); }
+            else if (t == "Pr") ms >> m->roughness;
+            else if (t == "Pm") ms >> m->metallic;
+            else if (t == "map_Kd") {
+                std::string rest;
+                std::getline(ms >> std::ws, rest);
+                size_t sp = rest.find_last_of(' ');  // options (-bm ...) before the file name
+                std::string tex = rest[0] == '-' && sp != std::string::npos ? rest.substr(sp + 1) : rest;
+                m->baseColorPath = Narrow((mp.parent_path() / Utf8Path(tex)).wstring());
+            }
+        }
+    };
     while (std::getline(f, line)) {
         if (line.size() < 2) continue;
         std::istringstream s(line);
         std::string tag;
         s >> tag;
-        if (tag == "v") { float3 p; s >> p.x >> p.y >> p.z; pos.push_back({p.x, p.y, -p.z}); }  // RH -> LH
+        if (tag == "mtllib") { std::string file; std::getline(s >> std::ws, file); loadMtl(file); }
+        else if (tag == "usemtl") {
+            std::string name;
+            std::getline(s >> std::ws, name);
+            auto it = matByName.find(name);
+            curMat = it == matByName.end() ? -1 : it->second;
+        }
+        else if (tag == "v") { float3 p; s >> p.x >> p.y >> p.z; pos.push_back({p.x, p.y, -p.z}); }  // RH -> LH
         else if (tag == "vt") { float2 t; s >> t.x >> t.y; uvs.push_back({t.x, 1.0f - t.y}); }
         else if (tag == "vn") { float3 n; s >> n.x >> n.y >> n.z; nrm.push_back({n.x, n.y, -n.z}); }
         else if (tag == "f") {
@@ -119,10 +158,12 @@ bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
                 out.indices.push_back(poly[0]);
                 out.indices.push_back(poly[i + 1]);
                 out.indices.push_back(poly[i]);
+                out.triMaterial.push_back((u16)std::max(curMat, 0));
             }
         }
     }
     if (out.indices.empty()) { if (error) *error = "aucune face"; return false; }
+    if (out.materials.empty()) out.triMaterial.clear();
     out.hasUvs = !uvs.empty();  // without UVs: loaded anyway, the UV tool (xatlas) unwraps it
     if (!hasNormals) {
         for (auto& v : out.vertices) v.normal = {};

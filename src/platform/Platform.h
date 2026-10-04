@@ -43,6 +43,7 @@ std::string TabletStatus();  // short description for the UI
 
 void SetResizeCallback(std::function<void(u32, u32)> cb);
 void SetDropCallback(std::function<void(const std::string&)> cb);
+void LastDropPos(float& x, float& y);  // where the files of the current drop were released (ImGui coordinates)
 bool IsQuitRequested();
 void ClearQuitRequest();
 

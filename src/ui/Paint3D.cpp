@@ -57,6 +57,18 @@ void App::NewPaint3DProject() {
     auto& P = p3dNew;
     const u32 res = P.resolution == 0 ? 1024 : P.resolution == 1 ? 2048 : 4096;
     MeshData mesh;
+    if (P.mesh == 3 && Narrow(Utf8Path(P.meshPath).extension().wstring()) == ".uasset") {
+        // Unreal mesh: exported by Unreal Editor first, then the same settings with the glTF.
+        auto settings = P;
+        ConvertUAssetAsync(P.meshPath, [this, settings](const std::string& glb) {
+            auto saved = p3dNew;
+            p3dNew = settings;
+            p3dNew.meshPath = glb;
+            NewPaint3DProject();
+            p3dNew = saved;
+        });
+        return;
+    }
     if (P.mesh == 3) {
         std::string err;
         if (!LoadMesh(P.meshPath, mesh, &err)) { Status("Maillage : " + err); return; }
@@ -485,7 +497,7 @@ void App::DrawPaint3DNewDialog() {
         ImGui::InputText("##meshpath", &P.meshPath);
         ImGui::SameLine();
         if (ImGui::Button("...")) {
-            std::string f = platform::OpenFileDialog(hwnd, L"Maillages (*.obj, *.gltf, *.glb)\0*.obj;*.gltf;*.glb\0");
+            std::string f = platform::OpenFileDialog(hwnd, L"Maillages (*.obj, *.fbx, *.gltf, *.glb, *.uasset)\0*.obj;*.fbx;*.gltf;*.glb;*.uasset\0");
             if (!f.empty()) P.meshPath = f;
         }
         ImGui::Checkbox("Générer des UV automatiques (xatlas)", &P.autoUv);

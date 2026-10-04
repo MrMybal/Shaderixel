@@ -17,6 +17,7 @@ PointerSample g_lastPen = {0, 0, 1, false, false};
 float g_pressure = 1.0f;
 bool g_penActive = false;
 bool g_screenCoords = false;
+float g_dropX = 0, g_dropY = 0;  // last drop point, in ImGui coordinates
 bool g_quit = false;
 HWND g_hwnd = nullptr;
 std::function<void(u32, u32)> g_onResize;
@@ -239,6 +240,11 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         case WM_DROPFILES: {
             HDROP drop = (HDROP)wParam;
+            POINT pt = {};
+            DragQueryPoint(drop, &pt);  // client coordinates of this window
+            if (g_screenCoords) ClientToScreen(hwnd, &pt);
+            g_dropX = (float)pt.x;
+            g_dropY = (float)pt.y;
             wchar_t path[MAX_PATH];
             UINT n = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
             for (UINT i = 0; i < n; ++i)
@@ -283,6 +289,7 @@ float LastPressure() { return g_pressure; }
 bool PenActive() { return g_penActive; }
 const PointerSample& LastPenSample() { return g_lastPen; }
 void SetScreenCoordinates(bool screen) { g_screenCoords = screen; }
+void LastDropPos(float& x, float& y) { x = g_dropX; y = g_dropY; }
 
 bool WintabAvailable() { return g_wintab.Load(); }
 

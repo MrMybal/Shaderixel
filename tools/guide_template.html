@@ -132,6 +132,11 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Outil Projection : choisissez une image, puis cliquez sur le modèle (<kbd>Ctrl</kbd>+molette : taille, <kbd>Maj</kbd>+molette : rotation). Symétrie X dans Calques 3D.</li>
     <li>Vue 3D &gt; « Exporter les textures... » : séparées, Unreal (BaseColor, Normal, ORM) ou Unity HDRP (BaseMap, Normal, MaskMap).</li>
   </ol></div>
+  <div class="card"><h3>Fichiers Unreal (.uasset)</h3><ol>
+    <li>Textures (.uasset de projets UE 4.x à 5.8, éditeur ou cookées, BC1 à BC7) : Fichier &gt; Ouvrir, glisser-déposer sur le canevas / le graphe (objet dynamique ou nœud image), comme une image. Oodle est chargé depuis votre installation d'Unreal si besoin.</li>
+    <li>Maillages (StaticMesh, SkeletalMesh) : glissez-les dans l'onglet Rendu, ouvrez-les (nouveau projet Paint 3D) ou choisissez-les dans « + Modèle... ». La version d'Unreal du projet les exporte en arrière-plan (sans fenêtre, le Content est monté en lecture seule), avec la texture de couleur et la rugosité / le métal de leurs matériaux ; le résultat est gardé en cache.</li>
+    <li>Le .uasset doit rester dans le dossier Content de son projet (à côté du .uproject) ; la première conversion d'une version d'Unreal prend un peu plus de temps.</li>
+  </ol></div>
   <div class="card"><h3>Plugin Unreal Engine (Shaderixel Link)</h3><ol>
     <li>Copiez <code>Unreal/&lt;version&gt;/ShaderixelLink</code> (4.27 à 5.8) dans le dossier <code>Plugins</code> de votre projet, puis activez « Shaderixel Link » (Edit &gt; Plugins).</li>
     <li>Content Browser, clic droit sur un Static Mesh &gt; <b>Peindre dans Shaderixel</b> &gt; emplacement de matériau : un projet Paint 3D s'ouvre avec le maillage (ses UV) et les textures du matériau dans un calque « Unreal (textures d'origine) ».</li>
@@ -141,12 +146,14 @@ td:first-child { white-space: nowrap; width: 1%; }
   <div class="card"><h3>Mode Rendu (path tracing)</h3><p><img src="Guide_images/16_Tasse_Rendu.png" alt="" style="width:100%;border-radius:6px"></p><ol>
     <li>Onglet « Rendu » (à côté de la Vue 3D d'un projet .sx3d) : le modèle peint est rendu en path tracing progressif ; l'image s'affine au fil des échantillons. Clic gauche / droit : orbite, molette : zoom, clic molette : déplacer.</li>
     <li>Calcul GPU par défaut (toute carte graphique : NVIDIA, AMD, Intel) ou CPU (tous les cœurs, même résultat). Pause, Recommencer, « Exporter l'image... » en PNG, JPEG ou HDR (Radiance, valeurs linéaires).</li>
-    <li>Panneau « Scène de rendu » (onglet 3D) : objets (sol, fond cyclo, cube, sphère, maillages OBJ / glTF importés, copies du modèle) avec position, rotation, échelle et matériau (préréglages, verre, métal, émission) ; lumières ponctuelles, spots, surfaciques et soleil ; environnement studio intégré ou fichier HDRI (intensité, rotation, visible en fond).</li>
+    <li><b>Glissez-déposez</b> dans l'onglet Rendu un modèle (.obj avec son .mtl, .fbx, .gltf / .glb) ou un projet Paint 3D (.sx3d) : il rejoint la scène, posé au sol, avec ses matériaux (un par partie, texture de couleur comprise) ou ses textures peintes. Aussi par « + Modèle... ».</li>
+    <li>Panneau « Scène de rendu » (onglet 3D) : objets (sol, fond cyclo, cube, sphère, maillages OBJ / FBX / glTF importés, projets .sx3d, copies du modèle) avec position, rotation, échelle et matériau (préréglages, verre, métal, émission) ; lumières ponctuelles, spots, surfaciques et soleil ; environnement studio intégré ou fichier HDRI (intensité, rotation, visible en fond).</li>
     <li>Caméra : champ de vision, profondeur de champ (ouverture, mise au point) ; réglages : échantillons, rebonds, taille de la vue ou résolution fixe (jusqu'à 8K), exposition, courbe ACES / Reinhard. La scène est enregistrée dans le .sx3d.</li>
   </ol></div>
   <div class="card"><h3>Éditeur d'effets et graphes</h3><ol>
     <li>« ◀ Bibliothèque » : effets, fusions et pinceaux avec recherche ; « Nouveau à partir de ce modèle » (copie) ou « Éditer l'original » (après déverrouillage). « Annuler les modifications » revient à l'état et au panneau d'avant.</li>
     <li>Palette de nœuds (onglet Effets) : glissez un nœud sur le graphe des calques ou sur le graphe d'effet, ou cliquez pour l'ajouter au centre.</li>
+    <li>Glissez une image depuis l'explorateur sur le graphe, le canevas ou les calques : en mode calques, elle arrive à sa taille réelle comme objet dynamique (Ctrl+T la transforme sans perte) ; en mode nodal, un nœud image suivi d'un nœud <b>Transformation</b> (position, échelle, rotation, pivot), fusionné au résultat. Ailleurs, elle s'ouvre comme document.</li>
     <li>Barre d'état : Vue finale / calque seul / jusqu'au calque (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd>).</li>
   </ol></div>
   <div class="card"><h3>Retouche et déformation</h3><ol>

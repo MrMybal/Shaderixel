@@ -1,5 +1,6 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
 #include "ui/App.h"
+#include "io/UAsset.h"
 #include "io/ColorMgmt.h"
 #include "gpu/ShaderSystem.h"
 #include "doc/EffectGraph.h"
@@ -298,6 +299,47 @@ void App::DemoTick() {
             }
         }
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
+        return;
+    }
+    if (demoMode == 70) {
+        // Unreal mesh conversion alone (SX_UASSET), result in the log.
+        char path[1024] = "";
+        if (frameCounter == 5 && GetEnvironmentVariableA("SX_UASSET", path, sizeof(path)) > 0) {
+            std::string glb, err;
+            bool ok = ConvertUAssetMesh(path, glb, &err);
+            Log("[demo] uassetconv: %s %s", ok ? "OK" : "FAIL", ok ? glb.c_str() : err.c_str());
+        }
+        return;
+    }
+    if (demoMode == 69) {
+        // Simulated drops (no real mouse): SX_DROPS = files separated by ';', released at the center of the
+        // window SX_DROPWIN ("Rendu", "Graphe", ...). A 3D project given on the command line is brought forward;
+        // SX_NODES: the active document goes to node mode first.
+        char drops[4096] = "", win[64] = "Rendu";
+        GetEnvironmentVariableA("SX_DROPS", drops, sizeof(drops));
+        GetEnvironmentVariableA("SX_DROPWIN", win, sizeof(win));
+        for (int i = 0; i < (int)docs.size(); ++i)
+            if (docs[i]->doc->kind == 1 && activeDoc != i && frameCounter < 20) { activeDoc = i; focusDocRequest = i; }
+        if (frameCounter == 18 && GetEnvironmentVariableA("SX_NODES", nullptr, 0) > 0 && Active() && Active()->doc->Mode() == DocMode::Layers) {
+            Edit e(*Active()->doc, Active()->history, "Passer en mode nodal");
+            Active()->doc->ConvertToNodes();
+            e.Commit();
+        }
+        if (frameCounter == 20) ImGui::SetWindowFocus(win);
+        static size_t next = 0;
+        if (frameCounter >= 30 && frameCounter % 10 == 0) {
+            std::vector<std::string> files;
+            for (char* t = strtok(drops, ";"); t; t = strtok(nullptr, ";")) files.push_back(t);
+            if (next < files.size())
+                if (ImGuiWindow* w = ImGui::FindWindowByName(win)) {
+                    DropRequest r;
+                    r.path = files[next++];
+                    r.x = w->Pos.x + w->Size.x * 0.5f;
+                    r.y = w->Pos.y + w->Size.y * 0.5f;
+                    pendingDrops.push_back(r);
+                    Log("[demo] drop %s on %s", r.path.c_str(), win);
+                }
+        }
         return;
     }
     if (demoMode == 68) {

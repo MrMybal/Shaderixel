@@ -51,11 +51,15 @@ void PtGpuRenderer::EnsureAccum(u32 w, u32 h) {
     Reset();
 }
 
-void PtGpuRenderer::PackProject(gpu::CommandContext& ctx, gpu::Texture* const* channels, u32 w, u32 h) {
-    auto* k = Kernel("pt_pack.slang");
-    if (!k || w == 0 || h == 0) return;
+void PtGpuRenderer::BeginAtlas(u32 size) {
     for (auto& t : packed)
-        if (!t || t->Width() != w || t->Height() != h) t = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA16F, "PtPacked");
+        if (!t || t->Width() != size || t->Height() != size) t = gpu::Dev().CreateTexture(size, size, gpu::Format::RGBA16F, "PtAtlas");
+    Reset();
+}
+
+void PtGpuRenderer::PackTile(gpu::CommandContext& ctx, gpu::Texture* const* channels, u32 x, u32 y, u32 tile, float defRough, float defMetal) {
+    auto* k = Kernel("pt_pack.slang");
+    if (!k || tile == 0 || !packed[0]) return;
     gpu::DispatchDesc d;
     d.pipeline = k;
     u32 flags = 0;
@@ -64,9 +68,9 @@ void PtGpuRenderer::PackProject(gpu::CommandContext& ctx, gpu::Texture* const* c
         if (channels[c]) flags |= 1u << c;
     }
     for (int i = 0; i < 4; ++i) d.uav[i] = packed[i].get();
-    struct { u32 w, h, flags; float strength; } root = {w, h, flags, 32.0f};
+    struct { u32 x, y, tile, flags; float strength, defRough, defMetal, pad; } root = {x, y, tile, flags, 32.0f, defRough, defMetal, 0};
     SetConstants(d, root);
-    Dispatch2D(ctx, d, w, h);
+    Dispatch2D(ctx, d, tile, tile);
     Reset();
 }
 

@@ -12,6 +12,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 
 namespace sx {
@@ -25,10 +26,11 @@ struct PtMaterial {
     float emissionStrength = 0.0f;
     float transmission = 0.0f, ior = 1.45f;
     float coat = 0.0f, coatRoughness = 0.05f;  // clear varnish over the base (glaze, lacquer, varnished wood)
-    bool useProject = false;  // base color / roughness / metal / emissive / normal from the project textures
+    bool useProject = false;  // base color / roughness / metal / emissive / normal from its texture set
+    int texSet = 0;           // runtime: atlas tile (0 = the open project, then imported .sx3d / model textures)
 };
 
-enum class PtObjectType : int { Project, Plane, Backdrop, Cube, Sphere, File };
+enum class PtObjectType : int { Project, Plane, Backdrop, Cube, Sphere, File, Sx3d };
 
 struct PtObject {
     std::string name;
@@ -38,7 +40,9 @@ struct PtObject {
     float scale = 1.0f;
     bool visible = true;
     PtMaterial material;
+    std::vector<PtMaterial> parts;   // imported models: one material per part (mesh triMaterial)
     std::shared_ptr<MeshData> mesh;  // geometry (object space)
+    bool UsesParts() const { return !parts.empty() && mesh && mesh->triMaterial.size() * 3 == mesh->indices.size(); }
 };
 
 enum class PtLightType : int { Point, Spot, Area, Sun };
@@ -106,7 +110,10 @@ struct PtScene {
 };
 
 // Builds the flattened scene (object transforms, BVH with binned SAH).
-void BuildPtScene(const std::vector<PtObject>& objects, const std::vector<PtLight>& lights, PtScene& out);
+// tiles[set] = atlas placement of texture set `set` (offset xy, scale zw): UVs of textured materials are remapped.
+void BuildPtScene(const std::vector<PtObject>& objects, const std::vector<PtLight>& lights, PtScene& out, const std::vector<float4>* tiles = nullptr);
+// Materials in scene order (one per object, or one per part): triangle material indices refer to this list.
+std::vector<PtMaterial> SceneMaterials(const std::vector<PtObject>& objects);
 // Loads an equirectangular image and its importance sampling tables.
 std::shared_ptr<PtEnvironment> LoadPtEnvironment(const std::string& path, std::string* error);
 // Importance sampling tables of an environment (after filling its pixels).
@@ -164,8 +171,10 @@ class PtGpuRenderer {
 public:
     void SetScene(std::shared_ptr<const PtScene> s);
     void Reset() { samples = 0; row = 0; }
-    // Packs the project's PBR channels (PbrChannel order, null = absent) for the kernel.
-    void PackProject(gpu::CommandContext& ctx, gpu::Texture* const* channels, u32 w, u32 h);
+    // Texture atlas (base, ORM, emission, normal) of `size` pixels; then each set packed into its tile
+    // from PBR channels (PbrChannel order, null = absent).
+    void BeginAtlas(u32 size);
+    void PackTile(gpu::CommandContext& ctx, gpu::Texture* const* channels, u32 x, u32 y, u32 tile, float defRough = 0.5f, float defMetal = 0.0f);
     // Traces `rows` rows of the current pass; false when the kernel is unavailable.
     bool Render(gpu::CommandContext& ctx, const std::vector<PtMaterial>& materials, const std::vector<PtLight>& lights, const PtSettings& s,
                 const PtCamera& cam, u32 w, u32 h, u32 rows);
@@ -195,6 +204,11 @@ struct PtRenderState {
     int selObject = 0, selLight = -1;
     bool paused = false;
     bool texDirty = true;             // repack the project channels
+    std::string atlasKey;             // texture sets packed in the atlas
+    std::vector<float4> tiles;        // atlas placement per texture set
+    std::vector<gpu::TexturePtr> setTextures;  // imported model textures (alive while packed)
+    std::unordered_map<std::string, std::shared_ptr<void>> hiddenProjects;  // imported .sx3d (DocView), by path
+    int selPart = 0;
     std::string geometryKey, shadingKey;
     std::shared_ptr<PtScene> scene;
     std::shared_ptr<PtEnvironment> env;

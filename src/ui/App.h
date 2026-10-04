@@ -613,7 +613,24 @@ private:
     Layer* AddSmartLayer(DocView& v, SmartObject& so, const float2 corners[4]);
     void SyncSmartLayers(DocView& v);
     void ConvertToSmartObject(DocView& v);
-    void PlaceSmartFile(DocView& v, const std::string& path, bool linked);
+    void PlaceSmartFile(DocView& v, const std::string& path, bool linked, bool nativeSize = false);
+    // Drag and drop: by the window under the drop point (render scene, graph / canvas, or a new document).
+    struct DropRequest { std::string path; float x = 0, y = 0; };
+    std::vector<DropRequest> pendingDrops;
+    bool RouteDrop(const DropRequest& r);
+    void AddImageNode(DocView& v, const std::string& path);  // node mode: image surface + Transformation node
+    // Unreal .uasset (UAssetSupport.cpp): textures decoded natively, meshes converted by Unreal in the background.
+    struct UAssetJob {
+        std::string path, name;
+        std::future<std::pair<std::string, std::string>> result;  // glb, error
+        std::vector<std::function<void(const std::string&)>> done;
+    };
+    std::vector<std::unique_ptr<UAssetJob>> uassetJobs;
+    std::set<std::string> uassetFailed;
+    unsigned char* LoadImagePixels(const std::string& path, int& w, int& h);  // RGBA8 (stbi_image_free), .uasset too
+    void ConvertUAssetAsync(const std::string& path, std::function<void(const std::string& glb)> done);
+    void UpdateUAssetJobs();
+    bool OpenUAsset(const std::string& path, bool asLayer);  // true: handled (mesh, error)
     void ReplaceSmartContents(DocView& v, SmartObject& so, const std::string& path);
     void UpdateLinkedSmartObjects(DocView& v, bool force);
     void EditSmartContents(DocView& parent, Layer& l);
@@ -862,6 +879,8 @@ private:
     // Render mode (RenderMode.cpp): path traced scene of a 3D project.
     PtRenderState& RenderStateFor(DocView& v);
     std::shared_ptr<MeshData> RenderObjectMesh(DocView& v, PtObject& o);
+    DocView* RenderHiddenProject(PtRenderState& r, const std::string& path);  // imported .sx3d (not a tab)
+    bool ImportIntoRender(DocView& v, const std::string& path);              // model / .sx3d into the render scene
     Json RenderToJson(const PtRenderState& r);
     void RenderFromJson(DocView& v, const Json& j);
     gpu::Texture* UpdateRender(DocView& v, u32 w, u32 h);

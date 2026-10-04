@@ -18,6 +18,8 @@ en-têtes Vulkan sont présents, `ShaderixelVk.exe` (Vulkan). `build_target.bat 
 - Dear ImGui, branche docking : `git clone -b docking https://github.com/ocornut/imgui external/imgui`
 - stb : `git clone https://github.com/nothings/stb external/stb`
 - xatlas (dépliage UV automatique, MIT) : `git clone --depth 1 https://github.com/jpcy/xatlas external/xatlas`
+- ufbx (lecture FBX, MIT) : `git clone --depth 1 https://github.com/ufbx/ufbx external/ufbx`
+- Les textures Unreal (.uasset) sont lues par `src/io/uasset` (repris de CyImgView, même auteur) ; les maillages .uasset sont exportés par l'Unreal Editor installé (commandlet, glTF).
 - Slang (release Windows x64), à décompresser dans `external/slang`
 - DXC (`dxcompiler.dll` / `dxil.dll`) : copié automatiquement depuis le Windows SDK
 - Vulkan (optionnel) : `git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers external/vulkan-headers`

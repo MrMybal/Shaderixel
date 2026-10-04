@@ -4,8 +4,10 @@
 #include "ui/App.h"
 #include "ui/Theme.h"
 #include "render/PathTracer.h"
+#include "io/UAsset.h"
 
 #include <imgui_stdlib.h>
+#include <stb_image.h>
 #include <stb_image_write.h>
 #include <chrono>
 
@@ -13,7 +15,36 @@ namespace sx {
 
 namespace {
 
-const char* const kObjectTypes[] = {"Modèle du projet", "Plan", "Fond (cyclo)", "Cube", "Sphère", "Maillage importé"};
+const char* const kObjectTypes[] = {"Modèle du projet", "Plan", "Fond (cyclo)", "Cube", "Sphère", "Maillage importé", "Projet .sx3d"};
+
+// Part material from an imported model's material.
+PtMaterial PartMaterial(const MeshMaterialInfo& mi) {
+    PtMaterial m;
+    m.baseColor = {mi.baseColor.x, mi.baseColor.y, mi.baseColor.z};
+    m.roughness = std::clamp(mi.roughness, 0.02f, 1.0f);
+    m.metallic = std::clamp(mi.metallic, 0.0f, 1.0f);
+    m.emission = mi.emissive;
+    m.emissionStrength = (mi.emissive.x + mi.emissive.y + mi.emissive.z) > 0 ? 1.0f : 0.0f;
+    m.useProject = !mi.baseColorPath.empty() || !mi.baseColorData.empty();
+    return m;
+}
+
+Json MaterialJson(const PtMaterial& m) {
+    Json oj = Json::Object();
+    oj["color"] = Json::Array();
+    for (float f : {m.baseColor.x, m.baseColor.y, m.baseColor.z}) oj["color"].Push(f);
+    oj["rough"] = m.roughness;
+    oj["metal"] = m.metallic;
+    oj["emission"] = Json::Array();
+    for (float f : {m.emission.x, m.emission.y, m.emission.z}) oj["emission"].Push(f);
+    oj["emissionStrength"] = m.emissionStrength;
+    oj["transmission"] = m.transmission;
+    oj["ior"] = m.ior;
+    oj["project"] = m.useProject;
+    oj["coat"] = m.coat;
+    oj["coatRough"] = m.coatRoughness;
+    return oj;
+}
 const char* const kLightTypes[] = {"Ponctuelle", "Spot", "Surfacique", "Soleil"};
 
 double Now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
@@ -85,17 +116,94 @@ std::shared_ptr<MeshData> App::RenderObjectMesh(DocView& v, PtObject& o) {
         case PtObjectType::Backdrop: m = MakeBackdrop(); break;
         case PtObjectType::Cube: m = MakeCube(); break;
         case PtObjectType::Sphere: m = MakeSphere(64, 32); break;
+        case PtObjectType::Sx3d: {
+            DocView* hv = v.render ? RenderHiddenProject(*v.render, o.path) : nullptr;
+            if (!hv || !hv->mesh) {
+                if (v.render) v.render->message = "Projet " + o.path + " : illisible ou sans maillage";
+                return nullptr;
+            }
+            return std::make_shared<MeshData>(hv->mesh->data);
+        }
         case PtObjectType::File: {
-            std::string err;
-            if (!LoadMesh(o.path, m, &err)) {
+            std::string err, file = o.path;
+            if (Narrow(Utf8Path(o.path).extension().wstring()) == ".uasset") {
+                // Unreal mesh: its cached glTF, or a conversion in the background (the object appears then).
+                file = UAssetMeshCached(o.path);
+                if (file.empty()) {
+                    if (!uassetFailed.count(o.path)) ConvertUAssetAsync(o.path, nullptr);
+                    return nullptr;
+                }
+            }
+            const bool fromUnreal = file != o.path;
+            if (!LoadMesh(file, m, &err)) {
                 if (v.render) v.render->message = "Maillage " + o.path + " : " + err;
                 return nullptr;
             }
+            if (fromUnreal) ApplyUAssetMaterials(file, m);
             NormalizeMesh(m);
             break;
         }
     }
     return std::make_shared<MeshData>(std::move(m));
+}
+
+DocView* App::RenderHiddenProject(PtRenderState& r, const std::string& path) {
+    auto it = r.hiddenProjects.find(path);
+    if (it != r.hiddenProjects.end()) return (DocView*)it->second.get();
+    // Loaded like a document, then taken out of the tabs: its channels feed the render atlas.
+    const int prevActive = activeDoc;
+    const size_t before = docs.size();
+    if (!LoadSxl(path) || docs.size() != before + 1) {
+        r.hiddenProjects[path] = nullptr;
+        return nullptr;
+    }
+    std::shared_ptr<DocView> hidden(std::move(docs.back()));
+    docs.pop_back();
+    activeDoc = prevActive;
+    focusDocRequest = prevActive;
+    hidden->render.reset();
+    r.hiddenProjects[path] = hidden;
+    return hidden.get();
+}
+
+bool App::ImportIntoRender(DocView& v, const std::string& path) {
+    std::string ext = Narrow(Utf8Path(path).extension().wstring());
+    for (auto& c : ext) c = (char)tolower((unsigned char)c);
+    const bool sx3d = ext == ".sx3d";
+    if (!sx3d && ext != ".obj" && ext != ".gltf" && ext != ".glb" && ext != ".fbx" && ext != ".uasset") return false;
+    if (ext == ".uasset" && UAssetMeshCached(path).empty()) {
+        // Converted by Unreal first; the object is added when the mesh is ready (if the project is still open).
+        DocView* target = &v;
+        ConvertUAssetAsync(path, [this, target, path](const std::string&) {
+            for (auto& d : docs)
+                if (d.get() == target) ImportIntoRender(*target, path);
+        });
+        return true;
+    }
+    PtRenderState& r = RenderStateFor(v);
+    PtObject o;
+    o.type = sx3d ? PtObjectType::Sx3d : PtObjectType::File;
+    o.path = path;
+    o.name = Narrow(Utf8Path(path).stem().wstring());
+    o.material.useProject = sx3d;  // painted textures of the imported project
+    o.mesh = RenderObjectMesh(v, o);
+    if (!o.mesh) {
+        Status("Import dans la scène : " + (r.message.empty() ? path : r.message));
+        return false;
+    }
+    for (auto& mi : o.mesh->materials) o.parts.push_back(PartMaterial(mi));
+    // Next to the model, alternately right and left, resting on the floor.
+    const float floorY = v.mesh ? MeshMinY(v.mesh->data) : -1.0f;
+    int imported = 0;
+    for (auto& e : r.objects) imported += e.type == PtObjectType::File || e.type == PtObjectType::Sx3d;
+    o.scale = 0.6f;
+    o.position = {(imported % 2 ? -1.0f : 1.0f) * (1.6f + 1.3f * (imported / 2)), floorY - MeshMinY(*o.mesh) * o.scale, 0.3f};
+    r.objects.push_back(o);
+    r.selObject = (int)r.objects.size() - 1;
+    r.selLight = -1;
+    r.selPart = 0;
+    Status("Ajouté à la scène de rendu : " + o.name + (o.parts.size() > 1 ? " (" + std::to_string(o.parts.size()) + " matériaux)" : ""));
+    return true;
 }
 
 PtRenderState& App::RenderStateFor(DocView& v) {
@@ -156,6 +264,11 @@ Json App::RenderToJson(const PtRenderState& r) {
         oj["project"] = m.useProject;
         oj["coat"] = m.coat;
         oj["coatRough"] = m.coatRoughness;
+        if (!o.parts.empty()) {
+            Json parts = Json::Array();
+            for (auto& pm : o.parts) parts.Push(MaterialJson(pm));
+            oj["parts"] = parts;
+        }
         objs.Push(oj);
     }
     j["objects"] = objs;
@@ -211,7 +324,7 @@ void App::RenderFromJson(DocView& v, const Json& j) {
         const Json& oj = objs.At(i);
         PtObject o;
         o.name = oj["name"].S("Objet");
-        o.type = (PtObjectType)std::clamp(oj["type"].I(1), 0, 5);
+        o.type = (PtObjectType)std::clamp(oj["type"].I(1), 0, 6);
         o.path = oj["path"].S("");
         o.position = F3(oj["pos"], {});
         o.rotation = F3(oj["rot"], {});
@@ -228,6 +341,22 @@ void App::RenderFromJson(DocView& v, const Json& j) {
         m.useProject = oj["project"].B(false);
         m.coat = oj["coat"].F(0);
         m.coatRoughness = oj["coatRough"].F(0.05f);
+        const Json& parts = oj["parts"];
+        for (size_t k = 0; k < parts.Size(); ++k) {
+            const Json& pj = parts.At(k);
+            PtMaterial pm;
+            pm.baseColor = F3(pj["color"], pm.baseColor);
+            pm.roughness = pj["rough"].F(0.5f);
+            pm.metallic = pj["metal"].F(0);
+            pm.emission = F3(pj["emission"], {});
+            pm.emissionStrength = pj["emissionStrength"].F(0);
+            pm.transmission = pj["transmission"].F(0);
+            pm.ior = pj["ior"].F(1.45f);
+            pm.useProject = pj["project"].B(false);
+            pm.coat = pj["coat"].F(0);
+            pm.coatRoughness = pj["coatRough"].F(0.05f);
+            o.parts.push_back(pm);
+        }
         r.objects.push_back(o);
     }
     r.lights.clear();
@@ -291,7 +420,102 @@ gpu::Texture* App::UpdateRender(DocView& v, u32 w, u32 h) {
         r.texDirty = true;
     }
     for (auto& o : r.objects)
-        if (!o.mesh) o.mesh = RenderObjectMesh(v, o);
+        if (!o.mesh) {
+            o.mesh = RenderObjectMesh(v, o);
+            // One material per part of the model (kept from the saved scene when they match).
+            if (o.mesh && o.parts.size() != o.mesh->materials.size()) {
+                std::vector<PtMaterial> parts;
+                for (size_t i = 0; i < o.mesh->materials.size(); ++i) parts.push_back(i < o.parts.size() ? o.parts[i] : PartMaterial(o.mesh->materials[i]));
+                o.parts = std::move(parts);
+            }
+        }
+    // Texture sets (atlas tiles): the open project, imported .sx3d projects, model part textures.
+    struct SetSrc { DocView* doc; const MeshMaterialInfo* info; };
+    std::vector<SetSrc> sets = {{&v, nullptr}};
+    std::string ak = "P";
+    for (auto& o : r.objects) {
+        if (o.type == PtObjectType::Project) o.material.texSet = 0;
+        if (o.type == PtObjectType::Sx3d) {
+            DocView* hv = RenderHiddenProject(r, o.path);
+            o.material.texSet = hv ? (int)sets.size() : -1;
+            if (hv) {
+                sets.push_back({hv, nullptr});
+                ak += "|S" + o.path;
+            }
+        }
+        if (!o.UsesParts()) continue;
+        for (size_t i = 0; i < o.parts.size() && i < o.mesh->materials.size(); ++i) {
+            const MeshMaterialInfo& mi = o.mesh->materials[i];
+            if (mi.baseColorPath.empty() && mi.baseColorData.empty()) {
+                o.parts[i].texSet = -1;
+                o.parts[i].useProject = false;
+                continue;
+            }
+            o.parts[i].texSet = (int)sets.size();
+            sets.push_back({nullptr, &mi});
+            ak += "|I" + o.path + "#" + std::to_string(i) + mi.baseColorPath + ":" + std::to_string(mi.baseColorData.size());
+        }
+    }
+    for (auto& o : r.objects)
+        if (o.material.texSet < 0) o.material.useProject = false;
+    if (ak != r.atlasKey || r.texDirty) {
+        // One tile per set: the project alone keeps its resolution; several share up to 4096 x 4096.
+        Document& d = *v.doc;
+        const u32 n = (u32)sets.size();
+        const u32 g = (u32)std::ceil(std::sqrt((float)n));
+        const u32 tile = n == 1 ? std::min(d.Width(), 4096u) : std::max(512u, std::min(2048u, 4096u / g));
+        const u32 size = tile * g;
+        r.gpu.BeginAtlas(size);
+        r.tiles.assign(n, float4{0, 0, 1, 1});
+        std::vector<gpu::TexturePtr> keep;
+        for (u32 i = 0; i < n; ++i) {
+            const u32 x = (i % g) * tile, y = (i / g) * tile;
+            r.tiles[i] = {(float)x / size, (float)y / size, (float)tile / size, (float)tile / size};
+            gpu::Texture* ch[(int)PbrChannel::Count] = {};
+            float defRough = 0.5f, defMetal = 0.0f;
+            if (DocView* sv = sets[i].doc) {
+                sv->lastImage = sv->renderer.Evaluate(*sv->doc, *ctx);
+                MeshMaterial m = GatherMaterial(*sv);
+                for (int c = 0; c < (int)PbrChannel::Count; ++c) ch[c] = m.tex[c];
+            } else if (const MeshMaterialInfo* mi = sets[i].info) {
+                int iw = 0, ih = 0, comp = 0;
+                stbi_uc* px = nullptr;
+                if (!mi->baseColorData.empty()) px = stbi_load_from_memory(mi->baseColorData.data(), (int)mi->baseColorData.size(), &iw, &ih, &comp, 4);
+                else {
+                    FILE* f = nullptr;
+                    if (_wfopen_s(&f, Widen(mi->baseColorPath).c_str(), L"rb") == 0 && f) {
+                        px = stbi_load_from_file(f, &iw, &ih, &comp, 4);
+                        fclose(f);
+                    }
+                }
+                if (px) {
+                    if (auto t = v.renderer.ImportTexture(*ctx, px, (u32)iw, (u32)ih, false, gpu::Format::RGBA16F)) {
+                        ch[(int)PbrChannel::BaseColor] = t.get();
+                        keep.push_back(t);
+                    }
+                    stbi_image_free(px);
+                } else r.message = "Texture introuvable : " + (mi->baseColorPath.empty() ? std::string("(intégrée)") : mi->baseColorPath);
+                defRough = mi->roughness;
+                defMetal = mi->metallic;
+            }
+            r.gpu.PackTile(*ctx, ch, x, y, tile, defRough, defMetal);
+        }
+        for (auto& t : r.setTextures) keep.push_back(t);  // the previous ones may still be in flight this frame
+        r.setTextures = std::move(keep);
+        if (r.setTextures.size() > 64) r.setTextures.erase(r.setTextures.begin() + 32, r.setTextures.end());
+        // Imported projects no longer in the scene are released.
+        for (auto it = r.hiddenProjects.begin(); it != r.hiddenProjects.end();) {
+            bool used = false;
+            for (auto& o : r.objects) used |= o.type == PtObjectType::Sx3d && o.path == it->first;
+            it = used ? std::next(it) : r.hiddenProjects.erase(it);
+        }
+        r.atlasKey = ak;
+        r.texDirty = false;
+        r.cpuTex.reset();
+        r.texReadbacks.clear();
+        r.geometryKey.clear();  // UVs go to the new tiles
+        restart = true;
+    }
     // Environment.
     if (r.envPath != s.hdri) {
         r.envPath = s.hdri;
@@ -315,20 +539,9 @@ gpu::Texture* App::UpdateRender(DocView& v, u32 w, u32 h) {
     if (gk != r.geometryKey || !r.scene) {
         r.geometryKey = gk;
         r.scene = std::make_shared<PtScene>();
-        BuildPtScene(r.objects, r.lights, *r.scene);
+        BuildPtScene(r.objects, r.lights, *r.scene, &r.tiles);
         r.scene->env = r.env;
         r.gpu.SetScene(r.scene);
-        restart = true;
-    }
-    // Project channels: packed on the GPU (and read back for the CPU renderer).
-    if (r.texDirty && v.mesh) {
-        Document& d = *v.doc;
-        v.lastImage = v.renderer.Evaluate(d, *ctx);
-        MeshMaterial m = GatherMaterial(v);
-        r.gpu.PackProject(*ctx, m.tex, d.Width(), d.Height());
-        r.texDirty = false;
-        r.cpuTex.reset();
-        r.texReadbacks.clear();
         restart = true;
     }
     if (s.device == 1 && !r.cpuTex && r.texReadbacks.empty() && r.gpu.packed[0])
@@ -351,8 +564,7 @@ gpu::Texture* App::UpdateRender(DocView& v, u32 w, u32 h) {
     }
     // Everything else that changes the image (not exposure / tone curve / sample count).
     std::string sk;
-    for (auto& o : r.objects) {
-        const PtMaterial& m = o.material;
+    for (const PtMaterial& m : SceneMaterials(r.objects)) {
         Key(sk, m.baseColor);
         Key(sk, m.emission);
         for (float f : {m.roughness, m.metallic, m.emissionStrength, m.transmission, m.ior, m.useProject ? 1.0f : 0.0f, m.coat, m.coatRoughness}) Key(sk, f);
@@ -383,8 +595,7 @@ gpu::Texture* App::UpdateRender(DocView& v, u32 w, u32 h) {
     r.width = w;
     r.height = h;
     const PtCamera cam = r.Camera();
-    std::vector<PtMaterial> mats;
-    for (auto& o : r.objects) mats.push_back(o.material);
+    const std::vector<PtMaterial> mats = SceneMaterials(r.objects);
     if (s.device == 0) {
         if (!r.paused && r.gpu.Samples() < s.maxSamples) {
             // A band of rows per dispatch; the band grows while frames stay fast.
@@ -590,14 +801,9 @@ void App::DrawRenderScenePanel() {
         if (ImGui::SmallButton("+ Cube")) add(PtObjectType::Cube, "Cube");
         ImGui::SameLine();
         if (ImGui::SmallButton("+ Sphère")) add(PtObjectType::Sphere, "Sphère");
-        if (ImGui::SmallButton("+ Maillage...")) {
-            std::string path = platform::OpenFileDialog(hwnd, L"Maillages (*.obj, *.gltf, *.glb)\0*.obj;*.gltf;*.glb\0");
-            if (!path.empty()) {
-                add(PtObjectType::File, Narrow(Utf8Path(path).stem().wstring()).c_str());
-                r.objects.back().path = path;
-                r.objects.back().position = {-1.6f, floorY + 0.5f, 0.6f};
-                r.objects.back().scale = 0.5f;
-            }
+        if (ImGui::SmallButton("+ Modèle...")) {
+            std::string path = platform::OpenFileDialog(hwnd, L"Modèles et projets (*.obj, *.fbx, *.gltf, *.glb, *.uasset, *.sx3d)\0*.obj;*.fbx;*.gltf;*.glb;*.uasset;*.sx3d\0");
+            if (!path.empty()) ImportIntoRender(*v, path);
         }
         ImGui::SameLine();
         if (ImGui::SmallButton("+ Modèle du projet")) {
@@ -640,9 +846,27 @@ void App::DrawRenderScenePanel() {
                 ImGui::DragFloat3("Rotation", &o.rotation.x, 0.5f, -360, 360, "%.1f°");
                 ImGui::DragFloat("Échelle", &o.scale, 0.01f, 0.01f, 100.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
                 ImGui::SeparatorText("Matériau");
-                PtMaterial& m = o.material;
-                ImGui::Checkbox("Textures peintes du projet", &m.useProject);
-                ui::HelpTooltip("Couleur, rugosité, métal, émissif et normale (relief compris) viennent des canaux du projet, via les UV du maillage.");
+                const bool parts = o.UsesParts();
+                if (parts) {
+                    // Imported model: one material per part.
+                    r.selPart = std::clamp(r.selPart, 0, (int)o.parts.size() - 1);
+                    auto partName = [&](int i) {
+                        std::string n = i < (int)o.mesh->materials.size() ? o.mesh->materials[i].name : std::string();
+                        return std::to_string(i + 1) + " : " + (n.empty() ? std::string("Matériau") : n);
+                    };
+                    if (ImGui::BeginCombo("Partie", partName(r.selPart).c_str())) {
+                        for (int i = 0; i < (int)o.parts.size(); ++i)
+                            if (ImGui::Selectable(partName(i).c_str(), i == r.selPart)) r.selPart = i;
+                        ImGui::EndCombo();
+                    }
+                }
+                PtMaterial& m = parts ? o.parts[r.selPart] : o.material;
+                const bool textured = o.type == PtObjectType::Project || o.type == PtObjectType::Sx3d || (parts && m.texSet >= 0);
+                ImGui::BeginDisabled(!textured);
+                ImGui::Checkbox(o.type == PtObjectType::Project ? "Textures peintes du projet" : o.type == PtObjectType::Sx3d ? "Textures peintes (.sx3d)" : "Texture du modèle", &m.useProject);
+                ImGui::EndDisabled();
+                ui::HelpTooltip(o.type == PtObjectType::File ? "Texture de couleur du matériau importé (FBX, glTF, OBJ .mtl), via les UV du modèle."
+                                                             : "Couleur, rugosité, métal, émissif et normale (relief compris) viennent des canaux peints, via les UV du maillage.");
                 if (ImGui::BeginCombo("Préréglage", "Choisir...")) {
                     for (const MaterialPreset& p : kPresets)
                         if (ImGui::Selectable(p.name)) {
