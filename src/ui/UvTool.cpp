@@ -223,6 +223,7 @@ gpu::Texture* App::UvPreviewRender(DocView& v, u32 w, u32 h) {
         T.scene = std::make_unique<MeshScene>();
         T.scene->data = uvJob->result.mesh;
         T.scene->gpuDirty = true;
+        ++T.scene->revision;
         T.sceneFor = uvJob.get();
     }
     if (!T.checker) {

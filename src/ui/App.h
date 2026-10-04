@@ -12,6 +12,7 @@
 #include "ai/Bridge.h"
 #include "render/MeshPaint.h"
 #include "mesh/UvUnwrap.h"
+#include "render/PathTracer.h"
 
 #include <mutex>
 
@@ -122,6 +123,7 @@ struct DocView {
     std::unordered_map<Id, u64> textHashes;   // surface -> rasterized style hash
     std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
     std::unique_ptr<MeshScene> mesh;          // 3D painting scene (optional)
+    std::unique_ptr<PtRenderState> render;    // render mode scene (3D projects)
     std::unordered_map<Id, gpu::TexturePtr> snapshots;  // history brush sources (layer state before the first edit)
     int viewMode = 0;                         // 0 final image, 1 active layer only, 2 up to the active layer
     std::string displayLutKey;                // color management chain of displayLut
@@ -854,6 +856,16 @@ private:
     void ApplyUvUnwrap(DocView& v);
     void DrawUvToolWindow();
     gpu::Texture* UvPreviewRender(DocView& v, u32 w, u32 h);
+    // Render mode (RenderMode.cpp): path traced scene of a 3D project.
+    PtRenderState& RenderStateFor(DocView& v);
+    std::shared_ptr<MeshData> RenderObjectMesh(DocView& v, PtObject& o);
+    Json RenderToJson(const PtRenderState& r);
+    void RenderFromJson(DocView& v, const Json& j);
+    gpu::Texture* UpdateRender(DocView& v, u32 w, u32 h);
+    int RenderSamples(PtRenderState& r);
+    void ExportRender(DocView& v, const std::string& path);
+    void DrawRenderView();
+    void DrawRenderScenePanel();
     // Resources (Resources.cpp): patterns, swatches, .abr / .pat import.
     struct PatternEntry {
         std::string name, path;

@@ -86,7 +86,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -488,6 +488,14 @@ void App::Frame() {
     if (Shown("Palette de nœuds")) DrawNodePalette();
     if (Shown("Calques")) DrawLayers();
     if (Shown("Vue 3D")) DrawView3D();
+    if (layoutKind == 1) {
+        // Render mode: only in the Paint 3D workspace (next to the 3D view / in the 3D side tab).
+        if (!ImGui::FindWindowByName("Rendu"))
+            if (ImGuiWindow* w3 = ImGui::FindWindowByName("Vue 3D"); w3 && w3->DockId) ImGui::SetNextWindowDockID(w3->DockId, ImGuiCond_FirstUseEver);
+        if (Shown("Rendu")) DrawRenderView();
+        if (!ImGui::FindWindowByName("Scène de rendu")) DockNewPanel(5, false);
+        if (Shown("Scène de rendu")) DrawRenderScenePanel();
+    }
     if (Shown("Éditeur d'effets")) DrawEffectEditor();
     if (Shown("Assistant IA")) DrawAiPanel();
     if (Shown("Génération IA")) DrawImageGenPanel();
@@ -1717,6 +1725,7 @@ void App::SaveDocument(DocView& v, const std::string& path) {
         Json cam = Json::Array();
         for (float f : {v.mesh->yaw, v.mesh->pitch, v.mesh->distance, v.mesh->target.x, v.mesh->target.y, v.mesh->target.z}) cam.Push(f);
         job->meta["camera"] = cam;
+        if (v.render) job->meta["render"] = RenderToJson(*v.render);
     }
     d.path = path;
     d.SetName(Narrow(Utf8Path(path).filename().wstring()));
@@ -1834,6 +1843,7 @@ bool App::LoadSxl(const std::string& path) {
             view->mesh->distance = cam.At(2).F(2.8f);
             view->mesh->target = {cam.At(3).F(), cam.At(4).F(), cam.At(5).F()};
         }
+        if (view->mesh && meta.Has("render")) RenderFromJson(*view, meta["render"]);
     }
     docs.push_back(std::move(view));
     activeDoc = (int)docs.size() - 1;

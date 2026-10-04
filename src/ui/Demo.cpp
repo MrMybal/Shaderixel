@@ -300,6 +300,65 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 66) {
+        // Render mode on the project given on the command line: SX_HDRI (file), SX_CPU (CPU renderer),
+        // SX_SCENE (extra objects: glass sphere, gold cube, spot), SX_SAMPLES, SX_EXPORT (image written at frame 150).
+        // The demo scene document opens too: bring the 3D project forward.
+        for (int i = 0; i < (int)docs.size(); ++i)
+            if (docs[i]->doc->kind == 1 && activeDoc != i && frameCounter < 20) { activeDoc = i; focusDocRequest = i; }
+        DocView* a = Active();
+        if (!a || !a->mesh || a->doc->kind != 1) {
+            if (frameCounter == 30) Log("[demo] render: no 3D project open");
+            return;
+        }
+        char b[512] = "";
+        if (frameCounter == 20) {
+            PtRenderState& r = RenderStateFor(*a);
+            if (GetEnvironmentVariableA("SX_HDRI", b, sizeof(b)) > 0) r.settings.hdri = b;
+            if (GetEnvironmentVariableA("SX_CPU", b, sizeof(b)) > 0) r.settings.device = 1;
+            if (GetEnvironmentVariableA("SX_SAMPLES", b, sizeof(b)) > 0) r.settings.maxSamples = atoi(b);
+            if (GetEnvironmentVariableA("SX_SCENE", b, sizeof(b)) > 0) {
+                float floor = 1e30f;
+                for (auto& v : a->mesh->data.vertices) floor = std::min(floor, v.pos.y);
+                PtObject glass;
+                glass.name = "Sphère de verre";
+                glass.type = PtObjectType::Sphere;
+                glass.position = {1.25f, floor + 0.35f, 0.3f};
+                glass.scale = 0.35f;
+                glass.material.baseColor = {1, 1, 1};
+                glass.material.roughness = 0.02f;
+                glass.material.transmission = 1;
+                glass.material.ior = 1.5f;
+                r.objects.push_back(glass);
+                PtObject cube;
+                cube.name = "Cube or";
+                cube.type = PtObjectType::Cube;
+                cube.position = {-1.3f, floor + 0.3f, 0.5f};
+                cube.rotation = {30, 0, 0};
+                cube.scale = 0.3f;
+                cube.material.baseColor = {1.0f, 0.71f, 0.29f};
+                cube.material.metallic = 1;
+                cube.material.roughness = 0.25f;
+                r.objects.push_back(cube);
+                PtLight spot;
+                spot.name = "Spot";
+                spot.type = PtLightType::Spot;
+                spot.position = {1.8f, 2.0f, -0.8f};
+                spot.color = {1.0f, 0.75f, 0.5f};
+                spot.intensity = 250;
+                spot.size = 0.05f;
+                spot.spotAngle = 35;
+                float3 d = Normalize(float3{0, 0, 0} - spot.position);
+                spot.yaw = std::atan2(d.x, d.z) * 57.29578f;
+                spot.pitch = std::asin(d.y) * 57.29578f;
+                r.lights.push_back(spot);
+            }
+        }
+        if (frameCounter == 22) ImGui::SetWindowFocus("Rendu");
+        if (frameCounter % 30 == 0 && a->render) Log("[demo] render: %d samples (%s)", RenderSamples(*a->render), a->render->settings.device ? "CPU" : "GPU");
+        if (frameCounter == 150 && GetEnvironmentVariableA("SX_EXPORT", b, sizeof(b)) > 0) ExportRender(*a, b);
+        return;
+    }
     if (demoMode == 65) {
         // Example Paint 3D project: SX_MESHFILE (a mug without UVs -> xatlas), gold rim (material + mask),
         // blue glossy pattern (paint layer, several channels), logo decal (SX_DECAL), saved to SX_OUT.

@@ -20,6 +20,7 @@ struct MeshScene {
     gpu::TexturePtr posMap, nrmMap, tmpPos, tmpNrm;  // UV bake (document size)
     u32 bakedW = 0, bakedH = 0;
     bool gpuDirty = true;
+    u32 revision = 0;  // bumped when the geometry or UVs change (render scene)
     gpu::TexturePtr color, depth;                     // viewport
     float yaw = 0.7f, pitch = 0.35f, distance = 2.8f, fov = 0.8f;
     float3 target;

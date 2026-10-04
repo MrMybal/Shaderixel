@@ -9,6 +9,7 @@ void App::AttachMesh(DocView& v, MeshData data) {
     if (!v.mesh) v.mesh = std::make_unique<MeshScene>();
     v.mesh->data = std::move(data);
     v.mesh->gpuDirty = true;
+    ++v.mesh->revision;
     v.mesh->bakedW = 0;
     Status("Maillage : " + v.mesh->data.name + " (" + std::to_string(v.mesh->data.indices.size() / 3) + " triangles)");
 }

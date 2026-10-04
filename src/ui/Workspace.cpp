@@ -92,6 +92,7 @@ void App::BuildDockLayout(ImGuiID dock) {
         // Paint 3D: the model first, the texture (UV) next to it; materials shelf at the bottom.
         ImGui::DockBuilderDockWindow("Vue 3D", center);
         ImGui::DockBuilderDockWindow("Canevas", center);
+        ImGui::DockBuilderDockWindow("Rendu", center);
         ImGui::DockBuilderDockWindow("Éditeur d'effets", center);
         ImGui::DockBuilderDockWindow("Matériaux", bottomLeft);
         ImGui::DockBuilderDockWindow("Calques", bottomLeft);
@@ -156,6 +157,7 @@ void App::BuildDockLayout(ImGuiID dock) {
             case 5:  // 3D: project layers and brush material (+ the materials shelf for image documents)
                 two(0.55f);
                 ImGui::DockBuilderDockWindow("Calques 3D", top);
+                if (p3d) ImGui::DockBuilderDockWindow("Scène de rendu", top);
                 ImGui::DockBuilderDockWindow("Matériau du pinceau", low);
                 if (!p3d) ImGui::DockBuilderDockWindow("Matériaux", top);
                 break;
@@ -395,7 +397,7 @@ void App::DeleteLayout(const std::string& name) {
 void App::DrawPanelsMenu() {
     // Closed panels come back here (also from Fenêtre).
     static const char* names[] = {"Calques", "Graphe", "Aperçu du calque", "Éditeur d'effets", "Vue 3D", "Propriétés", "Historique", "Histogramme",
-                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Palette de nœuds", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Calques 3D", "Matériau du pinceau", "Assistant IA", "Génération IA"};
+                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Palette de nœuds", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Calques 3D", "Matériau du pinceau", "Rendu", "Scène de rendu", "Assistant IA", "Génération IA"};
     if (!ImGui::BeginMenu("Panneaux")) return;
     for (const char* n : names) {
         bool open = PanelIsOpen(n);
