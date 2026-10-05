@@ -25,6 +25,9 @@ ImU32 HeaderColor(const Node& n) {
         case NodeKind::Blend: return IM_COL32(64, 104, 200, 255);
         case NodeKind::Split: return IM_COL32(70, 150, 90, 255);
         case NodeKind::Tool: return IM_COL32(170, 124, 26, 255);
+        case NodeKind::Function: return n.funcKind == "tool" ? IM_COL32(170, 124, 26, 255) : IM_COL32(150, 80, 180, 255);
+        case NodeKind::SubInput: return IM_COL32(40, 130, 150, 255);
+        case NodeKind::SubOutput: return IM_COL32(52, 150, 100, 255);
         case NodeKind::Effect: {
             auto d = n.fx.Def();
             if (!n.fx.customCode.empty()) return IM_COL32(200, 92, 150, 255);
@@ -51,6 +54,9 @@ NodeTag NodeTypeTag(Document& d, const Node& n) {
         case NodeKind::Output: return {"SORTIE", IM_COL32(52, 160, 110, 255)};
         case NodeKind::Split: return {"CANAUX", IM_COL32(70, 150, 90, 255)};
         case NodeKind::Tool: return tool;
+        case NodeKind::Function: return n.funcKind == "tool" ? tool : sub;
+        case NodeKind::SubInput: return {"IN", IM_COL32(60, 190, 210, 255)};
+        case NodeKind::SubOutput: return {"OUT", IM_COL32(70, 200, 130, 255)};
         case NodeKind::Blend: return l && l->kind == LayerKind::Group ? sub : blend;
         case NodeKind::Surface:
             if (l && (l->kind == LayerKind::Text || l->kind == LayerKind::Shape)) return draw;
@@ -104,8 +110,21 @@ struct NodeEntry {
     std::function<Id(Document&, float2)> make;
 };
 
+u64 EntriesGeneration() { return Effects().Generation() * 1000003ull + FunctionLibraryGen(); }
+
 std::vector<NodeEntry> NodeEntries() {
     std::vector<NodeEntry> e;
+    e.push_back({"Fonctions", "Nouveau sous-graphe (fonction)", "subgraph sous graphe fonction function groupe",
+                 [](Document& d, float2 p) { return d.AddFunctionNode("subgraph", p).id; }});
+    e.push_back({"Fonctions", "Nouvel outil personnalisé (fonction)", "tool outil custom fonction function apply",
+                 [](Document& d, float2 p) { return d.AddFunctionNode("tool", p).id; }});
+    e.push_back({"Fonctions", "Entrée de fonction", "input entree broche pin parametre", [](Document& d, float2 p) { return d.AddNode(NodeKind::SubInput, p).id; }});
+    e.push_back({"Fonctions", "Sortie de fonction", "output sortie broche pin", [](Document& d, float2 p) { return d.AddNode(NodeKind::SubOutput, p).id; }});
+    for (auto& f : FunctionLibrary()) {
+        std::string path = f.path;
+        e.push_back({f.kind == "tool" ? "Bibliothèque : outils" : "Bibliothèque : sous-graphes", f.name, f.desc + " fonction bibliotheque library",
+                     [path](Document& d, float2 p) { return g_insertLibraryFunction ? g_insertLibraryFunction(d, p, path) : (Id)0; }});
+    }
     e.push_back({"Canaux", "Séparer RGBA (R, V, B, A)", "split channels canal", [](Document& d, float2 p) { return d.AddNode(NodeKind::Split, p).id; }});
     e.push_back({"Calques", "Calque pixel", "surface peinture", [](Document& d, float2 p) { return d.AddNode(NodeKind::Surface, p).id; }});
     e.push_back({"Fusion", "Fusion (mode de fusion)", "blend mélange", [](Document& d, float2 p) { return d.AddNode(NodeKind::Blend, p).id; }});
@@ -172,7 +191,7 @@ void App::DrawNodePalette() {
     if (paletteFocus == 0) {
         static std::vector<NodeEntry> entries;
         static u64 gen = ~0ull;
-        if (gen != Effects().Generation()) { entries = NodeEntries(); gen = Effects().Generation(); }
+        if (gen != EntriesGeneration()) { entries = NodeEntries(); gen = EntriesGeneration(); }
         std::vector<std::string> cats;
         for (auto& e : entries) if (std::find(cats.begin(), cats.end(), e.category) == cats.end()) cats.push_back(e.category);
         for (auto& c : cats) {
@@ -285,6 +304,9 @@ void App::DrawNodeEditor() {
         }
     }
 
+    // Double click on a function: its graph opens in a tab.
+    if (hovered && hoverNode && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+        if (const Node* fn = g.Find(hoverNode); fn && fn->kind == NodeKind::Function) functionEditRequest = {v, hoverNode};
     // Layer mode: editing a link (or adding a node) turns the document into a free graph.
     bool editable = editableAtStart;
     auto toNodeMode = [&] {
@@ -411,7 +433,7 @@ void App::DrawNodeEditor() {
         }
     }
 
-    auto linkPin = [&](const Node& src, int ch) { return src.kind == NodeKind::Split && ch > 0 ? ch - 1 : 0; };
+    auto linkPin = [&](const Node& src, int ch) { return src.kind == NodeKind::Function ? LinkPort((u8)ch) : src.kind == NodeKind::Split && ch > 0 ? ch - 1 : 0; };
     // Links (colored by the type they carry)
     auto drawLink = [&](ImVec2 a, ImVec2 b, ImU32 col, float thick) {
         float dx = std::max(std::abs(b.x - a.x) * 0.5f, 40.0f * ed.zoom);
@@ -423,11 +445,11 @@ void App::DrawNodeEditor() {
             if (!src) continue;
             int ch = InputChannel(n, i);
             bool sel = ed.selection.count(src->id) || ed.selection.count(n.id);
-            drawLink(outPin(*src, linkPin(*src, ch)), inPin(n, i), sel ? ui::col::Selection : TypeColor(ch ? PinType::Channel : PinType::RGBA, 200), sel ? 3.0f : 2.0f);
+            drawLink(outPin(*src, linkPin(*src, ch)), inPin(n, i), sel ? ui::col::Selection : TypeColor(LinkChannel((u8)ch) ? PinType::Channel : PinType::RGBA, 200), sel ? 3.0f : 2.0f);
         }
     }
     if (ed.draggingLink) {
-        if (ed.linkFrom) { if (const Node* s = g.Find(ed.linkFrom)) drawLink(outPin(*s, linkPin(*s, ed.linkChannel)), mouse, TypeColor(ed.linkChannel ? PinType::Channel : PinType::RGBA), 2.5f); }
+        if (ed.linkFrom) { if (const Node* s = g.Find(ed.linkFrom)) drawLink(outPin(*s, linkPin(*s, ed.linkChannel)), mouse, TypeColor(LinkChannel(ed.linkChannel) ? PinType::Channel : PinType::RGBA), 2.5f); }
         else if (const Node* t = g.Find(ed.linkTo)) drawLink(mouse, inPin(*t, ed.linkInput), ui::col::Accent, 2.5f);
     }
 
@@ -515,11 +537,16 @@ void App::DrawNodeEditor() {
             ImVec2 tb(ta.x + L.thumbW * ed.zoom, ta.y + L.thumbH * ed.zoom);
             dl->AddImageRounded((ImTextureID)gpu::Dev().UiTextureId(t), ta, tb, ImVec2(0, 0), ImVec2(1, 1), n.bypass ? IM_COL32(255, 255, 255, 90) : IM_COL32_WHITE, 3 * ed.zoom);
         }
-        // Tool state badge: BAKED / LIVE / running.
-        if (n.kind == NodeKind::Tool && drawText) {
+        // Tool / function state badge: BAKED / LIVE / APPLIQUÉ / running.
+        if ((n.kind == NodeKind::Tool || n.kind == NodeKind::Function) && drawText) {
             const bool busy = toolBusy.count(n.id) > 0;
-            const char* st = busy ? "EN COURS" : ToolBaked(n) ? "BAKED" : n.surface ? "PASSLIVE" : "LIVE";
-            const ImU32 sc = busy ? IM_COL32(240, 200, 60, 255) : ToolBaked(n) ? IM_COL32(230, 160, 40, 255) : IM_COL32(80, 210, 120, 255);
+            const char* st = busy                                         ? "EN COURS"
+                             : n.kind == NodeKind::Function && !n.applyMode ? "LIVE"
+                             : n.kind == NodeKind::Function                ? (FunctionApplied(n) ? "APPLIQUÉ" : "À APPLIQUER")
+                             : ToolBaked(n)                                 ? "BAKED"
+                             : n.surface                                    ? "PASSLIVE"
+                                                                            : "LIVE";
+            const ImU32 sc = busy ? IM_COL32(240, 200, 60, 255) : NodeBaked(n) ? IM_COL32(230, 160, 40, 255) : IM_COL32(80, 210, 120, 255);
             const float bfs = fs * 0.72f;
             const ImVec2 bs = font->CalcTextSizeA(bfs, FLT_MAX, 0, st);
             const ImVec2 b0(ta.x + 4 * ed.zoom, ta.y + 4 * ed.zoom), b1(b0.x + bs.x + 8 * ed.zoom, b0.y + bs.y + 4 * ed.zoom);
@@ -561,7 +588,7 @@ void App::DrawNodeEditor() {
         std::string q = Lower(ed.search);
         static std::vector<NodeEntry> entries;
         static u64 entriesGen = ~0ull;
-        if (entriesGen != Effects().Generation()) { entries = NodeEntries(); entriesGen = Effects().Generation(); }
+        if (entriesGen != EntriesGeneration()) { entries = NodeEntries(); entriesGen = EntriesGeneration(); }
         const NodeEntry* picked = nullptr;
         ImGui::BeginChild("##nodelist", ImVec2(0, 380 * dpi), ImGuiChildFlags_None);
         if (!q.empty()) {
@@ -639,7 +666,24 @@ void App::DrawNodeEditor() {
                     ed.selection = {copy.id};
                     v->history.PushState("Dupliquer le nœud", before, d.S());
                 }
-                if (n->kind == NodeKind::Tool) {
+                if (n->kind == NodeKind::Function) {
+                    ImGui::Separator();
+                    const Id fid = n->id;
+                    if (ImGui::MenuItem("Modifier la fonction", "double-clic")) EditFunction(*v, fid);
+                    if (ImGui::MenuItem("Mode Apply (sinon Live)", nullptr, n->applyMode)) RequestToolAction(*v, fid, ToolAction::ToggleLive);
+                    if (n->applyMode && ImGui::MenuItem(FunctionApplied(*n) ? "Réappliquer" : "Appliquer")) RequestToolAction(*v, fid, ToolAction::Bake);
+                    if (ImGui::MenuItem("Convertir en image", nullptr, false, FunctionApplied(*n))) RequestToolAction(*v, fid, ToolAction::ConvertToImage);
+                    if (ImGui::MenuItem("Enregistrer dans la bibliothèque")) SaveFunctionToLibrary(*v, fid);
+                    ImGui::Separator();
+                }
+                if (n->kind != NodeKind::Output) {
+                    std::set<Id> selNodes = ed.selection;
+                    if (selNodes.empty()) selNodes = {n->id};
+                    if (ImGui::MenuItem("Créer un sous-graphe depuis la sélection")) { FunctionFromSelection(*v, selNodes, "subgraph"); ed.selection.clear(); }
+                    if (ImGui::MenuItem("Créer un outil depuis la sélection")) { FunctionFromSelection(*v, selNodes, "tool"); ed.selection.clear(); }
+                    n = g.Find(d.S().activeNode);
+                }
+                if (n && n->kind == NodeKind::Tool) {
                     ImGui::Separator();
                     const Id tid = n->id;
                     if (ImGui::MenuItem(n->surface ? "Rebaker" : "Baker", nullptr, false, !toolBusy.count(tid))) RequestToolAction(*v, tid, ToolAction::Bake);
@@ -675,7 +719,7 @@ void App::DrawNodeEditor() {
         paletteAdd.pending = false;
         static std::vector<NodeEntry> entries;
         static u64 gen = ~0ull;
-        if (gen != Effects().Generation()) { entries = NodeEntries(); gen = Effects().Generation(); }
+        if (gen != EntriesGeneration()) { entries = NodeEntries(); gen = EntriesGeneration(); }
         for (auto& e : entries) {
             if (e.label + "\x1f" + e.category != paletteAdd.key) continue;
             float2 at = paletteAdd.hasPos ? toGraph(paletteAdd.screenPos) : toGraph(ImVec2(origin.x + size.x * 0.5f, origin.y + size.y * 0.5f));
@@ -789,6 +833,13 @@ void App::DrawNodeEditor() {
             e.Commit();
         }
         ui::HelpTooltip("Le graphe devient libre : relier, séparer les canaux R V B A, ajouter des nœuds.");
+    } else if (v->funcLink.parent) {
+        std::string msg = "Fonction : chaque modification met à jour le nœud  |  nœuds Entrée / Sortie de fonction = ses broches";
+        ImVec2 ts = ImGui::CalcTextSize(msg.c_str());
+        dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + ts.x + 260 * dpi, bp.y + ImGui::GetFrameHeight()), IM_COL32(40, 26, 50, 230), 5);
+        dl->AddText(ImVec2(bp.x, bp.y + 3), IM_COL32(220, 190, 240, 255), msg.c_str());
+        ImGui::SetCursorScreenPos(ImVec2(bp.x + ts.x + 10, bp.y));
+        if (ImGui::SmallButton("Enregistrer dans la bibliothèque")) SaveFunctionToLibrary(*v->funcLink.parent, v->funcLink.node);
     } else {
         const char* hint = "Clic droit : nœuds  |  tirer un lien dans le vide : nouveau nœud relié  |  rectangle / Ctrl+clic : sélection  |  F : cadrer  |  Suppr";
         ImVec2 ts = ImGui::CalcTextSize(hint);

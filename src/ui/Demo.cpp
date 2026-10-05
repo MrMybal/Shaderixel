@@ -304,6 +304,89 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 73) {
+        // Functions: the "Peinture" nodes collapsed into a function (SX_FKIND subgraph / tool); SX_STEP may add
+        // "apply" (Apply mode), "edit" (its tab: an Invert node before its output), "lib" (saved, inserted back).
+        static DocView* parent = nullptr;
+        static Id fid = 0;
+        char kind[32] = "subgraph", step[64] = "";
+        GetEnvironmentVariableA("SX_FKIND", kind, sizeof(kind));
+        GetEnvironmentVariableA("SX_STEP", step, sizeof(step));
+        if (frameCounter == 8) {
+            parent = Active();
+            if (!parent) return;
+            Edit e(*parent->doc, parent->history, "Passer en mode nodal");
+            parent->doc->ConvertToNodes();
+            e.Commit();
+        }
+        if (!parent || !ViewAlive(parent)) return;
+        Document& d = *parent->doc;
+        auto logState = [&](const char* when) {
+            const Node* f = d.S().graph.Find(fid);
+            if (!f) { Log("[demo] functions %s: no function", when); return; }
+            std::unordered_set<Id> frozen;
+            GraphFrozenNodes(d.S().graph, frozen);
+            Graph flat;
+            FlattenGraph(d.S().graph, flat);
+            Log("[demo] functions %s: kind %s in %d out %d inner %zu apply %d applied %d frozen %zu flat %zu", when, f->funcKind.c_str(), NodeInputCount(*f),
+                NodeOutputCount(*f), f->sub ? f->sub->nodes.size() : 0, (int)f->applyMode, (int)FunctionApplied(*f), frozen.size(), flat.nodes.size());
+        };
+        if (frameCounter == 10) {
+            Id paint = 0;
+            for (auto& l : d.S().layers) if (l.name == "Peinture") paint = l.id;
+            std::set<Id> sel;
+            for (auto& n : d.S().graph.nodes)
+                if (n.layer == paint && n.kind != NodeKind::Blend && (!strstr(step, "fx") || n.kind == NodeKind::Effect)) sel.insert(n.id);
+            char want[64] = "";
+            if (GetEnvironmentVariableA("SX_SEL", want, sizeof(want)) > 0) {
+                sel.clear();
+                for (auto& n : d.S().graph.nodes) if (strstr(want, n.name.c_str()) && !n.name.empty()) sel.insert(n.id);
+            }
+            for (auto& n : d.S().graph.nodes) Log("[demo] node %u %s kind %d inputs %zu", n.id, n.name.c_str(), (int)n.kind, n.inputs.size());
+            FunctionFromSelection(*parent, sel, kind);
+            fid = d.S().activeNode;
+            graphFrameRequest = true;
+        }
+        if (frameCounter == 20) logState("created");
+        if (frameCounter == 20)
+            if (const Node* f = d.S().graph.Find(fid); f && f->sub)
+                for (auto& m : f->sub->nodes) Log("[demo]   inner %u %s kind %d port %d inputs %zu", m.id, m.name.c_str(), (int)m.kind, m.port, m.inputs.size());
+        if (frameCounter == 22 && strstr(step, "apply")) {
+            if (Node* f = d.S().graph.Find(fid); f && !f->applyMode) RequestToolAction(*parent, fid, ToolAction::ToggleLive);
+            RequestToolAction(*parent, fid, ToolAction::Bake);
+        }
+        if (frameCounter == 32) logState("after-apply");
+        if (frameCounter == 34 && strstr(step, "edit")) EditFunction(*parent, fid);
+        if (frameCounter == 40 && strstr(step, "edit")) {
+            DocView* c = Active();
+            if (c && c->funcLink.parent == parent) {
+                Graph& g = c->doc->S().graph;
+                Node* out = g.Find(g.output);
+                const Id prev = out && !out->inputs.empty() ? out->inputs[0] : 0;
+                Node& inv = c->doc->AddEffectNode("invert", "", out ? out->pos - float2{200, -200} : float2{});
+                const Id iid = inv.id;
+                if (prev) c->doc->Link(prev, iid, 0);
+                c->doc->Link(iid, g.output, 0);
+                c->history.PushState("Inverser", c->doc->S(), c->doc->S());
+                Log("[demo] functions edit: child nodes %zu", g.nodes.size());
+            }
+        }
+        if (frameCounter == 50) logState("after-edit");
+        if (frameCounter == 52 && strstr(step, "edit")) {
+            for (int i = 0; i < (int)docs.size(); ++i) if (docs[i].get() == parent) activeDoc = focusDocRequest = i;
+        }
+        if (frameCounter == 56 && strstr(step, "lib")) SaveFunctionToLibrary(*parent, fid);
+        if (frameCounter == 70 && strstr(step, "lib")) {
+            Log("[demo] functions library: %zu entries", FunctionLibrary().size());
+            for (auto& f : FunctionLibrary()) Log("[demo]   %s (%s) %s", f.name.c_str(), f.kind.c_str(), f.path.c_str());
+            if (!FunctionLibrary().empty()) {
+                Id nid = InsertLibraryFunction(*parent, FunctionLibrary().front().path, {0, -400});
+                if (const Node* n = d.S().graph.Find(nid))
+                    Log("[demo] functions inserted: %s in %d out %d inner %zu", n->name.c_str(), NodeInputCount(*n), NodeOutputCount(*n), n->sub ? n->sub->nodes.size() : 0);
+            }
+        }
+        return;
+    }
     if (demoMode == 72) {
         // Graph tools: a tool node (SX_TOOL = bake / upscale / comfyui) inserted before the output and
         // baked; SX_STEP may add "live" (PassLive on) and "convert" (convert to image).

@@ -140,7 +140,16 @@ gpu::ProgramPtr Renderer::ProgramFor(const EffectDefPtr& def) {
     return e.program;
 }
 
+void Renderer::BeginGraph(const Document& doc, Id liveOverride) {
+    useFlat = GraphHasFunctions(doc.S().graph);
+    if (useFlat) FlattenGraph(doc.S().graph, flatGraph, liveOverride);
+    else flatGraph.nodes.clear();
+}
+
+const Graph& Renderer::EvalGraph(const Document& doc) const { return useFlat ? flatGraph : doc.S().graph; }
+
 gpu::Texture* Renderer::Evaluate(Document& doc, gpu::CommandContext& ctx) {
+    BeginGraph(doc);
     doc.tiled = doc.forceTiled || (u64)doc.Width() * doc.Height() > 6000ull * 6000ull;
     if (doc.tiled) {
         if (!wasTiled) cache.clear();  // full-size node caches are what tiling avoids
@@ -155,7 +164,7 @@ gpu::Texture* Renderer::Evaluate(Document& doc, gpu::CommandContext& ctx) {
     doc.dirtyRects.clear();
     frameEval.clear();
     pending = false;
-    EvalResult r = Eval(doc, ctx, doc.S().graph.output, 0);
+    EvalResult r = Eval(doc, ctx, EvalGraph(doc).output, 0);
     if (r.tex != lastOut || r.hash != lastOutHash || !r.hash) {
         if (r.tex) MarkImageChanged({0, 0, (int)r.tex->Width(), (int)r.tex->Height()});
         lastOut = r.tex;
@@ -164,7 +173,7 @@ gpu::Texture* Renderer::Evaluate(Document& doc, gpu::CommandContext& ctx) {
     // Garbage-collect caches of deleted nodes.
     if (gpu::Dev().FrameNumber() % 120 == 0) {
         for (auto it = cache.begin(); it != cache.end();) {
-            if (!doc.S().graph.Find(it->first)) it = cache.erase(it);
+            if (!EvalGraph(doc).Find(it->first)) it = cache.erase(it);
             else ++it;
         }
     }
@@ -172,6 +181,7 @@ gpu::Texture* Renderer::Evaluate(Document& doc, gpu::CommandContext& ctx) {
 }
 
 gpu::Texture* Renderer::EvaluateComplete(Document& doc, gpu::CommandContext& ctx) {
+    BeginGraph(doc);
     doc.tiled = doc.forceTiled || (u64)doc.Width() * doc.Height() > 6000ull * 6000ull;
     if (!doc.tiled) return Evaluate(doc, ctx);
     if (!wasTiled) cache.clear();
@@ -201,7 +211,7 @@ bool Renderer::NodeFailed(Id node, std::string* errors) const {
 Renderer::EvalResult Renderer::EvalInput(Document& doc, gpu::CommandContext& ctx, const Node& n, int i, int depth) {
     if (i >= (int)n.inputs.size()) return {};
     EvalResult src = Eval(doc, ctx, n.inputs[i], depth);
-    u8 ch = InputChannel(n, i);
+    u8 ch = LinkChannel(InputChannel(n, i));
     if (!ch || !src.tex) return src;
     auto* k = Kernel("channel_extract.slang");
     if (!k) { pending = true; return {}; }
@@ -230,7 +240,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
     if (memo != frameEval.end()) return memo->second;
     frameEval[id] = {};  // cycle guard
 
-    Node* n = doc.S().graph.Find(id);
+    const Node* n = EvalGraph(doc).Find(id);
     if (!n) return {};
     const u32 W = doc.Width(), H = doc.Height();
     const gpu::Format fmt = SurfaceFormat(doc.GetPrecision());
@@ -242,8 +252,21 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
             break;
         }
         case NodeKind::Split:
+        case NodeKind::SubOutput:
+        case NodeKind::Function:  // only without contents (flattened otherwise)
             result = EvalInput(doc, ctx, *n, 0, depth + 1);
             break;
+        case NodeKind::SubInput: {
+            // Function editor: the input captured when it was opened.
+            Surface* s = doc.GetSurface(n->surface);
+            if (s && s->tex) {
+                Hasher h;
+                h.Pod(n->surface);
+                h.Pod(s->version);
+                result = {s->tex.get(), h.h};
+            }
+            break;
+        }
         case NodeKind::Tool: {
             // Baked: its pixels (the input chain is not evaluated); live: the input passes through.
             Surface* s = ToolBaked(*n) ? doc.GetSurface(n->surface) : nullptr;

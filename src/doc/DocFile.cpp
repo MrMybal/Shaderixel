@@ -91,7 +91,7 @@ EffectInstance EffectFromJson(const Json& j) {
 }
 
 const char* kLayerKinds[] = {"pixel", "fill", "adjustment", "group", "text", "shape", "smart"};
-const char* kNodeKinds[] = {"output", "surface", "effect", "blend", "split", "tool"};
+const char* kNodeKinds[] = {"output", "surface", "effect", "blend", "split", "tool", "function", "subinput", "suboutput"};
 
 template <size_t N>
 int IndexOf(const char* (&names)[N], const std::string& s, int def) {
@@ -220,11 +220,60 @@ std::vector<Id> ReferencedSurfaces(const Document& doc) {
         if (l.surface) ids.insert(l.surface);
         if (l.mask) ids.insert(l.mask);
     }
-    for (auto& n : s.graph.nodes) if (n.surface) ids.insert(n.surface);
+    CollectGraphSurfaces(s.graph, ids);
+    for (auto& n : s.graph.nodes) if (n.kind == NodeKind::SubInput && n.surface) ids.insert(n.surface);  // function editor previews
     if (s.selection) ids.insert(s.selection);
     std::vector<Id> out;
     for (Id id : ids) if (s.surfaces.count(id)) out.push_back(id);
     return out;
+}
+
+Json GraphToJson(const Graph& g) {
+    Json nodes = Json::Array();
+    for (auto& n : g.nodes) {
+        Json o = Json::Object();
+        o["id"] = n.id;
+        o["kind"] = kNodeKinds[(int)n.kind];
+        o["name"] = n.name;
+        o["pos"] = ToJson(n.pos);
+        if (n.surface) o["surface"] = n.surface;
+        if (n.kind == NodeKind::Effect) o["effect"] = EffectToJson(n.fx);
+        if (std::any_of(n.inputChannel.begin(), n.inputChannel.end(), [](u8 c) { return c != 0; })) {
+            Json ch = Json::Array();
+            for (u8 c : n.inputChannel) ch.Push((int)c);
+            o["inputChannels"] = ch;
+        }
+        if (n.kind == NodeKind::Blend) { o["blend"] = (int)n.blend; o["opacity"] = n.opacity; o["clip"] = n.clip; if (n.channelOff) o["channelOff"] = (int)n.channelOff; }
+        if (n.bypass) o["bypass"] = true;
+        if (n.layer) o["layer"] = n.layer;
+        if (n.kind == NodeKind::Tool) {
+            o["tool"] = n.tool;
+            o["passLive"] = n.passLive;
+            if (n.smart) o["smart"] = n.smart;
+            if (n.bakedHash) o["bakedHash"] = std::to_string(n.bakedHash);
+            Json pr = Json::Object();
+            for (auto& [k, val] : n.props) pr[k] = val;
+            o["props"] = pr;
+        }
+        Json in = Json::Array();
+        for (Id x : n.inputs) in.Push(x);
+        o["inputs"] = in;
+        if (n.kind == NodeKind::Function) {
+            if (n.sub) o["sub"] = GraphToJson(*n.sub);
+            o["funcKind"] = n.funcKind;
+            o["applyMode"] = n.applyMode;
+            Json os = Json::Array();
+            for (Id x : n.outSurf) os.Push(x);
+            o["outSurf"] = os;
+        }
+        if (n.kind == NodeKind::SubInput || n.kind == NodeKind::SubOutput) o["port"] = n.port;
+        nodes.Push(o);
+    }
+    Json graph = Json::Object();
+    graph["nodes"] = nodes;
+    graph["output"] = g.output;
+    if (!g.description.empty()) graph["description"] = g.description;
+    return graph;
 }
 
 Json SerializeDocument(const Document& doc) {
@@ -453,42 +502,50 @@ Json SerializeDocument(const Document& doc) {
     }
     j["layers"] = layers;
 
-    Json nodes = Json::Array();
-    for (auto& n : s.graph.nodes) {
-        Json o = Json::Object();
-        o["id"] = n.id;
-        o["kind"] = kNodeKinds[(int)n.kind];
-        o["name"] = n.name;
-        o["pos"] = ToJson(n.pos);
-        if (n.surface) o["surface"] = n.surface;
-        if (n.kind == NodeKind::Effect) o["effect"] = EffectToJson(n.fx);
-        if (std::any_of(n.inputChannel.begin(), n.inputChannel.end(), [](u8 c) { return c != 0; })) {
-            Json ch = Json::Array();
-            for (u8 c : n.inputChannel) ch.Push((int)c);
-            o["inputChannels"] = ch;
-        }
-        if (n.kind == NodeKind::Blend) { o["blend"] = (int)n.blend; o["opacity"] = n.opacity; o["clip"] = n.clip; if (n.channelOff) o["channelOff"] = (int)n.channelOff; }
-        if (n.bypass) o["bypass"] = true;
-        if (n.layer) o["layer"] = n.layer;
-        if (n.kind == NodeKind::Tool) {
-            o["tool"] = n.tool;
-            o["passLive"] = n.passLive;
-            if (n.smart) o["smart"] = n.smart;
-            if (n.bakedHash) o["bakedHash"] = std::to_string(n.bakedHash);
-            Json pr = Json::Object();
-            for (auto& [k, val] : n.props) pr[k] = val;
-            o["props"] = pr;
-        }
-        Json in = Json::Array();
-        for (Id x : n.inputs) in.Push(x);
-        o["inputs"] = in;
-        nodes.Push(o);
-    }
-    Json graph = Json::Object();
-    graph["nodes"] = nodes;
-    graph["output"] = s.graph.output;
-    j["graph"] = graph;
+    j["graph"] = GraphToJson(s.graph);
+    if (!doc.functionKind.empty()) j["functionKind"] = doc.functionKind;
     return j;
+}
+
+void GraphFromJson(const Json& jg, Graph& g) {
+    for (auto& o : jg["nodes"].Elements()) {
+        Node n;
+        n.id = o["id"].U();
+        n.kind = (NodeKind)IndexOf(kNodeKinds, o["kind"].S(""), 2);
+        n.name = o["name"].S("");
+        n.pos = Float2FromJson(o["pos"]);
+        n.surface = o["surface"].U();
+        if (o.Has("effect")) n.fx = EffectFromJson(o["effect"]);
+        n.blend = (BlendMode)std::clamp(o["blend"].I(), 0, (int)BlendMode::Count - 1);
+        n.opacity = o["opacity"].F(1);
+        n.clip = o["clip"].B(false);
+        n.channelOff = (u8)(o["channelOff"].I(0) & 15);
+        for (auto& c : o["inputChannels"].Elements()) n.inputChannel.push_back((u8)std::clamp(c.I(0), 0, 4));
+        n.bypass = o["bypass"].B(false);
+        n.layer = o["layer"].U();
+        if (n.kind == NodeKind::Tool) {
+            n.tool = o["tool"].S("bake");
+            n.passLive = o["passLive"].B(true);
+            n.smart = o["smart"].U();
+            n.bakedHash = strtoull(o["bakedHash"].S("0").c_str(), nullptr, 10);
+            for (auto& [k, val] : o["props"].Items()) n.props[k] = val.S("");
+        }
+        for (auto& x : o["inputs"].Elements()) n.inputs.push_back(x.U());
+        if (n.kind == NodeKind::Function) {
+            if (o.Has("sub")) {
+                auto sub = std::make_shared<Graph>();
+                GraphFromJson(o["sub"], *sub);
+                n.sub = sub;
+            }
+            n.funcKind = o["funcKind"].S("subgraph");
+            n.applyMode = o["applyMode"].B(false);
+            for (auto& x : o["outSurf"].Elements()) n.outSurf.push_back(x.U());
+        }
+        n.port = o["port"].I(0);
+        g.nodes.push_back(n);
+    }
+    g.output = jg["output"].U(0);
+    g.description = jg["description"].S("");
 }
 
 std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<SurfaceBlob>& blobs, std::string* error) {
@@ -611,32 +668,10 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
     }
 
     Graph g;
-    for (auto& o : j["graph"]["nodes"].Elements()) {
-        Node n;
-        n.id = o["id"].U();
-        n.kind = (NodeKind)IndexOf(kNodeKinds, o["kind"].S(""), 2);
-        n.name = o["name"].S("");
-        n.pos = Float2FromJson(o["pos"]);
-        n.surface = o["surface"].U();
-        if (o.Has("effect")) n.fx = EffectFromJson(o["effect"]);
-        n.blend = (BlendMode)std::clamp(o["blend"].I(), 0, (int)BlendMode::Count - 1);
-        n.opacity = o["opacity"].F(1);
-        n.clip = o["clip"].B(false);
-        n.channelOff = (u8)(o["channelOff"].I(0) & 15);
-        for (auto& c : o["inputChannels"].Elements()) n.inputChannel.push_back((u8)std::clamp(c.I(0), 0, 4));
-        n.bypass = o["bypass"].B(false);
-        n.layer = o["layer"].U();
-        if (n.kind == NodeKind::Tool) {
-            n.tool = o["tool"].S("bake");
-            n.passLive = o["passLive"].B(true);
-            n.smart = o["smart"].U();
-            n.bakedHash = strtoull(o["bakedHash"].S("0").c_str(), nullptr, 10);
-            for (auto& [k, val] : o["props"].Items()) n.props[k] = val.S("");
-        }
-        for (auto& x : o["inputs"].Elements()) n.inputs.push_back(x.U());
-        if (n.surface && !s.surfaces.count(n.surface)) n.surface = doc->CreateSurface({0, 0, 0, 0});
-        g.nodes.push_back(n);
-    }
+    GraphFromJson(j["graph"], g);
+    for (auto& n : g.nodes)
+        if (n.surface && n.kind != NodeKind::SubInput && !s.surfaces.count(n.surface)) n.surface = doc->CreateSurface({0, 0, 0, 0});
+    doc->functionKind = j["functionKind"].S("");
     g.output = j["graph"]["output"].U(1);
     if (!g.Find(g.output)) {
         if (error) *error = "graphe sans sortie";

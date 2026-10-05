@@ -804,6 +804,13 @@ void App::DrawProperties() {
                 case NodeKind::Output: ImGui::TextDisabled("Sortie du document"); break;
                 case NodeKind::Surface: ImGui::TextDisabled("Calque de pixels - peignez dessus avec le pinceau"); break;
                 case NodeKind::Tool: ToolNodeUI(*v, *n); break;
+                case NodeKind::Function: FunctionNodeUI(*v, *n); break;
+                case NodeKind::SubInput:
+                case NodeKind::SubOutput:
+                    ImGui::TextDisabled(n->kind == NodeKind::SubInput ? "Entrée de la fonction (broche du nœud)" : "Sortie de la fonction (broche du nœud)");
+                    ImGui::InputInt("Ordre", &n->port);
+                    TrackUndo("Ordre de la broche");
+                    break;
                 case NodeKind::Blend: {
                     ImGui::Checkbox("Désactivé (bypass)", &n->bypass);
                     TrackUndo("Bypass");

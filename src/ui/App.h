@@ -137,7 +137,22 @@ struct DocView {
         Id smart = 0;
         u64 syncKey = 0;
     } smartLink;
+    // Graph of a function node (open in this tab): its parent document and the node.
+    struct {
+        DocView* parent = nullptr;
+        Id node = 0;
+        u64 syncKey = 0;
+    } funcLink;
 };
+
+// Function library (GraphFunctions.cpp).
+struct FunctionLibEntry {
+    std::string name, kind, path, desc;
+    int inputs = 0, outputs = 0;
+};
+std::vector<FunctionLibEntry>& FunctionLibrary();
+u64& FunctionLibraryGen();
+extern std::function<Id(Document&, float2, const std::string&)> g_insertLibraryFunction;
 
 struct NodeEditorState {
     float2 pan = {40, 40};
@@ -666,6 +681,18 @@ private:
     void ToolExport(DocView& v, Id node);
     void UpdateGraphTools();
     void ToolNodeUI(DocView& v, Node& n);
+    // Functions (GraphFunctions.cpp)
+    void InitFunctions();
+    void ScanFunctionLibrary();
+    Id InsertLibraryFunction(DocView& v, const std::string& path, float2 pos);
+    void FunctionFromSelection(DocView& v, const std::set<Id>& selection, const std::string& funcKind);
+    gpu::Texture* NodeOutputTexture(DocView& v, Id src, u8 channel);
+    void EditFunction(DocView& parent, Id fid);
+    void UpdateFunctionEdits();
+    bool FunctionApplyNow(DocView& v, Id fid, int tries);
+    void SaveFunctionToLibrary(DocView& v, Id fid);
+    void FunctionNodeUI(DocView& v, Node& n);
+    std::pair<DocView*, Id> functionEditRequest{nullptr, 0};  // opened next frame (outside the graph window)
     // SubGraph: a Shaderixel document (.sxl / .sx3d) used as a smart object, its output baked as the image.
     std::unique_ptr<Document> loadedSubDoc;  // set by LoadImageTexture for a document (embedded placement takes it)
     std::vector<std::pair<u64, std::shared_ptr<DocView>>> deferredViews;  // released once the GPU is done with them

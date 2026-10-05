@@ -134,6 +134,11 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li><b>Upscale</b> : agrandit l'entrée (x2 à x8) en bicubique sur le GPU ou avec un modèle IA via ComfyUI (4x-UltraSharp, RealESRGAN...). Le résultat garde sa pleine résolution : « Exporter l'image... ».</li>
     <li><b>ComfyUI</b> : envoie l'entrée à un workflow (image vers image intégré, ou votre workflow « Save (API format) ») avec un prompt, et utilise le résultat dans le graphe. Serveur réglé dans le panneau IA.</li>
     <li>Clic droit &gt; <b>Convertir en image</b> : le nœud devient une image (pixels) du graphe, modifiable au pinceau.</li></ol></div>
+  <div class="card"><h3>Fonctions : sous-graphes et outils personnalisés</h3><ol>
+    <li>Sélectionnez des nœuds, clic droit &gt; « Créer un sous-graphe / un outil depuis la sélection » : ils sont remplacés par un nœud Fonction ; les liens qui entraient ou sortaient deviennent ses entrées et sorties (autant que nécessaire). Ou clic droit &gt; Fonctions &gt; nouveau sous-graphe / outil.</li>
+    <li>Double-clic sur le nœud : son graphe s'ouvre dans un onglet (avec l'image reçue en entrée pour l'aperçu). Chaque modification met à jour le nœud. Ajoutez des nœuds « Entrée de fonction » / « Sortie de fonction » pour ses broches (champ Ordre pour les trier).</li>
+    <li>Deux modes : <b>Live</b> (calculé en direct) ou <b>Apply</b> (« Appliquer » garde les sorties en pixels, les nœuds avant sont figés ; « Réappliquer » après un changement).</li>
+    <li>« Enregistrer dans la bibliothèque » : la fonction apparaît dans le menu des nœuds &gt; Bibliothèque (sous-graphes / outils), réutilisable dans tous les documents.</li></ol></div>
   <div class="card"><h3>Effets, fusions, pinceaux en graphe</h3><ol>
     <li>Glissez un effet du panneau Effets sur un nœud de calque (filtre), sur un lien (inséré), dans le vide (nouveau nœud), sur un calque ou sur l'image.</li>
     <li>Onglet Fusion : modes standard et fusions de bibliothèque avec aperçu sur le calque actif ; « Nouvelle (graphe) » ouvre l'éditeur visuel (A dessous, B calque, masque).</li>

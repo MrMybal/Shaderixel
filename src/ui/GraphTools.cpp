@@ -74,7 +74,7 @@ void GraphFrozenNodes(const Graph& g, std::unordered_set<Id>& frozen) {
         stack.pop_back();
         const Node* n = g.Find(id);
         if (!n || !live.insert(id).second) continue;
-        if (ToolBaked(*n)) {
+        if (NodeBaked(*n)) {
             for (Id in : n->inputs) if (in) behind.insert(in);
             continue;
         }
@@ -89,7 +89,7 @@ void GraphFrozenNodes(const Graph& g, std::unordered_set<Id>& frozen) {
         const Node* n = g.Find(id);
         if (!n || !seen.insert(id).second) continue;
         if (!live.count(id)) frozen.insert(id);
-        if (ToolBaked(*n)) continue;
+        if (NodeBaked(*n)) continue;
         for (Id in : n->inputs) if (in) stack.push_back(in);
     }
 }
@@ -269,7 +269,32 @@ void App::UpdateGraphTools() {
         if (ViewAlive(r.view)) {
             Document& d = *r.view->doc;
             Node* n = d.S().graph.Find(r.node);
-            if (n && n->kind == NodeKind::Tool) {
+            if (n && n->kind == NodeKind::Function) {
+                switch (r.action) {
+                    case ToolAction::Bake: done = FunctionApplyNow(*r.view, r.node, r.tries++); break;
+                    case ToolAction::ToggleLive: {
+                        DocState before = d.S();
+                        n->applyMode = !n->applyMode;
+                        d.dirty = true;
+                        r.view->history.PushState(n->applyMode ? "Mode Apply" : "Mode Live", before, d.S());
+                        break;
+                    }
+                    case ToolAction::ConvertToImage:
+                        if (FunctionApplied(*n)) {
+                            DocState before = d.S();
+                            n->kind = NodeKind::Surface;
+                            n->surface = n->outSurf[0];
+                            n->outSurf.clear();
+                            n->sub.reset();
+                            n->inputs.clear();
+                            n->inputChannel.clear();
+                            d.dirty = true;
+                            r.view->history.PushState("Convertir en image", before, d.S());
+                        }
+                        break;
+                    case ToolAction::Export: break;
+                }
+            } else if (n && n->kind == NodeKind::Tool) {
                 switch (r.action) {
                     case ToolAction::Bake: done = ToolBakeNow(*r.view, r.node, r.tries++); break;
                     case ToolAction::ToggleLive: {

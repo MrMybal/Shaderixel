@@ -52,13 +52,14 @@ u64 Renderer::StructHash(Document& doc, Id id, std::unordered_map<Id, u64>& memo
     auto it = memo.find(id);
     if (it != memo.end()) return it->second;
     memo[id] = 0;
-    const Node* n = doc.S().graph.Find(id);
+    const Node* n = EvalGraph(doc).Find(id);
     if (!n) return 0;
     Hasher h;
     h.Pod(n->kind);
     h.Pod(n->bypass);
     switch (n->kind) {
         case NodeKind::Surface: h.Pod(n->surface); break;
+        case NodeKind::SubInput: h.Pod(n->surface); break;
         case NodeKind::Tool:
             if (ToolBaked(*n)) {
                 h.Pod(n->surface);
@@ -94,7 +95,7 @@ u64 Renderer::StructHash(Document& doc, Id id, std::unordered_map<Id, u64>& memo
 Renderer::TileRes Renderer::EvalTileInput(Document& doc, gpu::CommandContext& ctx, const Node& n, int i, const Rect& need, int depth) {
     if (i >= (int)n.inputs.size()) return {};
     TileRes src = EvalTile(doc, ctx, n.inputs[i], need, depth);
-    u8 ch = InputChannel(n, i);
+    u8 ch = LinkChannel(InputChannel(n, i));
     if (!ch || !src.tex) return src;
     auto* k = Kernel("channel_extract.slang");
     if (!k) { pending = true; return {}; }
@@ -114,7 +115,7 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
     u64 key = ((u64)id << 32) ^ ((u64)need.x0 * 73856093u) ^ ((u64)need.y0 * 19349663u) ^ ((u64)need.x1 * 83492791u) ^ ((u64)need.y1 * 2654435761u);
     auto memo = tileMemo.find(key);
     if (memo != tileMemo.end()) return memo->second;
-    const Node* n = doc.S().graph.Find(id);
+    const Node* n = EvalGraph(doc).Find(id);
     if (!n) return {};
     const int W = (int)doc.Width(), H = (int)doc.Height();
     const gpu::Format fmt = SurfaceFormat(doc.GetPrecision());
@@ -124,7 +125,12 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
             res = n->inputs.empty() ? TileRes{} : EvalTileInput(doc, ctx, *n, 0, need, depth + 1);
             break;
         case NodeKind::Split:
+        case NodeKind::SubOutput:
+        case NodeKind::Function:
             res = EvalTileInput(doc, ctx, *n, 0, need, depth + 1);
+            break;
+        case NodeKind::SubInput:
+            if (Surface* s = doc.GetSurface(n->surface)) res = {s->tex.get(), {0, 0}};
             break;
         case NodeKind::Surface:
             if (Surface* s = doc.GetSurface(n->surface)) res = {s->tex.get(), {0, 0}};
@@ -232,7 +238,7 @@ gpu::Texture* Renderer::EvaluateTiled(Document& doc, gpu::CommandContext& ctx, c
     std::unordered_map<Id, u64> memo;
     int maxHalo = 0;
     bool compiling = false;
-    u64 sh = StructHash(doc, doc.S().graph.output, memo, maxHalo, compiling);
+    u64 sh = StructHash(doc, EvalGraph(doc).output, memo, maxHalo, compiling);
     sh ^= ((u64)W << 20) ^ H;
     if (sh != tiledStruct) {
         std::fill(tileDirty.begin(), tileDirty.end(), 1);
@@ -278,7 +284,7 @@ gpu::Texture* Renderer::EvaluateTiled(Document& doc, gpu::CommandContext& ctx, c
         Rect tile = Rect{(i % tilesX) * T, (i / tilesX) * T, (i % tilesX + 1) * T, (i / tilesX + 1) * T}.Clipped((int)W, (int)H);
         tileMemo.clear();
         PoolReset(false);
-        TileRes r = EvalTile(doc, ctx, doc.S().graph.output, tile, 0);
+        TileRes r = EvalTile(doc, ctx, EvalGraph(doc).output, tile, 0);
         if (r.tex) {
             ctx.CopyRegion(tiledOut.get(), tile.x0, tile.y0, r.tex, {tile.x0 - r.origin.x, tile.y0 - r.origin.y, tile.x1 - r.origin.x, tile.y1 - r.origin.y});
         } else {

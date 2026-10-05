@@ -192,7 +192,13 @@ public:
     // Same conversion (straight, optional sRGB) at 16 bits per channel (little-endian u16).
     gpu::ReadbackPtr ExportRGBA16(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb = true);
     // Full-resolution output of one node (through the node cache, also in tiled mode).
-    gpu::Texture* EvaluateNode(Document& doc, gpu::CommandContext& ctx, Id node) { return Eval(doc, ctx, node, 0).tex; }
+    gpu::Texture* EvaluateNode(Document& doc, gpu::CommandContext& ctx, Id node, Id liveOverride = 0) {
+        BeginGraph(doc, liveOverride);
+        return Eval(doc, ctx, node, 0).tex;
+    }
+    // Graph actually evaluated: the document's, or a flattened copy when it holds functions.
+    void BeginGraph(const Document& doc, Id liveOverride = 0);
+    const Graph& EvalGraph(const Document& doc) const;
     // Release full-size node caches created by EvaluateNode in tiled mode.
     void DropNodeCaches(const Document& doc) { if (doc.tiled) cache.clear(); }
     // Async 4 x 256 histogram (luminance, R, G, B; u32, alpha-weighted x255).
@@ -342,6 +348,8 @@ private:
 
     std::unordered_map<Id, NodeCache> cache;
     std::unordered_map<Id, EvalResult> frameEval;
+    Graph flatGraph;
+    bool useFlat = false;
     std::unordered_map<Id, std::string> failed;
     std::unordered_map<u64, ThumbCache> thumbs;
     std::unordered_map<const EffectDef*, ProgramEntry> programs;

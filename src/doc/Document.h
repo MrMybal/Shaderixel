@@ -1,5 +1,6 @@
 #pragma once
 #include <map>
+#include <set>
 // Document model.
 //
 // The node GRAPH is what gets rendered, always. A document is created either in
@@ -186,7 +187,13 @@ struct LayerComp {
 // Tool: graph tools working on their input as pixels (bake, upscale, ComfyUI...). Once baked the
 // node outputs its stored pixels and the nodes before it are no longer evaluated ("PassLive":
 // the input passes through live, to edit it before baking again).
-enum class NodeKind : u8 { Output, Surface, Effect, Blend, Split, Tool };
+// Function: a graph inside (sub-graph or custom tool). Its SubInput / SubOutput nodes are its pins
+// (any number, in `port` order). Live: evaluated in place (the graph is flattened for rendering);
+// Apply mode: its outputs are stored as pixels when applied, the nodes before it are frozen.
+// Links from output k of a Function carry k in bits 3-7 of the input channel byte.
+enum class NodeKind : u8 { Output, Surface, Effect, Blend, Split, Tool, Function, SubInput, SubOutput };
+
+struct Graph;
 
 struct Node {
     Id id = 0;
@@ -210,6 +217,13 @@ struct Node {
     Id smart = 0;             // result at its own resolution (smart object; upscale / ComfyUI), 0 = none
     u64 bakedHash = 0;        // input hash when baked (shows when the input changed since)
     std::map<std::string, std::string> props;  // tool settings
+    // Function nodes
+    std::shared_ptr<const Graph> sub;  // inner graph (never modified in place: replaced whole)
+    std::string funcKind;              // "subgraph" or "tool" (library category)
+    bool applyMode = false;            // outputs used from outSurf once applied
+    std::vector<Id> outSurf;           // applied outputs (pixels), one per output
+    // SubInput / SubOutput: pin order
+    int port = 0;
     std::string Prop(const std::string& k, const std::string& def = "") const {
         auto it = props.find(k);
         return it == props.end() ? def : it->second;
@@ -221,6 +235,15 @@ struct Node {
 };
 // A tool node that outputs its baked pixels (its inputs are not evaluated).
 inline bool ToolBaked(const Node& n) { return n.kind == NodeKind::Tool && !n.passLive && n.surface; }
+inline bool FunctionApplied(const Node& n) {
+    if (n.kind != NodeKind::Function || !n.applyMode || n.outSurf.empty()) return false;
+    for (Id s : n.outSurf) if (!s) return false;
+    return true;
+}
+// Outputs stored as pixels: the nodes before are not evaluated.
+inline bool NodeBaked(const Node& n) { return ToolBaked(n) || FunctionApplied(n); }
+inline u8 LinkChannel(u8 c) { return c & 7; }
+inline int LinkPort(u8 c) { return c >> 3; }
 
 int NodeInputCount(const Node& n);
 inline u8 InputChannel(const Node& n, size_t i) { return i < n.inputChannel.size() ? n.inputChannel[i] : 0; }
@@ -236,10 +259,21 @@ std::string NodeInputName(const Node& n, int i);
 struct Graph {
     std::vector<Node> nodes;
     Id output = 0;
+    std::string description;  // functions: shown in the library
     Node* Find(Id id);
     const Node* Find(Id id) const;
     bool WouldCycle(Id from, Id to) const;  // linking from -> to's input
 };
+// Pins of a function graph: its SubInput (or SubOutput) nodes in port order.
+std::vector<const Node*> FunctionPorts(const Graph& g, NodeKind k);
+bool GraphHasFunctions(const Graph& g);
+// Graph with every Function replaced by its contents (or its applied pixels), for rendering.
+// `liveOverride`: that function is expanded even when applied (to apply it again).
+void FlattenGraph(const Graph& in, Graph& out, Id liveOverride = 0);
+// Id of the flattened node that carries output `port` of function `f`.
+Id FunctionOutputFlatId(const Node& f, int port);
+// Surfaces used by a graph (pixel nodes, baked tools, applied functions, inner graphs).
+void CollectGraphSurfaces(const Graph& g, std::set<Id>& out);
 
 // Everything except pixels; copied whole for structural undo.
 struct DocState {
@@ -278,6 +312,7 @@ public:
     // Color management: working RGB profile ("" = sRGB), CMYK profile for proofing / CMYK mode,
     // document mode (0 RGB, 1 CMYK: colors kept in the CMYK gamut and shown through it, 2 Lab).
     std::string iccProfile, cmykProfile;
+    std::string functionKind;  // document holding a function graph (library): "subgraph" or "tool"
     int colorMode = 0;
     // Document kind: 0 image (Photoshop-like), 1 Paint 3D project (texture set of a mesh, .sx3d).
     int kind = 0;
@@ -357,6 +392,8 @@ public:
     Node& AddNode(NodeKind kind, float2 pos);
     Node& AddEffectNode(const std::string& effectId, const std::string& customCode, float2 pos);
     Node& AddToolNode(const std::string& tool, float2 pos);
+    // Function with one input passed to one output, to fill in its editor ("subgraph" / "tool").
+    Node& AddFunctionNode(const std::string& funcKind, float2 pos);
     void RemoveNode(Id id);
     bool Link(Id from, Id to, int input, u8 channel = 0);
     void Unlink(Id to, int input);

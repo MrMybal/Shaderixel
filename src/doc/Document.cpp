@@ -87,6 +87,9 @@ int NodeInputCount(const Node& n) {
         case NodeKind::Blend: return 3;
         case NodeKind::Split: return 1;
         case NodeKind::Tool: return 1;
+        case NodeKind::Function: return n.sub ? (int)FunctionPorts(*n.sub, NodeKind::SubInput).size() : 0;
+        case NodeKind::SubInput: return 0;
+        case NodeKind::SubOutput: return 1;
         case NodeKind::Effect: {
             auto d = n.fx.Def();
             return d ? (int)d->inputs.size() : (int)n.inputs.size();
@@ -107,12 +110,143 @@ PinType NodeInputType(const Node& n, int i) {
     return PinType::RGBA;
 }
 
-int NodeOutputCount(const Node& n) { return n.kind == NodeKind::Output ? 0 : n.kind == NodeKind::Split ? 4 : 1; }
+int NodeOutputCount(const Node& n) {
+    if (n.kind == NodeKind::Function) return n.sub ? (int)FunctionPorts(*n.sub, NodeKind::SubOutput).size() : 0;
+    return n.kind == NodeKind::Output || n.kind == NodeKind::SubOutput ? 0 : n.kind == NodeKind::Split ? 4 : 1;
+}
 PinType NodeOutputType(const Node& n, int) { return n.kind == NodeKind::Split ? PinType::Channel : PinType::RGBA; }
-u8 NodeOutputChannel(const Node& n, int k) { return n.kind == NodeKind::Split ? (u8)(k + 1) : 0; }
+u8 NodeOutputChannel(const Node& n, int k) {
+    if (n.kind == NodeKind::Function) return (u8)(std::clamp(k, 0, 31) << 3);
+    return n.kind == NodeKind::Split ? (u8)(k + 1) : 0;
+}
 std::string NodeOutputName(const Node& n, int k) {
     static const char* ch[] = {"R", "V", "B", "A"};
+    if (n.kind == NodeKind::Function && n.sub) {
+        auto ports = FunctionPorts(*n.sub, NodeKind::SubOutput);
+        if (k < (int)ports.size()) return ports[k]->name;
+    }
     return n.kind == NodeKind::Split ? ch[std::clamp(k, 0, 3)] : "RGBA";
+}
+
+std::vector<const Node*> FunctionPorts(const Graph& g, NodeKind k) {
+    std::vector<const Node*> v;
+    for (auto& n : g.nodes) if (n.kind == k) v.push_back(&n);
+    std::stable_sort(v.begin(), v.end(), [](const Node* a, const Node* b) { return a->port != b->port ? a->port < b->port : a->id < b->id; });
+    return v;
+}
+
+bool GraphHasFunctions(const Graph& g) {
+    for (auto& n : g.nodes) if (n.kind == NodeKind::Function) return true;
+    return false;
+}
+
+namespace {
+Id MixId(Id a, Id b) {
+    u64 h = (u64)a * 0x9E3779B97F4A7C15ull ^ ((u64)b + 0x632BE59BD9B4E019ull) * 0xBF58476D1CE4E5B9ull;
+    h ^= h >> 29;
+    h *= 0x94D049BB133111EBull;
+    h ^= h >> 32;
+    return (Id)(0x80000000u | (u32)(h & 0x7FFFFFFFu));
+}
+
+void Flatten(const Graph& in, Graph& out, Id liveOverride, int depth, std::map<std::pair<Id, int>, Id>& portOut) {
+    for (const Node& n : in.nodes) {
+        if (n.kind != NodeKind::Function) {
+            out.nodes.push_back(n);
+            continue;
+        }
+        if (FunctionApplied(n) && n.id != liveOverride) {
+            // Applied: its stored outputs (the inner graph and the inputs are not evaluated).
+            for (size_t k = 0; k < n.outSurf.size(); ++k) {
+                Node s;
+                s.kind = NodeKind::Surface;
+                s.id = k == 0 ? n.id : MixId(n.id, 0x7FFF0000u + (u32)k);
+                s.name = n.name;
+                s.surface = n.outSurf[k];
+                out.nodes.push_back(s);
+                portOut[{n.id, (int)k}] = s.id;
+            }
+            continue;
+        }
+        Node self = n;
+        self.kind = NodeKind::Split;  // pass-through of output 0 (thumbnail, plain links)
+        self.sub.reset();
+        self.inputs = {0};
+        self.inputChannel.clear();
+        if (!n.sub || depth > 8) {
+            out.nodes.push_back(self);
+            continue;
+        }
+        Graph inner;
+        std::map<std::pair<Id, int>, Id> innerPorts;
+        Flatten(*n.sub, inner, liveOverride, depth + 1, innerPorts);
+        // Inner links to nested functions are redirected inside the inner graph first.
+        for (auto& m : inner.nodes)
+            for (size_t i = 0; i < m.inputs.size(); ++i) {
+                const u8 c = InputChannel(m, i);
+                auto it = innerPorts.find({m.inputs[i], LinkPort(c)});
+                if (it == innerPorts.end()) continue;
+                m.inputs[i] = it->second;
+                if (i < m.inputChannel.size()) m.inputChannel[i] = LinkChannel(c);
+            }
+        auto ins = FunctionPorts(*n.sub, NodeKind::SubInput);
+        auto outs = FunctionPorts(*n.sub, NodeKind::SubOutput);
+        for (const Node& m : inner.nodes) {
+            Node c = m;
+            c.id = MixId(n.id, m.id);
+            for (auto& x : c.inputs) if (x) x = MixId(n.id, x);
+            if (m.kind == NodeKind::SubInput) {
+                size_t p = 0;
+                while (p < ins.size() && ins[p]->id != m.id) ++p;
+                c.kind = NodeKind::Split;
+                c.surface = 0;
+                c.inputs = {p < n.inputs.size() ? n.inputs[p] : 0};
+                c.inputChannel = {p < n.inputs.size() ? InputChannel(n, p) : (u8)0};
+            } else if (m.kind == NodeKind::SubOutput || m.kind == NodeKind::Output) {
+                c.kind = NodeKind::Split;
+            }
+            out.nodes.push_back(c);
+        }
+        // Output 0 through the node itself (its thumbnail and preview stay live), the others directly.
+        for (size_t k = 1; k < outs.size(); ++k) portOut[{n.id, (int)k}] = MixId(n.id, outs[k]->id);
+        if (!outs.empty()) self.inputs = {MixId(n.id, outs[0]->id)};
+        out.nodes.push_back(self);
+    }
+}
+}  // namespace
+
+void FlattenGraph(const Graph& in, Graph& out, Id liveOverride) {
+    out.nodes.clear();
+    out.output = in.output;
+    std::map<std::pair<Id, int>, Id> portOut;
+    Flatten(in, out, liveOverride, 0, portOut);
+    // Links from function outputs: to the node carrying that output.
+    for (auto& m : out.nodes)
+        for (size_t i = 0; i < m.inputs.size(); ++i) {
+            const u8 c = InputChannel(m, i);
+            auto it = portOut.find({m.inputs[i], LinkPort(c)});
+            if (it == portOut.end()) {
+                if (LinkPort(c) && i < m.inputChannel.size()) m.inputChannel[i] = LinkChannel(c);
+                continue;
+            }
+            m.inputs[i] = it->second;
+            if (i < m.inputChannel.size()) m.inputChannel[i] = LinkChannel(c);
+        }
+    if (auto it = portOut.find({out.output, 0}); it != portOut.end()) out.output = it->second;
+}
+
+Id FunctionOutputFlatId(const Node& f, int port) {
+    if (!f.sub) return 0;
+    auto outs = FunctionPorts(*f.sub, NodeKind::SubOutput);
+    return port < (int)outs.size() ? MixId(f.id, outs[port]->id) : 0;
+}
+
+void CollectGraphSurfaces(const Graph& g, std::set<Id>& out) {
+    for (auto& n : g.nodes) {
+        if (n.surface && n.kind != NodeKind::SubInput) out.insert(n.surface);
+        for (Id s : n.outSurf) if (s) out.insert(s);
+        if (n.sub) CollectGraphSurfaces(*n.sub, out);
+    }
 }
 
 std::string NodeInputName(const Node& n, int i) {
@@ -121,6 +255,14 @@ std::string NodeInputName(const Node& n, int i) {
         case NodeKind::Blend: return i == 0 ? "Fond" : i == 1 ? "Calque" : "Masque";
         case NodeKind::Split: return "RGBA";
         case NodeKind::Tool: return "Entrée";
+        case NodeKind::SubOutput: return "Image";
+        case NodeKind::Function: {
+            if (n.sub) {
+                auto ports = FunctionPorts(*n.sub, NodeKind::SubInput);
+                if (i < (int)ports.size()) return ports[i]->name;
+            }
+            return "Entrée";
+        }
         case NodeKind::Effect: {
             auto d = n.fx.Def();
             if (d && i < (int)d->inputs.size()) return d->inputs[i];
@@ -780,6 +922,15 @@ Node& Document::AddNode(NodeKind kind, float2 pos) {
             n.name = "Séparer RGBA";
             n.inputs = {0};
             break;
+        case NodeKind::SubInput:
+        case NodeKind::SubOutput: {
+            int count = 0;
+            for (auto& m : state.graph.nodes) if (m.kind == kind) count = std::max(count, m.port + 1);
+            n.port = count;
+            n.name = kind == NodeKind::SubInput ? "Entrée " + std::to_string(count + 1) : "Sortie " + std::to_string(count + 1);
+            if (kind == NodeKind::SubOutput) n.inputs = {0};
+            break;
+        }
         default: n.name = "Nœud"; break;
     }
     state.graph.nodes.push_back(n);
@@ -807,6 +958,36 @@ Node& Document::AddToolNode(const std::string& tool, float2 pos) {
     } else {
         n.name = "Bake";
     }
+    state.graph.nodes.push_back(n);
+    state.activeNode = n.id;
+    dirty = true;
+    return state.graph.nodes.back();
+}
+
+Node& Document::AddFunctionNode(const std::string& funcKind, float2 pos) {
+    auto g = std::make_shared<Graph>();
+    Node in;
+    in.id = NewId();
+    in.kind = NodeKind::SubInput;
+    in.name = "Entrée";
+    in.pos = {0, 0};
+    Node out;
+    out.id = NewId();
+    out.kind = NodeKind::SubOutput;
+    out.name = "Sortie";
+    out.pos = {420, 0};
+    out.inputs = {in.id};
+    g->nodes = {in, out};
+    g->output = out.id;
+    Node n;
+    n.id = NewId();
+    n.kind = NodeKind::Function;
+    n.pos = pos;
+    n.funcKind = funcKind;
+    n.applyMode = funcKind == "tool";
+    n.name = funcKind == "tool" ? "Outil personnalisé" : "Sous-graphe";
+    n.sub = g;
+    n.inputs.assign(NodeInputCount(n), 0);
     state.graph.nodes.push_back(n);
     state.activeNode = n.id;
     dirty = true;
