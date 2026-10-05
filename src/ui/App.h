@@ -10,6 +10,7 @@
 #include "io/PsdExport.h"
 #include "doc/EffectGraph.h"
 #include "ai/Bridge.h"
+#include "ai/Comfy.h"
 #include "render/MeshPaint.h"
 #include "mesh/UvUnwrap.h"
 #include "render/PathTracer.h"
@@ -144,6 +145,28 @@ struct DocView {
         u64 syncKey = 0;
     } funcLink;
 };
+
+// Execution flow being run (GraphExec.cpp).
+struct ExecItem {
+    enum Kind : u8 { Run, Follow, Loop } kind;
+    Id node;
+    int port;
+    int index;
+};
+struct ExecRun {
+    DocView* view = nullptr;
+    Id owner = 0;     // function node whose graph runs (0 = the document's graph)
+    Id event = 0;
+    std::string label;
+    std::vector<ExecItem> items;  // to do (stack)
+    DocState before;
+    int steps = 0;
+    bool waiting = false, pendingSent = false;  // ComfyUI step
+    Id pendingNode = 0;
+    comfy::Job pendingJob;
+    gpu::ReadbackPtr pendingImage;
+};
+bool ValueEditor(const char* label, Value& v);
 
 // Function library (GraphFunctions.cpp).
 struct FunctionLibEntry {
@@ -673,6 +696,7 @@ private:
     std::vector<ToolExportJob> toolExports;
     std::set<Id> toolBusy;
     bool graphFrameRequest = false;  // frame all nodes in the graph editor (demos)
+    std::set<Id> graphFrameOnly;     // ... or only these
     bool ViewAlive(const DocView* v) const;
     void RequestToolAction(DocView& v, Id node, ToolAction a);
     bool ToolBakeNow(DocView& v, Id node, int tries);
@@ -693,6 +717,18 @@ private:
     void SaveFunctionToLibrary(DocView& v, Id fid);
     void FunctionNodeUI(DocView& v, Node& n);
     std::pair<DocView*, Id> functionEditRequest{nullptr, 0};  // opened next frame (outside the graph window)
+    // Typed nodes and execution (GraphExec.cpp)
+    std::unique_ptr<ExecRun> execRun;
+    void ValueInputsUI(DocView& v, Node& n);
+    void GraphVariablesUI(DocView& v, Graph& g);
+    void TypedNodeUI(DocView& v, Node& n);
+    void FunctionSettingsUI(DocView& v, Node& f);
+    void EffectPinsUI(DocView& v, Node& n);
+    void StartExec(DocView& v, Id owner, Id event);
+    const Graph* ExecGraph(ExecRun& r);
+    void FinishExec(const std::string& msg);
+    void ExecStoreResult(ExecRun& r, Id node, gpu::Texture* tex, gpu::TexturePtr full);
+    void UpdateExec();
     // SubGraph: a Shaderixel document (.sxl / .sx3d) used as a smart object, its output baked as the image.
     std::unique_ptr<Document> loadedSubDoc;  // set by LoadImageTexture for a document (embedded placement takes it)
     std::vector<std::pair<u64, std::shared_ptr<DocView>>> deferredViews;  // released once the GPU is done with them

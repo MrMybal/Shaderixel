@@ -198,6 +198,13 @@ public:
     }
     // Graph actually evaluated: the document's, or a flattened copy when it holds functions.
     void BeginGraph(const Document& doc, Id liveOverride = 0);
+    // Values (ValueEval.cpp): output `port` of a node, an input of a node (linked or its own value),
+    // effect parameters with their linked pins.
+    Value EvalValue(Document& doc, Id id, int port, int depth = 0);
+    Value InputValue(Document& doc, const Node& n, int i, int depth = 0);
+    std::vector<float4> EffectParams(Document& doc, const Node& n);
+    // Values produced while an execution flow runs (loop element, index...), by (node << 8 | port).
+    std::unordered_map<u64, Value> runtimeValues;
     const Graph& EvalGraph(const Document& doc) const;
     // Release full-size node caches created by EvaluateNode in tiled mode.
     void DropNodeCaches(const Document& doc) { if (doc.tiled) cache.clear(); }
@@ -350,6 +357,7 @@ private:
     std::unordered_map<Id, EvalResult> frameEval;
     Graph flatGraph;
     bool useFlat = false;
+    std::unordered_map<u64, Value> frameValues;
     std::unordered_map<Id, std::string> failed;
     std::unordered_map<u64, ThumbCache> thumbs;
     std::unordered_map<const EffectDef*, ProgramEntry> programs;

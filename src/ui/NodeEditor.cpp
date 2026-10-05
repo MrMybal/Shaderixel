@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include "ui/Theme.h"
 #include "doc/EffectGraph.h"
+#include "doc/GraphTypes.h"
 
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
@@ -25,6 +26,11 @@ ImU32 HeaderColor(const Node& n) {
         case NodeKind::Blend: return IM_COL32(64, 104, 200, 255);
         case NodeKind::Split: return IM_COL32(70, 150, 90, 255);
         case NodeKind::Tool: return IM_COL32(170, 124, 26, 255);
+        case NodeKind::Value: return IM_COL32(70, 120, 60, 255);
+        case NodeKind::Math: return IM_COL32(60, 110, 90, 255);
+        case NodeKind::VarGet: case NodeKind::VarSet: return IM_COL32(120, 90, 50, 255);
+        case NodeKind::Event: return IM_COL32(170, 40, 40, 255);
+        case NodeKind::Action: return IM_COL32(60, 70, 110, 255);
         case NodeKind::Function: return n.funcKind == "tool" ? IM_COL32(170, 124, 26, 255) : IM_COL32(150, 80, 180, 255);
         case NodeKind::SubInput: return IM_COL32(40, 130, 150, 255);
         case NodeKind::SubOutput: return IM_COL32(52, 150, 100, 255);
@@ -56,6 +62,11 @@ NodeTag NodeTypeTag(Document& d, const Node& n) {
         case NodeKind::Tool: return tool;
         case NodeKind::Function: return n.funcKind == "tool" ? tool : sub;
         case NodeKind::SubInput: return {"IN", IM_COL32(60, 190, 210, 255)};
+        case NodeKind::Value: return {"VALEUR", IM_COL32(160, 230, 70, 255)};
+        case NodeKind::Math: return {"MATH", IM_COL32(120, 220, 170, 255)};
+        case NodeKind::VarGet: case NodeKind::VarSet: return {"VAR", IM_COL32(230, 180, 90, 255)};
+        case NodeKind::Event: return {"EVENT", IM_COL32(255, 110, 110, 255)};
+        case NodeKind::Action: return {"EXEC", IM_COL32(170, 190, 255, 255)};
         case NodeKind::SubOutput: return {"OUT", IM_COL32(70, 200, 130, 255)};
         case NodeKind::Blend: return l && l->kind == LayerKind::Group ? sub : blend;
         case NodeKind::Surface:
@@ -76,9 +87,44 @@ NodeTag NodeTypeTag(Document& d, const Node& n) {
     return effect;
 }
 
-// Pins and links are colored by type (Unreal-style): RGBA image pink, single channel green.
+// Pins and links are colored by type (Unreal-style): RGBA image pink, single channel green,
+// values (float, int, bool, vec2, color, text, name) and the execution flow (white).
 ImU32 TypeColor(PinType t, int alpha = 255) {
-    return t == PinType::Channel ? IM_COL32(110, 210, 120, alpha) : IM_COL32(230, 120, 210, alpha);
+    switch (t) {
+        case PinType::Channel: return IM_COL32(110, 210, 120, alpha);
+        case PinType::Float: return IM_COL32(160, 230, 70, alpha);
+        case PinType::Int: return IM_COL32(40, 205, 175, alpha);
+        case PinType::Bool: return IM_COL32(225, 60, 60, alpha);
+        case PinType::Vec2: return IM_COL32(240, 200, 60, alpha);
+        case PinType::Color: return IM_COL32(80, 145, 255, alpha);
+        case PinType::String: return IM_COL32(250, 150, 60, alpha);
+        case PinType::Name: return IM_COL32(185, 145, 255, alpha);
+        case PinType::Exec: return IM_COL32(240, 240, 240, alpha);
+        default: return IM_COL32(230, 120, 210, alpha);
+    }
+}
+// Pin shape: circle (single value / image), square (array), arrow (execution).
+void DrawPin(ImDrawList* dl, ImVec2 p, float r, const PinDesc& pin, bool filled, float zoom) {
+    const ImU32 c = TypeColor(pin.type);
+    if (pin.type == PinType::Exec) {
+        ImVec2 a(p.x - r, p.y - r), b(p.x + r * 0.2f, p.y - r), t(p.x + r * 1.1f, p.y), d(p.x + r * 0.2f, p.y + r), e(p.x - r, p.y + r);
+        ImVec2 pts[] = {a, b, t, d, e};
+        if (filled) dl->AddConvexPolyFilled(pts, 5, c);
+        else dl->AddPolyline(pts, 5, c, ImDrawFlags_Closed, 1.8f * zoom);
+        return;
+    }
+    if (pin.array) {
+        if (filled) dl->AddRectFilled(ImVec2(p.x - r, p.y - r), ImVec2(p.x + r, p.y + r), c, 1.5f);
+        else dl->AddRect(ImVec2(p.x - r, p.y - r), ImVec2(p.x + r, p.y + r), c, 1.5f, 0, 2.0f * zoom);
+        return;
+    }
+    if (filled) {
+        dl->AddCircleFilled(p, r, c);
+        dl->AddCircle(p, r, IM_COL32(20, 20, 24, 255), 0, 1.5f);
+    } else {
+        dl->AddCircleFilled(p, r, IM_COL32(40, 42, 50, 255));
+        dl->AddCircle(p, r, c, 0, 2.0f * zoom);
+    }
 }
 // Labels of the Split outputs keep their channel color.
 ImU32 LabelColor(const Node& n, int k) {
@@ -91,6 +137,7 @@ struct Layout {
     float h;
     float thumbW, thumbH;
     int inputs, outputs, rows;
+    bool image = true;  // shows an image thumbnail (else a line of text: value, operation...)
 };
 
 Layout NodeLayout(const Node& n, float aspect) {
@@ -100,6 +147,10 @@ Layout NodeLayout(const Node& n, float aspect) {
     l.rows = std::max({l.inputs, l.outputs, 1});
     l.thumbW = kNodeW - 16;
     l.thumbH = std::clamp(l.thumbW / std::max(aspect, 0.1f), 40.0f, l.thumbW);
+    l.image = n.kind == NodeKind::Output || (n.kind == NodeKind::SubOutput && PinIsImage(n.value.type));
+    if (n.kind == NodeKind::Function && l.outputs == 0) l.image = true;
+    for (int k = 0; k < l.outputs && !l.image; ++k) l.image = PinIsImage(NodeOutputType(n, k));
+    if (!l.image) l.thumbH = 22;
     l.h = kHeader + l.rows * kRow + l.thumbH + 12;
     return l;
 }
@@ -118,6 +169,27 @@ std::vector<NodeEntry> NodeEntries() {
                  [](Document& d, float2 p) { return d.AddFunctionNode("subgraph", p).id; }});
     e.push_back({"Fonctions", "Nouvel outil personnalisé (fonction)", "tool outil custom fonction function apply",
                  [](Document& d, float2 p) { return d.AddFunctionNode("tool", p).id; }});
+    // Values, operations, variables, execution flow
+    const PinType kValTypes[] = {PinType::Float, PinType::Int, PinType::Bool, PinType::Vec2, PinType::Color, PinType::String, PinType::Name};
+    for (PinType t : kValTypes) {
+        e.push_back({"Valeurs", PinTypeLabel(t), std::string("value constante ") + PinTypeLabel(t),
+                     [t](Document& d, float2 p) { return AddTypedNode(d, NodeKind::Value, "", t, false, p).id; }});
+        e.push_back({"Valeurs : tableaux", std::string("Tableau ") + PinTypeLabel(t), std::string("array tableau liste ") + PinTypeLabel(t),
+                     [t](Document& d, float2 p) { return AddTypedNode(d, NodeKind::Value, "", t, true, p).id; }});
+    }
+    for (auto& op : MathOps()) {
+        std::string id = op.id;
+        e.push_back({op.category, op.label, op.keywords, [id](Document& d, float2 p) { return AddTypedNode(d, NodeKind::Math, id, PinType::Float, false, p).id; }});
+    }
+    e.push_back({"Variables", "Lire une variable", "get variable lire", [](Document& d, float2 p) { return AddTypedNode(d, NodeKind::VarGet, "", PinType::Float, false, p).id; }});
+    e.push_back({"Variables", "Définir une variable", "set variable definir exec",
+                 [](Document& d, float2 p) { return AddTypedNode(d, NodeKind::VarSet, "", PinType::Float, false, p).id; }});
+    e.push_back({"Exécution", "Événement (bouton d'exécution)", "event bouton exec run start",
+                 [](Document& d, float2 p) { return AddTypedNode(d, NodeKind::Event, "Exécuter", PinType::Exec, false, p).id; }});
+    for (auto& a : ExecActions()) {
+        std::string id = a.id;
+        e.push_back({"Exécution", a.label, a.keywords, [id](Document& d, float2 p) { return AddTypedNode(d, NodeKind::Action, id, PinType::Exec, false, p).id; }});
+    }
     e.push_back({"Fonctions", "Entrée de fonction", "input entree broche pin parametre", [](Document& d, float2 p) { return d.AddNode(NodeKind::SubInput, p).id; }});
     e.push_back({"Fonctions", "Sortie de fonction", "output sortie broche pin", [](Document& d, float2 p) { return d.AddNode(NodeKind::SubOutput, p).id; }});
     for (auto& f : FunctionLibrary()) {
@@ -433,7 +505,8 @@ void App::DrawNodeEditor() {
         }
     }
 
-    auto linkPin = [&](const Node& src, int ch) { return src.kind == NodeKind::Function ? LinkPort((u8)ch) : src.kind == NodeKind::Split && ch > 0 ? ch - 1 : 0; };
+    auto linkPin = [&](const Node& src, int ch) { return NodeOutputPortOf(src, (u8)ch); };
+    auto linkColor = [&](const Node& src, int ch, int alpha) { return TypeColor(NodeOutputType(src, NodeOutputPortOf(src, (u8)ch)), alpha); };
     // Links (colored by the type they carry)
     auto drawLink = [&](ImVec2 a, ImVec2 b, ImU32 col, float thick) {
         float dx = std::max(std::abs(b.x - a.x) * 0.5f, 40.0f * ed.zoom);
@@ -445,11 +518,12 @@ void App::DrawNodeEditor() {
             if (!src) continue;
             int ch = InputChannel(n, i);
             bool sel = ed.selection.count(src->id) || ed.selection.count(n.id);
-            drawLink(outPin(*src, linkPin(*src, ch)), inPin(n, i), sel ? ui::col::Selection : TypeColor(LinkChannel((u8)ch) ? PinType::Channel : PinType::RGBA, 200), sel ? 3.0f : 2.0f);
+            const bool exec = NodeOutputType(*src, linkPin(*src, ch)) == PinType::Exec;
+            drawLink(outPin(*src, linkPin(*src, ch)), inPin(n, i), sel ? ui::col::Selection : linkColor(*src, ch, 200), sel ? 3.0f : exec ? 3.0f : 2.0f);
         }
     }
     if (ed.draggingLink) {
-        if (ed.linkFrom) { if (const Node* s = g.Find(ed.linkFrom)) drawLink(outPin(*s, linkPin(*s, ed.linkChannel)), mouse, TypeColor(LinkChannel(ed.linkChannel) ? PinType::Channel : PinType::RGBA), 2.5f); }
+        if (ed.linkFrom) { if (const Node* s = g.Find(ed.linkFrom)) drawLink(outPin(*s, linkPin(*s, ed.linkChannel)), mouse, linkColor(*s, ed.linkChannel, 255), 2.5f); }
         else if (const Node* t = g.Find(ed.linkTo)) drawLink(mouse, inPin(*t, ed.linkInput), ui::col::Accent, 2.5f);
     }
 
@@ -498,23 +572,21 @@ void App::DrawNodeEditor() {
             bool connected = i < (int)n.inputs.size() && n.inputs[i];
             bool hot = hoverInNode == n.id && hoverIn == i;
             float pr = pinR * (hot ? 1.4f : 1.0f);
-            ImU32 tc = TypeColor(NodeInputType(n, i));
-            if (connected) {
-                dl->AddCircleFilled(p, pr, tc);
-                dl->AddCircle(p, pr, IM_COL32(20, 20, 24, 255), 0, 1.5f);
-            } else {
-                dl->AddCircleFilled(p, pr, IM_COL32(40, 42, 50, 255));
-                dl->AddCircle(p, pr, tc, 0, 2.0f * ed.zoom);
+            const PinDesc pin = NodeInputPin(n, i);
+            DrawPin(dl, p, pr, pin, connected, ed.zoom);
+            if (drawText) {
+                std::string lbl = pin.name;
+                // Unlinked value inputs show their value.
+                if (!connected && PinIsValue(pin.type)) lbl += " = " + ValueToText(NodePinDefault(n, i), 2);
+                dl->AddText(font, fs * 0.9f, ImVec2(p.x + 10 * ed.zoom, p.y - fs * 0.45f), ui::col::TextDim, lbl.c_str());
             }
-            if (drawText) dl->AddText(font, fs * 0.9f, ImVec2(p.x + 10 * ed.zoom, p.y - fs * 0.45f), ui::col::TextDim, NodeInputName(n, i).c_str());
         }
         // Outputs
         for (int o = 0; o < L.outputs; ++o) {
             ImVec2 p = outPin(n, o);
             bool hot = hoverOut == n.id && hoverOutCh == o;
             float pr = pinR * (hot ? 1.4f : 1.0f);
-            dl->AddCircleFilled(p, pr, TypeColor(NodeOutputType(n, o)));
-            dl->AddCircle(p, pr, IM_COL32(20, 20, 24, 255), 0, 1.5f);
+            DrawPin(dl, p, pr, NodeOutputPin(n, o), true, ed.zoom);
             if (drawText) {
                 std::string lbl = NodeOutputName(n, o);
                 ImVec2 ts = font->CalcTextSizeA(fs * 0.85f, FLT_MAX, 0, lbl.c_str());
@@ -530,7 +602,32 @@ void App::DrawNodeEditor() {
             if (Surface* s = d.GetSurface(n.surface)) { out = s->tex.get(); outHash = s->version; }
         if (!out && n.kind == NodeKind::Output && d.tiled) { out = v->lastImage; outHash = v->renderer.ImageVersion(); }
         ImVec2 ta = toScreen(n.pos + float2{8, kHeader + L.rows * kRow + 4});
-        if (!out && d.tiled && ed.zoom > 0.4f)
+        if (!L.image) {
+            // Value / operation / execution nodes: one line of text instead of an image.
+            std::string line;
+            switch (n.kind) {
+                case NodeKind::Value: line = ValueToText(n.value); break;
+                case NodeKind::SubInput: case NodeKind::SubOutput: line = std::string(PinTypeLabel(n.value.type)) + (n.value.array ? " []" : ""); break;
+                case NodeKind::VarGet: case NodeKind::VarSet:
+                    if (const GraphVariable* gv = g.Var(n.op)) line = n.op + " = " + ValueToText(gv->value, 3);
+                    else line = "variable inconnue : " + n.op;
+                    break;
+                case NodeKind::Event: line = "bouton d'exécution"; break;
+                case NodeKind::Math: {
+                    Value r = v->renderer.EvalValue(d, n.id, 0);
+                    line = "= " + ValueToText(r, 3);
+                    break;
+                }
+                default: break;
+            }
+            if (drawText && !line.empty()) {
+                dl->PushClipRect(ta, ImVec2(ta.x + L.thumbW * ed.zoom, ta.y + L.thumbH * ed.zoom), true);
+                dl->AddText(font, fs * 0.85f, ImVec2(ta.x + 2 * ed.zoom, ta.y + 2 * ed.zoom), ui::col::TextDim, line.c_str());
+                dl->PopClipRect();
+            }
+            out = nullptr;
+        }
+        if (!out && L.image && d.tiled && ed.zoom > 0.4f)
             dl->AddText(ImVec2(ta.x + 4, ta.y + 4), ui::col::TextDim, "Aperçu indisponible\n(grand document)");
         if (out) {
             gpu::Texture* t = v->renderer.Thumbnail(*ctx, kThumbKeyBit | n.id, out, outHash, (u32)L.thumbW, (u32)L.thumbH);
@@ -538,6 +635,16 @@ void App::DrawNodeEditor() {
             dl->AddImageRounded((ImTextureID)gpu::Dev().UiTextureId(t), ta, tb, ImVec2(0, 0), ImVec2(1, 1), n.bypass ? IM_COL32(255, 255, 255, 90) : IM_COL32_WHITE, 3 * ed.zoom);
         }
         // Tool / function state badge: BAKED / LIVE / APPLIQUÉ / running.
+        if (n.kind == NodeKind::Action && n.surface && drawText) {
+            const char* st = "RÉSULTAT";
+            const ImU32 sc = IM_COL32(230, 160, 40, 255);
+            const float bfs = fs * 0.72f;
+            const ImVec2 bs = font->CalcTextSizeA(bfs, FLT_MAX, 0, st);
+            const ImVec2 b0(ta.x + 4 * ed.zoom, ta.y + 4 * ed.zoom), b1(b0.x + bs.x + 8 * ed.zoom, b0.y + bs.y + 4 * ed.zoom);
+            dl->AddRectFilled(b0, b1, IM_COL32(16, 16, 20, 220), 3 * ed.zoom);
+            dl->AddRect(b0, b1, sc, 3 * ed.zoom);
+            dl->AddText(font, bfs, ImVec2(b0.x + 4 * ed.zoom, b0.y + 2 * ed.zoom), sc, st);
+        }
         if ((n.kind == NodeKind::Tool || n.kind == NodeKind::Function) && drawText) {
             const bool busy = toolBusy.count(n.id) > 0;
             const char* st = busy                                         ? "EN COURS"
@@ -665,6 +772,19 @@ void App::DrawNodeEditor() {
                     d.S().activeNode = copy.id;
                     ed.selection = {copy.id};
                     v->history.PushState("Dupliquer le nœud", before, d.S());
+                }
+                if (n->kind == NodeKind::Event && !v->funcLink.parent && ImGui::MenuItem(("Exécuter : " + n->name).c_str(), nullptr, false, !execRun))
+                    StartExec(*v, 0, n->id);
+                if (n->kind == NodeKind::Action && n->surface && ImGui::MenuItem("Effacer le résultat")) {
+                    DocState before = d.S();
+                    n->surface = 0;
+                    n->smart = 0;
+                    v->history.PushState("Effacer le résultat", before, d.S());
+                }
+                if (n->kind == NodeKind::Function && n->sub) {
+                    const Id fid = n->id;
+                    for (auto& m : n->sub->nodes)
+                        if (m.kind == NodeKind::Event && ImGui::MenuItem(("Exécuter : " + m.name).c_str(), nullptr, false, !execRun)) StartExec(*v, fid, m.id);
                 }
                 if (n->kind == NodeKind::Function) {
                     ImGui::Separator();
@@ -811,13 +931,14 @@ void App::DrawNodeEditor() {
     if (((focused && !io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F)) || std::exchange(graphFrameRequest, false)) && !g.nodes.empty()) {
         float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
         for (auto& n : g.nodes) {
-            if (!ed.selection.empty() && !ed.selection.count(n.id)) continue;  // F frames the selection when there is one
+            if (!graphFrameOnly.empty() ? !graphFrameOnly.count(n.id) : (!ed.selection.empty() && !ed.selection.count(n.id))) continue;  // F frames the selection when there is one
             mn = {std::min(mn.x, n.pos.x), std::min(mn.y, n.pos.y)};
             mx = {std::max(mx.x, n.pos.x + kNodeW), std::max(mx.y, n.pos.y + NodeLayout(n, aspect).h)};
         }
         float2 ext = mx - mn;
         ed.zoom = std::clamp(std::min(size.x / (ext.x + 80), size.y / (ext.y + 80)), 0.2f, 1.5f);
         ed.pan = float2{size.x / ed.zoom * 0.5f, size.y / ed.zoom * 0.5f} - (mn + ext * 0.5f);
+        graphFrameOnly.clear();
     }
 
     // Header banner

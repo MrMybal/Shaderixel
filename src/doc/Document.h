@@ -190,8 +190,48 @@ struct LayerComp {
 // Function: a graph inside (sub-graph or custom tool). Its SubInput / SubOutput nodes are its pins
 // (any number, in `port` order). Live: evaluated in place (the graph is flattened for rendering);
 // Apply mode: its outputs are stored as pixels when applied, the nodes before it are frozen.
-// Links from output k of a Function carry k in bits 3-7 of the input channel byte.
-enum class NodeKind : u8 { Output, Surface, Effect, Blend, Split, Tool, Function, SubInput, SubOutput };
+// Links from output k of a node with several outputs (except Split) carry k in bits 3-7 of the
+// input channel byte.
+// Value: a constant (float, int, bool, vector, color, string, name, or an array of them).
+// Math: an operation on values (GraphTypes.cpp, MathOps()). VarGet / VarSet: graph variables.
+// Event: entry of an execution flow (a button on the function / in the graph). Action: a step of
+// an execution flow (GraphTypes.cpp, ExecActions()): bake, upscale, ComfyUI, set a variable...
+enum class NodeKind : u8 { Output, Surface, Effect, Blend, Split, Tool, Function, SubInput, SubOutput, Value, Math, VarGet, VarSet, Event, Action };
+
+// Pin types: images (RGBA, single channel), values, and the execution flow.
+enum class PinType : u8 { RGBA, Channel, Float, Int, Bool, Vec2, Color, String, Name, Exec };
+inline bool PinIsImage(PinType t) { return t == PinType::RGBA || t == PinType::Channel; }
+inline bool PinIsText(PinType t) { return t == PinType::String || t == PinType::Name; }
+inline bool PinIsValue(PinType t) { return !PinIsImage(t) && t != PinType::Exec; }
+const char* PinTypeLabel(PinType t);
+
+// A value carried by value pins (numbers in f: int / bool as floats, vec2 xy, color rgba).
+struct Value {
+    PinType type = PinType::RGBA;  // RGBA = no value (image pin)
+    bool array = false;
+    float4 f;
+    std::string s;
+    std::vector<float4> fa;        // arrays of numbers / vectors / colors
+    std::vector<std::string> sa;   // arrays of strings / names
+    size_t Size() const { return PinIsText(type) ? sa.size() : fa.size(); }
+};
+struct PinDesc {
+    std::string name;
+    PinType type = PinType::RGBA;
+    bool array = false;
+};
+Value MakeValue(PinType t, bool array = false);
+Value ConvertValue(const Value& v, PinType to, bool array);
+bool PinsCompatible(const PinDesc& out, const PinDesc& in);
+std::string ValueToText(const Value& v, size_t maxItems = 4);
+
+// Variable of a graph (functions: settings of each function node when exposed).
+struct GraphVariable {
+    std::string name;
+    Value value;
+    bool exposed = true;
+    std::string desc;
+};
 
 struct Graph;
 
@@ -222,8 +262,17 @@ struct Node {
     std::string funcKind;              // "subgraph" or "tool" (library category)
     bool applyMode = false;            // outputs used from outSurf once applied
     std::vector<Id> outSurf;           // applied outputs (pixels), one per output
-    // SubInput / SubOutput: pin order
+    // SubInput / SubOutput: pin order (their pin type is value.type / value.array)
     int port = 0;
+    // Value / SubInput default / VarGet / VarSet: value and type
+    Value value;
+    std::string op;                    // Math: operation, Action: action, VarGet / VarSet: variable name
+    std::vector<Value> pinValues;      // value of unlinked value inputs (Math, Action, Function)
+    std::vector<int> paramPins;        // Effect: parameters shown as input pins (after the image inputs)
+    // Function: per-node state of its graph
+    std::map<Id, Id> execResults;      // inner Action node -> its stored result (surface)
+    std::map<Id, Id> execSmart;        // inner Action node -> its result at full size (smart object: upscale...)
+    std::map<std::string, Value> varValues;  // variables set on this node (else the graph's defaults)
     std::string Prop(const std::string& k, const std::string& def = "") const {
         auto it = props.find(k);
         return it == props.end() ? def : it->second;
@@ -241,14 +290,17 @@ inline bool FunctionApplied(const Node& n) {
     return true;
 }
 // Outputs stored as pixels: the nodes before are not evaluated.
-inline bool NodeBaked(const Node& n) { return ToolBaked(n) || FunctionApplied(n); }
+inline bool NodeBaked(const Node& n) { return ToolBaked(n) || FunctionApplied(n) || (n.kind == NodeKind::Action && n.surface); }
 inline u8 LinkChannel(u8 c) { return c & 7; }
 inline int LinkPort(u8 c) { return c >> 3; }
 
+// Pins of a node (inputs, outputs), from its kind and settings.
+void NodeSignature(const Node& n, std::vector<PinDesc>* ins, std::vector<PinDesc>* outs);
+PinDesc NodeInputPin(const Node& n, int i);
+PinDesc NodeOutputPin(const Node& n, int k);
+int NodeOutputPortOf(const Node& src, u8 channel);  // output pin a link channel byte comes from
 int NodeInputCount(const Node& n);
 inline u8 InputChannel(const Node& n, size_t i) { return i < n.inputChannel.size() ? n.inputChannel[i] : 0; }
-// Value type of pins: an RGBA image or a single channel (gray image).
-enum class PinType : u8 { RGBA, Channel };
 PinType NodeInputType(const Node& n, int i);
 int NodeOutputCount(const Node& n);
 PinType NodeOutputType(const Node& n, int k);
@@ -260,6 +312,15 @@ struct Graph {
     std::vector<Node> nodes;
     Id output = 0;
     std::string description;  // functions: shown in the library
+    std::vector<GraphVariable> variables;
+    GraphVariable* Var(const std::string& name) {
+        for (auto& v : variables) if (v.name == name) return &v;
+        return nullptr;
+    }
+    const GraphVariable* Var(const std::string& name) const {
+        for (auto& v : variables) if (v.name == name) return &v;
+        return nullptr;
+    }
     Node* Find(Id id);
     const Node* Find(Id id) const;
     bool WouldCycle(Id from, Id to) const;  // linking from -> to's input
@@ -272,6 +333,8 @@ bool GraphHasFunctions(const Graph& g);
 void FlattenGraph(const Graph& in, Graph& out, Id liveOverride = 0);
 // Id of the flattened node that carries output `port` of function `f`.
 Id FunctionOutputFlatId(const Node& f, int port);
+// Id of an inner node of `function` in the flattened graph.
+Id FlatChildId(Id function, Id inner);
 // Surfaces used by a graph (pixel nodes, baked tools, applied functions, inner graphs).
 void CollectGraphSurfaces(const Graph& g, std::set<Id>& out);
 

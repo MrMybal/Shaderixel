@@ -1,5 +1,6 @@
 #include "render/Renderer.h"
 #include "render/Dispatch.h"
+#include "doc/GraphTypes.h"
 
 #include <cstring>
 
@@ -141,6 +142,7 @@ gpu::ProgramPtr Renderer::ProgramFor(const EffectDefPtr& def) {
 }
 
 void Renderer::BeginGraph(const Document& doc, Id liveOverride) {
+    frameValues.clear();
     useFlat = GraphHasFunctions(doc.S().graph);
     if (useFlat) FlattenGraph(doc.S().graph, flatGraph, liveOverride);
     else flatGraph.nodes.clear();
@@ -256,6 +258,25 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
         case NodeKind::Function:  // only without contents (flattened otherwise)
             result = EvalInput(doc, ctx, *n, 0, depth + 1);
             break;
+        case NodeKind::Value:
+        case NodeKind::Math:
+        case NodeKind::VarGet:
+        case NodeKind::VarSet:
+        case NodeKind::Event:
+            break;  // values / execution only
+        case NodeKind::Action: {
+            // Its stored result, else the image it works on (live).
+            Surface* s = n->surface ? doc.GetSurface(n->surface) : nullptr;
+            if (s && s->tex) {
+                Hasher h;
+                h.Pod(n->surface);
+                h.Pod(s->version);
+                result = {s->tex.get(), h.h};
+            } else if (auto* ad = FindExecAction(n->op); ad && ad->passthrough >= 0) {
+                result = EvalInput(doc, ctx, *n, ad->passthrough, depth + 1);
+            }
+            break;
+        }
         case NodeKind::SubInput: {
             // Function editor: the input captured when it was opened.
             Surface* s = doc.GetSurface(n->surface);
@@ -338,7 +359,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
             EffectDefPtr def = n->fx.Def();
             int nin = def ? (int)def->inputs.size() : 0;
             EvalResult in[4];
-            for (int i = 0; i < 4 && i < (int)n->inputs.size(); ++i) in[i] = EvalInput(doc, ctx, *n, i, depth + 1);
+            for (int i = 0; i < 4 && i < (int)n->inputs.size() && (!def || i < nin); ++i) in[i] = EvalInput(doc, ctx, *n, i, depth + 1);
             if (n->bypass || !def) { result = in[0]; break; }
             auto prog = ProgramFor(def);
             auto st = prog->state.load();
@@ -351,7 +372,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
             Hasher h;
             h.Pod(u8(2));
             h.Pod(prog->hash);
-            auto packed = PackParams(*def, n->fx.params, &n->fx.curves, &n->fx.luts);
+            auto packed = PackParams(*def, EffectParams(doc, *n), &n->fx.curves, &n->fx.luts);
             h.Bytes(packed.data(), packed.size() * sizeof(float4));
             for (int i = 0; i < nin && i < 4; ++i) h.Pod(in[i].hash);
             h.Pod(W);

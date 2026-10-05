@@ -12,6 +12,7 @@
 // tiles. Work is spread over frames (visible tiles first) to keep the UI fluid.
 
 #include "render/Renderer.h"
+#include "doc/GraphTypes.h"
 #include "render/Dispatch.h"
 
 #include <algorithm>
@@ -60,6 +61,13 @@ u64 Renderer::StructHash(Document& doc, Id id, std::unordered_map<Id, u64>& memo
     switch (n->kind) {
         case NodeKind::Surface: h.Pod(n->surface); break;
         case NodeKind::SubInput: h.Pod(n->surface); break;
+        case NodeKind::Action:
+            if (n->surface) {
+                h.Pod(n->surface);
+                memo[id] = h.h;
+                return h.h;
+            }
+            break;
         case NodeKind::Tool:
             if (ToolBaked(*n)) {
                 h.Pod(n->surface);
@@ -74,7 +82,7 @@ u64 Renderer::StructHash(Document& doc, Id id, std::unordered_map<Id, u64>& memo
                 auto prog = ProgramFor(def);
                 if (prog->state.load() == gpu::Program::State::Pending) compiling = true;
                 h.Pod(prog->hash);
-                auto packed = PackParams(*def, n->fx.params, &n->fx.curves, &n->fx.luts);
+                auto packed = PackParams(*def, EffectParams(doc, *n), &n->fx.curves, &n->fx.luts);
                 h.Bytes(packed.data(), packed.size() * sizeof(float4));
                 if (!n->bypass) {
                     int halo = EffectHalo(*def, n->fx.params);
@@ -132,6 +140,10 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
         case NodeKind::SubInput:
             if (Surface* s = doc.GetSurface(n->surface)) res = {s->tex.get(), {0, 0}};
             break;
+        case NodeKind::Action:
+            if (Surface* s = n->surface ? doc.GetSurface(n->surface) : nullptr) res = {s->tex.get(), {0, 0}};
+            else if (auto* ad = FindExecAction(n->op); ad && ad->passthrough >= 0) res = EvalTileInput(doc, ctx, *n, ad->passthrough, need, depth + 1);
+            break;
         case NodeKind::Surface:
             if (Surface* s = doc.GetSurface(n->surface)) res = {s->tex.get(), {0, 0}};
             break;
@@ -188,7 +200,7 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
                     in[i] = EvalTileInput(doc, ctx, *n, i, area, depth + 1);
                 }
             }
-            auto packed = PackParams(*def, n->fx.params, &n->fx.curves, &n->fx.luts);
+            auto packed = PackParams(*def, EffectParams(doc, *n), &n->fx.curves, &n->fx.luts);
             u32 mask = 0;
             for (int i = 0; i < 4; ++i) if (in[i].tex) mask |= 1u << i;
             gpu::Texture* a = PoolGet((u32)area.Width(), (u32)area.Height(), fmt);

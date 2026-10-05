@@ -62,7 +62,9 @@ std::shared_ptr<Graph> RemapGraph(const Graph& g, const std::map<Id, Id>& surf, 
         if (n.kind == NodeKind::SubInput) n.surface = 0;
         else if (n.surface) n.surface = map(surf, n.surface);
         for (auto& s : n.outSurf) s = map(surf, s);
+        for (auto& [inner, s] : n.execResults) s = map(surf, s);
         if (n.smart) n.smart = map(smart, n.smart);
+        for (auto& [inner, s] : n.execSmart) s = map(smart, s);
         if (n.sub) n.sub = RemapGraph(*n.sub, surf, smart);
     }
     return out;
@@ -71,6 +73,7 @@ std::shared_ptr<Graph> RemapGraph(const Graph& g, const std::map<Id, Id>& surf, 
 void CollectGraphSmart(const Graph& g, std::set<Id>& out) {
     for (auto& n : g.nodes) {
         if (n.smart) out.insert(n.smart);
+        for (auto& [inner, s] : n.execSmart) out.insert(s);
         if (n.sub) CollectGraphSmart(*n.sub, out);
     }
 }
@@ -359,7 +362,7 @@ void App::UpdateFunctionEdits() {
         Document& cd = *v.doc;
         u64 key = ((u64)v.history.Cursor() << 32) ^ v.history.Count();
         for (auto& [sid, s] : cd.S().surfaces) key = (key ^ (s.version + sid)) * 1099511628211ull;
-        if (key == v.funcLink.syncKey) continue;
+        if (key == v.funcLink.syncKey && !cd.dirty) continue;
         v.funcLink.syncKey = key;
         Graph g = cd.S().graph;
         for (auto& n : g.nodes) if (n.kind == NodeKind::SubInput) n.surface = 0;
@@ -477,6 +480,7 @@ void App::FunctionNodeUI(DocView& v, Node& n) {
         if (ImGui::Button("Convertir en image")) RequestToolAction(v, id, ToolAction::ConvertToImage);
         ImGui::EndDisabled();
     }
+    FunctionSettingsUI(v, n);
     ImGui::SeparatorText("Fonction");
     if (ImGui::Button("Modifier (double-clic)")) EditFunction(v, id);
     ImGui::SameLine();

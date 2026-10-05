@@ -1,5 +1,6 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
 #include "ui/App.h"
+#include "doc/GraphTypes.h"
 #include <unordered_set>
 #include "io/UAsset.h"
 #include "io/ColorMgmt.h"
@@ -302,6 +303,132 @@ void App::DemoTick() {
             }
         }
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
+        return;
+    }
+    if (demoMode == 74) {
+        // Typed pins: (A) a Float value x Multiply linked to the Vibrance parameter; (B) an Event running a Bake
+        // in the document graph; (C) a tool function with a variable, a loop and messages, run from its node.
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        Graph& g = d.S().graph;
+        static Id vib = 0, mulId = 0, evt = 0, bake = 0, fid = 0, fevt = 0;
+        if (frameCounter == 8 && d.Mode() == DocMode::Layers) {
+            Edit e(d, a->history, "Passer en mode nodal");
+            d.ConvertToNodes();
+            e.Commit();
+        }
+        if (frameCounter == 10) {
+            for (auto& n : g.nodes) if (n.name == "Vibrance") vib = n.id;
+            Node& val = AddTypedNode(d, NodeKind::Value, "", PinType::Float, false, {-600, 900});
+            val.value.f.x = 0.8f;
+            const Id valId = val.id;
+            Node& mul = AddTypedNode(d, NodeKind::Math, "mul", PinType::Float, false, {-300, 900});
+            mul.pinValues = {Value{}, ConvertValue(MakeValue(PinType::Float), PinType::Float, false)};
+            mul.pinValues[1].f.x = 0.5f;
+            mulId = mul.id;
+            d.Link(valId, mulId, 0);
+            if (Node* vn = g.Find(vib)) {
+                vn->paramPins = {0};
+                vn->inputs.resize(NodeInputCount(*vn), 0);
+                Log("[demo] typed link value->param: %d", (int)d.Link(mulId, vib, NodeInputCount(*vn) - 1));
+            }
+            // (B) Event -> Bake of the Vibrance output, shown as the document output.
+            Node& ev = AddTypedNode(d, NodeKind::Event, "Baker l'image", PinType::Exec, false, {-600, 1200});
+            evt = ev.id;
+            Node& bk = AddTypedNode(d, NodeKind::Action, "bake", PinType::Exec, false, {-300, 1200});
+            bake = bk.id;
+            Log("[demo] typed link exec: %d", (int)d.Link(evt, bake, 0));
+            Node* out = g.Find(g.output);
+            const Id last = out && !out->inputs.empty() ? out->inputs[0] : 0;
+            Log("[demo] typed link image->bake: %d", (int)d.Link(last, bake, 1));
+            Log("[demo] typed link bake->output: %d", (int)d.Link(bake, g.output, 0, NodeOutputChannel(*g.Find(bake), 1)));
+            Log("[demo] typed refused value->image: %d", (int)d.Link(valId, g.output, 0));
+            // (C) tool function: variable Compteur, event "Compter": for 1..3 -> set Compteur = index -> message.
+            Node& f = d.AddFunctionNode("tool", {-300, 1500});
+            fid = f.id;
+            auto sub = std::make_shared<Graph>(*f.sub);
+            GraphVariable var;
+            var.name = "Compteur";
+            var.value = MakeValue(PinType::Int);
+            sub->variables.push_back(var);
+            auto add = [&](NodeKind k, const std::string& op, PinType t) {
+                Node n;
+                n.id = d.NewId();
+                n.kind = k;
+                n.op = op;
+                n.value = MakeValue(t);
+                if (auto* ad = FindExecAction(op); ad && k == NodeKind::Action) n.name = ad->label;
+                n.name = n.name.empty() ? op : n.name;
+                n.inputs.assign(NodeInputCount(n), 0);
+                sub->nodes.push_back(n);
+                return n.id;
+            };
+            fevt = add(NodeKind::Event, "", PinType::Exec);
+            sub->Find(fevt)->name = "Compter";
+            const Id loop = add(NodeKind::Action, "for_range", PinType::Exec);
+            sub->Find(loop)->pinValues = {Value{}, MakeValue(PinType::Int), MakeValue(PinType::Int)};
+            sub->Find(loop)->pinValues[1].f.x = 1;
+            sub->Find(loop)->pinValues[2].f.x = 3;
+            const Id set = add(NodeKind::VarSet, "Compteur", PinType::Int);
+            const Id str = add(NodeKind::Math, "to_string", PinType::Float);
+            const Id cat = add(NodeKind::Math, "concat", PinType::String);
+            { Value t = MakeValue(PinType::String); t.s = "Tour "; sub->Find(cat)->pinValues = {t, Value{}}; }
+            const Id msg = add(NodeKind::Action, "print", PinType::Exec);
+            auto link = [&](Id from, Id to, int in, int port) {
+                Node* t = sub->Find(to);
+                t->inputs.resize(std::max<size_t>(t->inputs.size(), in + 1), 0);
+                t->inputs[in] = from;
+                t->inputChannel.resize(t->inputs.size(), 0);
+                t->inputChannel[in] = (u8)(port << 3);
+            };
+            link(fevt, loop, 0, 0);
+            link(loop, set, 0, 0);    // body
+            link(loop, set, 1, 1);    // index -> value
+            link(set, msg, 0, 0);
+            link(loop, str, 0, 1);
+            link(str, cat, 1, 0);
+            link(cat, msg, 1, 0);
+            Node* fn = g.Find(fid);
+            fn->sub = sub;
+            graphFrameRequest = true;
+        }
+        if (frameCounter == 14) {
+            Value m = a->renderer.EvalValue(d, mulId, 0);
+            Log("[demo] typed multiply = %s", ValueToText(m).c_str());
+            if (const Node* vn = g.Find(vib)) Log("[demo] typed vibrance param0 = %.3f (node %.3f)", a->renderer.EffectParams(d, *vn)[0].x, vn->fx.params.empty() ? 0.f : vn->fx.params[0].x);
+            StartExec(*a, 0, evt);
+        }
+        if (frameCounter == 24) {
+            const Node* b = g.Find(bake);
+            std::unordered_set<Id> frozen;
+            GraphFrozenNodes(g, frozen);
+            Log("[demo] typed bake result surface %u frozen %zu", b ? b->surface : 0, frozen.size());
+            StartExec(*a, fid, fevt);
+        }
+        if (frameCounter == 34) {
+            const Node* f = g.Find(fid);
+            auto it = f ? f->varValues.find("Compteur") : decltype(f->varValues)::const_iterator{};
+            Log("[demo] typed function Compteur = %s", f && it != f->varValues.end() ? ValueToText(it->second).c_str() : "(none)");
+            d.S().activeNode = fid;
+            graphFrameOnly = {mulId, evt, bake, fid};
+            for (auto& n : g.nodes) if (n.kind == NodeKind::Value) graphFrameOnly.insert(n.id);
+            graphFrameRequest = true;
+        }
+        if (frameCounter == 40) SaveDocument(*a, "typed_test.sxl");
+        if (frameCounter == 140 && LoadSxl("typed_test.sxl")) {
+            Document& r = *Active()->doc;
+            int counts[16] = {};
+            for (auto& n : r.S().graph.nodes) counts[(int)n.kind]++;
+            for (auto& n : r.S().graph.nodes)
+                if (n.kind == NodeKind::Function && n.sub)
+                    Log("[demo] typed reloaded function: inner %zu vars %zu Compteur=%s", n.sub->nodes.size(), n.sub->variables.size(),
+                        n.varValues.count("Compteur") ? ValueToText(n.varValues.at("Compteur")).c_str() : "-");
+            Log("[demo] typed reloaded: value %d math %d event %d action %d", counts[(int)NodeKind::Value], counts[(int)NodeKind::Math], counts[(int)NodeKind::Event],
+                counts[(int)NodeKind::Action]);
+            for (auto& n : r.S().graph.nodes)
+                if (n.kind == NodeKind::Math) Log("[demo] typed reloaded multiply = %s", ValueToText(Active()->renderer.EvalValue(r, n.id, 0)).c_str());
+        }
         return;
     }
     if (demoMode == 73) {

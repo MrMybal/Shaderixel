@@ -797,6 +797,7 @@ void App::DrawProperties() {
         if (!n) {
             ImGui::TextDisabled("Aucun nœud sélectionné.");
             ImGui::TextWrapped("Clic droit dans le graphe pour ajouter des nœuds.");
+            GraphVariablesUI(*v, d.S().graph);
         } else {
             ImGui::InputText("Nom", &n->name);
             TrackUndo("Renommer");
@@ -807,10 +808,12 @@ void App::DrawProperties() {
                 case NodeKind::Function: FunctionNodeUI(*v, *n); break;
                 case NodeKind::SubInput:
                 case NodeKind::SubOutput:
-                    ImGui::TextDisabled(n->kind == NodeKind::SubInput ? "Entrée de la fonction (broche du nœud)" : "Sortie de la fonction (broche du nœud)");
-                    ImGui::InputInt("Ordre", &n->port);
-                    TrackUndo("Ordre de la broche");
-                    break;
+                case NodeKind::Value:
+                case NodeKind::Math:
+                case NodeKind::VarGet:
+                case NodeKind::VarSet:
+                case NodeKind::Event:
+                case NodeKind::Action: TypedNodeUI(*v, *n); break;
                 case NodeKind::Blend: {
                     ImGui::Checkbox("Désactivé (bypass)", &n->bypass);
                     TrackUndo("Bypass");
@@ -850,6 +853,7 @@ void App::DrawProperties() {
                     ImGui::SeparatorText("Paramètres");
                     int oldInputs = NodeInputCount(*n);
                     EffectParamsUI(n->fx, "p");
+                    EffectPinsUI(*v, *n);
                     if (ImGui::Button("Éditer (code / graphe)")) OpenGraphEditor(0);
                     if (NodeInputCount(*n) != oldInputs) n->inputs.resize(NodeInputCount(*n), 0);
                     break;

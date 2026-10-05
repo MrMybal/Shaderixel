@@ -1,4 +1,5 @@
 #include "doc/DocFile.h"
+#include "doc/GraphTypes.h"
 #include "ai/Net.h"  // Base64
 
 #include <stb_image.h>
@@ -91,7 +92,7 @@ EffectInstance EffectFromJson(const Json& j) {
 }
 
 const char* kLayerKinds[] = {"pixel", "fill", "adjustment", "group", "text", "shape", "smart"};
-const char* kNodeKinds[] = {"output", "surface", "effect", "blend", "split", "tool", "function", "subinput", "suboutput"};
+const char* kNodeKinds[] = {"output", "surface", "effect", "blend", "split", "tool", "function", "subinput", "suboutput", "value", "math", "varget", "varset", "event", "action"};
 
 template <size_t N>
 int IndexOf(const char* (&names)[N], const std::string& s, int def) {
@@ -267,12 +268,51 @@ Json GraphToJson(const Graph& g) {
             o["outSurf"] = os;
         }
         if (n.kind == NodeKind::SubInput || n.kind == NodeKind::SubOutput) o["port"] = n.port;
+        if (PinIsValue(n.value.type)) o["value"] = ValueToJson(n.value);
+        if (!n.op.empty()) o["op"] = n.op;
+        if (!n.pinValues.empty()) {
+            Json pv = Json::Array();
+            for (auto& v : n.pinValues) pv.Push(ValueToJson(v));
+            o["pinValues"] = pv;
+        }
+        if (!n.paramPins.empty()) {
+            Json pp = Json::Array();
+            for (int k : n.paramPins) pp.Push(k);
+            o["paramPins"] = pp;
+        }
+        if (!n.execResults.empty()) {
+            Json er = Json::Array();
+            for (auto& [inner, s] : n.execResults) { Json e = Json::Array(); e.Push(inner); e.Push(s); er.Push(e); }
+            o["execResults"] = er;
+        }
+        if (!n.execSmart.empty()) {
+            Json es = Json::Array();
+            for (auto& [inner, s] : n.execSmart) { Json e = Json::Array(); e.Push(inner); e.Push(s); es.Push(e); }
+            o["execSmart"] = es;
+        }
+        if (!n.varValues.empty()) {
+            Json vv = Json::Object();
+            for (auto& [k, v] : n.varValues) vv[k] = ValueToJson(v);
+            o["varValues"] = vv;
+        }
         nodes.Push(o);
     }
     Json graph = Json::Object();
     graph["nodes"] = nodes;
     graph["output"] = g.output;
     if (!g.description.empty()) graph["description"] = g.description;
+    if (!g.variables.empty()) {
+        Json vars = Json::Array();
+        for (auto& v : g.variables) {
+            Json o = Json::Object();
+            o["name"] = v.name;
+            o["value"] = ValueToJson(v.value);
+            o["exposed"] = v.exposed;
+            if (!v.desc.empty()) o["desc"] = v.desc;
+            vars.Push(o);
+        }
+        graph["variables"] = vars;
+    }
     return graph;
 }
 
@@ -542,10 +582,25 @@ void GraphFromJson(const Json& jg, Graph& g) {
             for (auto& x : o["outSurf"].Elements()) n.outSurf.push_back(x.U());
         }
         n.port = o["port"].I(0);
+        if (o.Has("value")) n.value = ValueFromJson(o["value"]);
+        n.op = o["op"].S("");
+        for (auto& v : o["pinValues"].Elements()) n.pinValues.push_back(ValueFromJson(v));
+        for (auto& k : o["paramPins"].Elements()) n.paramPins.push_back(k.I(0));
+        for (auto& e : o["execResults"].Elements()) if (e.Size() >= 2) n.execResults[e.At(0).U()] = e.At(1).U();
+        for (auto& [k, v] : o["varValues"].Items()) n.varValues[k] = ValueFromJson(v);
+        for (auto& e : o["execSmart"].Elements()) if (e.Size() >= 2) n.execSmart[e.At(0).U()] = e.At(1).U();
         g.nodes.push_back(n);
     }
     g.output = jg["output"].U(0);
     g.description = jg["description"].S("");
+    for (auto& o : jg["variables"].Elements()) {
+        GraphVariable v;
+        v.name = o["name"].S("Variable");
+        v.value = ValueFromJson(o["value"]);
+        v.exposed = o["exposed"].B(true);
+        v.desc = o["desc"].S("");
+        g.variables.push_back(v);
+    }
 }
 
 std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<SurfaceBlob>& blobs, std::string* error) {

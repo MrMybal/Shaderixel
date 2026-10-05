@@ -75,7 +75,8 @@ void GraphFrozenNodes(const Graph& g, std::unordered_set<Id>& frozen) {
         const Node* n = g.Find(id);
         if (!n || !live.insert(id).second) continue;
         if (NodeBaked(*n)) {
-            for (Id in : n->inputs) if (in) behind.insert(in);
+            for (size_t i = 0; i < n->inputs.size(); ++i)
+                if (n->inputs[i] && NodeInputType(*n, (int)i) != PinType::Exec) behind.insert(n->inputs[i]);  // the flow still runs
             continue;
         }
         for (Id in : n->inputs) if (in) stack.push_back(in);
@@ -90,7 +91,8 @@ void GraphFrozenNodes(const Graph& g, std::unordered_set<Id>& frozen) {
         if (!n || !seen.insert(id).second) continue;
         if (!live.count(id)) frozen.insert(id);
         if (NodeBaked(*n)) continue;
-        for (Id in : n->inputs) if (in) stack.push_back(in);
+        for (size_t i = 0; i < n->inputs.size(); ++i)
+            if (n->inputs[i] && NodeInputType(*n, (int)i) != PinType::Exec) stack.push_back(n->inputs[i]);
     }
 }
 

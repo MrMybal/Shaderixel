@@ -1,4 +1,5 @@
 #include "doc/Document.h"
+#include "doc/GraphTypes.h"
 #include "doc/EffectGraph.h"
 
 #include <functional>
@@ -80,54 +81,6 @@ void EffectInstance::SyncParams(const EffectDefPtr& oldDef) {
     luts = nl;
 }
 
-int NodeInputCount(const Node& n) {
-    switch (n.kind) {
-        case NodeKind::Output: return 1;
-        case NodeKind::Surface: return 0;
-        case NodeKind::Blend: return 3;
-        case NodeKind::Split: return 1;
-        case NodeKind::Tool: return 1;
-        case NodeKind::Function: return n.sub ? (int)FunctionPorts(*n.sub, NodeKind::SubInput).size() : 0;
-        case NodeKind::SubInput: return 0;
-        case NodeKind::SubOutput: return 1;
-        case NodeKind::Effect: {
-            auto d = n.fx.Def();
-            return d ? (int)d->inputs.size() : (int)n.inputs.size();
-        }
-    }
-    return 0;
-}
-
-PinType NodeInputType(const Node& n, int i) {
-    if (n.kind == NodeKind::Blend) return i == 2 ? PinType::Channel : PinType::RGBA;
-    if (n.kind == NodeKind::Effect) {
-        // Inputs named after a single channel or a mask read one value.
-        std::string name = NodeInputName(n, i);
-        for (auto& c : name) c = (char)tolower((unsigned char)c);
-        static const char* scalar[] = {"r", "g", "v", "b", "a", "masque", "mask", "alpha", "hauteur", "height"};
-        for (const char* s : scalar) if (name == s) return PinType::Channel;
-    }
-    return PinType::RGBA;
-}
-
-int NodeOutputCount(const Node& n) {
-    if (n.kind == NodeKind::Function) return n.sub ? (int)FunctionPorts(*n.sub, NodeKind::SubOutput).size() : 0;
-    return n.kind == NodeKind::Output || n.kind == NodeKind::SubOutput ? 0 : n.kind == NodeKind::Split ? 4 : 1;
-}
-PinType NodeOutputType(const Node& n, int) { return n.kind == NodeKind::Split ? PinType::Channel : PinType::RGBA; }
-u8 NodeOutputChannel(const Node& n, int k) {
-    if (n.kind == NodeKind::Function) return (u8)(std::clamp(k, 0, 31) << 3);
-    return n.kind == NodeKind::Split ? (u8)(k + 1) : 0;
-}
-std::string NodeOutputName(const Node& n, int k) {
-    static const char* ch[] = {"R", "V", "B", "A"};
-    if (n.kind == NodeKind::Function && n.sub) {
-        auto ports = FunctionPorts(*n.sub, NodeKind::SubOutput);
-        if (k < (int)ports.size()) return ports[k]->name;
-    }
-    return n.kind == NodeKind::Split ? ch[std::clamp(k, 0, 3)] : "RGBA";
-}
-
 std::vector<const Node*> FunctionPorts(const Graph& g, NodeKind k) {
     std::vector<const Node*> v;
     for (auto& n : g.nodes) if (n.kind == k) v.push_back(&n);
@@ -198,10 +151,30 @@ void Flatten(const Graph& in, Graph& out, Id liveOverride, int depth, std::map<s
             if (m.kind == NodeKind::SubInput) {
                 size_t p = 0;
                 while (p < ins.size() && ins[p]->id != m.id) ++p;
-                c.kind = NodeKind::Split;
+                const bool linked = p < n.inputs.size() && n.inputs[p];
                 c.surface = 0;
-                c.inputs = {p < n.inputs.size() ? n.inputs[p] : 0};
-                c.inputChannel = {p < n.inputs.size() ? InputChannel(n, p) : (u8)0};
+                if (!linked && PinIsValue(m.value.type)) {
+                    // Unlinked value input: the value set on the function node (else the input's default).
+                    c.kind = NodeKind::Value;
+                    c.value = NodePinDefault(n, (int)p);
+                    c.inputs.clear();
+                } else {
+                    c.kind = NodeKind::Split;
+                    c.inputs = {linked ? n.inputs[p] : 0};
+                    c.inputChannel = {linked ? InputChannel(n, p) : (u8)0};
+                }
+            } else if (m.kind == NodeKind::VarGet) {
+                // Variable: the value set on this function node, else the graph's default.
+                c.kind = NodeKind::Value;
+                Value val = m.value;
+                if (auto it = n.varValues.find(m.op); it != n.varValues.end()) val = it->second;
+                else if (const GraphVariable* gv = n.sub->Var(m.op)) val = gv->value;
+                c.value = ConvertValue(val, m.value.type, m.value.array);
+            } else if (m.kind == NodeKind::Action) {
+                auto it = n.execResults.find(m.id);
+                c.surface = it != n.execResults.end() ? it->second : 0;
+                auto is = n.execSmart.find(m.id);
+                c.smart = is != n.execSmart.end() ? is->second : 0;
             } else if (m.kind == NodeKind::SubOutput || m.kind == NodeKind::Output) {
                 c.kind = NodeKind::Split;
             }
@@ -225,15 +198,14 @@ void FlattenGraph(const Graph& in, Graph& out, Id liveOverride) {
         for (size_t i = 0; i < m.inputs.size(); ++i) {
             const u8 c = InputChannel(m, i);
             auto it = portOut.find({m.inputs[i], LinkPort(c)});
-            if (it == portOut.end()) {
-                if (LinkPort(c) && i < m.inputChannel.size()) m.inputChannel[i] = LinkChannel(c);
-                continue;
-            }
+            if (it == portOut.end()) continue;  // other multi-output nodes keep their port (values)
             m.inputs[i] = it->second;
             if (i < m.inputChannel.size()) m.inputChannel[i] = LinkChannel(c);
         }
     if (auto it = portOut.find({out.output, 0}); it != portOut.end()) out.output = it->second;
 }
+
+Id FlatChildId(Id function, Id inner) { return MixId(function, inner); }
 
 Id FunctionOutputFlatId(const Node& f, int port) {
     if (!f.sub) return 0;
@@ -245,30 +217,8 @@ void CollectGraphSurfaces(const Graph& g, std::set<Id>& out) {
     for (auto& n : g.nodes) {
         if (n.surface && n.kind != NodeKind::SubInput) out.insert(n.surface);
         for (Id s : n.outSurf) if (s) out.insert(s);
+        for (auto& [inner, s] : n.execResults) if (s) out.insert(s);
         if (n.sub) CollectGraphSurfaces(*n.sub, out);
-    }
-}
-
-std::string NodeInputName(const Node& n, int i) {
-    switch (n.kind) {
-        case NodeKind::Output: return "Image";
-        case NodeKind::Blend: return i == 0 ? "Fond" : i == 1 ? "Calque" : "Masque";
-        case NodeKind::Split: return "RGBA";
-        case NodeKind::Tool: return "Entrée";
-        case NodeKind::SubOutput: return "Image";
-        case NodeKind::Function: {
-            if (n.sub) {
-                auto ports = FunctionPorts(*n.sub, NodeKind::SubInput);
-                if (i < (int)ports.size()) return ports[i]->name;
-            }
-            return "Entrée";
-        }
-        case NodeKind::Effect: {
-            auto d = n.fx.Def();
-            if (d && i < (int)d->inputs.size()) return d->inputs[i];
-            return "Entrée";
-        }
-        default: return "";
     }
 }
 
@@ -1023,7 +973,10 @@ void Document::RemoveNode(Id id) {
 
 bool Document::Link(Id from, Id to, int input, u8 channel) {
     Node* dst = state.graph.Find(to);
-    if (!dst || !state.graph.Find(from) || from == to) return false;
+    const Node* srcNode = state.graph.Find(from);
+    if (!dst || !srcNode || from == to) return false;
+    // Pin types must match (images with images, values with values, execution with execution).
+    if (!PinsCompatible(NodeOutputPin(*srcNode, NodeOutputPortOf(*srcNode, channel)), NodeInputPin(*dst, input))) return false;
     if (state.graph.WouldCycle(from, to)) return false;
     if ((int)dst->inputs.size() <= input) dst->inputs.resize(input + 1, 0);
     dst->inputs[input] = from;
