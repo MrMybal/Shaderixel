@@ -146,6 +146,11 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Variables (Propriétés sans sélection, ou d'un nœud Variable) : les variables exposées d'une fonction se règlent sur chaque nœud de la fonction.</li>
     <li>Exécution : un nœud Événement est un bouton ; il lance les actions reliées (Séquence, Branche, Pour / Pour chaque, Définir une variable, Bake, Upscale, ComfyUI, Exporter en PNG, Message). Les images produites sont gardées : les nœuds avant ne sont plus calculés.</li>
     <li>Créer ses propres effets, calques Draw, fusions, sous-graphes et outils : voir PRESETS.md (à côté de Shaderixel.exe).</li></ol></div>
+  <div class="card"><h3>Trim sheets</h3><ol>
+    <li>Panneau « Trim sheet » (onglet Outils) : un modèle de disposition (architecture, détails, bandes égales, bandes + tuiles), des hauteurs sur mesure (ex. 256, 128, 64, 0) ou une bande entre chaque repère horizontal ; marge entre les bandes.</li>
+    <li>Outil Trim (avec le recadrage) : glisser un bord pour redimensionner (pas de 8 px, Maj : 1 px, la bande voisine suit), clic pour choisir, double-clic pour sélectionner ses pixels. Chaque trim : nom, rectangle, raccord H / V, découpage en colonnes (tuiles).</li>
+    <li>« Rendre raccordable » : mélange les bords du trim avec son contenu décalé, sur le calque actif, pour une répétition sans couture ; l'aperçu de répétition (avec décalage) montre le raccord. Effet « Raccord de bande (trim) » aussi disponible en filtre.</li>
+    <li>Sorties : calque ID (une couleur par trim, masqué), aperçu 3D (chaque bande répétée trois fois dans la Vue 3D), disposition exportée en JSON (rectangles et UV en haut/bas à gauche) pour les moteurs et logiciels 3D. La disposition est enregistrée dans le .sxl.</li></ol></div>
   <div class="card"><h3>Effets, fusions, pinceaux en graphe</h3><ol>
     <li>Glissez un effet du panneau Effets sur un nœud de calque (filtre), sur un lien (inséré), dans le vide (nouveau nœud), sur un calque ou sur l'image.</li>
     <li>Onglet Fusion : modes standard et fusions de bibliothèque avec aperçu sur le calque actif ; « Nouvelle (graphe) » ouvre l'éditeur visuel (A dessous, B calque, masque).</li>

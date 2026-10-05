@@ -388,6 +388,24 @@ Json SerializeDocument(const Document& doc) {
         j["layerComps"] = cs;
         j["activeComp"] = s.activeComp;
     }
+    if (!s.trimSheet.trims.empty()) {
+        Json ts = Json::Object();
+        ts["padding"] = s.trimSheet.padding;
+        ts["show"] = s.trimSheet.show;
+        Json arr = Json::Array();
+        for (auto& t : s.trimSheet.trims) {
+            Json o = Json::Object();
+            o["name"] = t.name;
+            Json r = Json::Array();
+            r.Push(t.r.x0); r.Push(t.r.y0); r.Push(t.r.x1); r.Push(t.r.y1);
+            o["rect"] = r;
+            o["tileX"] = t.tileX;
+            o["tileY"] = t.tileY;
+            arr.Push(o);
+        }
+        ts["trims"] = arr;
+        j["trimSheet"] = ts;
+    }
     if (!s.guidesX.empty() || !s.guidesY.empty()) {
         Json gx = Json::Array(), gy = Json::Array();
         for (float g : s.guidesX) gx.Push(g);
@@ -779,6 +797,20 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         for (size_t k = 0; k + 1 < np.size(); k += 2) s.layerNodePos[np[k].U()] = Float2FromJson(np[k + 1]);
     }
     for (auto& gv : j["guidesX"].Elements()) s.guidesX.push_back(gv.F());
+    if (j.Has("trimSheet")) {
+        const Json& ts = j["trimSheet"];
+        s.trimSheet.padding = ts["padding"].I(0);
+        s.trimSheet.show = ts["show"].B(true);
+        for (auto& o : ts["trims"].Elements()) {
+            Trim t;
+            t.name = o["name"].S("Bande");
+            const Json& r = o["rect"];
+            if (r.Size() >= 4) t.r = {r.At(0).I(), r.At(1).I(), r.At(2).I(), r.At(3).I()};
+            t.tileX = o["tileX"].B(true);
+            t.tileY = o["tileY"].B(false);
+            s.trimSheet.trims.push_back(t);
+        }
+    }
     for (auto& o : j["charStyles"].Elements()) {
         CharStyle c;
         c.id = o["id"].U(); c.name = o["name"].S("Style"); c.font = o["font"].S(""); c.size = o["size"].F(0);

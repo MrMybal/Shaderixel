@@ -218,6 +218,13 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             dl->AddTriangleFilled(P(0, 0.85f), P(-a, 0.85f - a), P(a, 0.85f - a), col);
             break;
         }
+        case IconTrim: {
+            // Sheet cut into strips of different heights.
+            dl->AddRect(P(-0.7f, -0.7f), P(0.7f, 0.7f), col, 0, 0, t);
+            for (float y : {-0.25f, 0.1f, 0.35f, 0.52f}) dl->AddLine(P(-0.7f, y), P(0.7f, y), col, t);
+            dl->AddLine(P(0.0f, 0.52f), P(0.0f, 0.7f), col, t);
+            break;
+        }
         case IconTransform: {
             // Bounding box with corner handles and a rotation arc.
             dl->AddRect(P(-0.6f, -0.6f), P(0.6f, 0.6f), col, 0, 0, t);

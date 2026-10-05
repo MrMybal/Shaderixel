@@ -338,6 +338,26 @@ Id FlatChildId(Id function, Id inner);
 // Surfaces used by a graph (pixel nodes, baked tools, applied functions, inner graphs).
 void CollectGraphSurfaces(const Graph& g, std::set<Id>& out);
 
+// Trim sheet: the texture is cut into trims (usually full-width strips tiling horizontally, plus
+// tiles), each mapped by meshes to a range of UVs (Trims.cpp).
+struct Trim {
+    std::string name;
+    Rect r;              // document pixels
+    bool tileX = true;   // tiles horizontally (strip)
+    bool tileY = false;
+};
+struct TrimSheet {
+    std::vector<Trim> trims;
+    int padding = 0;     // gap kept between generated trims (px)
+    bool show = true;    // drawn over the canvas
+};
+// Strips stacked from the top: heights in pixels (a 0 height takes the rest), `padding` between them.
+std::vector<Trim> TrimStrips(u32 width, u32 height, const std::vector<int>& heights, int padding);
+// Built-in layouts: name, heights as fractions of the document height.
+struct TrimPreset { const char* name; std::vector<float> fractions; };
+const std::vector<TrimPreset>& TrimPresets();
+int TrimAt(const TrimSheet& t, float2 docPx);  // -1 = none
+
 // Everything except pixels; copied whole for structural undo.
 struct DocState {
     u32 width = 1, height = 1;  // in the state so canvas size/crop can be undone
@@ -351,6 +371,8 @@ struct DocState {
     Id lastSelection = 0;      // for Reselect
     std::vector<VectorPath> paths;  // Pen tool paths
     std::vector<float> guidesX, guidesY;  // vertical guides (x) and horizontal guides (y), document pixels
+    TrimSheet trimSheet;
+    int activeTrim = -1;
     Id activePath = 0;
     // Layer mode: positions the user gave to generated graph nodes (by node id).
     std::map<Id, float2> layerNodePos;

@@ -306,6 +306,55 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 76) {
+        // Trim sheet: "Architecture" layout, the bottom edge of trim 2 dragged down 40 px with synthetic
+        // ImGui mouse events, trim 1 made seamless on "Peinture", ID layer, JSON export (SX_TRIMJSON), 3D preview.
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        auto& ts = d.S().trimSheet;
+        ImGuiIO& io = ImGui::GetIO();
+        auto screen = [&](float2 p) { return ImVec2(lxf.canvasMin.x + a->pan.x + p.x * a->zoom, lxf.canvasMin.y + a->pan.y + p.y * a->zoom); };
+        auto logTrims = [&](const char* when) {
+            std::string s;
+            for (auto& t : ts.trims) s += std::to_string(t.r.y0) + "-" + std::to_string(t.r.y1) + " ";
+            Log("[demo] trims %s: %zu trims, active %d, y: %s", when, ts.trims.size(), d.S().activeTrim, s.c_str());
+        };
+        static ImVec2 start;
+        if (frameCounter == 10) {
+            std::vector<int> hs;
+            for (float f : TrimPresets()[0].fractions) hs.push_back(std::max(1, (int)std::lround(f * d.Height())));
+            TrimApplyLayout(*a, TrimStrips(d.Width(), d.Height(), hs, 0), "Disposition des trims");
+            tool = Tool::Trim;
+            *PanelFlag("Trim sheet") = true;
+            ShowSideTab(1);
+            logTrims("layout");
+        }
+        if (frameCounter == 14 && ts.trims.size() > 2) {
+            const Rect& r = ts.trims[1].r;
+            start = screen({r.x0 + r.Width() * 0.5f, (float)r.y1});
+            io.AddMousePosEvent(start.x, start.y);
+        }
+        if (frameCounter == 16) io.AddMouseButtonEvent(0, true);
+        for (int k = 1; k <= 6; ++k)
+            if (frameCounter == (u64)16 + k) io.AddMousePosEvent(start.x, start.y + 40 * a->zoom * k / 6);
+        if (frameCounter == 24) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 26) {
+            logTrims("dragged");
+            io.AddMousePosEvent(-100, -100);
+            for (auto& l : d.S().layers) if (l.name == "Peinture") d.S().activeLayer = l.id;
+            d.S().activeTrim = 0;
+            TrimMakeSeamless(*a, 0);
+        }
+        if (frameCounter == 30) TrimIdLayer(*a);
+        if (frameCounter == 32) {
+            char path[512] = "";
+            if (GetEnvironmentVariableA("SX_TRIMJSON", path, sizeof(path)) > 0) Log("[demo] trims export: %d", (int)ExportTrimLayout(*a, path));
+            d.S().activeTrim = 0;
+            TrimPreview3D(*a);
+        }
+        return;
+    }
     if (demoMode == 75) {
         // Function library: every entry inserted (signature logged); "Variantes de teinte" and "Bake et export PNG"
         // fed with the document image and run (PNG files written next to the executable, exports/).

@@ -34,7 +34,7 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
@@ -729,6 +729,26 @@ private:
     void FinishExec(const std::string& msg);
     void ExecStoreResult(ExecRun& r, Id node, gpu::Texture* tex, gpu::TexturePtr full);
     void UpdateExec();
+    // Trim sheets (TrimSheet.cpp)
+    struct {
+        int preset = 0;
+        std::string custom = "256, 128, 128, 64, 64, 0";
+        int splitCols = 4;
+        float seamBlend = 0.25f;
+        float previewOffset = 0.5f;
+        int hoverTrim = -1, hoverEdge = -1;  // edge: 0 left, 1 top, 2 right, 3 bottom
+        bool dragging = false;
+        DocState before;
+    } trimUi;
+    void DrawTrimPanel();
+    void TrimOverlay(DocView& v, ImVec2 canvasMin, ImVec2 avail, ImDrawList* dl);
+    void TrimInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void TrimSelectPixels(DocView& v, int idx);
+    void TrimMakeSeamless(DocView& v, int idx);
+    void TrimIdLayer(DocView& v);
+    bool ExportTrimLayout(DocView& v, const std::string& path);
+    void TrimApplyLayout(DocView& v, std::vector<Trim> trims, const std::string& label);
+    void TrimPreview3D(DocView& v);
     // SubGraph: a Shaderixel document (.sxl / .sx3d) used as a smart object, its output baked as the image.
     std::unique_ptr<Document> loadedSubDoc;  // set by LoadImageTexture for a document (embedded placement takes it)
     std::vector<std::pair<u64, std::shared_ptr<DocView>>> deferredViews;  // released once the GPU is done with them

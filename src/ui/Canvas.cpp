@@ -12,6 +12,7 @@ struct ToolInfo { Tool tool; int icon; const char* name; const char* key; };
 const ToolInfo kToolInfo[] = {
     {Tool::Move, ui::IconMove, "Déplacement", "V"},
     {Tool::LayerTransform, ui::IconTransform, "Transformation de calque (déplacer, rotation, échelle, pivot)", "A"},
+    {Tool::Trim, ui::IconTrim, "Trim sheet (bandes et tuiles de la texture)", ""},
     {Tool::RectSelect, ui::IconRectSel, "Rectangle de sélection", "M"},
     {Tool::EllipseSelect, ui::IconEllipseSel, "Ellipse de sélection", "M"},
     {Tool::Lasso, ui::IconLasso, "Lasso", "L"},
@@ -56,7 +57,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::RectSelect, Tool::EllipseSelect},
     {Tool::Lasso, Tool::PolyLasso, Tool::MagneticLasso},
     {Tool::QuickSelect, Tool::Wand},
-    {Tool::Crop},
+    {Tool::Crop, Tool::Trim},
     {Tool::Brush, Tool::HistoryBrush},
     {Tool::Projection},
     {Tool::Eraser, Tool::BackgroundEraser, Tool::MagicEraser},
@@ -275,6 +276,7 @@ void App::DrawCanvas() {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(v->viewTex.get()), canvasMin, ImVec2(canvasMin.x + vw, canvasMin.y + vh));
     DrawGridAndGuides(*v, canvasMin, avail, dl);
+    TrimOverlay(*v, canvasMin, avail, dl);
     DrawArtboards(*v, canvasMin, dl);
 
     // Document border
@@ -402,6 +404,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (tool == Tool::LayerTransform) {
         LayerTransformInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::Trim) {
+        TrimInput(v, canvasMin, hovered);
         return;
     }
     if (tool == Tool::Crop) {
