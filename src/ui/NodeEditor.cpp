@@ -32,13 +32,16 @@ ImU32 HeaderColor(const Node& n) {
 }
 
 // Kind of a node, shown as a tag in its header: Image (pixels), Draw (drawn by a shader: fills,
-// generators, text, shapes), Blend, Effect (input -> output), Transform, SubGraph (a graph inside:
+// generators, text, shapes), Blend, Effect (input -> output), Tool (graph tools: Transform, more to
+// come), SubGraph (a graph inside:
 // group, smart object holding a document), plus the channel split and the output.
 struct NodeTag { const char* text; ImU32 color; };
+// Tools placed in the layer graph (operate on an input without being an image effect).
+bool IsGraphTool(const std::string& id) { return id == "transform_2d"; }
 NodeTag NodeTypeTag(Document& d, const Node& n) {
     const NodeTag image = {"IMAGE", IM_COL32(36, 150, 168, 255)}, draw = {"DRAW", IM_COL32(210, 130, 50, 255)},
                   blend = {"BLEND", IM_COL32(64, 104, 200, 255)}, effect = {"EFFECT", IM_COL32(112, 84, 220, 255)},
-                  xform = {"TRANSFORM", IM_COL32(220, 170, 40, 255)}, sub = {"SUBGRAPH", IM_COL32(170, 90, 200, 255)};
+                  tool = {"TOOL", IM_COL32(220, 170, 40, 255)}, sub = {"SUBGRAPH", IM_COL32(170, 90, 200, 255)};
     Layer* l = n.layer ? d.FindLayer(n.layer) : nullptr;
     switch (n.kind) {
         case NodeKind::Output: return {"SORTIE", IM_COL32(52, 160, 110, 255)};
@@ -53,7 +56,7 @@ NodeTag NodeTypeTag(Document& d, const Node& n) {
             }
             return image;
         case NodeKind::Effect: {
-            if (n.fx.effectId == "transform_2d") return xform;
+            if (IsGraphTool(n.fx.effectId)) return tool;
             auto def = n.fx.Def();
             if ((def && def->inputs.empty()) || (l && l->kind == LayerKind::Fill)) return draw;
             return effect;
