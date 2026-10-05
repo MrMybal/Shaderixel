@@ -310,13 +310,30 @@ void App::DemoTick() {
         ImGuiIO& io = ImGui::GetIO();
         auto screen = [&](float2 p) { return ImVec2(lxf.canvasMin.x + a->pan.x + p.x * a->zoom, lxf.canvasMin.y + a->pan.y + p.y * a->zoom); };
         auto pivot = [&]() {
-            Layer* l = d.ActiveLayer();
-            return l ? (l->smartCorners[0] + l->smartCorners[2]) * 0.5f : float2{d.Width() * 0.5f, d.Height() * 0.5f};
+            Layer* l = d.Mode() == DocMode::Layers ? d.ActiveLayer() : nullptr;
+            return l && l->kind == LayerKind::Smart ? (l->smartCorners[0] + l->smartCorners[2]) * 0.5f : float2{d.Width() * 0.5f, d.Height() * 0.5f};
         };
         static ImVec2 start;
+        if (frameCounter == 8 && GetEnvironmentVariableA("SX_NODES", nullptr, 0) > 0 && d.Mode() == DocMode::Layers) {
+            Edit e(d, a->history, "Passer en mode nodal");
+            d.ConvertToNodes();
+            e.Commit();
+        }
+        if (frameCounter == 9 && GetEnvironmentVariableA("SX_FILL", nullptr, 0) > 0) {
+            // A Draw layer (shader-drawn): the tool puts a Transform filter in front of its filters.
+            Edit e(d, a->history, "Remplissage");
+            Layer& f = d.AddEffectLayer(LayerKind::Fill, "checker");
+            f.name = "Damier";
+            e.Commit();
+        }
         if (frameCounter == 10) {
+            char name[64] = "Peinture";
+            if (GetEnvironmentVariableA("SX_FILL", nullptr, 0) > 0) strcpy_s(name, "Damier");
+            GetEnvironmentVariableA("SX_LAYER", name, sizeof(name));
             for (auto& l : d.S().layers)
-                if (l.name == "Peinture") d.S().activeLayer = l.id;
+                if (l.name == name) d.S().activeLayer = l.id;
+            for (auto& n : d.S().graph.nodes)
+                if (d.Mode() == DocMode::Nodes && n.name == name) d.S().activeNode = n.id;
             tool = Tool::LayerTransform;
             lxf.snap[0] = true;
             lxf.step[0] = 10;
@@ -341,7 +358,13 @@ void App::DemoTick() {
         if (frameCounter == 70) {
             char m[8] = "";
             if (GetEnvironmentVariableA("SX_MODE", m, sizeof(m)) > 0) lxf.mode = atoi(m);
-            if (Layer* l = d.ActiveLayer())
+            if (Layer* l = d.Mode() == DocMode::Layers ? d.ActiveLayer() : nullptr; l && l->kind != LayerKind::Smart)
+                for (auto& f : l->filters)
+                    if (f.effectId == "transform_2d") Log("[demo] layerxf: transform filter pos %.1f,%.1f scale %.3f,%.3f rot %.2f", f.params[0].x, f.params[0].y, f.params[2].x, f.params[2].y, f.params[3].x);
+            if (d.Mode() == DocMode::Nodes)
+                for (auto& n : d.S().graph.nodes)
+                    if (n.fx.effectId == "transform_2d") Log("[demo] layerxf: transform node pos %.1f,%.1f scale %.3f rot %.2f", n.fx.params[0].x, n.fx.params[0].y, n.fx.params[2].x, n.fx.params[3].x);
+            if (Layer* l = d.Mode() == DocMode::Layers ? d.ActiveLayer() : nullptr)
                 Log("[demo] layerxf: kind %d corners %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f", (int)l->kind, l->smartCorners[0].x, l->smartCorners[0].y,
                     l->smartCorners[1].x, l->smartCorners[1].y, l->smartCorners[2].x, l->smartCorners[2].y, l->smartCorners[3].x, l->smartCorners[3].y);
             io.AddMousePosEvent(-100, -100);

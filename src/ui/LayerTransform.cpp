@@ -94,7 +94,89 @@ bool SquareToQuadInv(const float2 c[4], double inv[9]) {
     return true;
 }
 
+// transform_2d parameters: 0 position (px offset of the pivot), 1 scale, 2 scale X / Y, 3 rotation (deg), 4 pivot (document fraction).
+XfP FxGet(const EffectInstance& fx, float W, float H) {
+    XfP p;
+    auto at = [&](size_t i, float4 def) { return i < fx.params.size() ? fx.params[i] : def; };
+    float4 pos = at(0, {0, 0, 0, 0}), sc = at(1, {1, 0, 0, 0}), sxy = at(2, {1, 1, 0, 0}), rot = at(3, {0, 0, 0, 0}), pv = at(4, {0.5f, 0.5f, 0, 0});
+    p.pivot = {pv.x, pv.y};
+    p.pos = {pv.x * W + pos.x, pv.y * H + pos.y};
+    p.scale = {sc.x * sxy.x, sc.x * sxy.y};
+    p.rot = rot.x / kDeg;
+    return p;
+}
+
+void FxSet(EffectInstance& fx, const XfP& p, float W, float H) {
+    if (fx.params.size() < 5) fx.params.resize(5, float4{0, 0, 0, 0});
+    fx.params[0] = {p.pos.x - p.pivot.x * W, p.pos.y - p.pivot.y * H, 0, 0};
+    fx.params[1] = {1, 0, 0, 0};
+    fx.params[2] = {p.scale.x, p.scale.y, 0, 0};
+    fx.params[3] = {p.rot * kDeg, 0, 0, 0};
+    fx.params[4] = {p.pivot.x, p.pivot.y, 0, 0};
+}
+
 }  // namespace
+
+bool App::LayerXfResolve(DocView& v, bool create, LayerXfTarget& t) {
+    Document& d = *v.doc;
+    t = {};
+    if (d.Mode() == DocMode::Nodes) {
+        Node* n = d.S().graph.Find(d.S().activeNode);
+        if (n && n->kind == NodeKind::Effect && n->fx.effectId == "transform_2d") {
+            t.fx = &n->fx;
+        } else if (create && n && n->kind != NodeKind::Output) {
+            // A Transform node after the active node (its consumers rewired), as for effects.
+            ApplyLibraryEffect(v, "transform_2d", FxApply::Filter);
+            t.created = true;
+            for (auto& m : d.S().graph.nodes)
+                if (m.kind == NodeKind::Effect && m.fx.effectId == "transform_2d" && !m.inputs.empty() && m.inputs[0] == n->id) {
+                    d.S().activeNode = m.id;
+                    t.fx = &m.fx;
+                }
+            if (t.fx) Status("Nœud Transform ajouté après « " + d.S().graph.Find(t.fx ? d.S().activeNode : 0)->name + " »");
+        }
+        t.W = (float)d.Width();
+        t.H = (float)d.Height();
+        return t.fx != nullptr;
+    }
+    Layer* l = d.ActiveLayer();
+    if (!l || l->locked) return false;
+    if (l->kind == LayerKind::Pixel && create) {
+        // Image: Photoshop keeps transformed images whole as smart objects; same here, on first use.
+        ConvertToSmartObject(v);
+        t.created = true;
+        l = d.ActiveLayer();
+        Status("Calque converti en objet dynamique : l'image entière est conservée, la transformation reste modifiable");
+    }
+    if (l && l->kind == LayerKind::Smart) {
+        SmartObject* so = d.GetSmart(l->smart);
+        if (!so) return false;
+        t.layer = l;
+        t.W = (float)so->width;
+        t.H = (float)so->height;
+        return true;
+    }
+    if (l && (l->kind == LayerKind::Fill || l->kind == LayerKind::Text || l->kind == LayerKind::Shape)) {
+        // Draw: a Transform filter on the layer (first, before its other filters); stays editable.
+        for (auto& f : l->filters)
+            if (f.effectId == "transform_2d") t.fx = &f;
+        if (!t.fx && create) {
+            auto def = Effects().Find("transform_2d");
+            if (!def) return false;
+            EffectInstance fx;
+            fx.effectId = "transform_2d";
+            fx.params = def->DefaultParams();
+            l->filters.insert(l->filters.begin(), fx);
+            t.created = true;
+            d.SyncGraph();
+            t.fx = &l->filters.front();
+        }
+        t.W = (float)d.Width();
+        t.H = (float)d.Height();
+        return t.fx != nullptr;
+    }
+    return false;
+}
 
 bool App::LayerTransformOverflow(DocView& v, gpu::Texture*& content, float out[9]) {
     Document& d = *v.doc;
@@ -117,19 +199,15 @@ void App::LayerTransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     const float2 mouse = ScreenToDoc(v, canvasMin, io.MousePos);
     if (lxf.drag < 0) {
         if (!hovered || !ImGui::IsMouseClicked(ImGuiMouseButton_Left)) return;
-        if (!l) { Status("Transformation : sélectionnez un calque (mode calques)"); return; }
-        if (l->locked) { Status("Calque verrouillé"); return; }
-        if (l->kind == LayerKind::Pixel || l->kind == LayerKind::Text || l->kind == LayerKind::Shape) {
-            // Photoshop keeps transformed images whole as smart objects: same here, on first use.
-            ConvertToSmartObject(v);
-            l = d.ActiveLayer();
-            Status("Calque converti en objet dynamique : l'image entière est conservée, la transformation reste modifiable");
+        lxf.before = d.S();  // before a conversion / an added Transform: one undo step with the drag
+        LayerXfTarget t;
+        if (!LayerXfResolve(v, true, t)) {
+            Status(d.Mode() == DocMode::Nodes ? "Transformation : sélectionnez un nœud (un nœud Transform est ajouté après lui)"
+                                              : l && l->locked ? "Calque verrouillé" : "Transformation : choisissez un calque d'image, de remplissage, de texte ou de forme");
+            return;
         }
-        if (!l || l->kind != LayerKind::Smart) { Status("Transformation : choisissez un calque d'image"); return; }
-        SmartObject* so = d.GetSmart(l->smart);
-        if (!so) return;
-        const float W = (float)so->width, H = (float)so->height;
-        XfP p = FromCorners(l->smartCorners, W, H, l->smartPivot);
+        const float W = t.W, H = t.H;
+        XfP p = t.layer ? FromCorners(t.layer->smartCorners, W, H, t.layer->smartPivot) : FxGet(*t.fx, W, H);
         // Hit test (screen space).
         const ImVec2 ps = toScreen(p.pos), mp = io.MousePos;
         const float2 axX = lxf.world ? float2{1, 0} : Rot({1, 0}, p.rot), axY = lxf.world ? float2{0, 1} : Rot({0, 1}, p.rot);
@@ -169,15 +247,13 @@ void App::LayerTransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
         lxf.sScale = p.scale;
         lxf.sRot = p.rot;
         lxf.sPivot = p.pivot;
-        lxf.before = d.S();
-        lxf.changed = false;
+        lxf.changed = t.created;
         return;
     }
     // Dragging.
-    if (!l || l->kind != LayerKind::Smart) { lxf.drag = -1; return; }
-    SmartObject* so = d.GetSmart(l->smart);
-    if (!so) { lxf.drag = -1; return; }
-    const float W = (float)so->width, H = (float)so->height;
+    LayerXfTarget t;
+    if (!LayerXfResolve(v, false, t)) { lxf.drag = -1; return; }
+    const float W = t.W, H = t.H;
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         static const char* labels[] = {"Déplacer", "Déplacer (X)", "Déplacer (Y)", "Rotation", "Échelle", "Échelle (X)", "Échelle (Y)", "Pivot", "Échelle"};
         if (lxf.changed) v.history.PushState(std::string("Transformation : ") + labels[std::clamp(lxf.drag, 0, 8)], lxf.before, d.S());
@@ -268,10 +344,15 @@ void App::LayerTransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             break;
         }
     }
-    float2 c[4];
-    ToCorners(p, W, H, c);
-    for (int k = 0; k < 4; ++k) l->smartCorners[k] = c[k];
-    l->smartPivot = p.pivot;
+    if (t.layer) {
+        float2 c[4];
+        ToCorners(p, W, H, c);
+        for (int k = 0; k < 4; ++k) t.layer->smartCorners[k] = c[k];
+        t.layer->smartPivot = p.pivot;
+    } else {
+        FxSet(*t.fx, p, W, H);
+        d.SyncGraph();  // a layer filter: the generated graph carries a copy of it
+    }
     lxf.changed = true;
     d.dirty = true;
 }
@@ -282,12 +363,15 @@ void App::LayerTransformOverlay(DocView& v, ImVec2 canvasMin, ImVec2 avail, ImDr
     Layer* l = d.Mode() == DocMode::Layers ? d.ActiveLayer() : nullptr;
     auto toScreen = [&](float2 p) { return ImVec2(canvasMin.x + v.pan.x + p.x * v.zoom, canvasMin.y + v.pan.y + p.y * v.zoom); };
     const ImU32 cyan = IM_COL32(0, 217, 255, 242), yellow = IM_COL32(255, 191, 0, 255), red = IM_COL32(235, 70, 60, 255), green = IM_COL32(90, 200, 80, 255);
-    SmartObject* so = l && l->kind == LayerKind::Smart ? d.GetSmart(l->smart) : nullptr;
-    if (so) {
-        const float W = (float)so->width, H = (float)so->height;
-        XfP p = FromCorners(l->smartCorners, W, H, l->smartPivot);
+    LayerXfTarget t;
+    const bool has = LayerXfResolve(v, false, t);
+    if (has) {
+        const float W = t.W, H = t.H;
+        XfP p = t.layer ? FromCorners(t.layer->smartCorners, W, H, t.layer->smartPivot) : FxGet(*t.fx, W, H);
+        float2 qc[4];
+        ToCorners(p, W, H, qc);
         ImVec2 q[4];
-        for (int k = 0; k < 4; ++k) q[k] = toScreen(l->smartCorners[k]);
+        for (int k = 0; k < 4; ++k) q[k] = toScreen(t.layer ? t.layer->smartCorners[k] : qc[k]);
         // Thirds of the layer, then its outline.
         for (int i = 1; i < 3; ++i) {
             float t = i / 3.0f;
@@ -428,10 +512,12 @@ void App::LayerTransformOverlay(DocView& v, ImVec2 canvasMin, ImVec2 avail, ImDr
     lxf.barMin = bmin;
     lxf.barMax = bmax;
     ImGui::SetCursorScreenPos(save);
-    if (!so) {
-        const char* hint = l && (l->kind == LayerKind::Pixel || l->kind == LayerKind::Text || l->kind == LayerKind::Shape)
-                               ? "Cliquez-glissez : le calque devient un objet dynamique (image entière conservée)"
-                               : "Transformation : sélectionnez un calque d'image";
+    if (!has) {
+        const char* hint = d.Mode() == DocMode::Nodes ? "Cliquez-glissez : un nœud Transform est ajouté après le nœud actif"
+                           : l && l->kind == LayerKind::Pixel ? "Cliquez-glissez : le calque devient un objet dynamique (image entière conservée)"
+                           : l && (l->kind == LayerKind::Fill || l->kind == LayerKind::Text || l->kind == LayerKind::Shape)
+                               ? "Cliquez-glissez : un filtre Transform est ajouté au calque (non destructif)"
+                               : "Transformation : sélectionnez un calque d'image, de remplissage, de texte ou de forme";
         dl->AddText(ImVec2(canvasMin.x + 12 * dpi, canvasMin.y + avail.y - 24 * dpi), IM_COL32(255, 210, 140, 230), hint);
     }
 }
@@ -441,9 +527,14 @@ void App::LayerImagePropertiesUI(DocView& v, Layer& l) {
     // ---------------------------------------------------------------- transform (as values)
     ImGui::SeparatorText("Transformation");
     SmartObject* so = l.kind == LayerKind::Smart ? d.GetSmart(l.smart) : nullptr;
+    const bool draw = l.kind == LayerKind::Fill || l.kind == LayerKind::Text || l.kind == LayerKind::Shape;
+    EffectInstance* xfx = nullptr;
+    for (auto& f : l.filters)
+        if (f.effectId == "transform_2d") xfx = &f;
     const float W = so ? (float)so->width : (float)d.Width(), H = so ? (float)so->height : (float)d.Height();
     XfP p;
     if (so) p = FromCorners(l.smartCorners, W, H, l.smartPivot);
+    else if (xfx) p = FxGet(*xfx, W, H);
     else p.pos = {d.Width() * 0.5f, d.Height() * 0.5f};
     XfP n = p;
     bool edit = false;
@@ -479,16 +570,17 @@ void App::LayerImagePropertiesUI(DocView& v, Layer& l) {
     ui::HelpTooltip("Point de rotation / d'échelle, dans l'image (0,0 coin haut gauche, 1,1 coin bas droit)");
     auto apply = [&](const XfP& np, const char* label) {
         DocState before = d.S();
-        Layer* target = &l;
-        if (!so) {
-            ConvertToSmartObject(v);
-            target = d.ActiveLayer();
-            if (!target || target->kind != LayerKind::Smart) return;
+        LayerXfTarget t;
+        if (!LayerXfResolve(v, true, t)) return;
+        if (t.layer) {
+            float2 c[4];
+            ToCorners(np, W, H, c);
+            for (int k = 0; k < 4; ++k) t.layer->smartCorners[k] = c[k];
+            t.layer->smartPivot = np.pivot;
+        } else {
+            FxSet(*t.fx, np, W, H);
+            d.SyncGraph();
         }
-        float2 c[4];
-        ToCorners(np, W, H, c);
-        for (int k = 0; k < 4; ++k) target->smartCorners[k] = c[k];
-        target->smartPivot = np.pivot;
         d.dirty = true;
         if (label) v.history.PushState(label, before, d.S());
     };
@@ -546,6 +638,15 @@ void App::LayerImagePropertiesUI(DocView& v, Layer& l) {
         ui::HelpTooltip("Par défaut l'image entière est gardée (ce qui dépasse reste récupérable) ; ceci la rogne aux limites du document.");
         ImGui::SameLine();
         ImGui::TextDisabled("Image : %u x %u", so->width, so->height);
+    } else if (draw) {
+        ImGui::TextDisabled(xfx ? "Filtre Transform du calque (non destructif)." : "Modifier une valeur ajoute un filtre Transform au calque (non destructif).");
+        if (xfx && ImGui::SmallButton("Retirer la transformation")) {
+            DocState before = d.S();
+            std::erase_if(l.filters, [](const EffectInstance& f) { return f.effectId == "transform_2d"; });
+            d.SyncGraph();
+            v.history.PushState("Retirer la transformation", before, d.S());
+            return;
+        }
     } else {
         ImGui::TextDisabled("Modifier une valeur convertit le calque en objet dynamique (image entière conservée).");
     }

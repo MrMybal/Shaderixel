@@ -887,9 +887,9 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Ouvrir une image...", "Ctrl+O")) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), false);
         if (ImGui::MenuItem("Importer comme calque...", "Ctrl+Shift+O", false, v != nullptr)) OpenImage(platform::OpenFileDialog(hwnd, kImageFilter), true);
         if (ImGui::MenuItem("Importer (objet dynamique incorporé)...", nullptr, false, v != nullptr))
-            PlaceSmartFile(*v, platform::OpenFileDialog(hwnd, L"Images\0*.png;*.jpg;*.jpeg;*.tga;*.bmp;*.psd;*.hdr\0"), false);
+            PlaceSmartFile(*v, platform::OpenFileDialog(hwnd, L"Images et documents Shaderixel (sous-graphe)\0*.png;*.jpg;*.jpeg;*.tga;*.bmp;*.psd;*.hdr;*.uasset;*.sxl;*.sx3d\0"), false);
         if (ImGui::MenuItem("Importer (objet dynamique lié)...", nullptr, false, v != nullptr))
-            PlaceSmartFile(*v, platform::OpenFileDialog(hwnd, L"Images\0*.png;*.jpg;*.jpeg;*.tga;*.bmp;*.psd;*.hdr\0"), true);
+            PlaceSmartFile(*v, platform::OpenFileDialog(hwnd, L"Images et documents Shaderixel (sous-graphe)\0*.png;*.jpg;*.jpeg;*.tga;*.bmp;*.psd;*.hdr;*.uasset;*.sxl;*.sx3d\0"), true);
         if (ImGui::MenuItem("Importer un effet HLSL...", nullptr, false, v != nullptr)) {
             std::string path = platform::OpenFileDialog(hwnd, L"HLSL (*.hlsl, *.fx, *.txt)\0*.hlsl;*.fx;*.txt\0");
             std::string src, err;

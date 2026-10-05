@@ -58,6 +58,13 @@ void App::ConvertUAssetAsync(const std::string& path, std::function<void(const s
 }
 
 void App::UpdateUAssetJobs() {
+    // Off-tab documents (SubGraph loads): kept a few frames, until the GPU no longer reads them.
+    if (loadedSubDoc) {  // a document loaded for its image only (linked / replaced contents)
+        auto keep = std::make_shared<DocView>();
+        keep->doc = std::move(loadedSubDoc);
+        deferredViews.push_back({frameCounter, keep});
+    }
+    std::erase_if(deferredViews, [&](const auto& e) { return frameCounter > e.first + 4; });
     for (size_t i = 0; i < uassetJobs.size();) {
         UAssetJob& j = *uassetJobs[i];
         if (j.result.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {

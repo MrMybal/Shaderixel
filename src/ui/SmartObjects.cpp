@@ -34,6 +34,31 @@ void FitCorners(const Document& d, u32 w, u32 h, float2 out[4]) {
 }  // namespace
 
 gpu::TexturePtr App::LoadImageTexture(DocView& v, const std::string& path, u32& w, u32& h) {
+    {
+        std::string ext = Narrow(Utf8Path(path).extension().wstring());
+        for (auto& c : ext) c = (char)tolower((unsigned char)c);
+        if (ext == ".sxl" || ext == ".sx3d") {
+            // SubGraph: the document is loaded off-tab and its output (the whole graph) baked as the contents.
+            const int prevActive = activeDoc;
+            const size_t before = docs.size();
+            if (!LoadSxl(path) || docs.size() != before + 1) return nullptr;
+            std::shared_ptr<DocView> hidden(std::move(docs.back()));
+            docs.pop_back();
+            activeDoc = prevActive;
+            focusDocRequest = prevActive;
+            hidden->renderer.Prepare(*hidden->doc, *ctx);
+            SyncTextLayers(*hidden);
+            SyncSmartLayers(*hidden);
+            gpu::Texture* out = hidden->renderer.EvaluateComplete(*hidden->doc, *ctx);
+            if (!out) return nullptr;
+            w = hidden->doc->Width();
+            h = hidden->doc->Height();
+            gpu::TexturePtr tex = v.renderer.PreviewCopy(*ctx, out, w, h);
+            deferredViews.push_back({frameCounter, hidden});  // its textures are read by this frame's commands
+            loadedSubDoc = std::move(hidden->doc);
+            return tex;
+        }
+    }
     int iw = 0, ih = 0;
     stbi_uc* px = LoadImagePixels(path, iw, ih);  // images and Unreal textures
     if (!px) return nullptr;
@@ -132,6 +157,11 @@ void App::PlaceSmartFile(DocView& v, const std::string& path, bool linked, bool 
     if (!tex) { Status("Image illisible : " + path); return; }
     Edit e(d, v.history, linked ? "Importer (lié)" : "Importer (incorporé)");
     SmartObject* so = NewSmartObject(d, Narrow(Utf8Path(path).stem().wstring()), tex);
+    if (loadedSubDoc && !linked) {
+        // Embedded document: "Modifier le contenu" opens its graph; saving it updates this layer.
+        so->child = std::move(loadedSubDoc);
+        so->child->path.clear();
+    }
     if (linked) {
         so->linkedPath = path;
         so->linkedTime = FileTime(path);

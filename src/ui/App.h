@@ -639,6 +639,18 @@ private:
         ImVec2 barMin, barMax;        // settings bar (last frame): not a canvas click
         ImVec2 canvasMin;             // view origin (last frame), for scripted tests
     } lxf;
+    // What the transform tool acts on: a smart layer (Image: whole image kept), or a "Transformation"
+    // effect (Draw layers: fill / text / shape filter; node mode: the Transform node).
+    struct LayerXfTarget {
+        Layer* layer = nullptr;       // smart layer (corners)
+        EffectInstance* fx = nullptr; // transform_2d effect
+        float W = 0, H = 0;           // transformed rectangle (contents, or the document for effects)
+        bool created = false;         // converted to a smart object / Transform added just now
+    };
+    bool LayerXfResolve(DocView& v, bool create, LayerXfTarget& t);
+    // SubGraph: a Shaderixel document (.sxl / .sx3d) used as a smart object, its output baked as the image.
+    std::unique_ptr<Document> loadedSubDoc;  // set by LoadImageTexture for a document (embedded placement takes it)
+    std::vector<std::pair<u64, std::shared_ptr<DocView>>> deferredViews;  // released once the GPU is done with them
     void LayerTransformInput(DocView& v, ImVec2 canvasMin, bool hovered);
     void LayerTransformOverlay(DocView& v, ImVec2 canvasMin, ImVec2 avail, ImDrawList* dl);
     bool LayerTransformOverflow(DocView& v, gpu::Texture*& content, float inv[9]);  // outside-document preview

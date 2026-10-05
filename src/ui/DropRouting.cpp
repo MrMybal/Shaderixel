@@ -43,6 +43,12 @@ bool App::RouteDrop(const DropRequest& r) {
     const bool image = ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp" || ext == ".tga" || ext == ".gif" || ext == ".hdr" ||
                        ext == ".psd" || ext == ".tif" || ext == ".tiff" || ext == ".webp" || (uasset && ua.texture);
     if (model && v && v->doc->kind == 1 && v->mesh && Over("Rendu", p)) return ImportIntoRender(*v, r.path);
+    // A Shaderixel document onto an image document's graph / canvas / layers: a SubGraph (linked, follows the file).
+    if ((ext == ".sxl" || ext == ".sx3d") && v && v->doc->Mode() == DocMode::Layers &&
+        (Over("Graphe", p) || Over("Canevas", p) || Over("Calques", p) || Over("Aperçu du calque", p))) {
+        PlaceSmartFile(*v, r.path, true, true);
+        return true;
+    }
     if (image && v && (Over("Graphe", p) || Over("Canevas", p) || Over("Calques", p) || Over("Aperçu du calque", p))) {
         if (v->doc->Mode() == DocMode::Nodes) AddImageNode(*v, r.path);
         else PlaceSmartFile(*v, r.path, false, true);

@@ -31,6 +31,37 @@ ImU32 HeaderColor(const Node& n) {
     return IM_COL32(90, 90, 90, 255);
 }
 
+// Kind of a node, shown as a tag in its header: Image (pixels), Draw (drawn by a shader: fills,
+// generators, text, shapes), Blend, Effect (input -> output), Transform, SubGraph (a graph inside:
+// group, smart object holding a document), plus the channel split and the output.
+struct NodeTag { const char* text; ImU32 color; };
+NodeTag NodeTypeTag(Document& d, const Node& n) {
+    const NodeTag image = {"IMAGE", IM_COL32(36, 150, 168, 255)}, draw = {"DRAW", IM_COL32(210, 130, 50, 255)},
+                  blend = {"BLEND", IM_COL32(64, 104, 200, 255)}, effect = {"EFFECT", IM_COL32(112, 84, 220, 255)},
+                  xform = {"TRANSFORM", IM_COL32(220, 170, 40, 255)}, sub = {"SUBGRAPH", IM_COL32(170, 90, 200, 255)};
+    Layer* l = n.layer ? d.FindLayer(n.layer) : nullptr;
+    switch (n.kind) {
+        case NodeKind::Output: return {"SORTIE", IM_COL32(52, 160, 110, 255)};
+        case NodeKind::Split: return {"CANAUX", IM_COL32(70, 150, 90, 255)};
+        case NodeKind::Blend: return l && l->kind == LayerKind::Group ? sub : blend;
+        case NodeKind::Surface:
+            if (l && (l->kind == LayerKind::Text || l->kind == LayerKind::Shape)) return draw;
+            if (l && l->kind == LayerKind::Smart) {
+                SmartObject* so = d.GetSmart(l->smart);
+                std::string ext = so ? Narrow(Utf8Path(so->linkedPath).extension().wstring()) : "";
+                if (so && (so->child || so->childOpen || ext == ".sxl" || ext == ".sx3d")) return sub;
+            }
+            return image;
+        case NodeKind::Effect: {
+            if (n.fx.effectId == "transform_2d") return xform;
+            auto def = n.fx.Def();
+            if ((def && def->inputs.empty()) || (l && l->kind == LayerKind::Fill)) return draw;
+            return effect;
+        }
+    }
+    return effect;
+}
+
 // Pins and links are colored by type (Unreal-style): RGBA image pink, single channel green.
 ImU32 TypeColor(PinType t, int alpha = 255) {
     return t == PinType::Channel ? IM_COL32(110, 210, 120, alpha) : IM_COL32(230, 120, 210, alpha);
@@ -404,7 +435,16 @@ void App::DrawNodeEditor() {
         if (drawText) {
             std::string title = n.name;
             if (isPaint) title = "\xE2\x9C\x8E " + title;  // pencil mark on the paint target
-            dl->PushClipRect(a, ImVec2(b.x - 4, a.y + kHeader * ed.zoom), true);
+            // Type tag on the right of the header.
+            const NodeTag tag = NodeTypeTag(d, n);
+            const float tfs = fs * 0.72f;
+            const ImVec2 tsz = font->CalcTextSizeA(tfs, FLT_MAX, 0, tag.text);
+            const float th = kHeader * ed.zoom, pad = 4 * ed.zoom;
+            const ImVec2 t1(b.x - pad, a.y + th * 0.5f + tsz.y * 0.5f + pad * 0.5f), t0(t1.x - tsz.x - pad * 2, a.y + th * 0.5f - tsz.y * 0.5f - pad * 0.5f);
+            dl->AddRectFilled(t0, t1, IM_COL32(16, 16, 20, 200), 3 * ed.zoom);
+            dl->AddRect(t0, t1, tag.color, 3 * ed.zoom);
+            dl->AddText(font, tfs, ImVec2(t0.x + pad, t0.y + pad * 0.5f), tag.color | IM_COL32(60, 60, 60, 0), tag.text);
+            dl->PushClipRect(a, ImVec2(t0.x - 4, a.y + kHeader * ed.zoom), true);
             dl->AddText(font, fs, ImVec2(a.x + 8 * ed.zoom, a.y + (kHeader * ed.zoom - fs) * 0.5f), IM_COL32_WHITE, title.c_str());
             dl->PopClipRect();
         }
