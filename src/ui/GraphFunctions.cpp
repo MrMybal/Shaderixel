@@ -7,6 +7,7 @@
 // executable).
 #include "ui/App.h"
 #include "ui/Theme.h"
+#include "doc/DocFile.h"
 
 #include <ShlObj.h>
 #include <imgui_stdlib.h>
@@ -89,13 +90,56 @@ Id MaxGraphId(const Graph& g) {
 
 }  // namespace
 
-void App::ScanFunctionLibrary() {
-    auto& lib = FunctionLibrary();
-    lib.clear();
-    for (const std::string& dir : {UserFunctionDir(), BundledFunctionDir()}) {
+namespace {
+// User functions, shipped ones (next to the exe), and the repository's while developing.
+std::vector<std::string> FunctionDirs() {
+    const std::string devDir = Narrow((fs::path(Utf8Path(BundledFunctionDir())).parent_path().parent_path().parent_path() / L"library" / L"functions").wstring());
+    return {UserFunctionDir(), BundledFunctionDir(), devDir};
+}
+// Changes when a library file is added, removed or saved.
+u64 FunctionDirsStamp() {
+    u64 h = 1469598103934665603ull;
+    for (const std::string& dir : FunctionDirs()) {
         std::error_code ec;
         if (dir.empty() || !fs::is_directory(Utf8Path(dir), ec)) continue;
         for (auto& e : fs::directory_iterator(Utf8Path(dir), ec)) {
+            auto t = fs::last_write_time(e.path(), ec);
+            h = (h ^ (u64)t.time_since_epoch().count()) * 1099511628211ull;
+            h = (h ^ std::hash<std::wstring>()(e.path().wstring())) * 1099511628211ull;
+        }
+    }
+    return h;
+}
+u64 g_libStamp = 0;
+}  // namespace
+
+void App::ScanFunctionLibrary() {
+    auto& lib = FunctionLibrary();
+    lib.clear();
+    g_libStamp = FunctionDirsStamp();
+    for (const std::string& dir : FunctionDirs()) {
+        std::error_code ec;
+        if (dir.empty() || !fs::is_directory(Utf8Path(dir), ec)) continue;
+        for (auto& e : fs::directory_iterator(Utf8Path(dir), ec)) {
+            if (e.path().extension() == L".sxfn") {
+                // Text function (JSON): name, kind, description and graph in one file.
+                std::string txt;
+                Json j;
+                if (!ReadTextFile(Narrow(e.path().wstring()), txt) || !Json::Parse(txt, j)) continue;
+                FunctionLibEntry f;
+                f.path = Narrow(e.path().wstring());
+                f.name = j["name"].S(Narrow(e.path().stem().wstring()));
+                f.kind = j["kind"].S("subgraph");
+                f.desc = j["description"].S("");
+                Graph g;
+                GraphFromJson(j["graph"], g);
+                f.inputs = (int)FunctionPorts(g, NodeKind::SubInput).size();
+                f.outputs = (int)FunctionPorts(g, NodeKind::SubOutput).size();
+                bool dup = false;
+                for (auto& o : lib) dup |= o.name == f.name && o.kind == f.kind;
+                if (!dup) lib.push_back(std::move(f));
+                continue;
+            }
             if (e.path().extension() != L".sxl") continue;
             FunctionLibEntry f;
             f.path = Narrow(e.path().wstring());
@@ -129,6 +173,38 @@ void App::InitFunctions() {
 }
 
 Id App::InsertLibraryFunction(DocView& v, const std::string& path, float2 pos) {
+    if (Utf8Path(path).extension() == L".sxfn") {
+        std::string txt;
+        Json j;
+        if (!ReadTextFile(path, txt) || !Json::Parse(txt, j)) { Status("Fonction illisible : " + path); return 0; }
+        Document& d = *v.doc;
+        auto g = std::make_shared<Graph>();
+        GraphFromJson(j["graph"], *g);
+        if (!g->Find(g->output)) {
+            auto outs = FunctionPorts(*g, NodeKind::SubOutput);
+            g->output = outs.empty() ? 0 : outs[0]->id;
+        }
+        // Pixel nodes of a text function start empty (surfaces of this document).
+        for (auto& n : g->nodes)
+            if (n.kind == NodeKind::Surface) n.surface = d.CreateSurface({0, 0, 0, 0});
+            else if (n.kind != NodeKind::Function) n.surface = 0;
+        Node f;
+        f.id = d.NewId();
+        f.kind = NodeKind::Function;
+        f.pos = pos;
+        f.name = j["name"].S(Narrow(Utf8Path(path).stem().wstring()));
+        f.funcKind = j["kind"].S("subgraph");
+        f.applyMode = j["applyMode"].B(false);
+        if (g->description.empty()) g->description = j["description"].S("");
+        d.S().nextId = std::max(d.S().nextId, MaxGraphId(*g) + 1);
+        f.sub = g;
+        f.inputs.assign(NodeInputCount(f), 0);
+        d.S().graph.nodes.push_back(f);
+        d.S().activeNode = f.id;
+        d.dirty = true;
+        Status("Fonction insérée : " + f.name + " (" + std::to_string(NodeInputCount(f)) + " entrée(s), " + std::to_string(NodeOutputCount(f)) + " sortie(s))");
+        return f.id;
+    }
     const int prevActive = activeDoc;
     const size_t before = docs.size();
     if (!LoadSxl(path) || docs.size() != before + 1) return 0;
@@ -351,6 +427,8 @@ void App::EditFunction(DocView& parent, Id fid) {
 }
 
 void App::UpdateFunctionEdits() {
+    // Library files added / edited outside (by hand, by an assistant): listed again.
+    if (frameCounter % 120 == 60 && FunctionDirsStamp() != g_libStamp) ScanFunctionLibrary();
     if (auto [rv, rid] = std::exchange(functionEditRequest, {nullptr, 0}); rv && ViewAlive(rv)) EditFunction(*rv, rid);
     for (auto& vp : docs) {
         DocView& v = *vp;
@@ -423,6 +501,27 @@ void App::SaveFunctionToLibrary(DocView& v, Id fid) {
     std::error_code ec;
     fs::create_directories(Utf8Path(dir), ec);
     const std::string base = dir + "\\" + SafeFileName(f->name);
+    {
+        // Without pixels inside: a text function (.sxfn), readable and editable by hand.
+        std::set<Id> surfs, smarts;
+        CollectGraphSurfaces(*f->sub, surfs);
+        CollectGraphSmart(*f->sub, smarts);
+        if (surfs.empty() && smarts.empty()) {
+            Graph g = *f->sub;
+            for (auto& n : g.nodes) if (n.kind == NodeKind::SubInput) n.surface = 0;
+            Json j = Json::Object();
+            j["format"] = "shaderixel-function";
+            j["name"] = f->name;
+            j["kind"] = f->funcKind;
+            j["applyMode"] = f->applyMode;
+            j["description"] = g.description;
+            j["graph"] = GraphToJson(g);
+            std::ofstream(Utf8Path(base + ".sxfn"), std::ios::binary) << j.Dump(1);
+            ScanFunctionLibrary();
+            Status("« " + f->name + " » enregistré dans la bibliothèque (" + base + ".sxfn) : menu des nœuds > Bibliothèque");
+            return;
+        }
+    }
     // A document made of the function graph (pixels shared with this one).
     auto doc = std::make_unique<Document>(d.Width(), d.Height(), d.GetPrecision(), DocMode::Nodes, f->name);
     doc->functionKind = f->funcKind;

@@ -450,6 +450,7 @@ void App::UpdateExec() {
         const Node* fn = rd.EvalGraph(d).Find(flat(inner));
         if (!fn || i >= (int)fn->inputs.size() || !fn->inputs[i]) return nullptr;
         const Id src = fn->inputs[i];
+        rd.NewEvalPass();  // variables / loop values may have changed since the last evaluation
         return rd.EvaluateNode(d, *ctx, src, r.owner);
     };
     // Full-size result of the node feeding input i (an upscale before an export...).
@@ -595,6 +596,11 @@ void App::UpdateExec() {
             gpu::Texture* tex = inFull(id, 1);
             if (!tex) tex = inImage(id, 1);
             std::string path = inValue(id, 2).s;
+            if (getenv("SX_EXECDEBUG")) {
+                std::string keys;
+                for (auto& [k, val] : rd.runtimeValues) keys += std::to_string(k >> 8) + ":" + std::to_string(k & 0xFF) + "=" + ValueToText(val) + " ";
+                Log("[exec] export %s runtime %s", path.c_str(), keys.c_str());
+            }
             if (!tex || path.empty()) { Status(n->name + " : image ou fichier manquant"); follow(0); continue; }
             std::filesystem::path p = Utf8Path(path);
             if (p.is_relative()) {

@@ -1,0 +1,92 @@
+{
+ "format": "shaderixel-function",
+ "name": "Fondu A/B",
+ "kind": "subgraph",
+ "description": "Mélange deux images (et un masque optionnel) avec un facteur réglable sur le nœud.",
+ "graph": {
+  "output": 6,
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "name": "A",
+    "port": 0,
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": []
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "name": "B",
+    "port": 1,
+    "pos": [
+     0,
+     200
+    ],
+    "inputs": []
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "name": "Masque",
+    "port": 2,
+    "pos": [
+     0,
+     400
+    ],
+    "inputs": []
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "name": "Facteur",
+    "port": 3,
+    "pos": [
+     0,
+     600
+    ],
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    },
+    "inputs": []
+   },
+   {
+    "id": 5,
+    "kind": "effect",
+    "pos": [
+     320,
+     0
+    ],
+    "effect": {
+     "effect": "mix"
+    },
+    "paramPinNames": [
+     "factor"
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4
+    ]
+   },
+   {
+    "id": 6,
+    "kind": "suboutput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     5
+    ]
+   }
+  ]
+ }
+}

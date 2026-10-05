@@ -1,6 +1,7 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
 #include "ui/App.h"
 #include "doc/GraphTypes.h"
+#include <filesystem>
 #include <unordered_set>
 #include "io/UAsset.h"
 #include "io/ColorMgmt.h"
@@ -303,6 +304,62 @@ void App::DemoTick() {
             }
         }
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
+        return;
+    }
+    if (demoMode == 75) {
+        // Function library: every entry inserted (signature logged); "Variantes de teinte" and "Bake et export PNG"
+        // fed with the document image and run (PNG files written next to the executable, exports/).
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        Graph& g = d.S().graph;
+        static std::vector<Id> ids;
+        if (frameCounter == 8 && d.Mode() == DocMode::Layers) {
+            Edit e(d, a->history, "Passer en mode nodal");
+            d.ConvertToNodes();
+            e.Commit();
+        }
+        if (frameCounter == 10) {
+            Node* out = g.Find(g.output);
+            const Id img = out && !out->inputs.empty() ? out->inputs[0] : 0;
+            float y = 1200;
+            Log("[demo] library image source %u (output %u, %zu inputs)", img, g.output, out ? out->inputs.size() : 0);
+            for (auto& f : FunctionLibrary()) {
+                const Id id = InsertLibraryFunction(*a, f.path, {0, y});
+                y += 300;
+                const Node* n = g.Find(id);
+                if (!n) { Log("[demo] library %s: insert failed", f.name.c_str()); continue; }
+                std::vector<PinDesc> ins, outs;
+                NodeSignature(*n, &ins, &outs);
+                std::string sig;
+                for (auto& p : ins) sig += p.name + ":" + PinTypeLabel(p.type) + (p.array ? "[]" : "") + " ";
+                sig += "-> ";
+                for (auto& p : outs) sig += p.name + ":" + PinTypeLabel(p.type) + " ";
+                Log("[demo] library %s (%s): %s", f.name.c_str(), f.kind.c_str(), sig.c_str());
+                if (img) Log("[demo]   link image: %d", (int)d.Link(img, id, 0));
+                if (f.name == "Fondu A/B" && img) d.Link(img, id, 1);
+                ids.push_back(id);
+            }
+            graphFrameOnly = std::set<Id>(ids.begin(), ids.end());
+            graphFrameRequest = true;
+        }
+        auto run = [&](const char* fname, const char* evName) {
+            for (Id id : ids)
+                if (const Node* n = g.Find(id); n && n->name == fname && n->sub)
+                    for (auto& m : n->sub->nodes)
+                        if (m.kind == NodeKind::Event && m.name == evName) StartExec(*a, id, m.id);
+        };
+        if (frameCounter == 20) run("Variantes de teinte", "Exporter les variantes");
+        if (frameCounter == 60) run("Bake et export PNG", "Exporter");
+        if (frameCounter == 90) {
+            for (Id id : ids)
+                if (const Node* n = g.Find(id)) Log("[demo] library state %s: results %zu vars %zu", n->name.c_str(), n->execResults.size(), n->varValues.size());
+            std::error_code ec;
+            int count = 0;
+            for (auto& e : std::filesystem::directory_iterator(Utf8Path(ExeDir() + "/exports"), ec)) { ++count; Log("[demo]   exported %s", Narrow(e.path().filename().wstring()).c_str()); }
+            Log("[demo] library exports: %d", count);
+            for (Id id : ids) if (const Node* n = g.Find(id); n && n->name == "Variantes de teinte") d.S().activeNode = id;
+        }
         return;
     }
     if (demoMode == 74) {

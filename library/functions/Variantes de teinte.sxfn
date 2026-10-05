@@ -1,0 +1,224 @@
+{
+ "format": "shaderixel-function",
+ "name": "Variantes de teinte",
+ "kind": "tool",
+ "description": "Bouton « Exporter les variantes » : pour chaque teinte du tableau, règle la variable Teinte et exporte variante_<index>.png.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Teinte",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Décalage de teinte appliqué (degrés)"
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": []
+   },
+   {
+    "id": 2,
+    "kind": "value",
+    "name": "Teintes",
+    "pos": [
+     0,
+     -400
+    ],
+    "value": {
+     "type": "Float",
+     "array": true,
+     "items": [
+      [
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       60,
+       0,
+       0,
+       0
+      ],
+      [
+       120,
+       0,
+       0,
+       0
+      ],
+      [
+       180,
+       0,
+       0,
+       0
+      ],
+      [
+       240,
+       0,
+       0,
+       0
+      ],
+      [
+       300,
+       0,
+       0,
+       0
+      ]
+     ]
+    },
+    "inputs": []
+   },
+   {
+    "id": 3,
+    "kind": "event",
+    "name": "Exporter les variantes",
+    "pos": [
+     0,
+     -600
+    ],
+    "inputs": []
+   },
+   {
+    "id": 4,
+    "kind": "action",
+    "op": "foreach",
+    "pos": [
+     320,
+     -500
+    ],
+    "inputs": [
+     3,
+     2
+    ]
+   },
+   {
+    "id": 5,
+    "kind": "varset",
+    "op": "Teinte",
+    "value": {
+     "type": "Float"
+    },
+    "pos": [
+     640,
+     -600
+    ],
+    "inputs": [
+     4,
+     4
+    ],
+    "inputChannels": [
+     0,
+     8
+    ]
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "op": "Teinte",
+    "value": {
+     "type": "Float"
+    },
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": []
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "effect": {
+     "effect": "hue_saturation"
+    },
+    "paramPinNames": [
+     "hue"
+    ],
+    "inputs": [
+     1,
+     6
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "math",
+    "op": "to_string",
+    "pos": [
+     640,
+     -300
+    ],
+    "inputs": [
+     4
+    ],
+    "inputChannels": [
+     16
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "math",
+    "op": "concat",
+    "pos": [
+     960,
+     -300
+    ],
+    "inputs": [
+     0,
+     8
+    ],
+    "pinValues": [
+     {
+      "type": "Texte",
+      "s": "variante_"
+     },
+     {
+      "type": "Texte",
+      "s": ""
+     }
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "action",
+    "op": "export_png",
+    "pos": [
+     1280,
+     -600
+    ],
+    "inputs": [
+     5,
+     7,
+     9
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7
+    ]
+   }
+  ]
+ }
+}

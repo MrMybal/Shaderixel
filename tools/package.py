@@ -394,6 +394,8 @@ def main():
         if f.lower().endswith(('.exe', '.dll')):
             shutil.copy2(os.path.join(BUILD, f), dist)
     shutil.copytree(os.path.join(ROOT, 'shaders'), os.path.join(dist, 'shaders'))
+    # Function library (sub-graphs and tools, .sxfn), listed in the node menu > Bibliothèque.
+    shutil.copytree(os.path.join(ROOT, 'library', 'functions'), os.path.join(dist, 'functions'))
     # Skills for AI assistants (Claude Code, other agents): writing effects in HLSL, importing them.
     shutil.copytree(os.path.join(ROOT, '.claude', 'skills'), os.path.join(dist, 'IA', 'skills'))
     # Python helpers run by the app (Select > Subject).

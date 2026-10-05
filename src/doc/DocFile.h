@@ -33,6 +33,10 @@ std::vector<Id> ReferencedSurfaces(const Document& doc);
 // left empty (the caller uploads the pixel blobs).
 std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<SurfaceBlob>& blobs, std::string* error);
 
+// Graph JSON (nodes, links, variables, inner function graphs): documents and .sxfn functions.
+Json GraphToJson(const Graph& g);
+void GraphFromJson(const Json& jg, Graph& g);
+
 bool WriteSxl(const std::string& path, const Json& meta, const std::vector<SurfaceBlob>& surfaces, std::string* error);
 bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surfaces, std::string* error);
 

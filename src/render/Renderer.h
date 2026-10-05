@@ -205,6 +205,8 @@ public:
     std::vector<float4> EffectParams(Document& doc, const Node& n);
     // Values produced while an execution flow runs (loop element, index...), by (node << 8 | port).
     std::unordered_map<u64, Value> runtimeValues;
+    // Forget this frame's evaluated nodes (an execution flow changed values between two evaluations).
+    void NewEvalPass() { frameEval.clear(); frameValues.clear(); }
     const Graph& EvalGraph(const Document& doc) const;
     // Release full-size node caches created by EvaluateNode in tiled mode.
     void DropNodeCaches(const Document& doc) { if (doc.tiled) cache.clear(); }

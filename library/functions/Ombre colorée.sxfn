@@ -1,0 +1,94 @@
+{
+ "format": "shaderixel-function",
+ "name": "Ombre colorée",
+ "kind": "subgraph",
+ "description": "Ombre portée dont la couleur et la distance sont des entrées du nœud.",
+ "graph": {
+  "output": 5,
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": []
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "name": "Couleur",
+    "port": 1,
+    "pos": [
+     0,
+     200
+    ],
+    "value": {
+     "type": "Color",
+     "f": [
+      0.1,
+      0.0,
+      0.3,
+      1
+     ]
+    },
+    "inputs": []
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "name": "Distance",
+    "port": 2,
+    "pos": [
+     0,
+     400
+    ],
+    "value": {
+     "type": "Float",
+     "f": 16
+    },
+    "inputs": []
+   },
+   {
+    "id": 4,
+    "kind": "effect",
+    "pos": [
+     320,
+     0
+    ],
+    "effect": {
+     "effect": "style_drop_shadow",
+     "set": {
+      "size": 18,
+      "opacity": 0.8
+     }
+    },
+    "paramPinNames": [
+     "color",
+     "dist"
+    ],
+    "inputs": [
+     1,
+     2,
+     3
+    ]
+   },
+   {
+    "id": 5,
+    "kind": "suboutput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     4
+    ]
+   }
+  ]
+ }
+}

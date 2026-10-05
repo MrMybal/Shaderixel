@@ -496,6 +496,11 @@ Value ValueFromJson(const Json& j) {
     const std::string t = j["type"].S("Image");
     for (int k = 0; k <= (int)PinType::Exec; ++k)
         if (t == PinTypeLabel((PinType)k)) v.type = (PinType)k;
+    static const std::pair<const char*, PinType> kAliases[] = {{"Color", PinType::Color}, {"String", PinType::String}, {"Text", PinType::String},
+                                                                {"Name", PinType::Name}, {"FName", PinType::Name}, {"Channel", PinType::Channel},
+                                                                {"float", PinType::Float}, {"int", PinType::Int}, {"bool", PinType::Bool}};
+    for (auto& [name, pt] : kAliases)
+        if (t == name) v.type = pt;
     v.array = j["array"].B(false);
     auto f4 = [](const Json& e) { return e.IsArray() && e.Size() >= 4 ? float4{e.At(0).F(), e.At(1).F(), e.At(2).F(), e.At(3).F()} : float4{}; };
     if (v.array) {
@@ -506,7 +511,9 @@ Value ValueFromJson(const Json& j) {
     } else if (PinIsText(v.type)) {
         v.s = j["s"].S("");
     } else if (j.Has("f")) {
-        v.f = f4(j["f"]);
+        v.f = j["f"].IsArray() ? f4(j["f"]) : float4{j["f"].F(), 0, 0, 0};
+        if (j["f"].IsArray() && j["f"].Size() < 4)  // short forms: [x, y] / [r, g, b]
+            for (size_t k = 0; k < j["f"].Size(); ++k) (&v.f.x)[k] = j["f"].At(k).F();
     }
     return v;
 }

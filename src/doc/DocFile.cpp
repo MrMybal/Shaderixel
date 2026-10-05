@@ -560,7 +560,7 @@ void GraphFromJson(const Json& jg, Graph& g) {
         n.opacity = o["opacity"].F(1);
         n.clip = o["clip"].B(false);
         n.channelOff = (u8)(o["channelOff"].I(0) & 15);
-        for (auto& c : o["inputChannels"].Elements()) n.inputChannel.push_back((u8)std::clamp(c.I(0), 0, 4));
+        for (auto& c : o["inputChannels"].Elements()) n.inputChannel.push_back((u8)std::clamp(c.I(0), 0, 255));  // channel (0-4) | output port << 3
         n.bypass = o["bypass"].B(false);
         n.layer = o["layer"].U();
         if (n.kind == NodeKind::Tool) {
@@ -584,11 +584,33 @@ void GraphFromJson(const Json& jg, Graph& g) {
         n.port = o["port"].I(0);
         if (o.Has("value")) n.value = ValueFromJson(o["value"]);
         n.op = o["op"].S("");
+        // Hand-written graphs (.sxfn): parameters by id ("set"), missing parameters, names and pins.
+        if (n.kind == NodeKind::Effect) {
+            if (auto def = n.fx.Def()) {
+                while (n.fx.params.size() < def->params.size()) n.fx.params.push_back(def->params[n.fx.params.size()].def);
+                for (auto& [pid, val] : o["effect"]["set"].Items())
+                    for (size_t k = 0; k < def->params.size(); ++k)
+                        if (def->params[k].id == pid) {
+                            if (val.IsArray()) n.fx.params[k] = Float4FromJson(val);
+                            else n.fx.params[k] = {val.F(), 0, 0, 0};
+                        }
+                for (auto& pid : o["paramPinNames"].Elements())
+                    for (size_t k = 0; k < def->params.size(); ++k)
+                        if (def->params[k].id == pid.S("")) n.paramPins.push_back((int)k);
+                if (n.name.empty()) n.name = def->name;
+            }
+        }
         for (auto& v : o["pinValues"].Elements()) n.pinValues.push_back(ValueFromJson(v));
         for (auto& k : o["paramPins"].Elements()) n.paramPins.push_back(k.I(0));
         for (auto& e : o["execResults"].Elements()) if (e.Size() >= 2) n.execResults[e.At(0).U()] = e.At(1).U();
         for (auto& [k, v] : o["varValues"].Items()) n.varValues[k] = ValueFromJson(v);
         for (auto& e : o["execSmart"].Elements()) if (e.Size() >= 2) n.execSmart[e.At(0).U()] = e.At(1).U();
+        if (n.name.empty()) {
+            if (auto* m = FindMathOp(n.op); m && n.kind == NodeKind::Math) n.name = m->label;
+            if (auto* a = FindExecAction(n.op); a && n.kind == NodeKind::Action) n.name = a->label;
+            if (n.kind == NodeKind::VarGet || n.kind == NodeKind::VarSet) n.name = (n.kind == NodeKind::VarGet ? "Lire " : "Définir ") + n.op;
+        }
+        if ((int)n.inputs.size() < NodeInputCount(n)) n.inputs.resize(NodeInputCount(n), 0);
         g.nodes.push_back(n);
     }
     g.output = jg["output"].U(0);

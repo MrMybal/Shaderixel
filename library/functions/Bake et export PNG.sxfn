@@ -1,0 +1,95 @@
+{
+ "format": "shaderixel-function",
+ "name": "Bake et export PNG",
+ "kind": "tool",
+ "description": "Bouton « Exporter » : fige l'image reçue (les nœuds avant ne sont plus calculés) et l'écrit en PNG.",
+ "graph": {
+  "output": 6,
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": []
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "name": "Fichier",
+    "port": 1,
+    "pos": [
+     0,
+     200
+    ],
+    "value": {
+     "type": "Texte",
+     "s": "export.png"
+    },
+    "inputs": []
+   },
+   {
+    "id": 3,
+    "kind": "event",
+    "name": "Exporter",
+    "pos": [
+     0,
+     -200
+    ],
+    "inputs": []
+   },
+   {
+    "id": 4,
+    "kind": "action",
+    "op": "bake",
+    "pos": [
+     320,
+     -100
+    ],
+    "inputs": [
+     3,
+     1
+    ]
+   },
+   {
+    "id": 5,
+    "kind": "action",
+    "op": "export_png",
+    "pos": [
+     640,
+     -100
+    ],
+    "inputs": [
+     4,
+     4,
+     2
+    ],
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 6,
+    "kind": "suboutput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     640,
+     150
+    ],
+    "inputs": [
+     4
+    ],
+    "inputChannels": [
+     8
+    ]
+   }
+  ]
+ }
+}

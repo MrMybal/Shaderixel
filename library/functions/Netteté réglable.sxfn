@@ -1,0 +1,72 @@
+{
+ "format": "shaderixel-function",
+ "name": "Netteté réglable",
+ "kind": "subgraph",
+ "description": "Netteté (masque flou) dont le gain est une entrée Float du nœud.",
+ "graph": {
+  "output": 4,
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": []
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "name": "Force",
+    "port": 1,
+    "pos": [
+     0,
+     200
+    ],
+    "value": {
+     "type": "Float",
+     "f": 0.8
+    },
+    "inputs": []
+   },
+   {
+    "id": 3,
+    "kind": "effect",
+    "name": "Netteté",
+    "pos": [
+     320,
+     0
+    ],
+    "effect": {
+     "effect": "sharpen",
+     "set": {
+      "radius": 2.0
+     }
+    },
+    "paramPinNames": [
+     "amount"
+    ],
+    "inputs": [
+     1,
+     2
+    ]
+   },
+   {
+    "id": 4,
+    "kind": "suboutput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     3
+    ]
+   }
+  ]
+ }
+}

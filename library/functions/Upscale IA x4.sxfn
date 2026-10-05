@@ -1,0 +1,81 @@
+{
+ "format": "shaderixel-function",
+ "name": "Upscale IA x4",
+ "kind": "tool",
+ "description": "Bouton « Upscaler » : agrandit l'image x4 avec un modèle d'upscale de ComfyUI (Modèle = fichier de models/upscale_models).",
+ "graph": {
+  "output": 4,
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": []
+   },
+   {
+    "id": 2,
+    "kind": "event",
+    "name": "Upscaler",
+    "pos": [
+     0,
+     -200
+    ],
+    "inputs": []
+   },
+   {
+    "id": 3,
+    "kind": "action",
+    "op": "upscale",
+    "pos": [
+     320,
+     -100
+    ],
+    "inputs": [
+     2,
+     1
+    ],
+    "pinValues": [
+     {
+      "type": "Image"
+     },
+     {
+      "type": "Image"
+     },
+     {
+      "type": "Int",
+      "f": 4
+     },
+     {
+      "type": "Bool",
+      "f": 1
+     },
+     {
+      "type": "Nom",
+      "s": "4x-UltraSharp.pth"
+     }
+    ]
+   },
+   {
+    "id": 4,
+    "kind": "suboutput",
+    "name": "Image",
+    "port": 0,
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     3
+    ],
+    "inputChannels": [
+     8
+    ]
+   }
+  ]
+ }
+}
