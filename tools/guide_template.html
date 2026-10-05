@@ -119,6 +119,15 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Fenêtre &gt; Nouvelle fenêtre : une fenêtre à placer sur un autre écran, glissez-y des panneaux par leur onglet ; tout panneau peut aussi sortir de la fenêtre principale.</li>
     <li>Fenêtre &gt; Dispositions : enregistrer / recharger vos dispositions.</li>
   </ol></div>
+  <div class="card"><h3>Transformer un calque (outil Transformation, <kbd>A</kbd>)</h3><ol>
+    <li>Déplacer / Rotation / Échelle / Pivot (<kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>P</kbd> dans l'outil) : glissez dans le cadre, sur les flèches ou les poignées. <kbd>Maj</kbd> plus rapide, <kbd>Ctrl</kbd> plus lent.</li>
+    <li>Barre en haut à droite du canevas : grilles d'aimantation pour chaque mode (préréglages, valeur libre, ou « libre » sans grille), repère Monde / Local, flèches, aperçu du dépassement, ratio verrouillé.</li>
+    <li>Sans perte : l'image entière est conservée (calque pixel converti en objet dynamique), ce qui dépasse du document reste visible pendant la manipulation. « Rogner au document » si vous voulez couper.</li>
+    <li>Calques Draw (remplissage, texte, forme) : un filtre Transform non destructif est ajouté. En mode nodal : un nœud Transform après le nœud actif, pour transformer une entrée avant sa fusion.</li>
+    <li>Propriétés d'un calque image : transformation en valeurs (position, échelle, rotation, pivot, miroirs, centrer, ajuster), filtrage (bicubique, bilinéaire, plus proche) et « Réglages de l'image » (exposition, contraste, gamma, saturation, teinte, température...).</li></ol></div>
+  <div class="card"><h3>Types de nœuds et sous-graphes</h3><ol>
+    <li>Chaque nœud du graphe porte son type : IMAGE (pixels), DRAW (dessiné par un shader), BLEND (fusion), EFFECT (entrée → sortie), TRANSFORM, SUBGRAPH (graphe à l'intérieur : groupe, document), CANAUX, SORTIE.</li>
+    <li>SubGraph : glissez un .sxl ou .sx3d sur le graphe, le canevas ou les calques (ou Calque &gt; Objet dynamique depuis un fichier) : la sortie de son graphe devient l'image d'un objet dynamique, transformable. Lié : suit le fichier (« Mettre à jour ») ; incorporé : « Modifier le contenu » ouvre son graphe.</li></ol></div>
   <div class="card"><h3>Effets, fusions, pinceaux en graphe</h3><ol>
     <li>Glissez un effet du panneau Effets sur un nœud de calque (filtre), sur un lien (inséré), dans le vide (nouveau nœud), sur un calque ou sur l'image.</li>
     <li>Onglet Fusion : modes standard et fusions de bibliothèque avec aperçu sur le calque actif ; « Nouvelle (graphe) » ouvre l'éditeur visuel (A dessous, B calque, masque).</li>
@@ -181,6 +190,7 @@ td:first-child { white-space: nowrap; width: 1%; }
 
 <h2>Raccourcis utiles</h2>
 <table>
+<tr><td><kbd>A</kbd>, puis <kbd>W</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>P</kbd></td><td>Transformation du calque : déplacer, rotation, échelle, pivot</td></tr>
 <tr><td><kbd>V</kbd> <kbd>M</kbd> <kbd>L</kbd> <kbd>W</kbd> <kbd>C</kbd></td><td>Déplacement, sélection rectangle/ellipse, lasso, sélection rapide/baguette, recadrage</td></tr>
 <tr><td><kbd>B</kbd> <kbd>E</kbd> <kbd>S</kbd> <kbd>J</kbd> <kbd>R</kbd> <kbd>O</kbd></td><td>Pinceau, gomme, tampon, correcteur, goutte/netteté/doigt, densité −/+ et éponge</td></tr>
 <tr><td><kbd>G</kbd> <kbd>T</kbd> <kbd>U</kbd> <kbd>P</kbd> <kbd>I</kbd></td><td>Dégradé, texte, forme, plume, pipette</td></tr>
