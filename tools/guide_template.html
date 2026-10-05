@@ -139,6 +139,13 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Double-clic sur le nœud : son graphe s'ouvre dans un onglet (avec l'image reçue en entrée pour l'aperçu). Chaque modification met à jour le nœud. Ajoutez des nœuds « Entrée de fonction » / « Sortie de fonction » pour ses broches (champ Ordre pour les trier).</li>
     <li>Deux modes : <b>Live</b> (calculé en direct) ou <b>Apply</b> (« Appliquer » garde les sorties en pixels, les nœuds avant sont figés ; « Réappliquer » après un changement).</li>
     <li>« Enregistrer dans la bibliothèque » : la fonction apparaît dans le menu des nœuds &gt; Bibliothèque (sous-graphes / outils), réutilisable dans tous les documents.</li></ol></div>
+  <div class="card"><h3>Valeurs, variables et exécution</h3><ol>
+    <li>Broches typées : Image, Canal, Float, Int, Bool, Vec2, Couleur, Texte, Nom, tableaux (carrés), exécution (flèches blanches). Seuls les types compatibles se relient.</li>
+    <li>Clic droit &gt; Valeurs / Maths / Logique / Vecteurs / Texte / Tableaux : constantes et opérations ; une entrée non reliée se règle sur le nœud (Propriétés) et s'affiche sur la broche.</li>
+    <li>Propriétés d'un effet &gt; « Paramètres en broches » : un paramètre devient une entrée, pilotée par une valeur, une variable ou une entrée de fonction.</li>
+    <li>Variables (Propriétés sans sélection, ou d'un nœud Variable) : les variables exposées d'une fonction se règlent sur chaque nœud de la fonction.</li>
+    <li>Exécution : un nœud Événement est un bouton ; il lance les actions reliées (Séquence, Branche, Pour / Pour chaque, Définir une variable, Bake, Upscale, ComfyUI, Exporter en PNG, Message). Les images produites sont gardées : les nœuds avant ne sont plus calculés.</li>
+    <li>Créer ses propres effets, calques Draw, fusions, sous-graphes et outils : voir PRESETS.md (à côté de Shaderixel.exe).</li></ol></div>
   <div class="card"><h3>Effets, fusions, pinceaux en graphe</h3><ol>
     <li>Glissez un effet du panneau Effets sur un nœud de calque (filtre), sur un lien (inséré), dans le vide (nouveau nœud), sur un calque ou sur l'image.</li>
     <li>Onglet Fusion : modes standard et fusions de bibliothèque avec aperçu sur le calque actif ; « Nouvelle (graphe) » ouvre l'éditeur visuel (A dessous, B calque, masque).</li>

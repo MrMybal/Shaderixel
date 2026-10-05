@@ -398,6 +398,9 @@ def main():
     shutil.copytree(os.path.join(ROOT, 'library', 'functions'), os.path.join(dist, 'functions'))
     # Skills for AI assistants (Claude Code, other agents): writing effects in HLSL, importing them.
     shutil.copytree(os.path.join(ROOT, '.claude', 'skills'), os.path.join(dist, 'IA', 'skills'))
+    # Preset reference (effects, Draw layers, blends, sub-graphs, tools): next to the exe and with its skill.
+    shutil.copy2(os.path.join(ROOT, 'docs', 'PRESETS.md'), os.path.join(dist, 'PRESETS.md'))
+    shutil.copy2(os.path.join(ROOT, 'docs', 'PRESETS.md'), os.path.join(dist, 'IA', 'skills', 'shaderixel-presets', 'PRESETS.md'))
     # Python helpers run by the app (Select > Subject).
     shutil.copytree(os.path.join(ROOT, 'tools', 'ai'), os.path.join(dist, 'ai'))
     # Unreal Engine plugin: built for each engine (tools/build_unreal_plugin.py), plus the sources.
