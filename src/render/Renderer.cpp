@@ -244,6 +244,19 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
         case NodeKind::Split:
             result = EvalInput(doc, ctx, *n, 0, depth + 1);
             break;
+        case NodeKind::Tool: {
+            // Baked: its pixels (the input chain is not evaluated); live: the input passes through.
+            Surface* s = ToolBaked(*n) ? doc.GetSurface(n->surface) : nullptr;
+            if (s && s->tex) {
+                Hasher h;
+                h.Pod(n->surface);
+                h.Pod(s->version);
+                result = {s->tex.get(), h.h};
+            } else {
+                result = EvalInput(doc, ctx, *n, 0, depth + 1);
+            }
+            break;
+        }
         case NodeKind::Surface: {
             Surface* s = doc.GetSurface(n->surface);
             if (s && s->tex) {

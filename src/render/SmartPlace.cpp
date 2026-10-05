@@ -85,8 +85,14 @@ gpu::TexturePtr Renderer::ImportTexture(gpu::CommandContext& ctx, const void* pi
 
 void Renderer::PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* content, const float2 corners[4], int interp) {
     Surface* s = doc.GetSurface(surface);
+    if (!s) return;
+    PlaceTexture(ctx, s->tex.get(), content, corners, interp);
+    doc.TouchSurface(surface);
+}
+
+void Renderer::PlaceTexture(gpu::CommandContext& ctx, gpu::Texture* dst, gpu::Texture* content, const float2 corners[4], int interp) {
     auto* k = Kernel("smart_place.slang");
-    if (!s || !content || !k) return;
+    if (!dst || !content || !k) return;
     // Contents pixel -> unit square -> quad; inverted for the shader (layer pixel -> contents pixel).
     double m[9], hm[9], inv[9];
     SquareToQuad(corners, m);
@@ -98,8 +104,8 @@ void Renderer::PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, g
     cb.h0 = {(float)inv[0], (float)inv[1], (float)inv[2], 0};
     cb.h1 = {(float)inv[3], (float)inv[4], (float)inv[5], 0};
     cb.h2 = {(float)inv[6], (float)inv[7], (float)inv[8], 0};
-    cb.w = s->tex->Width();
-    cb.h = s->tex->Height();
+    cb.w = dst->Width();
+    cb.h = dst->Height();
     // Shrunk contents: supersample.
     float area = std::abs((corners[1].x - corners[0].x) * (corners[3].y - corners[0].y) - (corners[1].y - corners[0].y) * (corners[3].x - corners[0].x));
     cb.super = area < cw * ch * 0.6 && interp != 0 ? 2u : 1u;
@@ -107,11 +113,10 @@ void Renderer::PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, g
     gpu::DispatchDesc d;
     d.pipeline = k;
     d.srv[0] = content;
-    d.uav[0] = s->tex.get();
+    d.uav[0] = dst;
     d.cbData = &cb;
     d.cbSize = sizeof(cb);
     Dispatch2D(ctx, d, cb.w, cb.h);
-    doc.TouchSurface(surface);
 }
 
 }  // namespace sx

@@ -91,7 +91,7 @@ EffectInstance EffectFromJson(const Json& j) {
 }
 
 const char* kLayerKinds[] = {"pixel", "fill", "adjustment", "group", "text", "shape", "smart"};
-const char* kNodeKinds[] = {"output", "surface", "effect", "blend", "split"};
+const char* kNodeKinds[] = {"output", "surface", "effect", "blend", "split", "tool"};
 
 template <size_t N>
 int IndexOf(const char* (&names)[N], const std::string& s, int def) {
@@ -470,6 +470,15 @@ Json SerializeDocument(const Document& doc) {
         if (n.kind == NodeKind::Blend) { o["blend"] = (int)n.blend; o["opacity"] = n.opacity; o["clip"] = n.clip; if (n.channelOff) o["channelOff"] = (int)n.channelOff; }
         if (n.bypass) o["bypass"] = true;
         if (n.layer) o["layer"] = n.layer;
+        if (n.kind == NodeKind::Tool) {
+            o["tool"] = n.tool;
+            o["passLive"] = n.passLive;
+            if (n.smart) o["smart"] = n.smart;
+            if (n.bakedHash) o["bakedHash"] = std::to_string(n.bakedHash);
+            Json pr = Json::Object();
+            for (auto& [k, val] : n.props) pr[k] = val;
+            o["props"] = pr;
+        }
         Json in = Json::Array();
         for (Id x : n.inputs) in.Push(x);
         o["inputs"] = in;
@@ -617,6 +626,13 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         for (auto& c : o["inputChannels"].Elements()) n.inputChannel.push_back((u8)std::clamp(c.I(0), 0, 4));
         n.bypass = o["bypass"].B(false);
         n.layer = o["layer"].U();
+        if (n.kind == NodeKind::Tool) {
+            n.tool = o["tool"].S("bake");
+            n.passLive = o["passLive"].B(true);
+            n.smart = o["smart"].U();
+            n.bakedHash = strtoull(o["bakedHash"].S("0").c_str(), nullptr, 10);
+            for (auto& [k, val] : o["props"].Items()) n.props[k] = val.S("");
+        }
         for (auto& x : o["inputs"].Elements()) n.inputs.push_back(x.U());
         if (n.surface && !s.surfaces.count(n.surface)) n.surface = doc->CreateSurface({0, 0, 0, 0});
         g.nodes.push_back(n);

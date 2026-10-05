@@ -1,5 +1,6 @@
 // Node graph editor (custom ImDrawList widget): pan/zoom, links, live thumbnails.
 #include "ui/App.h"
+#include <unordered_set>
 #include "ui/Theme.h"
 #include "doc/EffectGraph.h"
 
@@ -7,6 +8,8 @@
 #include <imgui_stdlib.h>
 
 namespace sx {
+
+void GraphFrozenNodes(const Graph& g, std::unordered_set<Id>& frozen);  // GraphTools.cpp
 
 namespace {
 constexpr float kNodeW = 184.0f;
@@ -21,6 +24,7 @@ ImU32 HeaderColor(const Node& n) {
         case NodeKind::Surface: return IM_COL32(36, 150, 168, 255);
         case NodeKind::Blend: return IM_COL32(64, 104, 200, 255);
         case NodeKind::Split: return IM_COL32(70, 150, 90, 255);
+        case NodeKind::Tool: return IM_COL32(170, 124, 26, 255);
         case NodeKind::Effect: {
             auto d = n.fx.Def();
             if (!n.fx.customCode.empty()) return IM_COL32(200, 92, 150, 255);
@@ -46,6 +50,7 @@ NodeTag NodeTypeTag(Document& d, const Node& n) {
     switch (n.kind) {
         case NodeKind::Output: return {"SORTIE", IM_COL32(52, 160, 110, 255)};
         case NodeKind::Split: return {"CANAUX", IM_COL32(70, 150, 90, 255)};
+        case NodeKind::Tool: return tool;
         case NodeKind::Blend: return l && l->kind == LayerKind::Group ? sub : blend;
         case NodeKind::Surface:
             if (l && (l->kind == LayerKind::Text || l->kind == LayerKind::Shape)) return draw;
@@ -106,6 +111,17 @@ std::vector<NodeEntry> NodeEntries() {
     e.push_back({"Fusion", "Fusion (mode de fusion)", "blend mélange", [](Document& d, float2 p) { return d.AddNode(NodeKind::Blend, p).id; }});
     e.push_back({"Fusion", "Fusion personnalisée (A, B, masque)", "blend custom hlsl mélange",
                  [](Document& d, float2 p) { return d.AddEffectNode("", kCustomBlendTemplate, p).id; }});
+    e.push_back({"Outils", "Bake (figer l'entrée en pixels)", "bake figer pixels cache freeze passlive",
+                 [](Document& d, float2 p) { return d.AddToolNode("bake", p).id; }});
+    e.push_back({"Outils", "Upscale (agrandir puis baker)", "upscale agrandir resolution esrgan ia",
+                 [](Document& d, float2 p) { return d.AddToolNode("upscale", p).id; }});
+    e.push_back({"Outils", "ComfyUI (workflow sur l'entrée)", "comfyui ia ai stable diffusion workflow img2img",
+                 [](Document& d, float2 p) { return d.AddToolNode("comfyui", p).id; }});
+    e.push_back({"Outils", "Transformation", "transform position echelle rotation", [](Document& d, float2 p) {
+                     Node& nn = d.AddEffectNode("transform_2d", "", p);
+                     nn.name = "Transformation";
+                     return nn.id;
+                 }});
     e.push_back({"Personnalisé", "HLSL personnalisé", "code custom shader", [](Document& d, float2 p) { return d.AddEffectNode("", kCustomEffectTemplate, p).id; }});
     e.push_back({"Personnalisé", "Effet visuel (graphe)", "graph unreal material", [](Document& d, float2 p) {
                      Node& nn = d.AddEffectNode("", "", p);
@@ -415,6 +431,9 @@ void App::DrawNodeEditor() {
         else if (const Node* t = g.Find(ed.linkTo)) drawLink(mouse, inPin(*t, ed.linkInput), ui::col::Accent, 2.5f);
     }
 
+    // Nodes before a baked tool are frozen (not evaluated): dimmed.
+    std::unordered_set<Id> frozen;
+    GraphFrozenNodes(g, frozen);
     // Nodes
     ImFont* font = ImGui::GetFont();
     float fs = ImGui::GetFontSize() * ed.zoom;
@@ -495,6 +514,22 @@ void App::DrawNodeEditor() {
             gpu::Texture* t = v->renderer.Thumbnail(*ctx, kThumbKeyBit | n.id, out, outHash, (u32)L.thumbW, (u32)L.thumbH);
             ImVec2 tb(ta.x + L.thumbW * ed.zoom, ta.y + L.thumbH * ed.zoom);
             dl->AddImageRounded((ImTextureID)gpu::Dev().UiTextureId(t), ta, tb, ImVec2(0, 0), ImVec2(1, 1), n.bypass ? IM_COL32(255, 255, 255, 90) : IM_COL32_WHITE, 3 * ed.zoom);
+        }
+        // Tool state badge: BAKED / LIVE / running.
+        if (n.kind == NodeKind::Tool && drawText) {
+            const bool busy = toolBusy.count(n.id) > 0;
+            const char* st = busy ? "EN COURS" : ToolBaked(n) ? "BAKED" : n.surface ? "PASSLIVE" : "LIVE";
+            const ImU32 sc = busy ? IM_COL32(240, 200, 60, 255) : ToolBaked(n) ? IM_COL32(230, 160, 40, 255) : IM_COL32(80, 210, 120, 255);
+            const float bfs = fs * 0.72f;
+            const ImVec2 bs = font->CalcTextSizeA(bfs, FLT_MAX, 0, st);
+            const ImVec2 b0(ta.x + 4 * ed.zoom, ta.y + 4 * ed.zoom), b1(b0.x + bs.x + 8 * ed.zoom, b0.y + bs.y + 4 * ed.zoom);
+            dl->AddRectFilled(b0, b1, IM_COL32(16, 16, 20, 220), 3 * ed.zoom);
+            dl->AddRect(b0, b1, sc, 3 * ed.zoom);
+            dl->AddText(font, bfs, ImVec2(b0.x + 4 * ed.zoom, b0.y + 2 * ed.zoom), sc, st);
+        }
+        if (frozen.count(n.id)) {
+            dl->AddRectFilled(a, b, IM_COL32(14, 14, 18, 150), r);
+            if (drawText) dl->AddText(font, fs * 0.8f, ImVec2(a.x + 8 * ed.zoom, b.y - fs - 6 * ed.zoom), IM_COL32(230, 160, 40, 230), "figé (baké plus loin)");
         }
     }
 
@@ -603,6 +638,15 @@ void App::DrawNodeEditor() {
                     d.S().activeNode = copy.id;
                     ed.selection = {copy.id};
                     v->history.PushState("Dupliquer le nœud", before, d.S());
+                }
+                if (n->kind == NodeKind::Tool) {
+                    ImGui::Separator();
+                    const Id tid = n->id;
+                    if (ImGui::MenuItem(n->surface ? "Rebaker" : "Baker", nullptr, false, !toolBusy.count(tid))) RequestToolAction(*v, tid, ToolAction::Bake);
+                    if (ImGui::MenuItem("PassLive (entrée en direct)", nullptr, n->passLive, n->surface != 0)) RequestToolAction(*v, tid, ToolAction::ToggleLive);
+                    if (ImGui::MenuItem("Convertir en image", nullptr, false, n->surface != 0)) RequestToolAction(*v, tid, ToolAction::ConvertToImage);
+                    if (ImGui::MenuItem("Exporter l'image...", nullptr, false, n->surface != 0)) RequestToolAction(*v, tid, ToolAction::Export);
+                    ImGui::Separator();
                 }
                 if (ImGui::MenuItem(ed.selection.size() > 1 ? "Supprimer la sélection" : "Supprimer", "Suppr")) deleteSelection();
             } else if (!editable) {
@@ -720,7 +764,7 @@ void App::DrawNodeEditor() {
     // Keyboard
     if (focused && editable && !io.WantTextInput && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))) deleteSelection();
     if (focused && !io.WantTextInput && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) for (auto& n : g.nodes) ed.selection.insert(n.id);
-    if (focused && !io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F) && !g.nodes.empty()) {
+    if (((focused && !io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F)) || std::exchange(graphFrameRequest, false)) && !g.nodes.empty()) {
         float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
         for (auto& n : g.nodes) {
             if (!ed.selection.empty() && !ed.selection.count(n.id)) continue;  // F frames the selection when there is one

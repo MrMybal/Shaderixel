@@ -803,6 +803,7 @@ void App::DrawProperties() {
             switch (n->kind) {
                 case NodeKind::Output: ImGui::TextDisabled("Sortie du document"); break;
                 case NodeKind::Surface: ImGui::TextDisabled("Calque de pixels - peignez dessus avec le pinceau"); break;
+                case NodeKind::Tool: ToolNodeUI(*v, *n); break;
                 case NodeKind::Blend: {
                     ImGui::Checkbox("Désactivé (bypass)", &n->bypass);
                     TrackUndo("Bypass");

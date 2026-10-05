@@ -59,6 +59,13 @@ u64 Renderer::StructHash(Document& doc, Id id, std::unordered_map<Id, u64>& memo
     h.Pod(n->bypass);
     switch (n->kind) {
         case NodeKind::Surface: h.Pod(n->surface); break;
+        case NodeKind::Tool:
+            if (ToolBaked(*n)) {
+                h.Pod(n->surface);
+                memo[id] = h.h;
+                return h.h;  // the inputs are not used
+            }
+            break;
         case NodeKind::Blend: h.Pod(n->blend); h.Pod(n->opacity); h.Pod(n->clip); h.Pod(n->blendIf); h.Pod(n->channelOff); h.Pod(doc.blendInGamma); break;
         case NodeKind::Effect: {
             EffectDefPtr def = n->fx.Def();
@@ -121,6 +128,10 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
             break;
         case NodeKind::Surface:
             if (Surface* s = doc.GetSurface(n->surface)) res = {s->tex.get(), {0, 0}};
+            break;
+        case NodeKind::Tool:
+            if (Surface* s = ToolBaked(*n) ? doc.GetSurface(n->surface) : nullptr) res = {s->tex.get(), {0, 0}};
+            else res = EvalTileInput(doc, ctx, *n, 0, need, depth + 1);
             break;
         case NodeKind::Blend: {
             TileRes in[3];

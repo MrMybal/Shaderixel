@@ -183,7 +183,10 @@ struct LayerComp {
 };
 
 // Split: passes its RGBA input through; its outputs R, G, B, A are channel links (1-4).
-enum class NodeKind : u8 { Output, Surface, Effect, Blend, Split };
+// Tool: graph tools working on their input as pixels (bake, upscale, ComfyUI...). Once baked the
+// node outputs its stored pixels and the nodes before it are no longer evaluated ("PassLive":
+// the input passes through live, to edit it before baking again).
+enum class NodeKind : u8 { Output, Surface, Effect, Blend, Split, Tool };
 
 struct Node {
     Id id = 0;
@@ -201,7 +204,23 @@ struct Node {
     std::vector<Id> inputs;   // per input pin, 0 = unconnected
     std::vector<u8> inputChannel;  // per input pin: output used on the source, 0 RGBA, 1 R, 2 G, 3 B, 4 A
     Id layer = 0;             // generated from this layer (layer mode)
+    // Tool nodes
+    std::string tool;         // "bake", "upscale", "comfyui"
+    bool passLive = false;    // input passed through live instead of the baked pixels
+    Id smart = 0;             // result at its own resolution (smart object; upscale / ComfyUI), 0 = none
+    u64 bakedHash = 0;        // input hash when baked (shows when the input changed since)
+    std::map<std::string, std::string> props;  // tool settings
+    std::string Prop(const std::string& k, const std::string& def = "") const {
+        auto it = props.find(k);
+        return it == props.end() ? def : it->second;
+    }
+    float PropF(const std::string& k, float def) const {
+        auto it = props.find(k);
+        return it == props.end() || it->second.empty() ? def : (float)atof(it->second.c_str());
+    }
 };
+// A tool node that outputs its baked pixels (its inputs are not evaluated).
+inline bool ToolBaked(const Node& n) { return n.kind == NodeKind::Tool && !n.passLive && n.surface; }
 
 int NodeInputCount(const Node& n);
 inline u8 InputChannel(const Node& n, size_t i) { return i < n.inputChannel.size() ? n.inputChannel[i] : 0; }
@@ -337,6 +356,7 @@ public:
     // Node mode ---------------------------------------------------------
     Node& AddNode(NodeKind kind, float2 pos);
     Node& AddEffectNode(const std::string& effectId, const std::string& customCode, float2 pos);
+    Node& AddToolNode(const std::string& tool, float2 pos);
     void RemoveNode(Id id);
     bool Link(Id from, Id to, int input, u8 channel = 0);
     void Unlink(Id to, int input);

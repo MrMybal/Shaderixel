@@ -186,6 +186,8 @@ public:
     // Smart objects: an image as a new texture (linear premultiplied), and its placement on a layer surface.
     gpu::TexturePtr ImportTexture(gpu::CommandContext& ctx, const void* pixels, u32 w, u32 h, bool isFloat, gpu::Format format);
     void PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* content, const float2 corners[4], int interp = 2);
+    // Same projective placement into any texture (corners in `dst` pixels).
+    void PlaceTexture(gpu::CommandContext& ctx, gpu::Texture* dst, gpu::Texture* content, const float2 corners[4], int interp = 2);
     gpu::ReadbackPtr ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb = true);
     // Same conversion (straight, optional sRGB) at 16 bits per channel (little-endian u16).
     gpu::ReadbackPtr ExportRGBA16(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb = true);

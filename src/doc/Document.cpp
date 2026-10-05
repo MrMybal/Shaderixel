@@ -86,6 +86,7 @@ int NodeInputCount(const Node& n) {
         case NodeKind::Surface: return 0;
         case NodeKind::Blend: return 3;
         case NodeKind::Split: return 1;
+        case NodeKind::Tool: return 1;
         case NodeKind::Effect: {
             auto d = n.fx.Def();
             return d ? (int)d->inputs.size() : (int)n.inputs.size();
@@ -119,6 +120,7 @@ std::string NodeInputName(const Node& n, int i) {
         case NodeKind::Output: return "Image";
         case NodeKind::Blend: return i == 0 ? "Fond" : i == 1 ? "Calque" : "Masque";
         case NodeKind::Split: return "RGBA";
+        case NodeKind::Tool: return "Entrée";
         case NodeKind::Effect: {
             auto d = n.fx.Def();
             if (d && i < (int)d->inputs.size()) return d->inputs[i];
@@ -779,6 +781,31 @@ Node& Document::AddNode(NodeKind kind, float2 pos) {
             n.inputs = {0};
             break;
         default: n.name = "Nœud"; break;
+    }
+    state.graph.nodes.push_back(n);
+    state.activeNode = n.id;
+    dirty = true;
+    return state.graph.nodes.back();
+}
+
+Node& Document::AddToolNode(const std::string& tool, float2 pos) {
+    Node n;
+    n.id = NewId();
+    n.kind = NodeKind::Tool;
+    n.pos = pos;
+    n.tool = tool;
+    n.passLive = true;  // nothing baked yet: the input passes through
+    n.inputs = {0};
+    if (tool == "upscale") {
+        n.name = "Upscale";
+        n.props["factor"] = "2";
+        n.props["method"] = "bicubic";
+        n.props["model"] = "4x-UltraSharp.pth";
+    } else if (tool == "comfyui") {
+        n.name = "ComfyUI";
+        n.props["denoise"] = "0.5";
+    } else {
+        n.name = "Bake";
     }
     state.graph.nodes.push_back(n);
     state.activeNode = n.id;

@@ -128,6 +128,12 @@ td:first-child { white-space: nowrap; width: 1%; }
   <div class="card"><h3>Types de nœuds et sous-graphes</h3><ol>
     <li>Chaque nœud du graphe porte son type : IMAGE (pixels), DRAW (dessiné par un shader), BLEND (fusion), EFFECT (entrée → sortie), TOOL (outils du graphe : Transform, d'autres suivront), SUBGRAPH (graphe à l'intérieur : groupe, document), CANAUX, SORTIE.</li>
     <li>SubGraph : glissez un .sxl ou .sx3d sur le graphe, le canevas ou les calques (ou Calque &gt; Objet dynamique depuis un fichier) : la sortie de son graphe devient l'image d'un objet dynamique, transformable. Lié : suit le fichier (« Mettre à jour ») ; incorporé : « Modifier le contenu » ouvre son graphe.</li></ol></div>
+  <div class="card"><h3>Outils du graphe : Bake, Upscale, ComfyUI</h3><ol>
+    <li>Clic droit dans le graphe &gt; Outils. <b>Bake</b> fige son entrée en pixels : les nœuds avant sont grisés et ne sont plus calculés (graphe plus léger).</li>
+    <li><b>PassLive</b> (case du nœud ou clic droit) : l'entrée repasse en direct pour la modifier, le bake est gardé ; puis « Rebaker ».</li>
+    <li><b>Upscale</b> : agrandit l'entrée (x2 à x8) en bicubique sur le GPU ou avec un modèle IA via ComfyUI (4x-UltraSharp, RealESRGAN...). Le résultat garde sa pleine résolution : « Exporter l'image... ».</li>
+    <li><b>ComfyUI</b> : envoie l'entrée à un workflow (image vers image intégré, ou votre workflow « Save (API format) ») avec un prompt, et utilise le résultat dans le graphe. Serveur réglé dans le panneau IA.</li>
+    <li>Clic droit &gt; <b>Convertir en image</b> : le nœud devient une image (pixels) du graphe, modifiable au pinceau.</li></ol></div>
   <div class="card"><h3>Effets, fusions, pinceaux en graphe</h3><ol>
     <li>Glissez un effet du panneau Effets sur un nœud de calque (filtre), sur un lien (inséré), dans le vide (nouveau nœud), sur un calque ou sur l'image.</li>
     <li>Onglet Fusion : modes standard et fusions de bibliothèque avec aperçu sur le calque actif ; « Nouvelle (graphe) » ouvre l'éditeur visuel (A dessous, B calque, masque).</li>

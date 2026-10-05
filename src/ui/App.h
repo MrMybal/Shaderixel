@@ -648,6 +648,24 @@ private:
         bool created = false;         // converted to a smart object / Transform added just now
     };
     bool LayerXfResolve(DocView& v, bool create, LayerXfTarget& t);
+    // Graph tools (GraphTools.cpp): bake / upscale / ComfyUI nodes.
+    enum class ToolAction : u8 { Bake, ToggleLive, ConvertToImage, Export };
+    struct ToolRequest { DocView* view; Id node; ToolAction action; int tries; };
+    struct ToolJob { DocView* view = nullptr; Id node = 0; u64 inHash = 0; gpu::ReadbackPtr image; };
+    struct ToolExportJob { gpu::ReadbackPtr image; std::string path; };
+    std::vector<ToolRequest> toolRequests;
+    std::vector<ToolJob> toolJobs;
+    std::vector<ToolExportJob> toolExports;
+    std::set<Id> toolBusy;
+    bool graphFrameRequest = false;  // frame all nodes in the graph editor (demos)
+    bool ViewAlive(const DocView* v) const;
+    void RequestToolAction(DocView& v, Id node, ToolAction a);
+    bool ToolBakeNow(DocView& v, Id node, int tries);
+    void ToolLaunchComfy(ToolJob& job);
+    void ToolConvertToImage(DocView& v, Id node);
+    void ToolExport(DocView& v, Id node);
+    void UpdateGraphTools();
+    void ToolNodeUI(DocView& v, Node& n);
     // SubGraph: a Shaderixel document (.sxl / .sx3d) used as a smart object, its output baked as the image.
     std::unique_ptr<Document> loadedSubDoc;  // set by LoadImageTexture for a document (embedded placement takes it)
     std::vector<std::pair<u64, std::shared_ptr<DocView>>> deferredViews;  // released once the GPU is done with them

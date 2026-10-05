@@ -1,5 +1,6 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
 #include "ui/App.h"
+#include <unordered_set>
 #include "io/UAsset.h"
 #include "io/ColorMgmt.h"
 #include "gpu/ShaderSystem.h"
@@ -13,6 +14,8 @@
 #include <cmath>
 
 namespace sx {
+
+void GraphFrozenNodes(const Graph& g, std::unordered_set<Id>& frozen);  // GraphTools.cpp
 
 namespace {
 // Compare two RGBA8 readbacks: max channel difference and pixels differing by more than `tol`.
@@ -299,6 +302,60 @@ void App::DemoTick() {
             }
         }
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
+        return;
+    }
+    if (demoMode == 72) {
+        // Graph tools: a tool node (SX_TOOL = bake / upscale / comfyui) inserted before the output and
+        // baked; SX_STEP may add "live" (PassLive on) and "convert" (convert to image).
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        char tool[32] = "bake", step[64] = "";
+        GetEnvironmentVariableA("SX_TOOL", tool, sizeof(tool));
+        GetEnvironmentVariableA("SX_STEP", step, sizeof(step));
+        static Id tid = 0;
+        auto logState = [&](const char* when) {
+            const Node* n = d.S().graph.Find(tid);
+            if (!n) return;
+            std::unordered_set<Id> frozen;
+            GraphFrozenNodes(d.S().graph, frozen);
+            SmartObject* so = n->smart ? d.GetSmart(n->smart) : nullptr;
+            Log("[demo] graphtools %s: kind %d surface %llu passLive %d baked %d smart %ux%u frozen %zu", when, (int)n->kind, (unsigned long long)n->surface,
+                (int)n->passLive, (int)ToolBaked(*n), so ? so->width : 0, so ? so->height : 0, frozen.size());
+        };
+        if (frameCounter == 8 && d.Mode() == DocMode::Layers) {
+            Edit e(d, a->history, "Passer en mode nodal");
+            d.ConvertToNodes();
+            e.Commit();
+        }
+        if (frameCounter == 10) {
+            Node* out = d.S().graph.Find(d.S().graph.output);
+            if (!out) return;
+            const Id prev = out->inputs.empty() ? 0 : out->inputs[0];
+            const float2 at = out->pos;
+            out->pos = at + float2{320, 0};
+            Node& t = d.AddToolNode(tool, at);
+            tid = t.id;
+            if (prev) d.Link(prev, tid, 0);
+            d.Link(tid, d.S().graph.output, 0);
+            d.S().activeNode = tid;
+            graphFrameRequest = true;
+            RequestToolAction(*a, tid, ToolAction::Bake);
+        }
+        if (frameCounter == 24) logState("baked");
+        if (frameCounter == 26 && strstr(step, "live")) RequestToolAction(*a, tid, ToolAction::ToggleLive);
+        if (frameCounter == 32) logState("after-live");
+        if (frameCounter == 34 && strstr(step, "convert")) RequestToolAction(*a, tid, ToolAction::ConvertToImage);
+        if (frameCounter == 40) logState("final");
+        if (frameCounter == 44 && strstr(step, "save")) SaveDocument(*a, "graphtools_test.sxl");
+        if (frameCounter == 90 && strstr(step, "save") && LoadSxl("graphtools_test.sxl")) {
+            for (auto& n : Active()->doc->S().graph.nodes)
+                if (n.kind == NodeKind::Tool) {
+                    SmartObject* so = n.smart ? Active()->doc->GetSmart(n.smart) : nullptr;
+                    Log("[demo] graphtools reloaded: tool %s surface %d passLive %d smart %ux%u props %zu", n.tool.c_str(), (int)(Active()->doc->GetSurface(n.surface) != nullptr),
+                        (int)n.passLive, so ? so->width : 0, so ? so->height : 0, n.props.size());
+                }
+        }
         return;
     }
     if (demoMode == 71) {
