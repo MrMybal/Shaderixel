@@ -10,7 +10,7 @@ cbuffer Params : register(b1)
     float4 gHinv2;
     uint2 gDstSize;
     uint gSuper;        // 1 or 2 (samples per axis)
-    uint gPad;
+    uint gInterp;       // 0 nearest, 1 bilinear, 2 bicubic
 };
 
 Texture2D<float4> gSrc : register(t0);
@@ -24,6 +24,10 @@ float4 CubicWeights(float t)
 
 float4 Sample(float2 q, uint2 size)
 {
+    if (gInterp == 0)
+        return gSrc.Load(int3(clamp(int2(floor(q)), int2(0, 0), int2(size) - 1), 0));
+    if (gInterp == 1)
+        return gSrc.SampleLevel(sLinearClamp, q / float2(size), 0);
     float2 f = q - 0.5;
     int2 i = int2(floor(f));
     float2 t = f - floor(f);

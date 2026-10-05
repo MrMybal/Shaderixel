@@ -16,11 +16,17 @@ cbuffer View : register(b1)
     uint gLutSize;      // color management / soft proofing LUT (0 = none)
     uint gGamut;        // 1 = gray out colors outside the proofing gamut
     uint2 gPad;
+    float4 gOv0;        // overflow (transform tool): document pixel -> layer contents UV
+    float4 gOv1;
+    float4 gOv2;
+    uint gOvFlags;      // 1 = show the layer contents outside the document
+    uint3 gOvPad;
 };
 
 Texture2D<float4> gImage : register(t0);
 Texture2D<float> gSel : register(t1);
 Texture2D<float4> gLut : register(t2);  // n*n x n: x = b * n + r, y = g; alpha 1 = in gamut
+Texture2D<float4> gOverflow : register(t3);  // contents of the layer being transformed (premultiplied linear)
 
 float4 LutAt(float3 s)
 {
@@ -56,7 +62,21 @@ void main(uint3 id : SV_DispatchThreadID)
     float2 d = gOrigin + v * gInvZoom;
     if (any(d < 0.0) || any(d >= float2(gDocSize)))
     {
-        gOut[id.xy] = gOutside;
+        float4 o = gOutside;
+        if (gOvFlags & 1)
+        {
+            // What the transformed layer covers outside the document, dimmed (it is not in the image).
+            float3 h = float3(dot(gOv0.xyz, float3(d, 1)), dot(gOv1.xyz, float3(d, 1)), dot(gOv2.xyz, float3(d, 1)));
+            float2 q = h.xy / max(h.z, 1e-6);
+            if (h.z > 1e-6 && all(q >= 0.0) && all(q <= 1.0))
+            {
+                float4 c = gOverflow.SampleLevel(sLinearClamp, q, 0);
+                float k = 0.55;
+                float3 rgb = c.rgb * k + SrgbToLinear(o.rgb) * (1.0 - c.a * k);
+                o = float4(LinearToSrgb(rgb), 1.0);
+            }
+        }
+        gOut[id.xy] = o;
         return;
     }
 

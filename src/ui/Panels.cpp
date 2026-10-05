@@ -662,6 +662,7 @@ void App::DrawProperties() {
             if (l->kind == LayerKind::Text) TextPropertiesUI(*v, *l);
             if (l->kind == LayerKind::Shape) ShapePropertiesUI(*v, *l);
             if (l->kind == LayerKind::Smart) SmartPropertiesUI(*v, *l);
+            if (l->kind == LayerKind::Smart || l->kind == LayerKind::Pixel) LayerImagePropertiesUI(*v, *l);
             if (l->kind == LayerKind::Group && l->artboard) ArtboardPropertiesUI(*v, *l);
             if (l->kind == LayerKind::Fill || l->kind == LayerKind::Adjustment) {
                 ImGui::SeparatorText(l->kind == LayerKind::Fill ? "Remplissage" : "Réglage");

@@ -33,7 +33,7 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
@@ -619,6 +619,30 @@ private:
     std::vector<DropRequest> pendingDrops;
     bool RouteDrop(const DropRequest& r);
     void AddImageNode(DocView& v, const std::string& path);  // node mode: image surface + Transformation node
+    // Layer transform tool (LayerTransform.cpp): move / rotate / scale / pivot of image layers without loss
+    // (smart objects keep the whole image), snapping grids, 3 speeds, world / relative axes.
+    struct {
+        int mode = 0;                 // 0 move, 1 rotate, 2 scale, 3 pivot
+        bool world = true;            // axes of the document (world) or of the layer (relative)
+        bool arrows = true;           // gizmo arrows / ring in the viewport
+        bool overflow = true;         // show the parts outside the document
+        bool lockAspect = true;
+        bool snap[3] = {false, false, false};  // move (px), rotate (deg), scale
+        float step[3] = {10.0f, 15.0f, 0.1f};
+        int drag = -1;
+        float2 startMouse, prevMouse, virt;
+        double accRot = 0, accLog[2] = {0, 0};
+        float2 sPos, sScale, sPivot;
+        float sRot = 0;
+        DocState before;
+        bool changed = false;
+        ImVec2 barMin, barMax;        // settings bar (last frame): not a canvas click
+        ImVec2 canvasMin;             // view origin (last frame), for scripted tests
+    } lxf;
+    void LayerTransformInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void LayerTransformOverlay(DocView& v, ImVec2 canvasMin, ImVec2 avail, ImDrawList* dl);
+    bool LayerTransformOverflow(DocView& v, gpu::Texture*& content, float inv[9]);  // outside-document preview
+    void LayerImagePropertiesUI(DocView& v, Layer& l);
     // Unreal .uasset (UAssetSupport.cpp): textures decoded natively, meshes converted by Unreal in the background.
     struct UAssetJob {
         std::string path, name;

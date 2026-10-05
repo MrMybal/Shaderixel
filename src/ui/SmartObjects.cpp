@@ -72,7 +72,8 @@ void App::SyncSmartLayers(DocView& v) {
         if (l.kind != LayerKind::Smart || !l.surface) continue;
         SmartObject* so = d.GetSmart(l.smart);
         if (!so || !so->content) continue;
-        u64 h = (u64)(uintptr_t)so->content.get() * 1099511628211ull ^ so->version * 0x9E3779B97F4A7C15ull ^ ((u64)d.Width() << 32) ^ d.Height();
+        u64 h = (u64)(uintptr_t)so->content.get() * 1099511628211ull ^ so->version * 0x9E3779B97F4A7C15ull ^ ((u64)d.Width() << 32) ^ d.Height() ^
+                ((u64)l.smartInterp << 60);
         for (auto& c : l.smartCorners) {
             u32 bits[2];
             memcpy(bits, &c, 8);
@@ -83,7 +84,7 @@ void App::SyncSmartLayers(DocView& v) {
         if (it != v.textHashes.end() && it->second == h) continue;
         d.CancelPendingClear(l.surface);
         bool wasDirty = d.dirty;  // derived pixels: not a change of the document
-        v.renderer.PlaceSmart(d, *ctx, l.surface, so->content.get(), l.smartCorners);
+        v.renderer.PlaceSmart(d, *ctx, l.surface, so->content.get(), l.smartCorners, l.smartInterp);
         d.dirty = wasDirty;
         v.textHashes[l.surface] = h;
     }

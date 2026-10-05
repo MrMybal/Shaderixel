@@ -32,6 +32,8 @@ struct ViewParams {
     gpu::Texture* lut = nullptr;  // display / proof 3D LUT (n*n x n, alpha = in gamut)
     u32 lutSize = 0;
     bool gamutWarning = false;
+    gpu::Texture* overflow = nullptr;  // layer contents shown outside the document (transform tool)
+    float overflowInv[9] = {};         // document pixel -> contents UV (homography, row-major)
 };
 
 enum class SelMode : u8 { Replace, Add, Subtract, Intersect };
@@ -183,7 +185,7 @@ public:
     void BoxBlurInPlace(gpu::CommandContext& ctx, gpu::Texture* t, gpu::Texture* tmp, int radius, int passes);
     // Smart objects: an image as a new texture (linear premultiplied), and its placement on a layer surface.
     gpu::TexturePtr ImportTexture(gpu::CommandContext& ctx, const void* pixels, u32 w, u32 h, bool isFloat, gpu::Format format);
-    void PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* content, const float2 corners[4]);
+    void PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* content, const float2 corners[4], int interp = 2);
     gpu::ReadbackPtr ExportRGBA8(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb = true);
     // Same conversion (straight, optional sRGB) at 16 bits per channel (little-endian u16).
     gpu::ReadbackPtr ExportRGBA16(gpu::CommandContext& ctx, gpu::Texture* image, bool srgb = true);

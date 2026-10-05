@@ -371,6 +371,13 @@ Json SerializeDocument(const Document& doc) {
             Json c = Json::Array();
             for (auto& p : l.smartCorners) { c.Push(p.x); c.Push(p.y); }
             o["smartCorners"] = c;
+            if (l.smartPivot.x != 0.5f || l.smartPivot.y != 0.5f) {
+                Json pv = Json::Array();
+                pv.Push(l.smartPivot.x);
+                pv.Push(l.smartPivot.y);
+                o["smartPivot"] = pv;
+            }
+            if (l.smartInterp != 2) o["smartInterp"] = (int)l.smartInterp;
         }
         if (l.material) o["material"] = l.material;
         if (l.clipped) o["clipped"] = true;
@@ -526,6 +533,8 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         l.smart = o["smart"].U();
         for (int k = 0; k < 4 && (size_t)k * 2 + 1 < o["smartCorners"].Size(); ++k)
             l.smartCorners[k] = {o["smartCorners"].At(k * 2).F(), o["smartCorners"].At(k * 2 + 1).F()};
+        if (o["smartPivot"].Size() == 2) l.smartPivot = {o["smartPivot"].At(0).F(0.5f), o["smartPivot"].At(1).F(0.5f)};
+        l.smartInterp = (u8)std::clamp(o["smartInterp"].I(2), 0, 2);
         l.material = o["material"].U();
         l.clipped = o["clipped"].B(false);
         if (o.Has("blendIf")) {

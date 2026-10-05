@@ -11,6 +11,7 @@ namespace {
 struct ToolInfo { Tool tool; int icon; const char* name; const char* key; };
 const ToolInfo kToolInfo[] = {
     {Tool::Move, ui::IconMove, "Déplacement", "V"},
+    {Tool::LayerTransform, ui::IconTransform, "Transformation de calque (déplacer, rotation, échelle, pivot)", "A"},
     {Tool::RectSelect, ui::IconRectSel, "Rectangle de sélection", "M"},
     {Tool::EllipseSelect, ui::IconEllipseSel, "Ellipse de sélection", "M"},
     {Tool::Lasso, ui::IconLasso, "Lasso", "L"},
@@ -51,6 +52,7 @@ const ToolInfo kToolInfo[] = {
 // Toolbar slots; tools sharing a slot appear in a flyout (right-click).
 const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Move},
+    {Tool::LayerTransform},
     {Tool::RectSelect, Tool::EllipseSelect},
     {Tool::Lasso, Tool::PolyLasso, Tool::MagneticLasso},
     {Tool::QuickSelect, Tool::Wand},
@@ -218,8 +220,13 @@ void App::DrawCanvas() {
     if (v->fitHold > 0) --v->fitHold;
 
     // Interaction first so this frame's dabs are visible this frame.
+    ImGui::SetNextItemAllowOverlap();  // the transform settings bar sits over the canvas
     ImGui::InvisibleButton("##canvas", avail, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
     bool hovered = ImGui::IsItemHovered();
+    if (tool == Tool::LayerTransform && lxf.barMax.x > lxf.barMin.x) {
+        ImVec2 m = ImGui::GetMousePos();
+        if (m.x >= lxf.barMin.x && m.y >= lxf.barMin.y && m.x <= lxf.barMax.x && m.y <= lxf.barMax.y) hovered = false;
+    }
     v->renderer.Prepare(doc, *ctx);
     SyncTextLayers(*v);
     SyncSmartLayers(*v);
@@ -259,6 +266,10 @@ void App::DrawCanvas() {
     vp.quickMask = quickMask;
     vp.time = (float)ImGui::GetTime();
     DisplayColorLut(*v, vp);
+    if (tool == Tool::LayerTransform && lxf.overflow) {
+        gpu::Texture* content = nullptr;
+        if (LayerTransformOverflow(*v, content, vp.overflowInv)) vp.overflow = content;
+    }
     v->renderer.Display(*ctx, v->renderer.DisplaySource(*ctx, image, vp.invZoom), doc.Width(), doc.Height(), vp, v->viewTex.get());
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -304,6 +315,8 @@ void App::DrawCanvas() {
     CropOverlay(*v, canvasMin, avail, dl);
     TextOverlay(*v, canvasMin, dl);
     TransformDrawOverlay(*v, canvasMin, dl);
+    if (tool == Tool::LayerTransform) LayerTransformOverlay(*v, canvasMin, avail, dl);
+    lxf.canvasMin = canvasMin;
     if ((tool == Tool::Clone || tool == Tool::Heal) && cloneSourceSet) {
         float2 src = cloneSource;
         if (stroking && cloneOffsetValid) src = cursorDoc + float2{(float)cloneOffset.x, (float)cloneOffset.y};
@@ -385,6 +398,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (tool == Tool::Move) {
         if (click && TransformBegin(v, true)) TransformInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::LayerTransform) {
+        LayerTransformInput(v, canvasMin, hovered);
         return;
     }
     if (tool == Tool::Crop) {

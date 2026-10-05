@@ -218,6 +218,15 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             dl->AddTriangleFilled(P(0, 0.85f), P(-a, 0.85f - a), P(a, 0.85f - a), col);
             break;
         }
+        case IconTransform: {
+            // Bounding box with corner handles and a rotation arc.
+            dl->AddRect(P(-0.6f, -0.6f), P(0.6f, 0.6f), col, 0, 0, t);
+            for (float x : {-0.6f, 0.6f})
+                for (float y : {-0.6f, 0.6f}) dl->AddRectFilled(P(x - 0.16f, y - 0.16f), P(x + 0.16f, y + 0.16f), col);
+            dl->PathArcTo(P(0, 0), 0.32f * (P(1, 0).x - P(0, 0).x), 3.6f, 5.9f, 12);
+            dl->PathStroke(col, 0, t);
+            break;
+        }
         case IconRectSel:
         case IconEllipseSel: {
             // dashed outline

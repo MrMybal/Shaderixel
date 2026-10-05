@@ -301,6 +301,53 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 71) {
+        // Layer transform tool with synthetic ImGui mouse events (never the real cursor): the "Peinture"
+        // pixel layer is moved past the document (snapping 10 px), turned, scaled; SX_MODE picks the final mode.
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        ImGuiIO& io = ImGui::GetIO();
+        auto screen = [&](float2 p) { return ImVec2(lxf.canvasMin.x + a->pan.x + p.x * a->zoom, lxf.canvasMin.y + a->pan.y + p.y * a->zoom); };
+        auto pivot = [&]() {
+            Layer* l = d.ActiveLayer();
+            return l ? (l->smartCorners[0] + l->smartCorners[2]) * 0.5f : float2{d.Width() * 0.5f, d.Height() * 0.5f};
+        };
+        static ImVec2 start;
+        if (frameCounter == 10) {
+            for (auto& l : d.S().layers)
+                if (l.name == "Peinture") d.S().activeLayer = l.id;
+            tool = Tool::LayerTransform;
+            lxf.snap[0] = true;
+            lxf.step[0] = 10;
+        }
+        auto drag = [&](int f0, int mode, ImVec2 from, ImVec2 to) {
+            if (frameCounter == (u64)f0) {
+                lxf.mode = mode;
+                io.AddMousePosEvent(from.x, from.y);
+            }
+            if (frameCounter == (u64)f0 + 1) io.AddMouseButtonEvent(0, true);
+            for (int k = 1; k <= 8; ++k)
+                if (frameCounter == (u64)f0 + 1 + k) io.AddMousePosEvent(from.x + (to.x - from.x) * k / 8, from.y + (to.y - from.y) * k / 8);
+            if (frameCounter == (u64)f0 + 11) io.AddMouseButtonEvent(0, false);
+        };
+        if (frameCounter == 20) start = screen(pivot());
+        if (frameCounter >= 20 && frameCounter < 34) drag(20, 0, start, ImVec2(start.x + 260, start.y + 37));
+        if (frameCounter == 36) start = screen(pivot());
+        if (frameCounter >= 36 && frameCounter < 50) drag(36, 1, ImVec2(start.x - 150, start.y), ImVec2(start.x - 130, start.y - 75));
+        if (frameCounter == 52) start = screen(pivot());
+        if (frameCounter >= 52 && frameCounter < 66) drag(52, 2, ImVec2(start.x + 40, start.y + 40), ImVec2(start.x + 60, start.y + 60));
+        if (frameCounter == 60) ShowSideTab(0);
+        if (frameCounter == 70) {
+            char m[8] = "";
+            if (GetEnvironmentVariableA("SX_MODE", m, sizeof(m)) > 0) lxf.mode = atoi(m);
+            if (Layer* l = d.ActiveLayer())
+                Log("[demo] layerxf: kind %d corners %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f", (int)l->kind, l->smartCorners[0].x, l->smartCorners[0].y,
+                    l->smartCorners[1].x, l->smartCorners[1].y, l->smartCorners[2].x, l->smartCorners[2].y, l->smartCorners[3].x, l->smartCorners[3].y);
+            io.AddMousePosEvent(-100, -100);
+        }
+        return;
+    }
     if (demoMode == 70) {
         // Unreal mesh conversion alone (SX_UASSET), result in the log.
         char path[1024] = "";

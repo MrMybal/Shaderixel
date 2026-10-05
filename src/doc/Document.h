@@ -155,6 +155,8 @@ struct Layer {
     Id material = 0;          // material layer (one fill per PBR channel group, shared mask), 0 = none
     Id smart = 0;             // Smart layers: smart object (Document::smartObjects)
     float2 smartCorners[4];   // Smart layers: where the contents go (TL TR BR BL, document pixels)
+    float2 smartPivot = {0.5f, 0.5f};  // Smart layers: transform pivot, in the contents (0..1)
+    u8 smartInterp = 2;       // Smart layers: sampling (0 nearest, 1 bilinear, 2 bicubic)
     bool clipped = false;     // clipping mask: clipped to the layer below
     bool passThrough = true;  // groups: blend children straight into the parent stack
     bool collapsed = false;   // groups: UI state

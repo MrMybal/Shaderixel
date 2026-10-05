@@ -13,7 +13,7 @@ namespace {
 struct ImportRootS { u32 sw, sh; i32 ox, oy; u32 dw, dh, flags; };
 struct PlaceCB {
     float4 h0, h1, h2;
-    u32 w, h, super, pad;
+    u32 w, h, super, interp;
 };
 
 void Mul3(const double* a, const double* b, double* out) {
@@ -83,7 +83,7 @@ gpu::TexturePtr Renderer::ImportTexture(gpu::CommandContext& ctx, const void* pi
     return out;
 }
 
-void Renderer::PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* content, const float2 corners[4]) {
+void Renderer::PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, gpu::Texture* content, const float2 corners[4], int interp) {
     Surface* s = doc.GetSurface(surface);
     auto* k = Kernel("smart_place.slang");
     if (!s || !content || !k) return;
@@ -102,8 +102,8 @@ void Renderer::PlaceSmart(Document& doc, gpu::CommandContext& ctx, Id surface, g
     cb.h = s->tex->Height();
     // Shrunk contents: supersample.
     float area = std::abs((corners[1].x - corners[0].x) * (corners[3].y - corners[0].y) - (corners[1].y - corners[0].y) * (corners[3].x - corners[0].x));
-    cb.super = area < cw * ch * 0.6 ? 2u : 1u;
-    cb.pad = 0;
+    cb.super = area < cw * ch * 0.6 && interp != 0 ? 2u : 1u;
+    cb.interp = (u32)std::clamp(interp, 0, 2);
     gpu::DispatchDesc d;
     d.pipeline = k;
     d.srv[0] = content;
