@@ -135,8 +135,7 @@ void App::ValueInputsUI(DocView& v, Node& n) {
         }
         Value val = NodePinDefault(n, i);
         if (ValueEditor(ins[i].name.c_str(), val)) {
-            if ((int)n.pinValues.size() <= i) n.pinValues.resize(i + 1);
-            n.pinValues[i] = val;
+            NodeSetPinValue(n, i, val);
             d.dirty = true;
         }
         if (ImGui::IsItemActivated()) snap = d.S();

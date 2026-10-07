@@ -396,6 +396,9 @@ def main():
     shutil.copytree(os.path.join(ROOT, 'shaders'), os.path.join(dist, 'shaders'))
     # Function library (sub-graphs and tools, .sxfn), listed in the node menu > Bibliothèque.
     shutil.copytree(os.path.join(ROOT, 'library', 'functions'), os.path.join(dist, 'functions'))
+    # Logo used by the reference image of previews (effects browser, function inputs).
+    os.makedirs(os.path.join(dist, 'assets'), exist_ok=True)
+    shutil.copy2(os.path.join(ROOT, 'assets', 'logo.png'), os.path.join(dist, 'assets', 'logo.png'))
     # Skills for AI assistants (Claude Code, other agents): writing effects in HLSL, importing them.
     shutil.copytree(os.path.join(ROOT, '.claude', 'skills'), os.path.join(dist, 'IA', 'skills'))
     # Preset reference (effects, Draw layers, blends, sub-graphs, tools): next to the exe and with its skill.

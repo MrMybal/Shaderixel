@@ -34,6 +34,8 @@ Node& AddTypedNode(Document& d, NodeKind kind, const std::string& op, PinType ty
 
 // Value of an unlinked value input: the node's pinValues, else the default of the pin.
 Value NodePinDefault(const Node& n, int i);
+// Sets the value of an unlinked value input (an effect parameter shown as a pin: the parameter).
+void NodeSetPinValue(Node& n, int i, const Value& v);
 
 // JSON of values (documents, library).
 class Json;

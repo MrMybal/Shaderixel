@@ -178,6 +178,14 @@ u64& FunctionLibraryGen();
 extern std::function<Id(Document&, float2, const std::string&)> g_insertLibraryFunction;
 
 struct NodeEditorState {
+    // Value edited on a node (unlinked value input): dragged (numbers) or in a small popup.
+    Id valNode = 0;
+    int valPin = -1;
+    bool valDrag = false, valMoved = false, valPopup = false, valChanged = false;
+    float valMouseX = 0;
+    Value valStart;
+    std::optional<DocState> valBefore;
+    std::unordered_map<u64, ImVec4> valRects;  // screen rect of each drawn value field (node << 8 | pin), for demos
     float2 pan = {40, 40};
     float zoom = 1.0f;
     Id dragNode = 0;
@@ -1167,6 +1175,8 @@ private:
     enum class FxApply { Filter, Adjustment, Destructive, Node };
     void ApplyLibraryEffect(DocView& v, const std::string& id, FxApply how);
     void DrawEffectBrowser();
+    // Reference image for previews (effect thumbnails, function inputs with nothing linked).
+    gpu::Texture* ReferenceTexture(DocView& v);
     // Custom code: declarations (inputs/params) + code + compile + save to library.
     // Returns true when the instance changed. `errorNode`: node whose compile errors to show (0 = find).
     bool CustomCodeUI(DocView& v, EffectInstance& fx, Id errorNode, const char* key);
@@ -1176,7 +1186,10 @@ private:
         std::string search, category, selected;
         bool favoritesOnly = false, favLoaded = false;
         std::set<std::string> favorites;
-        int source = 0;            // 0 active layer, 1 whole image
+        int source = 0;            // 0 active layer, 1 whole image, 2 reference image
+        int refKind = 0;           // reference: 0 logo on a background, 1 color chart, 2 image file
+        std::string refPath, refKey;
+        gpu::TexturePtr refTex;
         float thumb = 120;
         gpu::TexturePtr sourceSmall;
         u64 sourceHash = 0, sourceFrame = 0;

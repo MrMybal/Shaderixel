@@ -456,8 +456,39 @@ Node& AddTypedNode(Document& d, NodeKind kind, const std::string& op, PinType ty
     return n;
 }
 
+namespace {
+// Effect parameter behind input pin i (-1: an image input or no parameter).
+int EffectParamOfPin(const Node& n, int i) {
+    if (n.kind != NodeKind::Effect) return -1;
+    auto def = n.fx.Def();
+    if (!def) return -1;
+    const int j = i - (int)def->inputs.size();
+    if (j < 0 || j >= (int)n.paramPins.size()) return -1;
+    const int k = n.paramPins[j];
+    return k >= 0 && k < (int)def->params.size() ? k : -1;
+}
+}  // namespace
+
+void NodeSetPinValue(Node& n, int i, const Value& v) {
+    const PinDesc pin = NodeInputPin(n, i);
+    const Value c = ConvertValue(v, pin.type, pin.array);
+    if (const int k = EffectParamOfPin(n, i); k >= 0) {
+        auto def = n.fx.Def();
+        while ((int)n.fx.params.size() <= k) n.fx.params.push_back(def->params[n.fx.params.size()].def);
+        n.fx.params[k] = c.f;
+        return;
+    }
+    if ((int)n.pinValues.size() <= i) n.pinValues.resize(i + 1);
+    n.pinValues[i] = c;
+}
+
 Value NodePinDefault(const Node& n, int i) {
     const PinDesc pin = NodeInputPin(n, i);
+    if (const int k = EffectParamOfPin(n, i); k >= 0) {
+        Value v = MakeValue(pin.type, false);
+        v.f = k < (int)n.fx.params.size() ? n.fx.params[k] : n.fx.Def()->params[k].def;
+        return v;
+    }
     if (i >= 0 && i < (int)n.pinValues.size() && PinIsValue(n.pinValues[i].type)) return ConvertValue(n.pinValues[i], pin.type, pin.array);
     if (n.kind == NodeKind::Math)
         if (auto* d = FindMathOp(n.op); d && i < (int)d->defaults.size()) return d->defaults[i];

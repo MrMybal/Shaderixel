@@ -1,6 +1,7 @@
 // Effects browser (searchable grid with live previews computed on the active
 // layer, favorites, categories) and the active layer preview panel.
 #include "ui/App.h"
+#include <stb_image.h>
 #include "ui/Theme.h"
 
 #include <imgui_internal.h>
@@ -149,6 +150,89 @@ void App::DropEffectOnLayer(DocView& v, Id layer, const std::string& effectId) {
     Status(def->name + " : filtre ajouté à " + l->name);
 }
 
+// ------------------------------------------------------------------ reference image
+
+gpu::Texture* App::ReferenceTexture(DocView& v) {
+    auto& B = fxBrowser;
+    const std::string key = std::to_string(B.refKind) + "|" + (B.refKind == 2 ? B.refPath : std::string());
+    if (B.refTex && key == B.refKey) return B.refTex.get();
+    const gpu::Format fmt = v.doc->GetPrecision() == Precision::Float32 ? gpu::Format::RGBA32F : gpu::Format::RGBA16F;
+    if (B.refKind == 2 && !B.refPath.empty()) {
+        int w = 0, h = 0;
+        if (stbi_uc* px = LoadImagePixels(B.refPath, w, h)) {
+            B.refTex = v.renderer.ImportTexture(*ctx, px, (u32)w, (u32)h, false, fmt);
+            stbi_image_free(px);
+            B.refKey = key;
+            return B.refTex.get();
+        }
+    }
+    const int N = 512;
+    std::vector<u8> px((size_t)N * N * 4);
+    auto put = [&](int x, int y, float r, float g, float b) {
+        u8* o = &px[((size_t)y * N + x) * 4];
+        o[0] = (u8)std::clamp(r * 255.0f, 0.0f, 255.0f);
+        o[1] = (u8)std::clamp(g * 255.0f, 0.0f, 255.0f);
+        o[2] = (u8)std::clamp(b * 255.0f, 0.0f, 255.0f);
+        o[3] = 255;
+    };
+    auto hsv = [](float h, float s, float val, float& r, float& g, float& b) {
+        h -= std::floor(h);
+        r = std::clamp(std::abs(h * 6 - 3) - 1, 0.0f, 1.0f);
+        g = std::clamp(2 - std::abs(h * 6 - 2), 0.0f, 1.0f);
+        b = std::clamp(2 - std::abs(h * 6 - 4), 0.0f, 1.0f);
+        r = ((r - 1) * s + 1) * val;
+        g = ((g - 1) * s + 1) * val;
+        b = ((b - 1) * s + 1) * val;
+    };
+    if (B.refKind == 1) {
+        // Color chart: hues x brightness, a gray ramp, and swatches (primaries, secondaries, skin, sky).
+        static const float sw[8][3] = {{0.85f, 0.1f, 0.1f}, {0.1f, 0.7f, 0.2f}, {0.1f, 0.3f, 0.85f}, {0.95f, 0.85f, 0.1f},
+                                       {0.1f, 0.8f, 0.85f}, {0.85f, 0.15f, 0.8f}, {0.87f, 0.64f, 0.5f}, {0.35f, 0.6f, 0.9f}};
+        for (int y = 0; y < N; ++y)
+            for (int x = 0; x < N; ++x) {
+                float r, g, b;
+                if (y < N * 6 / 10) {
+                    const float t = (float)y / (N * 0.6f);
+                    hsv((float)x / N, std::min(1.0f, t * 2.0f), t < 0.5f ? 1.0f : 1.0f - (t - 0.5f) * 1.7f, r, g, b);
+                } else if (y < N * 75 / 100) {
+                    r = g = b = std::floor((float)x / N * 16) / 15.0f;
+                } else {
+                    const int k = std::min(7, x * 8 / N);
+                    r = sw[k][0];
+                    g = sw[k][1];
+                    b = sw[k][2];
+                }
+                put(x, y, r, g, b);
+            }
+    } else {
+        // Logo on a background: gradient with a soft light, the Shaderixel logo in the middle.
+        for (int y = 0; y < N; ++y)
+            for (int x = 0; x < N; ++x) {
+                const float u = (float)x / N, w = (float)y / N;
+                const float dx = u - 0.35f, dy = w - 0.3f, glow = std::exp(-(dx * dx + dy * dy) * 6.0f);
+                put(x, y, 0.08f + 0.25f * w + 0.25f * glow, 0.09f + 0.08f * w + 0.15f * glow, 0.2f + 0.3f * (1 - w) + 0.2f * glow);
+            }
+        int lw = 0, lh = 0;
+        stbi_uc* logo = nullptr;
+        for (const char* rel : {"/assets/logo.png", "/../../assets/logo.png"})
+            if (!logo) logo = LoadImagePixels(ExeDir() + rel, lw, lh);
+        if (logo && lw > 0 && lh > 0) {
+            const int size = N * 7 / 10, x0 = (N - size) / 2, y0 = (N - size) / 2;
+            for (int y = 0; y < size; ++y)
+                for (int x = 0; x < size; ++x) {
+                    const stbi_uc* s = &logo[((size_t)(y * lh / size) * lw + (x * lw / size)) * 4];
+                    const float a = s[3] / 255.0f;
+                    u8* o = &px[((size_t)(y0 + y) * N + x0 + x) * 4];
+                    for (int c = 0; c < 3; ++c) o[c] = (u8)(s[c] * a + o[c] * (1 - a));
+                }
+            stbi_image_free(logo);
+        }
+    }
+    B.refTex = v.renderer.ImportTexture(*ctx, px.data(), N, N, false, fmt);
+    B.refKey = key;
+    return B.refTex.get();
+}
+
 // ------------------------------------------------------------------ effects browser
 
 void App::DrawEffectBrowser() {
@@ -196,11 +280,25 @@ void App::DrawEffectBrowser() {
     }
     // Preview source + size.
     ImGui::SetNextItemWidth(150 * dpi);
-    ImGui::Combo("##fxsrc", &B.source, "Aperçu : calque actif\0Aperçu : image entière\0");
-    ui::HelpTooltip("Les vignettes montrent l'effet appliqué au calque actif (filtres compris) ou à l'image entière.");
+    ImGui::Combo("##fxsrc", &B.source, "Aperçu : calque actif\0Aperçu : image entière\0Aperçu : référence\0");
+    ui::HelpTooltip("Les vignettes montrent l'effet appliqué au calque actif (filtres compris), à l'image entière, ou à une image de référence "
+                    "(logo sur fond, mire de couleurs, ou votre image) pour juger l'effet sans dépendre du document.");
     ImGui::SameLine();
     ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x));
     ImGui::SliderFloat("##fxsize", &B.thumb, 64, 220, "Taille %.0f");
+    if (B.source == 2) {
+        ImGui::SetNextItemWidth(150 * dpi);
+        ImGui::Combo("##fxref", &B.refKind, "Logo sur fond\0Mire de couleurs\0Image...\0");
+        ImGui::SameLine();
+        if (ImGui::Button("Choisir une image...")) {
+            std::string p = platform::OpenFileDialog(hwnd, L"Images\0*.png;*.jpg;*.jpeg;*.tga;*.bmp;*.psd;*.hdr;*.uasset\0");
+            if (!p.empty()) { B.refPath = p; B.refKind = 2; }
+        }
+        if (B.refKind == 2 && !B.refPath.empty()) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", Narrow(Utf8Path(B.refPath).filename().wstring()).c_str());
+        }
+    }
     if (v) {
         Layer* l = v->doc->Mode() == DocMode::Layers ? v->doc->ActiveLayer() : nullptr;
         ImGui::TextColored(ImVec4(0.45f, 0.8f, 0.95f, 1), "Cible : %s", v->doc->Mode() == DocMode::Nodes ? "nœud actif (mode nodal)" : l ? l->name.c_str() : "aucun calque");
@@ -211,6 +309,7 @@ void App::DrawEffectBrowser() {
     gpu::Texture* src = nullptr;
     if (v) {
         if (B.source == 0) src = ActiveContent(*v, srcHash);
+        if (B.source == 2 && (src = ReferenceTexture(*v)) != nullptr) srcHash = std::hash<std::string>()(B.refKey) | 1;
         if (!src) { src = v->lastImage; srcHash = v->renderer.ImageVersion() ^ 0x5bd1e995; }
     }
     u64 frame = gpu::Dev().FrameNumber();

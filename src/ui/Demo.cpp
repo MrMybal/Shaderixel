@@ -306,6 +306,77 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 77) {
+        // Values on nodes: "Ombre colorée" (Color, Float inputs) and a Bool value node; the Distance field dragged
+        // +60 px and the Bool field clicked with synthetic ImGui events; SX_STEP "edit": its graph opened (breadcrumb),
+        // "ref": effects browser on the reference image.
+        static DocView* parent = nullptr;
+        static Id fid = 0, cmp = 0;
+        char step[64] = "";
+        GetEnvironmentVariableA("SX_STEP", step, sizeof(step));
+        ImGuiIO& io = ImGui::GetIO();
+        if (frameCounter == 8) {
+            parent = Active();
+            if (!parent) return;
+            Edit e(*parent->doc, parent->history, "Passer en mode nodal");
+            parent->doc->ConvertToNodes();
+            e.Commit();
+        }
+        if (!parent || !ViewAlive(parent)) return;
+        Document& d = *parent->doc;
+        Graph& g = d.S().graph;
+        auto fieldCenter = [&](Id node, int pin, ImVec2& c) {
+            auto it = nodeEd.valRects.find(((u64)node << 8) | (u64)pin);
+            if (it == nodeEd.valRects.end()) return false;
+            c = ImVec2((it->second.x + it->second.z) * 0.5f, (it->second.y + it->second.w) * 0.5f);
+            return true;
+        };
+        if (frameCounter == 10) {
+            for (auto& f : FunctionLibrary())
+                if (f.name == "Ombre colorée") fid = InsertLibraryFunction(*parent, f.path, {0, 1300});
+            Node& c = AddTypedNode(d, NodeKind::Math, "greater", PinType::Float, false, {420, 1300});
+            cmp = c.id;
+            Node* out = g.Find(g.output);
+            if (out && !out->inputs.empty() && fid) d.Link(out->inputs[0], fid, 0);
+            graphFrameOnly = {fid, cmp};
+            graphFrameRequest = true;
+            if (strstr(step, "ref")) {
+                fxBrowser.source = 2;
+                fxBrowser.refKind = 0;
+                *PanelFlag("Effets") = true;
+                ShowSideTab(2);
+            }
+        }
+        static ImVec2 start;
+        if (frameCounter == 16 && fieldCenter(fid, 2, start)) io.AddMousePosEvent(start.x, start.y);
+        if (frameCounter == 18) io.AddMouseButtonEvent(0, true);
+        for (int k = 1; k <= 6; ++k)
+            if (frameCounter == (u64)18 + k) io.AddMousePosEvent(start.x + 60.0f * k / 6, start.y);
+        if (frameCounter == 26) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 28) {
+            if (const Node* f = g.Find(fid)) Log("[demo] nodeui distance = %s", ValueToText(NodePinDefault(*f, 2)).c_str());
+            ImVec2 c;
+            if (fieldCenter(cmp, 0, c)) io.AddMousePosEvent(c.x, c.y);
+        }
+        if (frameCounter == 30) io.AddMouseButtonEvent(0, true);
+        if (frameCounter == 31) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 34) {
+            ImVec2 c;
+            if (fieldCenter(cmp, 0, c)) Log("[demo] nodeui popup open: %d", (int)ImGui::IsPopupOpen("##pinval", ImGuiPopupFlags_AnyPopupId));
+            io.AddKeyEvent(ImGuiKey_Escape, true);
+        }
+        if (frameCounter == 35) io.AddKeyEvent(ImGuiKey_Escape, false);
+        if (frameCounter == 36) {
+            io.AddMousePosEvent(-100, -100);
+            if (const Node* f = g.Find(fid)) {
+                std::vector<PinDesc> ins;
+                NodeSignature(*f, &ins, nullptr);
+                Log("[demo] nodeui pins: %zu, widths ok", ins.size());
+            }
+            if (strstr(step, "edit")) EditFunction(*parent, fid);
+        }
+        return;
+    }
     if (demoMode == 76) {
         // Trim sheet: "Architecture" layout, the bottom edge of trim 2 dragged down 40 px with synthetic
         // ImGui mouse events, trim 1 made seamless on "Peinture", ID layer, JSON export (SX_TRIMJSON), 3D preview.

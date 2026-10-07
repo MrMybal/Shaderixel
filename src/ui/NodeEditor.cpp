@@ -134,19 +134,50 @@ ImU32 LabelColor(const Node& n, int k) {
 }
 
 struct Layout {
-    float h;
+    float h, w = kNodeW;
     float thumbW, thumbH;
     int inputs, outputs, rows;
     bool image = true;  // shows an image thumbnail (else a line of text: value, operation...)
+    std::vector<float> valX, valW;  // value field of each input (node-relative x, width; x < 0: none)
 };
+
+// Width of the value field shown next to an unlinked value input (Unreal-style).
+float ValueFieldWidth(const PinDesc& p) {
+    if (p.array) return ImGui::CalcTextSize("[000]").x * 0.85f + 8;
+    switch (p.type) {
+        case PinType::Bool: return 15;
+        case PinType::Color: return 34;
+        case PinType::Float: case PinType::Int: return 58;
+        default: return 104;
+    }
+}
 
 Layout NodeLayout(const Node& n, float aspect) {
     Layout l;
     l.inputs = NodeInputCount(n);
     l.outputs = NodeOutputCount(n);
     l.rows = std::max({l.inputs, l.outputs, 1});
-    l.thumbW = kNodeW - 16;
-    l.thumbH = std::clamp(l.thumbW / std::max(aspect, 0.1f), 40.0f, l.thumbW);
+    // Width: inputs (label + value field) and outputs (label) never overlap.
+    std::vector<PinDesc> ins, outs;
+    NodeSignature(n, &ins, &outs);
+    float inW = 0, outW = 0;
+    l.valX.assign(ins.size(), -1.0f);
+    l.valW.assign(ins.size(), 0.0f);
+    for (size_t i = 0; i < ins.size(); ++i) {
+        const float x = 10 + ImGui::CalcTextSize(ins[i].name.c_str()).x * 0.9f + 6;
+        float wv = 0;
+        const bool linked = i < n.inputs.size() && n.inputs[i];
+        if (!linked && PinIsValue(ins[i].type)) {
+            wv = ValueFieldWidth(ins[i]);
+            l.valX[i] = x;
+            l.valW[i] = wv;
+        }
+        inW = std::max(inW, x + wv);
+    }
+    for (auto& o : outs) outW = std::max(outW, ImGui::CalcTextSize(o.name.c_str()).x * 0.85f + 14);
+    l.w = std::max(kNodeW, std::ceil(inW + 14 + outW));
+    l.thumbW = l.w - 16;
+    l.thumbH = std::clamp(l.thumbW / std::max(aspect, 0.1f), 40.0f, std::min(l.thumbW, 200.0f));
     l.image = n.kind == NodeKind::Output || (n.kind == NodeKind::SubOutput && PinIsImage(n.value.type));
     if (n.kind == NodeKind::Function && l.outputs == 0) l.image = true;
     for (int k = 0; k < l.outputs && !l.image; ++k) l.image = PinIsImage(NodeOutputType(n, k));
@@ -351,27 +382,49 @@ void App::DrawNodeEditor() {
         for (float y = oy; y < size.y; y += step) dl->AddLine(ImVec2(origin.x, origin.y + y), ImVec2(origin.x + size.x, origin.y + y), ui::col::Grid);
     }
 
-    // Geometry
-    auto outPin = [&](const Node& n, int k) { return toScreen(n.pos + float2{kNodeW, kHeader + kRow * (k + 0.5f)}); };
+    ed.valRects.clear();
+    // Geometry (layouts computed once per frame)
+    std::unordered_map<Id, Layout> layCache;
+    auto lay = [&](const Node& n) -> const Layout& {
+        auto it = layCache.find(n.id);
+        if (it != layCache.end()) return it->second;
+        return layCache.emplace(n.id, NodeLayout(n, aspect)).first->second;
+    };
+    auto outPin = [&](const Node& n, int k) { return toScreen(n.pos + float2{lay(n).w, kHeader + kRow * (k + 0.5f)}); };
+    auto valRect = [&](const Node& n, int i, ImVec2& va, ImVec2& vb) {
+        const Layout& L = lay(n);
+        if (i >= (int)L.valX.size() || L.valX[i] < 0) return false;
+        va = toScreen(n.pos + float2{L.valX[i], kHeader + kRow * i + 3});
+        vb = toScreen(n.pos + float2{L.valX[i] + L.valW[i], kHeader + kRow * (i + 1) - 3});
+        return true;
+    };
     auto inPin = [&](const Node& n, int i) { return toScreen(n.pos + float2{0, kHeader + kRow * (i + 0.5f)}); };
     float pinR = kPin * ed.zoom;
     ImVec2 mouse = io.MousePos;
     auto isNear = [&](ImVec2 a, ImVec2 b, float r) { float dx = a.x - b.x, dy = a.y - b.y; return dx * dx + dy * dy <= r * r; };
 
     // Hit testing (topmost = last)
-    Id hoverNode = 0, hoverOut = 0, hoverInNode = 0;
-    int hoverIn = -1, hoverOutCh = 0;
+    Id hoverNode = 0, hoverOut = 0, hoverInNode = 0, hoverValNode = 0;
+    int hoverIn = -1, hoverOutCh = 0, hoverValPin = -1;
     if (hovered) {
         for (int k = (int)g.nodes.size() - 1; k >= 0; --k) {
             const Node& n = g.nodes[k];
-            Layout L = NodeLayout(n, aspect);
+            const Layout& L = lay(n);
+            for (int i = 0; i < L.inputs && !hoverValNode && ed.zoom > 0.45f; ++i) {
+                ImVec2 va, vb;
+                if (valRect(n, i, va, vb) && mouse.x >= va.x && mouse.x <= vb.x && mouse.y >= va.y && mouse.y <= vb.y) {
+                    hoverValNode = n.id;
+                    hoverValPin = i;
+                }
+            }
+            if (hoverValNode) { hoverNode = n.id; break; }
             bool pinHit = false;
             for (int o = 0; o < L.outputs && !pinHit; ++o)
                 if (isNear(mouse, outPin(n, o), pinR * 2.0f)) { hoverOut = n.id; hoverOutCh = o; pinHit = true; }
             for (int i = 0; i < L.inputs && !pinHit; ++i)
                 if (isNear(mouse, inPin(n, i), pinR * 2.0f)) { hoverInNode = n.id; hoverIn = i; pinHit = true; }
             if (pinHit) break;
-            ImVec2 a = toScreen(n.pos), b = toScreen(n.pos + float2{kNodeW, L.h});
+            ImVec2 a = toScreen(n.pos), b = toScreen(n.pos + float2{L.w, L.h});
             if (mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y) { hoverNode = n.id; break; }
         }
     }
@@ -392,9 +445,32 @@ void App::DrawNodeEditor() {
     if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt && !spaceHeld && (hoverOut || hoverInNode)) toNodeMode();
 
     // Mouse interactions
-    bool openAddMenu = false;
+    bool openAddMenu = false, openValuePopup = false;
     if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt && !spaceHeld) {
-        if (editable && hoverOut) {
+        if (editable && hoverValNode) {
+            // A value field: Bool toggles, numbers drag (click alone: type it), others open a small editor.
+            Node* vn = g.Find(hoverValNode);
+            const PinDesc pin = NodeInputPin(*vn, hoverValPin);
+            d.S().activeNode = vn->id;
+            ed.valNode = vn->id;
+            ed.valPin = hoverValPin;
+            ed.valBefore = d.S();
+            if (pin.type == PinType::Bool && !pin.array) {
+                Value x = NodePinDefault(*vn, hoverValPin);
+                x.f.x = x.f.x != 0 ? 0.0f : 1.0f;
+                NodeSetPinValue(*vn, hoverValPin, x);
+                d.dirty = true;
+                v->history.PushState("Valeur", *ed.valBefore, d.S());
+                ed.valBefore.reset();
+            } else if ((pin.type == PinType::Float || pin.type == PinType::Int) && !pin.array) {
+                ed.valDrag = true;
+                ed.valMoved = false;
+                ed.valMouseX = mouse.x;
+                ed.valStart = NodePinDefault(*vn, hoverValPin);
+            } else {
+                openValuePopup = true;
+            }
+        } else if (editable && hoverOut) {
             ed.draggingLink = true;
             ed.linkFrom = hoverOut;
             if (const Node* sn = g.Find(hoverOut)) ed.linkChannel = NodeOutputChannel(*sn, hoverOutCh);
@@ -437,6 +513,32 @@ void App::DrawNodeEditor() {
             }
             ed.boxSelecting = true;
             ed.boxStart = toGraph(mouse);
+        }
+    }
+    if (ed.valDrag) {
+        // Horizontal drag on a number field (Shift faster, Ctrl slower).
+        Node* vn = g.Find(ed.valNode);
+        if (vn && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            const float dx = mouse.x - ed.valMouseX;
+            if (std::abs(dx) > 3) ed.valMoved = true;
+            ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            if (ed.valMoved) {
+                const PinDesc pin = NodeInputPin(*vn, ed.valPin);
+                // Speed follows the size of the value (0.01 per pixel around 1, 0.1 around 10...).
+                const float mag = std::max(1.0f, std::abs(ed.valStart.f.x));
+                const float speed = (pin.type == PinType::Int ? 0.1f : 0.01f * std::pow(10.0f, std::floor(std::log10(mag)))) *
+                                    (io.KeyShift ? 10.0f : io.KeyCtrl ? 0.1f : 1.0f);
+                Value x = ed.valStart;
+                x.f.x = ed.valStart.f.x + dx * speed;
+                if (pin.type == PinType::Int) x.f.x = std::round(x.f.x);
+                NodeSetPinValue(*vn, ed.valPin, x);
+                d.dirty = true;
+            }
+        } else {
+            ed.valDrag = false;
+            if (vn && ed.valMoved && ed.valBefore) v->history.PushState("Valeur", *ed.valBefore, d.S());
+            else if (vn) openValuePopup = true;  // a click: type the value
+            if (ed.valMoved) ed.valBefore.reset();
         }
     }
     if (ed.dragNode && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
@@ -497,8 +599,8 @@ void App::DrawNodeEditor() {
             float2 p = toGraph(mouse);
             float2 mn{std::min(p.x, ed.boxStart.x), std::min(p.y, ed.boxStart.y)}, mx{std::max(p.x, ed.boxStart.x), std::max(p.y, ed.boxStart.y)};
             for (auto& n : g.nodes) {
-                Layout L = NodeLayout(n, aspect);
-                if (n.pos.x < mx.x && n.pos.x + kNodeW > mn.x && n.pos.y < mx.y && n.pos.y + L.h > mn.y) ed.selection.insert(n.id);
+                const Layout& L = lay(n);
+                if (n.pos.x < mx.x && n.pos.x + L.w > mn.x && n.pos.y < mx.y && n.pos.y + L.h > mn.y) ed.selection.insert(n.id);
             }
             if (ed.selection.size() == 1) d.S().activeNode = *ed.selection.begin();
             ed.boxSelecting = false;
@@ -535,8 +637,8 @@ void App::DrawNodeEditor() {
     float fs = ImGui::GetFontSize() * ed.zoom;
     bool drawText = ed.zoom > 0.45f;
     for (const Node& n : g.nodes) {
-        Layout L = NodeLayout(n, aspect);
-        ImVec2 a = toScreen(n.pos), b = toScreen(n.pos + float2{kNodeW, L.h});
+        const Layout& L = lay(n);
+        ImVec2 a = toScreen(n.pos), b = toScreen(n.pos + float2{L.w, L.h});
         if (b.x < origin.x || b.y < origin.y || a.x > origin.x + size.x || a.y > origin.y + size.y) continue;
         float r = 6 * ed.zoom;
         bool selected = ed.selection.count(n.id) || n.id == d.S().activeNode;
@@ -575,10 +677,40 @@ void App::DrawNodeEditor() {
             const PinDesc pin = NodeInputPin(n, i);
             DrawPin(dl, p, pr, pin, connected, ed.zoom);
             if (drawText) {
-                std::string lbl = pin.name;
-                // Unlinked value inputs show their value.
-                if (!connected && PinIsValue(pin.type)) lbl += " = " + ValueToText(NodePinDefault(n, i), 2);
-                dl->AddText(font, fs * 0.9f, ImVec2(p.x + 10 * ed.zoom, p.y - fs * 0.45f), ui::col::TextDim, lbl.c_str());
+                dl->AddText(font, fs * 0.9f, ImVec2(p.x + 10 * ed.zoom, p.y - fs * 0.45f), ui::col::TextDim, pin.name.c_str());
+                // Unlinked value input: its value field (click / drag to edit).
+                ImVec2 va, vb;
+                if (valRect(n, i, va, vb)) {
+                    ed.valRects[((u64)n.id << 8) | (u64)i] = ImVec4(va.x, va.y, vb.x, vb.y);
+                    const Value val = NodePinDefault(n, i);
+                    const bool hotv = hoverValNode == n.id && hoverValPin == i;
+                    const ImU32 edge = hotv ? ui::col::Accent : IM_COL32(64, 66, 78, 255);
+                    const float rr = 3 * ed.zoom;
+                    if (pin.array) {
+                        std::string t = "[" + std::to_string(val.Size()) + "]";
+                        dl->AddText(font, fs * 0.85f, ImVec2(va.x + 2 * ed.zoom, va.y + (vb.y - va.y - fs * 0.85f) * 0.5f), TypeColor(pin.type), t.c_str());
+                    } else if (pin.type == PinType::Bool) {
+                        const float sz = vb.y - va.y;
+                        const ImVec2 c0(va.x, va.y), c1(va.x + sz, va.y + sz);
+                        dl->AddRectFilled(c0, c1, IM_COL32(14, 14, 18, 255), rr);
+                        dl->AddRect(c0, c1, edge, rr);
+                        if (val.f.x != 0) {
+                            dl->AddLine(ImVec2(c0.x + sz * 0.2f, c0.y + sz * 0.55f), ImVec2(c0.x + sz * 0.42f, c0.y + sz * 0.78f), TypeColor(PinType::Bool), 2 * ed.zoom);
+                            dl->AddLine(ImVec2(c0.x + sz * 0.42f, c0.y + sz * 0.78f), ImVec2(c0.x + sz * 0.82f, c0.y + sz * 0.22f), TypeColor(PinType::Bool), 2 * ed.zoom);
+                        }
+                    } else if (pin.type == PinType::Color) {
+                        auto toByte = [](float x) { return (int)std::lround(std::clamp(std::pow(std::max(x, 0.0f), 1.0f / 2.2f), 0.0f, 1.0f) * 255); };
+                        dl->AddRectFilled(va, vb, IM_COL32(toByte(val.f.x), toByte(val.f.y), toByte(val.f.z), 255), rr);
+                        dl->AddRect(va, vb, edge, rr);
+                    } else {
+                        dl->AddRectFilled(va, vb, IM_COL32(14, 14, 18, 255), rr);
+                        dl->AddRect(va, vb, edge, rr);
+                        std::string t = ValueToText(val, 1);
+                        dl->PushClipRect(va, vb, true);
+                        dl->AddText(font, fs * 0.8f, ImVec2(va.x + 4 * ed.zoom, va.y + (vb.y - va.y - fs * 0.8f) * 0.5f), IM_COL32(225, 225, 232, 255), t.c_str());
+                        dl->PopClipRect();
+                    }
+                }
             }
         }
         // Outputs
@@ -747,6 +879,39 @@ void App::DrawNodeEditor() {
         ed.selection.clear();
         if (n) v->history.PushState(n > 1 ? "Supprimer les nœuds" : "Supprimer le nœud", before, d.S());
     };
+    // Value of a node input, edited in place (opened by a click on its field).
+    if (openValuePopup) {
+        ImGui::OpenPopup("##pinval");
+        ed.valChanged = false;
+    }
+    if (ImGui::BeginPopup("##pinval")) {
+        if (Node* vn = g.Find(ed.valNode); vn && ed.valPin >= 0 && ed.valPin < NodeInputCount(*vn)) {
+            const PinDesc pin = NodeInputPin(*vn, ed.valPin);
+            ImGui::TextDisabled("%s  -  %s%s", vn->name.c_str(), PinTypeLabel(pin.type), pin.array ? " (tableau)" : "");
+            Value x = NodePinDefault(*vn, ed.valPin);
+            if (ImGui::IsWindowAppearing() && !pin.array && pin.type != PinType::Color) ImGui::SetKeyboardFocusHere();
+            ImGui::SetNextItemWidth(220 * dpi);
+            if (pin.type == PinType::Color && !pin.array) {
+                if (ImGui::ColorPicker4(pin.name.c_str(), &x.f.x, ImGuiColorEditFlags_Float | ImGuiColorEditFlags_AlphaBar)) {
+                    NodeSetPinValue(*vn, ed.valPin, x);
+                    d.dirty = ed.valChanged = true;
+                }
+            } else if (ValueEditor(pin.name.c_str(), x)) {
+                NodeSetPinValue(*vn, ed.valPin, x);
+                d.dirty = ed.valChanged = true;
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) ImGui::CloseCurrentPopup();
+        } else {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+        ed.valPopup = true;
+    } else if (ed.valPopup) {
+        ed.valPopup = false;
+        if (ed.valChanged && ed.valBefore) v->history.PushState("Valeur", *ed.valBefore, d.S());
+        ed.valBefore.reset();
+        ed.valChanged = false;
+    }
     if (ImGui::BeginPopup("##nodectx")) {
         Node* n = g.Find(d.S().activeNode);
         if (n) {
@@ -861,7 +1026,7 @@ void App::DrawNodeEditor() {
         Id overNode = 0;
         for (int k = (int)g.nodes.size() - 1; k >= 0 && !overNode; --k) {
             const Node& n = g.nodes[k];
-            ImVec2 a = toScreen(n.pos), b = toScreen(n.pos + float2{kNodeW, NodeLayout(n, aspect).h});
+            ImVec2 a = toScreen(n.pos), b = toScreen(n.pos + float2{lay(n).w, lay(n).h});
             if (mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y) overNode = n.id;
         }
         Id linkSrc = 0, linkDst = 0;
@@ -887,8 +1052,8 @@ void App::DrawNodeEditor() {
         Id layerOf = on && !editable ? on->layer : 0;
         // Feedback.
         if (on) {
-            Layout L = NodeLayout(*on, aspect);
-            dl->AddRect(toScreen(on->pos), toScreen(on->pos + float2{kNodeW, L.h}), ui::col::Accent2, 6 * ed.zoom, 0, 3.0f);
+            const Layout& L = lay(*on);
+            dl->AddRect(toScreen(on->pos), toScreen(on->pos + float2{L.w, L.h}), ui::col::Accent2, 6 * ed.zoom, 0, 3.0f);
         } else if (const Node* s2 = g.Find(linkSrc); s2 && g.Find(linkDst)) {
             drawLink(outPin(*s2, linkPin(*s2, linkCh)), inPin(*g.Find(linkDst), linkIn), ui::col::Accent2, 4.0f);
         }
@@ -933,11 +1098,11 @@ void App::DrawNodeEditor() {
         for (auto& n : g.nodes) {
             if (!graphFrameOnly.empty() ? !graphFrameOnly.count(n.id) : (!ed.selection.empty() && !ed.selection.count(n.id))) continue;  // F frames the selection when there is one
             mn = {std::min(mn.x, n.pos.x), std::min(mn.y, n.pos.y)};
-            mx = {std::max(mx.x, n.pos.x + kNodeW), std::max(mx.y, n.pos.y + NodeLayout(n, aspect).h)};
+            mx = {std::max(mx.x, n.pos.x + lay(n).w), std::max(mx.y, n.pos.y + lay(n).h)};
         }
         float2 ext = mx - mn;
         ed.zoom = std::clamp(std::min(size.x / (ext.x + 80), size.y / (ext.y + 80)), 0.2f, 1.5f);
-        ed.pan = float2{size.x / ed.zoom * 0.5f, size.y / ed.zoom * 0.5f} - (mn + ext * 0.5f);
+        ed.pan = float2{size.x / ed.zoom * 0.5f, size.y / ed.zoom * 0.5f + 18.0f / ed.zoom} - (mn + ext * 0.5f);  // below the banner
         graphFrameOnly.clear();
     }
 
@@ -955,11 +1120,36 @@ void App::DrawNodeEditor() {
         }
         ui::HelpTooltip("Le graphe devient libre : relier, séparer les canaux R V B A, ajouter des nœuds.");
     } else if (v->funcLink.parent) {
-        std::string msg = "Fonction : chaque modification met à jour le nœud  |  nœuds Entrée / Sortie de fonction = ses broches";
-        ImVec2 ts = ImGui::CalcTextSize(msg.c_str());
-        dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + ts.x + 260 * dpi, bp.y + ImGui::GetFrameHeight()), IM_COL32(40, 26, 50, 230), 5);
-        dl->AddText(ImVec2(bp.x, bp.y + 3), IM_COL32(220, 190, 240, 255), msg.c_str());
-        ImGui::SetCursorScreenPos(ImVec2(bp.x + ts.x + 10, bp.y));
+        // Inside a function: where we are (document > function > inner function) and the way back.
+        std::vector<std::string> crumbs;
+        for (DocView* c = v; c;) {
+            if (c->funcLink.parent && ViewAlive(c->funcLink.parent)) {
+                const Node* fn = c->funcLink.parent->doc->S().graph.Find(c->funcLink.node);
+                crumbs.insert(crumbs.begin(), fn ? fn->name : std::string("?"));
+                c = c->funcLink.parent;
+            } else {
+                crumbs.insert(crumbs.begin(), c->doc->Name());
+                break;
+            }
+        }
+        std::string path;
+        for (size_t k = 0; k < crumbs.size(); ++k) path += (k ? "  ›  " : "") + crumbs[k];
+        const char* hint = "chaque modification met à jour le nœud  |  Entrée / Sortie de fonction = ses broches";
+        const float bw = ImGui::CalcTextSize("< Retour").x + ImGui::GetStyle().FramePadding.x * 2;
+        const float pw = ImGui::CalcTextSize(path.c_str()).x, hw = ImGui::CalcTextSize(hint).x;
+        const float sw = ImGui::CalcTextSize("Enregistrer dans la bibliothèque").x + ImGui::GetStyle().FramePadding.x * 2;
+        const float total = bw + 12 + pw + 16 + hw + 16 + sw;
+        dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + total + 6, bp.y + ImGui::GetFrameHeight() + 2), IM_COL32(52, 30, 66, 240), 5);
+        dl->AddRect(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + total + 6, bp.y + ImGui::GetFrameHeight() + 2), IM_COL32(170, 90, 200, 255), 5);
+        ImGui::SetCursorScreenPos(bp);
+        if (ImGui::SmallButton("< Retour")) {
+            for (int k = 0; k < (int)docs.size(); ++k)
+                if (docs[k].get() == v->funcLink.parent) activeDoc = focusDocRequest = k;
+        }
+        ui::HelpTooltip("Revenir au graphe qui contient cette fonction (l'onglet reste ouvert).");
+        dl->AddText(ImVec2(bp.x + bw + 12, bp.y + 3), IM_COL32(240, 210, 255, 255), path.c_str());
+        dl->AddText(ImVec2(bp.x + bw + 12 + pw + 16, bp.y + 3), IM_COL32(190, 170, 205, 255), hint);
+        ImGui::SetCursorScreenPos(ImVec2(bp.x + total - sw, bp.y));
         if (ImGui::SmallButton("Enregistrer dans la bibliothèque")) SaveFunctionToLibrary(*v->funcLink.parent, v->funcLink.node);
     } else {
         const char* hint = "Clic droit : nœuds  |  tirer un lien dans le vide : nouveau nœud relié  |  rectangle / Ctrl+clic : sélection  |  F : cadrer  |  Suppr";

@@ -399,12 +399,25 @@ void App::EditFunction(DocView& parent, Id fid) {
     for (size_t p = 0; p < ins.size(); ++p) {
         Node* in = g.Find(ins[p]->id);
         in->surface = 0;
-        if (p >= f->inputs.size() || !f->inputs[p]) continue;
-        gpu::Texture* t = NodeOutputTexture(parent, f->inputs[p], InputChannel(*f, p));
+        // Linked: what the function receives. Nothing linked (image input): the reference image, fitted.
+        const bool linked = p < f->inputs.size() && f->inputs[p];
+        if (!linked && !PinIsImage(in->value.type)) continue;
+        gpu::Texture* t = linked ? NodeOutputTexture(parent, f->inputs[p], InputChannel(*f, p)) : ReferenceTexture(parent);
         f = pd.S().graph.Find(fid);
         if (!t) continue;
-        const Id s = doc->CreateSurfaceRaw(t->GetFormat(), "FunctionInput");
-        ctx->CopyTexture(doc->GetSurface(s)->tex.get(), t);
+        const gpu::Format fmt = SurfaceFormat(doc->GetPrecision());
+        const Id s = doc->CreateSurfaceRaw(fmt, "FunctionInput");
+        gpu::Texture* dst = doc->GetSurface(s)->tex.get();
+        if (linked && t->Width() == dst->Width() && t->Height() == dst->Height() && t->GetFormat() == fmt) {
+            ctx->CopyTexture(dst, t);
+        } else {
+            parent.renderer.FillTexture(*ctx, dst, {0, 0, 0, 0});
+            const float W = (float)dst->Width(), H = (float)dst->Height();
+            const float k = std::min(W / t->Width(), H / t->Height());
+            const float w = t->Width() * k, h = t->Height() * k, x0 = (W - w) * 0.5f, y0 = (H - h) * 0.5f;
+            const float2 c[4] = {{x0, y0}, {x0 + w, y0}, {x0 + w, y0 + h}, {x0, y0 + h}};
+            parent.renderer.PlaceTexture(*ctx, dst, t, c, 2);
+        }
         doc->TouchSurface(s);
         in->surface = s;
     }
