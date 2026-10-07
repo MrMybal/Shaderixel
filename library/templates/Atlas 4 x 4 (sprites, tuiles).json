@@ -1,0 +1,7 @@
+{
+  "category": "Trim sheets",
+  "description": "16 cases de 512 px (trims sans raccord), repères à chaque case : sprites, icônes, tuiles d'atlas.",
+  "height": 2048,
+  "name": "Atlas 4 x 4 (sprites, tuiles)",
+  "width": 2048
+}

@@ -405,7 +405,27 @@ Pendant une boucle, les sorties Élément / Index changent à chaque tour, et le
 
 ---
 
-## 4. Idées pour des bibliothèques de base
+## 4. Modèles de documents
+
+Un **modèle** est un document de départ (Nouveau document > Modèles) : calques, graphe, trims, repères, tailles.
+
+| Fichier | Rôle |
+|---|---|
+| `Nom.sxl` (ou `.sx3d` pour Paint 3D) | le document lui-même |
+| `Nom.json` | `{"name": ..., "category": ..., "description": ..., "width": ..., "height": ...}` |
+| `Nom.png` | vignette (320 px max), optionnelle |
+
+| Dossier | |
+|---|---|
+| `library/templates/` (dépôt), `templates/` à côté de l'exe (package) | modèles livrés |
+| `%LOCALAPPDATA%\Shaderixel\Templates\` | modèles de l'utilisateur (supprimables depuis le dialogue) |
+
+Le plus simple pour en créer : construire le document dans Shaderixel puis **Fichier > Enregistrer comme modèle...** (le `.json` et la vignette sont écrits), puis copier les trois fichiers dans `library/templates/` pour les livrer.
+Les modèles livrés de base sont générés par l'application (`--demo maketemplates`, dossier de sortie dans la variable `SX_TPLDIR`, code dans `src/ui/TemplatesBuiltin.cpp`).
+
+---
+
+## 5. Idées pour des bibliothèques de base
 
 - **Réglages photo** : looks (teinte + courbes + vignette) avec Force / Couleur en entrées.
 - **Styles de calque** : contour + ombre + lueur combinés, couleurs et tailles en entrées.

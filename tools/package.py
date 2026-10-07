@@ -396,6 +396,8 @@ def main():
     shutil.copytree(os.path.join(ROOT, 'shaders'), os.path.join(dist, 'shaders'))
     # Function library (sub-graphs and tools, .sxfn), listed in the node menu > Bibliothèque.
     shutil.copytree(os.path.join(ROOT, 'library', 'functions'), os.path.join(dist, 'functions'))
+    # Document templates (Nouveau document > Modèles).
+    shutil.copytree(os.path.join(ROOT, 'library', 'templates'), os.path.join(dist, 'templates'))
     # Logo used by the reference image of previews (effects browser, function inputs).
     os.makedirs(os.path.join(dist, 'assets'), exist_ok=True)
     shutil.copy2(os.path.join(ROOT, 'assets', 'logo.png'), os.path.join(dist, 'assets', 'logo.png'))

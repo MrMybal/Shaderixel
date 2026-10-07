@@ -361,7 +361,7 @@ private:
     void MergeVisible(DocView& v, bool flatten);
     void PollPsdExport();
     void CloseDocument(int index, bool force = false);
-    void SaveDocument(DocView& v, const std::string& path);
+    void SaveDocument(DocView& v, const std::string& path, bool asCopy = false);
     void SaveCurrent(bool saveAs);
     bool LoadSxl(const std::string& path);
     void UpdateSaves();
@@ -749,6 +749,33 @@ private:
         DocState before;
     } trimUi;
     void DrawTrimPanel();
+    // Templates (Templates.cpp)
+    struct TemplateEntry {
+        std::string name, category, desc, path, thumb;
+        bool user = false;
+        u32 w = 0, h = 0;
+    };
+    std::vector<TemplateEntry> templates;
+    std::map<std::string, gpu::TexturePtr> templateThumbs;
+    struct ThumbJob {
+        gpu::ReadbackPtr image;
+        std::string path;
+        std::vector<Rect> trims;  // drawn over the thumbnail (trim sheets)
+    };
+    std::vector<ThumbJob> thumbJobs;
+    struct {
+        std::string category, search, saveName, saveCategory = "Mes modèles", saveDesc;
+        int selected = -1, tabRequest = 0;
+        bool confirmDelete = false, saveRequest = false;
+    } tplUi;
+    void ScanTemplates();
+    bool NewFromTemplate(const TemplateEntry& t);
+    void SaveAsTemplate(DocView& v, const std::string& name, const std::string& category, const std::string& desc, const std::string& dir = "");
+    struct BuiltinTemplate { DocView* view; std::string name, category, desc; };
+    std::vector<BuiltinTemplate> BuildBuiltinTemplates();  // TemplatesBuiltin.cpp
+    void UpdateTemplateJobs();
+    gpu::Texture* TemplateThumb(const std::string& path);
+    void DrawSaveTemplateDialog();
     void TrimOverlay(DocView& v, ImVec2 canvasMin, ImVec2 avail, ImDrawList* dl);
     void TrimInput(DocView& v, ImVec2 canvasMin, bool hovered);
     void TrimSelectPixels(DocView& v, int idx);

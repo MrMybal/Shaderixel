@@ -306,6 +306,39 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 78) {
+        // Shipped templates: built, each shown (rendered) in turn, then saved with its thumbnail into SX_TPLDIR.
+        static std::vector<BuiltinTemplate> list;
+        char dir[512] = "";
+        GetEnvironmentVariableA("SX_TPLDIR", dir, sizeof(dir));
+        if (frameCounter == 10) {
+            list = BuildBuiltinTemplates();
+            Log("[demo] maketemplates: %zu documents", list.size());
+        }
+        for (size_t i = 0; i < list.size(); ++i) {
+            const u64 f0 = 20 + i * 12;
+            if (frameCounter == f0)
+                for (int k = 0; k < (int)docs.size(); ++k)
+                    if (docs[k].get() == list[i].view) activeDoc = focusDocRequest = k;
+            if (frameCounter == f0 + 10 && dir[0] && ViewAlive(list[i].view)) {
+                SaveAsTemplate(*list[i].view, list[i].name, list[i].category, list[i].desc, dir);
+                Log("[demo] maketemplates: %s", list[i].name.c_str());
+            }
+        }
+        if (frameCounter == 20 + list.size() * 12 + 30) {
+            ScanTemplates();
+            Log("[demo] maketemplates: %zu templates listed", templates.size());
+            for (auto& t : templates)
+                if (t.name == "Logo 1024" && NewFromTemplate(t)) {
+                    const Document& nd = *docs.back()->doc;
+                    Log("[demo] maketemplates: new from template -> name '%s', path '%s', %zu layers, dirty %d", nd.Name().c_str(), nd.path.c_str(),
+                        nd.S().layers.size(), (int)nd.dirty);
+                }
+            showNewDoc = true;
+            tplUi.tabRequest = 0;
+        }
+        return;
+    }
     if (demoMode == 77) {
         // Values on nodes: "Ombre colorée" (Color, Float inputs) and a Bool value node; the Distance field dragged
         // +60 px and the Bool field clicked with synthetic ImGui events; SX_STEP "edit": its graph opened (breadcrumb),

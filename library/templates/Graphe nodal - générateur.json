@@ -1,0 +1,7 @@
+{
+  "category": "Nodal",
+  "description": "Bruit -> dégradé de couleurs -> sortie, avec l'échelle du bruit en valeur reliée : point de départ d'une texture procédurale.",
+  "height": 1024,
+  "name": "Graphe nodal - générateur",
+  "width": 1024
+}
