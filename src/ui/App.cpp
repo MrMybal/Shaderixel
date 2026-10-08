@@ -499,6 +499,7 @@ void App::Frame() {
     if (Shown("Panneaux")) DrawSidePanel();
     else for (int i = 0; i < kSideTabs; ++i) ImGui::DockSpace(ImHashStr(("##sxside" + std::to_string(i)).c_str()), ImVec2(0, 0), ImGuiDockNodeFlags_KeepAliveOnly);
     MigrateLayout();
+    DrawZoneToggles();
     DrawExtraWindows();
     if (Shown("Graphe")) DrawNodeEditor();  // first: tab order of the bottom zone
     if (!ImGui::FindWindowByName("Palette de nœuds")) DockNewPanel(2, false);

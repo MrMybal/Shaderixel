@@ -749,6 +749,7 @@ private:
         DocState before;
     } trimUi;
     void DrawTrimPanel();
+    void DrawZoneToggles();  // fold / unfold the graph zone, quick layer pick (Workspace.cpp)
     // Templates (Templates.cpp)
     struct TemplateEntry {
         std::string name, category, desc, path, thumb;

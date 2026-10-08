@@ -325,6 +325,75 @@ void App::NewExtraWindow() {
     if (extraWindows.size() < 8) extraWindows.push_back(true);
 }
 
+// Graph zone (bottom) folded and unfolded in one click: a fold button on the zone, and when it is
+// folded a small bar at the bottom of the canvas to unfold it or pick the layer (or node) to edit.
+void App::DrawZoneToggles() {
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
+                                   ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDocking;
+    if (!hideBottom) {
+        ImGuiDockNode* n = bottomZone ? ImGui::DockBuilderGetNode(bottomZone) : nullptr;
+        if (!n || !n->IsVisible || n->Size.y < 40) return;
+        const float bw = ImGui::GetFrameHeight() * 1.6f;
+        ImGui::SetNextWindowPos(ImVec2(n->Pos.x + n->Size.x - bw - 78 * dpi, n->Pos.y + 2));
+        ImGui::SetNextWindowBgAlpha(0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        if (ImGui::Begin("##foldBottom", nullptr, flags)) {
+            if (ImGui::SmallButton("\xE2\x96\xBC Replier")) hideBottom = true;
+            ui::HelpTooltip("Replier la zone du graphe pour éditer en grand (Tab). Une petite barre en bas du canevas la rouvre et permet de changer de calque.");
+        }
+        ImGui::End();
+        ImGui::PopStyleVar();
+        return;
+    }
+    ImGuiWindow* canvas = ImGui::FindWindowByName("Canevas");
+    if (!canvas || canvas->Hidden) return;
+    DocView* v = Active();
+    ImGui::SetNextWindowPos(ImVec2(canvas->Pos.x + canvas->Size.x * 0.5f, canvas->Pos.y + canvas->Size.y - 8 * dpi), ImGuiCond_Always, ImVec2(0.5f, 1.0f));
+    ImGui::SetNextWindowBgAlpha(0.92f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6 * dpi);
+    if (ImGui::Begin("##unfoldBottom", nullptr, flags)) {
+        if (ImGui::SmallButton("\xE2\x96\xB2 Graphe / Calques")) hideBottom = false;
+        ui::HelpTooltip("Rouvrir la zone du graphe (Tab)");
+        if (v) {
+            Document& d = *v->doc;
+            ImGui::SameLine();
+            ImGui::TextDisabled("|");
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(220 * dpi);
+            if (d.Mode() == DocMode::Layers) {
+                const Layer* al = d.ActiveLayer();
+                if (ImGui::BeginCombo("##quicklayer", al ? ("Calque : " + al->name).c_str() : "Calque : aucun", ImGuiComboFlags_HeightLarge)) {
+                    // Top of the stack first, groups indented.
+                    const auto& layers = d.S().layers;
+                    for (int i = (int)layers.size() - 1; i >= 0; --i) {
+                        const Layer& l = layers[i];
+                        int depth = 0;
+                        for (Id p = l.parent; p && depth < 8; ++depth) {
+                            const Layer* pl = d.FindLayer(p);
+                            p = pl ? pl->parent : 0;
+                        }
+                        std::string label = std::string(depth * 3, ' ') + (l.kind == LayerKind::Group ? "\xE2\x96\xB8 " : "") + l.name + (l.visible ? "" : "  (masqué)");
+                        if (ImGui::Selectable((label + "##" + std::to_string(l.id)).c_str(), l.id == d.S().activeLayer)) {
+                            d.S().activeLayer = l.id;
+                            d.S().editMask = false;
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+            } else {
+                const Node* an = d.S().graph.Find(d.S().activeNode);
+                if (ImGui::BeginCombo("##quicknode", an ? ("Nœud : " + an->name).c_str() : "Nœud : aucun", ImGuiComboFlags_HeightLarge)) {
+                    for (auto& n : d.S().graph.nodes)
+                        if (ImGui::Selectable((n.name + "##" + std::to_string(n.id)).c_str(), n.id == d.S().activeNode)) d.S().activeNode = n.id;
+                    ImGui::EndCombo();
+                }
+            }
+        }
+    }
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
 bool App::Shown(const char* window) const {
     if (!PanelIsOpen(window)) return false;
     ImGuiWindow* w = ImGui::FindWindowByName(window);
