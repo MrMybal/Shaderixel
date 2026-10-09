@@ -307,6 +307,33 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 84) {
+        // Resources panel: SX_EXPTAB (0 images, 1 meshes, 2 lights) on SX_EXPDIR, shown in the bottom zone.
+        char dir[512] = "", tab[8] = "0";
+        GetEnvironmentVariableA("SX_EXPDIR", dir, sizeof(dir));
+        GetEnvironmentVariableA("SX_EXPTAB", tab, sizeof(tab));
+        if (frameCounter == 6) {
+            hideBottom = false;
+            if (!explorer.loaded) LoadExplorerSettings();
+            *PanelFlag("Ressources") = true;
+            if (dir[0]) { explorer.dirImages = dir; explorer.dirMeshes = dir; }
+        }
+        if (frameCounter >= 8 && frameCounter <= 12) {
+            ImGui::SetWindowFocus("Ressources");
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Ressources"); w && w->DockNode && w->DockNode->TabBar) w->DockNode->TabBar->NextSelectedTabId = w->TabId;
+        }
+        if (frameCounter == 10) {
+            const int t = atoi(tab);
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Ressources")) (void)w;
+            explorerTabRequest = t;
+        }
+        if (frameCounter == 300) {
+            size_t ready = 0;
+            for (auto& [p, t] : explorer.thumbs) ready += t.tex != nullptr;
+            Log("[demo] resources: %zu files, %zu folders, %zu thumbnails ready", explorer.files.size(), explorer.folders.size(), ready);
+        }
+        return;
+    }
     if (demoMode == 83) {
         // AI inpainting: the mask painted with a synthetic brush stroke across the middle wave, then generated
         // with the local test provider (3 variations), variation 2 shown.

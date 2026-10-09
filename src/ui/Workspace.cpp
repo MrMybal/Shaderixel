@@ -467,7 +467,7 @@ void App::DeleteLayout(const std::string& name) {
 void App::DrawPanelsMenu() {
     // Closed panels come back here (also from Fenêtre).
     static const char* names[] = {"Calques", "Graphe", "Aperçu du calque", "Éditeur d'effets", "Vue 3D", "Propriétés", "Historique", "Histogramme",
-                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Palette de nœuds", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Calques 3D", "Matériau du pinceau", "Rendu", "Scène de rendu", "Assistant IA", "Génération IA", "Trim sheet", "Inpainting IA"};
+                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Palette de nœuds", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Calques 3D", "Matériau du pinceau", "Rendu", "Scène de rendu", "Assistant IA", "Génération IA", "Trim sheet", "Inpainting IA", "Ressources"};
     if (!ImGui::BeginMenu("Panneaux")) return;
     for (const char* n : names) {
         bool open = PanelIsOpen(n);

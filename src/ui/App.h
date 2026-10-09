@@ -762,6 +762,33 @@ private:
     } trimUi;
     void DrawTrimPanel();
     void DrawZoneToggles();
+    // Resources panel (ResourceBrowser.cpp): image / mesh explorer, lights and objects
+    struct ExplorerThumbData {
+        std::vector<u8> rgba;
+        int w = 0, h = 0;
+        std::string info;
+    };
+    struct ExplorerThumbEntry {
+        gpu::TexturePtr tex;
+        std::shared_ptr<std::future<ExplorerThumbData>> job;
+        std::string info;
+        bool done = false;
+    };
+    struct {
+        bool loaded = false;
+        int tab = 0, running = 0;
+        std::string dirImages, dirMeshes, filter, listedKey, savedDir[3];
+        std::vector<std::string> pins, folders, files;
+        double listedTime = 0;
+        float thumb = 96;
+        std::map<std::string, ExplorerThumbEntry> thumbs;
+    } explorer;
+    void LoadExplorerSettings();
+    void SaveExplorerSettings();
+    gpu::Texture* ExplorerThumb(const std::string& path, bool mesh, std::string* info);
+    void AddScenePreset(int kind);
+    void DrawResourceBrowser();
+    int explorerTabRequest = -1;  // tab to show (demos)
     // AI inpainting (AiInpaint.cpp)
     struct {
         bool busy = false, launched = false;

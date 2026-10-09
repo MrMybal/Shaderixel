@@ -58,7 +58,7 @@ float4 Effect(EffectContext ctx)
 | Ligne | Effet |
 |---|---|
 | `//@name Nom affiché` | nom dans les menus et sur le nœud |
-| `//@category Catégorie` | dossier du menu. Catégories existantes : Réglages, Traitements, Dessin, Masques, Flou, Netteté, Déformation, Pixellisation, Esthétiques, Canaux, Composition, Générateurs, Styles de calque, Fusions… (une nouvelle catégorie est créée automatiquement) |
+| `//@category Catégorie` | dossier du menu. Catégories existantes : Réglages, Traitements, Dessin, Masques, Flou, Netteté, Déformation, Pixellisation, Esthétiques, Canaux, Composition, Générateurs, Styles de calque, Fusions… (une nouvelle catégorie est créée automatiquement) | Le panneau Effets range les effets par familles ; `//@category Famille/Sous-catégorie` choisit la famille (ex. `Flou/Directionnel`).
 | `//@param id type défaut… "Libellé"` | un paramètre (voir 2.3) |
 | `//@group Nom` | les paramètres suivants sont rangés sous ce titre dans Propriétés |
 | `//@input Nom` | une entrée image (jusqu'à 4). Sans `//@input`, l'effet a une entrée `Image`. Une entrée nommée `Masque`, `Mask`, `Alpha`, `R`, `V`, `G`, `B`, `A`, `Hauteur` ou `Height` est un **canal** (broche verte, une valeur par pixel) |
