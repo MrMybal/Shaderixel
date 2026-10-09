@@ -224,6 +224,7 @@ std::vector<Id> ReferencedSurfaces(const Document& doc) {
     CollectGraphSurfaces(s.graph, ids);
     for (auto& n : s.graph.nodes) if (n.kind == NodeKind::SubInput && n.surface) ids.insert(n.surface);  // function editor previews
     if (s.selection) ids.insert(s.selection);
+    if (s.inpaintMask) ids.insert(s.inpaintMask);
     std::vector<Id> out;
     for (Id id : ids) if (s.surfaces.count(id)) out.push_back(id);
     return out;
@@ -405,6 +406,10 @@ Json SerializeDocument(const Document& doc) {
         }
         j["layerComps"] = cs;
         j["activeComp"] = s.activeComp;
+    }
+    if (s.inpaintMask) {
+        j["inpaintMask"] = s.inpaintMask;
+        j["showInpaint"] = s.showInpaint;
     }
     if (!s.trimSheet.trims.empty()) {
         Json ts = Json::Object();
@@ -827,6 +832,9 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         for (size_t k = 0; k + 1 < np.size(); k += 2) s.layerNodePos[np[k].U()] = Float2FromJson(np[k + 1]);
     }
     for (auto& gv : j["guidesX"].Elements()) s.guidesX.push_back(gv.F());
+    s.inpaintMask = j["inpaintMask"].U(0);
+    if (s.inpaintMask && !s.surfaces.count(s.inpaintMask)) s.inpaintMask = 0;
+    s.showInpaint = j["showInpaint"].B(true);
     if (j.Has("trimSheet")) {
         const Json& ts = j["trimSheet"];
         s.trimSheet.padding = ts["padding"].I(0);

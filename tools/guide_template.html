@@ -243,6 +243,10 @@ td:first-child { white-space: nowrap; width: 1%; }
 
 <h2>IA <span class="tag">optionnel</span></h2>
 <div class="grid2">
+  <div class="card"><h3>Inpainting IA</h3><ol>
+    <li>Panneau « Inpainting IA » (onglet IA) : cochez « Peindre le masque » ; le pinceau peint la zone à régénérer (teinte rose sur le canevas), la gomme la retire. Ou « Depuis la sélection », « Inverser », « Effacer ». Le masque est gardé avec le document.</li>
+    <li>Écrivez le prompt, choisissez le fournisseur : ComfyUI (graphe d'inpainting intégré avec le modèle des réglages IA, Denoise pour une retouche plus légère, ou votre workflow API), OpenAI, Gemini, ou « Test local » pour essayer sans réseau.</li>
+    <li>« Générer » : la zone et son contexte partent avec le masque ; le résultat arrive sur un nouveau calque dont le masque est la zone agrandie et adoucie (réglages Agrandir / Adoucir) : il se fond dans l'image, rien n'est écrasé. Avec plusieurs variations, cliquez sur leurs vignettes pour les comparer sur le calque.</li></ol></div>
   <div class="card"><h3>Génération et remplissage génératif</h3>
   <p>Panneau Génération IA : définissez la variable d'environnement de clé (<code>OPENAI_API_KEY</code> ou <code>GEMINI_API_KEY</code>) avant de lancer l'application. Le remplissage génératif remplace la zone sélectionnée sur un nouveau calque masqué.</p>
   <p>Sans clé, testez la chaîne avec <code>set SX_AI_MOCK=1</code> avant de lancer : un résultat factice local est utilisé.</p>

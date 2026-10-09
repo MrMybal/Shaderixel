@@ -28,7 +28,7 @@ struct DisplayCB {
     u32 selFlags;
     u32 lutSize, gamut, pad0, pad1;
     float4 ov0, ov1, ov2;  // overflow: document pixel -> contents UV
-    u32 ovFlags, ovPad0, ovPad1, ovPad2;
+    u32 ovFlags, inpaint, ovPad1, ovPad2;
 };
 }  // namespace
 
@@ -448,6 +448,8 @@ bool Renderer::Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, 
     d.srv[1] = v.selection;
     d.srv[2] = v.lut;
     d.srv[3] = v.overflow;
+    d.srv[4] = v.inpaint;
+    cb.inpaint = v.inpaint ? 1u : 0u;
     d.uav[0] = target;
     d.cbData = &cb;
     d.cbSize = sizeof(cb);

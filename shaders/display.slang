@@ -20,13 +20,15 @@ cbuffer View : register(b1)
     float4 gOv1;
     float4 gOv2;
     uint gOvFlags;      // 1 = show the layer contents outside the document
-    uint3 gOvPad;
+    uint gInpaint;      // 1 = AI inpainting mask tint
+    uint2 gOvPad;
 };
 
 Texture2D<float4> gImage : register(t0);
 Texture2D<float> gSel : register(t1);
 Texture2D<float4> gLut : register(t2);  // n*n x n: x = b * n + r, y = g; alpha 1 = in gamut
 Texture2D<float4> gOverflow : register(t3);  // contents of the layer being transformed (premultiplied linear)
+Texture2D<float4> gInpaintMask : register(t4);  // AI inpainting mask (r: 1 = to regenerate)
 
 float4 LutAt(float3 s)
 {
@@ -110,6 +112,12 @@ void main(uint3 id : SV_DispatchThreadID)
         float4 m = LutAt(srgb);
         srgb = m.rgb;
         if ((gGamut & 1) && m.a < 0.5 && c.a > 0.01) srgb = float3(0.5, 0.5, 0.5);
+    }
+    if (gInpaint)
+    {
+        int2 ip = clamp(int2(floor(d)), int2(0, 0), int2(gDocSize) - 1);
+        float m = saturate(gInpaintMask.Load(int3(ip, 0)).r);
+        srgb = lerp(srgb, float3(1.0, 0.25, 0.85), m * 0.45);
     }
     if (gSelFlags & 1)
     {

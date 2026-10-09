@@ -385,6 +385,10 @@ struct DocState {
     std::vector<float> guidesX, guidesY;  // vertical guides (x) and horizontal guides (y), document pixels
     TrimSheet trimSheet;
     int activeTrim = -1;
+    // AI inpainting mask (white = to regenerate), painted with the brush while editInpaint is on.
+    Id inpaintMask = 0;
+    bool editInpaint = false;
+    bool showInpaint = true;
     Id activePath = 0;
     // Layer mode: positions the user gave to generated graph nodes (by node id).
     std::map<Id, float2> layerNodePos;

@@ -1021,6 +1021,7 @@ void Document::Unlink(Id to, int input) {
 }
 
 Id Document::PaintTarget() const {
+    if (state.editInpaint && state.inpaintMask && state.surfaces.count(state.inpaintMask)) return state.inpaintMask;
     if (state.mode == DocMode::Layers) {
         for (auto& l : state.layers)
             if (l.id == state.activeLayer) {

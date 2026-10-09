@@ -28,6 +28,7 @@ struct ViewParams {
     float checker = 8;
     gpu::Texture* selection = nullptr;  // marching ants
     bool quickMask = false;
+    gpu::Texture* inpaint = nullptr;    // AI inpainting mask shown as a tint (r = 1: to regenerate)
     float time = 0;
     gpu::Texture* lut = nullptr;  // display / proof 3D LUT (n*n x n, alpha = in gamut)
     u32 lutSize = 0;

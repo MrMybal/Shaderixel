@@ -761,7 +761,29 @@ private:
         DocState before;
     } trimUi;
     void DrawTrimPanel();
-    void DrawZoneToggles();  // fold / unfold the graph zone, quick layer pick (Workspace.cpp)
+    void DrawZoneToggles();
+    // AI inpainting (AiInpaint.cpp)
+    struct {
+        bool busy = false, launched = false;
+        DocView* view = nullptr;
+        gpu::ReadbackPtr image, mask;
+        std::string prompt, negative, workflow;
+        int provider = 0;  // 0 ComfyUI, 1 OpenAI, 2 Gemini, 3 local test
+        int variations = 1, grow = 8, feather = 24, margin = 30;
+        float denoise = 1.0f;
+        Rect crop;
+        std::vector<u8> maskFull;  // grown + feathered mask (document size)
+        std::vector<std::vector<u8>> results;
+        std::vector<gpu::TexturePtr> thumbs;
+        Id layer = 0, surface = 0;
+        int current = 0;
+    } inpaint;
+    void EnsureInpaintMask(DocView& v);
+    void StartInpaint(DocView& v);
+    void UpdateInpaint();
+    void FinishInpaint(const std::vector<std::vector<u8>>& results, const std::string& err);
+    void ShowInpaintVariant(int k);
+    void DrawInpaintPanel();  // fold / unfold the graph zone, quick layer pick (Workspace.cpp)
     // Templates (Templates.cpp)
     struct TemplateEntry {
         std::string name, category, desc, path, thumb;

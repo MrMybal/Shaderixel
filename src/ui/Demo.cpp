@@ -307,6 +307,47 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 83) {
+        // AI inpainting: the mask painted with a synthetic brush stroke across the middle wave, then generated
+        // with the local test provider (3 variations), variation 2 shown.
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        ImGuiIO& io = ImGui::GetIO();
+        auto screen = [&](float2 p) { return ImVec2(lxf.canvasMin.x + a->pan.x + p.x * a->zoom, lxf.canvasMin.y + a->pan.y + p.y * a->zoom); };
+        if (frameCounter == 8) {
+            hideBottom = false;
+            *PanelFlag("Inpainting IA") = true;
+            ShowSideTab(6);
+            EnsureInpaintMask(*a);
+            d.S().editInpaint = true;
+            tool = Tool::Brush;
+            brush.size = 90;
+            inpaint.prompt = "des fleurs";
+            inpaint.provider = 3;
+            inpaint.variations = 3;
+        }
+        if (frameCounter == 12) io.AddMousePosEvent(screen({450, 520}).x, screen({450, 520}).y);
+        if (frameCounter == 13) io.AddMouseButtonEvent(0, true);
+        for (int k = 1; k <= 10; ++k)
+            if (frameCounter == (u64)13 + k) {
+                const ImVec2 p = screen({450 + 70.0f * k, 520 + 30 * std::sin(k * 0.6f)});
+                io.AddMousePosEvent(p.x, p.y);
+            }
+        if (frameCounter == 25) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 27) {
+            io.AddMousePosEvent(-100, -100);
+            StartInpaint(*a);
+        }
+        if (frameCounter == 45) {
+            size_t covered = 0;
+            for (u8 m : inpaint.maskFull) covered += m > 128;
+            Log("[demo] inpaint: %zu result(s), crop %dx%d, mask %zu px, layers %zu", inpaint.results.size(), inpaint.crop.Width(), inpaint.crop.Height(), covered,
+                d.S().layers.size());
+            ShowInpaintVariant(1);
+        }
+        return;
+    }
     if (demoMode == 82) {
         // Calling a function: Event "Lancer" -> "avant" -> call (Outil, "Dire") -> "après"; the function's event
         // "Dire" prints "dans la fonction" and sets its variable N to 7.

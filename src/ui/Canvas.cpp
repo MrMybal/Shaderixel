@@ -265,6 +265,7 @@ void App::DrawCanvas() {
     vp.selection = (sel && (!(xf.active && !xf.moveOnly) || xf.selectionOnly)) ? sel->tex.get() : nullptr;
     if (selMoving && sel) vp.selection = v->renderer.OffsetSelectionPreview(doc, *ctx, selMoveOffset);
     vp.quickMask = quickMask;
+    if (Surface* im = (doc.S().showInpaint || doc.S().editInpaint) ? doc.GetSurface(doc.S().inpaintMask) : nullptr) vp.inpaint = im->tex.get();
     vp.time = (float)ImGui::GetTime();
     DisplayColorLut(*v, vp);
     if (tool == Tool::LayerTransform && lxf.overflow) {
@@ -343,7 +344,10 @@ void App::DrawCanvas() {
         dl->AddRectFilled(ImVec2(p.x - 6, p.y - 4), ImVec2(p.x + ts.x + 6, p.y + ts.y + 4), IM_COL32(20, 20, 24, 230), 4);
         dl->AddText(p, IM_COL32(255, 200, 120, 255), msg);
     }
-    if (doc.Mode() == DocMode::Layers && doc.S().editMask) {
+    if (doc.S().editInpaint) {
+        dl->AddText(ImVec2(canvasMin.x + 10, canvasMin.y + 8), IM_COL32(255, 140, 230, 255),
+                    "Masque d'inpainting : pinceau = zone à régénérer, gomme = garder (panneau Inpainting IA)");
+    } else if (doc.Mode() == DocMode::Layers && doc.S().editMask) {
         dl->AddText(ImVec2(canvasMin.x + 10, canvasMin.y + 8), IM_COL32(255, 255, 255, 200), "Édition du masque de fusion");
     }
     // Effect dropped on the image: filter (or blend) of the active layer.
@@ -670,6 +674,9 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
     Document& doc = *v.doc;
     if (strokeErase || tool == Tool::Brush || tool == Tool::Eraser) {
         float4 color = strokeTargets.empty() ? PaintColor(doc) : strokeColors[0];
+        const bool maskStroke = doc.S().editInpaint;  // inpainting mask: white paints, the eraser paints black
+        if (maskStroke) color = strokeErase ? float4{0, 0, 0, 1} : float4{1, 1, 1, 1};
+        const bool erase = strokeErase && !maskStroke;
         struct ApplySlots {
             App& a;
             DocView& v;
@@ -685,12 +692,12 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
             BrushSettings bound = bs;
             BindTipTextures(bound, *td);
             static const std::vector<float4> none;
-            if (v.renderer.StrokeProgram(doc, *ctx, dabs, extra ? *extra : none, *td, tip, bound, color, strokeErase, dabCounter)) {
+            if (v.renderer.StrokeProgram(doc, *ctx, dabs, extra ? *extra : none, *td, tip, bound, color, erase, dabCounter)) {
                 dabCounter += (u32)dabs.size();
                 return;
             }
         }
-        v.renderer.StrokeDabs(doc, *ctx, dabs, strokeErase ? eraser : brush, color, strokeErase);
+        v.renderer.StrokeDabs(doc, *ctx, dabs, strokeErase ? eraser : brush, color, erase);
         return;
     }
     if (tool == Tool::Smudge) {
