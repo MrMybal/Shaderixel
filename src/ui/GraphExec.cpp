@@ -477,12 +477,18 @@ void App::UpdateExec() {
         if (it.kind == ExecItem::Follow) {
             // Nodes whose execution input comes from (node, port), run in graph order.
             std::vector<Id> next;
-            for (auto& n : g->nodes)
+            const Node* from = g->Find(it.node);
+            for (auto& n : g->nodes) {
+                bool hit = false;
+                for (auto& e : n.execLinks)  // flows joining this input
+                    hit |= e.src == it.node && from && NodeOutputPortOf(*from, e.channel) == it.port;
+                if (hit) { next.push_back(n.id); continue; }
                 for (size_t i = 0; i < n.inputs.size(); ++i) {
                     if (n.inputs[i] != it.node || NodeInputType(n, (int)i) != PinType::Exec) continue;
                     const Node* src = g->Find(it.node);
-                    if (src && NodeOutputPortOf(*src, InputChannel(n, i)) == it.port) next.push_back(n.id);
+                    if (src && NodeOutputPortOf(*src, InputChannel(n, i)) == it.port) { next.push_back(n.id); break; }
                 }
+            }
             for (auto k = next.rbegin(); k != next.rend(); ++k) r.items.push_back({ExecItem::Run, *k, 0, 0});
             continue;
         }

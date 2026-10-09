@@ -548,9 +548,13 @@ void App::DrawNodeEditor() {
         } else if (editable && hoverInNode) {
             Node* n = g.Find(hoverInNode);
             Id src = n && hoverIn < (int)n->inputs.size() ? n->inputs[hoverIn] : 0;
+            u8 srcCh = n ? InputChannel(*n, hoverIn) : 0;
+            if (n)  // an execution input with several flows: the last added is picked up first
+                for (auto& e : n->execLinks)
+                    if (e.pin == hoverIn) { src = e.src; srcCh = e.channel; }
             ed.moveBefore = d.S();
             if (src) {  // pick up the existing link
-                ed.linkChannel = InputChannel(*n, hoverIn);
+                ed.linkChannel = srcCh;
                 d.Unlink(hoverInNode, hoverIn);
                 ed.linkFrom = src;
                 ed.linkTo = 0;
@@ -722,6 +726,12 @@ void App::DrawNodeEditor() {
             bool sel = ed.selection.count(src->id) || ed.selection.count(n.id);
             const bool exec = NodeOutputType(*src, linkPin(*src, ch)) == PinType::Exec;
             drawLink(outPin(*src, linkPin(*src, ch)), inPin(n, i), sel ? ui::col::Selection : linkColor(*src, ch, 200), sel ? 3.0f : exec ? 3.0f : 2.0f);
+        }
+        for (auto& e : n.execLinks) {  // extra flows joining an execution input
+            const Node* src = g.Find(e.src);
+            if (!src || e.pin >= NodeInputCount(n)) continue;
+            const bool sel = ed.selection.count(src->id) || ed.selection.count(n.id);
+            drawLink(outPin(*src, linkPin(*src, e.channel)), inPin(n, e.pin), sel ? ui::col::Selection : linkColor(*src, e.channel, 200), 3.0f);
         }
     }
     if (ed.draggingLink) {

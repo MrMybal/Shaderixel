@@ -275,6 +275,11 @@ Json GraphToJson(const Graph& g) {
             for (auto& v : n.pinValues) pv.Push(ValueToJson(v));
             o["pinValues"] = pv;
         }
+        if (!n.execLinks.empty()) {
+            Json el = Json::Array();
+            for (auto& e : n.execLinks) { Json x = Json::Array(); x.Push(e.pin); x.Push(e.src); x.Push((int)e.channel); el.Push(x); }
+            o["execLinks"] = el;
+        }
         if (!n.paramPins.empty()) {
             Json pp = Json::Array();
             for (int k : n.paramPins) pp.Push(k);
@@ -633,6 +638,8 @@ void GraphFromJson(const Json& jg, Graph& g) {
         }
         for (auto& v : o["pinValues"].Elements()) n.pinValues.push_back(ValueFromJson(v));
         for (auto& k : o["paramPins"].Elements()) n.paramPins.push_back(k.I(0));
+        for (auto& x : o["execLinks"].Elements())
+            if (x.Size() >= 3) n.execLinks.push_back({x.At(0).I(0), x.At(1).U(), (u8)std::clamp(x.At(2).I(0), 0, 255)});
         for (auto& e : o["execResults"].Elements()) if (e.Size() >= 2) n.execResults[e.At(0).U()] = e.At(1).U();
         for (auto& [k, v] : o["varValues"].Items()) n.varValues[k] = ValueFromJson(v);
         for (auto& e : o["execSmart"].Elements()) if (e.Size() >= 2) n.execSmart[e.At(0).U()] = e.At(1).U();

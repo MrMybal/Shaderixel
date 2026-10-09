@@ -148,6 +148,7 @@ void Flatten(const Graph& in, Graph& out, Id liveOverride, int depth, std::map<s
             Node c = m;
             c.id = MixId(n.id, m.id);
             for (auto& x : c.inputs) if (x) x = MixId(n.id, x);
+            for (auto& e : c.execLinks) e.src = MixId(n.id, e.src);
             if (m.kind == NodeKind::SubInput) {
                 size_t p = 0;
                 while (p < ins.size() && ins[p]->id != m.id) ++p;
@@ -965,8 +966,10 @@ void Document::RemoveNode(Id id) {
     if (id == state.graph.output) return;
     auto& nodes = state.graph.nodes;
     nodes.erase(std::remove_if(nodes.begin(), nodes.end(), [&](const Node& n) { return n.id == id; }), nodes.end());
-    for (auto& n : nodes)
+    for (auto& n : nodes) {
         for (auto& in : n.inputs) if (in == id) in = 0;
+        std::erase_if(n.execLinks, [&](const Node::ExecLink& e) { return e.src == id; });
+    }
     if (state.activeNode == id) state.activeNode = 0;
     dirty = true;
 }
@@ -977,7 +980,18 @@ bool Document::Link(Id from, Id to, int input, u8 channel) {
     if (!dst || !srcNode || from == to) return false;
     // Pin types must match (images with images, values with values, execution with execution).
     if (!PinsCompatible(NodeOutputPin(*srcNode, NodeOutputPortOf(*srcNode, channel)), NodeInputPin(*dst, input))) return false;
-    if (state.graph.WouldCycle(from, to)) return false;
+    if (NodeInputType(*dst, input) == PinType::Exec) {
+        // Execution: several flows may join (no cycle check: a flow may loop back).
+        if (input < (int)dst->inputs.size() && dst->inputs[input] && !(dst->inputs[input] == from && InputChannel(*dst, input) == channel)) {
+            for (auto& e : dst->execLinks)
+                if (e.pin == input && e.src == from && e.channel == channel) return true;
+            dst->execLinks.push_back({input, from, channel});
+            dirty = true;
+            return true;
+        }
+    } else if (state.graph.WouldCycle(from, to)) {
+        return false;
+    }
     if ((int)dst->inputs.size() <= input) dst->inputs.resize(input + 1, 0);
     dst->inputs[input] = from;
     if (channel || (size_t)input < dst->inputChannel.size()) {
@@ -989,6 +1003,15 @@ bool Document::Link(Id from, Id to, int input, u8 channel) {
 }
 
 void Document::Unlink(Id to, int input) {
+    if (Node* dst = state.graph.Find(to)) {
+        // An execution input with several flows: the last one added goes first.
+        for (int k = (int)dst->execLinks.size() - 1; k >= 0; --k)
+            if (dst->execLinks[k].pin == input) {
+                dst->execLinks.erase(dst->execLinks.begin() + k);
+                dirty = true;
+                return;
+            }
+    }
     if (Node* dst = state.graph.Find(to))
         if (input < (int)dst->inputs.size()) {
             dst->inputs[input] = 0;

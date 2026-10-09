@@ -277,6 +277,9 @@ struct Node {
     std::string op;                    // Math: operation, Action: action, VarGet / VarSet: variable name
     std::vector<Value> pinValues;      // value of unlinked value inputs (Math, Action, Function)
     std::vector<int> paramPins;        // Effect: parameters shown as input pins (after the image inputs)
+    // Execution inputs fed by several flows: the sources after the one in `inputs` (pin, node, channel).
+    struct ExecLink { int pin = 0; Id src = 0; u8 channel = 0; };
+    std::vector<ExecLink> execLinks;
     // Function: per-node state of its graph
     std::map<Id, Id> execResults;      // inner Action node -> its stored result (surface)
     std::map<Id, Id> execSmart;        // inner Action node -> its result at full size (smart object: upscale...)

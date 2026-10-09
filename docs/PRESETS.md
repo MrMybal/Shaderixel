@@ -296,7 +296,7 @@ Champs communs :
 
 Exemple : `"inputs": [4, 4], "inputChannels": [0, 8]` = broche 0 reliée à la sortie 0 du nœud 4 (son exec « Corps »), broche 1 à sa sortie 1 (« Élément »).
 
-Les types doivent correspondre : image avec image, exec avec exec, valeur avec valeur (les nombres se convertissent entre eux, le texte se convertit en nombre et inversement ; une valeur simple peut alimenter un tableau). Une entrée exec n'accepte **qu'une** source : pour enchaîner plusieurs choses, utilisez `sequence`.
+Les types doivent correspondre : image avec image, exec avec exec, valeur avec valeur (les nombres se convertissent entre eux, le texte se convertit en nombre et inversement ; une valeur simple peut alimenter un tableau). Une entrée exec peut recevoir **plusieurs flux** (les deux branches d'un `branch` qui continuent vers la même action, par exemple) : la première source est dans `inputs`, les suivantes dans `"execLinks": [[broche, source, inputChannel], ...]` (ex. `"execLinks": [[0, 7, 0]]` = la sortie exec 0 du nœud 7 rejoint aussi l'entrée 0). Une sortie exec reliée à plusieurs actions les lance dans l'ordre du graphe ; pour un ordre garanti, utilisez `sequence`.
 
 ### 3.5 Valeurs
 

@@ -1,6 +1,7 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
 #include "ui/App.h"
 #include "doc/GraphTypes.h"
+#include "doc/DocFile.h"
 #include <filesystem>
 #include <unordered_set>
 #include "io/UAsset.h"
@@ -304,6 +305,50 @@ void App::DemoTick() {
             }
         }
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
+        return;
+    }
+    if (demoMode == 81) {
+        // Joining flows: Event -> Branch; True -> "A", False -> "B"; both -> "Fin" (one execution input, two
+        // flows). Run with the condition true then false; the graph saved / read back keeps the join.
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        static Id ev = 0, br = 0;
+        if (frameCounter == 8 && d.Mode() == DocMode::Layers) {
+            Edit e(d, a->history, "Passer en mode nodal");
+            d.ConvertToNodes();
+            e.Commit();
+        }
+        auto print = [&](const char* text, float2 pos) {
+            Node& p = AddTypedNode(d, NodeKind::Action, "print", PinType::Exec, false, pos);
+            Value v = MakeValue(PinType::String);
+            v.s = text;
+            NodeSetPinValue(p, 1, v);
+            return p.id;
+        };
+        if (frameCounter == 10) {
+            ev = AddTypedNode(d, NodeKind::Event, "Tester", PinType::Exec, false, {0, 1400}).id;
+            br = AddTypedNode(d, NodeKind::Action, "branch", PinType::Exec, false, {300, 1400}).id;
+            const Id pa = print("A", {600, 1300}), pb = print("B", {600, 1500}), fin = print("Fin", {900, 1400});
+            Log("[demo] execjoin: links %d %d %d %d %d", (int)d.Link(ev, br, 0), (int)d.Link(br, pa, 0, 0), (int)d.Link(br, pb, 0, 8),
+                (int)d.Link(pa, fin, 0), (int)d.Link(pb, fin, 0));
+            if (const Node* f = d.S().graph.Find(fin)) Log("[demo] execjoin: Fin has %zu extra flow(s)", f->execLinks.size());
+            StartExec(*a, 0, ev);
+        }
+        if (frameCounter == 20) {
+            if (Node* b = d.S().graph.Find(br)) {
+                Value f = MakeValue(PinType::Bool);
+                NodeSetPinValue(*b, 1, f);
+            }
+            StartExec(*a, 0, ev);
+        }
+        if (frameCounter == 30) {
+            Graph back;
+            GraphFromJson(GraphToJson(d.S().graph), back);
+            size_t extra = 0;
+            for (auto& n : back.nodes) extra += n.execLinks.size();
+            Log("[demo] execjoin: read back, %zu extra flow(s)", extra);
+        }
         return;
     }
     if (demoMode == 80) {
