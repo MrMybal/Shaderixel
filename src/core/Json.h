@@ -33,6 +33,7 @@ public:
     Json& operator[](const std::string& key) { type = Type::Object; return obj[key]; }
     const Json& operator[](const std::string& key) const;
     bool Has(const std::string& key) const { return obj.count(key) != 0; }
+    void Erase(const std::string& key) { obj.erase(key); }
     const std::map<std::string, Json>& Items() const { return obj; }
 
     // Array access

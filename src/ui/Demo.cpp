@@ -307,6 +307,66 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 85) {
+        // Action editor: an action of 3 steps shown in the editor, then a batch (my action + a built-in one)
+        // from SX_SRC (with subfolders) to SX_DST, JPG, numbered names. Actions are saved in SX_DST, not in the user's file.
+        char path[512] = "", src[512] = "", dst[512] = "";
+        GetEnvironmentVariableA("SX_SRC", src, sizeof(src));
+        GetEnvironmentVariableA("SX_DST", dst, sizeof(dst));
+        if (frameCounter == 4) {
+            settingsPath = std::string(dst) + "/demo_settings.json";
+            if (GetEnvironmentVariableA("SX_IMAGE", path, sizeof(path)) > 0) OpenImage(path, false);
+        }
+        if (frameCounter == 6) {
+            hideBottom = false;
+            Action a{"Carré N&B + JPG", {}};
+            Json c = Json::Object();
+            c["square"] = true; c["size"] = 512; c["interp"] = 2;
+            a.steps.push_back({"fit_crop", c, true});
+            Json f = Json::Object();
+            f["effect"] = "black_white"; f["destructive"] = true;
+            a.steps.push_back({"filter", f, true});
+            Json l = Json::Object();
+            l["opacity"] = 0.8f;
+            a.steps.push_back({"layer_props", l, false});
+            Json e = Json::Object();
+            e["format"] = "jpg"; e["quality"] = 80; e["folder"] = ""; e["suffix"] = "_carre";
+            a.steps.push_back({"export", e, true});
+            actions.push_back(a);
+            actionSel = (int)actions.size() - 1;
+            builtinSel = -1;
+            actionStepSel = 0;
+            panelOpen["Éditeur d'actions"].open = true;
+            actionEditorFocus = true;
+            for (auto& s : a.steps) Log("[demo] step: %s | %s", ActionStepSummary(s).c_str(), ActionStepDescription(s).c_str());
+            Log("[demo] built-in actions: %zu", BuiltinActions().size());
+        }
+        if (frameCounter == 20) {
+            batch.chain = {"u:Carré N&B + JPG", "b:Rotation 90° horaire"};
+            batch.sourceKind = 0;
+            batch.source = src;
+            batch.subfolders = true;
+            batch.keepTree = true;
+            batch.dest = dst;
+            batch.format = 2;
+            batch.quality = 85;
+            batch.pattern = "{n3}_{nom}_{l}x{h}";
+            batch.open = true;
+            StartBatch();
+        }
+        if (frameCounter > 20 && frameCounter % 30 == 0 && batch.running) Log("[demo] batch: %zu/%zu", batch.index, batch.files.size());
+        static bool reported = false;
+        if (frameCounter > 22 && !batch.running && !reported) {
+            reported = true;
+            for (auto& l : batch.log) Log("[demo] log: %s -> %s (%s)", l.file.c_str(), l.out.c_str(), l.msg.c_str());
+            Log("[demo] batch finished: %s", statusMsg.c_str());
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Éditeur d'actions")) (void)w;
+            actionEditorFocus = true;
+            actionStepSel = 1;
+            batch.open = false;
+        }
+        return;
+    }
     if (demoMode == 84) {
         // Resources panel: SX_EXPTAB (0 images, 1 meshes, 2 lights) on SX_EXPDIR, shown in the bottom zone.
         char dir[512] = "", tab[8] = "0";
@@ -2101,11 +2161,12 @@ void App::DemoTick() {
             (void)d;
         }
         if (frameCounter == 10) {
-            batch.action = actionSel;
+            batch.chain = {"u:_test"};
+            batch.sourceKind = 0;
             batch.source = src;
             batch.dest = dst;
-            batch.format = 0;
-            batch.suffix = "_lot";
+            batch.format = 1;
+            batch.pattern = "{nom}_lot";
             batch.open = true;
             StartBatch();
         }

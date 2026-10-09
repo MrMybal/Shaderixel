@@ -61,7 +61,18 @@ struct ActionStep {
 struct Action {
     std::string name;
     std::vector<ActionStep> steps;
+    std::string group;  // built-in actions: their section in the editor
 };
+// Shared by the Actions panel, the action editor and the batch (Actions.cpp).
+int ActionCmdCount();
+const char* ActionCmdId(int i);
+const char* ActionCmdLabel(const std::string& cmd);
+Json ActionDefaultParams(const std::string& cmd);
+std::string ActionStepSummary(const ActionStep& s);
+std::string ActionStepDescription(const ActionStep& s);  // full sentence: what the step does exactly
+const std::vector<Action>& BuiltinActions();             // simple ready-made actions (conversions, sizes...)
+Json ActionToJson(const Action& a);
+Action ActionFromJson(const Json& j);
 
 struct TransformState {
     bool active = false;
@@ -967,22 +978,49 @@ private:
     struct ActionRun {
         bool active = false;
         DocView* view = nullptr;
-        std::string name, error, exportFolder, lastExport;
+        std::string name, error, exportFolder, exportStem, lastExport, key;
         std::vector<ActionStep> steps;
+        std::vector<int> srcIndex;  // index of each step in its action (editor highlight)
         size_t next = 0;
         int retries = 0;
         bool exporting = false;
         gpu::ReadbackPtr wait;
         std::function<void(bool)> done;
     } actionRun;
+    std::string actionLastExport;  // last file written by an Exporter step
+    int exportQuality = 92;        // JPG quality of ExportImage
+    // Action editor (ActionsEditor.cpp).
+    int actionStepSel = -1, builtinSel = -1;  // builtinSel >= 0: a built-in action is shown
+    std::string actionFxFilter;
+    bool actionEditorFocus = false;
+    struct BatchLog {
+        std::string file, out, msg;
+        int state = 0;  // 0 done, 1 skipped, 2 error
+    };
     struct {
-        bool open = false, running = false, cancel = false, subfolders = false, saveResult = true;
-        int action = 0, format = 0, stage = 0;
-        std::string source, dest, suffix;
+        bool open = false, running = false, cancel = false, subfolders = false, keepTree = true, opened = false;
+        int sourceKind = 0;  // 0 folder, 1 open documents
+        int format = 1;      // 0 none (Exporter steps only), 1 PNG, 2 JPG, 3 TGA, 4 BMP, 5 PSD, 6 SXL, 7 same as the source
+        int quality = 92, conflict = 2, stage = 0;  // conflict: 0 replace, 1 skip, 2 numbered copy
+        std::string source, dest, pattern = "{nom}", extFilter;
+        std::vector<std::string> chain;  // "u:<name>" my actions, "b:<name>" built-in
         std::vector<std::string> files, errors;
-        size_t index = 0, done = 0;
+        std::vector<DocView*> views;     // source = open documents
+        std::vector<BatchLog> log;
+        size_t index = 0, done = 0, skipped = 0;
         DocView* view = nullptr;
     } batch;
+    const Action* FindActionKey(const std::string& key) const;
+    bool StartActionSteps(DocView& v, const std::string& name, const std::vector<ActionStep>& steps, int first, int last, const std::string& key,
+                          std::function<void(bool)> done = {});
+    void WriteImageAs(DocView& v, const std::string& path, const std::string& format, int quality);
+    std::vector<std::string> BatchScan() const;
+    std::string BatchName(size_t i, const Document* d) const;    // d null: preview, sizes unknown
+    std::string BatchFolder(size_t i, const Document* d) const;
+    void ImportActions();
+    void ExportActions(int index);  // -1: all
+    void DrawActionEditor();
+    void DrawActionInspector(ActionStep& s, bool readOnly);
     std::string ActionsPath() const;
     void LoadActions();
     void SaveActions();
@@ -1242,7 +1280,7 @@ private:
 
     // async GPU readbacks
     gpu::ReadbackPtr pickReadback;
-    struct PendingExport { std::string path; gpu::ReadbackPtr rb; Rect crop; };  // crop: part of the image written (empty = all)
+    struct PendingExport { std::string path; gpu::ReadbackPtr rb; Rect crop; int quality = 92; };  // crop: part of the image written (empty = all)
     std::vector<PendingExport> exports;
     struct PsdExportState {
         PsdExportJob job;

@@ -64,6 +64,7 @@ class AiBridge {
 public:
     ~AiBridge() { Shutdown(); }
     void Register(AiOperation op) { ops.push_back(std::move(op)); }
+    const std::vector<AiOperation>& Operations() const { return ops; }
     const AiOperation* Find(const std::string& id) const {
         for (auto& o : ops) if (o.id == id) return &o;
         return nullptr;

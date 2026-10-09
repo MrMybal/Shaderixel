@@ -86,7 +86,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : m == "drop" ? 69 : m == "uassetconv" ? 70 : m == "layerxf" ? 71 : m == "graphtools" ? 72 : m == "functions" ? 73 : m == "typed" ? 74 : m == "library" ? 75 : m == "trims" ? 76 : m == "nodeui" ? 77 : m == "maketemplates" ? 78 : m == "makescenes" ? 79 : m == "comments" ? 80 : m == "execjoin" ? 81 : m == "call" ? 82 : m == "inpaint" ? 83 : m == "explorer" ? 84 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : m == "drop" ? 69 : m == "uassetconv" ? 70 : m == "layerxf" ? 71 : m == "graphtools" ? 72 : m == "functions" ? 73 : m == "typed" ? 74 : m == "library" ? 75 : m == "trims" ? 76 : m == "nodeui" ? 77 : m == "maketemplates" ? 78 : m == "makescenes" ? 79 : m == "comments" ? 80 : m == "execjoin" ? 81 : m == "call" ? 82 : m == "inpaint" ? 83 : m == "explorer" ? 84 : m == "actioneditor" ? 85 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -525,6 +525,8 @@ void App::Frame() {
     if (Shown("Tracés")) DrawPathsPanel();
     if (!ImGui::FindWindowByName("Actions")) DockNewPanel(1, false);
     if (Shown("Actions")) DrawActionsPanel();
+    if (!panelOpen.count("Éditeur d'actions")) panelOpen["Éditeur d'actions"].open = false;  // opened on demand
+    if (Shown("Éditeur d'actions")) DrawActionEditor();
     if (!ImGui::FindWindowByName("Compositions de calques")) DockNewPanel(1, false);
     if (Shown("Compositions de calques")) DrawLayerCompsPanel();
     if (!ImGui::FindWindowByName("Styles de texte")) DockNewPanel(1, false);
@@ -615,7 +617,7 @@ void App::Frame() {
             for (auto& ch : ext) ch = (char)tolower(ch);
             int ok = 0;
             std::string native = e.path;
-            if (ext == ".jpg" || ext == ".jpeg") ok = stbi_write_jpg(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data(), 92);
+            if (ext == ".jpg" || ext == ".jpeg") ok = stbi_write_jpg(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data(), std::clamp(e.quality, 1, 100));
             else if (ext == ".bmp") ok = stbi_write_bmp(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data());
             else if (ext == ".tga") ok = stbi_write_tga(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data());
             else ok = stbi_write_png(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data(), e.rb->width * 4);
@@ -855,7 +857,7 @@ void App::ExportImage(const std::string& path) {
     gpu::Texture* img = v->renderer.EvaluateComplete(*v->doc, *ctx);
     if (!img) return;
     auto rb = v->renderer.ExportRGBA8(*ctx, img);
-    if (rb) exports.push_back({path, rb, {}});
+    if (rb) exports.push_back({path, rb, {}, exportQuality});
 }
 
 void App::Status(const std::string& msg) {
@@ -967,6 +969,7 @@ void App::DrawMenuBar() {
             if (!f.empty()) ExportComps(*v, f);
         }
         if (ImGui::BeginMenu("Automatisation")) {
+            if (ImGui::MenuItem("Éditeur d'actions")) { panelOpen["Éditeur d'actions"].open = true; actionEditorFocus = true; }
             if (ImGui::MenuItem("Traitement par lots...")) batch.open = true;
             ImGui::Separator();
             if (ImGui::MenuItem("Photomerge (panorama)...")) { photoDlg.open = true; photoDlg.kind = 1; }
