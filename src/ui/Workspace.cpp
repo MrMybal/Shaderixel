@@ -329,7 +329,8 @@ void App::NewExtraWindow() {
 // folded a small bar at the bottom of the canvas to unfold it or pick the layer (or node) to edit.
 void App::DrawZoneToggles() {
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize |
-                                   ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDocking;
+                                   ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDocking |
+                                   ImGuiWindowFlags_NoBringToFrontOnFocus;  // never takes the keyboard focus from the panels
     if (!hideBottom) {
         ImGuiDockNode* n = bottomZone ? ImGui::DockBuilderGetNode(bottomZone) : nullptr;
         if (!n || !n->IsVisible || n->Size.y < 40) return;

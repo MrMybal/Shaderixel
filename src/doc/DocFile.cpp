@@ -301,6 +301,19 @@ Json GraphToJson(const Graph& g) {
     graph["nodes"] = nodes;
     graph["output"] = g.output;
     if (!g.description.empty()) graph["description"] = g.description;
+    if (!g.comments.empty()) {
+        Json cs = Json::Array();
+        for (auto& c : g.comments) {
+            Json o = Json::Object();
+            o["id"] = c.id;
+            o["text"] = c.text;
+            o["pos"] = ToJson(c.pos);
+            o["size"] = ToJson(c.size);
+            o["color"] = ToJson(c.color);
+            cs.Push(o);
+        }
+        graph["comments"] = cs;
+    }
     if (!g.variables.empty()) {
         Json vars = Json::Array();
         for (auto& v : g.variables) {
@@ -633,6 +646,16 @@ void GraphFromJson(const Json& jg, Graph& g) {
     }
     g.output = jg["output"].U(0);
     g.description = jg["description"].S("");
+    for (auto& o : jg["comments"].Elements()) {
+        GraphComment c;
+        c.id = o["id"].U();
+        c.text = o["text"].S("Commentaire");
+        c.pos = Float2FromJson(o["pos"]);
+        c.size = Float2FromJson(o["size"]);
+        c.color = Float4FromJson(o["color"], c.color);
+        if (c.size.x < 40 || c.size.y < 30) c.size = {400, 240};
+        g.comments.push_back(c);
+    }
     for (auto& o : jg["variables"].Elements()) {
         GraphVariable v;
         v.name = o["name"].S("Variable");

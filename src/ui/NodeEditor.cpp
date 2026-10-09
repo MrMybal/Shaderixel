@@ -337,6 +337,7 @@ void App::DrawNodePalette() {
 }
 
 void App::DrawNodeEditor() {
+    graphFocused = false;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     bool open = ImGui::Begin("Graphe", PanelFlag("Graphe"), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar();
@@ -355,6 +356,7 @@ void App::DrawNodeEditor() {
     ImGui::InvisibleButton("##graph", size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
     const bool hovered = ImGui::IsItemHovered();
     const bool focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+    graphFocused = focused;
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->PushClipRect(origin, ImVec2(origin.x + size.x, origin.y + size.y), true);
 
@@ -380,6 +382,30 @@ void App::DrawNodeEditor() {
         float ox = std::fmod(ed.pan.x * ed.zoom, step), oy = std::fmod(ed.pan.y * ed.zoom, step);
         for (float x = ox; x < size.x; x += step) dl->AddLine(ImVec2(origin.x + x, origin.y), ImVec2(origin.x + x, origin.y + size.y), ui::col::Grid);
         for (float y = oy; y < size.y; y += step) dl->AddLine(ImVec2(origin.x, origin.y + y), ImVec2(origin.x + size.x, origin.y + y), ui::col::Grid);
+    }
+
+    // Comment frames, behind links and nodes.
+    const float kCommentHeader = 30.0f;
+    auto commentByColor = [](const float4& c, int a) { return IM_COL32((int)(c.x * 255), (int)(c.y * 255), (int)(c.z * 255), a); };
+    ed.commentRects.clear();
+    for (const GraphComment& c : g.comments) {
+        const ImVec2 a = toScreen(c.pos), b = toScreen(c.pos + c.size);
+        ed.commentRects[c.id] = ImVec4(a.x, a.y, b.x, a.y + kCommentHeader * ed.zoom);
+        if (b.x < origin.x || b.y < origin.y || a.x > origin.x + size.x || a.y > origin.y + size.y) continue;
+        const bool sel = ed.selComment == c.id, hot = ed.hoverComment == c.id;
+        const float rr = 6 * ed.zoom;
+        dl->AddRectFilled(a, b, commentByColor(c.color, 34), rr);
+        dl->AddRectFilled(a, ImVec2(b.x, a.y + kCommentHeader * ed.zoom), commentByColor(c.color, 150), rr, ImDrawFlags_RoundCornersTop);
+        dl->AddRect(a, b, sel ? ui::col::Selection : commentByColor(c.color, hot ? 255 : 170), rr, 0, sel ? 2.5f : 1.5f);
+        if (ed.zoom > 0.25f) {
+            const float tfs = ImGui::GetFontSize() * ed.zoom * 1.25f;
+            dl->PushClipRect(a, ImVec2(b.x - 4, a.y + kCommentHeader * ed.zoom), true);
+            dl->AddText(ImGui::GetFont(), tfs, ImVec2(a.x + 10 * ed.zoom, a.y + (kCommentHeader * ed.zoom - tfs) * 0.5f), IM_COL32_WHITE, c.text.c_str());
+            dl->PopClipRect();
+        }
+        // Resize grip.
+        const float gs = 12 * ed.zoom;
+        dl->AddTriangleFilled(ImVec2(b.x - gs, b.y - 2), ImVec2(b.x - 2, b.y - gs), ImVec2(b.x - 2, b.y - 2), commentByColor(c.color, hot ? 255 : 140));
     }
 
     ed.valRects.clear();
@@ -427,6 +453,49 @@ void App::DrawNodeEditor() {
             ImVec2 a = toScreen(n.pos), b = toScreen(n.pos + float2{L.w, L.h});
             if (mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= b.y) { hoverNode = n.id; break; }
         }
+    }
+
+    ed.hoverComment = 0;
+    ed.hoverCommentPart = 0;
+    if (hovered && !hoverNode && !hoverOut && !hoverInNode) {
+        for (int k = (int)g.comments.size() - 1; k >= 0 && !ed.hoverComment; --k) {
+            const GraphComment& c = g.comments[k];
+            const ImVec2 a = toScreen(c.pos), b = toScreen(c.pos + c.size);
+            const float gs = 14 * ed.zoom;
+            if (mouse.x >= b.x - gs && mouse.x <= b.x + 2 && mouse.y >= b.y - gs && mouse.y <= b.y + 2) { ed.hoverComment = c.id; ed.hoverCommentPart = 2; }
+            else if (mouse.x >= a.x && mouse.x <= b.x && mouse.y >= a.y && mouse.y <= a.y + kCommentHeader * ed.zoom) { ed.hoverComment = c.id; ed.hoverCommentPart = 1; }
+        }
+        if (ed.hoverCommentPart == 2) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNWSE);
+    }
+    auto findComment = [&](Id id) -> GraphComment* {
+        for (auto& c : g.comments) if (c.id == id) return &c;
+        return nullptr;
+    };
+    // Comment around the selection (or a default box at `at`).
+    auto addComment = [&](float2 at) {
+        DocState before = d.S();
+        GraphComment c;
+        c.id = d.NewId();
+        if (!ed.selection.empty()) {
+            float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
+            for (Id id : ed.selection)
+                if (const Node* n = g.Find(id)) {
+                    mn = {std::min(mn.x, n->pos.x), std::min(mn.y, n->pos.y)};
+                    mx = {std::max(mx.x, n->pos.x + lay(*n).w), std::max(mx.y, n->pos.y + lay(*n).h)};
+                }
+            c.pos = mn - float2{30, 30 + kCommentHeader};
+            c.size = (mx - mn) + float2{60, 60 + kCommentHeader};
+        } else {
+            c.pos = at;
+        }
+        g.comments.push_back(c);
+        ed.selComment = c.id;
+        v->history.PushState("Commentaire", before, d.S());
+    };
+    // Double click on a comment title: rename.
+    if (hovered && ed.hoverCommentPart == 1 && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+        ed.selComment = ed.hoverComment;
+        ImGui::OpenPopup("##commentctx");
     }
 
     // Double click on a function: its graph opens in a tab.
@@ -505,8 +574,22 @@ void App::DrawNodeEditor() {
             ed.moveBefore = d.S();
             auto it = std::find_if(g.nodes.begin(), g.nodes.end(), [&](const Node& n) { return n.id == hoverNode; });
             if (it != g.nodes.end() && editable) std::rotate(it, it + 1, g.nodes.end());
+        } else if (editable && ed.hoverComment) {
+            // Comment: the title moves it with the nodes inside, the corner resizes it.
+            ed.selComment = ed.hoverComment;
+            ed.commentDrag = ed.hoverCommentPart;
+            ed.commentBefore = d.S();
+            ed.commentNodes.clear();
+            if (const GraphComment* c = findComment(ed.selComment); c && ed.commentDrag == 1)
+                for (auto& n : g.nodes) {
+                    const Layout& L = lay(n);
+                    if (n.pos.x >= c->pos.x && n.pos.y >= c->pos.y && n.pos.x + L.w <= c->pos.x + c->size.x && n.pos.y + L.h <= c->pos.y + c->size.y)
+                        ed.commentNodes.push_back(n.id);
+                }
+            ed.selection.clear();
         } else {
             // Empty space: rectangle selection (Ctrl/Shift adds).
+            ed.selComment = 0;
             if (!io.KeyCtrl && !io.KeyShift) {
                 ed.selection.clear();
                 d.S().activeNode = 0;
@@ -554,6 +637,23 @@ void App::DrawNodeEditor() {
         ImVec2 a = toScreen(ed.boxStart);
         dl->AddRectFilled(ImVec2(std::min(a.x, mouse.x), std::min(a.y, mouse.y)), ImVec2(std::max(a.x, mouse.x), std::max(a.y, mouse.y)), IM_COL32(120, 100, 255, 40));
         dl->AddRect(ImVec2(std::min(a.x, mouse.x), std::min(a.y, mouse.y)), ImVec2(std::max(a.x, mouse.x), std::max(a.y, mouse.y)), ui::col::Accent);
+    }
+    if (ed.commentDrag) {
+        GraphComment* c = findComment(ed.selComment);
+        if (c && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+            const float2 delta = {io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
+            if (ed.commentDrag == 1) {
+                c->pos = c->pos + delta;
+                for (Id id : ed.commentNodes)
+                    if (Node* n = g.Find(id)) n->pos = n->pos + delta;
+            } else {
+                c->size = {std::max(140.0f, c->size.x + delta.x), std::max(80.0f, c->size.y + delta.y)};
+            }
+        } else {
+            if (c && ed.commentBefore) v->history.PushState(ed.commentDrag == 1 ? "Déplacer le commentaire" : "Redimensionner le commentaire", *ed.commentBefore, d.S());
+            ed.commentDrag = 0;
+            ed.commentBefore.reset();
+        }
     }
     if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
         if (ed.draggingLink) {
@@ -806,6 +906,9 @@ void App::DrawNodeEditor() {
             d.S().activeNode = hoverNode;
             if (!ed.selection.count(hoverNode)) ed.selection = {hoverNode};
             ImGui::OpenPopup("##nodectx");
+        } else if (ed.hoverComment) {
+            ed.selComment = ed.hoverComment;
+            ImGui::OpenPopup("##commentctx");
         } else {
             ed.pendFrom = ed.pendTo = 0;
             openAddMenu = true;
@@ -821,6 +924,13 @@ void App::DrawNodeEditor() {
     ImGui::SetNextWindowSizeConstraints(ImVec2(260 * dpi, 0), ImVec2(360 * dpi, 520 * dpi));
     if (ImGui::BeginPopup("##addnode")) {
         ImGui::TextDisabled(ed.pendFrom ? "Nouveau nœud relié à cette sortie" : ed.pendTo ? "Nouveau nœud relié à cette entrée" : "Ajouter un nœud");
+        if (!ed.pendFrom && !ed.pendTo && editable && ImGui::SmallButton("+ Commentaire ici")) {
+            const auto keep = ed.selection;
+            ed.selection.clear();
+            addComment(ed.contextPos);
+            ed.selection = keep;
+            ImGui::CloseCurrentPopup();
+        }
         if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
         ImGui::SetNextItemWidth(-FLT_MIN);
         bool enter = ImGui::InputTextWithHint("##search", "Rechercher...", ed.search, sizeof(ed.search), ImGuiInputTextFlags_EnterReturnsTrue);
@@ -912,6 +1022,107 @@ void App::DrawNodeEditor() {
         ed.valBefore.reset();
         ed.valChanged = false;
     }
+    if (ImGui::BeginPopup("##commentctx")) {
+        if (GraphComment* c = findComment(ed.selComment)) {
+            static DocState snap;
+            if (ImGui::IsWindowAppearing()) {
+                snap = d.S();
+                ImGui::SetKeyboardFocusHere();
+            }
+            ImGui::SetNextItemWidth(260 * dpi);
+            ImGui::InputText("##ctext", &c->text);
+            if (ImGui::IsItemDeactivatedAfterEdit()) v->history.PushState("Renommer le commentaire", snap, d.S());
+            static const float4 kColors[] = {{0.35f, 0.45f, 0.75f, 1}, {0.30f, 0.60f, 0.40f, 1}, {0.75f, 0.55f, 0.20f, 1},
+                                             {0.70f, 0.30f, 0.35f, 1}, {0.55f, 0.35f, 0.70f, 1}, {0.40f, 0.42f, 0.46f, 1}};
+            for (int k = 0; k < 6; ++k) {
+                if (k) ImGui::SameLine();
+                ImGui::PushID(k);
+                if (ImGui::ColorButton("##col", ImVec4(kColors[k].x, kColors[k].y, kColors[k].z, 1), ImGuiColorEditFlags_NoTooltip, ImVec2(22 * dpi, 22 * dpi))) {
+                    DocState before = d.S();
+                    c->color = kColors[k];
+                    v->history.PushState("Couleur du commentaire", before, d.S());
+                }
+                ImGui::PopID();
+            }
+            if (ImGui::MenuItem("Ajuster aux nœuds contenus")) {
+                float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
+                bool any = false;
+                for (auto& n : g.nodes) {
+                    const Layout& L = lay(n);
+                    if (n.pos.x >= c->pos.x && n.pos.y >= c->pos.y && n.pos.x + L.w <= c->pos.x + c->size.x && n.pos.y + L.h <= c->pos.y + c->size.y) {
+                        mn = {std::min(mn.x, n.pos.x), std::min(mn.y, n.pos.y)};
+                        mx = {std::max(mx.x, n.pos.x + L.w), std::max(mx.y, n.pos.y + L.h)};
+                        any = true;
+                    }
+                }
+                if (any) {
+                    DocState before = d.S();
+                    c->pos = mn - float2{30, 30 + kCommentHeader};
+                    c->size = (mx - mn) + float2{60, 60 + kCommentHeader};
+                    v->history.PushState("Ajuster le commentaire", before, d.S());
+                }
+            }
+            if (ImGui::MenuItem("Supprimer le commentaire (garde les nœuds)")) {
+                DocState before = d.S();
+                const Id id = c->id;
+                g.comments.erase(std::remove_if(g.comments.begin(), g.comments.end(), [&](const GraphComment& x) { return x.id == id; }), g.comments.end());
+                ed.selComment = 0;
+                v->history.PushState("Supprimer le commentaire", before, d.S());
+            }
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) ImGui::CloseCurrentPopup();
+        } else {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    // Search in the graph (Ctrl+F): jump to a node.
+    if (focused && !io.WantTextInput && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F)) {
+        ed.findText[0] = 0;
+        ImGui::OpenPopup("##graphsearch");
+    }
+    ImGui::SetNextWindowSizeConstraints(ImVec2(300 * dpi, 0), ImVec2(420 * dpi, 460 * dpi));
+    if (ImGui::BeginPopup("##graphsearch")) {
+        if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        const bool enter = ImGui::InputTextWithHint("##find", "Chercher un nœud, un commentaire...", ed.findText, sizeof(ed.findText), ImGuiInputTextFlags_EnterReturnsTrue);
+        const std::string q = Lower(ed.findText);
+        Id pick = 0, first = 0;
+        float2 pickPos{};
+        bool pickComment = false;
+        ImGui::BeginChild("##findres", ImVec2(0, 300 * dpi));
+        for (auto& c : g.comments)
+            if (q.empty() || Lower(c.text).find(q) != std::string::npos) {
+                if (!first) first = c.id, pickComment = true;
+                if (ImGui::Selectable(("\xE2\x96\xA2 " + c.text + "##c" + std::to_string(c.id)).c_str())) pick = c.id, pickComment = true;
+            }
+        for (auto& n : g.nodes) {
+            const std::string tag = NodeTypeTag(d, n).text;
+            if (!q.empty() && Lower(n.name + " " + tag + " " + n.op + " " + n.fx.effectId).find(q) == std::string::npos) continue;
+            if (!first) first = n.id, pickComment = false;
+            if (ImGui::Selectable((n.name + "##n" + std::to_string(n.id)).c_str())) pick = n.id, pickComment = false;
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", tag.c_str());
+        }
+        ImGui::EndChild();
+        if (enter && !pick) pick = first;
+        if (pick) {
+            if (pickComment) {
+                ed.selComment = pick;
+                if (const GraphComment* c = findComment(pick)) {
+                    ed.zoom = std::clamp(std::min(size.x / (c->size.x + 80), size.y / (c->size.y + 80)), 0.2f, 1.5f);
+                    ed.pan = float2{size.x / ed.zoom * 0.5f, size.y / ed.zoom * 0.5f} - (c->pos + c->size * 0.5f);
+                }
+            } else {
+                ed.selection = {pick};
+                d.S().activeNode = pick;
+                graphFrameOnly = {pick};
+                graphFrameRequest = true;
+            }
+            ImGui::CloseCurrentPopup();
+        }
+        (void)pickPos;
+        ImGui::EndPopup();
+    }
     if (ImGui::BeginPopup("##nodectx")) {
         Node* n = g.Find(d.S().activeNode);
         if (n) {
@@ -976,6 +1187,36 @@ void App::DrawNodeEditor() {
                     if (ImGui::MenuItem("Convertir en image", nullptr, false, n->surface != 0)) RequestToolAction(*v, tid, ToolAction::ConvertToImage);
                     if (ImGui::MenuItem("Exporter l'image...", nullptr, false, n->surface != 0)) RequestToolAction(*v, tid, ToolAction::Export);
                     ImGui::Separator();
+                }
+                if (ImGui::MenuItem("Commentaire autour de la sélection", "C")) addComment(ed.contextPos);
+                if (ed.selection.size() > 1 && ImGui::BeginMenu("Aligner")) {
+                    std::vector<Node*> sel;
+                    for (Id id : ed.selection) if (Node* s = g.Find(id)) sel.push_back(s);
+                    auto apply = [&](const char* label, auto fn) {
+                        if (!ImGui::MenuItem(label)) return;
+                        DocState before = d.S();
+                        fn();
+                        v->history.PushState(label, before, d.S());
+                    };
+                    apply("À gauche", [&] { float x = 1e9f; for (Node* s : sel) x = std::min(x, s->pos.x); for (Node* s : sel) s->pos.x = x; });
+                    apply("En haut", [&] { float y = 1e9f; for (Node* s : sel) y = std::min(y, s->pos.y); for (Node* s : sel) s->pos.y = y; });
+                    apply("Centres verticaux (même colonne)", [&] {
+                        float c = 0;
+                        for (Node* s : sel) c += s->pos.x + lay(*s).w * 0.5f;
+                        c /= sel.size();
+                        for (Node* s : sel) s->pos.x = c - lay(*s).w * 0.5f;
+                    });
+                    apply("Répartir horizontalement", [&] {
+                        std::sort(sel.begin(), sel.end(), [](Node* a, Node* b) { return a->pos.x < b->pos.x; });
+                        float x = sel.front()->pos.x;
+                        for (Node* s : sel) { s->pos.x = x; x += lay(*s).w + 60; }
+                    });
+                    apply("Répartir verticalement", [&] {
+                        std::sort(sel.begin(), sel.end(), [](Node* a, Node* b) { return a->pos.y < b->pos.y; });
+                        float y = sel.front()->pos.y;
+                        for (Node* s : sel) { s->pos.y = y; y += lay(*s).h + 40; }
+                    });
+                    ImGui::EndMenu();
                 }
                 if (ImGui::MenuItem(ed.selection.size() > 1 ? "Supprimer la sélection" : "Supprimer", "Suppr")) deleteSelection();
             } else if (!editable) {
@@ -1091,9 +1332,20 @@ void App::DrawNodeEditor() {
     }
 
     // Keyboard
-    if (focused && editable && !io.WantTextInput && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))) deleteSelection();
+    if (focused && editable && !io.WantTextInput && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))) {
+        if (ed.selComment && ed.selection.empty()) {
+            DocState before = d.S();
+            const Id id = ed.selComment;
+            g.comments.erase(std::remove_if(g.comments.begin(), g.comments.end(), [&](const GraphComment& x) { return x.id == id; }), g.comments.end());
+            ed.selComment = 0;
+            v->history.PushState("Supprimer le commentaire", before, d.S());
+        } else {
+            deleteSelection();
+        }
+    }
+    if (focused && editable && !io.WantTextInput && !io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C) && !ed.selection.empty()) addComment(ed.contextPos);
     if (focused && !io.WantTextInput && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) for (auto& n : g.nodes) ed.selection.insert(n.id);
-    if (((focused && !io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F)) || std::exchange(graphFrameRequest, false)) && !g.nodes.empty()) {
+    if (((focused && !io.WantTextInput && !io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F)) || std::exchange(graphFrameRequest, false)) && !g.nodes.empty()) {
         float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
         for (auto& n : g.nodes) {
             if (!graphFrameOnly.empty() ? !graphFrameOnly.count(n.id) : (!ed.selection.empty() && !ed.selection.count(n.id))) continue;  // F frames the selection when there is one

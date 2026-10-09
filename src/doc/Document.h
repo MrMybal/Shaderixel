@@ -235,6 +235,14 @@ struct GraphVariable {
 
 struct Graph;
 
+// Comment frame of a graph: a titled, colored box behind nodes (moving it moves the nodes inside).
+struct GraphComment {
+    Id id = 0;
+    std::string text = "Commentaire";
+    float2 pos, size = {400, 240};
+    float4 color = {0.35f, 0.45f, 0.75f, 1};
+};
+
 struct Node {
     Id id = 0;
     NodeKind kind = NodeKind::Effect;
@@ -313,6 +321,7 @@ struct Graph {
     Id output = 0;
     std::string description;  // functions: shown in the library
     std::vector<GraphVariable> variables;
+    std::vector<GraphComment> comments;
     GraphVariable* Var(const std::string& name) {
         for (auto& v : variables) if (v.name == name) return &v;
         return nullptr;

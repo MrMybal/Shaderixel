@@ -306,6 +306,68 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 80) {
+        // Graph comments: "Peinture" and its blend selected, C pressed in the graph (frame around them),
+        // the frame dragged by its title (+120, +80 px): the nodes inside follow.
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        Graph& g = d.S().graph;
+        ImGuiIO& io = ImGui::GetIO();
+        static Id paint = 0;
+        static float2 before;
+        static ImVec2 start;
+        if (frameCounter == 8 && d.Mode() == DocMode::Layers) {
+            Edit e(d, a->history, "Passer en mode nodal");
+            d.ConvertToNodes();
+            e.Commit();
+        }
+        if (frameCounter == 10) {
+            nodeEd.selection.clear();
+            for (auto& n : g.nodes)
+                if (n.name == "Peinture" || n.name == "Fusion Peinture") {
+                    nodeEd.selection.insert(n.id);
+                    if (n.name == "Peinture") paint = n.id;
+                }
+            graphFrameOnly = nodeEd.selection;
+            graphFrameRequest = true;
+            ImGui::SetWindowFocus("Graphe");
+        }
+        if (frameCounter == 9) hideBottom = false;
+        if (frameCounter == 13) ImGui::SetWindowFocus("Graphe");
+        if (frameCounter == 14) {
+            Log("[demo] comments: graph focused %d, nav window %s", (int)graphFocused, GImGui->NavWindow ? GImGui->NavWindow->Name : "-");
+            io.AddKeyEvent(ImGuiKey_C, true);
+        }
+        if (frameCounter == 15) io.AddKeyEvent(ImGuiKey_C, false);
+        if (frameCounter == 18) {
+            Log("[demo] comments: %zu comment(s)", g.comments.size());
+            if (!g.comments.empty()) {
+                g.comments.back().text = "Peinture et sa fusion";
+                if (const Node* n = g.Find(paint)) before = n->pos;
+                graphFrameOnly.clear();
+                for (auto& n : g.nodes) graphFrameOnly.insert(n.id);
+                graphFrameRequest = true;
+            }
+        }
+        if (frameCounter == 22 && !g.comments.empty()) {
+            auto it = nodeEd.commentRects.find(g.comments.back().id);
+            if (it != nodeEd.commentRects.end()) {
+                start = ImVec2(it->second.x + 60, (it->second.y + it->second.w) * 0.5f);
+                io.AddMousePosEvent(start.x, start.y);
+            }
+        }
+        if (frameCounter == 24) io.AddMouseButtonEvent(0, true);
+        for (int k = 1; k <= 6; ++k)
+            if (frameCounter == (u64)24 + k) io.AddMousePosEvent(start.x + 120.0f * k / 6, start.y + 80.0f * k / 6);
+        if (frameCounter == 32) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 34) {
+            io.AddMousePosEvent(-100, -100);
+            if (const Node* n = g.Find(paint))
+                Log("[demo] comments: node moved by %.0f, %.0f (graph units)", n->pos.x - before.x, n->pos.y - before.y);
+        }
+        return;
+    }
     if (demoMode == 79) {
         // Scene presets: written to SX_SCENEDIR (shipped presets), then each applied to the mug project
         // (SX_SCENE_APPLY = preset name, SX_SCENE_MODE 0/1/2) and the scene saved / loaded back (SX_SCENE_FILE).

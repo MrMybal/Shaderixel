@@ -178,6 +178,15 @@ u64& FunctionLibraryGen();
 extern std::function<Id(Document&, float2, const std::string&)> g_insertLibraryFunction;
 
 struct NodeEditorState {
+    // Comment frames: selected, hovered (part 1 header, 2 resize corner), dragged with the nodes inside.
+    Id selComment = 0, hoverComment = 0;
+    int hoverCommentPart = 0, commentDrag = 0;
+    std::vector<Id> commentNodes;
+    std::unordered_map<Id, ImVec4> commentRects;  // screen rect of each drawn comment title (demos)
+    std::optional<DocState> commentBefore;
+    // Search in the graph (Ctrl+F).
+    bool searchOpen = false;
+    char findText[64] = {};
     // Value edited on a node (unlinked value input): dragged (numbers) or in a small popup.
     Id valNode = 0;
     int valPin = -1;
@@ -703,6 +712,7 @@ private:
     std::vector<ToolJob> toolJobs;
     std::vector<ToolExportJob> toolExports;
     std::set<Id> toolBusy;
+    bool graphFocused = false;       // the graph editor had the focus last frame (its own keys)
     bool graphFrameRequest = false;  // frame all nodes in the graph editor (demos)
     std::set<Id> graphFrameOnly;     // ... or only these
     bool ViewAlive(const DocView* v) const;
