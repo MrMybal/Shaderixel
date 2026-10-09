@@ -255,7 +255,8 @@ std::vector<NodeEntry> NodeEntries() {
                  }});
     for (auto& def : Effects().All()) {
         std::string id = def->id;
-        e.push_back({def->category, def->name, id, [id](Document& d, float2 p) { return d.AddEffectNode(id, "", p).id; }});
+        if (EffectIsVariant(*def)) continue;  // variants stay in the Effets panel (Variantes)
+        e.push_back({def->blend ? std::string("Fusions") : EffectFamily(*def), def->name, id + " " + def->category, [id](Document& d, float2 p) { return d.AddEffectNode(id, "", p).id; }});
     }
     return e;
 }

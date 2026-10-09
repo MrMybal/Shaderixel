@@ -50,6 +50,81 @@ bool IsNumber(const std::string& s) {
 
 EffectLibrary& Effects() { return g_effects; }
 
+// ------------------------------------------------------------------ families
+
+namespace {
+struct FamilyRule {
+    const char* name;
+    std::vector<const char*> categories;  // categories that belong to it as a whole
+    std::vector<const char*> keywords;    // name / id words (mixed categories)
+};
+const std::vector<FamilyRule>& FamilyRules() {
+    // Keyword order matters: the first family whose word is in the name wins.
+    static const std::vector<FamilyRule> rules = {
+        {"Glitch et rétro", {}, {"glitch", "vhs", "crt", "scanline", "chroma", "aberration", "rgb shift", "film grain", "retro"}},
+        {"Lumière et glow", {}, {"bloom", "glow", "flare", "orton", "anamorphic", "ghost", "light leak", "god ray"}},
+        {"Flou", {"Flou"}, {"blur", "bokeh", "tilt shift", "flou"}},
+        {"Netteté", {"Netteté"}, {"sharpen", "high pass", "unsharp", "local contrast", "clarity", "netteté"}},
+        {"Textures et PBR", {"PBR Textures", "Texture Processing", "Trim sheet"},
+         {"normal", "height", " ao", "ao ", "ambient", "curvature", "roughness", "pbr", "seamless", "edge wear", "erosion", "metal", "tileable"}},
+        {"Déformation", {"Déformation", "Pixellisation"},
+         {"distort", "kaleidoscope", "polar", " uv", "uv ", "wave", "mirror", "tiling", "mosaic", "haze", "transform", "pixelate", "twirl", "swirl", "warp", "spherize"}},
+        {"Bruit et grain", {}, {"noise", "grain", "denoise", "bruit"}},
+        {"Stylisation", {"Graph Effects", "Illustration and Print", "Print and Halftone", "Scan and Line Art", "Text and Logo Styles", "Esthétiques"},
+         {"halftone", "dither", "pencil", "sketch", "kuwahara", "emboss", "outline", "edge detect", "cartoon", "oil", "paint", "comic", "ink", "posterize"}},
+        {"Masques et canaux", {"Masques", "Masks and Compositing", "Composition", "Canaux"},
+         {"mask", "key", "despill", "range", "alpha", "premultiply", "clamp", "split", "switch", "channel", "combine", "select", "masque"}},
+        {"Couleur et tons", {"Réglages", "Photo Essentials"},
+         {"color", "colour", "hue", "tint", "level", "exposure", "gamma", "curve", "balance", "vibrance", "grading", "lut", "lookup", "sepia", "gray",
+          "black white", "desatur", "solarize", "threshold", "invert", "contrast", "brightness", "tone", "hdr", "dehaze", "shadow", "mixer", "filter",
+          "colorize", "equalize", "normalize", "luma", "saturation", "teinte", "couleur"}},
+        {"Styles de calque", {"Styles de calque"}, {}},
+        {"Générateurs", {"Générateurs", "Texture Generators", "Procedural Patterns", "Graph Layers"}, {}},
+        {"Dessin et formes", {"Dessin"}, {}},
+        {"Game art", {"2D Game Art"}, {}},
+        {"Autres", {}, {}},
+    };
+    return rules;
+}
+std::string LowerAscii(std::string s) {
+    for (auto& c : s) c = (char)tolower((unsigned char)c);
+    return s;
+}
+}  // namespace
+
+const std::vector<std::string>& EffectFamilies() {
+    static const std::vector<std::string> names = [] {
+        // Display order: everyday adjustments first.
+        static const char* order[] = {"Couleur et tons", "Flou", "Netteté", "Déformation", "Lumière et glow", "Stylisation", "Bruit et grain",
+                                      "Glitch et rétro", "Textures et PBR", "Masques et canaux", "Styles de calque", "Générateurs", "Dessin et formes",
+                                      "Game art", "Autres"};
+        return std::vector<std::string>(std::begin(order), std::end(order));
+    }();
+    return names;
+}
+
+std::string EffectFamily(const EffectDef& def) {
+    if (const size_t slash = def.category.find('/'); slash != std::string::npos) return def.category.substr(0, slash);
+    for (auto& r : FamilyRules())
+        for (const char* c : r.categories)
+            if (def.category == c) return r.name;
+    // Mixed or unknown category: from the name (and id).
+    const std::string text = " " + LowerAscii(def.name + " " + def.id) + " ";
+    for (auto& r : FamilyRules())
+        for (const char* k : r.keywords)
+            if (text.find(k) != std::string::npos) return r.name;
+    if (def.inputs.empty()) return "Générateurs";
+    return "Autres";
+}
+
+bool EffectIsVariant(const EffectDef& def) {
+    const std::string n = LowerAscii(def.name);
+    return n.find(" variant") != std::string::npos || n.find("test") != std::string::npos;
+}
+
+const char* EffectSource(const EffectDef& def) { return def.id.rfind("cy_", 0) == 0 ? "CyTexture" : "Shaderixel"; }
+
+
 const char* kCustomEffectTemplate =
     "//@name Effet personnalisé\n"
     "//@category Personnalisé\n"

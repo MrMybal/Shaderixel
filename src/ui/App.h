@@ -1262,6 +1262,10 @@ private:
         std::string search, category, selected;
         bool favoritesOnly = false, favLoaded = false;
         std::set<std::string> favorites;
+        std::string family;        // "" = all
+        int origin = 0;            // 0 all, 1 Shaderixel, 2 CyTexture
+        bool showVariants = false, recentOnly = false, recentLoaded = false;
+        std::vector<std::string> recent;  // last applied, most recent first
         int source = 0;            // 0 active layer, 1 whole image, 2 reference image
         int refKind = 0;           // reference: 0 logo on a background, 1 color chart, 2 image file
         std::string refPath, refKey;

@@ -71,6 +71,15 @@ void App::ApplyLibraryEffect(DocView& v, const std::string& id, FxApply how) {
     Document& d = *v.doc;
     auto def = Effects().Find(id);
     if (!def) return;
+    {
+        // Recently used effects (Effets panel > Récents).
+        auto& r = fxBrowser.recent;
+        r.erase(std::remove(r.begin(), r.end(), id), r.end());
+        r.insert(r.begin(), id);
+        if (r.size() > 24) r.resize(24);
+        std::ofstream f(Utf8Path(ExeDir() + "/effect_recent.txt"));
+        for (auto& x : r) f << x << "\n";
+    }
     EffectInstance fx;
     fx.effectId = id;
     fx.params = def->DefaultParams();
@@ -263,21 +272,19 @@ void App::DrawEffectBrowser() {
         float w = ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
         if (ImGui::GetCursorPosX() > ImGui::GetStyle().WindowPadding.x + 1 && ImGui::GetContentRegionAvail().x < w + 4) ImGui::NewLine();
     };
-    ImGui::NewLine();
-    ImGui::SameLine(0, 0);
-    if (chip("Tous", B.category.empty() && !B.favoritesOnly)) { B.category.clear(); B.favoritesOnly = false; }
-    ImGui::SameLine();
-    flowChip("Favoris");
-    if (chip("Favoris", B.favoritesOnly)) { B.favoritesOnly = !B.favoritesOnly; B.category.clear(); }
-    for (const std::string& cat : Effects().Categories()) {
-        // Blends live in the Fusions panel.
-        bool effects = false;
-        for (auto& def : Effects().All()) if (def->category == cat && !def->blend) { effects = true; break; }
-        if (!effects) continue;
-        ImGui::SameLine();
-        flowChip(cat.c_str());
-        if (chip(cat.c_str(), B.category == cat)) { B.category = B.category == cat ? "" : cat; B.favoritesOnly = false; }
+    (void)chip;
+    (void)flowChip;
+    if (!B.recentLoaded) {
+        B.recentLoaded = true;
+        std::ifstream f(Utf8Path(ExeDir() + "/effect_recent.txt"));
+        for (std::string line; std::getline(f, line);) if (!line.empty()) B.recent.push_back(line);
     }
+    ImGui::SetNextItemWidth(130 * dpi);
+    ImGui::Combo("##fxorigin", &B.origin, "Toutes sources\0Shaderixel\0CyTexture\0");
+    ui::HelpTooltip("Effets de Shaderixel (et de vos bibliothèques) ou de la bibliothèque CyTexture importée.");
+    ImGui::SameLine();
+    ImGui::Checkbox("Variantes", &B.showVariants);
+    ui::HelpTooltip("Affiche aussi les variantes et copies de test des effets importés (masquées par défaut).");
     // Preview source + size.
     ImGui::SetNextItemWidth(150 * dpi);
     ImGui::Combo("##fxsrc", &B.source, "Aperçu : calque actif\0Aperçu : image entière\0Aperçu : référence\0");
@@ -328,12 +335,19 @@ void App::DrawEffectBrowser() {
     for (auto& def : Effects().All()) {
         if (def->blend) continue;
         if (B.favoritesOnly && !B.favorites.count(def->id)) continue;
-        if (!B.category.empty() && def->category != B.category) continue;
+        if (B.recentOnly && std::find(B.recent.begin(), B.recent.end(), def->id) == B.recent.end()) continue;
+        if (!B.family.empty() && EffectFamily(*def) != B.family) continue;
+        if (B.origin && (B.origin == 2) != (std::string(EffectSource(*def)) == "CyTexture")) continue;
+        if (!B.showVariants && EffectIsVariant(*def) && q.empty()) continue;
         if (!q.empty() && Lower(def->name).find(q) == std::string::npos && Lower(def->category).find(q) == std::string::npos &&
             Lower(def->id).find(q) == std::string::npos)
             continue;
         list.push_back(def);
     }
+    if (B.recentOnly)  // most recent first
+        std::stable_sort(list.begin(), list.end(), [&](const EffectDefPtr& a, const EffectDefPtr& b) {
+            return std::find(B.recent.begin(), B.recent.end(), a->id) < std::find(B.recent.begin(), B.recent.end(), b->id);
+        });
 
     // Previews: a few per frame, effects not yet compiled are retried.
     int budget = 3;
@@ -348,9 +362,59 @@ void App::DrawEffectBrowser() {
             --budget;
         }
 
-    // Grid.
+    // Families on the left (with counts), the effects of the chosen one on the right.
     ImGui::Separator();
-    ImGui::BeginChild("##fxgrid", ImVec2(0, B.selected.empty() ? 0 : -ImGui::GetFrameHeightWithSpacing() * 2.2f), ImGuiChildFlags_None);
+    const float bottom = B.selected.empty() ? 0 : -ImGui::GetFrameHeightWithSpacing() * 2.2f;
+    const bool side = ImGui::GetContentRegionAvail().x > 380 * dpi;
+    if (side) {
+        std::map<std::string, int> counts;
+        int total = 0;
+        for (auto& def : Effects().All()) {
+            if (def->blend || (!B.showVariants && EffectIsVariant(*def))) continue;
+            if (B.origin && (B.origin == 2) != (std::string(EffectSource(*def)) == "CyTexture")) continue;
+            ++counts[EffectFamily(*def)];
+            ++total;
+        }
+        ImGui::BeginChild("##fxfam", ImVec2(170 * dpi, bottom), ImGuiChildFlags_Borders);
+        auto entry = [&](const std::string& label, bool on) { return ImGui::Selectable(label.c_str(), on); };
+        if (entry("Tous (" + std::to_string(total) + ")", B.family.empty() && !B.favoritesOnly && !B.recentOnly)) {
+            B.family.clear();
+            B.favoritesOnly = B.recentOnly = false;
+        }
+        if (entry("\xE2\x98\x85 Favoris (" + std::to_string(B.favorites.size()) + ")", B.favoritesOnly)) {
+            B.favoritesOnly = !B.favoritesOnly;
+            B.recentOnly = false;
+            B.family.clear();
+        }
+        if (entry("Récents (" + std::to_string(B.recent.size()) + ")", B.recentOnly)) {
+            B.recentOnly = !B.recentOnly;
+            B.favoritesOnly = false;
+            B.family.clear();
+        }
+        ImGui::Separator();
+        for (const std::string& f : EffectFamilies()) {
+            auto it = counts.find(f);
+            if (it == counts.end()) continue;
+            if (entry(f + " (" + std::to_string(it->second) + ")", B.family == f)) {
+                B.family = B.family == f ? "" : f;
+                B.favoritesOnly = B.recentOnly = false;
+            }
+        }
+        ImGui::EndChild();
+        ImGui::SameLine();
+    } else {
+        // Narrow panel: the families in a list.
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::BeginCombo("##fxfamc", B.favoritesOnly ? "Favoris" : B.recentOnly ? "Récents" : B.family.empty() ? "Toutes les familles" : B.family.c_str())) {
+            if (ImGui::Selectable("Toutes les familles", B.family.empty() && !B.favoritesOnly && !B.recentOnly)) { B.family.clear(); B.favoritesOnly = B.recentOnly = false; }
+            if (ImGui::Selectable("Favoris", B.favoritesOnly)) { B.favoritesOnly = true; B.recentOnly = false; B.family.clear(); }
+            if (ImGui::Selectable("Récents", B.recentOnly)) { B.recentOnly = true; B.favoritesOnly = false; B.family.clear(); }
+            for (const std::string& f : EffectFamilies())
+                if (ImGui::Selectable(f.c_str(), B.family == f)) { B.family = f; B.favoritesOnly = B.recentOnly = false; }
+            ImGui::EndCombo();
+        }
+    }
+    ImGui::BeginChild("##fxgrid", ImVec2(0, bottom), ImGuiChildFlags_None);
     const float fs = ImGui::GetFontSize();
     const float cardW = B.thumb * dpi, cardH = cardW + fs * 2.4f;
     const float spacing = ImGui::GetStyle().ItemSpacing.x;
@@ -424,8 +488,12 @@ void App::DrawEffectBrowser() {
         // Name + category, clipped to the card.
         ImVec4 clip(p.x + 4, p.y + cardW, p.x + cardW - 4, p.y + cardH);
         dl->AddText(nullptr, 0, ImVec2(p.x + 6, p.y + cardW + 2), ImGui::GetColorU32(ImGuiCol_Text), def.name.c_str(), nullptr, 0, &clip);
-        dl->AddText(nullptr, 0, ImVec2(p.x + 6, p.y + cardW + fs + 3), IM_COL32(230, 170, 70, 255), def.category.c_str(), nullptr, 0, &clip);
-        if (hovered) ImGui::SetTooltip("%s\n%s\nDouble-clic : %s\nClic droit : autres façons de l'appliquer", def.name.c_str(), def.category.c_str(),
+        const std::string fam = EffectFamily(def);
+        const bool cy = std::string(EffectSource(def)) == "CyTexture";
+        dl->AddText(nullptr, 0, ImVec2(p.x + 6, p.y + cardW + fs + 3), cy ? IM_COL32(120, 190, 240, 255) : IM_COL32(230, 170, 70, 255),
+                    (B.family.empty() ? fam : def.category).c_str(), nullptr, 0, &clip);
+        if (hovered) ImGui::SetTooltip("%s\n%s  -  %s (%s)\nDouble-clic : %s\nClic droit : autres façons de l'appliquer", def.name.c_str(), fam.c_str(),
+                                       def.category.c_str(), EffectSource(def),
                                        v && v->doc->Mode() == DocMode::Nodes ? "insérer après le nœud actif" : "ajouter comme filtre au calque actif");
         ImGui::PopID();
     }

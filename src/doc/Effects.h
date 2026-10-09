@@ -113,6 +113,13 @@ private:
 
 EffectLibrary& Effects();
 
+// Effects sorted into families (browser, node menu): the category when it is known (or "Family/Sub"),
+// otherwise from the effect's name (big mixed categories such as imported libraries).
+const std::vector<std::string>& EffectFamilies();  // display order
+std::string EffectFamily(const EffectDef& def);
+bool EffectIsVariant(const EffectDef& def);  // "... Variant", test copies: hidden by default
+const char* EffectSource(const EffectDef& def);  // "CyTexture" or "Shaderixel"
+
 // Template for a new custom HLSL node.
 extern const char* kCustomEffectTemplate;
 // Template for a custom blend: inputs A (below), B (layer), mask.
