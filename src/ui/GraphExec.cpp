@@ -262,6 +262,35 @@ void App::TypedNodeUI(DocView& v, Node& n) {
         case NodeKind::Action: {
             const ExecActionDef* a = FindExecAction(n.op);
             if (a) ImGui::TextWrapped("%s", a->desc.c_str());
+            if (n.op == "call") {
+                // Pick the function and its event among the function nodes of the document's graph.
+                const std::string cur = NodePinDefault(n, 1).s;
+                if (ImGui::BeginCombo("Fonction##call", cur.empty() ? "Choisir..." : cur.c_str())) {
+                    for (auto& fn : d.S().graph.nodes)
+                        if (fn.kind == NodeKind::Function && ImGui::Selectable(fn.name.c_str(), fn.name == cur)) {
+                            DocState before = d.S();
+                            Value v1 = MakeValue(PinType::Name);
+                            v1.s = fn.name;
+                            NodeSetPinValue(n, 1, v1);
+                            v.history.PushState("Fonction appelée", before, d.S());
+                        }
+                    ImGui::EndCombo();
+                }
+                const Node* target = nullptr;
+                for (auto& fn : d.S().graph.nodes) if (fn.kind == NodeKind::Function && fn.name == cur && fn.sub) target = &fn;
+                const std::string ev = NodePinDefault(n, 2).s;
+                if (target && ImGui::BeginCombo("Événement##call", ev.empty() ? "(le premier)" : ev.c_str())) {
+                    for (auto& m : target->sub->nodes)
+                        if (m.kind == NodeKind::Event && ImGui::Selectable(m.name.c_str(), m.name == ev)) {
+                            DocState before = d.S();
+                            Value v2 = MakeValue(PinType::Name);
+                            v2.s = m.name;
+                            NodeSetPinValue(n, 2, v2);
+                            v.history.PushState("Événement appelé", before, d.S());
+                        }
+                    ImGui::EndCombo();
+                }
+            }
             ValueInputsUI(v, n);
             if (n.surface) {
                 ImGui::TextColored(ImVec4(1, 0.75f, 0.3f, 1), "Résultat gardé : les nœuds avant ne sont plus calculés");
@@ -311,7 +340,7 @@ void App::FunctionSettingsUI(DocView& v, Node& f) {
     for (auto& m : f.sub->nodes) if (m.kind == NodeKind::Event) events.push_back(&m);
     if (!events.empty()) {
         ImGui::SeparatorText("Exécution");
-        const bool running = execRun && execRun->owner == f.id;
+        const bool running = execRun && execRun->rootOwner == f.id;
         ImGui::BeginDisabled(running);
         for (const Node* e : events) {
             if (ImGui::Button(e->name.c_str())) StartExec(v, f.id, e->id);
@@ -376,7 +405,8 @@ void App::StartExec(DocView& v, Id owner, Id event) {
     r->owner = owner;
     r->event = event;
     r->before = v.doc->S();
-    r->items.push_back({ExecItem::Follow, event, 0, 0});
+    r->items.push_back({ExecItem::Follow, event, 0, 0, owner});
+    r->rootOwner = owner;
     v.renderer.runtimeValues.clear();
     const Graph* g = ExecGraph(*r);
     const Node* e = g ? g->Find(event) : nullptr;
@@ -470,10 +500,11 @@ void App::UpdateExec() {
     };
     for (int budget = 0; budget < 256 && !r.items.empty() && !r.waiting; ++budget) {
         if (++r.steps > 200000) { FinishExec(r.label + " : arrêtée (trop d'étapes, boucle infinie ?)"); return; }
-        const Graph* g = ExecGraph(r);
-        if (!g) { FinishExec(r.label + " : graphe introuvable"); return; }
         ExecItem it = r.items.back();
         r.items.pop_back();
+        r.owner = it.owner;  // the graph this step belongs to (a call switches functions)
+        const Graph* g = ExecGraph(r);
+        if (!g) { FinishExec(r.label + " : graphe introuvable"); return; }
         if (it.kind == ExecItem::Follow) {
             // Nodes whose execution input comes from (node, port), run in graph order.
             std::vector<Id> next;
@@ -489,7 +520,7 @@ void App::UpdateExec() {
                     if (src && NodeOutputPortOf(*src, InputChannel(n, i)) == it.port) { next.push_back(n.id); break; }
                 }
             }
-            for (auto k = next.rbegin(); k != next.rend(); ++k) r.items.push_back({ExecItem::Run, *k, 0, 0});
+            for (auto k = next.rbegin(); k != next.rend(); ++k) r.items.push_back({ExecItem::Run, *k, 0, 0, r.owner});
             continue;
         }
         const Node* n = g->Find(it.node);
@@ -503,12 +534,12 @@ void App::UpdateExec() {
             } else if (GraphVariable* gv = d.S().graph.Var(name)) {
                 gv->value = ConvertValue(val, gv->value.type, gv->value.array);
             }
-            r.items.push_back({ExecItem::Follow, id, 0, 0});
+            r.items.push_back({ExecItem::Follow, id, 0, 0, r.owner});
             continue;
         }
         if (n->kind != NodeKind::Action) continue;
         const std::string op = n->op;
-        auto follow = [&](int port) { r.items.push_back({ExecItem::Follow, id, port, 0}); };
+        auto follow = [&](int port) { r.items.push_back({ExecItem::Follow, id, port, 0, r.owner}); };
         if (op == "sequence") {
             follow(2);
             follow(1);
@@ -537,11 +568,24 @@ void App::UpdateExec() {
                 }
             }
             if (more) {
-                r.items.push_back({ExecItem::Loop, id, 0, i + 1});
+                r.items.push_back({ExecItem::Loop, id, 0, i + 1, r.owner});
                 follow(0);
             } else {
                 follow(op == "for_range" ? 2 : 3);
             }
+        } else if (op == "call") {
+            // Another function's event (top-level function node, by name): it runs, then this flow goes on.
+            const std::string fname = inValue(id, 1).s, ename = inValue(id, 2).s;
+            const Node* target = nullptr;
+            for (auto& fn : d.S().graph.nodes)
+                if (fn.kind == NodeKind::Function && fn.name == fname && fn.sub) target = &fn;
+            const Node* evn = nullptr;
+            if (target)
+                for (auto& m : target->sub->nodes)
+                    if (m.kind == NodeKind::Event && (ename.empty() || m.name == ename) && !evn) evn = &m;
+            follow(0);  // continuation, below the call on the stack
+            if (target && evn) r.items.push_back({ExecItem::Follow, evn->id, 0, 0, target->id});
+            else Status(n->name + " : fonction « " + fname + " » ou événement « " + ename + " » introuvable");
         } else if (op == "print") {
             Status(inValue(id, 1).s);
             follow(0);
@@ -594,6 +638,7 @@ void App::UpdateExec() {
             job.height = (int)tex->Height();
             r.waiting = true;
             r.pendingNode = id;
+            r.pendingOwner = r.owner;
             r.pendingJob = job;
             r.pendingImage = rd.ExportRGBA8(*ctx, tex);
             Status(r.label + " : " + n->name + " (ComfyUI)...");
@@ -644,11 +689,12 @@ void App::UpdateExec() {
                 Document& d = *run->view->doc;
                 auto full = run->view->renderer.ImportTexture(*ctx, px, (u32)w, (u32)h, false, ExecContentFormat(d));
                 stbi_image_free(px);
-                if (full) ExecStoreResult(*run, run->pendingNode, full.get(), (u32)w != d.Width() || (u32)h != d.Height() ? full : nullptr);
+                if (full) run->owner = run->pendingOwner;
+                ExecStoreResult(*run, run->pendingNode, full.get(), (u32)w != d.Width() || (u32)h != d.Height() ? full : nullptr);
                 run->waiting = false;
                 run->pendingSent = false;
                 run->pendingImage.reset();
-                run->items.push_back({ExecItem::Follow, run->pendingNode, 0, 0});
+                run->items.push_back({ExecItem::Follow, run->pendingNode, 0, 0, run->pendingOwner});
             };
         });
     }

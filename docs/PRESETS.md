@@ -366,6 +366,7 @@ Un `event` est un bouton. Sa sortie exec (port 0) va dans l'entrée 0 d'une `act
 | `comfyui` | Image, Prompt (Texte), Denoise (Float), Workflow (Texte : chemin d'un workflow API, vide = image vers image intégré) | exec, Résultat |
 | `export_png` | Image, Fichier (Texte : relatif = dossier du document, sinon `exports/` à côté de l'exe) | exec |
 | `print` | Message (Texte) | exec (affiche le message) |
+| `call` | Fonction (Nom d'un nœud de fonction du graphe du document), Événement (Nom ; vide = le premier) | exec (après la fin de l'événement appelé) |
 
 Le **Résultat** d'une action image (`bake`, `upscale`, `comfyui`) montre l'image d'entrée en direct tant que l'action n'a pas tourné, puis l'image gardée (badge RÉSULTAT) : reliez-le à un `suboutput` pour que la fonction sorte le résultat. « Effacer les résultats » sur le nœud revient au direct.
 

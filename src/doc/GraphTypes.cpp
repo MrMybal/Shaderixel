@@ -297,6 +297,8 @@ const std::vector<ExecActionDef>& ExecActions() {
                      {Value{}, Value{}, S(""), F(0.5f), S("")}, {ex, P("Résultat", PinType::RGBA)}, 1, 1});
         a.push_back({"export_png", "Exporter en PNG", "export save png fichier", "Écrit l'image dans un fichier PNG.",
                      {ex, P("Image", PinType::RGBA), P("Fichier", PinType::String)}, {Value{}, Value{}, S("")}, {ex}});
+        a.push_back({"call", "Appeler une fonction", "call appeler fonction event evenement run", "Lance l'événement d'un nœud de fonction du graphe (par son nom), puis continue.",
+                     {ex, P("Fonction", PinType::Name), P("Événement", PinType::Name)}, {Value{}, N(""), N("")}, {ex}});
         a.push_back({"print", "Message", "print log message status", "Affiche un message dans la barre d'état.", {ex, P("Message", PinType::String)}, {Value{}, S("Bonjour")}, {ex}});
         return a;
     }();

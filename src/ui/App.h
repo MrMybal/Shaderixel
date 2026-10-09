@@ -152,6 +152,7 @@ struct ExecItem {
     Id node;
     int port;
     int index;
+    Id owner;  // function whose graph the node is in (0 = the document's graph)
 };
 struct ExecRun {
     DocView* view = nullptr;
@@ -162,7 +163,8 @@ struct ExecRun {
     DocState before;
     int steps = 0;
     bool waiting = false, pendingSent = false;  // ComfyUI step
-    Id pendingNode = 0;
+    Id pendingNode = 0, pendingOwner = 0;
+    Id rootOwner = 0;  // function whose event started the run
     comfy::Job pendingJob;
     gpu::ReadbackPtr pendingImage;
 };

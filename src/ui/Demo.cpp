@@ -307,6 +307,75 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 82) {
+        // Calling a function: Event "Lancer" -> "avant" -> call (Outil, "Dire") -> "après"; the function's event
+        // "Dire" prints "dans la fonction" and sets its variable N to 7.
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        static Id ev = 0, fid = 0;
+        if (frameCounter == 8 && d.Mode() == DocMode::Layers) {
+            Edit e(d, a->history, "Passer en mode nodal");
+            d.ConvertToNodes();
+            e.Commit();
+        }
+        auto text = [](const char* t) { Value v = MakeValue(PinType::String); v.s = t; return v; };
+        auto name = [](const char* t) { Value v = MakeValue(PinType::Name); v.s = t; return v; };
+        if (frameCounter == 10) {
+            Node& f = d.AddFunctionNode("tool", {0, 1600});
+            f.name = "Outil";
+            fid = f.id;
+            auto sub = std::make_shared<Graph>(*f.sub);
+            GraphVariable var;
+            var.name = "N";
+            var.value = MakeValue(PinType::Int);
+            sub->variables.push_back(var);
+            Node e;
+            e.id = d.NewId();
+            e.kind = NodeKind::Event;
+            e.name = "Dire";
+            Node p;
+            p.id = d.NewId();
+            p.kind = NodeKind::Action;
+            p.op = "print";
+            p.inputs = {e.id, 0};
+            p.pinValues = {Value{}, text("dans la fonction")};
+            Node s;
+            s.id = d.NewId();
+            s.kind = NodeKind::VarSet;
+            s.op = "N";
+            s.value = MakeValue(PinType::Int);
+            s.inputs = {p.id, 0};
+            Value seven = MakeValue(PinType::Int);
+            seven.f.x = 7;
+            s.pinValues = {Value{}, seven};
+            sub->nodes.push_back(e);
+            sub->nodes.push_back(p);
+            sub->nodes.push_back(s);
+            d.S().graph.Find(fid)->sub = sub;
+            ev = AddTypedNode(d, NodeKind::Event, "Lancer", PinType::Exec, false, {0, 1300}).id;
+            Node& p1 = AddTypedNode(d, NodeKind::Action, "print", PinType::Exec, false, {300, 1300});
+            NodeSetPinValue(p1, 1, text("avant"));
+            const Id a1 = p1.id;
+            Node& c = AddTypedNode(d, NodeKind::Action, "call", PinType::Exec, false, {600, 1300});
+            NodeSetPinValue(c, 1, name("Outil"));
+            NodeSetPinValue(c, 2, name("Dire"));
+            const Id cid = c.id;
+            Node& p2 = AddTypedNode(d, NodeKind::Action, "print", PinType::Exec, false, {900, 1300});
+            NodeSetPinValue(p2, 1, text("après"));
+            const Id a2 = p2.id;
+            const bool l1 = d.Link(ev, a1, 0), l2 = d.Link(a1, cid, 0), l3 = d.Link(cid, a2, 0);
+            const Node* cn = d.S().graph.Find(cid);
+            Log("[demo] call: links %d %d %d, call node inputs %d, op '%s'", (int)l1, (int)l2, (int)l3, cn ? NodeInputCount(*cn) : -1, cn ? cn->op.c_str() : "");
+            StartExec(*a, 0, ev);
+        }
+        if (frameCounter == 20)
+            if (const Node* f = d.S().graph.Find(fid)) {
+                auto it = f->varValues.find("N");
+                Log("[demo] call: function variable N = %s", it != f->varValues.end() ? ValueToText(it->second).c_str() : "(not set)");
+            }
+        return;
+    }
     if (demoMode == 81) {
         // Joining flows: Event -> Branch; True -> "A", False -> "B"; both -> "Fin" (one execution input, two
         // flows). Run with the condition true then false; the graph saved / read back keeps the join.
