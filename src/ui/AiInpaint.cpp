@@ -469,9 +469,9 @@ void App::DrawInpaintPanel() {
                 const int cw = J.crop.Width(), ch = J.crop.Height();
                 const float k = std::min(1.0f, 192.0f / std::max(cw, ch));
                 const int w = std::max(1, (int)(cw * k)), h = std::max(1, (int)(ch * k));
-                std::vector<u8> small = ResizeRGBA(px.data(), cw, ch, w, h);
+                std::vector<u8> thumbPx = ResizeRGBA(px.data(), cw, ch, w, h);
                 auto t = gpu::Dev().CreateTexture((u32)w, (u32)h, gpu::Format::RGBA8, "InpaintThumb");
-                ctx->Upload(t.get(), small.data(), (u32)w * 4);
+                ctx->Upload(t.get(), thumbPx.data(), (u32)w * 4);
                 J.thumbs.push_back(t);
             }
         }
