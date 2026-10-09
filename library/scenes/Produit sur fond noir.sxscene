@@ -1,0 +1,111 @@
+{
+  "description": "Fond noir, deux bandes lumineuses latérales et un contre-jour : reflets nets sur les matières brillantes.",
+  "floorY": 0,
+  "format": "shaderixel-scene",
+  "name": "Produit sur fond noir",
+  "scene": {
+    "camera": [
+      0.349999994,
+      0.200000003,
+      3.4000001,
+      0,
+      0.899999976,
+      0
+    ],
+    "lights": [
+      {
+        "color": [1, 1, 1],
+        "intensity": 45,
+        "name": "Bande gauche",
+        "pitch": -15.1953716,
+        "pos": [-2.20000005, 1.60000002, 0.200000003],
+        "size": 0.600000024,
+        "spot": 40,
+        "type": 2,
+        "visible": true,
+        "yaw": 95.1944275
+      },
+      {
+        "color": [1, 1, 1],
+        "intensity": 45,
+        "name": "Bande droite",
+        "pitch": -15.1953716,
+        "pos": [2.20000005, 1.60000002, 0.200000003],
+        "size": 0.600000024,
+        "spot": 40,
+        "type": 2,
+        "visible": true,
+        "yaw": -95.1944275
+      },
+      {
+        "color": [1, 1, 1],
+        "intensity": 25,
+        "name": "Dessus",
+        "pitch": -65.2248688,
+        "pos": [0, 3.5999999, 1.20000005],
+        "size": 1,
+        "spot": 40,
+        "type": 2,
+        "visible": true,
+        "yaw": 180
+      }
+    ],
+    "objects": [
+      {
+        "coat": 0,
+        "coatRough": 0.0500000007,
+        "color": [0.800000012, 0.800000012, 0.800000012],
+        "emission": [0, 0, 0],
+        "emissionStrength": 0,
+        "ior": 1.45000005,
+        "metal": 0,
+        "name": "Modèle",
+        "pos": [0, 0, 0],
+        "project": true,
+        "rot": [0, 0, 0],
+        "rough": 0.5,
+        "scale": 1,
+        "transmission": 0,
+        "type": 0,
+        "visible": true
+      },
+      {
+        "coat": 0,
+        "coatRough": 0.0500000007,
+        "color": [0.0149999997, 0.0149999997, 0.0179999992],
+        "emission": [0, 0, 0],
+        "emissionStrength": 0,
+        "ior": 1.45000005,
+        "metal": 0,
+        "name": "Fond noir",
+        "pos": [0, 0, 0.400000006],
+        "project": false,
+        "rot": [0, 0, 0],
+        "rough": 0.600000024,
+        "scale": 1.20000005,
+        "transmission": 0,
+        "type": 2,
+        "visible": true
+      }
+    ],
+    "settings": {
+      "aperture": 0,
+      "background": [0, 0, 0],
+      "bounces": 8,
+      "clamp": 20,
+      "device": 0,
+      "envIntensity": 1,
+      "envRotation": 0,
+      "envVisible": false,
+      "exposure": 0,
+      "focus": 2.79999995,
+      "fov": 0.800000012,
+      "hdri": "",
+      "height": 1080,
+      "samples": 1024,
+      "tonemap": 3,
+      "viewSize": true,
+      "width": 1920
+    }
+  }
+}

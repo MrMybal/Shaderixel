@@ -1054,8 +1054,22 @@ private:
     std::shared_ptr<MeshData> RenderObjectMesh(DocView& v, PtObject& o);
     DocView* RenderHiddenProject(PtRenderState& r, const std::string& path);  // imported .sx3d (not a tab)
     bool ImportIntoRender(DocView& v, const std::string& path);              // model / .sx3d into the render scene
-    Json RenderToJson(const PtRenderState& r);
-    void RenderFromJson(DocView& v, const Json& j);
+    Json RenderToJson(const PtRenderState& r, const std::string& baseDir = "");
+    void RenderFromJson(DocView& v, const Json& j, const std::string& baseDir = "");
+    // Scenes (RenderScenes.cpp): scene files, presets, gathering the files a scene uses.
+    struct ScenePreset { std::string name, desc, path; bool user = false; };
+    std::vector<ScenePreset> scenePresets;
+    struct {
+        int preset = 0, mode = 0;  // mode: 0 everything, 1 lighting + environment, 2 add the objects
+        std::string saveName, saveDesc;
+    } sceneUi;
+    bool SaveScene(DocView& v, const std::string& path, const std::string& name, const std::string& desc);
+    bool LoadScene(DocView& v, const std::string& path, int mode);
+    void ScanScenePresets();
+    void GatherSceneFiles(DocView& v);
+    void DrawScenesUI(DocView& v);
+    struct BuiltinScene { std::string name, desc; PtRenderState* state; };
+    void SaveBuiltinScenes(DocView& v, const std::string& dir);
     gpu::Texture* UpdateRender(DocView& v, u32 w, u32 h);
     int RenderSamples(PtRenderState& r);
     void ExportRender(DocView& v, const std::string& path);

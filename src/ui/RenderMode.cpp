@@ -13,6 +13,10 @@
 
 namespace sx {
 
+// Scene file paths: relative to the file's folder when inside it (RenderScenes.cpp).
+std::string SceneRelPath(const std::string& path, const std::string& baseDir);
+std::string SceneAbsPath(const std::string& path, const std::string& baseDir);
+
 namespace {
 
 const char* const kObjectTypes[] = {"Modèle du projet", "Plan", "Fond (cyclo)", "Cube", "Sphère", "Maillage importé", "Projet .sx3d"};
@@ -241,14 +245,14 @@ PtRenderState& App::RenderStateFor(DocView& v) {
     return r;
 }
 
-Json App::RenderToJson(const PtRenderState& r) {
+Json App::RenderToJson(const PtRenderState& r, const std::string& baseDir) {
     Json j = Json::Object();
     Json objs = Json::Array();
     for (auto& o : r.objects) {
         Json oj = Json::Object();
         oj["name"] = o.name;
         oj["type"] = (int)o.type;
-        if (!o.path.empty()) oj["path"] = o.path;
+        if (!o.path.empty()) oj["path"] = SceneRelPath(o.path, baseDir);
         oj["pos"] = J3(o.position);
         oj["rot"] = J3(o.rotation);
         oj["scale"] = o.scale;
@@ -302,7 +306,7 @@ Json App::RenderToJson(const PtRenderState& r) {
     sj["focus"] = s.focusDistance;
     sj["fov"] = s.fov;
     sj["clamp"] = s.clampIndirect;
-    sj["hdri"] = s.hdri;
+    sj["hdri"] = SceneRelPath(s.hdri, baseDir);
     sj["envIntensity"] = s.envIntensity;
     sj["envRotation"] = s.envRotation;
     sj["envVisible"] = s.envVisible;
@@ -314,10 +318,8 @@ Json App::RenderToJson(const PtRenderState& r) {
     return j;
 }
 
-void App::RenderFromJson(DocView& v, const Json& j) {
-    v.render.reset();
-    PtRenderState& r = RenderStateFor(v);
-    if (!j.Has("objects")) return;
+// Scene JSON (project or .sxscene) into a state's objects, lights, settings and camera.
+void SceneFromJson(const Json& j, const std::string& baseDir, PtRenderState& r) {
     r.objects.clear();
     const Json& objs = j["objects"];
     for (size_t i = 0; i < objs.Size(); ++i) {
@@ -325,7 +327,7 @@ void App::RenderFromJson(DocView& v, const Json& j) {
         PtObject o;
         o.name = oj["name"].S("Objet");
         o.type = (PtObjectType)std::clamp(oj["type"].I(1), 0, 6);
-        o.path = oj["path"].S("");
+        o.path = SceneAbsPath(oj["path"].S(""), baseDir);
         o.position = F3(oj["pos"], {});
         o.rotation = F3(oj["rot"], {});
         o.scale = oj["scale"].F(1);
@@ -390,7 +392,7 @@ void App::RenderFromJson(DocView& v, const Json& j) {
     s.focusDistance = sj["focus"].F(s.focusDistance);
     s.fov = sj["fov"].F(s.fov);
     s.clampIndirect = sj["clamp"].F(s.clampIndirect);
-    s.hdri = sj["hdri"].S(s.hdri);
+    s.hdri = SceneAbsPath(sj["hdri"].S(s.hdri), baseDir);
     s.envIntensity = sj["envIntensity"].F(1);
     s.envRotation = sj["envRotation"].F(0);
     s.envVisible = sj["envVisible"].B(true);
@@ -402,6 +404,21 @@ void App::RenderFromJson(DocView& v, const Json& j) {
         r.distance = cam.At(2).F(3.4f);
         r.target = {cam.At(3).F(), cam.At(4).F(), cam.At(5).F()};
     }
+}
+
+void App::RenderFromJson(DocView& v, const Json& j, const std::string& baseDir) {
+    v.render.reset();
+    PtRenderState& r = RenderStateFor(v);
+    if (!j.Has("objects")) return;
+    PtRenderState loaded;
+    SceneFromJson(j, baseDir, loaded);
+    r.objects = std::move(loaded.objects);
+    r.lights = std::move(loaded.lights);
+    r.settings = loaded.settings;
+    r.yaw = loaded.yaw;
+    r.pitch = loaded.pitch;
+    r.distance = loaded.distance;
+    r.target = loaded.target;
 }
 
 // Scene build, accumulation resets, GPU passes / CPU thread, tone mapping. Returns the display image.
@@ -780,6 +797,7 @@ void App::DrawRenderScenePanel() {
     PtSettings& s = r.settings;
     const float floorY = MeshMinY(v->mesh->data);
     ImGui::PushItemWidth(-90 * dpi);
+    DrawScenesUI(*v);
 
     // ---------------------------------------------------------------- objects
     if (ImGui::CollapsingHeader("Objets", ImGuiTreeNodeFlags_DefaultOpen)) {

@@ -573,7 +573,7 @@ float3 PtTrace(const PtScene& sc, const PtProjectTextures* tex, const PtSettings
         }
         if (h.tri < 0) {
             float3 env = EnvLookup(sc, s, d);
-            if (bounce == 0) { if (s.envVisible || !sc.env) L = L + (sc.env ? env : s.background); break; }
+            if (bounce == 0) { L = L + (sc.env && s.envVisible ? env : s.background); break; }  // hidden environment: background color
             if (!sc.env) { add(Mul(beta, s.background) * 0.0f); break; }
             float w = specularBounce ? 1.0f : Power(lastPdf, EnvPdf(sc, s, d) / nLights);
             add(Mul(beta, env) * w);

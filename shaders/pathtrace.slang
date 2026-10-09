@@ -351,7 +351,8 @@ float3 Radiance(float3 o, float3 d, inout uint rng)
         {
             if (bounce == 0)
             {
-                if ((gFlags & 2) || !(gFlags & 1)) L += EnvLookup(d);
+                // Seen directly: the environment, or the background color when it is hidden.
+                L += ((gFlags & 2) || !(gFlags & 1)) ? EnvLookup(d) : gBackground.rgb;
                 break;
             }
             if (!(gFlags & 1)) break;

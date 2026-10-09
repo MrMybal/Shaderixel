@@ -398,6 +398,8 @@ def main():
     shutil.copytree(os.path.join(ROOT, 'library', 'functions'), os.path.join(dist, 'functions'))
     # Document templates (Nouveau document > Modèles).
     shutil.copytree(os.path.join(ROOT, 'library', 'templates'), os.path.join(dist, 'templates'))
+    # Render scene presets (.sxscene), listed in Scène de rendu.
+    shutil.copytree(os.path.join(ROOT, 'library', 'scenes'), os.path.join(dist, 'scenes'))
     # Logo used by the reference image of previews (effects browser, function inputs).
     os.makedirs(os.path.join(dist, 'assets'), exist_ok=True)
     shutil.copy2(os.path.join(ROOT, 'assets', 'logo.png'), os.path.join(dist, 'assets', 'logo.png'))

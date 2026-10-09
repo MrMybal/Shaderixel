@@ -1,0 +1,111 @@
+{
+  "description": "Principale, débouchage et contre-jour : modelé classique de photo produit.",
+  "floorY": 0,
+  "format": "shaderixel-scene",
+  "name": "Studio trois lumières",
+  "scene": {
+    "camera": [
+      0.349999994,
+      0.200000003,
+      3.4000001,
+      0,
+      0.899999976,
+      0
+    ],
+    "lights": [
+      {
+        "color": [1, 0.959999979, 0.899999976],
+        "intensity": 70,
+        "name": "Principale",
+        "pitch": -39.2702446,
+        "pos": [-2, 3.20000005, -1.79999995],
+        "size": 1.20000005,
+        "spot": 40,
+        "type": 2,
+        "visible": true,
+        "yaw": 48.0127907
+      },
+      {
+        "color": [0.850000024, 0.899999976, 1],
+        "intensity": 18,
+        "name": "Débouchage",
+        "pitch": -16.3878632,
+        "pos": [2.20000005, 1.79999995, -1.60000002],
+        "size": 1.60000002,
+        "spot": 40,
+        "type": 2,
+        "visible": true,
+        "yaw": -53.9726257
+      },
+      {
+        "color": [1, 1, 1],
+        "intensity": 120,
+        "name": "Contre-jour",
+        "pitch": -36.0398941,
+        "pos": [0.600000024, 3, 2.4000001],
+        "size": 0.150000006,
+        "spot": 35,
+        "type": 1,
+        "visible": true,
+        "yaw": -165.96376
+      }
+    ],
+    "objects": [
+      {
+        "coat": 0,
+        "coatRough": 0.0500000007,
+        "color": [0.800000012, 0.800000012, 0.800000012],
+        "emission": [0, 0, 0],
+        "emissionStrength": 0,
+        "ior": 1.45000005,
+        "metal": 0,
+        "name": "Modèle",
+        "pos": [0, 0, 0],
+        "project": true,
+        "rot": [0, 0, 0],
+        "rough": 0.5,
+        "scale": 1,
+        "transmission": 0,
+        "type": 0,
+        "visible": true
+      },
+      {
+        "coat": 0,
+        "coatRough": 0.0500000007,
+        "color": [0.5, 0.5, 0.519999981],
+        "emission": [0, 0, 0],
+        "emissionStrength": 0,
+        "ior": 1.45000005,
+        "metal": 0,
+        "name": "Fond",
+        "pos": [0, 0, 0.400000006],
+        "project": false,
+        "rot": [0, 0, 0],
+        "rough": 0.800000012,
+        "scale": 1.20000005,
+        "transmission": 0,
+        "type": 2,
+        "visible": true
+      }
+    ],
+    "settings": {
+      "aperture": 0,
+      "background": [0.0500000007, 0.0500000007, 0.0599999987],
+      "bounces": 8,
+      "clamp": 20,
+      "device": 0,
+      "envIntensity": 0.300000012,
+      "envRotation": 0,
+      "envVisible": true,
+      "exposure": 0,
+      "focus": 2.79999995,
+      "fov": 0.800000012,
+      "hdri": "*studio",
+      "height": 1080,
+      "samples": 1024,
+      "tonemap": 3,
+      "viewSize": true,
+      "width": 1920
+    }
+  }
+}

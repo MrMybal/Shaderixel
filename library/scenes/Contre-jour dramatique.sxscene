@@ -1,0 +1,99 @@
+{
+  "description": "Spot derrière le modèle sur fond sombre, peu d'ambiance : silhouette et liseré lumineux.",
+  "floorY": 0,
+  "format": "shaderixel-scene",
+  "name": "Contre-jour dramatique",
+  "scene": {
+    "camera": [
+      0.349999994,
+      0.200000003,
+      3.4000001,
+      0,
+      0.899999976,
+      0
+    ],
+    "lights": [
+      {
+        "color": [1, 0.75, 0.5],
+        "intensity": 220,
+        "name": "Contre-jour",
+        "pitch": -24.7751446,
+        "pos": [0, 2.20000005, 2.5999999],
+        "size": 0.200000003,
+        "spot": 45,
+        "type": 1,
+        "visible": true,
+        "yaw": 180
+      },
+      {
+        "color": [0.600000024, 0.699999988, 1],
+        "intensity": 6,
+        "name": "Faible face",
+        "pitch": -9.73147488,
+        "pos": [-1.5, 1.5, -2.5],
+        "size": 1,
+        "spot": 40,
+        "type": 2,
+        "visible": true,
+        "yaw": 30.9637585
+      }
+    ],
+    "objects": [
+      {
+        "coat": 0,
+        "coatRough": 0.0500000007,
+        "color": [0.800000012, 0.800000012, 0.800000012],
+        "emission": [0, 0, 0],
+        "emissionStrength": 0,
+        "ior": 1.45000005,
+        "metal": 0,
+        "name": "Modèle",
+        "pos": [0, 0, 0],
+        "project": true,
+        "rot": [0, 0, 0],
+        "rough": 0.5,
+        "scale": 1,
+        "transmission": 0,
+        "type": 0,
+        "visible": true
+      },
+      {
+        "coat": 0,
+        "coatRough": 0.0500000007,
+        "color": [0.0799999982, 0.0799999982, 0.0900000036],
+        "emission": [0, 0, 0],
+        "emissionStrength": 0,
+        "ior": 1.45000005,
+        "metal": 0,
+        "name": "Fond",
+        "pos": [0, 0, 0.400000006],
+        "project": false,
+        "rot": [0, 0, 0],
+        "rough": 0.699999988,
+        "scale": 1.20000005,
+        "transmission": 0,
+        "type": 2,
+        "visible": true
+      }
+    ],
+    "settings": {
+      "aperture": 0,
+      "background": [0.00999999978, 0.00999999978, 0.0149999997],
+      "bounces": 8,
+      "clamp": 20,
+      "device": 0,
+      "envIntensity": 0.100000001,
+      "envRotation": 0,
+      "envVisible": true,
+      "exposure": 0,
+      "focus": 2.79999995,
+      "fov": 0.800000012,
+      "hdri": "*studio",
+      "height": 1080,
+      "samples": 1024,
+      "tonemap": 3,
+      "viewSize": true,
+      "width": 1920
+    }
+  }
+}

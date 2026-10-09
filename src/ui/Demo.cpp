@@ -306,6 +306,57 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 79) {
+        // Scene presets: written to SX_SCENEDIR (shipped presets), then each applied to the mug project
+        // (SX_SCENE_APPLY = preset name, SX_SCENE_MODE 0/1/2) and the scene saved / loaded back (SX_SCENE_FILE).
+        for (int i = 0; i < (int)docs.size(); ++i)
+            if (docs[i]->doc->kind == 1 && activeDoc != i && frameCounter < 20) { activeDoc = i; focusDocRequest = i; }
+        DocView* a = Active();
+        if (!a) return;
+        char dir[512] = "", apply[128] = "", file[512] = "", mode[8] = "0";
+        GetEnvironmentVariableA("SX_SCENEDIR", dir, sizeof(dir));
+        GetEnvironmentVariableA("SX_SCENE_APPLY", apply, sizeof(apply));
+        GetEnvironmentVariableA("SX_SCENE_FILE", file, sizeof(file));
+        GetEnvironmentVariableA("SX_SCENE_MODE", mode, sizeof(mode));
+        if (frameCounter == 24 && a->mesh) {
+            RenderStateFor(*a);
+            if (dir[0]) SaveBuiltinScenes(*a, dir);
+            ScanScenePresets();
+            Log("[demo] makescenes: %zu presets", scenePresets.size());
+            for (auto& p : scenePresets)
+                if (p.name == apply) Log("[demo] makescenes: applied %s -> %d", apply, (int)LoadScene(*a, p.path, atoi(mode)));
+            if (a->render) {
+                Log("[demo] makescenes: %zu objects, %zu lights, hdri '%s'", a->render->objects.size(), a->render->lights.size(), a->render->settings.hdri.c_str());
+                if (file[0]) Log("[demo] makescenes: saved %d", (int)SaveScene(*a, file, "Test", ""));
+            }
+            *PanelFlag("Rendu") = true;
+            *PanelFlag("Scène de rendu") = true;
+        }
+        if (frameCounter == 30) {
+            ImGui::SetWindowFocus("Rendu");
+            ImGui::SetWindowFocus("Scène de rendu");
+        }
+        wchar_t wgather[512] = L"", wimport[512] = L"";
+        if (frameCounter == 26 && GetEnvironmentVariableW(L"SX_GATHER", wgather, 512) > 0 && GetEnvironmentVariableW(L"SX_IMPORT", wimport, 512) > 0) {
+            // Gathering: a model and the HDRI from elsewhere, the project "saved" at SX_GATHER, files copied beside it.
+            ImportIntoRender(*a, Narrow(wimport));
+            a->render->settings.hdri = Narrow((std::filesystem::path(wimport).parent_path() / L"Ciel.hdr").wstring());
+            a->doc->path = Narrow(wgather);
+            GatherSceneFiles(*a);
+            for (auto& o : a->render->objects) if (!o.path.empty()) Log("[demo] makescenes: gathered object path %s", o.path.c_str());
+            Log("[demo] makescenes: hdri %s", a->render->settings.hdri.c_str());
+            Json j = RenderToJson(*a->render, Narrow(std::filesystem::path(wgather).parent_path().wstring()));
+            for (auto& o : j["objects"].Elements()) if (o.Has("path")) Log("[demo] makescenes: saved as %s", o["path"].S("").c_str());
+            Log("[demo] makescenes: hdri saved as %s", j["settings"]["hdri"].S("").c_str());
+        }
+        if (frameCounter == 28 && file[0] && a->render) {
+            const size_t nObj = a->render ? a->render->objects.size() : 0;
+            a->render->objects.clear();
+            const bool ok = LoadScene(*a, file, 0);
+            Log("[demo] makescenes: reloaded %d, %zu objects (was %zu)", (int)ok, a->render->objects.size(), nObj);
+        }
+        return;
+    }
     if (demoMode == 78) {
         // Shipped templates: built, each shown (rendered) in turn, then saved with its thumbnail into SX_TPLDIR.
         static std::vector<BuiltinTemplate> list;
@@ -941,6 +992,14 @@ void App::DemoTick() {
             return;
         }
         char b[512] = "";
+        wchar_t wpreset[256] = L"";
+        if (frameCounter == 21 && GetEnvironmentVariableW(L"SX_PRESET", wpreset, 256) > 0) {
+            // A scene preset applied (whole scene); the name may have accents (read as UTF-16).
+            const std::string want = Narrow(wpreset);
+            ScanScenePresets();
+            for (auto& p : scenePresets)
+                if (p.name == want) Log("[demo] render: preset %s -> %d", want.c_str(), (int)LoadScene(*a, p.path, 0));
+        }
         if (frameCounter == 20) {
             PtRenderState& r = RenderStateFor(*a);
             if (GetEnvironmentVariableA("SX_HDRI", b, sizeof(b)) > 0) r.settings.hdri = b;

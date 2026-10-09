@@ -187,6 +187,11 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Panneau « Scène de rendu » (onglet 3D) : objets (sol, fond cyclo, cube, sphère, maillages OBJ / FBX / glTF importés, projets .sx3d, copies du modèle) avec position, rotation, échelle et matériau (préréglages, verre, métal, émission) ; lumières ponctuelles, spots, surfaciques et soleil ; environnement studio intégré ou fichier HDRI (intensité, rotation, visible en fond).</li>
     <li>Caméra : champ de vision, profondeur de champ (ouverture, mise au point) ; réglages : échantillons, rebonds, taille de la vue ou résolution fixe (jusqu'à 8K), exposition, courbe ACES / Reinhard. La scène est enregistrée dans le .sx3d.</li>
   </ol></div>
+  <div class="card"><h3>Scènes de rendu</h3><ol>
+    <li>La scène (objets, matériaux, lumières, HDRI, réglages, caméra) est enregistrée avec le projet .sx3d ; les fichiers dans le dossier du projet sont notés en chemins relatifs.</li>
+    <li>Panneau « Scène de rendu » &gt; Scène : préréglages (Studio doux, Studio trois lumières, Produit sur fond noir, Extérieur ensoleillé, Contre-jour dramatique, Sol réfléchissant) appliqués en entier, pour l'éclairage et l'environnement seulement, ou pour ajouter leurs objets ; les positions suivent le sol du projet.</li>
+    <li>« Enregistrer la scène... » / « Charger une scène... » : un fichier .sxscene réutilisable dans d'autres projets ; « Enregistrer comme préréglage » l'ajoute à la liste.</li>
+    <li>« Rassembler les fichiers » : les modèles importés (avec .mtl, textures, .bin ; un maillage Unreal sous sa forme convertie) et le HDRI sont copiés dans « &lt;projet&gt;_fichiers » à côté du projet, qui reste complet si les originaux bougent ou si vous l'envoyez. Les fichiers introuvables sont signalés en rouge.</li></ol></div>
   <div class="card"><h3>Éditeur d'effets et graphes</h3><ol>
     <li>« ◀ Bibliothèque » : effets, fusions et pinceaux avec recherche ; « Nouveau à partir de ce modèle » (copie) ou « Éditer l'original » (après déverrouillage). « Annuler les modifications » revient à l'état et au panneau d'avant.</li>
     <li>Palette de nœuds (onglet Effets) : glissez un nœud sur le graphe des calques ou sur le graphe d'effet, ou cliquez pour l'ajouter au centre.</li>

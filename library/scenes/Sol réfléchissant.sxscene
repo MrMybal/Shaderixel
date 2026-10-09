@@ -1,0 +1,87 @@
+{
+  "description": "Sol sombre et brillant, lumière en douche : le modèle se reflète (vitrine, présentation).",
+  "floorY": 0,
+  "format": "shaderixel-scene",
+  "name": "Sol réfléchissant",
+  "scene": {
+    "camera": [
+      0.349999994,
+      0.200000003,
+      3.4000001,
+      0,
+      0.899999976,
+      0
+    ],
+    "lights": [
+      {
+        "color": [1, 1, 1],
+        "intensity": 80,
+        "name": "Douche",
+        "pitch": -90,
+        "pos": [0, 3.79999995, 0],
+        "size": 1.60000002,
+        "spot": 40,
+        "type": 2,
+        "visible": true,
+        "yaw": 0
+      }
+    ],
+    "objects": [
+      {
+        "coat": 0,
+        "coatRough": 0.0500000007,
+        "color": [0.800000012, 0.800000012, 0.800000012],
+        "emission": [0, 0, 0],
+        "emissionStrength": 0,
+        "ior": 1.45000005,
+        "metal": 0,
+        "name": "Modèle",
+        "pos": [0, 0, 0],
+        "project": true,
+        "rot": [0, 0, 0],
+        "rough": 0.5,
+        "scale": 1,
+        "transmission": 0,
+        "type": 0,
+        "visible": true
+      },
+      {
+        "coat": 0,
+        "coatRough": 0.0500000007,
+        "color": [0.0299999993, 0.0299999993, 0.0350000001],
+        "emission": [0, 0, 0],
+        "emissionStrength": 0,
+        "ior": 1.45000005,
+        "metal": 0,
+        "name": "Sol brillant",
+        "pos": [0, 0, 0],
+        "project": false,
+        "rot": [0, 0, 0],
+        "rough": 0.119999997,
+        "scale": 8,
+        "transmission": 0,
+        "type": 1,
+        "visible": true
+      }
+    ],
+    "settings": {
+      "aperture": 0,
+      "background": [0.0199999996, 0.0199999996, 0.0250000004],
+      "bounces": 8,
+      "clamp": 20,
+      "device": 0,
+      "envIntensity": 0.25,
+      "envRotation": 0,
+      "envVisible": true,
+      "exposure": 0,
+      "focus": 2.79999995,
+      "fov": 0.800000012,
+      "hdri": "*studio",
+      "height": 1080,
+      "samples": 1024,
+      "tonemap": 3,
+      "viewSize": true,
+      "width": 1920
+    }
+  }
+}
