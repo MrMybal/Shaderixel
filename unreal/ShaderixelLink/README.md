@@ -21,13 +21,25 @@ Project Settings > Plugins > Shaderixel Link > Executable Path.
   « Unreal (textures d'origine) ». Peignez par-dessus, puis **Ctrl+S** (ou « Envoyer vers Unreal ») :
   les textures sont réimportées en place (mêmes assets, mêmes réglages).
 - Matériau sans texture : de nouvelles textures `T_<maillage>_BC / _N / _ORM` et une instance
-  `MI_<maillage>` du matériau `M_ShaderixelPBR` (créé une fois dans `/Game/Shaderixel`) sont créées
+  `MI_<maillage>` du matériau `M_ShaderixelPBR2` (créé une fois dans `/Game/Shaderixel`) sont créées
   dans le dossier `Shaderixel` à côté du maillage, et assignées à l'emplacement.
 - **Clic droit sur une Texture 2D > Éditer dans Shaderixel** : la texture s'ouvre comme image ;
   Ctrl+S la réimporte.
-- **Tools > Shaderixel** : peindre l'acteur sélectionné, importer un export Shaderixel
-  (`*.sxue.json`, écrit par « Exporter les textures » d'un projet Paint 3D en modèle Unreal ORM),
-  ouvrir le dossier des sessions.
+- **Tools > Shaderixel > Importer un modèle Shaderixel...** :
+  - un projet Paint 3D (`*.sx3d`) : Shaderixel l'exporte en arrière-plan (`--export-unreal`) ;
+  - ou la description écrite par « Exporter pour Unreal » dans Shaderixel (`*.sxmat.json`, à côté
+    du modèle OBJ et des textures).
+  Résultat dans le dossier courant du Content Browser : le maillage statique `SM_<nom>` (unités et
+  position d'origine, échelle réglable, UV de lightmap générées), les textures `T_<nom>_BaseColor /
+  _Normal / _ORM / _Emissive` avec leurs réglages (sRGB, compression), et l'instance `MI_<nom>` du
+  matériau `M_ShaderixelPBR2` (BaseColor, Normal, ORM, Emissive x EmissiveStrength) ou du matériau
+  parent choisi dans Shaderixel, déjà assignée au maillage. Les réglages (nom, dossier, échelle,
+  parent, double face, intensité émissive) sont enregistrés dans le `.sx3d`.
+  Le même menu importe les textures seules (`*.sxue.json`).
+- Un `.sxmat.json` posé à côté d'un FBX / OBJ **du même nom** est appliqué automatiquement quand ce
+  modèle est importé normalement (glisser-déposer, Import) : textures + instance de matériau.
+- Console : `Shaderixel.Import <fichier> [dossier]`, `Shaderixel.Paint`, `Shaderixel.EditTexture`,
+  `Shaderixel.Poll`. Tools > Shaderixel ouvre aussi le dossier des sessions.
 
 Les projets Shaderixel restent dans la session (`%LOCALAPPDATA%\Shaderixel\Link\sessions\...`) :
 rouvrir le même maillage reprend tous les calques tant que la géométrie n'a pas changé.
