@@ -307,6 +307,46 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 89) {
+        // Baker: project from SX_MESHFILE (low poly), bake from SX_HIGH (optional) at 1024 px, PNGs in SX_OUT, view SX_VIEWCH.
+        char high[512] = "", outDir[512] = "", view[8] = "0";
+        GetEnvironmentVariableA("SX_HIGH", high, sizeof(high));
+        GetEnvironmentVariableA("SX_OUT", outDir, sizeof(outDir));
+        GetEnvironmentVariableA("SX_VIEWCH", view, sizeof(view));
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.basePreset = 7;  // raw iron
+            p3dNew.mesh = 1;
+            char mf[512] = "";
+            if (GetEnvironmentVariableA("SX_MESHFILE", mf, sizeof(mf)) > 0) { p3dNew.mesh = 3; p3dNew.meshPath = mf; }
+            p3dNew.skipPaintLayer = true;
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh) return;
+        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        static bool started = false, reported = false;
+        if (frameCounter == 10) {
+            baker.open = true;
+            baker.useHigh = high[0] != 0;
+            baker.highPath = high;
+            baker.sizeIndex = 1;
+            baker.opt.position = baker.opt.worldNormal = true;
+            baker.exportPng = outDir[0] != 0;
+            baker.exportDir = outDir;
+            StartBake(*a);
+            started = true;
+            a->mesh->yaw = 0.6f;
+            a->mesh->pitch = 0.5f;
+        }
+        if (started && !reported && !baker.running && frameCounter > 12) {
+            reported = true;
+            Log("[demo] bake: %s", statusMsg.c_str());
+            a->mesh->viewChannel = atoi(view);
+            baker.open = false;
+        }
+        return;
+    }
     if (demoMode == 88) {
         // Smart material SX_SMART (index, 0 by default) on SX_MESHFILE (cube otherwise): mesh maps baked, masks generated.
         char sm[8] = "0", view[8] = "0";

@@ -84,6 +84,8 @@ void App::DrawView3D() {
         bool hasChannels = FindChannelGroup(doc, PbrChannel::Roughness) != 0;
         if (doc.kind == 1) {
             // Project: channels chosen at creation, exports by template.
+            if (button("Cuire...")) baker.open = true;
+            ui::HelpTooltip("Baker : normale, occlusion ambiante, courbure, épaisseur... depuis le modèle ou un modèle haute définition.");
             if (button("Unreal...")) unrealDialog = true;
             ui::HelpTooltip("Exporter pour Unreal : modèle, textures et matériau prêt à l'emploi,\nimportés d'un coup par le plugin Shaderixel Link.");
             if (button("Exporter les textures...")) {

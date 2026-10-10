@@ -1300,6 +1300,24 @@ private:
     std::map<Id, std::string> smartMaskDone;  // mask surface -> settings it was generated with
     int mapsResolution = 1024;
     void StartMeshMapsBake(DocView& v);
+    // Baker (Baker.cpp): maps from the project's model or a high poly model.
+    struct {
+        bool open = false, running = false, useHigh = false, toChannels = true, heightToChannel = false, exportPng = false;
+        std::string highPath, exportDir;
+        BakeOptions opt;
+        int sizeIndex = 2;
+        DocView* view = nullptr;
+        std::shared_ptr<std::atomic<float>> progress;
+        std::shared_ptr<std::atomic<bool>> cancel;
+        std::future<BakeResult> job;
+        u32 revision = 0;
+        double startTime = 0;
+    } baker;
+    void StartBake(DocView& v);
+    void PollBake();
+    void DrawBakerWindow();
+    void WriteLayerPixels(Document& d, Id surface, const std::vector<float>& src, int channels, int w, int h, bool dataChannel);
+    Id AddBakedLayer(DocView& v, PbrChannel c, const std::string& name, const std::vector<float>& src, int channels, int size);
     void PollMeshMapsBake();
     void UpdateSmartMasks(DocView& v);
     void DrawSmartMaskEditor(DocView& v, Id material);
