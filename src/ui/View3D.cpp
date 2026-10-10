@@ -197,6 +197,7 @@ void App::DrawView3D() {
 
     MeshPrepare3D(*v);
     UpdateSmartMasks(*v);
+    UpdateProjections(*v);
 
     // Painting
     std::vector<PointerSample> samples = frameSamples;

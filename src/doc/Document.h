@@ -155,6 +155,7 @@ struct Layer {
     Id parent = 0;            // enclosing group (0 = root)
     Id material = 0;          // material layer (one fill per PBR channel group, shared mask), 0 = none
     std::string generator;    // material layers: smart mask settings (JSON), the mask is generated from the mesh maps
+    std::string projection;   // projected material (JSON): the pixels are generated from an image projected on the model
     Id smart = 0;             // Smart layers: smart object (Document::smartObjects)
     float2 smartCorners[4];   // Smart layers: where the contents go (TL TR BR BL, document pixels)
     float2 smartPivot = {0.5f, 0.5f};  // Smart layers: transform pivot, in the contents (0..1)

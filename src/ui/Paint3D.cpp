@@ -209,6 +209,18 @@ void App::DrawLayers3DPanel() {
     if (ImGui::Button("+ Matériau \xE2\x96\xBE")) ImGui::OpenPopup("##addmat3d");
     ui::HelpTooltip("Calque de remplissage : un matériau (valeur par canal) et un masque partagé à peindre.");
     if (ImGui::BeginPopup("##addmat3d")) {
+        if (ImGui::MenuItem("Matériau projeté (image)...")) {
+            std::string f = platform::OpenFileDialog(hwnd, L"Images (texture qui se répète)\0*.png;*.jpg;*.jpeg;*.tga;*.bmp\0");
+            if (!f.empty()) AddProjectedMaterial(*v, f, Narrow(Utf8Path(f).stem().wstring()));
+        }
+        if (ImGui::BeginMenu("Matériau projeté (motif)")) {
+            if (!patternsScanned) ScanPatterns();
+            for (auto& pt : patterns)
+                if (ImGui::MenuItem(pt.name.c_str())) AddProjectedMaterial(*v, "pattern:" + pt.name, pt.name);
+            if (patterns.empty()) ImGui::TextDisabled("Aucun motif (panneau Motifs)");
+            ImGui::EndMenu();
+        }
+        ImGui::Separator();
         for (int i = 0; i < MaterialPresetCount(); ++i)
             if (ImGui::MenuItem(MaterialPresetName(i))) AddMaterialLayer(*v, i);
         ImGui::EndPopup();
@@ -327,6 +339,7 @@ void App::DrawLayers3DPanel() {
                 ImGui::EndCombo();
             }
         }
+        DrawProjectionEditor(*v, materialSel);
         if (any->mask) DrawSmartMaskEditor(*v, materialSel);
         if (any->mask) {
             if (ImGui::SmallButton("Masque : tout")) v->renderer.FillSelection(d, *ctx, &v->history, any->mask, 0, {1, 1, 1, 1}, 1, "Remplir le masque", nullptr, nullptr, false);

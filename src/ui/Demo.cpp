@@ -307,6 +307,35 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 91) {
+        // Projected material: SX_IMAGE projected on SX_MESHFILE, then a dirt smart mask on top (SX_SMART index optional), SX_RT.
+        char img[512] = "";
+        GetEnvironmentVariableA("SX_IMAGE", img, sizeof(img));
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.basePreset = 1;
+            p3dNew.mesh = 0;
+            p3dNew.skipPaintLayer = true;
+            char mf[512] = "";
+            if (GetEnvironmentVariableA("SX_MESHFILE", mf, sizeof(mf)) > 0) { p3dNew.mesh = 3; p3dNew.meshPath = mf; }
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh) return;
+        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 10) {
+            Id m = AddProjectedMaterial(*a, img, "Briques");
+            Log("[demo] projection: material %u", (unsigned)m);
+            if (GetEnvironmentVariableA("SX_RT", nullptr, 0) > 0) a->mesh->quality = 2;
+            a->mesh->yaw = 0.5f;
+            a->mesh->pitch = 0.3f;
+        }
+        if (frameCounter == 12) {
+            ShowSideTab(5);
+        }
+        if (frameCounter >= 13 && frameCounter <= 16) ImGui::SetWindowFocus("Calques 3D");
+        return;
+    }
     if (demoMode == 90) {
         // Paint simulation SX_SIM (preset) on SX_MESHFILE: the button held on the upper part of the model.
         char preset[8] = "0";

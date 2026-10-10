@@ -417,6 +417,30 @@ bool Renderer::MeshGenerate(Document& doc, gpu::CommandContext& ctx, MeshScene& 
     return true;
 }
 
+bool Renderer::MeshProject(Document& doc, gpu::CommandContext& ctx, MeshScene& s, Id surface, gpu::Texture* image, const MeshProjectParams& p) {
+    Surface* sf = doc.GetSurface(surface);
+    auto* k = Kernel("mesh_triplanar.slang");
+    if (!sf || !k || !image || !s.posMap || !s.nrmMap) return false;
+    const u32 W = sf->tex->Width(), H = sf->tex->Height();
+    if (s.posMap->Width() != W || s.posMap->Height() != H) return false;
+    struct Root {
+        u32 w, h, mode;
+        float scale, rotation, sharpness, lo, hi, ox, oy, contrast;
+        u32 invert;
+    } root = {W, H, (u32)p.mode, p.scale, p.rotation, p.sharpness, p.lo, p.hi, p.offsetX, p.offsetY, p.contrast, p.invert ? 1u : 0u};
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = s.posMap.get();
+    d.srv[1] = s.nrmMap.get();
+    d.srv[2] = image;
+    d.uav[0] = sf->tex.get();
+    SetConstants(d, root);
+    Dispatch2D(ctx, d, W, H);
+    doc.CancelPendingClear(surface);
+    doc.TouchSurface(surface);
+    return true;
+}
+
 bool LoadEnvironment(MeshScene& s, const std::string& path, std::string* error) {
     int w = 0, h = 0, comp = 0;
     FILE* f = nullptr;

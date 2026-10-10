@@ -1354,6 +1354,13 @@ private:
     void PollMeshMapsBake();
     void UpdateSmartMasks(DocView& v);
     void DrawSmartMaskEditor(DocView& v, Id material);
+    // Projected materials (Projection.cpp).
+    std::map<std::string, gpu::TexturePtr> projImages;  // source -> image
+    std::map<Id, std::string> projectionDone;          // layer surface -> settings it was generated with
+    gpu::Texture* ProjectionImage(const std::string& source);
+    Id AddProjectedMaterial(DocView& v, const std::string& source, const std::string& name);
+    void UpdateProjections(DocView& v);
+    void DrawProjectionEditor(DocView& v, Id material);
     void ApplySmartMaterial(DocView& v, const Json& def);
     const std::vector<Json>& SmartMaterials();
     void SelectMaterial(Document& d, Id material);

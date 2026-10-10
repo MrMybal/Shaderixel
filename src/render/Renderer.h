@@ -275,6 +275,13 @@ public:
         float4 dir = {0, 1, 0, 0};
     };
     bool MeshGenerate(Document& doc, gpu::CommandContext& ctx, MeshScene& s, Id surface, const MeshGenParams& p);
+    // Projected material: `image` projected triplanar on the model into `surface` (shaders/mesh_triplanar.slang).
+    struct MeshProjectParams {
+        int mode = 0;  // 0 color, 1 gray from the luminance in [lo, hi]
+        float scale = 1.5f, rotation = 0, sharpness = 6, lo = 0, hi = 1, offsetX = 0, offsetY = 0, contrast = 1;
+        bool invert = false;
+    };
+    bool MeshProject(Document& doc, gpu::CommandContext& ctx, MeshScene& s, Id surface, gpu::Texture* image, const MeshProjectParams& p);
     // Particle simulation: dabs in model space (center, radius) with alpha + surface normal, every stroke layer.
     void MeshWorldDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<float4>& dabs, const std::vector<float4>& ex,
                             const BrushSettings& b, const std::vector<float4>& colorsLinear, bool erase);

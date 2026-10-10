@@ -511,6 +511,7 @@ Json SerializeDocument(const Document& doc) {
         }
         if (l.material) o["material"] = l.material;
         if (!l.generator.empty()) o["generator"] = l.generator;
+        if (!l.projection.empty()) o["projection"] = l.projection;
         if (l.clipped) o["clipped"] = true;
         if (l.blendIf.Active()) {
             Json b = Json::Array();
@@ -734,6 +735,7 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         l.smartInterp = (u8)std::clamp(o["smartInterp"].I(2), 0, 2);
         l.material = o["material"].U();
         l.generator = o["generator"].S();
+        l.projection = o["projection"].S();
         l.clipped = o["clipped"].B(false);
         if (o.Has("blendIf")) {
             int i = 0;
