@@ -89,13 +89,10 @@ void App::DrawView3D() {
             if (button("Unreal...")) unrealDialog = true;
             ui::HelpTooltip("Exporter pour Unreal : modèle, textures et matériau prêt à l'emploi,\nimportés d'un coup par le plugin Shaderixel Link.");
             if (button("Exporter les textures...")) {
-                std::string f = platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png");
-                if (!f.empty()) ExportProjectTextures(*v, f);
+                texExport.open = true;
+                texExport.preset = doc.exportTemplate == 1 ? 0 : doc.exportTemplate == 2 ? 1 : 5;
             }
-            flow(150 * dpi);
-            ImGui::SetNextItemWidth(150 * dpi);
-            ImGui::Combo("##exptpl", &doc.exportTemplate, "Textures séparées\0Unreal (ORM)\0Unity HDRP\0");
-            ui::HelpTooltip("Modèle d'export des textures");
+            ui::HelpTooltip("Modèles d'export (Unreal, Unity, glTF / Blender, Godot, séparées), 8 / 16 bits, taille, normale, marge.");
         } else {
             if (missing && button(hasChannels ? "Compléter les canaux PBR" : "Créer les canaux PBR")) CreatePbrChannels(*v);
             if (hasChannels && button("Exporter les textures PBR..."))

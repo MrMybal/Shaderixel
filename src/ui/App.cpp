@@ -560,6 +560,7 @@ void App::Frame() {
     DrawBatchWindow();
     DrawUnrealExportDialog();
     DrawBakerWindow();
+    DrawTextureExportDialog();
     DrawColorDialogs();
     DrawPhotoDialog();
     DrawPaint3DNewDialog();
@@ -973,8 +974,8 @@ void App::DrawMenuBar() {
         if (v && v->doc->kind == 1 && ImGui::MenuItem("Exporter pour Unreal (modèle + matériau)...")) unrealDialog = true;
         if (v && v->doc->kind == 1 && ImGui::MenuItem("Cuisson des cartes (baker)...")) baker.open = true;
         if (v && v->doc->kind == 1 && ImGui::MenuItem("Exporter les textures du projet...")) {
-            std::string f = platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png");
-            if (!f.empty()) ExportProjectTextures(*v, f);
+            texExport.open = true;
+            texExport.preset = v->doc->exportTemplate == 1 ? 0 : v->doc->exportTemplate == 2 ? 1 : 5;
         }
         if (ImGui::MenuItem("Exporter en TIFF CMJN...", nullptr, false, v != nullptr))
             ExportCmykTiff(*v, platform::SaveFileDialog(hwnd, L"TIFF CMJN (*.tif)\0*.tif;*.tiff\0", L"tif"));

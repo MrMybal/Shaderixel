@@ -334,6 +334,18 @@ void App::DemoTick() {
             ShowSideTab(5);
         }
         if (frameCounter >= 13 && frameCounter <= 16) ImGui::SetWindowFocus("Calques 3D");
+        char exp[512] = "", pre[8] = "1";
+        if (frameCounter == 40 && GetEnvironmentVariableA("SX_EXPORTDIR", exp, sizeof(exp)) > 0) {
+            // Texture export: preset SX_EXPORTPRESET, 16-bit PNG, padding.
+            GetEnvironmentVariableA("SX_EXPORTPRESET", pre, sizeof(pre));
+            texExport.preset = atoi(pre);
+            texExport.depth = GetEnvironmentVariableA("SX_EXPORT8", nullptr, 0) > 0 ? 0 : 1;
+            texExport.padding = 8;
+            texExport.folder = exp;
+            texExport.name = "Vase";
+            StartTextureExport(*a);
+        }
+        if (frameCounter == 200) Log("[demo] export: %s (jobs %zu)", statusMsg.c_str(), texExportJobs.size());
         return;
     }
     if (demoMode == 90) {

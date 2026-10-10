@@ -52,4 +52,40 @@ bool LoadWicFloat(const std::string& path, std::vector<float>& rgba, int& w, int
     return true;
 }
 
+bool SavePng16(const std::string& path, const std::vector<u16>& rgba, int w, int h, std::string* error) {
+    HRESULT co = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    (void)co;
+    auto fail = [&](const char* what, HRESULT hr) {
+        if (error) {
+            char b[160];
+            snprintf(b, sizeof(b), "%s (0x%08lX)", what, (unsigned long)hr);
+            *error = b;
+        }
+        return false;
+    };
+    if (rgba.size() < (size_t)w * h * 4) return fail("taille", E_INVALIDARG);
+    ComPtr<IWICImagingFactory> factory;
+    HRESULT hr = CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory));
+    if (FAILED(hr)) return fail("WIC indisponible", hr);
+    ComPtr<IWICStream> stream;
+    hr = factory->CreateStream(&stream);
+    if (SUCCEEDED(hr)) hr = stream->InitializeFromFilename(Widen(path).c_str(), GENERIC_WRITE);
+    if (FAILED(hr)) return fail("écriture impossible", hr);
+    ComPtr<IWICBitmapEncoder> enc;
+    hr = factory->CreateEncoder(GUID_ContainerFormatPng, nullptr, &enc);
+    if (SUCCEEDED(hr)) hr = enc->Initialize(stream.Get(), WICBitmapEncoderNoCache);
+    ComPtr<IWICBitmapFrameEncode> frame;
+    if (SUCCEEDED(hr)) hr = enc->CreateNewFrame(&frame, nullptr);
+    if (SUCCEEDED(hr)) hr = frame->Initialize(nullptr);
+    if (SUCCEEDED(hr)) hr = frame->SetSize((UINT)w, (UINT)h);
+    WICPixelFormatGUID fmt = GUID_WICPixelFormat64bppRGBA;
+    if (SUCCEEDED(hr)) hr = frame->SetPixelFormat(&fmt);
+    if (SUCCEEDED(hr) && fmt != GUID_WICPixelFormat64bppRGBA) hr = E_FAIL;
+    if (SUCCEEDED(hr)) hr = frame->WritePixels((UINT)h, (UINT)w * 8, (UINT)(rgba.size() * 2), (BYTE*)rgba.data());
+    if (SUCCEEDED(hr)) hr = frame->Commit();
+    if (SUCCEEDED(hr)) hr = enc->Commit();
+    if (FAILED(hr)) return fail("encodage PNG 16 bits", hr);
+    return true;
+}
+
 }  // namespace sx

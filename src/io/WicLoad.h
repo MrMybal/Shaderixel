@@ -11,5 +11,7 @@ namespace sx {
 
 bool IsRawExtension(const std::string& extLower);
 bool LoadWicFloat(const std::string& path, std::vector<float>& rgba, int& w, int& h, std::string* error);
+// 16-bit RGBA PNG (stb_image_write only does 8 bits).
+bool SavePng16(const std::string& path, const std::vector<u16>& rgba, int w, int h, std::string* error = nullptr);
 
 }  // namespace sx

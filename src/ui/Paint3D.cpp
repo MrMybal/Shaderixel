@@ -576,6 +576,7 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
 void App::UpdatePaint3D() {
     PollMeshMapsBake();
     PollBake();
+    PollTextureExports();
     for (size_t i = 0; i < packJobs.size();) {
         PackJob& j = packJobs[i];
         auto ready = [](const gpu::ReadbackPtr& r) { return !r || r->ready; };

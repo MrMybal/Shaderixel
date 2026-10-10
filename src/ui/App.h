@@ -1361,6 +1361,27 @@ private:
     Id AddProjectedMaterial(DocView& v, const std::string& source, const std::string& name);
     void UpdateProjections(DocView& v);
     void DrawProjectionEditor(DocView& v, Id material);
+    // Texture export presets (TextureExport.cpp).
+    struct TexExportOptions {
+        bool open = false;
+        int preset = 0, depth = 0, size = 0, normal = -1, padding = 8;
+        std::string folder, name, pattern = "{nom}_{carte}";
+    } texExport;
+    struct TexExportJob {
+        DocView* view = nullptr;
+        TexExportOptions opt;
+        std::array<gpu::ReadbackPtr, (int)PbrChannel::Count> ch{};
+        bool has[(int)PbrChannel::Count] = {};
+        gpu::TexturePtr bakedNormal;
+        gpu::ReadbackPtr pos;
+        u32 width = 0, height = 0;
+        std::string name;
+        std::future<std::string> result;
+    };
+    std::vector<TexExportJob> texExportJobs;
+    void StartTextureExport(DocView& v);
+    void PollTextureExports();
+    void DrawTextureExportDialog();
     void ApplySmartMaterial(DocView& v, const Json& def);
     const std::vector<Json>& SmartMaterials();
     void SelectMaterial(Document& d, Id material);
