@@ -6,7 +6,8 @@
 // 8 decal color (the paint color is the decal's own color), 16/64/128 symmetry X/Y/Z
 // (object space: a texel is also painted when its mirror image is under a dab),
 // 32 brush tip: the dab's shape is read in a tip atlas (variants side by side),
-// rotated by gDabsEx (cos, sin, variant).
+// rotated by gDabsEx (cos, sin, variant), 256 world dabs (particle simulation:
+// gDabs = model-space center + radius, gDabsEx = alpha + surface normal; no camera).
 #include "common.slang"
 
 cbuffer Root : register(b0)
@@ -57,6 +58,30 @@ float TipCoverage(float2 rel, float r, float4 ex)
 RWTexture2D<float4> gLayer : register(u0);
 RWTexture2D<float> gStroke : register(u1);
 
+// Coverage m (accumulated stroke coverage) -> the layer: paint, erase or decal color.
+void Composite(int2 px, float m, float before, float4 decal)
+{
+    if ((gFlags & 2) == 0)
+    {
+        if (m == before) return;
+        gStroke[px] = m;
+    }
+    else if (m <= 0.0) return;
+    float k = saturate(m * gOpacity);
+    if (gFlags & 1) k *= gSel.Load(int3(px, 0));
+    float4 pre = gPre.Load(int3(px, 0));
+    float4 result;
+    if (gMode == 1) result = pre * (1.0 - k);
+    else
+    {
+        float4 col = gColor;
+        if ((gFlags & 8) && decal.a > 0.0) col = float4(SrgbToLinear(decal.rgb), 1.0);
+        float4 paint = float4(col.rgb * col.a, col.a);
+        result = paint * k + pre * (1.0 - k * gColor.a);
+    }
+    gLayer[px] = result;
+}
+
 [numthreads(8, 8, 1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
@@ -64,6 +89,28 @@ void main(uint3 id : SV_DispatchThreadID)
     int2 px = int2(id.xy);
     float4 pos = gPosMap.Load(int3(px, 0));
     if (pos.a <= 0.0) return;
+    if (gFlags & 256)
+    {
+        // World dabs: spheres on the model, on the side the surface faces (no camera, no occlusion test).
+        float mw = gStroke[px];
+        const float beforeW = mw;
+        if ((gFlags & 2) == 0)
+        {
+            float3 nw = normalize(gNrmMap.Load(int3(px, 0)).xyz);
+            for (uint i = 0; i < gDabCount; ++i)
+            {
+                float4 dab = gDabs[i];
+                float4 ex = gDabsEx[i];
+                float r = max(dab.w, 1e-5);
+                float d = length(pos.xyz - dab.xyz);
+                if (d >= r || dot(nw, ex.yzw) < 0.1) continue;
+                float soft = 1.0 - smoothstep(r * saturate(gHardness), r, d);
+                mw = mw + (1.0 - mw) * soft * ex.x;
+            }
+        }
+        Composite(px, mw, beforeW, float4(0, 0, 0, 0));
+        return;
+    }
     float4 clip = mul(gViewProj, float4(pos.xyz, 1.0));
     if (clip.w <= 1e-5) return;
     float3 ndc = clip.xyz / clip.w;
@@ -143,23 +190,5 @@ void main(uint3 id : SV_DispatchThreadID)
             m = m + (1.0 - m) * covM;
         }
     }
-    if ((gFlags & 2) == 0)
-    {
-        if (m == before) return;
-        gStroke[px] = m;
-    }
-    else if (m <= 0.0) return;
-    float k = saturate(m * gOpacity);
-    if (gFlags & 1) k *= gSel.Load(int3(px, 0));
-    float4 pre = gPre.Load(int3(px, 0));
-    float4 result;
-    if (gMode == 1) result = pre * (1.0 - k);
-    else
-    {
-        float4 col = gColor;
-        if ((gFlags & 8) && decal.a > 0.0) col = float4(SrgbToLinear(decal.rgb), 1.0);
-        float4 paint = float4(col.rgb * col.a, col.a);
-        result = paint * k + pre * (1.0 - k * gColor.a);
-    }
-    gLayer[px] = result;
+    Composite(px, m, before, decal);
 }

@@ -275,6 +275,9 @@ public:
         float4 dir = {0, 1, 0, 0};
     };
     bool MeshGenerate(Document& doc, gpu::CommandContext& ctx, MeshScene& s, Id surface, const MeshGenParams& p);
+    // Particle simulation: dabs in model space (center, radius) with alpha + surface normal, every stroke layer.
+    void MeshWorldDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<float4>& dabs, const std::vector<float4>& ex,
+                            const BrushSettings& b, const std::vector<float4>& colorsLinear, bool erase);
     // 2D multi-channel strokes: the other layers rebuilt from the shared coverage (after StrokeDabs / StrokeProgram).
     void StrokeApplySlots(Document& doc, gpu::CommandContext& ctx, const BrushSettings& b, const std::vector<float4>& colorsLinear, bool erase);
     // Decal projected from the view: center / half size in view pixels, rotation (radians); the first layer can take the image colors.

@@ -315,6 +315,15 @@ void App::DrawView3D() {
             meshLineValid = true;
         }
     }
+    // Paint simulation: particles emitted while the button is held, simulated until they stop.
+    {
+        const bool emitting = tool == Tool::Particles && hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left) && !io.KeyAlt && !orbit;
+        if (emitting || !sim.parts.empty() || sim.stroking) {
+            if (emitting && meshTargets.empty()) Status("Sélectionnez un calque 3D pour la simulation");
+            v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);  // depth for the brush kernel
+            UpdateSimulation(*v, emitting && !meshTargets.empty(), local(io.MousePos.x, io.MousePos.y), w, h, meshTargets, meshColors);
+        }
+    }
     // Polygon fill: the triangle / face / UV island / part under the cursor.
     if (tool == Tool::PolyFill && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt) {
         int tri = PickMeshTriangle(s, local(io.MousePos.x, io.MousePos.y), w, h);

@@ -456,6 +456,24 @@ void App::DrawBrushMaterialPanel() {
     ImGui::Combo("##polymode", &B.polyMode, "Triangle\0Face (polygone plat)\0Île UV\0Pièce du maillage\0Tout le modèle\0");
     if (ImGui::Button("Outil Remplissage par polygone")) tool = Tool::PolyFill;
     ui::HelpTooltip("Clic sur le modèle : remplit l'élément sous le curseur avec le matériau du pinceau\n(ou le masque du matériau). Ctrl+clic : efface.");
+    ImGui::SeparatorText("Simulation (particules)");
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::BeginCombo("##simpreset", SimPresetName(B.simPreset))) {
+        for (int i = 0; i < SimPresetCount(); ++i) {
+            if (ImGui::Selectable(SimPresetName(i), i == B.simPreset)) B.simPreset = i;
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", SimPresetHelp(i));
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SliderFloat("Particules / s", &B.simRate, 5, 400, "%.0f", ImGuiSliderFlags_Logarithmic);
+    float sz = B.simSize * 100;
+    if (ImGui::SliderFloat("Taille des gouttes", &sz, 0.2f, 10, "%.1f %%", ImGuiSliderFlags_Logarithmic)) B.simSize = sz / 100;
+    ImGui::SliderFloat("Gravité", &B.simGravity, 0, 3, "%.2f");
+    ImGui::SliderFloat("Adhérence", &B.simAdhesion, 0, 2, "%.2f");
+    ImGui::SliderFloat("Durée de vie", &B.simLife, 0.2f, 10, "%.1f s");
+    if (B.simPreset == 3) ImGui::SliderFloat("Dispersion", &B.simSpread, 0, 2, "%.2f");
+    if (ImGui::Button("Outil Simulation")) tool = Tool::Particles;
+    ui::HelpTooltip("Maintenez le clic sur le modèle : les particules partent du pinceau (sa taille fixe la zone)\net peignent le matériau du pinceau là où elles passent, même hors de la vue.");
     ImGui::SeparatorText("Projection (décalque)");
     std::string dn = decal.path.empty() ? "(aucune image)" : Narrow(Utf8Path(decal.path).filename().wstring());
     ImGui::TextUnformatted(dn.c_str());

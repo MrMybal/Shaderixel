@@ -267,11 +267,11 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
     cb.camPos = {s.camPos.x, s.camPos.y, s.camPos.z, 1};
     cb.color = color;
     // Programmable tip: shapes from the atlas (not for decals).
-    const bool useTip = meshTipOn && meshTipAtlas && !(extraFlags & 4u);
+    const bool useTip = meshTipOn && meshTipAtlas && !(extraFlags & (4u | 256u));
     if (useTip) extraFlags |= 32u;
     cb.tip = {meshTipExtent, (float)meshTipVariants, 0, 0};
     const u32 sym = meshSymmetry == 1 ? 16u : meshSymmetry == 2 ? 64u : meshSymmetry == 3 ? 128u : 0u;
-    if (!(extraFlags & 4u)) extraFlags |= sym;
+    if (!(extraFlags & (4u | 256u))) extraFlags |= sym;
     for (size_t start = 0; start < dabs.size(); start += 1024) {
         size_t count = std::min<size_t>(1024, dabs.size() - start);
         for (size_t i = 0; i < count; ++i) {
@@ -294,7 +294,7 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
         memcpy(d.constants, &root, sizeof(root));
         d.numConstants = sizeof(root) / 4;
         d.cbData = &cb;
-        d.cbSize = useTip ? offsetof(PaintCB, dabsEx) + count * sizeof(float4) : offsetof(PaintCB, dabs) + count * sizeof(float4);
+        d.cbSize = (useTip || (extraFlags & 256u)) ? offsetof(PaintCB, dabsEx) + count * sizeof(float4) : offsetof(PaintCB, dabs) + count * sizeof(float4);
         Dispatch2D(ctx, d, W, H);
     }
     strokeRect = {0, 0, (int)W, (int)H};
@@ -326,6 +326,22 @@ void Renderer::MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, Mesh
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
         MeshStrokeDabs(doc, ctx, s, dabs, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), erase, 2u | sym, nullptr, dabEx);
+        std::swap(strokeSurface, strokeSlots[i].surface);
+        std::swap(strokePre, strokeSlots[i].pre);
+    }
+}
+
+void Renderer::MeshWorldDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<float4>& dabs, const std::vector<float4>& ex,
+                                  const BrushSettings& b, const std::vector<float4>& colors, bool erase) {
+    if (!strokeSurface || dabs.empty()) return;
+    // The dab array carries (x, y, z, radius); the extra one (alpha, normal).
+    std::vector<Dab> d(dabs.size());
+    for (size_t i = 0; i < dabs.size(); ++i) d[i] = {dabs[i].x, dabs[i].y, dabs[i].z, dabs[i].w};
+    MeshStrokeDabs(doc, ctx, s, d, b, colors.empty() ? float4{1, 1, 1, 1} : colors[0], erase, 256u, nullptr, &ex);
+    for (size_t i = 0; i < strokeSlots.size(); ++i) {
+        std::swap(strokeSurface, strokeSlots[i].surface);
+        std::swap(strokePre, strokeSlots[i].pre);
+        MeshStrokeDabs(doc, ctx, s, d, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), erase, 256u | 2u, nullptr, &ex);
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
     }

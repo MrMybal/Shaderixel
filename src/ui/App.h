@@ -35,7 +35,7 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
@@ -49,6 +49,10 @@ struct UvJob;
 struct LinkSession;  // Unreal live link (UnrealLink.cpp)
 // Material presets (MaterialLayers.cpp).
 int MaterialPresetCount();
+// Paint simulation presets (Paint3DSim.cpp).
+int SimPresetCount();
+const char* SimPresetName(int i);
+const char* SimPresetHelp(int i);
 const char* MaterialPresetName(int i);
 void MaterialPresetValues(int i, float3& color, float& rough, float& metal, float& height, bool& hasColor, bool& hasRough, bool& hasMetal, bool& hasHeight);
 
@@ -1136,6 +1140,9 @@ private:
         bool follow = false;  // dab angle follows the stroke
         float lazy = 0;       // lazy mouse distance (screen px)
         int polyMode = 1;     // polygon fill: 0 triangle, 1 flat face, 2 UV island, 3 mesh part, 4 whole model
+        // Paint simulation (Paint3DSim.cpp): particles per second, size (model units), gravity, adhesion, life (s), spread.
+        int simPreset = 0;
+        float simRate = 60, simSize = 0.015f, simGravity = 1, simAdhesion = 0.5f, simLife = 2.5f, simSpread = 0.5f;
     } brush3D;
     // Polygon fill (Paint3DTools.cpp): mesh adjacency, rebuilt when the mesh changes.
     struct MeshTopology {
@@ -1145,6 +1152,27 @@ private:
         std::vector<u32> face, island, part;  // group of each triangle
     } meshTopo;
     int polyHover = -1;
+    struct SimParticle {
+        float3 p, v, n;
+        float life = 1, size = 0.01f, alpha = 1, trail = 0;
+        bool onSurface = false, alive = true;
+    };
+    struct {
+        DocView* view = nullptr;
+        MeshRaycaster rc;
+        const void* scene = nullptr;
+        u32 rev = ~0u;
+        std::vector<SimParticle> parts;
+        bool stroking = false;
+        float emitAcc = 0;
+        u32 rng = 777;
+        double last = 0;
+    } sim;
+    bool CameraRay(MeshScene& s, float2 local, u32 w, u32 h, float3& o, float3& d);
+    float Rand01();
+    void SimEmit(DocView& v, float2 local, u32 w, u32 h, float dt);
+    void SimStep(DocView& v, float dt, std::vector<float4>& dabs, std::vector<float4>& ex);
+    void UpdateSimulation(DocView& v, bool emitting, float2 local, u32 w, u32 h, const std::vector<Id>& targets, const std::vector<float4>& colors);
     int PickMeshTriangle(MeshScene& s, float2 screen, u32 w, u32 h);
     void BuildMeshTopology(MeshScene& s);
     std::vector<u32> PolyFillTriangles(MeshScene& s, int tri, int mode);

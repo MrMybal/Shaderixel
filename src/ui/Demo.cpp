@@ -307,6 +307,47 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 90) {
+        // Paint simulation SX_SIM (preset) on SX_MESHFILE: the button held on the upper part of the model.
+        char preset[8] = "0";
+        GetEnvironmentVariableA("SX_SIM", preset, sizeof(preset));
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.basePreset = 1;
+            p3dNew.mesh = 0;
+            char mf[512] = "";
+            if (GetEnvironmentVariableA("SX_MESHFILE", mf, sizeof(mf)) > 0) { p3dNew.mesh = 3; p3dNew.meshPath = mf; }
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh) return;
+        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D");
+        if (!w) return;
+        ImGuiIO& io = ImGui::GetIO();
+        const ImVec2 c((w->InnerRect.Min.x + w->InnerRect.Max.x) * 0.5f, (w->InnerRect.Min.y + w->InnerRect.Max.y) * 0.5f + 20);
+        const float span = (w->InnerRect.Max.x - w->InnerRect.Min.x) * 0.1f;
+        if (frameCounter == 10) {
+            tool = Tool::Particles;
+            brush3D.simPreset = atoi(preset);
+            brush3D.simRate = 120;
+            brush.size = 120;
+            fg = {0.35f, 0.12f, 0.04f, 1};
+            brush3D.use[(int)PbrChannel::Roughness] = true;
+            brush3D.rough = 0.9f;
+            a->mesh->yaw = 0.3f;
+            a->mesh->pitch = 0.25f;
+        }
+        if (frameCounter >= 16 && frameCounter <= 70) {
+            const float t = (frameCounter - 16) / 54.0f;
+            io.AddMousePosEvent(c.x - span + 2 * span * t, c.y - span * 1.6f);
+            if (frameCounter == 17) io.AddMouseButtonEvent(0, true);
+        }
+        if (frameCounter == 71) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 40 || frameCounter == 120) Log("[demo] simulation: %zu particles, stroking %d", sim.parts.size(), sim.stroking ? 1 : 0);
+        if (frameCounter == 400) Log("[demo] simulation end: %zu particles, stroking %d, history %s", sim.parts.size(), sim.stroking ? 1 : 0, statusMsg.c_str());
+        return;
+    }
     if (demoMode == 89) {
         // Baker: project from SX_MESHFILE (low poly), bake from SX_HIGH (optional) at 1024 px, PNGs in SX_OUT, view SX_VIEWCH.
         char high[512] = "", outDir[512] = "", view[8] = "0";

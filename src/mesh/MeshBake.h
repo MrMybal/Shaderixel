@@ -65,6 +65,18 @@ struct BakeResult {
 BakeResult BakeMeshes(const MeshData& low, const MeshData* high, const BakeOptions& o, std::atomic<float>* progress = nullptr,
                       std::atomic<bool>* cancel = nullptr);
 
+// Rays against a mesh (particle simulation, picking): nearest hit, interpolated normal (outward).
+class MeshRaycaster {
+public:
+    void Build(const MeshData& m);
+    bool Empty() const { return !impl; }
+    bool Ray(float3 origin, float3 dir, float tmax, float3* pos, float3* normal, float* t = nullptr) const;
+
+private:
+    struct Impl;
+    std::shared_ptr<Impl> impl;
+};
+
 // Positions / normals of `m` (normalized by its loader) moved into the normalized space of `ref`
 // (both use srcCenter / srcScale to go back to the file units).
 void TransformToMeshSpace(MeshData& m, const MeshData& ref);

@@ -431,6 +431,28 @@ void ParallelFor(size_t n, std::atomic<float>* progress, std::atomic<bool>* canc
 
 }  // namespace
 
+struct MeshRaycaster::Impl {
+    MeshData mesh;
+    Analyzed a;
+};
+
+void MeshRaycaster::Build(const MeshData& m) {
+    auto i = std::make_shared<Impl>();
+    i->mesh = m;
+    i->a.Build(i->mesh, 25.0f, 0.05f);
+    impl = i;
+}
+
+bool MeshRaycaster::Ray(float3 o, float3 d, float tmax, float3* pos, float3* normal, float* tOut) const {
+    if (!impl) return false;
+    Hit h;
+    if (!impl->a.bvh.Trace(o, d, tmax, &h)) return false;
+    if (pos) *pos = o + d * h.t;
+    if (normal) *normal = impl->a.Normal(h.tri, 1 - h.u - h.v, h.u, h.v);
+    if (tOut) *tOut = h.t;
+    return true;
+}
+
 void TransformToMeshSpace(MeshData& m, const MeshData& ref) {
     // m: p_m = (orig - cm) * sm  ->  ref: p_r = (orig - cr) * sr
     const float k = ref.srcScale / std::max(m.srcScale, 1e-12f);
