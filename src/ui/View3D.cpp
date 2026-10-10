@@ -121,11 +121,22 @@ void App::DrawView3D() {
             if (button("Sans HDRI")) v->mesh->envAtlas.reset();
         }
         {
-            static const char* modes = "Rendu PBR\0Couleur de base\0Rugosité\0Métal\0Normale\0Émissif\0Occlusion\0Hauteur\0";
+            static const char* modes = "Rendu PBR\0Couleur de base\0Rugosité\0Métal\0Normale\0Émissif\0Occlusion\0Hauteur\0"
+                                       "Carte : occlusion (cuite)\0Carte : convexité\0Carte : concavité\0Carte : épaisseur\0";
             flow(140 * dpi);
             ImGui::SetNextItemWidth(140 * dpi);
-            ImGui::Combo("##viewch", &v->mesh->viewChannel, modes);
-            ui::HelpTooltip("Afficher un canal seul (tel que peint)");
+            if (ImGui::Combo("##viewch", &v->mesh->viewChannel, modes) && v->mesh->viewChannel >= 8 && !v->mesh->maps) StartMeshMapsBake(*v);
+            ui::HelpTooltip("Afficher un canal seul (tel que peint), ou une carte du maillage cuite (masques intelligents)");
+            flow(100 * dpi);
+            ImGui::SetNextItemWidth(100 * dpi);
+            ImGui::SliderFloat("##expo", &v->mesh->exposure, -4, 4, "Expo %.1f EV");
+            ui::HelpTooltip("Exposition de la vue (double-clic pour saisir)");
+            flow(90 * dpi);
+            ImGui::SetNextItemWidth(90 * dpi);
+            ImGui::Combo("##tone", &v->mesh->tonemap, "Doux\0ACES\0");
+            ui::HelpTooltip("Rendu des hautes lumières : ACES (filmique, comme les moteurs de jeu) ou doux");
+            flow(ImGui::GetFrameHeight() + ImGui::CalcTextSize("Fil de fer").x + 12 * dpi);
+            ImGui::Checkbox("Fil de fer", &v->mesh->wireframe);
         }
         char info[160];
         snprintf(info, sizeof(info), "%s - %zu triangles", v->mesh->data.name.c_str(), v->mesh->data.indices.size() / 3);
@@ -321,6 +332,26 @@ void App::DrawView3D() {
         dl->AddImageQuad((ImTextureID)gpu::Dev().UiTextureId(decal.tex.get()), q[0], q[1], q[2], q[3], ImVec2(0, 0), ImVec2(1, 0), ImVec2(1, 1), ImVec2(0, 1),
                          IM_COL32(255, 255, 255, 150));
         dl->AddPolyline(q, 4, IM_COL32(255, 140, 0, 220), ImDrawFlags_Closed, 1.5f);
+    }
+    if (s.wireframe) {
+        // Edges of the front-facing triangles (capped for heavy models).
+        const auto& V = s.data.vertices;
+        const auto& I = s.data.indices;
+        const size_t maxTris = 60000;
+        const size_t step = std::max<size_t>(1, I.size() / 3 / maxTris);
+        auto proj = [&](float3 p, bool& ok) {
+            float4 c = s.viewProj.Transform({p.x, p.y, p.z, 1});
+            ok = c.w > 1e-5f;
+            return ImVec2(origin.x + (c.x / c.w * 0.5f + 0.5f) * w, origin.y + (0.5f - c.y / c.w * 0.5f) * h);
+        };
+        for (size_t t = 0; t + 2 < I.size(); t += 3 * step) {
+            bool o0, o1, o2;
+            ImVec2 a = proj(V[I[t]].pos, o0), b = proj(V[I[t + 1]].pos, o1), c = proj(V[I[t + 2]].pos, o2);
+            if (!o0 || !o1 || !o2) continue;
+            if ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x) > 0) continue;  // back face
+            ImVec2 tri[3] = {a, b, c};
+            dl->AddPolyline(tri, 3, IM_COL32(120, 200, 255, 90), ImDrawFlags_Closed, 1.0f);
+        }
     }
     if (tool == Tool::PolyFill && polyHover >= 0) DrawPolyHighlight(s, polyHover, origin, w, h);
     if (hovered && paintTool && !orbit) {

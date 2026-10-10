@@ -158,7 +158,12 @@ MeshMaps BakeMeshMaps(const MeshData& mesh, const MeshMapsOptions& o, std::atomi
         W[i] = it->second;
     }
     std::vector<float3> faceN(nt);
-    for (size_t t = 0; t < nt; ++t) faceN[t] = Normalize(Cross(P[W[t * 3 + 1]] - P[W[t * 3]], P[W[t * 3 + 2]] - P[W[t * 3]]));
+    for (size_t t = 0; t < nt; ++t) {
+        faceN[t] = Normalize(Cross(P[W[t * 3 + 1]] - P[W[t * 3]], P[W[t * 3 + 2]] - P[W[t * 3]]));
+        // Outward like the model's normals, whatever the winding of the file.
+        float3 vnSum = V[I[t * 3]].normal + V[I[t * 3 + 1]].normal + V[I[t * 3 + 2]].normal;
+        if (Dot(faceN[t], vnSum) < 0) faceN[t] = faceN[t] * -1.0f;
+    }
     Bvh bvh;
     bvh.Build(P, W);
 
@@ -323,6 +328,24 @@ MeshMaps BakeMeshMaps(const MeshData& mesh, const MeshMapsOptions& o, std::atomi
     for (unsigned i = 0; i < nth; ++i) pool.emplace_back(work);
     for (auto& th : pool) th.join();
     if (cancel && cancel->load()) { out.error = "annulé"; return out; }
+    // Ray noise: the occlusion averaged over 3x3 covered texels.
+    {
+        std::vector<float> ao((size_t)S * S);
+        for (size_t i = 0; i < ao.size(); ++i) ao[i] = out.rgba[i * 4];
+        for (const Texel& tx : texels) {
+            const int x = (int)(tx.idx % S), y = (int)(tx.idx / S);
+            float acc = 0;
+            int c = 0;
+            for (int dy = -1; dy <= 1; ++dy)
+                for (int dx = -1; dx <= 1; ++dx) {
+                    int xx = x + dx, yy = y + dy;
+                    if (xx < 0 || yy < 0 || xx >= S || yy >= S || !filled[(size_t)yy * S + xx]) continue;
+                    acc += ao[(size_t)yy * S + xx];
+                    ++c;
+                }
+            if (c) out.rgba[(size_t)tx.idx * 4] = acc / c;
+        }
+    }
     // Padding: empty texels take the mean of their filled neighbors (seams sample a little outside).
     for (int pass = 0; pass < 8; ++pass) {
         std::vector<u8> nf = filled;

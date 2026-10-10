@@ -39,6 +39,9 @@ struct ViewCB {
     float4 camPos, lightDir;
     u32 flags;
     float envIntensity, envRotation, viewMode;
+    float exposure;
+    u32 tonemap;
+    float pad[2];
 };
 struct BrushRootM {
     u32 dw, dh, vw, vh, count;
@@ -139,6 +142,8 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     cb.envIntensity = s.envIntensity;
     cb.envRotation = s.envRotation;
     cb.viewMode = (float)s.viewChannel;
+    cb.exposure = s.exposure;
+    cb.tonemap = (u32)s.tonemap;
     bool sky = false;
     if (s.envAtlas && s.envBackground && s.viewChannel == 0) {
         if (auto* k = Kernel("mesh_sky.slang")) {
@@ -168,6 +173,7 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
         d.srv[7] = s.envAtlas.get();
         if (material.tex[c]) cb.flags |= 1u << c;
     }
+    if (s.viewChannel >= 8) d.srv[5] = s.maps.get();  // baked maps shown in place of the occlusion slot
     d.rt[0] = s.color.get();
     d.depth = s.depth.get();
     d.clearColor = !sky;

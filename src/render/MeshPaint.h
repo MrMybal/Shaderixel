@@ -34,7 +34,10 @@ struct MeshScene {
     float envIntensity = 1.0f, envRotation = 0.0f;
     bool envBackground = true;  // show the HDRI behind the model
     float envBlur = 0.0f;       // background blur (atlas level 0..5)
-    int viewChannel = 0;  // 0 = PBR, k = PbrChannel k-1 alone
+    int viewChannel = 0;  // 0 = PBR, k = PbrChannel k-1 alone, 8..11 baked mesh maps
+    float exposure = 0;   // EV
+    int tonemap = 1;      // 0 soft, 1 ACES
+    bool wireframe = false;
     // Mesh maps for smart masks (R AO, G convexity, B concavity, A thickness), baked on the CPU.
     gpu::TexturePtr maps;
     u32 mapsRev = 0;              // bumped at each bake (smart masks regenerate)

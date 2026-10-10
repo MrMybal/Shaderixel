@@ -12,8 +12,17 @@ cbuffer View : register(b1)
     uint gFlags;       // bit i: channel i present, bit 7: HDRI environment
     float gEnvIntensity;
     float gEnvRotation; // radians around the vertical axis
-    float gViewMode;    // 0 PBR, k > 0: show channel k-1 alone (visual values)
+    float gViewMode;    // 0 PBR, k > 0: show channel k-1 alone (visual values), 8..11 baked mesh maps (in t5)
+    float gExposure;    // EV
+    uint gTonemap;      // 0 soft, 1 ACES (filmic)
+    float2 _pad;
 };
+
+float3 Aces(float3 x)
+{
+    // Narkowicz fit of the ACES filmic curve.
+    return saturate((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14));
+}
 
 Texture2D<float4> gBase : register(t0);
 Texture2D<float4> gRough : register(t1);
@@ -158,8 +167,16 @@ float4 psMain(VSOut i, bool front : SV_IsFrontFace) : SV_Target0
         col += Fenv * lerp(Sky(r), Sky(n) * 0.6, rough) * ao;
     }
     col += emissive;
-    col = col / (1.0 + col * 0.15);  // gentle highlight compression
+    col *= exp2(gExposure);
+    col = gTonemap == 1 ? Aces(col * 0.8) : col / (1.0 + col * 0.15);  // filmic, or gentle highlight compression
     int vm = (int)(gViewMode + 0.5);
+    if (vm >= 8)
+    {
+        // Baked mesh maps (smart masks): AO, convexity, concavity, thickness.
+        float4 m = gAO.SampleLevel(sLinearWrap, i.uv, 0);
+        float x = vm == 8 ? m.r : vm == 9 ? m.g : vm == 10 ? m.b : m.a;
+        return float4(x, x, x, 1.0);
+    }
     if (vm > 0)
     {
         // Single-channel inspection (unlit, as painted).
