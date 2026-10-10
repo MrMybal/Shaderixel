@@ -44,7 +44,8 @@ struct BrushRootM {
     u32 dw, dh, vw, vh, count;
     float hardness, opacity;
     u32 mode, flags;
-    float pad[3];
+    float facingMin;
+    float pad[2];
 };
 }  // namespace
 
@@ -182,7 +183,7 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
 }
 
 void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
-                              float4 color, bool erase, u32 extraFlags, gpu::Texture* decal) {
+                              float4 color, bool erase, u32 extraFlags, gpu::Texture* decal, const std::vector<float4>* dabEx) {
     if (!strokeSurface || dabs.empty() || !s.posMap || !s.depth) {
         Log("MeshStrokeDabs skipped: stroke=%u dabs=%zu pos=%d depth=%d", strokeSurface, dabs.size(), (int)(bool)s.posMap, (int)(bool)s.depth);
         return;
@@ -194,16 +195,26 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
     Surface* sel = doc.Selection();
     struct PaintCB {
         float vp[16];
-        float4 camPos, color;
+        float4 camPos, color, tip;
         float4 dabs[1024];
+        float4 dabsEx[1024];
     };
     static PaintCB cb;
     memcpy(cb.vp, s.viewProj.m, sizeof(cb.vp));
     cb.camPos = {s.camPos.x, s.camPos.y, s.camPos.z, 1};
     cb.color = color;
+    // Programmable tip: shapes from the atlas (not for decals).
+    const bool useTip = meshTipOn && meshTipAtlas && !(extraFlags & 4u);
+    if (useTip) extraFlags |= 32u;
+    cb.tip = {meshTipExtent, (float)meshTipVariants, 0, 0};
+    const u32 sym = meshSymmetry == 1 ? 16u : meshSymmetry == 2 ? 64u : meshSymmetry == 3 ? 128u : 0u;
+    if (!(extraFlags & 4u)) extraFlags |= sym;
     for (size_t start = 0; start < dabs.size(); start += 1024) {
         size_t count = std::min<size_t>(1024, dabs.size() - start);
-        for (size_t i = 0; i < count; ++i) cb.dabs[i] = {dabs[start + i].x, dabs[start + i].y, dabs[start + i].radius, dabs[start + i].alpha};
+        for (size_t i = 0; i < count; ++i) {
+            cb.dabs[i] = {dabs[start + i].x, dabs[start + i].y, dabs[start + i].radius, dabs[start + i].alpha};
+            cb.dabsEx[i] = dabEx && start + i < dabEx->size() ? (*dabEx)[start + i] : float4{1, 0, 0, 0};
+        }
         gpu::DispatchDesc d;
         d.pipeline = k;
         d.srv[0] = strokePre.get();
@@ -212,13 +223,15 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
         d.srv[3] = s.depth.get();
         d.srv[4] = sel ? sel->tex.get() : nullptr;
         d.srv[5] = decal;
+        d.srv[6] = useTip ? meshTipAtlas.get() : nullptr;
         d.uav[0] = sf->tex.get();
         d.uav[1] = strokeMask.get();
-        BrushRootM root = {W, H, s.depth->Width(), s.depth->Height(), (u32)count, b.hardness, b.opacity, erase ? 1u : 0u, (sel ? 1u : 0u) | extraFlags, {0, 0, 0}};
+        BrushRootM root = {W, H, s.depth->Width(), s.depth->Height(), (u32)count, b.hardness, b.opacity, erase ? 1u : 0u, (sel ? 1u : 0u) | extraFlags,
+                           std::clamp(meshFacingMin, -0.5f, 0.95f), {0, 0}};
         memcpy(d.constants, &root, sizeof(root));
         d.numConstants = sizeof(root) / 4;
         d.cbData = &cb;
-        d.cbSize = offsetof(PaintCB, dabs) + count * sizeof(float4);
+        d.cbSize = useTip ? offsetof(PaintCB, dabsEx) + count * sizeof(float4) : offsetof(PaintCB, dabs) + count * sizeof(float4);
         Dispatch2D(ctx, d, W, H);
     }
     strokeRect = {0, 0, (int)W, (int)H};
@@ -241,15 +254,15 @@ bool Renderer::BeginStrokeMulti(Document& doc, gpu::CommandContext& ctx, const s
 }
 
 void Renderer::MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
-                                   const std::vector<float4>& colors, bool erase) {
+                                   const std::vector<float4>& colors, bool erase, const std::vector<float4>* dabEx) {
     if (!strokeSurface) return;
-    // First layer: accumulates the coverage; the others composite with it.
-    const u32 sym = meshSymmetryX ? 16u : 0u;
-    MeshStrokeDabs(doc, ctx, s, dabs, b, colors.empty() ? float4{1, 1, 1, 1} : colors[0], erase, sym);
+    // First layer: accumulates the coverage; the others composite with it (symmetry is added by MeshStrokeDabs).
+    const u32 sym = 0;
+    MeshStrokeDabs(doc, ctx, s, dabs, b, colors.empty() ? float4{1, 1, 1, 1} : colors[0], erase, sym, nullptr, dabEx);
     for (size_t i = 0; i < strokeSlots.size(); ++i) {
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
-        MeshStrokeDabs(doc, ctx, s, dabs, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), erase, 2u | sym);
+        MeshStrokeDabs(doc, ctx, s, dabs, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), erase, 2u | sym, nullptr, dabEx);
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
     }

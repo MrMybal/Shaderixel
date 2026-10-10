@@ -3,8 +3,10 @@
 // Flags: 1 selection, 2 coverage already accumulated (other channels of a
 // multi-channel stroke: only composite), 4 decal (gDabs[0] = center, half size;
 // gDabs[1] = cos, sin of the rotation, opacity; coverage = decal alpha),
-// 8 decal color (the paint color is the decal's own color), 16 symmetry X (object
-// space: a texel is also painted when its mirror image is under a dab).
+// 8 decal color (the paint color is the decal's own color), 16/64/128 symmetry X/Y/Z
+// (object space: a texel is also painted when its mirror image is under a dab),
+// 32 brush tip: the dab's shape is read in a tip atlas (variants side by side),
+// rotated by gDabsEx (cos, sin, variant).
 #include "common.slang"
 
 cbuffer Root : register(b0)
@@ -16,7 +18,8 @@ cbuffer Root : register(b0)
     float gOpacity;
     uint gMode;         // 0 paint, 1 erase
     uint gFlags;        // 1 has selection, 2 coverage only read, 4 decal, 8 decal color
-    float3 _pad;
+    float gFacingMin;   // texels seen more edge-on than this (dot(n, v)) are not painted
+    float2 _pad;
 };
 
 cbuffer Paint : register(b1)
@@ -24,7 +27,9 @@ cbuffer Paint : register(b1)
     row_major float4x4 gViewProj;
     float4 gCamPos;
     float4 gColor;      // linear straight
+    float4 gTip;        // extent (radii covered by a variant), variant count
     float4 gDabs[1024]; // screen x, y, radius px, alpha
+    float4 gDabsEx[1024]; // cos, sin of the dab angle, variant
 };
 
 Texture2D<float4> gPre : register(t0);
@@ -33,6 +38,22 @@ Texture2D<float4> gNrmMap : register(t2);
 Texture2D<float> gDepth : register(t3);
 Texture2D<float> gSel : register(t4);
 Texture2D<float4> gDecal : register(t5);
+Texture2D<float> gTipAtlas : register(t6);
+
+float TipCoverage(float2 rel, float r, float4 ex)
+{
+    // rel: screen offset from the dab center. The variant covers [-extent, extent] radii.
+    float2 q = float2(ex.x * rel.x + ex.y * rel.y, -ex.y * rel.x + ex.x * rel.y) / r;
+    float e = max(gTip.x, 1.0);
+    if (any(abs(q) >= e)) return 0.0;
+    float2 uv = q / (2.0 * e) + 0.5;
+    uint aw, ah;
+    gTipAtlas.GetDimensions(aw, ah);
+    float tiles = max(gTip.y, 1.0);
+    float inset = 0.5 / float(ah);
+    uv = clamp(uv, inset, 1.0 - inset);
+    return saturate(gTipAtlas.SampleLevel(sLinearClamp, float2((ex.z + uv.x) / tiles, uv.y), 0));
+}
 RWTexture2D<float4> gLayer : register(u0);
 RWTexture2D<float> gStroke : register(u1);
 
@@ -54,15 +75,18 @@ void main(uint3 id : SV_DispatchThreadID)
     float3 n = normalize(gNrmMap.Load(int3(px, 0)).xyz);
     float3 v = normalize(gCamPos.xyz - pos.xyz);
     float facing = dot(n, v);
-    float facingW = (onScreen && ndc.z <= scene + 0.0015 && facing > 0.05) ? saturate((facing - 0.05) * 4.0) : 0.0;
-    if (facingW <= 0.0 && (gFlags & 16) == 0) return;
+    const float fmin = gFacingMin;
+    float facingW = (onScreen && ndc.z <= scene + 0.0015 && facing > fmin) ? saturate((facing - fmin) * 4.0) : 0.0;
+    const uint symFlags = gFlags & (16u | 64u | 128u);
+    if (facingW <= 0.0 && symFlags == 0) return;
 
     // Symmetry: the mirrored point, where it shows on screen (visible and facing).
     float2 spm = float2(-1e9, -1e9);
     float facingM = 0.0;
-    if (gFlags & 16)
+    if (symFlags != 0)
     {
-        float3 pm = float3(-pos.x, pos.y, pos.z);
+        float3 mirror = (gFlags & 16) ? float3(-1, 1, 1) : (gFlags & 64) ? float3(1, -1, 1) : float3(1, 1, -1);
+        float3 pm = pos.xyz * mirror;
         float4 cm = mul(gViewProj, float4(pm, 1.0));
         if (cm.w > 1e-5)
         {
@@ -71,8 +95,8 @@ void main(uint3 id : SV_DispatchThreadID)
             if (all(s2 >= 0.0) && all(s2 < float2(gViewSize)) && nm.z <= gDepth.Load(int3(int2(s2), 0)) + 0.0015)
             {
                 float3 nrm = normalize(gNrmMap.Load(int3(px, 0)).xyz);
-                float f = dot(normalize(float3(-nrm.x, nrm.y, nrm.z)), normalize(gCamPos.xyz - pm));
-                if (f > 0.05) { spm = s2; facingM = saturate((f - 0.05) * 4.0); }
+                float f = dot(normalize(nrm * mirror), normalize(gCamPos.xyz - pm));
+                if (f > fmin) { spm = s2; facingM = saturate((f - fmin) * 4.0); }
             }
         }
     }
@@ -99,6 +123,13 @@ void main(uint3 id : SV_DispatchThreadID)
     {
         float4 dab = gDabs[i];
         float r = max(dab.z, 0.5);
+        if (gFlags & 32)
+        {
+            float4 ex = gDabsEx[i];
+            if (facingW > 0.0) m = m + (1.0 - m) * TipCoverage(sp - dab.xy, r, ex) * dab.w * facingW;
+            if (facingM > 0.0) m = m + (1.0 - m) * TipCoverage(spm - dab.xy, r, ex) * dab.w * facingM;
+            continue;
+        }
         float d = length(sp - dab.xy);
         float inner = r * saturate(gHardness);
         float soft = r - inner > 1.0 ? 1.0 - smoothstep(inner, r, d) : 1.0;

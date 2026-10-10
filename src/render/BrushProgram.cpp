@@ -185,6 +185,65 @@ gpu::Texture* Renderer::BrushPreview(gpu::CommandContext& ctx, const BrushDef& b
     return previewLayer.get();
 }
 
+// ------------------------------------------------------------------ tip in 3D
+
+bool Renderer::BuildMeshTip(gpu::CommandContext& ctx, const BrushDef& b, const EffectInstance& tip, const BrushSettings& s) {
+    // The 3D brush reads its dab shapes here: a few dabs of the tip (different seeds), each in its
+    // own square, coverage only. Rebuilt when the tip or its settings change.
+    const gpu::ComputePipeline* pipe = BrushPipeline(b);
+    auto* clear = Kernel("clear.slang");
+    auto* clearR = Kernel("clear_r.slang");
+    if (!pipe || !clear || !clearR) return false;
+    const int n = meshTipVariants;
+    const u32 T = 128, W = T * (u32)n;
+    Hasher hh;
+    hh.Bytes(b.text.data(), b.text.size());
+    auto packed = PackParams(*b.def, tip.params);
+    hh.Bytes(packed.data(), packed.size() * sizeof(float4));
+    hh.Pod(s.hardness);
+    for (auto* tx : s.tipTexBound) hh.Pod(tx);
+    if (meshTipHash == hh.h && meshTipAtlas) return true;
+    Ensure(meshTipAtlas, W, T, gpu::Format::R32F, "MeshTipAtlas");
+    Ensure(meshTipLayer, W, T, gpu::Format::RGBA16F, "MeshTipLayer");
+    Ensure(meshTipColor, W, T, gpu::Format::RGBA16F, "MeshTipColor");
+    for (gpu::Texture* t : {meshTipLayer.get(), meshTipColor.get()}) {
+        gpu::DispatchDesc c;
+        c.pipeline = clear;
+        c.uav[0] = t;
+        SetConstants(c, ClearRootB{0, 0, W, T, {0, 0, 0, 0}});
+        Dispatch2D(ctx, c, W, T);
+    }
+    {
+        gpu::DispatchDesc c;
+        c.pipeline = clearR;
+        c.uav[0] = meshTipAtlas.get();
+        SetConstants(c, ClearRRootB{W, T, 0.0f});
+        Dispatch2D(ctx, c, W, T);
+    }
+    // Scattering tips reach `extent` radii: the dab is made smaller so it stays in its square.
+    meshTipExtent = std::clamp(b.extent, 1.0f, 4.0f);
+    const float radius = T * 0.5f / meshTipExtent - 1.0f;
+    BrushSettings bs = s;
+    bs.opacity = 1;
+    bs.flow = 1;
+    std::vector<Dab> dabs;
+    std::vector<float4> extra;
+    for (int i = 0; i < n; ++i) {
+        dabs.push_back({T * (i + 0.5f), T * 0.5f, radius, 1.0f});
+        extra.push_back({1.0f, 0.0f, 0.0f, radius * 2.0f * i});  // pressure, stroke angle, time, distance
+        extra.push_back({0.0f, 0.0f, 0.0f, 0.0f});                // tilt, twist, speed
+    }
+    // One dab at a time: each square only receives its own dab.
+    for (int i = 0; i < n; ++i) {
+        BrushTargets t{nullptr, nullptr, meshTipLayer.get(), meshTipAtlas.get(), meshTipColor.get(), W, T, true};
+        std::vector<Dab> one = {dabs[i]};
+        std::vector<float4> ex = {extra[i * 2], extra[i * 2 + 1]};
+        RunBrush(ctx, pipe, b, tip, one, ex, (u32)i, bs, {1, 1, 1, 1}, false, t, nullptr);
+    }
+    meshTipHash = hh.h;
+    return true;
+}
+
 // ------------------------------------------------------------------ test pad
 
 void Renderer::PadClear(gpu::CommandContext& ctx, u32 w, u32 h) {

@@ -253,12 +253,20 @@ public:
     gpu::TexturePtr BakeNormal(gpu::CommandContext& ctx, gpu::Texture* normal, gpu::Texture* height, u32 w, u32 h);
     gpu::Texture* MeshRender(gpu::CommandContext& ctx, MeshScene& s, const MeshMaterial& material, u32 w, u32 h);
     void MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
-                        float4 colorLinear, bool erase, u32 extraFlags = 0, gpu::Texture* decal = nullptr);
+                        float4 colorLinear, bool erase, u32 extraFlags = 0, gpu::Texture* decal = nullptr, const std::vector<float4>* dabEx = nullptr);
     // Multi-channel strokes (3D projects): one coverage, several layers each with its own value.
     bool BeginStrokeMulti(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces);
     void MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
-                             const std::vector<float4>& colorsLinear, bool erase);
-    bool meshSymmetryX = false;  // 3D strokes mirrored across the model's X axis
+                             const std::vector<float4>& colorsLinear, bool erase, const std::vector<float4>* dabEx = nullptr);  // dabEx: cos, sin, tip variant
+    int meshSymmetry = 0;        // 3D strokes mirrored across the model's axis: 0 none, 1 X, 2 Y, 3 Z
+    float meshFacingMin = 0.05f; // texels seen more edge-on than this are not painted (dot(n, view))
+    // Brush tip in 3D: a few variants of the programmable tip rendered side by side (BuildMeshTip).
+    gpu::TexturePtr meshTipAtlas, meshTipLayer, meshTipColor;
+    u64 meshTipHash = 0;
+    int meshTipVariants = 8;
+    float meshTipExtent = 1.0f;
+    bool meshTipOn = false;      // used by the next MeshStrokeDabs
+    bool BuildMeshTip(gpu::CommandContext& ctx, const BrushDef& b, const EffectInstance& tip, const BrushSettings& s);
     // 2D multi-channel strokes: the other layers rebuilt from the shared coverage (after StrokeDabs / StrokeProgram).
     void StrokeApplySlots(Document& doc, gpu::CommandContext& ctx, const BrushSettings& b, const std::vector<float4>& colorsLinear, bool erase);
     // Decal projected from the view: center / half size in view pixels, rotation (radians); the first layer can take the image colors.

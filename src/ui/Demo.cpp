@@ -307,6 +307,74 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 87) {
+        // Paint 3D tools through synthetic mouse events on the 3D view: a scattered stroke with a
+        // programmable tip (SX_TIP, cy_star by default), symmetry SX_SYM (1..3), then polygon fills (face, part).
+        char tipId[64] = "cy_star", sym[4] = "0";
+        GetEnvironmentVariableA("SX_TIP", tipId, sizeof(tipId));
+        GetEnvironmentVariableA("SX_SYM", sym, sizeof(sym));
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.basePreset = 1;
+            p3dNew.mesh = 1;  // cube: flat faces
+            char mf[512] = "";
+            if (GetEnvironmentVariableA("SX_MESHFILE", mf, sizeof(mf)) > 0) { p3dNew.mesh = 3; p3dNew.meshPath = mf; }
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh) return;
+        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D");
+        if (!w) return;
+        const ImVec2 c((w->InnerRect.Min.x + w->InnerRect.Max.x) * 0.5f, (w->InnerRect.Min.y + w->InnerRect.Max.y) * 0.5f + 20);
+        const float span = (w->InnerRect.Max.x - w->InnerRect.Min.x) * 0.18f;
+        ImGuiIO& io = ImGui::GetIO();
+        if (frameCounter == 12) {
+            SelectTip(brush, tipId);
+            brush.size = 46;
+            brush.flow = 1;
+            brush3D.tip = true;
+            brush3D.scatter = 0.5f;
+            brush3D.jitterAngle = 1;
+            brush3D.jitterSize = 0.4f;
+            a->renderer.meshSymmetry = atoi(sym);
+            fg = {0.85f, 0.12f, 0.1f, 1};
+            tool = Tool::Brush;
+        }
+        if (frameCounter == 14) {
+            // Compile the tip before the stroke.
+            EffectInstance tip;
+            tip.params = brush.tipParams;
+            if (auto td = TipDef(brush)) a->renderer.BuildMeshTip(*ctx, *td, tip, brush);
+        }
+        if (frameCounter >= 26 && frameCounter <= 50) {
+            const float t = (frameCounter - 26) / 24.0f;
+            io.AddMousePosEvent(c.x - span + 2 * span * t, c.y - span * 0.6f + std::sin(t * 6.0f) * 15);
+            if (frameCounter == 27) io.AddMouseButtonEvent(0, true);
+        }
+        if (frameCounter == 51) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 56) Log("[demo] stroke: tip %s, atlas %d, %s", tipId, a->renderer.meshTipAtlas ? 1 : 0, statusMsg.c_str());
+        // Polygon fills: a face in blue, then (Ctrl) erase nothing; a part in green on SX_MESHFILE models.
+        if (frameCounter == 60) {
+            tool = Tool::PolyFill;
+            brush3D.polyMode = 1;
+            fg = {0.1f, 0.35f, 0.9f, 1};
+            io.AddMousePosEvent(c.x + span * 0.3f, c.y + span * 0.4f);
+        }
+        if (frameCounter == 63) io.AddMouseButtonEvent(0, true);
+        if (frameCounter == 65) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 68) Log("[demo] polyfill: %s", statusMsg.c_str());
+        if (frameCounter == 70) {
+            brush3D.polyMode = 0;
+            fg = {0.2f, 0.8f, 0.3f, 1};
+            io.AddMousePosEvent(c.x - span * 0.5f, c.y + span * 0.2f);
+        }
+        if (frameCounter == 73) io.AddMouseButtonEvent(0, true);
+        if (frameCounter == 75) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 78) Log("[demo] polyfill part: %s", statusMsg.c_str());
+        if (frameCounter == 80) io.AddMousePosEvent(c.x + span * 0.2f, c.y - span * 0.2f);  // hover highlight shown in the capture
+        return;
+    }
     if (demoMode == 86) {
         // A panel (SX_PANEL, Effets by default) opened large in its own window; SX_BACK=1: put back at frame 60.
         char panel[64] = "Effets", back[4] = "";
@@ -1691,13 +1759,13 @@ void App::DemoTick() {
             std::vector<float4> colors;
             std::vector<Id> targets = Paint3DTargets(*a, colors);
             Log("[demo] paint3d: layout %d, %zu targets, %zu layers, channels 0x%X", layoutKind, targets.size(), d.S().layers.size(), d.pbrChannels);
-            a->renderer.meshSymmetryX = GetEnvironmentVariableA("SX_SYM", nullptr, 0) > 0;
-            if (a->renderer.meshSymmetryX) s.yaw = 1.5707963f;  // facing the mirror plane: it is vertical on screen
-            if (a->renderer.meshSymmetryX) a->renderer.MeshRender(*ctx, s, GatherMaterial(*a), s.depth->Width(), s.depth->Height());
+            a->renderer.meshSymmetry = GetEnvironmentVariableA("SX_SYM", nullptr, 0) > 0 ? 1 : 0;
+            if (a->renderer.meshSymmetry) s.yaw = 1.5707963f;  // facing the mirror plane: it is vertical on screen
+            if (a->renderer.meshSymmetry) a->renderer.MeshRender(*ctx, s, GatherMaterial(*a), s.depth->Width(), s.depth->Height());
             if (a->renderer.BeginStrokeMulti(d, *ctx, targets)) {
                 std::vector<Dab> dabs;
                 float cx = s.depth->Width() * 0.5f, cy = s.depth->Height() * 0.5f, r = std::min(cx, cy) * 0.45f;
-                if (a->renderer.meshSymmetryX) r *= 0.4f, cx -= r * 1.4f;
+                if (a->renderer.meshSymmetry) r *= 0.4f, cx -= r * 1.4f;
                 for (int i = 0; i <= 300; ++i) {
                     float t = i / 300.0f;
                     dabs.push_back({cx - r + 2 * r * t, cy + std::sin(t * 9.0f) * r * 0.25f, 22, 1});

@@ -8,6 +8,7 @@
 #include "ui/App.h"
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
+#include "doc/Brushes.h"
 #include "ai/Net.h"
 
 #include <fstream>
@@ -321,8 +322,9 @@ void App::DrawLayers3DPanel() {
                 v->history.EndGroup();
             }
         }
-        ImGui::Checkbox("Symétrie X (pinceau 3D)", &v->renderer.meshSymmetryX);
-        ui::HelpTooltip("Chaque trait est aussi peint de l'autre côté du modèle (miroir sur l'axe X de l'objet).");
+        ImGui::SetNextItemWidth(120 * dpi);
+        ImGui::Combo("Symétrie (pinceau 3D)", &v->renderer.meshSymmetry, "Aucune\0Axe X\0Axe Y\0Axe Z\0");
+        ui::HelpTooltip("Chaque trait est aussi peint de l'autre côté du modèle (miroir sur l'axe choisi de l'objet).");
     }
     ImGui::End();
 }
@@ -371,6 +373,56 @@ void App::DrawBrushMaterialPanel() {
     row(PbrChannel::Metallic, "Métal");
     row(PbrChannel::Height, "Hauteur");
     row(PbrChannel::Emissive, "Émissif");
+
+    // The brush on the model: tip, dynamics, stroke helpers.
+    ImGui::SeparatorText("Pinceau 3D");
+    {
+        BrushSettings& bs = tool == Tool::Eraser ? eraser : brush;
+        auto td = TipDef(bs);
+        const std::string tipName = td && td->def ? td->def->name : "Rond (dureté)";
+        ImGui::Checkbox("Pointe du pinceau", &B.tip);
+        ui::HelpTooltip("Coché : la forme du pinceau choisi (panneau Pinceaux, ou la liste à droite) est projetée sur le modèle,\navec ses variantes ; décoché : disque rond avec la dureté.");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::BeginCombo("##tip3d", tipName.c_str(), ImGuiComboFlags_HeightLarge)) {
+            if (ImGui::Selectable("Rond (dureté)", !td)) SelectTip(bs, "");
+            std::string cat;
+            for (auto& b : Brushes().All()) {
+                if (!b->def) continue;
+                if (b->def->category != cat) { cat = b->def->category; ImGui::SeparatorText(cat.c_str()); }
+                if (ImGui::Selectable((b->def->name + "##" + b->id).c_str(), td && td->id == b->id)) { SelectTip(bs, b->id); B.tip = true; }
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::SliderFloat("Taille", &bs.size, 1, 600, "%.0f px", ImGuiSliderFlags_Logarithmic);
+        ImGui::SliderFloat("Flux", &bs.flow, 0.01f, 1, "%.2f");
+        ImGui::SliderFloat("Espacement", &bs.spacing, 0.02f, 2.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+        if (ImGui::TreeNode("Dynamique")) {
+            ImGui::SliderFloat("Angle", &B.angle, -180, 180, "%.0f°");
+            ImGui::Checkbox("Suivre le trait", &B.follow);
+            ui::HelpTooltip("La pointe tourne dans le sens du trait (rayures, coutures, traînées).");
+            ImGui::SliderFloat("Variation d'angle", &B.jitterAngle, 0, 1, "%.2f");
+            ImGui::SliderFloat("Variation de taille", &B.jitterSize, 0, 1, "%.2f");
+            ImGui::SliderFloat("Dispersion", &B.scatter, 0, 3, "%.2f");
+            ui::HelpTooltip("Chaque touche est déplacée au hasard autour du trait (en diamètres).");
+            ImGui::SliderFloat("Variation de flux", &B.jitterFlow, 0, 1, "%.2f");
+            ImGui::TreePop();
+        }
+        if (ImGui::TreeNode("Trait")) {
+            ImGui::SliderFloat("Lissage (fil)", &B.lazy, 0, 120, B.lazy > 0 ? "%.0f px" : "désactivé");
+            ui::HelpTooltip("Le pinceau suit le curseur au bout d'un fil : traits réguliers.");
+            if (DocView* v = Active(); v)
+                ImGui::SliderFloat("Angle limite", &v->renderer.meshFacingMin, -0.2f, 0.9f, "%.2f");
+            ui::HelpTooltip("Les zones vues trop de biais ne sont pas peintes (0 : jusqu'au bord, plus haut : seulement les faces bien de face).");
+            ImGui::TextDisabled("Maj+clic : ligne droite depuis la fin du dernier trait.");
+            ImGui::TreePop();
+        }
+    }
+    ImGui::SeparatorText("Remplissage par polygone");
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::Combo("##polymode", &B.polyMode, "Triangle\0Face (polygone plat)\0Île UV\0Pièce du maillage\0Tout le modèle\0");
+    if (ImGui::Button("Outil Remplissage par polygone")) tool = Tool::PolyFill;
+    ui::HelpTooltip("Clic sur le modèle : remplit l'élément sous le curseur avec le matériau du pinceau\n(ou le masque du matériau). Ctrl+clic : efface.");
     ImGui::SeparatorText("Projection (décalque)");
     std::string dn = decal.path.empty() ? "(aucune image)" : Narrow(Utf8Path(decal.path).filename().wstring());
     ImGui::TextUnformatted(dn.c_str());

@@ -48,6 +48,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Text, ui::IconText, "Texte", "T"},
     {Tool::Shape, ui::IconShape, "Forme", "U"},
     {Tool::Projection, ui::IconStamp, "Projection (décalque 3D)", "P"},
+    {Tool::PolyFill, ui::IconBucket, "Remplissage par polygone (3D)", "-"},
 };
 
 // Toolbar slots; tools sharing a slot appear in a flyout (right-click).
@@ -59,7 +60,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::QuickSelect, Tool::Wand},
     {Tool::Crop, Tool::Trim},
     {Tool::Brush, Tool::HistoryBrush},
-    {Tool::Projection},
+    {Tool::Projection, Tool::PolyFill},
     {Tool::Eraser, Tool::BackgroundEraser, Tool::MagicEraser},
     {Tool::Clone, Tool::PatternStamp},
     {Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye},
@@ -88,7 +89,7 @@ void App::DrawToolbar() {
         // Paint 3D projects: painting tools only.
         const bool p3d = Active() && Active()->doc->kind == 1;
         auto allowed3D = [](Tool t) {
-            return t == Tool::Brush || t == Tool::Eraser || t == Tool::Projection || t == Tool::Clone || t == Tool::Blur || t == Tool::Picker ||
+            return t == Tool::Brush || t == Tool::Eraser || t == Tool::Projection || t == Tool::PolyFill || t == Tool::Clone || t == Tool::Blur || t == Tool::Picker ||
                    t == Tool::Hand || t == Tool::Zoom || t == Tool::Lasso || t == Tool::RectSelect;
         };
         for (size_t g = 0; g < kGroups.size(); ++g) {

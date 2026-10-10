@@ -1,5 +1,6 @@
 // 3D viewport: preview the document on a mesh and paint directly on it.
 #include "ui/App.h"
+#include "doc/Brushes.h"
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
 
@@ -178,17 +179,66 @@ void App::DrawView3D() {
     // Layers painted together (3D project paint layer: one per channel) and their values.
     std::vector<float4> meshColors;
     std::vector<Id> meshTargets = Paint3DTargets(*v, meshColors);
+    // 3D brush: the tip of the brush (atlas of variants), dynamics (jitter, scatter, angle), lazy mouse, line with Shift.
+    auto setupTip = [&](const BrushSettings& b) {
+        v->renderer.meshTipOn = false;
+        if (!brush3D.tip) return;
+        if (auto td = TipDef(b)) {
+            EffectInstance tip;
+            tip.params = b.tipParams;
+            BrushSettings bound = b;
+            BindTipTextures(bound, *td);
+            v->renderer.meshTipOn = v->renderer.BuildMeshTip(*ctx, *td, tip, bound);
+        }
+    };
+    auto spacingOf = [&](const BrushSettings& b) {
+        float sp = b.spacing;
+        if (brush3D.tip)
+            if (auto td = TipDef(b); td && td->spacing > 0) sp = td->spacing;
+        return std::max(1.0f, b.size * std::max(sp, 0.02f));
+    };
+    std::vector<float4> dabEx;
+    auto rnd = [&] {
+        meshRng = meshRng * 1664525u + 1013904223u;
+        return (meshRng >> 8) * (1.0f / 16777216.0f);
+    };
+    auto addDab = [&](std::vector<Dab>& out, float2 q, float pr, float2 dir, const BrushSettings& b) {
+        const auto& B = brush3D;
+        float rad = b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f);
+        rad *= std::max(0.05f, 1.0f + B.jitterSize * (rnd() * 2 - 1));
+        if (B.scatter > 0) {
+            const float ang = rnd() * 6.2831853f, dist = std::sqrt(rnd()) * B.scatter * b.size;
+            q = q + float2{std::cos(ang) * dist, std::sin(ang) * dist};
+        }
+        float angle = B.angle * 0.0174533f + B.jitterAngle * 3.14159265f * (rnd() * 2 - 1);
+        if (B.follow && Length(dir) > 1e-4f) angle += std::atan2(dir.y, dir.x);
+        const float alpha = b.flow * (b.pressureOpacity ? pr : 1.0f) * (1.0f - B.jitterFlow * rnd());
+        out.push_back({q.x, q.y, rad, alpha});
+        dabEx.push_back({std::cos(angle), std::sin(angle), (float)((int)(rnd() * v->renderer.meshTipVariants) % v->renderer.meshTipVariants), 0});
+    };
     if (paintTool && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt) {
         if (!target || meshTargets.empty()) Status("Sélectionnez un calque de pixels pour peindre en 3D");
         else if (v->renderer.BeginStrokeMulti(doc, *ctx, meshTargets)) {
-            meshStroking = true;
-            float2 p = local(io.MousePos.x, io.MousePos.y);
-            meshLastDab = p;
-            meshDabRemainder = 0;
             const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
+            setupTip(b);
+            float2 p = local(io.MousePos.x, io.MousePos.y);
             float pr = platform::PenActive() ? PenPressure(platform::LastPressure()) : 1.0f;
-            v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, {{p.x, p.y, b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f), b.flow}}, b,
-                                            meshColors, tool == Tool::Eraser);
+            std::vector<Dab> first;
+            if (io.KeyShift && meshLineValid) {
+                // Straight line from the end of the last stroke (in the view: the camera has to stay put).
+                float2 d = p - meshLineEnd;
+                float len = Length(d);
+                const float sp = spacingOf(b);
+                for (float t = 0; t <= len; t += sp) addDab(first, meshLineEnd + d * (t / std::max(len, 1e-4f)), pr, d, b);
+            } else {
+                addDab(first, p, pr, {0, 0}, b);
+            }
+            meshStroking = true;
+            meshLastDab = p;
+            meshLazy = p;
+            meshDabRemainder = 0;
+            v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, first, b, meshColors, tool == Tool::Eraser, &dabEx);
+            dabEx.clear();
         }
     }
     // Projection: the decal is placed where it is seen (occlusion and facing like the brush).
@@ -208,18 +258,26 @@ void App::DrawView3D() {
     }
     if (meshStroking) {
         const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
+        if (brush3D.tip && !v->renderer.meshTipOn) setupTip(b);  // the tip may still be compiling at the first dab
         if (samples.empty()) samples.push_back({io.MousePos.x, io.MousePos.y, platform::PenActive() ? platform::LastPressure() : 1.0f, platform::PenActive(), false});
         std::vector<Dab> dabs;
-        float spacing = std::max(1.0f, b.size * std::max(b.spacing, 0.02f));
+        const float spacing = spacingOf(b);
         for (auto& sm : samples) {
             float2 p = local(sm.x, sm.y);
+            if (brush3D.lazy > 0) {
+                // Lazy mouse: the brush follows the cursor at the end of a string.
+                float2 d = p - meshLazy;
+                float l = Length(d);
+                if (l <= brush3D.lazy) continue;
+                meshLazy = meshLazy + d * ((l - brush3D.lazy) / l);
+                p = meshLazy;
+            }
             float pr = sm.pen ? PenPressure(sm.pressure) : 1.0f;
             float2 d = p - meshLastDab;
             float len = Length(d);
             float t = spacing - meshDabRemainder;
             while (t <= len) {
-                float2 q = meshLastDab + d * (t / std::max(len, 1e-4f));
-                dabs.push_back({q.x, q.y, b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f), b.flow * (b.pressureOpacity ? pr : 1.0f)});
+                addDab(dabs, meshLastDab + d * (t / std::max(len, 1e-4f)), pr, d, b);
                 t += spacing;
             }
             meshDabRemainder = std::max(0.0f, len - (t - spacing));
@@ -227,11 +285,25 @@ void App::DrawView3D() {
         }
         // Render first so the occlusion test uses this frame's depth.
         v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
-        if (!dabs.empty()) v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, dabs, b, meshColors, tool == Tool::Eraser);
-        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        if (!dabs.empty()) v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, dabs, b, meshColors, tool == Tool::Eraser, &dabEx);
+        dabEx.clear();
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || io.KeyShift) {
             v->renderer.EndStrokeMulti(doc, *ctx, v->history, "Peinture 3D");
             meshStroking = false;
+            meshLineEnd = meshLastDab;
+            meshLineValid = true;
         }
+    }
+    // Polygon fill: the triangle / face / UV island / part under the cursor.
+    if (tool == Tool::PolyFill && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt) {
+        int tri = PickMeshTriangle(s, local(io.MousePos.x, io.MousePos.y), w, h);
+        if (tri < 0) Status("Remplissage par polygone : cliquez sur le modèle");
+        else PolygonFill(*v, tri, io.KeyCtrl);
+    }
+    if (tool == Tool::PolyFill && hovered && !orbit) {
+        polyHover = PickMeshTriangle(s, local(io.MousePos.x, io.MousePos.y), w, h);
+    } else {
+        polyHover = -1;
     }
 
     // Re-evaluate the document (cached) so the mesh shows the latest paint, then render.
@@ -249,11 +321,19 @@ void App::DrawView3D() {
                          IM_COL32(255, 255, 255, 150));
         dl->AddPolyline(q, 4, IM_COL32(255, 140, 0, 220), ImDrawFlags_Closed, 1.5f);
     }
+    if (tool == Tool::PolyFill && polyHover >= 0) DrawPolyHighlight(s, polyHover, origin, w, h);
     if (hovered && paintTool && !orbit) {
         const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
         float r = std::max(b.size * 0.5f, 1.0f);
         dl->AddCircle(io.MousePos, r + 1, IM_COL32(0, 0, 0, 150), 0, 1.5f);
         dl->AddCircle(io.MousePos, r, IM_COL32_WHITE, 0, 1.0f);
+        if (brush3D.lazy > 0 && meshStroking) {
+            ImVec2 lz(origin.x + meshLazy.x, origin.y + meshLazy.y);
+            dl->AddLine(lz, io.MousePos, IM_COL32(255, 200, 80, 200), 1.5f);
+            dl->AddCircleFilled(lz, 3, IM_COL32(255, 200, 80, 255));
+        }
+        if (io.KeyShift && meshLineValid && !meshStroking)
+            dl->AddLine(ImVec2(origin.x + meshLineEnd.x, origin.y + meshLineEnd.y), io.MousePos, IM_COL32(255, 255, 255, 160), 1.0f);
         ImGui::SetMouseCursor(ImGuiMouseCursor_None);
     }
     ImGui::End();

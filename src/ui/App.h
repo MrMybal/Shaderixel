@@ -34,7 +34,7 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
@@ -1123,7 +1123,26 @@ private:
         bool use[7] = {true, true, false, false, false, false, false};
         float rough = 0.45f, metal = 0.0f, height = 0.6f;
         float4 emissive = {1, 0.6f, 0.2f, 1};
+        // 3D brush dynamics (View3D.cpp).
+        bool tip = true;     // the programmable tip of the brush (Pinceaux panel)
+        float jitterSize = 0, jitterAngle = 0, scatter = 0, jitterFlow = 0, angle = 0;
+        bool follow = false;  // dab angle follows the stroke
+        float lazy = 0;       // lazy mouse distance (screen px)
+        int polyMode = 1;     // polygon fill: 0 triangle, 1 flat face, 2 UV island, 3 mesh part, 4 whole model
     } brush3D;
+    // Polygon fill (Paint3DTools.cpp): mesh adjacency, rebuilt when the mesh changes.
+    struct MeshTopology {
+        const void* scene = nullptr;
+        u32 revision = ~0u;
+        size_t tris = 0;
+        std::vector<u32> face, island, part;  // group of each triangle
+    } meshTopo;
+    int polyHover = -1;
+    int PickMeshTriangle(MeshScene& s, float2 screen, u32 w, u32 h);
+    void BuildMeshTopology(MeshScene& s);
+    std::vector<u32> PolyFillTriangles(MeshScene& s, int tri, int mode);
+    void PolygonFill(DocView& v, int tri, bool erase);
+    void DrawPolyHighlight(MeshScene& s, int tri, ImVec2 origin, u32 w, u32 h);
     struct {
         gpu::TexturePtr tex;
         int w = 0, h = 0;
@@ -1392,6 +1411,9 @@ private:
     bool meshDebugCanvas = false;
     float2 meshLastDab;
     float meshDabRemainder = 0;
+    float2 meshLazy, meshLineEnd;
+    bool meshLineValid = false;
+    u32 meshRng = 12345;
     AiBridge bridge;
     AiSettings aiSettings;
     std::string settingsPath;
