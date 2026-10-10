@@ -31,6 +31,8 @@ HWND CreateMainWindow(const wchar_t* title, int w, int h);
 std::vector<PointerSample> TakeSamples();
 float LastPressure();
 bool PenActive();
+// Scripted runs: the user's mouse / keyboard never reach the window (only the demos' synthetic events).
+void SetIgnoreUserInput(bool ignore);
 const PointerSample& LastPenSample();  // latest pen state (tilt, rotation)
 
 // Samples in screen coordinates (ImGui multi-viewports) instead of client coordinates.

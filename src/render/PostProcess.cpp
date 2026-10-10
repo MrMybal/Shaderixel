@@ -46,6 +46,33 @@ PostSettings PostFromJson(const Json& j, PostSettings d) {
     return d;
 }
 
+gpu::Texture* PostChain::Denoise(gpu::CommandContext& ctx, gpu::Texture* accum, int samples, float strength, gpu::Texture* depth) {
+    auto* k = Kernel("pt_denoise.slang");
+    if (!k || !accum || strength <= 0) return nullptr;
+    const u32 W = accum->Width(), H = accum->Height();
+    for (auto& t : dn)
+        if (!t || t->Width() != W || t->Height() != H) t = gpu::Dev().CreateTexture(W, H, gpu::Format::RGBA16F, "PtDenoise");
+    // Expected relative noise of a path-traced pixel ~ 1 / sqrt(samples).
+    const float sigma = std::max(strength * 1.6f / std::sqrt((float)std::max(samples, 1)), 1e-3f);
+    if (depth && (depth->Width() != W || depth->Height() != H)) depth = nullptr;
+    gpu::Texture* src = accum;
+    const u32 steps[] = {1, 2, 4};
+    for (int i = 0; i < 3; ++i) {
+        gpu::Texture* dst = dn[i & 1].get();
+        struct { u32 w, h, step, first; float sigma, mix; u32 last, hasDepth; } root = {W, H, steps[i], i == 0 ? 1u : 0u, sigma, 0.0f, i == 2 ? 1u : 0u, depth ? 1u : 0u};
+        gpu::DispatchDesc d;
+        d.pipeline = k;
+        d.srv[0] = src;
+        d.srv[1] = accum;
+        d.srv[2] = depth;
+        d.uav[0] = dst;
+        SetConstants(d, root);
+        Dispatch2D(ctx, d, W, H);
+        src = dst;
+    }
+    return src;
+}
+
 gpu::Texture* PostChain::Run(gpu::CommandContext& ctx, gpu::Texture* src, bool accumulated, bool raw, const PostSettings& sIn, float time) {
     auto* kPrep = Kernel("post_prep.slang");
     auto* kBloom = Kernel("post_bloom.slang");

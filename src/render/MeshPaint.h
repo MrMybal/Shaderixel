@@ -48,6 +48,7 @@ struct MeshScene {
     float shadowStrength = 0.85f, aoStrength = 1.0f;
     gpu::TexturePtr hdr, shadowMap;
     int rtSamples = 512, rtBounces = 6;  // ray-traced view (quality 2)
+    float rtDenoise = 0.6f;
     bool rtFloor = true;
     std::string envPath;                 // HDRI file (the ray-traced view loads it too)
     // Mesh maps for smart masks (R AO, G convexity, B concavity, A thickness), baked on the CPU.

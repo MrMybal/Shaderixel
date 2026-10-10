@@ -456,6 +456,9 @@ void App::DemoTick() {
             a->mesh->yaw = 0.6f;
             a->mesh->pitch = 0.45f;
             if (GetEnvironmentVariableA("SX_RT", nullptr, 0) > 0) a->mesh->quality = 2;  // ray-traced view
+            char rs[16] = "";
+            if (GetEnvironmentVariableA("SX_RTSAMPLES", rs, sizeof(rs)) > 0) a->mesh->rtSamples = atoi(rs);
+            if (GetEnvironmentVariableA("SX_DENOISE", rs, sizeof(rs)) > 0) a->mesh->rtDenoise = (float)atof(rs);
             if (GetEnvironmentVariableA("SX_POST", nullptr, 0) > 0) {
                 // Cinema look, fixed strong light from the side: bloom, vignette, grain, shadow.
                 PostSettings& p = a->mesh->post;

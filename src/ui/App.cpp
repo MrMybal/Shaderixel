@@ -241,6 +241,7 @@ bool App::Init() {
         if (!bridge.LaunchCompanion(aiSettings, &err)) Log("Companion: %s", err.c_str());
     }
     if (Automated()) {
+        platform::SetIgnoreUserInput(true);
         // Scripted run (demo / capture / dump): full size but behind the user's
         // windows and without taking the focus, so the PC stays usable.
         RECT wa;

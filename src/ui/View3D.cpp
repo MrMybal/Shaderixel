@@ -442,6 +442,7 @@ void App::DrawView3DRenderSettings(MeshScene& s) {
         ImGui::SliderInt("Échantillons", &s.rtSamples, 16, 4096, "%d", ImGuiSliderFlags_Logarithmic);
         ImGui::SliderInt("Rebonds", &s.rtBounces, 1, 16);
         ImGui::Checkbox("Sol (ombres portées)", &s.rtFloor);
+        ImGui::SliderFloat("Débruitage", &s.rtDenoise, 0, 1, s.rtDenoise > 0 ? "%.2f" : "désactivé");
     }
     ImGui::SeparatorText("Lumière");
     if (s.envAtlas) ImGui::SliderFloat("Soleil (avec HDRI)", &s.sunIntensity, 0, 8, "%.2f");

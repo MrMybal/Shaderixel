@@ -78,6 +78,7 @@ struct PtSettings {
     bool envVisible = true;
     float3 background = {0.05f, 0.05f, 0.06f};
     PostSettings post;         // camera effects (exposure and tone curve come from the fields above)
+    float denoise = 0.6f;      // denoiser strength (0 off)
 };
 
 struct PtCamera {
@@ -219,7 +220,8 @@ struct PtRenderState {
     PtCpuRenderer cpu;
     PostChain post;                   // display image of the accumulation (bloom, grading...)
     gpu::Texture* display = nullptr;  // last post-processed image (PNG export)
-    u64 paintKey = 0;                 // 3D view ray tracing: document state the packed textures belong to
+    u64 paintKey = 0;
+    gpu::Texture* denoiseDepth = nullptr;  // 3D view: depth of the raster pass (same camera) guiding the denoiser                 // 3D view ray tracing: document state the packed textures belong to
     std::shared_ptr<PtProjectTextures> cpuTex;
     std::vector<gpu::ReadbackPtr> texReadbacks;
     std::vector<float4> cpuPixels;

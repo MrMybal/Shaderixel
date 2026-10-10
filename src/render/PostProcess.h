@@ -27,10 +27,13 @@ public:
     // src: linear HDR (accumulated: rgb sum, a = sample count); raw: display values copied as they are.
     // Returns the sRGB display image (RGBA8, owned by the chain).
     gpu::Texture* Run(gpu::CommandContext& ctx, gpu::Texture* src, bool accumulated, bool raw, const PostSettings& s, float time);
+    // Path tracer denoiser (pt_denoise.slang) on an accumulation: linear HDR (owned by the chain), weaker as samples grow.
+    gpu::Texture* Denoise(gpu::CommandContext& ctx, gpu::Texture* accum, int samples, float strength, gpu::Texture* depth = nullptr);
 
 private:
     gpu::TexturePtr prep, out;
     std::vector<gpu::TexturePtr> mips, upCache;
+    gpu::TexturePtr dn[2];
 };
 
 }  // namespace sx

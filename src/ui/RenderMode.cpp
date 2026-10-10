@@ -303,6 +303,7 @@ Json App::RenderToJson(const PtRenderState& r, const std::string& baseDir) {
     sj["exposure"] = s.exposure;
     sj["tonemap"] = s.tonemap;
     sj["post"] = PostToJson(s.post);
+    sj["denoise"] = s.denoise;
     sj["aperture"] = s.aperture;
     sj["focus"] = s.focusDistance;
     sj["fov"] = s.fov;
@@ -390,6 +391,7 @@ void SceneFromJson(const Json& j, const std::string& baseDir, PtRenderState& r) 
     s.exposure = sj["exposure"].F(0);
     s.tonemap = sj["tonemap"].I(3);
     s.post = PostFromJson(sj["post"]);
+    s.denoise = sj["denoise"].F(0.6f);
     s.aperture = sj["aperture"].F(0);
     s.focusDistance = sj["focus"].F(s.focusDistance);
     s.fov = sj["fov"].F(s.fov);
@@ -470,6 +472,7 @@ gpu::Texture* App::UpdateViewRayTrace(DocView& v, u32 w, u32 h) {
     s.exposure = m.post.exposure;
     s.tonemap = m.post.tonemap;
     s.post = m.post;
+    s.denoise = m.rtDenoise;
     r.yaw = m.yaw;
     r.pitch = m.pitch;
     r.distance = m.distance;
@@ -496,6 +499,7 @@ gpu::Texture* App::UpdateViewRayTrace(DocView& v, u32 w, u32 h) {
         r.texDirty = true;
     }
     r.lastFrame = ImGui::GetFrameCount();  // shown every frame: no repack for being shown again
+    r.denoiseDepth = m.depth.get();
     return UpdateRenderState(v, r, w, h);
 }
 
@@ -742,7 +746,14 @@ gpu::Texture* App::UpdateRenderState(DocView& v, PtRenderState& r, u32 w, u32 h)
         p.exposure = s.exposure;
         p.tonemap = s.tonemap;
         static const double t0 = Now();
-        if (gpu::Texture* out = r.post.Run(*ctx, r.gpu.accum.get(), true, false, p, (float)(Now() - t0))) {
+        gpu::Texture* src = r.gpu.accum.get();
+        bool accumulated = true;
+        if (s.denoise > 0 && s.device == 0)
+            if (gpu::Texture* dn = r.post.Denoise(*ctx, src, RenderSamples(r), s.denoise, r.denoiseDepth)) {
+                src = dn;
+                accumulated = false;
+            }
+        if (gpu::Texture* out = r.post.Run(*ctx, src, accumulated, false, p, (float)(Now() - t0))) {
             r.display = out;
             return out;
         }
@@ -1114,6 +1125,8 @@ void App::DrawRenderScenePanel() {
         ImGui::SliderFloat("Exposition", &s.exposure, -6, 6, "%.2f IL");
         ImGui::Combo("Courbe", &s.tonemap, "Linéaire\0ACES (film)\0Reinhard\0PBR Neutral (couleurs fidèles)\0AgX (film, naturel)\0");
         ui::HelpTooltip("PBR Neutral : les couleurs des matières restent celles peintes (rendu produit).\nAgX : courbe de film douce, hautes lumières naturelles.");
+        ImGui::SliderFloat("Débruitage", &s.denoise, 0, 1, s.denoise > 0 ? "%.2f" : "désactivé");
+        ui::HelpTooltip("Lisse le bruit du lancer de rayons en gardant les contours ; il s'efface à mesure que les échantillons s'accumulent.");
         ImGui::DragFloat("Limite indirecte", &s.clampIndirect, 0.5f, 0, 1000, "%.1f");
         ui::HelpTooltip("Écrête les reflets indirects très forts (lucioles). 0 = sans limite.");
         // Camera effects: applied to the image while it refines (no restart).

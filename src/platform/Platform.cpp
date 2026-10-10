@@ -198,7 +198,12 @@ TabletApi g_api = TabletApi::WindowsInk;
 
 bool WintabRecent() { return g_api == TabletApi::Wintab && g_wintab.ctx && (g_wintab.inProximity || Now() - g_wintab.lastPacket < 0.15); }
 
+bool g_ignoreUserInput = false;
+
 LRESULT WINAPI WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (g_ignoreUserInput && ((msg >= WM_MOUSEFIRST && msg <= WM_MOUSELAST) || (msg >= WM_KEYFIRST && msg <= WM_KEYLAST) || msg == WM_MOUSELEAVE ||
+                              (msg >= WM_POINTERUPDATE && msg <= WM_POINTERLEAVE) || msg == WM_POINTERWHEEL || msg == WM_POINTERHWHEEL))
+        return 0;  // scripted run: the PC stays the user's
     if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam)) return true;
     switch (msg) {
         case WM_POINTERUPDATE:
@@ -286,6 +291,8 @@ std::vector<PointerSample> TakeSamples() {
 }
 
 float LastPressure() { return g_pressure; }
+void SetIgnoreUserInput(bool ignore) { g_ignoreUserInput = ignore; }
+
 bool PenActive() { return g_penActive; }
 const PointerSample& LastPenSample() { return g_lastPen; }
 void SetScreenCoordinates(bool screen) { g_screenCoords = screen; }
