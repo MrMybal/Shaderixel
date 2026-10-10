@@ -261,7 +261,7 @@ void App::DrawEffectBrowser() {
     DocView* v = Active();
 
     // Search + filters.
-    ImGui::SetNextItemWidth(-FLT_MIN);
+    ImGui::SetNextItemWidth(-(std::floor(ImGui::GetFontSize() * 1.1f) + 8 * dpi));  // room for the pop-out icon
     ImGui::InputTextWithHint("##fxsearch", "Rechercher un effet (nom, catégorie)...", &B.search);
     auto chip = [&](const char* label, bool on) {
         if (on) ImGui::PushStyleColor(ImGuiCol_Button, ui::col::Accent);
