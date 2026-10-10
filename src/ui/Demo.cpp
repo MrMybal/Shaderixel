@@ -2977,11 +2977,22 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
         float4 colors[] = {{1, 0.95f, 0.85f, 1}, {1, 0.8f, 0.2f, 1}, {0.05f, 0.05f, 0.08f, 1}, {0.3f, 0.9f, 1, 1}, {0.9f, 0.3f, 0.2f, 1},
                            {0.2f, 0.4f, 1, 1}, {0.3f, 0.85f, 0.25f, 1}, {0.85f, 0.85f, 0.9f, 1}, {1, 1, 0.7f, 1}};
         int row = 0;
-        for (const char* id : ids) {
+        // SX_BRUSHCAT: every brush of a category instead (one row each).
+        std::vector<std::string> list(std::begin(ids), std::end(ids));
+        char cat[64] = "";
+        float rowH = 100.0f;
+        if (GetEnvironmentVariableA("SX_BRUSHCAT", cat, sizeof(cat)) > 0) {
+            list.clear();
+            for (auto& bd : Brushes().All()) if (bd->def && bd->def->category == cat) list.push_back(bd->id);
+            rowH = std::min(100.0f, (float)(d.Height() - 120) / std::max<size_t>(list.size(), 1));
+            Log("[demo] brushes of %s: %zu", cat, list.size());
+        }
+        for (const std::string& idS : list) {
+            const char* id = idS.c_str();
             auto td = Brushes().Find(id);
             if (!td) { Log("[demo] brush %s missing", id); continue; }
             BrushSettings b = brush;
-            b.size = std::string(id) == "star_scatter" ? 40.0f : 56.0f;
+            b.size = std::string(id) == "star_scatter" ? 40.0f : std::min(56.0f, rowH * 0.8f);
             b.hardness = 0.7f;
             SelectTip(b, id);
             if (std::string(id) == "calligraphy") b.tipParams[2].x = 1.0f;  // follow the stroke
@@ -2990,7 +3001,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
             std::string err;
             for (int w = 0; w < 6000 && !v->renderer.BrushPipeline(*td, &err) && err.empty(); ++w) Sleep(10);
             if (!err.empty()) Log("[demo] brush %s: %s", id, err.c_str());
-            float y0 = 90.0f + row * 100.0f;
+            float y0 = 90.0f + row * rowH;
             float sp = std::max(1.0f, b.size * std::max(b.spacing, 0.02f));
             std::vector<Dab> dabs;
             std::vector<float4> extra;
@@ -3011,8 +3022,9 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
                     size_t n = std::min<size_t>(256, dabs.size() - i);
                     std::vector<Dab> part(dabs.begin() + i, dabs.begin() + i + n);
                     std::vector<float4> ex(extra.begin() + i, extra.begin() + i + n);
-                    if (!v->renderer.StrokeProgram(d, *ctx, part, ex, *td, tip, b, LinearColor(colors[row]), false, (u32)i))
+                    if (!v->renderer.StrokeProgram(d, *ctx, part, ex, *td, tip, b, LinearColor(colors[row % 9]), false, (u32)i))
                         Log("[demo] brush %s not ready", id);
+                Log("[demo] brush %s drawn", id);
                 }
                 v->renderer.EndStroke(d, *ctx, v->history, "Pinceau");
             }
