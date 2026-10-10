@@ -1364,6 +1364,7 @@ private:
     Id AddProjectedMaterial(DocView& v, const std::string& source, const std::string& name);
     void UpdateProjections(DocView& v);
     void DrawProjectionEditor(DocView& v, Id material);
+    void DrawMaterialFilters(DocView& v, Id material);
     // Texture export presets (TextureExport.cpp).
     struct TexExportOptions {
         bool open = false;

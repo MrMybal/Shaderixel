@@ -332,6 +332,17 @@ void App::DemoTick() {
         }
         if (frameCounter == 12) {
             ShowSideTab(5);
+            if (GetEnvironmentVariableA("SX_FILTER", nullptr, 0) > 0)
+                if (Layer* l = MaterialChannelLayer(*a->doc, materialSel, PbrChannel::BaseColor)) {
+                    // Hue shift on the projected color (3D layer filter).
+                    EffectInstance fx;
+                    fx.effectId = "hue_saturation";
+                    fx.params = Effects().Find("hue_saturation")->DefaultParams();
+                    fx.params[0].x = 120.0f;
+                    l->filters.push_back(fx);
+                    a->doc->SyncGraph();
+                    Log("[demo] filter added on %s", l->name.c_str());
+                }
         }
         if (frameCounter >= 13 && frameCounter <= 16) ImGui::SetWindowFocus("Calques 3D");
         char exp[512] = "", pre[8] = "1";

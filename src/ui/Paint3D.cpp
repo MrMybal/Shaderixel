@@ -9,6 +9,7 @@
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
 #include "doc/Brushes.h"
+#include "doc/Effects.h"
 #include "ai/Net.h"
 
 #include <fstream>
@@ -340,6 +341,7 @@ void App::DrawLayers3DPanel() {
             }
         }
         DrawProjectionEditor(*v, materialSel);
+        DrawMaterialFilters(*v, materialSel);
         if (any->mask) DrawSmartMaskEditor(*v, materialSel);
         if (any->mask) {
             if (ImGui::SmallButton("Masque : tout")) v->renderer.FillSelection(d, *ctx, &v->history, any->mask, 0, {1, 1, 1, 1}, 1, "Remplir le masque", nullptr, nullptr, false);
@@ -373,6 +375,74 @@ void App::DrawLayers3DPanel() {
         ui::HelpTooltip("Chaque trait est aussi peint de l'autre côté du modèle (miroir sur l'axe choisi de l'objet).");
     }
     ImGui::End();
+}
+
+void App::DrawMaterialFilters(DocView& v, Id material) {
+    // Adjustments of a 3D layer (non destructive filters of its channel layers), per channel.
+    Document& d = *v.doc;
+    static const std::pair<const char*, const char*> kFilters[] = {
+        {"hue_saturation", "Teinte / saturation"}, {"brightness_contrast", "Luminosité / contraste"}, {"levels", "Niveaux"}, {"curves", "Courbes"},
+        {"color_balance", "Balance des couleurs"}, {"gaussian_blur", "Flou"}, {"sharpen", "Netteté"}, {"noise", "Bruit"}, {"invert", "Inverser"}};
+    static const std::pair<PbrChannel, const char*> kChannels[] = {{PbrChannel::BaseColor, "Couleur"}, {PbrChannel::Roughness, "Rugosité"},
+                                                                    {PbrChannel::Metallic, "Métal"}, {PbrChannel::Height, "Hauteur"}, {PbrChannel::Emissive, "Émissif"}};
+    ImGui::SeparatorText("Filtres");
+    bool changed = false;
+    Id removeLayer = 0;
+    int removeIndex = -1;
+    for (auto& [c, cname] : kChannels) {
+        Layer* l = MaterialChannelLayer(d, material, c);
+        if (!l) continue;
+        for (int i = 0; i < (int)l->filters.size(); ++i) {
+            EffectInstance& fx = l->filters[i];
+            ImGui::PushID((int)l->id * 64 + i);
+            auto def = fx.Def();
+            const std::string title = std::string(def ? def->name.c_str() : fx.effectId.c_str()) + "  (" + cname + ")";
+            const bool open = ImGui::TreeNodeEx("##fx", ImGuiTreeNodeFlags_SpanAvailWidth, "%s", title.c_str());
+            ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::GetFrameHeight());
+            if (ImGui::SmallButton("x")) { removeLayer = l->id; removeIndex = i; }
+            if (open) {
+                if (EffectParamsUI(fx, title.c_str())) changed = true;
+                ImGui::TreePop();
+            }
+            ImGui::PopID();
+        }
+    }
+    if (ImGui::SmallButton("+ Filtre")) ImGui::OpenPopup("##addfx3d");
+    if (ImGui::BeginPopup("##addfx3d")) {
+        for (auto& [id, name] : kFilters) {
+            if (!Effects().Find(id)) continue;
+            if (!ImGui::BeginMenu(name)) continue;
+            auto add = [&](int which) {
+                Edit e(d, v.history, std::string("Filtre : ") + name);
+                for (auto& [c, cname] : kChannels) {
+                    if (which >= 0 && kChannels[which].first != c) continue;
+                    if (Layer* l = MaterialChannelLayer(d, material, c)) {
+                        EffectInstance fx;
+                        fx.effectId = id;
+                        fx.params = Effects().Find(id)->DefaultParams();
+                        l->filters.push_back(fx);
+                    }
+                }
+                d.SyncGraph();
+                e.Commit();
+            };
+            for (int k = 0; k < (int)(sizeof(kChannels) / sizeof(kChannels[0])); ++k)
+                if (MaterialChannelLayer(d, material, kChannels[k].first) && ImGui::MenuItem(kChannels[k].second)) add(k);
+            ImGui::Separator();
+            if (ImGui::MenuItem("Tous les canaux")) add(-1);
+            ImGui::EndMenu();
+        }
+        ImGui::EndPopup();
+    }
+    ui::HelpTooltip("Ajustements non destructifs du calque 3D, par canal (teinte de la couleur, contraste de la rugosité, flou du relief...).");
+    if (removeLayer) {
+        Edit e(d, v.history, "Supprimer le filtre");
+        if (Layer* l = d.FindLayer(removeLayer); l && removeIndex < (int)l->filters.size()) l->filters.erase(l->filters.begin() + removeIndex);
+        d.SyncGraph();
+        e.Commit();
+    }
+    if (changed) d.SyncGraph();
+    TrackUndo("Réglage du filtre");
 }
 
 void App::DrawBrushMaterialPanel() {
