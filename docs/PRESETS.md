@@ -23,6 +23,8 @@ Les deux sont **rechargés à chaud** : enregistrez le fichier, Shaderixel le re
 |---|---|---|---|
 | Effets, générateurs, fusions | `shaders/effects/*.slang` | `shaders/effects/` à côté de l'exe | les effets enregistrés depuis l'éditeur y vont aussi (marqués `//@user`) |
 | Sous-graphes, outils | `library/functions/*.sxfn` | `functions/` à côté de l'exe | `%LOCALAPPDATA%\Shaderixel\Functions\` |
+| Pinceaux (2D et 3D) | `shaders/brushes/*.slang` | `shaders/brushes/` à côté de l'exe | |
+| Matériaux intelligents (Paint 3D) | `library/smartmaterials/*.json` | `smartmaterials/` à côté de l'exe | `%LOCALAPPDATA%\Shaderixel\SmartMaterials\` |
 
 - Le nom du fichier `.slang` est l'**identifiant** de l'effet (`sharpen.slang` → `sharpen`). Il doit rester stable : les documents et les fonctions le référencent. Minuscules, chiffres, `_`.
 - Le nom du fichier `.sxfn` n'a pas d'importance (le nom affiché est dans le fichier).
@@ -426,7 +428,45 @@ Les modèles livrés de base sont générés par l'application (`--demo maketemp
 
 ---
 
-## 5. Idées pour des bibliothèques de base
+## 5. Matériaux intelligents (Paint 3D, `.json`)
+
+Un matériau intelligent est une pile de matériaux de remplissage (du bas vers le haut) ; chacun a des valeurs PBR et un **masque intelligent** calculé à partir de la forme du modèle (cartes cuites : occlusion, convexité, concavité, épaisseur) et d'un bruit 3D sans raccord. Menu : Calques 3D > « + Intelligent ».
+
+```json
+{
+ "name": "Laiton terni",
+ "description": "Laiton, creux noircis, arêtes polies brillantes.",
+ "layers": [
+  {"name": "Laiton", "color": [0.78, 0.6, 0.28], "rough": 0.35, "metal": 1,
+   "mask": {"type": 7, "amount": 1, "contrast": 4, "noise": 0, "scale": 6}},
+  {"name": "Ternissure", "color": [0.25, 0.2, 0.1], "rough": 0.7, "metal": 0.7,
+   "mask": {"type": 1, "amount": 0.5, "contrast": 3, "noise": 0.4, "scale": 7}},
+  {"name": "Arêtes polies", "color": [0.9, 0.75, 0.4], "rough": 0.15, "metal": 1,
+   "mask": {"type": 0, "amount": 0.2, "contrast": 5, "noise": 0.3, "scale": 10}}
+ ]
+}
+```
+
+| Clé de couche | |
+|---|---|
+| `color` | couleur de base sRGB 0..1 (absente : la couche ne touche pas la couleur) |
+| `rough`, `metal` | 0..1 (absente : canal non touché) |
+| `height` | 0..1, 0.5 = neutre (optionnelle) |
+| `mask.type` | 0 usure des arêtes, 1 saleté des creux, 2 poussière (dessus), 3 dégradé, 4 occlusion, 5 bruit, 6 parties fines, 7 plein |
+| `mask.amount` | part de la surface couverte (0..1) |
+| `mask.contrast` | netteté du bord (0.5 doux .. 20 net) |
+| `mask.noise`, `mask.scale` | bruit 3D qui casse le bord (0..1) et sa fréquence (le modèle fait environ 2 unités) |
+| `mask.seed` | variante du bruit |
+| `mask.invert` | `true` : inverse (ex. une peinture partout **sauf** sur les arêtes) |
+| `mask.dir` | types 2 et 3 : 0 haut, 1 bas, 2 +X, 3 -X, 4 +Z, 5 -Z |
+
+Conseils : une couche de base `type 7` (plein, `noise 0`) ; « peinture usée » = couche peinture avec `type 0` + `invert` au-dessus d'un métal ; la saleté et la rouille en `type 1`, la poussière en `type 2`, la mousse en `type 3` (`dir` 1, bas) plus `type 1`.
+
+Les pinceaux de la catégorie `Texture 3D` (`shaders/brushes/sx3d_*.slang`) suivent le format des pinceaux (`Tip(Brush b)`, voir `shaders/brush_common.slang`) : leur forme est projetée sur le modèle en 3D (8 variantes par la graine `b.seed`).
+
+---
+
+## 6. Idées pour des bibliothèques de base
 
 - **Réglages photo** : looks (teinte + courbes + vignette) avec Force / Couleur en entrées.
 - **Styles de calque** : contour + ombre + lueur combinés, couleurs et tailles en entrées.
