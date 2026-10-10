@@ -273,6 +273,7 @@ void App::DrawActionEditor() {
         actionEditorFocus = false;
     }
     if (!ImGui::Begin("Éditeur d'actions", PanelFlag("Éditeur d'actions"))) { ImGui::End(); return; }
+    PopOutCorner("Éditeur d'actions");
     DocView* v = Active();
     const auto& builtins = BuiltinActions();
     if (builtinSel >= (int)builtins.size()) builtinSel = -1;

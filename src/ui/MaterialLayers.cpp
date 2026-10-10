@@ -159,6 +159,7 @@ void App::ApplyPaint3DLayout() {
 
 void App::DrawMaterialPanel() {
     if (!ImGui::Begin("Matériaux", PanelFlag("Matériaux"))) { ImGui::End(); return; }
+    PopOutCorner("Matériaux");
     DocView* v = Active();
     if (!v) { ImGui::TextDisabled("Aucun document"); ImGui::End(); return; }
     Document& d = *v->doc;

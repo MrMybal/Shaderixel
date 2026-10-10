@@ -338,6 +338,25 @@ private:
     void ApplyPendingLayout();
     void DrawWindowMenu();
     void DrawPanelsMenu();
+    // Panels opened large in their own OS window (Workspace.cpp): corner icon, Fenêtre menu, F11 on the hovered panel.
+    struct PopOut {
+        ImGuiID dock = 0;  // where it was docked (to put it back)
+        bool out = false;
+        int pending = 0;   // frames before placing it (the undock happens at the next frame)
+    };
+    std::map<std::string, PopOut> popOuts;
+    struct PopCorner {
+        std::string name;
+        ImVec2 rmin, rmax;
+        bool hovered = false;
+    };
+    std::vector<PopCorner> popCorners;
+    void TogglePopOut(const std::string& name);
+    bool IsPoppedOut(const std::string& name) const { auto it = popOuts.find(name); return it != popOuts.end() && it->second.out; }
+    void UpdatePopOuts();
+    void PopOutCorner(const char* name);  // right after Begin(): the corner icon of a panel
+    void DrawPopOutCorners();
+    void DrawPopOutMenu();
     void DrawLayoutSavePopup();
 
     bool Init();

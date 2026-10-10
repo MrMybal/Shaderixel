@@ -307,6 +307,20 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 86) {
+        // A panel (SX_PANEL, Effets by default) opened large in its own window; SX_BACK=1: put back at frame 60.
+        char panel[64] = "Effets", back[4] = "";
+        GetEnvironmentVariableA("SX_PANEL", panel, sizeof(panel));
+        GetEnvironmentVariableA("SX_BACK", back, sizeof(back));
+        if (frameCounter == 6) { hideBottom = false; TogglePopOut(panel); }
+        if (frameCounter == 60 && back[0] == '1') TogglePopOut(panel);
+        if (frameCounter == 40 || frameCounter == 90) {
+            ImGuiWindow* w = ImGui::FindWindowByName(panel);
+            Log("[demo] popout %s: out %d, docked %d, size %.0f x %.0f, own viewport %d", panel, IsPoppedOut(panel) ? 1 : 0, w && w->DockIsActive ? 1 : 0,
+                w ? w->Size.x : 0.f, w ? w->Size.y : 0.f, w && w->Viewport && w->Viewport != ImGui::GetMainViewport() ? 1 : 0);
+        }
+        return;
+    }
     if (demoMode == 85) {
         // Action editor: an action of 3 steps shown in the editor, then a batch (my action + a built-in one)
         // from SX_SRC (with subfolders) to SX_DST, JPG, numbered names. Actions are saved in SX_DST, not in the user's file.

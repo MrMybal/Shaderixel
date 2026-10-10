@@ -305,6 +305,7 @@ void App::TrimInput(DocView& v, ImVec2 canvasMin, bool hovered) {
 
 void App::DrawTrimPanel() {
     if (!ImGui::Begin("Trim sheet", PanelFlag("Trim sheet"))) { ImGui::End(); return; }
+    PopOutCorner("Trim sheet");
     DocView* v = Active();
     if (!v) { ImGui::TextDisabled("Aucun document"); ImGui::End(); return; }
     Document& d = *v->doc;

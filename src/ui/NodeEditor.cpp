@@ -269,6 +269,7 @@ std::string Lower(std::string s) {
 
 void App::DrawNodePalette() {
     if (!ImGui::Begin("Palette de nœuds", PanelFlag("Palette de nœuds"))) { ImGui::End(); return; }
+    PopOutCorner("Palette de nœuds");
     ImGui::RadioButton("Graphe des calques", &paletteFocus, 0);
     ImGui::SameLine();
     ImGui::RadioButton("Graphe d'effet", &paletteFocus, 1);
@@ -342,6 +343,7 @@ void App::DrawNodeEditor() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     bool open = ImGui::Begin("Graphe", PanelFlag("Graphe"), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar();
+    if (open) PopOutCorner("Graphe");
     DocView* v = Active();
     if (!open || !v) { ImGui::End(); return; }
     Document& d = *v->doc;

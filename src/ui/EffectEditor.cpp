@@ -96,6 +96,7 @@ void App::DrawEffectEditor() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     bool open = ImGui::Begin("Éditeur d'effets", PanelFlag("Éditeur d'effets"), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar();
+    if (open) PopOutCorner("Éditeur d'effets");
     DocView* v = Active();
     if (!open || !v) { ImGui::End(); return; }
     Document& d = *v->doc;

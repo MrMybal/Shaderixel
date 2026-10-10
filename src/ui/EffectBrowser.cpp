@@ -246,6 +246,7 @@ gpu::Texture* App::ReferenceTexture(DocView& v) {
 
 void App::DrawEffectBrowser() {
     if (!ImGui::Begin("Effets", PanelFlag("Effets"))) { ImGui::End(); return; }
+    PopOutCorner("Effets");
     auto& B = fxBrowser;
     const std::string favPath = ExeDir() + "/effect_favorites.txt";
     if (!B.favLoaded) {

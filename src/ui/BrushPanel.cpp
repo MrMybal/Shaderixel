@@ -272,6 +272,7 @@ void App::BrushTipPicker(BrushSettings& b) {
 
 void App::DrawBrushPanel() {
     if (!ImGui::Begin("Pinceaux", PanelFlag("Pinceaux"))) { ImGui::End(); return; }
+    PopOutCorner("Pinceaux");
     BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
     auto td = TipDef(b);
     DocView* v = Active();

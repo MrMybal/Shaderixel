@@ -464,6 +464,117 @@ void App::DeleteLayout(const std::string& name) {
     ScanLayouts();
 }
 
+namespace {
+// Panels that can be opened large in their own window.
+const char* kPopOutPanels[] = {"Effets", "Fusions", "Calques", "Graphe", "Ressources", "Palette de nœuds", "Matériaux", "Pinceaux", "Motifs",
+                               "Trim sheet", "Éditeur d'actions", "Éditeur d'effets"};
+bool CanPopOut(const std::string& n) {
+    for (auto* p : kPopOutPanels) if (n == p) return true;
+    return false;
+}
+}  // namespace
+
+void App::TogglePopOut(const std::string& name) {
+    PopOut& P = popOuts[name];
+    ImGuiWindow* w = ImGui::FindWindowByName(name.c_str());
+    if (!P.out) {
+        panelOpen[name].open = true;
+        P.dock = w ? (w->DockId ? w->DockId : P.dock) : P.dock;
+        if (w && w->DockIsActive) ImGui::DockContextQueueUndockWindow(GImGui, w);
+        P.out = true;
+        P.pending = 2;
+        Status(name + " : ouvert en grand dans une fenêtre séparée (F11 ou l'icône du coin pour le rattacher)");
+    } else {
+        P.out = false;
+        P.pending = 0;
+        if (w) {
+            w->WindowClass.ViewportFlagsOverrideSet &= ~ImGuiViewportFlags_NoAutoMerge;
+            if (P.dock && ImGui::DockBuilderGetNode(P.dock)) ImGui::SetWindowDock(w, P.dock, ImGuiCond_Always);
+        }
+        Status(name + " : rattaché");
+    }
+}
+
+void App::UpdatePopOuts() {
+    for (auto& [name, P] : popOuts) {
+        ImGuiWindow* w = ImGui::FindWindowByName(name.c_str());
+        if (!w || !P.out) continue;
+        if (P.pending > 0 && --P.pending == 0) {
+            if (w->DockIsActive) { P.pending = 1; continue; }  // undock not applied yet
+            // Its own OS window, large: on another screen when there is one, else over most of this one.
+            w->WindowClass.ViewportFlagsOverrideSet |= ImGuiViewportFlags_NoAutoMerge;
+            ImGuiViewport* main = ImGui::GetMainViewport();
+            ImVec2 pos = main->WorkPos, size = main->WorkSize;
+            const ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+            const ImVec2 c(main->Pos.x + main->Size.x * 0.5f, main->Pos.y + main->Size.y * 0.5f);
+            for (auto& m : pio.Monitors) {
+                const bool here = c.x >= m.MainPos.x && c.x < m.MainPos.x + m.MainSize.x && c.y >= m.MainPos.y && c.y < m.MainPos.y + m.MainSize.y;
+                if (!here && (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)) { pos = m.WorkPos; size = m.WorkSize; break; }
+            }
+            ImGui::SetWindowSize(w, ImVec2(size.x * 0.86f, size.y * 0.86f), ImGuiCond_Always);
+            ImGui::SetWindowPos(w, ImVec2(pos.x + size.x * 0.07f, pos.y + size.y * 0.07f), ImGuiCond_Always);
+            ImGui::FocusWindow(w);
+        } else if (P.pending == 0 && w->DockIsActive) {
+            P.out = false;  // docked back by hand
+            w->WindowClass.ViewportFlagsOverrideSet &= ~ImGuiViewportFlags_NoAutoMerge;
+        }
+    }
+    // F11: the panel under the mouse, opened large / put back.
+    const ImGuiIO& io = ImGui::GetIO();
+    if (ImGui::IsKeyPressed(ImGuiKey_F11, false) && !io.WantTextInput)
+        if (ImGuiWindow* h = GImGui->HoveredWindow) {
+            h = h->RootWindow;
+            if (h && CanPopOut(h->Name)) TogglePopOut(h->Name);
+        }
+}
+
+void App::PopOutCorner(const char* name) {
+    // An icon at the top right of the panel. Submitted first, so it wins the mouse over what is under it;
+    // drawn at the end of the frame (DrawPopOutCorners), above the panel's content.
+    ImGuiWindow* w = ImGui::GetCurrentWindow();
+    const float s = std::floor(ImGui::GetFontSize() * 1.1f);
+    const ImVec2 keep = ImGui::GetCursorScreenPos();
+    const ImVec2 p(w->InnerRect.Max.x - s - 3 * dpi, w->InnerRect.Min.y + 3 * dpi);
+    ImGui::SetCursorScreenPos(p);
+    ImGui::PushID("##popout");
+    const bool click = ImGui::InvisibleButton("##po", ImVec2(s, s));
+    const bool hov = ImGui::IsItemHovered();
+    ImGui::PopID();
+    if (hov) ImGui::SetTooltip(IsPoppedOut(name) ? "Rattacher le panneau (F11)" : "Ouvrir en grand dans une fenêtre séparée (F11)");
+    ImGui::SetCursorScreenPos(keep);
+    if (click) TogglePopOut(name);
+    popCorners.push_back({name, p, ImVec2(p.x + s, p.y + s), hov});
+}
+
+void App::DrawPopOutCorners() {
+    for (auto& c : popCorners) {
+        ImGuiWindow* w = ImGui::FindWindowByName(c.name.c_str());
+        if (!w || !w->Active) continue;
+        // Appended to the panel: drawn above its own content.
+        ImGui::Begin(c.name.c_str());
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->PushClipRect(w->Rect().Min, w->Rect().Max, false);
+        const ImRect r(c.rmin, c.rmax);
+        dl->AddRectFilled(r.Min, r.Max, c.hovered ? IM_COL32(90, 110, 160, 255) : IM_COL32(40, 44, 54, 220), 3);
+        const float k = r.GetWidth();
+        const ImU32 col = c.hovered ? IM_COL32(255, 255, 255, 255) : IM_COL32(190, 196, 210, 255);
+        if (!IsPoppedOut(c.name)) {
+            // Two windows: "open in another window".
+            dl->AddRect(ImVec2(r.Min.x + k * 0.18f, r.Min.y + k * 0.36f), ImVec2(r.Min.x + k * 0.66f, r.Min.y + k * 0.82f), col, 1, 0, 1.3f);
+            dl->AddRect(ImVec2(r.Min.x + k * 0.36f, r.Min.y + k * 0.18f), ImVec2(r.Min.x + k * 0.84f, r.Min.y + k * 0.62f), col, 1, 0, 1.3f);
+        } else {
+            // Arrow into a box: "put back".
+            dl->AddRect(ImVec2(r.Min.x + k * 0.18f, r.Min.y + k * 0.18f), ImVec2(r.Min.x + k * 0.82f, r.Min.y + k * 0.82f), col, 1, 0, 1.3f);
+            dl->AddLine(ImVec2(r.Min.x + k * 0.72f, r.Min.y + k * 0.28f), ImVec2(r.Min.x + k * 0.38f, r.Min.y + k * 0.62f), col, 1.5f);
+            dl->AddLine(ImVec2(r.Min.x + k * 0.38f, r.Min.y + k * 0.62f), ImVec2(r.Min.x + k * 0.38f, r.Min.y + k * 0.40f), col, 1.5f);
+            dl->AddLine(ImVec2(r.Min.x + k * 0.38f, r.Min.y + k * 0.62f), ImVec2(r.Min.x + k * 0.60f, r.Min.y + k * 0.62f), col, 1.5f);
+        }
+        dl->PopClipRect();
+        ImGui::End();
+    }
+    popCorners.clear();
+}
+
 void App::DrawPanelsMenu() {
     // Closed panels come back here (also from Fenêtre).
     static const char* names[] = {"Calques", "Graphe", "Aperçu du calque", "Éditeur d'effets", "Vue 3D", "Propriétés", "Historique", "Histogramme",
@@ -489,9 +600,21 @@ void App::DrawPanelsMenu() {
     ImGui::EndMenu();
 }
 
+void App::DrawPopOutMenu() {
+    if (!ImGui::BeginMenu("Ouvrir en grand")) return;
+    for (const char* n : kPopOutPanels) {
+        bool out = IsPoppedOut(n);
+        if (ImGui::MenuItem(n, nullptr, out)) TogglePopOut(n);
+    }
+    ImGui::Separator();
+    ImGui::TextDisabled("F11 : le panneau sous la souris");
+    ImGui::EndMenu();
+}
+
 void App::DrawWindowMenu() {
     if (!ImGui::BeginMenu("Fenêtre")) return;
     DrawPanelsMenu();
+    DrawPopOutMenu();
     if (ImGui::MenuItem("Nouvelle fenêtre")) NewExtraWindow();
     for (size_t i = 0; i < extraWindows.size(); ++i) {
         bool o = extraWindows[i];

@@ -339,6 +339,7 @@ void App::DrawResourceBrowser() {
     // First time: in the bottom zone, next to the graph.
     if (ImGuiWindow* g = ImGui::FindWindowByName("Graphe"); g && g->DockId) ImGui::SetNextWindowDockID(g->DockId, ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Ressources", PanelFlag("Ressources"))) { ImGui::End(); return; }
+    PopOutCorner("Ressources");
     DocView* v = Active();
     const float fs = ImGui::GetFontSize();
 

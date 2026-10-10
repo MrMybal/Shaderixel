@@ -211,6 +211,7 @@ void App::ImportPatFile(const std::string& path) {
 
 void App::DrawPatternsPanel() {
     if (!ImGui::Begin("Motifs", PanelFlag("Motifs"))) { ImGui::End(); return; }
+    PopOutCorner("Motifs");
     if (!patternsScanned) ScanPatterns();
     DocView* v = Active();
     ImGui::SetNextItemWidth(120 * dpi);

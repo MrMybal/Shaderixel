@@ -320,6 +320,7 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
 
 void App::DrawLayers() {
     if (!ImGui::Begin("Calques", PanelFlag("Calques"))) { ImGui::End(); return; }
+    PopOutCorner("Calques");
     DocView* v = Active();
     if (!v) { ImGui::End(); return; }
     Document& d = *v->doc;
