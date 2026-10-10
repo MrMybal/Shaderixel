@@ -312,6 +312,21 @@ void App::DrawLayers3DPanel() {
             d.SyncGraph();
         }
         TrackUndo("Opacité du calque 3D");
+        {
+            // Blend mode of the layer in every channel it drives.
+            int bm = (int)any->blend;
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            if (ImGui::BeginCombo("##blend3d", (std::string("Fusion : ") + BlendModeName(any->blend)).c_str())) {
+                for (int k = 0; k < (int)BlendMode::Count; ++k)
+                    if (ImGui::Selectable(BlendModeName((BlendMode)k), k == bm)) {
+                        Edit e(d, v->history, "Fusion du calque 3D");
+                        for (auto& l : d.S().layers) if (l.material == materialSel) l.blend = (BlendMode)k;
+                        d.SyncGraph();
+                        e.Commit();
+                    }
+                ImGui::EndCombo();
+            }
+        }
         if (any->mask) DrawSmartMaskEditor(*v, materialSel);
         if (any->mask) {
             if (ImGui::SmallButton("Masque : tout")) v->renderer.FillSelection(d, *ctx, &v->history, any->mask, 0, {1, 1, 1, 1}, 1, "Remplir le masque", nullptr, nullptr, false);

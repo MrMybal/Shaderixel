@@ -334,6 +334,8 @@ void App::DemoTick() {
         }
         static double t0 = 0;
         if (frameCounter == 11) t0 = ImGui::GetTime();
+        if (frameCounter == 12) ShowSideTab(5);  // 3D tab: Calques 3D (smart mask settings)
+        if (frameCounter >= 13 && frameCounter <= 16) ImGui::SetWindowFocus("Calques 3D");
         static bool logged = false;
         if (frameCounter > 11 && !logged && a->mesh->maps) {
             logged = true;

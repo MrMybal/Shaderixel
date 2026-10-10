@@ -304,7 +304,7 @@ public:
     std::vector<bool> extraWindows;  // "Fenêtre 2..." (open flags)
     struct PanelOpenFlag { bool open = true; };
     std::map<std::string, PanelOpenFlag> panelOpen;  // closed panels (tab cross)
-    static constexpr int kLayoutMigration = 2;
+    static constexpr int kLayoutMigration = 3;
     int layoutMigration = 0, layoutMigrationFrames = 0;  // saved layouts from older versions start at 0
     int layoutKind = 0;  // workspace currently built for: 0 image documents, 1 Paint 3D projects
     std::vector<std::string> focusAfterLayout;

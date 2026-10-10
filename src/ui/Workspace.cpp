@@ -231,10 +231,11 @@ void App::MigrateLayout() {
     struct P { const char* name; int tab; bool lower; };
     static const P panels[] = {{"Actions", 1, false}, {"Compositions de calques", 1, false}, {"Styles de texte", 1, false},
                                {"Nuancier", 4, false}, {"Motifs", 4, true}, {"Histogramme", 0, false},
-                               {"Palette de nœuds", 2, false}};
+                               {"Palette de nœuds", 2, false}, {"Trim sheet", 1, true}, {"Inpainting IA", 6, false},
+                               {"Calques 3D", 5, false}, {"Matériau du pinceau", 5, true}, {"Scène de rendu", 5, false}};
     for (const P& p : panels) {
         ImGuiWindow* w = ImGui::FindWindowByName(p.name);
-        if (!w || w->DockId) continue;
+        if (!w || w->DockId || IsPoppedOut(p.name)) continue;
         ImGuiDockNode* n = ImGui::DockBuilderGetNode(SideTabDock(p.tab));
         while (n && n->IsSplitNode()) n = n->ChildNodes[p.lower ? 1 : 0] ? n->ChildNodes[p.lower ? 1 : 0] : n->ChildNodes[0];
         if (n) ImGui::DockBuilderDockWindow(p.name, n->ID);
@@ -454,6 +455,7 @@ void App::ApplyPendingLayout() {
     panelOpen.clear();
     ImGui::LoadIniSettingsFromMemory(pendingLayoutIni.c_str(), pendingLayoutIni.size());
     layoutBuilt = true;
+    layoutMigrationFrames = 0;  // a layout saved before some panels existed: MigrateLayout docks them
     Status("Disposition : " + pendingLayoutName);
     pendingLayoutIni.clear();
 }
