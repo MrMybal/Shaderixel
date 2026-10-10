@@ -95,7 +95,10 @@ if SX3D and os.path.exists(SX3D):
     # The exported OBJ imported the usual way: its .sxmat.json (same name, same folder) gives the material.
     exports = os.path.join(os.environ["LOCALAPPDATA"], "Shaderixel", "Link", "exports")
     dirs = sorted((d for d in os.listdir(exports) if d.startswith("SxCube_")), key=lambda d: os.path.getmtime(os.path.join(exports, d))) if os.path.isdir(exports) else []
-    if dirs:
+    if os.environ.get("SXTEST_SIDECAR") == "0":
+        # UE 5.7: any OBJ import through Interchange asserts in a -nullrhi commandlet (Slate), plugin or not.
+        step("sidecar", True, "skipped on this engine (Interchange needs Slate in commandlets)")
+    elif dirs:
         task = unreal.AssetImportTask()
         task.filename = os.path.join(exports, dirs[-1], "SxCube.obj")
         task.destination_path = "/Game/SideCar"
@@ -155,6 +158,7 @@ def test(ver):
     si.wShowWindow = 7  # SW_SHOWMINNOACTIVE: never takes the focus
     subprocess.run([SHADERIXEL, '--demo', 'smartmat', '--frames', '120', '--save', sx3d], env=senv, cwd=proj_dir, timeout=600, startupinfo=si)
     env['SXTEST_SX3D'] = sx3d
+    env['SXTEST_SIDECAR'] = '0' if ver == '5.7' else '1'
     log = os.path.join(proj_dir, 'editor.log')
     with open(log, 'w', encoding='utf-8', errors='replace') as f:
         subprocess.run([exe, uproject, '-run=pythonscript', '-script=' + script, '-unattended', '-nosplash', '-nullrhi', '-nopause', '-stdout',

@@ -996,7 +996,7 @@ UMaterialInterface* FShaderixelLink::ImportMaterialDescription(const TSharedPtr<
 		const TSharedPtr<FJsonObject>* Sc = nullptr;
 		if ((*Mat)->TryGetObjectField(TEXT("scalars"), Sc) && Sc && (*Sc).IsValid())
 			for (const auto& Pair : (*Sc)->Values)
-				Settings.Scalars.Add(Pair.Key, (float)Pair.Value->AsNumber());
+				Settings.Scalars.Add(FString(Pair.Key), (float)Pair.Value->AsNumber());  // 5.8: the key is not an FString
 	}
 	return EnsureMaterialInstance(PackagePath, MaterialAsset, ByParam, &Settings);
 }
