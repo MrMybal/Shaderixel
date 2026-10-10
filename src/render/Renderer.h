@@ -267,6 +267,14 @@ public:
     float meshTipExtent = 1.0f;
     bool meshTipOn = false;      // used by the next MeshStrokeDabs
     bool BuildMeshTip(gpu::CommandContext& ctx, const BrushDef& b, const EffectInstance& tip, const BrushSettings& s);
+    // Smart mask: `surface` (document size) generated from the mesh maps (shaders/mesh_generator.slang).
+    struct MeshGenParams {
+        int type = 0;
+        bool invert = false;
+        float amount = 0.5f, contrast = 4, noise = 0.3f, noiseScale = 6, seed = 0;
+        float4 dir = {0, 1, 0, 0};
+    };
+    bool MeshGenerate(Document& doc, gpu::CommandContext& ctx, MeshScene& s, Id surface, const MeshGenParams& p);
     // 2D multi-channel strokes: the other layers rebuilt from the shared coverage (after StrokeDabs / StrokeProgram).
     void StrokeApplySlots(Document& doc, gpu::CommandContext& ctx, const BrushSettings& b, const std::vector<float4>& colorsLinear, bool erase);
     // Decal projected from the view: center / half size in view pixels, rotation (radians); the first layer can take the image colors.

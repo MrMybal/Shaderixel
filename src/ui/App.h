@@ -13,6 +13,7 @@
 #include "ai/Comfy.h"
 #include "render/MeshPaint.h"
 #include "mesh/UvUnwrap.h"
+#include "mesh/MeshBake.h"
 #include "render/PathTracer.h"
 
 #include <mutex>
@@ -1278,6 +1279,26 @@ private:
     Layer* AnyMaterialLayer(Document& d, Id material);
     Layer* AddMaterialChannel(Document& d, Id material, PbrChannel c, const std::string& name, Id mask, float4 value, float opacity);
     void AddMaterialLayer(DocView& v, int preset);
+    // Fill material with explicit values (sRGB color; channels without a value are left out). Returns its id.
+    Id AddMaterialLayerValues(DocView& v, const std::string& name, const float3* color, const float* rough, const float* metal, const float* height,
+                              bool fullMask);
+    // Smart masks and smart materials (SmartMaterials.cpp).
+    struct {
+        DocView* view = nullptr;
+        std::shared_ptr<std::atomic<float>> progress;
+        std::shared_ptr<std::atomic<bool>> cancel;
+        std::future<MeshMaps> job;
+        u32 revision = 0;
+        bool running = false;
+    } mapsBake;
+    std::map<Id, std::string> smartMaskDone;  // mask surface -> settings it was generated with
+    int mapsResolution = 1024;
+    void StartMeshMapsBake(DocView& v);
+    void PollMeshMapsBake();
+    void UpdateSmartMasks(DocView& v);
+    void DrawSmartMaskEditor(DocView& v, Id material);
+    void ApplySmartMaterial(DocView& v, const Json& def);
+    const std::vector<Json>& SmartMaterials();
     void SelectMaterial(Document& d, Id material);
     void ApplyPaint3DLayout();
     void DrawMaterialPanel();

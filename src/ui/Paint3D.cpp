@@ -206,6 +206,16 @@ void App::DrawLayers3DPanel() {
             if (ImGui::MenuItem(MaterialPresetName(i))) AddMaterialLayer(*v, i);
         ImGui::EndPopup();
     }
+    ImGui::SameLine();
+    if (ImGui::Button("+ Intelligent \xE2\x96\xBE")) ImGui::OpenPopup("##addsmart3d");
+    ui::HelpTooltip("Matériau intelligent : plusieurs couches dont les masques suivent la forme du modèle\n(usure des arêtes, saleté des creux, poussière, rouille...).");
+    if (ImGui::BeginPopup("##addsmart3d")) {
+        for (const Json& sm : SmartMaterials()) {
+            if (ImGui::MenuItem(sm["name"].S().c_str())) ApplySmartMaterial(*v, sm);
+            if (ImGui::IsItemHovered() && !sm["description"].S().empty()) ImGui::SetTooltip("%s", sm["description"].S().c_str());
+        }
+        ImGui::EndPopup();
+    }
     std::vector<Id> mats = MaterialIds(d);
     if (Layer* al = d.ActiveLayer(); al && al->material) materialSel = al->material;
     ImGui::SameLine();
@@ -295,6 +305,7 @@ void App::DrawLayers3DPanel() {
             d.SyncGraph();
         }
         TrackUndo("Opacité du calque 3D");
+        if (any->mask) DrawSmartMaskEditor(*v, materialSel);
         if (any->mask) {
             if (ImGui::SmallButton("Masque : tout")) v->renderer.FillSelection(d, *ctx, &v->history, any->mask, 0, {1, 1, 1, 1}, 1, "Remplir le masque", nullptr, nullptr, false);
             ImGui::SameLine();
@@ -510,6 +521,7 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
 }
 
 void App::UpdatePaint3D() {
+    PollMeshMapsBake();
     for (size_t i = 0; i < packJobs.size();) {
         PackJob& j = packJobs[i];
         auto ready = [](const gpu::ReadbackPtr& r) { return !r || r->ready; };

@@ -310,6 +310,34 @@ void Renderer::EndStrokeMulti(Document& doc, gpu::CommandContext& ctx, History& 
     strokeSlots.clear();
 }
 
+bool Renderer::MeshGenerate(Document& doc, gpu::CommandContext& ctx, MeshScene& s, Id surface, const MeshGenParams& p) {
+    Surface* sf = doc.GetSurface(surface);
+    auto* k = Kernel("mesh_generator.slang");
+    if (!sf || !k || !s.posMap || !s.nrmMap) return false;
+    const u32 W = sf->tex->Width(), H = sf->tex->Height();
+    if (s.posMap->Width() != W || s.posMap->Height() != H) return false;
+    struct Root {
+        u32 w, h, type, flags;
+        float amount, contrast, noise, noiseScale, seed, blur, pad[2];
+    } root = {W, H, (u32)p.type, (p.invert ? 1u : 0u) | (s.maps ? 2u : 0u), p.amount, p.contrast, p.noise, p.noiseScale, p.seed, 0, {0, 0}};
+    struct Gen {
+        float4 dir, bmin, bmax;
+    } gen = {{p.dir.x, p.dir.y, p.dir.z, 0}, {s.data.boundsMin.x, s.data.boundsMin.y, s.data.boundsMin.z, 0}, {s.data.boundsMax.x, s.data.boundsMax.y, s.data.boundsMax.z, 0}};
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = s.posMap.get();
+    d.srv[1] = s.nrmMap.get();
+    d.srv[2] = s.maps.get();
+    d.uav[0] = sf->tex.get();
+    memcpy(d.constants, &root, sizeof(root));
+    d.numConstants = sizeof(root) / 4;
+    d.cbData = &gen;
+    d.cbSize = sizeof(gen);
+    Dispatch2D(ctx, d, W, H);
+    doc.TouchSurface(surface);
+    return true;
+}
+
 bool LoadEnvironment(MeshScene& s, const std::string& path, std::string* error) {
     int w = 0, h = 0, comp = 0;
     FILE* f = nullptr;

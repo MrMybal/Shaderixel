@@ -170,6 +170,7 @@ void App::DrawView3D() {
     } else if (hovered && io.MouseWheel != 0) s.distance *= std::pow(0.88f, io.MouseWheel);
 
     MeshPrepare3D(*v);
+    UpdateSmartMasks(*v);
 
     // Painting
     std::vector<PointerSample> samples = frameSamples;

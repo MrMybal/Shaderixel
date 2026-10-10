@@ -135,6 +135,31 @@ void App::AddMaterialLayer(DocView& v, int preset) {
     Status(std::string("Matériau « ") + p.name + " » : peignez-le sur le modèle ou le canevas (masque partagé)");
 }
 
+Id App::AddMaterialLayerValues(DocView& v, const std::string& name, const float3* color, const float* rough, const float* metal, const float* height,
+                                bool fullMask) {
+    Document& d = *v.doc;
+    if (d.Mode() != DocMode::Layers) return 0;
+    if (!FindChannelGroup(d, PbrChannel::Roughness)) CreatePbrChannels(v);
+    Edit e(d, v.history, "Nouveau matériau");
+    Id material = d.NewId();
+    Id mask = d.CreateSurface(fullMask ? float4{1, 1, 1, 1} : float4{0, 0, 0, 1});
+    for (PbrChannel c : kMatChannels) {
+        const bool on = c == PbrChannel::BaseColor ? color != nullptr : c == PbrChannel::Roughness ? rough != nullptr : c == PbrChannel::Metallic ? metal != nullptr
+                        : c == PbrChannel::Height ? height != nullptr : false;
+        if (!on) continue;
+        float val = c == PbrChannel::Roughness ? *rough : c == PbrChannel::Metallic ? *metal : c == PbrChannel::Height ? *height : 0.0f;
+        AddMaterialChannel(d, material, c, name, mask, ChannelValue(c, color ? *color : float3{0, 0, 0}, val), 1.0f);
+    }
+    if (Layer* l = AnyMaterialLayer(d, material)) {
+        d.S().activeLayer = l->id;
+        d.S().editMask = true;
+    }
+    d.SyncGraph();
+    e.Commit();
+    materialSel = material;
+    return material;
+}
+
 void App::SelectMaterial(Document& d, Id material) {
     materialSel = material;
     if (Layer* l = AnyMaterialLayer(d, material)) {

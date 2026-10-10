@@ -307,6 +307,41 @@ void App::DemoTick() {
         if (GetEnvironmentVariableA("SX_COLORPOP", b, sizeof(b)) > 0) colorPopupRequest = true;
         return;
     }
+    if (demoMode == 88) {
+        // Smart material SX_SMART (index, 0 by default) on SX_MESHFILE (cube otherwise): mesh maps baked, masks generated.
+        char sm[8] = "0", view[8] = "0";
+        GetEnvironmentVariableA("SX_SMART", sm, sizeof(sm));
+        GetEnvironmentVariableA("SX_VIEWCH", view, sizeof(view));
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.basePreset = 1;
+            p3dNew.mesh = 1;
+            p3dNew.skipPaintLayer = true;
+            char mf[512] = "";
+            if (GetEnvironmentVariableA("SX_MESHFILE", mf, sizeof(mf)) > 0) { p3dNew.mesh = 3; p3dNew.meshPath = mf; }
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh) return;
+        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 10) {
+            const auto& list = SmartMaterials();
+            const int i = std::clamp(atoi(sm), 0, (int)list.size() - 1);
+            ApplySmartMaterial(*a, list[i]);
+            Log("[demo] smart materials: %zu, applied %s", list.size(), list[i]["name"].S().c_str());
+            a->mesh->yaw = 0.6f;
+            a->mesh->pitch = 0.45f;
+        }
+        static double t0 = 0;
+        if (frameCounter == 11) t0 = ImGui::GetTime();
+        static bool logged = false;
+        if (frameCounter > 11 && !logged && a->mesh->maps) {
+            logged = true;
+            Log("[demo] mesh maps baked in %.2f s (%u px)", ImGui::GetTime() - t0, a->mesh->maps->Width());
+            a->mesh->viewChannel = atoi(view);
+        }
+        return;
+    }
     if (demoMode == 87) {
         // Paint 3D tools through synthetic mouse events on the 3D view: a scattered stroke with a
         // programmable tip (SX_TIP, cy_star by default), symmetry SX_SYM (1..3), then polygon fills (face, part).
