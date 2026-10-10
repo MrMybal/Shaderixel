@@ -400,6 +400,8 @@ def main():
     shutil.copytree(os.path.join(ROOT, 'library', 'templates'), os.path.join(dist, 'templates'))
     # Render scene presets (.sxscene), listed in Scène de rendu.
     shutil.copytree(os.path.join(ROOT, 'library', 'scenes'), os.path.join(dist, 'scenes'))
+    # Smart materials (Paint 3D > Calques 3D > + Intelligent), JSON.
+    shutil.copytree(os.path.join(ROOT, 'library', 'smartmaterials'), os.path.join(dist, 'smartmaterials'))
     # Logo used by the reference image of previews (effects browser, function inputs).
     os.makedirs(os.path.join(dist, 'assets'), exist_ok=True)
     shutil.copy2(os.path.join(ROOT, 'assets', 'logo.png'), os.path.join(dist, 'assets', 'logo.png'))

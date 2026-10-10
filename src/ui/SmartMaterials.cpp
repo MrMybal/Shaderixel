@@ -233,8 +233,13 @@ const std::vector<Json>& App::SmartMaterials() {
                           Lay("Boue", {0.25f, 0.19f, 0.12f}, 0.95f, 0, Gen(3, 0.35f, 2.5f, 0.55f, 5, false, 1))}));
     list.push_back(Smart("Or patiné", "Or, creux assombris par la patine.",
                          {Lay("Or", {1.0f, 0.78f, 0.34f}, 0.22f, 1, full), Lay("Patine", {0.3f, 0.22f, 0.1f}, 0.7f, 0.6f, Gen(4, 0.45f, 3, 0.25f, 8))}));
-    // Library: library/smartmaterials/*.json and %LOCALAPPDATA%\Shaderixel\SmartMaterials (same format).
-    for (const std::string& dir : {ExeDir() + "/library/smartmaterials", ExeDir() + "/../../library/smartmaterials"}) {
+    // Library: next to the exe (package), the repository's library/smartmaterials (development builds)
+    // and the user's %LOCALAPPDATA%\Shaderixel\SmartMaterials; same JSON format as Smart() above.
+    std::vector<std::string> dirs = {ExeDir() + "/smartmaterials", ExeDir() + "/../../library/smartmaterials"};
+    if (const char* la = getenv("LOCALAPPDATA")) dirs.push_back(std::string(la) + "/Shaderixel/SmartMaterials");
+    std::set<std::string> names;
+    for (auto& j : list) names.insert(j["name"].S());
+    for (const std::string& dir : dirs) {
         std::error_code ec;
         for (auto& e : std::filesystem::directory_iterator(Utf8Path(dir), ec)) {
             if (e.path().extension() != ".json") continue;
@@ -242,9 +247,8 @@ const std::vector<Json>& App::SmartMaterials() {
             std::stringstream ss;
             ss << f.rdbuf();
             Json j;
-            if (Json::Parse(ss.str(), j) && j.Has("layers")) list.push_back(j);
+            if (Json::Parse(ss.str(), j) && j.Has("layers") && names.insert(j["name"].S()).second) list.push_back(j);
         }
-        if (!list.empty() && list.size() > 10) break;  // the packaged folder was found
     }
     return list;
 }

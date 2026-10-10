@@ -16,6 +16,8 @@
 #include "Modules/ModuleManager.h"
 #include "HAL/IConsoleManager.h"
 #include "ToolMenus.h"
+#include "Subsystems/ImportSubsystem.h"
+#include "Factories/Factory.h"
 
 #define LOCTEXT_NAMESPACE "ShaderixelLink"
 
@@ -109,7 +111,9 @@ void ImportExport()
 		return;
 	TArray<FString> Files;
 	const void* Parent = FSlateApplication::Get().FindBestParentWindowHandleForDialogs(nullptr);
-	if (!Platform->OpenFileDialog(Parent, TEXT("Export Shaderixel"), FString(), FString(), TEXT("Export Shaderixel (*.sxue.json)|*.sxue.json"), EFileDialogFlags::None, Files) ||
+	if (!Platform->OpenFileDialog(Parent, TEXT("Modèle ou textures Shaderixel"), FString(), FString(),
+			TEXT("Shaderixel (*.sx3d;*.sxmat.json;*.sxue.json)|*.sx3d;*.sxmat.json;*.sxue.json|Projet Paint 3D (*.sx3d)|*.sx3d|Modèle + matériau (*.sxmat.json)|*.sxmat.json|Textures (*.sxue.json)|*.sxue.json"),
+			EFileDialogFlags::None, Files) ||
 		Files.Num() == 0)
 		return;
 	FContentBrowserModule& CB = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
@@ -120,7 +124,7 @@ void ImportExport()
 		;
 	if (Path.IsEmpty() || !Path.StartsWith(TEXT("/")))
 		Path = TEXT("/Game/Shaderixel");
-	FShaderixelLink::Get().ImportShaderixelExport(Files[0], Path);
+	FShaderixelLink::Get().ImportAny(Files[0], Path);
 }
 }  // namespace
 
@@ -133,6 +137,13 @@ public:
 		CB.GetAllAssetViewContextMenuExtenders().Add(FContentBrowserMenuExtender_SelectedAssets::CreateStatic(&AssetMenuExtender));
 		ExtenderHandle = CB.GetAllAssetViewContextMenuExtenders().Last().GetHandle();
 		UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FShaderixelLinkModule::RegisterMenus));
+		// A model imported the usual way with a <name>.sxmat.json next to it gets its Shaderixel material.
+		if (GEditor)
+			if (UImportSubsystem* Import = GEditor->GetEditorSubsystem<UImportSubsystem>())
+				PostImportHandle = Import->OnAssetPostImport.AddLambda([](UFactory*, UObject* Created) {
+					if (UStaticMesh* Mesh = Cast<UStaticMesh>(Created))
+						FShaderixelLink::Get().ApplySidecarMaterial(Mesh);
+				});
 #if SX_UE5
 		TickHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([](float Dt) { return FShaderixelLink::Get().Tick(Dt); }), 0.5f);
 #else
@@ -151,6 +162,9 @@ public:
 			CB->GetAllAssetViewContextMenuExtenders().RemoveAll([this](const FContentBrowserMenuExtender_SelectedAssets& D) { return D.GetHandle() == ExtenderHandle; });
 		UToolMenus::UnRegisterStartupCallback(this);
 		UToolMenus::UnregisterOwner(this);
+		if (GEditor)
+			if (UImportSubsystem* Import = GEditor->GetEditorSubsystem<UImportSubsystem>())
+				Import->OnAssetPostImport.Remove(PostImportHandle);
 	}
 
 private:
@@ -162,14 +176,15 @@ private:
 		Section.AddMenuEntry(TEXT("ShaderixelPaintActor"), LOCTEXT("PaintActor", "Peindre l'acteur sélectionné dans Shaderixel"),
 			LOCTEXT("PaintActorTip", "Maillage statique de l'acteur sélectionné, premier emplacement de matériau."), FSlateIcon(),
 			FUIAction(FExecuteAction::CreateStatic(&PaintSelectedActor)));
-		Section.AddMenuEntry(TEXT("ShaderixelImport"), LOCTEXT("Import", "Importer un export Shaderixel..."),
-			LOCTEXT("ImportTip", "Textures exportées par Shaderixel (*.sxue.json) : importées dans le dossier courant du Content Browser, avec une instance de matériau."),
+		Section.AddMenuEntry(TEXT("ShaderixelImport"), LOCTEXT("Import", "Importer un modèle Shaderixel..."),
+			LOCTEXT("ImportTip", "Projet Paint 3D (*.sx3d) ou modèle exporté (*.sxmat.json) : maillage statique, textures et instance de matériau\nimportés dans le dossier courant du Content Browser. Aussi les textures seules (*.sxue.json)."),
 			FSlateIcon(), FUIAction(FExecuteAction::CreateStatic(&ImportExport)));
 		Section.AddMenuEntry(TEXT("ShaderixelSessions"), LOCTEXT("Sessions", "Dossier des sessions Shaderixel"), LOCTEXT("SessionsTip", "Projets et textures échangés avec Shaderixel."),
 			FSlateIcon(), FUIAction(FExecuteAction::CreateLambda([]() { FShaderixelLink::Get().OpenSessionsFolder(); })));
 	}
 
 	FDelegateHandle ExtenderHandle;
+	FDelegateHandle PostImportHandle;
 #if SX_UE5
 	FTSTicker::FDelegateHandle TickHandle;
 #else
@@ -197,6 +212,14 @@ static FAutoConsoleCommand GShaderixelEditTexture(TEXT("Shaderixel.EditTexture")
 			FShaderixelLink::Get().EditTexture(Tex);
 		else
 			UE_LOG(LogTemp, Warning, TEXT("Shaderixel.EditTexture: %s not found"), *Args[0]);
+	}));
+static FAutoConsoleCommand GShaderixelImport(TEXT("Shaderixel.Import"),
+	TEXT("Shaderixel.Import <file .sx3d / .sxmat.json / .sxue.json> [content folder]: import a Shaderixel model (mesh, textures, material)"),
+	FConsoleCommandWithArgsDelegate::CreateLambda([](const TArray<FString>& Args) {
+		if (Args.Num() == 0)
+			return;
+		FString File = Args[0].TrimQuotes();
+		FShaderixelLink::Get().ImportAny(File, Args.Num() > 1 ? Args[1] : FString());
 	}));
 static FAutoConsoleCommand GShaderixelPoll(TEXT("Shaderixel.Poll"), TEXT("Shaderixel.Poll: apply the results Shaderixel wrote (also done every half second)"),
 	FConsoleCommandDelegate::CreateLambda([]() { FShaderixelLink::Get().Tick(0.0f); }));

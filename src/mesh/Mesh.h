@@ -53,6 +53,9 @@ struct MeshData {
     std::vector<MeshMaterialInfo> materials;  // imported models: one per part (optional)
     std::vector<u16> triMaterial;             // per triangle, index into materials (empty: one material)
     float3 boundsMin, boundsMax;
+    // NormalizeMesh: original position = pos / srcScale + srcCenter (exports in the file's own units).
+    float3 srcCenter;
+    float srcScale = 1.0f;
     bool hasUvs = true;  // false: loaded without texture coordinates (unwrap before painting)
 };
 
@@ -66,5 +69,7 @@ MeshData MakeCube();
 MeshData MakePlane();
 // Center on the origin and scale to a unit radius (keeps painting brush sizes predictable).
 void NormalizeMesh(MeshData& m);
+// Wavefront OBJ (positions back in the original units when `original`), Y up, UV v flipped like LoadObj reads it.
+bool SaveObj(const std::string& path, const MeshData& m, bool original, std::string* error = nullptr);
 
 }  // namespace sx

@@ -358,6 +358,12 @@ private:
     void PopOutCorner(const char* name);  // right after Begin(): the corner icon of a panel
     void DrawPopOutCorners();
     void DrawPopOutMenu();
+    // Unreal export of a Paint 3D project (UnrealExport.cpp): mesh (OBJ), textures, material description (.sxmat.json).
+    std::string exportUnrealDir;  // --export-unreal <folder>
+    bool unrealDialog = false;
+    Json UnrealSettings(Document& d);
+    std::string ExportForUnreal(DocView& v, const std::string& folder);  // returns the description path
+    void DrawUnrealExportDialog();
     void DrawLayoutSavePopup();
 
     bool Init();
@@ -1407,7 +1413,7 @@ private:
     } blendBrowser;
     void UpdateRelativeDrag();
     // Scripted run (--demo, --capture, --dump-image, --save): never takes the focus or the real cursor.
-    bool Automated() const { return demoMode != 0 || testEffects || !capturePath.empty() || !dumpPath.empty() || !cliSavePath.empty(); }  // hidden, pinned cursor while a slider/drag is dragged
+    bool Automated() const { return demoMode != 0 || testEffects || !capturePath.empty() || !dumpPath.empty() || !cliSavePath.empty() || !exportUnrealDir.empty(); }  // hidden, pinned cursor while a slider/drag is dragged
     // Selection -> work path (selection read back, traced on the CPU).
     struct {
         DocView* view = nullptr;

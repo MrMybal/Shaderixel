@@ -32,6 +32,11 @@ Json App::MeshToJson(const MeshData& m) {
     j["name"] = m.name;
     j["vertices"] = net::Base64Encode(m.vertices.data(), m.vertices.size() * sizeof(MeshVertex));
     j["indices"] = net::Base64Encode(m.indices.data(), m.indices.size() * sizeof(u32));
+    // Placement of the original model (exports in its own units).
+    Json c = Json::Array();
+    c.Push(m.srcCenter.x); c.Push(m.srcCenter.y); c.Push(m.srcCenter.z);
+    j["srcCenter"] = c;
+    j["srcScale"] = m.srcScale;
     return j;
 }
 
@@ -43,6 +48,8 @@ bool App::MeshFromJson(const Json& j, MeshData& m) {
     memcpy(m.vertices.data(), v.data(), v.size());
     m.indices.resize(i.size() / sizeof(u32));
     memcpy(m.indices.data(), i.data(), i.size());
+    if (j["srcCenter"].Size() == 3) m.srcCenter = {j["srcCenter"].At(0).F(), j["srcCenter"].At(1).F(), j["srcCenter"].At(2).F()};
+    m.srcScale = j["srcScale"].F(1.0f);
     m.boundsMin = {1e30f, 1e30f, 1e30f};
     m.boundsMax = {-1e30f, -1e30f, -1e30f};
     for (auto& p : m.vertices) {

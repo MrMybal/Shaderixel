@@ -177,8 +177,19 @@ td:first-child { white-space: nowrap; width: 1%; }
   <div class="card"><h3>Mode Paint 3D (texturer un modèle)</h3><ol>
     <li>Fichier &gt; Nouveau projet Paint 3D : maillage (sphère, cube, plan ou OBJ / glTF avec UV), résolution, canaux, modèle d'export, matériau de base. Le projet (.sx3d) a son propre espace de travail.</li>
     <li>Onglet 3D : Calques 3D (« + Peinture » peint plusieurs canaux d'un coup, « + Matériau » ajoute un matériau à masque) et Matériau du pinceau (canaux cochés et leurs valeurs, préréglages).</li>
-    <li>Outil Projection : choisissez une image, puis cliquez sur le modèle (<kbd>Ctrl</kbd>+molette : taille, <kbd>Maj</kbd>+molette : rotation). Symétrie X dans Calques 3D.</li>
+    <li>Outil Projection : choisissez une image, puis cliquez sur le modèle (<kbd>Ctrl</kbd>+molette : taille, <kbd>Maj</kbd>+molette : rotation). Symétrie X, Y ou Z dans Calques 3D.</li>
     <li>Vue 3D &gt; « Exporter les textures... » : séparées, Unreal (BaseColor, Normal, ORM) ou Unity HDRP (BaseMap, Normal, MaskMap).</li>
+  </ol></div>
+  <div class="card"><h3>Paint 3D : pinceaux et outils</h3><ol>
+    <li>Matériau du pinceau &gt; Pinceau 3D : la pointe de n'importe quel pinceau de la bibliothèque est projetée sur le modèle (avec ses variantes), dont 15 pinceaux « Texture 3D » : usure écaillée, éclaboussures, rouille, coulures, fissures, saleté, rivets, couture, pinceau sec, rayures...</li>
+    <li>Dynamique : angle, suivre le trait, variations d'angle / de taille / de flux, dispersion. Trait : lissage au fil (<i>lazy mouse</i>), angle limite (faces de biais), <kbd>Maj</kbd>+clic pour une ligne droite depuis la fin du trait précédent.</li>
+    <li>Outil <b>Remplissage par polygone</b> (clic droit sur l'outil Projection) : remplit le triangle, la face plate, l'île UV, la pièce ou tout le modèle sous le curseur (surligné au survol) avec le matériau du pinceau ; <kbd>Ctrl</kbd>+clic efface.</li>
+  </ol></div>
+  <div class="card"><h3>Paint 3D : masques et matériaux intelligents</h3><ol>
+    <li>Calques 3D &gt; « + Intelligent » : matériaux en plusieurs couches qui suivent la forme du modèle (métal peint usé, fer rouillé, plastique sale, bois verni usé, cuivre oxydé, chrome poussiéreux, caoutchouc usé, pierre moussue, peinture militaire, or patiné). Ajoutez les vôtres en JSON dans <code>library/smartmaterials</code>.</li>
+    <li>Calque de matériau sélectionné &gt; Masque intelligent : usure des arêtes, saleté des creux, poussière (direction), dégradé, occlusion, bruit, parties fines ; couverture, contraste, bruit 3D (sans raccord), échelle, graine, inverser. Les réglages sont gardés dans le .sx3d.</li>
+    <li>Les cartes du maillage (occlusion, convexité, concavité, épaisseur) sont cuites en arrière-plan (moins d'une seconde pour un modèle courant) ; Vue 3D &gt; liste des canaux &gt; « Carte : ... » pour les voir.</li>
+    <li>Vue 3D : exposition, rendu ACES (comme les moteurs de jeu) ou doux, fil de fer.</li>
   </ol></div>
   <div class="card"><h3>Fichiers Unreal (.uasset)</h3><ol>
     <li>Textures (.uasset de projets UE 4.x à 5.8, éditeur ou cookées, BC1 à BC7) : Fichier &gt; Ouvrir, glisser-déposer sur le canevas / le graphe (objet dynamique ou nœud image), comme une image. Oodle est chargé depuis votre installation d'Unreal si besoin.</li>
@@ -189,7 +200,10 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Copiez <code>Unreal/&lt;version&gt;/ShaderixelLink</code> (4.27 à 5.8) dans le dossier <code>Plugins</code> de votre projet, puis activez « Shaderixel Link » (Edit &gt; Plugins).</li>
     <li>Content Browser, clic droit sur un Static Mesh &gt; <b>Peindre dans Shaderixel</b> &gt; emplacement de matériau : un projet Paint 3D s'ouvre avec le maillage (ses UV) et les textures du matériau dans un calque « Unreal (textures d'origine) ».</li>
     <li>Peignez, puis <kbd>Ctrl</kbd>+<kbd>S</kbd> (ou « Envoyer vers Unreal » dans la barre d'état) : les textures sont réimportées en place. Sans texture au départ : nouvelles BaseColor / Normal / ORM et une instance de matériau assignée.</li>
-    <li>Clic droit sur une Texture 2D &gt; <b>Éditer dans Shaderixel</b> ; Tools &gt; Shaderixel &gt; Importer un export Shaderixel (<code>.sxue.json</code> écrit par « Exporter les textures » en modèle Unreal ORM).</li>
+    <li>Clic droit sur une Texture 2D &gt; <b>Éditer dans Shaderixel</b>.</li>
+    <li><b>Modèle + matériau prêts</b> : dans Shaderixel, Vue 3D &gt; « Unreal... » (ou Fichier &gt; Exporter pour Unreal) règle le nom, le dossier, l'échelle (100 pour un modèle en mètres), le matériau parent, la double face et l'intensité émissive ; ces réglages sont enregistrés dans le .sx3d. L'export écrit le modèle (OBJ), les textures et une description <code>.sxmat.json</code>.</li>
+    <li>Dans Unreal : Tools &gt; Shaderixel &gt; <b>Importer un modèle Shaderixel...</b> avec le <code>.sxmat.json</code>, ou directement le projet <code>.sx3d</code> (Shaderixel l'exporte en arrière-plan) : maillage statique SM_, textures T_ réglées (sRGB, compression), instance MI_ du matériau M_ShaderixelPBR2 (ou de votre matériau parent) déjà assignée. Commande console : <code>Shaderixel.Import &lt;fichier&gt; [dossier]</code>.</li>
+    <li>Un <code>.sxmat.json</code> posé à côté d'un FBX / OBJ du même nom est appliqué automatiquement quand vous importez ce modèle normalement dans Unreal. Les textures seules (<code>.sxue.json</code>) s'importent par le même menu.</li>
   </ol></div>
   <div class="card"><h3>Mode Rendu (path tracing)</h3><p><img src="Guide_images/16_Tasse_Rendu.png" alt="" style="width:100%;border-radius:6px"></p><ol>
     <li>Onglet « Rendu » (à côté de la Vue 3D d'un projet .sx3d) : le modèle peint est rendu en path tracing progressif ; l'image s'affine au fil des échantillons. Clic gauche / droit : orbite, molette : zoom, clic molette : déplacer.</li>

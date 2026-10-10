@@ -76,6 +76,8 @@ bool UnwrapMesh(const MeshData& in, const UnwrapOptions& o, UnwrapResult& out, s
     out.mesh.name = in.name;
     out.mesh.boundsMin = in.boundsMin;
     out.mesh.boundsMax = in.boundsMax;
+    out.mesh.srcCenter = in.srcCenter;
+    out.mesh.srcScale = in.srcScale;
     out.mesh.vertices.resize(m.vertexCount);
     out.sourceVertex.resize(m.vertexCount);
     out.chartOfVertex.resize(m.vertexCount);

@@ -1,0 +1,57 @@
+{
+ "name": "Laiton terni",
+ "description": "Exemple de bibliothèque : laiton, creux noircis, arêtes polies brillantes.",
+ "layers": [
+  {
+   "name": "Laiton",
+   "color": [
+    0.78,
+    0.6,
+    0.28
+   ],
+   "rough": 0.35,
+   "metal": 1,
+   "mask": {
+    "type": 7,
+    "amount": 1,
+    "contrast": 4,
+    "noise": 0,
+    "scale": 6
+   }
+  },
+  {
+   "name": "Ternissure",
+   "color": [
+    0.25,
+    0.2,
+    0.1
+   ],
+   "rough": 0.7,
+   "metal": 0.7,
+   "mask": {
+    "type": 1,
+    "amount": 0.5,
+    "contrast": 3,
+    "noise": 0.4,
+    "scale": 7
+   }
+  },
+  {
+   "name": "Arêtes polies",
+   "color": [
+    0.9,
+    0.75,
+    0.4
+   ],
+   "rough": 0.15,
+   "metal": 1,
+   "mask": {
+    "type": 0,
+    "amount": 0.2,
+    "contrast": 5,
+    "noise": 0.3,
+    "scale": 10
+   }
+  }
+ ]
+}

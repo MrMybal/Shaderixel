@@ -420,6 +420,7 @@ public:
     int kind = 0;
     u32 pbrChannels = 0x7F;  // Paint 3D: channels of the texture set (bit per PbrChannel)
     int exportTemplate = 0;  // Paint 3D: 0 separate maps, 1 Unreal (ORM), 2 Unity (mask map)
+    std::string unrealSettings;  // Paint 3D: Unreal material / import settings (JSON, saved in the .sx3d)
     bool dirty = false;
 
     DocState& S() { return state; }

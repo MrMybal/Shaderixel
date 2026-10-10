@@ -64,7 +64,38 @@ void NormalizeMesh(MeshData& m) {
     for (auto& v : m.vertices) r = std::max(r, Length(v.pos - c));
     float s = r > 0 ? 1.0f / r : 1.0f;
     for (auto& v : m.vertices) v.pos = (v.pos - c) * s;
+    // Combined with an earlier normalization (meshes normalized twice keep their first origin).
+    m.srcCenter = m.srcCenter + c * (1.0f / m.srcScale);
+    m.srcScale *= s;
     ComputeBounds(m);
+}
+
+bool SaveObj(const std::string& path, const MeshData& m, bool original, std::string* error) {
+    std::ofstream f(Utf8Path(path), std::ios::binary);
+    if (!f) { if (error) *error = "écriture impossible : " + path; return false; }
+    f << "# Shaderixel: " << m.name << " (Y up" << (original ? ", original units" : ", normalized") << ")\n";
+    f << "o " << (m.name.empty() ? std::string("Mesh") : m.name) << "\n";
+    char b[128];
+    const float k = original && m.srcScale > 0 ? 1.0f / m.srcScale : 1.0f;
+    for (auto& v : m.vertices) {
+        float3 p = original ? v.pos * k + m.srcCenter : v.pos;
+        snprintf(b, sizeof(b), "v %.6f %.6f %.6f\n", p.x, p.y, -p.z);  // back to right-handed, like LoadObj reads it
+        f << b;
+    }
+    for (auto& v : m.vertices) {
+        snprintf(b, sizeof(b), "vt %.6f %.6f\n", v.uv.x, 1.0f - v.uv.y);
+        f << b;
+    }
+    for (auto& v : m.vertices) {
+        snprintf(b, sizeof(b), "vn %.5f %.5f %.5f\n", v.normal.x, v.normal.y, -v.normal.z);
+        f << b;
+    }
+    for (size_t i = 0; i + 2 < m.indices.size(); i += 3) {
+        const u32 a = m.indices[i] + 1, c = m.indices[i + 1] + 1, d = m.indices[i + 2] + 1;
+        snprintf(b, sizeof(b), "f %u/%u/%u %u/%u/%u %u/%u/%u\n", a, a, a, d, d, d, c, c, c);  // winding of the file
+        f << b;
+    }
+    return (bool)f;
 }
 
 bool LoadObj(const std::string& path, MeshData& out, std::string* error) {

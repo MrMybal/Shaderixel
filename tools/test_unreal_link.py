@@ -8,7 +8,8 @@ For each engine: a blank project (build/ue/test/<ver>) with the plugin, then Unr
   1. the slot has no texture: Shaderixel (started minimized with --demo linksend: one stroke, then
      "Envoyer vers Unreal") returns new BaseColor / Normal / ORM, imported with a material instance;
   2. the slot now has textures: they are sent, painted again and reimported in place.
-A texture session ("Shaderixel.EditTexture") checks the image round trip. Report: build/ue/test/<ver>/report.json.
+A texture session ("Shaderixel.EditTexture") checks the image round trip; a Paint 3D project (.sx3d)
+is imported as a model (Shaderixel.Import), and its OBJ imported normally picks up the .sxmat.json next to it. Report: build/ue/test/<ver>/report.json.
 """
 import json
 import os
@@ -78,6 +79,37 @@ if eal.does_asset_exist(tex_path):
         cmd("Shaderixel.Poll")
     step("texture", r is not None)
 
+# Model + material exported by Shaderixel: the .sx3d project converted by Shaderixel, then imported.
+SX3D = os.environ.get("SXTEST_SX3D", "")
+if SX3D and os.path.exists(SX3D):
+    cmd('Shaderixel.Import "%s" /Game/SxImport' % SX3D)
+    names = ["SM_SxCube", "MI_SxCube", "T_SxCube_BaseColor", "T_SxCube_Normal", "T_SxCube_ORM"]
+    have = [n for n in names if eal.does_asset_exist("/Game/SxImport/" + n)]
+    sm = eal.load_asset("/Game/SxImport/SM_SxCube") if "SM_SxCube" in have else None
+    mat = sm.get_material(0) if sm else None
+    ext = sm.get_bounds().box_extent if sm else None
+    step("import_sx3d", len(have) == len(names) and mat is not None and mat.get_name() == "MI_SxCube",
+         "assets=%s material=%s extent=%s" % (",".join(have), mat.get_name() if mat else "-", ext))
+    orm = eal.load_asset("/Game/SxImport/T_SxCube_ORM")
+    step("texture_settings", orm is not None and not orm.get_editor_property("srgb"), "")
+    # The exported OBJ imported the usual way: its .sxmat.json (same name, same folder) gives the material.
+    exports = os.path.join(os.environ["LOCALAPPDATA"], "Shaderixel", "Link", "exports")
+    dirs = sorted((d for d in os.listdir(exports) if d.startswith("SxCube_")), key=lambda d: os.path.getmtime(os.path.join(exports, d))) if os.path.isdir(exports) else []
+    if dirs:
+        task = unreal.AssetImportTask()
+        task.filename = os.path.join(exports, dirs[-1], "SxCube.obj")
+        task.destination_path = "/Game/SideCar"
+        task.automated = True
+        task.replace_existing = True
+        task.save = False
+        unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+        meshes = [eal.load_asset(p) for p in task.get_editor_property("imported_object_paths")]
+        meshes = [m for m in meshes if isinstance(m, unreal.StaticMesh)]
+        mm = meshes[0].get_material(0) if meshes else None
+        step("sidecar", mm is not None and mm.get_name() == "MI_SxCube", "imported=%d material=%s" % (len(meshes), mm.get_name() if mm else "-"))
+    else:
+        step("sidecar", False, "no export folder")
+
 eal.save_directory("/Game", only_if_is_dirty=True, recursive=True)
 with open(os.environ["SXTEST_REPORT"], "w") as f:
     json.dump(report, f, indent=1)
@@ -113,6 +145,16 @@ def test(ver):
     env['SXTEST_REPORT'] = report
     env['SHADERIXEL_LINK_EXE'] = SHADERIXEL
     env['SHADERIXEL_LINK_TEST_ARGS'] = '--demo linksend --frames 90 --capture "%s"' % os.path.join(proj_dir, 'shaderixel.png')
+    # A Paint 3D project for the model import (cube + smart material), saved by Shaderixel.
+    sx3d = os.path.join(proj_dir, 'SxCube.sx3d')
+    senv = dict(env)
+    senv['SX_SMART'] = '0'
+    senv.pop('SX_MESHFILE', None)
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = 7  # SW_SHOWMINNOACTIVE: never takes the focus
+    subprocess.run([SHADERIXEL, '--demo', 'smartmat', '--frames', '120', '--save', sx3d], env=senv, cwd=proj_dir, timeout=600, startupinfo=si)
+    env['SXTEST_SX3D'] = sx3d
     log = os.path.join(proj_dir, 'editor.log')
     with open(log, 'w', encoding='utf-8', errors='replace') as f:
         subprocess.run([exe, uproject, '-run=pythonscript', '-script=' + script, '-unattended', '-nosplash', '-nullrhi', '-nopause', '-stdout',

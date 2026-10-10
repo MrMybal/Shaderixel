@@ -25,6 +25,8 @@ public class ShaderixelLink : ModuleRules
 			"LevelEditor",
 			"DesktopPlatform",
 			"ToolMenus",
+			"MeshDescription",
+			"StaticMeshDescription",
 		});
 		if (Target.Version.MajorVersion >= 5)
 		{

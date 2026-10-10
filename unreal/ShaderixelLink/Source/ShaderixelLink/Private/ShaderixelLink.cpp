@@ -32,6 +32,11 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "StaticMeshResources.h"
+#include "StaticMeshAttributes.h"
+#include "MeshDescription.h"
+#include "Materials/MaterialExpressionScalarParameter.h"
+#include "Materials/MaterialExpressionMultiply.h"
+#include "EditorFramework/AssetImportData.h"
 #include "Widgets/Notifications/SNotificationList.h"
 
 #if PLATFORM_WINDOWS
@@ -42,7 +47,169 @@
 
 namespace
 {
-const TCHAR* MasterMaterialPath = TEXT("/Game/Shaderixel/M_ShaderixelPBR.M_ShaderixelPBR");
+const TCHAR* MasterMaterialPath = TEXT("/Game/Shaderixel/M_ShaderixelPBR2.M_ShaderixelPBR2");
+
+#if SX_UE5
+using FSxVec3 = FVector3f;
+using FSxVec2 = FVector2f;
+#else
+using FSxVec3 = FVector;
+using FSxVec2 = FVector2D;
+#endif
+
+// Static mesh from the OBJ written by Shaderixel (Y up, file units): Unreal X = -Z, Y = X, Z = Y, times Scale.
+UStaticMesh* BuildStaticMeshFromObj(const FString& ObjFile, const FString& PackagePath, const FString& AssetName, float Scale, UMaterialInterface* Material,
+	FString& Error)
+{
+	TArray<FString> Lines;
+	if (!FFileHelper::LoadFileToStringArray(Lines, *ObjFile))
+	{
+		Error = TEXT("OBJ illisible : ") + ObjFile;
+		return nullptr;
+	}
+	TArray<FSxVec3> P, N;
+	TArray<FSxVec2> T;
+	struct FCorner { int32 V, T, N; };
+	TArray<FCorner> Corners;  // 3 per triangle
+	auto ToUnreal = [Scale](float X, float Y, float Z) { return FSxVec3(-Z * Scale, X * Scale, Y * Scale); };
+	for (const FString& Raw : Lines)
+	{
+		FString L = Raw.TrimStartAndEnd();
+		TArray<FString> Tok;
+		L.ParseIntoArrayWS(Tok);
+		if (Tok.Num() == 0)
+			continue;
+		if (Tok[0] == TEXT("v") && Tok.Num() >= 4)
+			P.Add(ToUnreal(FCString::Atof(*Tok[1]), FCString::Atof(*Tok[2]), FCString::Atof(*Tok[3])));
+		else if (Tok[0] == TEXT("vn") && Tok.Num() >= 4)
+		{
+			FSxVec3 V = ToUnreal(FCString::Atof(*Tok[1]), FCString::Atof(*Tok[2]), FCString::Atof(*Tok[3]));
+			N.Add(V.GetSafeNormal());
+		}
+		else if (Tok[0] == TEXT("vt") && Tok.Num() >= 3)
+			T.Add(FSxVec2(FCString::Atof(*Tok[1]), 1.0f - FCString::Atof(*Tok[2])));
+		else if (Tok[0] == TEXT("f") && Tok.Num() >= 4)
+		{
+			TArray<FCorner> Poly;
+			for (int32 i = 1; i < Tok.Num(); ++i)
+			{
+				TArray<FString> Parts;
+				Tok[i].ParseIntoArray(Parts, TEXT("/"), false);
+				auto Idx = [](const TArray<FString>& A, int32 k, int32 Count) {
+					if (k >= A.Num() || A[k].IsEmpty())
+						return -1;
+					const int32 I = FCString::Atoi(*A[k]);
+					return I < 0 ? Count + I : I - 1;
+				};
+				Poly.Add({Idx(Parts, 0, P.Num()), Idx(Parts, 1, T.Num()), Idx(Parts, 2, N.Num())});
+			}
+			for (int32 i = 1; i + 1 < Poly.Num(); ++i)
+			{
+				Corners.Add(Poly[0]);
+				Corners.Add(Poly[i]);
+				Corners.Add(Poly[i + 1]);
+			}
+		}
+	}
+	if (P.Num() == 0 || Corners.Num() < 3)
+	{
+		Error = TEXT("OBJ vide : ") + ObjFile;
+		return nullptr;
+	}
+	const FString PackageName = PackagePath / AssetName;
+	UStaticMesh* Mesh = LoadObject<UStaticMesh>(nullptr, *(PackageName + TEXT(".") + AssetName), nullptr, LOAD_NoWarn | LOAD_Quiet);
+	const bool bNew = Mesh == nullptr;
+	if (bNew)
+	{
+		UPackage* Package = CreatePackage(*PackageName);
+		if (!Package)
+		{
+			Error = TEXT("paquet impossible : ") + PackageName;
+			return nullptr;
+		}
+		Mesh = NewObject<UStaticMesh>(Package, FName(*AssetName), RF_Public | RF_Standalone | RF_Transactional);
+	}
+	Mesh->Modify();
+	if (Mesh->GetNumSourceModels() == 0)
+		Mesh->AddSourceModel();
+	FStaticMeshSourceModel& Src = Mesh->GetSourceModel(0);
+	Src.BuildSettings.bRecomputeNormals = false;
+	Src.BuildSettings.bRecomputeTangents = true;
+	Src.BuildSettings.bGenerateLightmapUVs = true;
+	Src.BuildSettings.SrcLightmapIndex = 0;
+	Src.BuildSettings.DstLightmapIndex = 1;
+	FMeshDescription* MD = Mesh->CreateMeshDescription(0);
+	if (!MD)
+	{
+		Error = TEXT("description de maillage impossible");
+		return nullptr;
+	}
+	FStaticMeshAttributes Attr(*MD);
+	Attr.Register();
+	auto Positions = Attr.GetVertexPositions();
+	auto Normals = Attr.GetVertexInstanceNormals();
+	auto UVs = Attr.GetVertexInstanceUVs();
+#if SX_UE5
+	UVs.SetNumChannels(1);
+#else
+	UVs.SetNumIndices(1);
+#endif
+	TArray<FVertexID> VertexIds;
+	VertexIds.Reserve(P.Num());
+	for (const FSxVec3& V : P)
+	{
+		const FVertexID Id = MD->CreateVertex();
+		Positions[Id] = V;
+		VertexIds.Add(Id);
+	}
+	const FPolygonGroupID Group = MD->CreatePolygonGroup();
+	Attr.GetPolygonGroupMaterialSlotNames()[Group] = FName(TEXT("Shaderixel"));
+	for (int32 c = 0; c + 2 < Corners.Num(); c += 3)
+	{
+		TArray<FVertexInstanceID> Tri;
+		bool bOk = true;
+		for (int32 k = 0; k < 3; ++k)
+		{
+			const FCorner& K = Corners[c + k];
+			if (!P.IsValidIndex(K.V))
+			{
+				bOk = false;
+				break;
+			}
+			const FVertexInstanceID VI = MD->CreateVertexInstance(VertexIds[K.V]);
+			Normals[VI] = N.IsValidIndex(K.N) ? N[K.N] : FSxVec3(0, 0, 1);
+			UVs.Set(VI, 0, T.IsValidIndex(K.T) ? T[K.T] : FSxVec2(0, 0));
+			Tri.Add(VI);
+		}
+		if (bOk)
+			MD->CreatePolygon(Group, Tri);
+	}
+	Mesh->CommitMeshDescription(0);
+	TArray<FStaticMaterial>& Materials = Mesh->GetStaticMaterials();
+	if (Materials.Num() == 0)
+		Materials.Add(FStaticMaterial(Material, FName(TEXT("Shaderixel")), FName(TEXT("Shaderixel"))));
+	else
+		Materials[0].MaterialInterface = Material;
+	Mesh->Build(false);
+	Mesh->PostEditChange();
+	Mesh->MarkPackageDirty();
+	if (bNew)
+		FAssetRegistryModule::AssetCreated(Mesh);
+	return Mesh;
+}
+
+TextureCompressionSettings CompressionFromName(const FString& Name, TextureCompressionSettings Def)
+{
+	if (Name == TEXT("Normalmap"))
+		return TC_Normalmap;
+	if (Name == TEXT("Masks"))
+		return TC_Masks;
+	if (Name == TEXT("Grayscale"))
+		return TC_Grayscale;
+	if (Name == TEXT("Default"))
+		return TC_Default;
+	return Def;
+}
 
 FString Sanitize(const FString& In)
 {
@@ -320,15 +487,8 @@ bool FShaderixelLink::Launch(const FString& SessionFile)
 			}
 		}
 	}
-	FString Exe = FPlatformMisc::GetEnvironmentVariable(TEXT("SHADERIXEL_LINK_EXE"));
+	const FString Exe = FindExecutable();
 	if (Exe.IsEmpty())
-		Exe = GetDefault<UShaderixelLinkSettings>()->ExecutablePath.FilePath;
-	if (Exe.IsEmpty())
-	{
-		FFileHelper::LoadFileToString(Exe, *FPaths::Combine(LinkDir(), TEXT("last_exe.txt")));
-		Exe.TrimStartAndEndInline();
-	}
-	if (Exe.IsEmpty() || !FPaths::FileExists(Exe))
 	{
 		Notify(TEXT("Shaderixel introuvable : lancez Shaderixel une fois, ou réglez son chemin dans Project Settings > Plugins > Shaderixel Link."), true);
 		return false;
@@ -551,7 +711,14 @@ UTexture* FShaderixelLink::ImportOrReimport(const FShaderixelOutput& Out, bool& 
 	FAssetRegistryModule::AssetCreated(Tex);
 	Package->MarkPackageDirty();
 	Tex->Modify();
-	if (Out.Role == TEXT("Normal"))
+	if (!Out.Compression.IsEmpty() || Out.SRGB >= 0)
+	{
+		// Material description: its own settings.
+		Tex->CompressionSettings = CompressionFromName(Out.Compression, Tex->CompressionSettings);
+		if (Out.SRGB >= 0)
+			Tex->SRGB = Out.SRGB != 0;
+	}
+	else if (Out.Role == TEXT("Normal"))
 	{
 		Tex->SRGB = false;
 		Tex->CompressionSettings = TC_Normalmap;
@@ -572,58 +739,106 @@ UTexture* FShaderixelLink::ImportOrReimport(const FShaderixelOutput& Out, bool& 
 	return Tex;
 }
 
-UMaterialInterface* FShaderixelLink::EnsureMaterialInstance(const FString& PackagePath, const FString& Name, const TMap<FString, UTexture*>& Textures)
+UMaterial* FShaderixelLink::EnsureMasterMaterial(const TMap<FString, UTexture*>& Textures)
+{
+	if (UMaterial* Master = LoadObject<UMaterial>(nullptr, MasterMaterialPath, nullptr, LOAD_NoWarn | LOAD_Quiet))
+		return Master;
+	// BaseColor, Normal, ORM (R occlusion, G roughness, B metallic), Emissive x EmissiveStrength.
+	IAssetTools& Tools = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools")).Get();
+	UMaterialFactoryNew* Factory = NewObject<UMaterialFactoryNew>();
+	UMaterial* Master = Cast<UMaterial>(Tools.CreateAsset(TEXT("M_ShaderixelPBR2"), TEXT("/Game/Shaderixel"), UMaterial::StaticClass(), Factory));
+	if (!Master)
+		return nullptr;
+	auto Param = [&](const TCHAR* ParamName, int32 Y, EMaterialSamplerType Sampler, const TCHAR* Fallback) -> UMaterialExpressionTextureSampleParameter2D*
+	{
+		// Default texture: the first imported one, otherwise an engine texture of the same kind.
+		UTexture* Tex = nullptr;
+		if (UTexture* const* Found = Textures.Find(ParamName))
+			Tex = *Found;
+		if (!Tex && Fallback)
+			Tex = LoadObject<UTexture>(nullptr, Fallback, nullptr, LOAD_NoWarn | LOAD_Quiet);
+		if (!Tex)
+			return nullptr;
+		auto* E = Cast<UMaterialExpressionTextureSampleParameter2D>(
+			UMaterialEditingLibrary::CreateMaterialExpression(Master, UMaterialExpressionTextureSampleParameter2D::StaticClass(), -520, Y));
+		if (!E)
+			return nullptr;
+		E->ParameterName = ParamName;
+		E->Texture = Tex;
+		E->SamplerType = Sampler;
+		return E;
+	};
+	if (auto* E = Param(TEXT("BaseColor"), -300, SAMPLERTYPE_Color, TEXT("/Engine/EngineResources/WhiteSquareTexture.WhiteSquareTexture")))
+		UMaterialEditingLibrary::ConnectMaterialProperty(E, TEXT("RGB"), MP_BaseColor);
+	if (auto* E = Param(TEXT("Normal"), 0, SAMPLERTYPE_Normal, TEXT("/Engine/EngineMaterials/FlatNormal.FlatNormal")))
+		UMaterialEditingLibrary::ConnectMaterialProperty(E, TEXT("RGB"), MP_Normal);
+	if (auto* E = Param(TEXT("ORM"), 300, SAMPLERTYPE_Masks, nullptr))
+	{
+		UMaterialEditingLibrary::ConnectMaterialProperty(E, TEXT("R"), MP_AmbientOcclusion);
+		UMaterialEditingLibrary::ConnectMaterialProperty(E, TEXT("G"), MP_Roughness);
+		UMaterialEditingLibrary::ConnectMaterialProperty(E, TEXT("B"), MP_Metallic);
+	}
+	if (auto* E = Param(TEXT("Emissive"), 600, SAMPLERTYPE_Color, TEXT("/Engine/EngineResources/Black.Black")))
+	{
+		auto* Strength = Cast<UMaterialExpressionScalarParameter>(
+			UMaterialEditingLibrary::CreateMaterialExpression(Master, UMaterialExpressionScalarParameter::StaticClass(), -520, 900));
+		auto* Mul = Cast<UMaterialExpressionMultiply>(UMaterialEditingLibrary::CreateMaterialExpression(Master, UMaterialExpressionMultiply::StaticClass(), -200, 650));
+		if (Strength && Mul)
+		{
+			Strength->ParameterName = TEXT("EmissiveStrength");
+			Strength->DefaultValue = 1.0f;
+			UMaterialEditingLibrary::ConnectMaterialExpressions(E, TEXT("RGB"), Mul, TEXT("A"));
+			UMaterialEditingLibrary::ConnectMaterialExpressions(Strength, TEXT(""), Mul, TEXT("B"));
+			UMaterialEditingLibrary::ConnectMaterialProperty(Mul, TEXT(""), MP_EmissiveColor);
+		}
+	}
+	UMaterialEditingLibrary::RecompileMaterial(Master);
+	Master->MarkPackageDirty();
+	return Master;
+}
+
+UMaterialInterface* FShaderixelLink::EnsureMaterialInstance(const FString& PackagePath, const FString& Name, const TMap<FString, UTexture*>& Textures,
+	const FShaderixelMaterialSettings* Settings)
 {
 	IAssetTools& Tools = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools")).Get();
-	UMaterial* Master = LoadObject<UMaterial>(nullptr, MasterMaterialPath, nullptr, LOAD_NoWarn | LOAD_Quiet);
-	if (!Master)
+	UMaterialInterface* Parent = nullptr;
+	if (Settings && !Settings->Parent.IsEmpty())
 	{
-		// Master material: BaseColor, Normal and ORM (R occlusion, G roughness, B metallic) parameters.
-		UMaterialFactoryNew* Factory = NewObject<UMaterialFactoryNew>();
-		Master = Cast<UMaterial>(Tools.CreateAsset(TEXT("M_ShaderixelPBR"), TEXT("/Game/Shaderixel"), UMaterial::StaticClass(), Factory));
-		if (!Master)
-			return nullptr;
-		auto Param = [&](const TCHAR* ParamName, int32 Y, EMaterialSamplerType Sampler) -> UMaterialExpressionTextureSampleParameter2D*
-		{
-			UTexture* const* Tex = Textures.Find(ParamName);
-			if (!Tex || !*Tex)
-				return nullptr;
-			auto* E = Cast<UMaterialExpressionTextureSampleParameter2D>(
-				UMaterialEditingLibrary::CreateMaterialExpression(Master, UMaterialExpressionTextureSampleParameter2D::StaticClass(), -420, Y));
-			if (!E)
-				return nullptr;
-			E->ParameterName = ParamName;
-			E->Texture = *Tex;
-			E->SamplerType = Sampler;
-			return E;
-		};
-		if (auto* E = Param(TEXT("BaseColor"), -200, SAMPLERTYPE_Color))
-			UMaterialEditingLibrary::ConnectMaterialProperty(E, TEXT("RGB"), MP_BaseColor);
-		if (auto* E = Param(TEXT("Normal"), 100, SAMPLERTYPE_Normal))
-			UMaterialEditingLibrary::ConnectMaterialProperty(E, TEXT("RGB"), MP_Normal);
-		if (auto* E = Param(TEXT("ORM"), 400, SAMPLERTYPE_Masks))
-		{
-			UMaterialEditingLibrary::ConnectMaterialProperty(E, TEXT("R"), MP_AmbientOcclusion);
-			UMaterialEditingLibrary::ConnectMaterialProperty(E, TEXT("G"), MP_Roughness);
-			UMaterialEditingLibrary::ConnectMaterialProperty(E, TEXT("B"), MP_Metallic);
-		}
-		UMaterialEditingLibrary::RecompileMaterial(Master);
-		Master->MarkPackageDirty();
+		FString ParentPath = Settings->Parent;
+		if (!ParentPath.Contains(TEXT(".")))
+			ParentPath += TEXT(".") + FPackageName::GetShortName(ParentPath);
+		Parent = LoadObject<UMaterialInterface>(nullptr, *ParentPath, nullptr, LOAD_NoWarn | LOAD_Quiet);
+		if (!Parent)
+			Notify(TEXT("Matériau parent introuvable : ") + Settings->Parent + TEXT(" (celui du plugin est utilisé)"), true);
 	}
+	if (!Parent)
+		Parent = EnsureMasterMaterial(Textures);
+	if (!Parent)
+		return nullptr;
 	const FString Path = PackagePath / Name + TEXT(".") + Name;
 	UMaterialInstanceConstant* Instance = LoadObject<UMaterialInstanceConstant>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
 	if (!Instance)
 	{
 		UMaterialInstanceConstantFactoryNew* Factory = NewObject<UMaterialInstanceConstantFactoryNew>();
-		Factory->InitialParent = Master;
+		Factory->InitialParent = Parent;
 		Instance = Cast<UMaterialInstanceConstant>(Tools.CreateAsset(Name, PackagePath, UMaterialInstanceConstant::StaticClass(), Factory));
 		if (!Instance)
 			return nullptr;
 	}
+	else if (Instance->Parent != Parent)
+		Instance->SetParentEditorOnly(Parent);
 	for (const auto& Pair : Textures)
 		if (Pair.Value)
 			UMaterialEditingLibrary::SetMaterialInstanceTextureParameterValue(Instance, FName(*Pair.Key), Pair.Value);
+	if (Settings)
+	{
+		for (const auto& Pair : Settings->Scalars)
+			UMaterialEditingLibrary::SetMaterialInstanceScalarParameterValue(Instance, FName(*Pair.Key), Pair.Value);
+		Instance->BasePropertyOverrides.bOverride_TwoSided = Settings->bTwoSided;
+		Instance->BasePropertyOverrides.TwoSided = Settings->bTwoSided;
+	}
 	UMaterialEditingLibrary::UpdateMaterialInstance(Instance);
+	Instance->PostEditChange();
 	Instance->MarkPackageDirty();
 	return Instance;
 }
@@ -714,6 +929,187 @@ void FShaderixelLink::OpenSessionsFolder()
 	const FString Dir = FPaths::Combine(LinkDir(), TEXT("sessions"));
 	IFileManager::Get().MakeDirectory(*Dir, true);
 	FPlatformProcess::ExploreFolder(*Dir);
+}
+
+
+// ------------------------------------------------------------------ models exported by Shaderixel
+
+FString FShaderixelLink::FindExecutable() const
+{
+	FString Exe = FPlatformMisc::GetEnvironmentVariable(TEXT("SHADERIXEL_LINK_EXE"));
+	if (Exe.IsEmpty())
+		Exe = GetDefault<UShaderixelLinkSettings>()->ExecutablePath.FilePath;
+	if (Exe.IsEmpty())
+	{
+		FFileHelper::LoadFileToString(Exe, *FPaths::Combine(LinkDir(), TEXT("last_exe.txt")));
+		Exe.TrimStartAndEndInline();
+	}
+	return !Exe.IsEmpty() && FPaths::FileExists(Exe) ? Exe : FString();
+}
+
+UMaterialInterface* FShaderixelLink::ImportMaterialDescription(const TSharedPtr<FJsonObject>& Desc, const FString& Dir, const FString& PackagePath,
+	int32& NumTextures)
+{
+	NumTextures = 0;
+	const FString Name = Sanitize(Desc->GetStringField(TEXT("name")));
+	TMap<FString, UTexture*> ByParam;
+	const TArray<TSharedPtr<FJsonValue>>* Texs = nullptr;
+	if (Desc->TryGetArrayField(TEXT("textures"), Texs))
+		for (const TSharedPtr<FJsonValue>& V : *Texs)
+		{
+			const TSharedPtr<FJsonObject> O = V->AsObject();
+			if (!O.IsValid())
+				continue;
+			FShaderixelOutput Out;
+			Out.Role = O->GetStringField(TEXT("role"));
+			Out.File = FPaths::Combine(Dir, O->GetStringField(TEXT("file")));
+			FString Asset = Sanitize(O->GetStringField(TEXT("asset")));
+			if (Asset.IsEmpty())
+				Asset = TEXT("T_") + Name + TEXT("_") + Out.Role;
+			Out.AssetPath = PackagePath / Asset + TEXT(".") + Asset;
+			Out.Compression = O->GetStringField(TEXT("compression"));
+			bool bSrgb = false;
+			if (O->TryGetBoolField(TEXT("srgb"), bSrgb))
+				Out.SRGB = bSrgb ? 1 : 0;
+			if (!FPaths::FileExists(Out.File))
+				continue;
+			bool bCreated = false;
+			if (UTexture* T = ImportOrReimport(Out, bCreated))
+			{
+				FString Param = O->GetStringField(TEXT("parameter"));
+				ByParam.Add(Param.IsEmpty() ? Out.Role : Param, T);
+				++NumTextures;
+			}
+		}
+	if (ByParam.Num() == 0)
+		return nullptr;
+	FShaderixelMaterialSettings Settings;
+	FString MaterialAsset = TEXT("MI_") + Name;
+	const TSharedPtr<FJsonObject>* Mat = nullptr;
+	if (Desc->TryGetObjectField(TEXT("material"), Mat) && Mat && (*Mat).IsValid())
+	{
+		const FString A = Sanitize((*Mat)->GetStringField(TEXT("asset")));
+		if (!A.IsEmpty())
+			MaterialAsset = A;
+		Settings.Parent = (*Mat)->GetStringField(TEXT("parent"));
+		(*Mat)->TryGetBoolField(TEXT("twoSided"), Settings.bTwoSided);
+		const TSharedPtr<FJsonObject>* Sc = nullptr;
+		if ((*Mat)->TryGetObjectField(TEXT("scalars"), Sc) && Sc && (*Sc).IsValid())
+			for (const auto& Pair : (*Sc)->Values)
+				Settings.Scalars.Add(Pair.Key, (float)Pair.Value->AsNumber());
+	}
+	return EnsureMaterialInstance(PackagePath, MaterialAsset, ByParam, &Settings);
+}
+
+UStaticMesh* FShaderixelLink::ImportShaderixelModel(const FString& File, const FString& PackagePathIn)
+{
+	FString Desc = File;
+	if (FPaths::GetExtension(File).Equals(TEXT("sx3d"), ESearchCase::IgnoreCase))
+	{
+		// A Paint 3D project: Shaderixel writes the model, its textures and the description, then quits.
+		const FString Exe = FindExecutable();
+		if (Exe.IsEmpty())
+		{
+			Notify(TEXT("Shaderixel introuvable : lancez Shaderixel une fois, ou réglez son chemin dans Project Settings > Plugins > Shaderixel Link."), true);
+			return nullptr;
+		}
+		const FString Out = FPaths::Combine(LinkDir(), TEXT("exports"), FString::Printf(TEXT("%s_%lld"), *Sanitize(FPaths::GetBaseFilename(File)),
+			FDateTime::UtcNow().GetTicks()));
+		IFileManager::Get().MakeDirectory(*Out, true);
+		const FString Args = FString::Printf(TEXT("--export-unreal \"%s\" \"%s\""), *Out, *FPaths::ConvertRelativePathToFull(File));
+		FProcHandle Proc = FPlatformProcess::CreateProc(*Exe, *Args, false, true, false, nullptr, 0, *FPaths::GetPath(Exe), nullptr);
+		if (!Proc.IsValid())
+		{
+			Notify(TEXT("Impossible de lancer Shaderixel : ") + Exe, true);
+			return nullptr;
+		}
+		const double End = FPlatformTime::Seconds() + 300.0;
+		while (FPlatformProcess::IsProcRunning(Proc) && FPlatformTime::Seconds() < End)
+			FPlatformProcess::Sleep(0.1f);
+		FPlatformProcess::CloseProc(Proc);
+		TArray<FString> Found;
+		IFileManager::Get().FindFiles(Found, *FPaths::Combine(Out, TEXT("*.sxmat.json")), true, false);
+		if (Found.Num() == 0)
+		{
+			Notify(TEXT("Shaderixel n'a pas exporté le projet : ") + File, true);
+			return nullptr;
+		}
+		Desc = FPaths::Combine(Out, Found[0]);
+	}
+	TSharedPtr<FJsonObject> D = LoadJson(Desc);
+	if (!D.IsValid() || D->GetStringField(TEXT("format")) != TEXT("shaderixel-material"))
+	{
+		Notify(TEXT("Description de matériau Shaderixel illisible : ") + Desc, true);
+		return nullptr;
+	}
+	const FString Dir = FPaths::GetPath(Desc);
+	const FString Name = Sanitize(D->GetStringField(TEXT("name")));
+	FString PackagePath = PackagePathIn;
+	if (PackagePath.IsEmpty())
+		PackagePath = D->GetStringField(TEXT("contentFolder"));
+	if (PackagePath.IsEmpty() || !PackagePath.StartsWith(TEXT("/")))
+		PackagePath = TEXT("/Game/Shaderixel/") + Name;
+	int32 NumTextures = 0;
+	UMaterialInterface* Material = ImportMaterialDescription(D, Dir, PackagePath, NumTextures);
+	UStaticMesh* Mesh = nullptr;
+	const TSharedPtr<FJsonObject>* MeshObj = nullptr;
+	if (D->TryGetObjectField(TEXT("mesh"), MeshObj) && MeshObj && (*MeshObj).IsValid())
+	{
+		FString Asset = Sanitize((*MeshObj)->GetStringField(TEXT("asset")));
+		if (Asset.IsEmpty())
+			Asset = TEXT("SM_") + Name;
+		double Scale = 100.0;
+		(*MeshObj)->TryGetNumberField(TEXT("importScale"), Scale);
+		FString Error;
+		Mesh = BuildStaticMeshFromObj(FPaths::Combine(Dir, (*MeshObj)->GetStringField(TEXT("file"))), PackagePath, Asset, (float)Scale, Material, Error);
+		if (!Mesh)
+			Notify(TEXT("Maillage non importé : ") + Error, true);
+	}
+	Notify(FString::Printf(TEXT("Shaderixel : %s importé dans %s (%s%d textures, %s)"), *Name, *PackagePath, Mesh ? TEXT("maillage, ") : TEXT(""), NumTextures,
+		Material ? *Material->GetName() : TEXT("pas de matériau")), !Material || !Mesh);
+	return Mesh;
+}
+
+void FShaderixelLink::ImportAny(const FString& File, const FString& PackagePath)
+{
+	if (File.EndsWith(TEXT(".sxue.json"), ESearchCase::IgnoreCase))
+		ImportShaderixelExport(File, PackagePath);
+	else
+		ImportShaderixelModel(File, PackagePath);
+}
+
+void FShaderixelLink::ApplySidecarMaterial(UStaticMesh* Mesh)
+{
+	if (!Mesh)
+		return;
+	// Source file of the import, then <same name>.sxmat.json next to it.
+#if SX_UE5
+	UAssetImportData* Data = Mesh->GetAssetImportData();
+#else
+	UAssetImportData* Data = Mesh->AssetImportData;
+#endif
+	const FString Source = Data ? Data->GetFirstFilename() : FString();
+	if (Source.IsEmpty())
+		return;
+	const FString Sidecar = FPaths::Combine(FPaths::GetPath(Source), FPaths::GetBaseFilename(Source) + TEXT(".sxmat.json"));
+	if (!FPaths::FileExists(Sidecar) || SidecarBusy.Contains(Sidecar))
+		return;
+	TSharedPtr<FJsonObject> D = LoadJson(Sidecar);
+	if (!D.IsValid() || D->GetStringField(TEXT("format")) != TEXT("shaderixel-material"))
+		return;
+	SidecarBusy.Add(Sidecar);
+	const FString PackagePath = FPackageName::GetLongPackagePath(Mesh->GetOutermost()->GetName());
+	int32 NumTextures = 0;
+	if (UMaterialInterface* Material = ImportMaterialDescription(D, FPaths::GetPath(Sidecar), PackagePath, NumTextures))
+	{
+		Mesh->Modify();
+		for (int32 i = 0; i < FMath::Max(1, Mesh->GetStaticMaterials().Num()); ++i)
+			Mesh->SetMaterial(i, Material);
+		Mesh->PostEditChange();
+		Mesh->MarkPackageDirty();
+		Notify(FString::Printf(TEXT("Shaderixel : matériau %s appliqué à %s (%d textures)"), *Material->GetName(), *Mesh->GetName(), NumTextures));
+	}
+	SidecarBusy.Remove(Sidecar);
 }
 
 #undef LOCTEXT_NAMESPACE

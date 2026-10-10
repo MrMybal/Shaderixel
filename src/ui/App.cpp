@@ -98,6 +98,7 @@ void App::ParseCommandLine() {
         else if (a == "--sparse-threshold" && i + 1 < argc) gpu::Dev().SetSparseThreshold((u64)_wtoi64(argv[++i]));
         else if (a == "--frames" && i + 1 < argc) captureFrame = std::max(3, _wtoi(argv[++i]));
         else if (a == "--link" && i + 1 < argc) pendingLinkOpen = Narrow(argv[++i]);  // Unreal plugin session
+        else if (a == "--export-unreal" && i + 1 < argc) exportUnrealDir = Narrow(argv[++i]);  // model + material for Unreal, then quit
         else if (a.rfind("--", 0) != 0) pendingDrop = a;  // open a file given on the command line
     }
     LocalFree(argv);
@@ -450,6 +451,7 @@ void App::Frame() {
     if (!cliSavePath.empty() && frameCounter == (u64)captureFrame && Active()) {
         SaveDocument(*Active(), cliSavePath);
         cliSavePath.clear();
+        if (capturePath.empty()) autoQuit = true;  // --save alone: quit once written
     }
     if (!dumpPath.empty() && frameCounter == (u64)captureFrame && Active())
         dumpRb = Active()->renderer.ExportRGBA8(*ctx, Active()->renderer.EvaluateComplete(*Active()->doc, *ctx));
@@ -467,7 +469,17 @@ void App::Frame() {
         autoQuit = true;
     }
     // Automated runs quit once pending saves / exports are written.
-    if (autoQuit && saves.empty() && !psdExport && !dumpRb) {
+    if (!exportUnrealDir.empty() && frameCounter >= 12 && Active() && Active()->doc->kind == 1 && Active()->mesh) {
+        // Command line (Unreal plugin importing a .sx3d): the model, its textures and the description.
+        ExportForUnreal(*Active(), exportUnrealDir);
+        exportUnrealDir.clear();
+        autoQuit = true;
+    } else if (!exportUnrealDir.empty() && frameCounter > 600) {
+        Log("--export-unreal: no Paint 3D project open");
+        exportUnrealDir.clear();
+        autoQuit = true;
+    }
+    if (autoQuit && saves.empty() && !psdExport && !dumpRb && exports.empty() && packJobs.empty()) {
         for (auto& dv : docs) dv->doc->dirty = false;  // never prompt
         PostMessageW(hwnd, WM_CLOSE, 0, 0);
         autoQuit = false;
@@ -546,6 +558,7 @@ void App::Frame() {
     if (!ImGui::FindWindowByName("Matériau du pinceau")) DockNewPanel(5, true);
     if (Shown("Matériau du pinceau")) DrawBrushMaterialPanel();
     DrawBatchWindow();
+    DrawUnrealExportDialog();
     DrawColorDialogs();
     DrawPhotoDialog();
     DrawPaint3DNewDialog();
@@ -956,6 +969,7 @@ void App::DrawMenuBar() {
             }
             ImGui::EndMenu();
         }
+        if (v && v->doc->kind == 1 && ImGui::MenuItem("Exporter pour Unreal (modèle + matériau)...")) unrealDialog = true;
         if (v && v->doc->kind == 1 && ImGui::MenuItem("Exporter les textures du projet...")) {
             std::string f = platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png");
             if (!f.empty()) ExportProjectTextures(*v, f);
@@ -1758,6 +1772,10 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
     // Paint 3D project: the mesh travels with the file.
     if (d.kind == 1 && v.mesh) {
         job->meta["mesh"] = MeshToJson(v.mesh->data);
+        if (!d.unrealSettings.empty()) {
+            Json u;
+            if (Json::Parse(d.unrealSettings, u)) job->meta["unreal"] = u;
+        }
         Json cam = Json::Array();
         for (float f : {v.mesh->yaw, v.mesh->pitch, v.mesh->distance, v.mesh->target.x, v.mesh->target.y, v.mesh->target.z}) cam.Push(f);
         job->meta["camera"] = cam;
@@ -1874,6 +1892,7 @@ bool App::LoadSxl(const std::string& path) {
     if (meta.Has("mesh")) {
         MeshData m;
         if (MeshFromJson(meta["mesh"], m)) AttachMesh(*view, std::move(m));
+        if (meta.Has("unreal")) view->doc->unrealSettings = meta["unreal"].Dump(0);
         const Json& cam = meta["camera"];
         if (view->mesh && cam.Size() == 6) {
             view->mesh->yaw = cam.At(0).F();
