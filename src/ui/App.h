@@ -1334,7 +1334,7 @@ private:
         bool open = false, running = false, useHigh = false, toChannels = true, heightToChannel = false, exportPng = false;
         std::string highPath, exportDir;
         BakeOptions opt;
-        int sizeIndex = 2;
+        int sizeIndex = 2, idMode = 0;
         DocView* view = nullptr;
         std::shared_ptr<std::atomic<float>> progress;
         std::shared_ptr<std::atomic<bool>> cancel;

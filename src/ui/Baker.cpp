@@ -142,6 +142,22 @@ void App::PollBake() {
         if (!r.normal.empty() && B.useHigh && !B.highPath.empty() && AddBakedLayer(v, PbrChannel::Normal, "Normale cuite", r.normal, 3, r.size)) ++layers;
         if (!r.ao.empty() && AddBakedLayer(v, PbrChannel::Occlusion, "Occlusion cuite", r.ao, 1, r.size)) ++layers;
         if (B.heightToChannel && !r.height.empty() && AddBakedLayer(v, PbrChannel::Height, "Hauteur cuite", r.height, 1, r.size)) ++layers;
+        if (!r.id.empty()) {
+            // The ID map as a hidden reference layer (pick its colors with the magic wand / select color range).
+            Document& d = *v.doc;
+            Edit e(d, v.history, "ID cuit");
+            for (auto it = d.S().layers.begin(); it != d.S().layers.end();)
+                if (it->name == "ID cuit" && it->parent == 0) it = d.S().layers.erase(it);
+                else ++it;
+            Layer& l = d.AddPixelLayer("ID cuit");
+            l.visible = false;
+            const Id surf = l.surface;
+            d.SyncGraph();
+            e.Commit();
+            v.renderer.Prepare(d, *ctx);
+            WriteLayerPixels(d, surf, r.id, 3, r.size, r.size, false);
+            ++layers;
+        }
         v.history.EndGroup();
     }
     int files = 0;
@@ -164,6 +180,7 @@ void App::PollBake() {
         write(r.height, 1, "_Height.png");
         write(r.position, 3, "_Position.png");
         write(r.worldNormal, 3, "_WorldNormal.png");
+        write(r.id, 3, "_ID.png");
     }
     char msg[256];
     snprintf(msg, sizeof(msg), "Cuisson terminée en %.1f s (%d px) : %d calque(s), %d fichier(s)%s", secs, r.size, layers, files,
@@ -219,6 +236,17 @@ void App::DrawBakerWindow() {
     ImGui::SameLine(260 * dpi);
     ImGui::Checkbox("Position", &B.opt.position);
     ImGui::Checkbox("Normale monde", &B.opt.worldNormal);
+    ImGui::SameLine(260 * dpi);
+    {
+        bool idOn = B.opt.id >= 0;
+        if (ImGui::Checkbox("ID couleur", &idOn)) B.opt.id = idOn ? std::max(B.idMode, 0) : -1;
+        if (idOn) {
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(130 * dpi);
+            if (ImGui::Combo("##idmode", &B.idMode, "Pièces\0Matériaux\0Îles UV\0")) B.opt.id = B.idMode;
+        }
+        ui::HelpTooltip("Une couleur unie par pièce du modèle (haute définition s'il y en a un), par matériau ou par île UV :\npour sélectionner ou masquer ces zones ensuite (calque « ID cuit », export PNG).");
+    }
     ImGui::SeparatorText("Qualité");
     ImGui::SetNextItemWidth(200 * dpi);
     ImGui::Combo("Résolution", &B.sizeIndex, "512\0" "1024\0" "2048\0" "4096\0");

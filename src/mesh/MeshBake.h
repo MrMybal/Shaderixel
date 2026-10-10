@@ -42,6 +42,7 @@ struct BakeOptions {
     // High poly projection: rays start `front` above the low surface and search down to `back` below it.
     float front = 0.05f, back = 0.05f;
     bool normal = true, ao = true, curvature = true, thickness = true, height = true, position = false, worldNormal = false;
+    int id = -1;  // color ID map: -1 none, 0 mesh parts, 1 materials of the model, 2 UV islands (of the detail model)
     int padding = 16;  // texels painted past the UV islands (dilation)
 };
 
@@ -58,6 +59,7 @@ struct BakeResult {
     std::vector<float> height;      // 0.5 = on the low surface, > 0.5 high poly above it
     std::vector<float> position;    // rgb, bounding box mapped to 0..1
     std::vector<float> worldNormal; // rgb, -1..1 -> 0..1
+    std::vector<float> id;          // rgb, one flat color per part / material / UV island
     std::vector<float> maps;        // smart mask maps (rgba, see MeshMaps)
 };
 

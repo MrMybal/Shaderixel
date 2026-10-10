@@ -497,6 +497,42 @@ BakeResult BakeMeshes(const MeshData& low, const MeshData* high, const BakeOptio
     if (o.height) out.height.assign(N, 0.5f);
     if (o.position) out.position.assign(N * 3, 0.0f);
     if (o.worldNormal) out.worldNormal.assign(N * 3, 0.5f);
+    // Color ID: a group per triangle of the detail model (parts, materials or UV islands), a color per group.
+    std::vector<u32> lowGroup, highGroup;
+    auto groups = [&](const Analyzed& A, std::vector<u32>& g) {
+        const MeshData& m = *A.m;
+        const size_t n = m.indices.size() / 3;
+        g.assign(n, 0);
+        if (o.id == 1) {
+            for (size_t t = 0; t < n; ++t) g[t] = t < m.triMaterial.size() ? m.triMaterial[t] : 0;
+            return;
+        }
+        std::vector<u32> parent(n);
+        for (size_t t = 0; t < n; ++t) parent[t] = (u32)t;
+        auto find = [&](u32 x) { while (parent[x] != x) x = parent[x] = parent[parent[x]]; return x; };
+        std::unordered_map<u64, u32> first;
+        for (size_t t = 0; t < n; ++t)
+            for (int k = 0; k < 3; ++k) {
+                // Parts: shared welded positions; islands: shared position and UV.
+                const u32 vi = m.indices[t * 3 + k];
+                u64 key = (u64)A.W[t * 3 + k];
+                if (o.id == 2) {
+                    const float2 uv = m.vertices[vi].uv;
+                    key = key * 1000003ull ^ ((u64)(u32)std::lround(uv.x * 65536.0f) << 20) ^ (u64)(u32)std::lround(uv.y * 65536.0f);
+                }
+                auto [it, added] = first.emplace(key, (u32)t);
+                if (!added) {
+                    u32 a = find(it->second), b = find((u32)t);
+                    if (a != b) parent[b] = a;
+                }
+            }
+        for (size_t t = 0; t < n; ++t) g[t] = find((u32)t);
+    };
+    if (o.id >= 0) {
+        out.id.assign(N * 3, 0.0f);
+        groups(L, lowGroup);
+        if (high) groups(H, highGroup);
+    }
     const float3 bmin = low.boundsMin, bext = Max3(low.boundsMax - low.boundsMin, float3{1e-6f, 1e-6f, 1e-6f});
     const Dirs dirs(o.aoRays);
     std::atomic<size_t> misses{0};
@@ -545,6 +581,16 @@ BakeResult BakeMeshes(const MeshData& low, const MeshData* high, const BakeOptio
         }
         if (o.worldNormal)
             for (int k = 0; k < 3; ++k) out.worldNormal[(size_t)tx.idx * 3 + k] = Comp(n, k) * 0.5f + 0.5f;
+        if (o.id >= 0) {
+            // Group of the triangle hit (detail) -> a saturated color from its hash.
+            const std::vector<u32>& g = onDetail && high ? highGroup : lowGroup;
+            const u32 grp = dtri < g.size() ? g[dtri] : 0;
+            const float hue = Hash(grp * 2654435761u + 17u);
+            for (int k = 0; k < 3; ++k) {
+                const float c = std::fabs(std::fmod(hue * 6.0f + (k == 0 ? 0.0f : k == 1 ? 4.0f : 2.0f), 6.0f) - 3.0f) - 1.0f;
+                out.id[(size_t)tx.idx * 3 + k] = std::clamp(c, 0.0f, 1.0f) * 0.85f + 0.1f * Hash(grp + 99u * (k + 1));
+            }
+        }
         if (o.normal) {
             // Tangent frame of the low poly at the texel (X = +U, Y = +V = image down: DirectX / Unreal convention).
             const u32 a = LI[tx.tri * 3], b = LI[tx.tri * 3 + 1], c = LI[tx.tri * 3 + 2];
@@ -574,6 +620,7 @@ BakeResult BakeMeshes(const MeshData& low, const MeshData* high, const BakeOptio
     if (o.height) Dilate(out.height, 1, S, filled, pad);
     if (o.position) Dilate(out.position, 3, S, filled, pad);
     if (o.worldNormal) Dilate(out.worldNormal, 3, S, filled, pad);
+    if (o.id >= 0) Dilate(out.id, 3, S, filled, pad);
     // Far from the layout: neutral values (open, thick) in the smart mask maps.
     {
         std::vector<u8> f2 = filled;

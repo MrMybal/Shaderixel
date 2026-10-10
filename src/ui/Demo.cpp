@@ -414,6 +414,8 @@ void App::DemoTick() {
             baker.highPath = high;
             baker.sizeIndex = 1;
             baker.opt.position = baker.opt.worldNormal = true;
+            char idm[8] = "";
+            if (GetEnvironmentVariableA("SX_ID", idm, sizeof(idm)) > 0) baker.opt.id = baker.idMode = atoi(idm);
             baker.exportPng = outDir[0] != 0;
             baker.exportDir = outDir;
             StartBake(*a);
