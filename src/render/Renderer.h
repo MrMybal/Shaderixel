@@ -266,6 +266,10 @@ public:
     int meshTipVariants = 8;
     float meshTipExtent = 1.0f;
     bool meshTipOn = false;      // used by the next MeshStrokeDabs
+    // Stencil: an image fixed on screen, strokes paint through it (center xy, half size zw; cos, sin, invert, luminance).
+    bool meshStencilOn = false;
+    gpu::Texture* meshStencilTex = nullptr;
+    float4 meshStencil, meshStencil2;
     bool BuildMeshTip(gpu::CommandContext& ctx, const BrushDef& b, const EffectInstance& tip, const BrushSettings& s);
     // Smart mask: `surface` (document size) generated from the mesh maps (shaders/mesh_generator.slang).
     struct MeshGenParams {

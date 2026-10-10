@@ -186,8 +186,9 @@ void App::DrawView3D() {
         float k = s.distance * 0.0015f;
         s.target = s.target - right * (io.MouseDelta.x * k) + up * (io.MouseDelta.y * k);
     }
-    // Projection tool: Ctrl+wheel resizes, Shift+wheel turns the decal; otherwise the wheel zooms.
-    if (hovered && io.MouseWheel != 0 && tool == Tool::Projection && (io.KeyCtrl || io.KeyShift)) {
+    // Projection tool / stencil: Ctrl+wheel resizes, Shift+wheel turns the image; otherwise the wheel zooms.
+    const bool stencilActive = decal.stencil && decal.tex && (tool == Tool::Brush || tool == Tool::Eraser);
+    if (hovered && io.MouseWheel != 0 && (tool == Tool::Projection || stencilActive) && (io.KeyCtrl || io.KeyShift)) {
         if (io.KeyCtrl) decal.size = std::clamp(decal.size * std::pow(1.1f, io.MouseWheel), 0.02f, 3.0f);
         else decal.rotation = std::fmod(decal.rotation + io.MouseWheel * 5.0f + 540.0f, 360.0f) - 180.0f;
     } else if (hovered && io.MouseWheel != 0) s.distance *= std::pow(0.88f, io.MouseWheel);
@@ -204,6 +205,26 @@ void App::DrawView3D() {
     // Layers painted together (3D project paint layer: one per channel) and their values.
     std::vector<float4> meshColors;
     std::vector<Id> meshTargets = Paint3DTargets(*v, meshColors);
+    // Stencil: placed at the view center at first; S + drag moves it (no painting meanwhile).
+    const float stH = decal.size * (float)h * 0.5f, stW = decal.h > 0 ? stH * decal.w / decal.h : stH;
+    bool stencilMoving = false;
+    if (stencilActive) {
+        if (!decal.stencilPlaced) {
+            decal.stencilPos = {w * 0.5f, h * 0.5f};
+            decal.stencilPlaced = true;
+        }
+        if (hovered && ImGui::IsKeyDown(ImGuiKey_S) && !io.WantTextInput) {
+            stencilMoving = true;
+            if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) decal.stencilPos = decal.stencilPos + float2{io.MouseDelta.x, io.MouseDelta.y};
+        }
+        v->renderer.meshStencilOn = true;
+        v->renderer.meshStencilTex = decal.tex.get();
+        v->renderer.meshStencil = {decal.stencilPos.x, decal.stencilPos.y, stW, stH};
+        const float a = decal.rotation * 0.0174533f;
+        v->renderer.meshStencil2 = {std::cos(a), std::sin(a), decal.stencilInvert ? 1.0f : 0.0f, decal.stencilLuminance ? 1.0f : 0.0f};
+    } else {
+        v->renderer.meshStencilOn = false;
+    }
     // 3D brush: the tip of the brush (atlas of variants), dynamics (jitter, scatter, angle), lazy mouse, line with Shift.
     auto setupTip = [&](const BrushSettings& b) {
         v->renderer.meshTipOn = false;
@@ -241,7 +262,7 @@ void App::DrawView3D() {
         out.push_back({q.x, q.y, rad, alpha});
         dabEx.push_back({std::cos(angle), std::sin(angle), (float)((int)(rnd() * v->renderer.meshTipVariants) % v->renderer.meshTipVariants), 0});
     };
-    if (paintTool && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt) {
+    if (paintTool && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt && !stencilMoving) {
         if (!target || meshTargets.empty()) Status("Sélectionnez un calque de pixels pour peindre en 3D");
         else if (v->renderer.BeginStrokeMulti(doc, *ctx, meshTargets)) {
             const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
@@ -376,6 +397,18 @@ void App::DrawView3D() {
             ImVec2 tri[3] = {a, b, c};
             dl->AddPolyline(tri, 3, IM_COL32(120, 200, 255, 90), ImDrawFlags_Closed, 1.0f);
         }
+    }
+    if (stencilActive) {
+        // The stencil on screen (where it paints, semi-transparent).
+        float c = std::cos(decal.rotation * 0.0174533f), sn = std::sin(decal.rotation * 0.0174533f);
+        ImVec2 ctr(origin.x + decal.stencilPos.x, origin.y + decal.stencilPos.y);
+        auto corner = [&](float x, float y) { return ImVec2(ctr.x + c * x - sn * y, ctr.y + sn * x + c * y); };
+        ImVec2 q[4] = {corner(-stW, -stH), corner(stW, -stH), corner(stW, stH), corner(-stW, stH)};
+        dl->PushClipRect(origin, ImVec2(origin.x + w, origin.y + h), true);
+        dl->AddImageQuad((ImTextureID)gpu::Dev().UiTextureId(decal.tex.get()), q[0], q[1], q[2], q[3], ImVec2(0, 0), ImVec2(1, 0), ImVec2(1, 1), ImVec2(0, 1),
+                         IM_COL32(255, 255, 255, stencilMoving ? 150 : 55));
+        dl->AddPolyline(q, 4, stencilMoving ? IM_COL32(255, 200, 80, 230) : IM_COL32(120, 200, 255, 160), ImDrawFlags_Closed, 1.5f);
+        dl->PopClipRect();
     }
     if (tool == Tool::PolyFill && polyHover >= 0) DrawPolyHighlight(s, polyHover, origin, w, h);
     if (hovered && paintTool && !orbit) {

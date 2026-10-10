@@ -506,6 +506,16 @@ void App::DemoTick() {
         ImGuiIO& io = ImGui::GetIO();
         if (frameCounter == 12) {
             if (GetEnvironmentVariableA("SX_RT", nullptr, 0) > 0) a->mesh->quality = 2;  // painting in the ray-traced view
+            char st[512] = "";
+            if (GetEnvironmentVariableA("SX_STENCIL", st, sizeof(st)) > 0 && LoadDecal(st)) {
+                // Painting through a stencil: big round brush, the image decides where it paints.
+                decal.stencil = true;
+                decal.size = 0.9f;
+                decal.rotation = 20;
+                brush3D.scatter = 0;
+                brush3D.jitterSize = 0;
+                brush3D.jitterAngle = 0;
+            }
             SelectTip(brush, tipId);
             brush.size = 46;
             brush.flow = 1;
@@ -514,6 +524,7 @@ void App::DemoTick() {
             brush3D.jitterAngle = 1;
             brush3D.jitterSize = 0.4f;
             a->renderer.meshSymmetry = atoi(sym);
+            if (decal.stencil) { brush.size = 160; brush3D.scatter = 0; brush3D.jitterSize = 0; brush3D.jitterAngle = 0; brush3D.tip = false; }
             fg = {0.85f, 0.12f, 0.1f, 1};
             tool = Tool::Brush;
         }

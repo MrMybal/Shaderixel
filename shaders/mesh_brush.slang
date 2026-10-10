@@ -29,6 +29,8 @@ cbuffer Paint : register(b1)
     float4 gCamPos;
     float4 gColor;      // linear straight
     float4 gTip;        // extent (radii covered by a variant), variant count
+    float4 gStencil;    // stencil (flag 512): screen center, half size
+    float4 gStencil2;   // cos, sin of its rotation, invert, use the luminance
     float4 gDabs[1024]; // screen x, y, radius px, alpha
     float4 gDabsEx[1024]; // cos, sin of the dab angle, variant
 };
@@ -40,6 +42,18 @@ Texture2D<float> gDepth : register(t3);
 Texture2D<float> gSel : register(t4);
 Texture2D<float4> gDecal : register(t5);
 Texture2D<float> gTipAtlas : register(t6);
+
+// Stencil: the image fixed on screen, the brush paints through it (outside: unchanged).
+float StencilAt(float2 sp)
+{
+    if ((gFlags & 512) == 0) return 1.0;
+    float2 rel = sp - gStencil.xy;
+    float2 q = float2(gStencil2.x * rel.x + gStencil2.y * rel.y, -gStencil2.y * rel.x + gStencil2.x * rel.y) / max(gStencil.zw, 1.0);
+    if (any(abs(q) > 1.0)) return 1.0;
+    float4 t = gDecal.SampleLevel(sLinearClamp, q * 0.5 + 0.5, 0);
+    float v = (gStencil2.w > 0.5 ? dot(t.rgb, float3(0.2126, 0.7152, 0.0722)) : 1.0) * t.a;
+    return gStencil2.z > 0.5 ? 1.0 - v : v;
+}
 
 float TipCoverage(float2 rel, float r, float4 ex)
 {
@@ -166,6 +180,7 @@ void main(uint3 id : SV_DispatchThreadID)
         }
         else if (gFlags & 2) return;
     }
+    const float stencilW = StencilAt(sp), stencilM = facingM > 0.0 ? StencilAt(spm) : 1.0;
     for (uint i = 0; (gFlags & 4) == 0 && (gFlags & 2) == 0 && i < gDabCount; ++i)
     {
         float4 dab = gDabs[i];
@@ -173,20 +188,20 @@ void main(uint3 id : SV_DispatchThreadID)
         if (gFlags & 32)
         {
             float4 ex = gDabsEx[i];
-            if (facingW > 0.0) m = m + (1.0 - m) * TipCoverage(sp - dab.xy, r, ex) * dab.w * facingW;
-            if (facingM > 0.0) m = m + (1.0 - m) * TipCoverage(spm - dab.xy, r, ex) * dab.w * facingM;
+            if (facingW > 0.0) m = m + (1.0 - m) * TipCoverage(sp - dab.xy, r, ex) * dab.w * facingW * stencilW;
+            if (facingM > 0.0) m = m + (1.0 - m) * TipCoverage(spm - dab.xy, r, ex) * dab.w * facingM * stencilM;
             continue;
         }
         float d = length(sp - dab.xy);
         float inner = r * saturate(gHardness);
         float soft = r - inner > 1.0 ? 1.0 - smoothstep(inner, r, d) : 1.0;
-        float cov = min(soft, saturate(r - d + 0.5)) * dab.w * facingW;
+        float cov = min(soft, saturate(r - d + 0.5)) * dab.w * facingW * stencilW;
         m = m + (1.0 - m) * cov;
         if (facingM > 0.0)
         {
             float dm = length(spm - dab.xy);
             float softM = r - inner > 1.0 ? 1.0 - smoothstep(inner, r, dm) : 1.0;
-            float covM = min(softM, saturate(r - dm + 0.5)) * dab.w * facingM;
+            float covM = min(softM, saturate(r - dm + 0.5)) * dab.w * facingM * stencilM;
             m = m + (1.0 - m) * covM;
         }
     }

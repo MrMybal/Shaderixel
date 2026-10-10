@@ -1185,6 +1185,9 @@ private:
         std::string path;
         float size = 0.4f, rotation = 0, opacity = 1;
         bool imageColor = true;
+        // Stencil (Substance-like): the image stays on screen, the brush paints through it.
+        bool stencil = false, stencilInvert = false, stencilLuminance = true, stencilPlaced = false;
+        float2 stencilPos;  // view-local pixels
     } decal;
     struct PackJob {
         std::string path;

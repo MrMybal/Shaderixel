@@ -258,7 +258,7 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
     Surface* sel = doc.Selection();
     struct PaintCB {
         float vp[16];
-        float4 camPos, color, tip;
+        float4 camPos, color, tip, stencil, stencil2;
         float4 dabs[1024];
         float4 dabsEx[1024];
     };
@@ -270,6 +270,13 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
     const bool useTip = meshTipOn && meshTipAtlas && !(extraFlags & (4u | 256u));
     if (useTip) extraFlags |= 32u;
     cb.tip = {meshTipExtent, (float)meshTipVariants, 0, 0};
+    const bool useStencil = meshStencilOn && meshStencilTex && !(extraFlags & (4u | 256u));
+    if (useStencil) {
+        extraFlags |= 512u;
+        cb.stencil = meshStencil;
+        cb.stencil2 = meshStencil2;
+        decal = meshStencilTex;
+    }
     const u32 sym = meshSymmetry == 1 ? 16u : meshSymmetry == 2 ? 64u : meshSymmetry == 3 ? 128u : 0u;
     if (!(extraFlags & (4u | 256u))) extraFlags |= sym;
     for (size_t start = 0; start < dabs.size(); start += 1024) {

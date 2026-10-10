@@ -500,6 +500,15 @@ void App::DrawBrushMaterialPanel() {
     ImGui::SliderFloat("Rotation", &decal.rotation, -180, 180, "%.0f°");
     ImGui::SliderFloat("Opacité##dec", &decal.opacity, 0, 1, "%.2f");
     ImGui::Checkbox("Couleurs de l'image", &decal.imageColor);
+    ImGui::Checkbox("Pochoir (peindre à travers l'image)", &decal.stencil);
+    ui::HelpTooltip("Avec le pinceau ou la gomme : l'image reste à l'écran et le pinceau ne peint qu'à travers elle\n(S + glisser : la déplacer, Ctrl / Maj + molette : taille / rotation).");
+    if (decal.stencil) {
+        ImGui::SameLine();
+        ImGui::Checkbox("Inverser##stencil", &decal.stencilInvert);
+        ImGui::SameLine();
+        ImGui::Checkbox("Luminosité", &decal.stencilLuminance);
+        ui::HelpTooltip("Coché : les zones claires de l'image laissent passer la peinture ; sinon seulement sa transparence.");
+    }
     ui::HelpTooltip("Coché : la couleur de base reçoit l'image ; sinon la couleur du pinceau, l'image servant de pochoir.");
     ImGui::TextDisabled("Outil Projection : clic sur le modèle pour poser le décalque\n(molette + Ctrl : taille, Maj : rotation).");
     ImGui::End();
