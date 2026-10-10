@@ -1781,6 +1781,21 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
         Json cam = Json::Array();
         for (float f : {v.mesh->yaw, v.mesh->pitch, v.mesh->distance, v.mesh->target.x, v.mesh->target.y, v.mesh->target.z}) cam.Push(f);
         job->meta["camera"] = cam;
+        {
+            // 3D view rendering: post-process, quality, key light.
+            const MeshScene& m = *v.mesh;
+            Json vj = Json::Object();
+            vj["post"] = PostToJson(m.post);
+            vj["quality"] = m.quality;
+            vj["lightFollow"] = m.lightFollow;
+            vj["lightYaw"] = m.lightYaw;
+            vj["lightPitch"] = m.lightPitch;
+            vj["lightIntensity"] = m.lightIntensity;
+            vj["sunIntensity"] = m.sunIntensity;
+            vj["shadow"] = m.shadowStrength;
+            vj["ao"] = m.aoStrength;
+            job->meta["view3d"] = vj;
+        }
         if (v.render) job->meta["render"] = RenderToJson(*v.render, Narrow(Utf8Path(path).parent_path().wstring()));
     }
     if (!asCopy) {  // a copy (template...) leaves the document as it is
@@ -1895,6 +1910,19 @@ bool App::LoadSxl(const std::string& path) {
         MeshData m;
         if (MeshFromJson(meta["mesh"], m)) AttachMesh(*view, std::move(m));
         if (meta.Has("unreal")) view->doc->unrealSettings = meta["unreal"].Dump(0);
+        if (view->mesh && meta.Has("view3d")) {
+            MeshScene& m = *view->mesh;
+            const Json& vj = meta["view3d"];
+            m.post = PostFromJson(vj["post"]);
+            m.quality = vj["quality"].I(1);
+            m.lightFollow = vj["lightFollow"].B(true);
+            m.lightYaw = vj["lightYaw"].F(m.lightYaw);
+            m.lightPitch = vj["lightPitch"].F(m.lightPitch);
+            m.lightIntensity = vj["lightIntensity"].F(m.lightIntensity);
+            m.sunIntensity = vj["sunIntensity"].F(m.sunIntensity);
+            m.shadowStrength = vj["shadow"].F(m.shadowStrength);
+            m.aoStrength = vj["ao"].F(m.aoStrength);
+        }
         const Json& cam = meta["camera"];
         if (view->mesh && cam.Size() == 6) {
             view->mesh->yaw = cam.At(0).F();

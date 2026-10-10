@@ -4,6 +4,7 @@
 // HDRI, rendered progressively on the GPU (compute shader, any vendor: the
 // geometry and BVH live in float textures) or on the CPU (all cores), same
 // integrator: GGX + Lambert + dielectric, next-event estimation with MIS.
+#include "render/PostProcess.h"
 #include "mesh/Mesh.h"
 #include "gpu/Device.h"
 
@@ -76,6 +77,7 @@ struct PtSettings {
     float envIntensity = 1.0f, envRotation = 0.0f;  // rotation: degrees
     bool envVisible = true;
     float3 background = {0.05f, 0.05f, 0.06f};
+    PostSettings post;         // camera effects (exposure and tone curve come from the fields above)
 };
 
 struct PtCamera {
@@ -215,6 +217,8 @@ struct PtRenderState {
     std::string envPath;              // environment loaded in `env`
     PtGpuRenderer gpu;
     PtCpuRenderer cpu;
+    PostChain post;                   // display image of the accumulation (bloom, grading...)
+    gpu::Texture* display = nullptr;  // last post-processed image (PNG export)
     std::shared_ptr<PtProjectTextures> cpuTex;
     std::vector<gpu::ReadbackPtr> texReadbacks;
     std::vector<float4> cpuPixels;

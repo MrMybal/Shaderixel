@@ -302,6 +302,7 @@ Json App::RenderToJson(const PtRenderState& r, const std::string& baseDir) {
     sj["height"] = s.height;
     sj["exposure"] = s.exposure;
     sj["tonemap"] = s.tonemap;
+    sj["post"] = PostToJson(s.post);
     sj["aperture"] = s.aperture;
     sj["focus"] = s.focusDistance;
     sj["fov"] = s.fov;
@@ -388,6 +389,7 @@ void SceneFromJson(const Json& j, const std::string& baseDir, PtRenderState& r) 
     s.height = sj["height"].I(s.height);
     s.exposure = sj["exposure"].F(0);
     s.tonemap = sj["tonemap"].I(3);
+    s.post = PostFromJson(sj["post"]);
     s.aperture = sj["aperture"].F(0);
     s.focusDistance = sj["focus"].F(s.focusDistance);
     s.fov = sj["fov"].F(s.fov);
@@ -660,7 +662,19 @@ gpu::Texture* App::UpdateRender(DocView& v, u32 w, u32 h) {
         Status(ok ? "Rendu exporté : " + r.hdrPath : "Échec de l'export : " + r.hdrPath);
         r.hdrReadback.reset();
     }
-    return r.gpu.Tonemap(*ctx, s);
+    // Camera effects on the accumulation (exposure and tone curve of the render settings).
+    if (r.gpu.accum) {
+        PostSettings p = s.post;
+        p.exposure = s.exposure;
+        p.tonemap = s.tonemap;
+        static const double t0 = Now();
+        if (gpu::Texture* out = r.post.Run(*ctx, r.gpu.accum.get(), true, false, p, (float)(Now() - t0))) {
+            r.display = out;
+            return out;
+        }
+    }
+    r.display = r.gpu.Tonemap(*ctx, s);
+    return r.display;
 }
 
 int App::RenderSamples(PtRenderState& r) { return r.settings.device == 0 ? r.gpu.Samples() : std::max(r.cpuShown, 0); }
@@ -675,8 +689,8 @@ void App::ExportRender(DocView& v, const std::string& path) {
         r.hdrPath = path;
         r.hdrReadback = ctx->ReadbackTexture(r.gpu.accum.get());
         Status("Export du rendu...");
-    } else if (r.gpu.view) {
-        exports.push_back({path, ctx->ReadbackTexture(r.gpu.view.get()), {}});
+    } else if (r.display || r.gpu.view) {
+        exports.push_back({path, ctx->ReadbackTexture(r.display ? r.display : r.gpu.view.get()), {}});
     }
 }
 
@@ -1028,6 +1042,13 @@ void App::DrawRenderScenePanel() {
         ui::HelpTooltip("PBR Neutral : les couleurs des matières restent celles peintes (rendu produit).\nAgX : courbe de film douce, hautes lumières naturelles.");
         ImGui::DragFloat("Limite indirecte", &s.clampIndirect, 0.5f, 0, 1000, "%.1f");
         ui::HelpTooltip("Écrête les reflets indirects très forts (lucioles). 0 = sans limite.");
+        // Camera effects: applied to the image while it refines (no restart).
+        PostSettings p = s.post;
+        p.tonemap = s.tonemap;
+        if (DrawPostSettings(p, false)) {
+            s.tonemap = p.tonemap;
+            s.post = p;
+        }
     }
     ImGui::PopItemWidth();
     ImGui::End();

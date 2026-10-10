@@ -16,6 +16,10 @@ cbuffer View : register(b1)
     float gExposure;    // EV
     uint gTonemap;      // 0 soft, 1 ACES (filmic)
     float2 _pad;
+    row_major float4x4 gLightVP;  // shadow map
+    float4 gLightCol;             // key light color x intensity
+    float4 gShadow;               // x strength, y bias, z 1 / map size
+    uint4 gOpts;                  // x: 1 shadows, 2 baked occlusion, 4 HDR output (post-process after); y: occlusion strength (x1000)
 };
 
 float3 Aces(float3 x)
@@ -35,6 +39,26 @@ Texture2D<float4> gHeight : register(t6);
 // HDRI: equirectangular environment prefiltered into 6 blur levels stacked
 // vertically (level k is (W>>k) x (H>>k), H = W/2), sampled by roughness.
 Texture2D<float4> gEnv : register(t7);
+Texture2D<float4> gMaps : register(t8);      // baked mesh maps (R occlusion)
+Texture2D<float> gShadowMap : register(t9);
+
+float ShadowAt(float3 world, float3 n)
+{
+    // 3x3 PCF in the orthographic light view.
+    float4 c = mul(gLightVP, float4(world + n * 0.004, 1.0));
+    float2 uv = float2(c.x * 0.5 + 0.5, 0.5 - c.y * 0.5);
+    if (any(uv < 0.0) || any(uv > 1.0)) return 1.0;
+    uint sw, sh;
+    gShadowMap.GetDimensions(sw, sh);
+    float lit = 0.0;
+    for (int y = -1; y <= 1; ++y)
+        for (int x = -1; x <= 1; ++x)
+        {
+            int2 p = clamp(int2(uv * float2(sw, sh)) + int2(x, y), int2(0, 0), int2(sw, sh) - 1);
+            lit += c.z - gShadow.y <= gShadowMap.Load(int3(p, 0)) ? 1.0 : 0.0;
+        }
+    return lerp(1.0, lit / 9.0, gShadow.x);
+}
 
 static const float kBumpStrength = 32.0;  // tangent tilt per unit of height change per texel (same as bake_normal)
 
@@ -149,6 +173,13 @@ float4 psMain(VSOut i, bool front : SV_IsFrontFace) : SV_Target0
     float3 f0 = lerp(float3(0.04, 0.04, 0.04), base, metal);
 
     float3 col = 0;
+    if (gOpts.x & 2)
+    {
+        // Baked occlusion of the model (Cuisson / smart mask maps) on the ambient light.
+        float bao = gMaps.SampleLevel(sLinearWrap, i.uv, 0).r;
+        ao *= lerp(1.0, bao, gOpts.y / 1000.0);
+    }
+    const float shadow = (gOpts.x & 1) ? ShadowAt(i.world, normalize(i.nrm)) : 1.0;
     float NdotV = saturate(dot(n, v));
     float3 Fenv = f0 + (max(1.0 - rough, f0) - f0) * pow(1.0 - NdotV, 5.0);
     float3 r = reflect(-v, n);
@@ -157,16 +188,20 @@ float4 psMain(VSOut i, bool front : SV_IsFrontFace) : SV_Target0
         // Image-based lighting: blurred environment for diffuse, roughness-selected level for specular.
         col += diffColor * Env(n, 5.0) * ao;
         col += Fenv * Env(r, sqrt(rough) * 5.0) * ao;
+        // Sun (optional with an HDRI): the key light, with its shadow.
+        if (any(gLightCol.rgb > 0.0)) col += Shade(n, v, normalize(gLightDir.xyz), gLightCol.rgb, diffColor, f0, rough) * shadow;
     }
     else
     {
-        col += Shade(n, v, normalize(gLightDir.xyz), float3(1.0, 0.97, 0.92) * 1.6, diffColor, f0, rough);
+        col += Shade(n, v, normalize(gLightDir.xyz), gLightCol.rgb, diffColor, f0, rough) * shadow;
         col += Shade(n, v, normalize(float3(-0.6, 0.3, -0.4)), float3(0.45, 0.5, 0.6) * 0.5, diffColor, f0, rough);
         // Ambient: hemisphere diffuse + rough-aware reflection.
         col += diffColor * Sky(n) * 0.6 * ao;
         col += Fenv * lerp(Sky(r), Sky(n) * 0.6, rough) * ao;
     }
     col += emissive;
+    int vmode = (int)(gViewMode + 0.5);
+    if ((gOpts.x & 4) && vmode == 0) return float4(col, 1.0);  // linear HDR: exposure, tone curve... in the post-process
     col *= exp2(gExposure);
     col = gTonemap == 1 ? Aces(col * 0.8) : col / (1.0 + col * 0.15);  // filmic, or gentle highlight compression
     int vm = (int)(gViewMode + 0.5);

@@ -371,6 +371,19 @@ void App::DemoTick() {
             Log("[demo] smart materials: %zu, applied %s", list.size(), list[i]["name"].S().c_str());
             a->mesh->yaw = 0.6f;
             a->mesh->pitch = 0.45f;
+            if (GetEnvironmentVariableA("SX_POST", nullptr, 0) > 0) {
+                // Cinema look, fixed strong light from the side: bloom, vignette, grain, shadow.
+                PostSettings& p = a->mesh->post;
+                p.tonemap = 4; p.bloom = 0.8f; p.bloomThreshold = 0.8f; p.contrast = 0.15f; p.saturation = 0.9f;
+                p.vignette = 0.5f; p.grain = 0.25f; p.temperature = 0.15f; p.chroma = 0.3f;
+                a->mesh->lightFollow = false;
+                char ly[16] = "-0.9", lp[16] = "0.6";
+                GetEnvironmentVariableA("SX_LYAW", ly, sizeof(ly));
+                GetEnvironmentVariableA("SX_LPITCH", lp, sizeof(lp));
+                a->mesh->lightYaw = (float)atof(ly);
+                a->mesh->lightPitch = (float)atof(lp);
+                a->mesh->lightIntensity = 3.5f;
+            }
         }
         static double t0 = 0;
         if (frameCounter == 11) t0 = ImGui::GetTime();
@@ -1470,6 +1483,11 @@ void App::DemoTick() {
             if (GetEnvironmentVariableA("SX_SAMPLES", b, sizeof(b)) > 0) r.settings.maxSamples = atoi(b);
             if (GetEnvironmentVariableA("SX_TONEMAP", b, sizeof(b)) > 0) r.settings.tonemap = atoi(b);
             if (GetEnvironmentVariableA("SX_EXPOSURE", b, sizeof(b)) > 0) r.settings.exposure = (float)atof(b);
+            if (GetEnvironmentVariableA("SX_POST", b, sizeof(b)) > 0) {
+                // Camera effects on the path-traced image: bloom, vignette, grain, warm grade.
+                PostSettings& p = r.settings.post;
+                p.bloom = 0.9f; p.bloomThreshold = 0.7f; p.vignette = 0.5f; p.grain = 0.3f; p.temperature = 0.2f; p.contrast = 0.1f; p.chroma = 0.25f;
+            }
             if (GetEnvironmentVariableA("SX_COAT", b, sizeof(b)) > 0)
                 for (auto& o : r.objects)
                     if (o.type == PtObjectType::Project) o.material.coat = (float)atof(b);

@@ -7,6 +7,7 @@ cbuffer Root : register(b0)
     uint2 gSize;
     float gBlur;       // atlas level, 0 sharp .. 5
     float gIntensity;
+    uint gHdr;         // 1: linear output (post-process after)
 };
 
 cbuffer Sky : register(b1)
@@ -27,6 +28,11 @@ void main(uint3 id : SV_DispatchThreadID)
     float2 ndc = float2((id.x + 0.5) / gSize.x * 2.0 - 1.0, 1.0 - (id.y + 0.5) / gSize.y * 2.0);
     float3 d = normalize(gForward.xyz + gRight.xyz * ndc.x + gUp.xyz * ndc.y);
     float3 c = EnvSample(gEnv, d, gBlur, gRotation) * gIntensity;
+    if (gHdr)
+    {
+        gOut[id.xy] = float4(c, 1.0);
+        return;
+    }
     c = c / (1.0 + c * 0.15);  // same highlight compression as the shaded model
     gOut[id.xy] = float4(LinearToSrgb(saturate(c)), 1.0);
 }

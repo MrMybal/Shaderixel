@@ -1316,6 +1316,8 @@ private:
     void StartBake(DocView& v);
     void PollBake();
     void DrawBakerWindow();
+    void DrawView3DRenderSettings(MeshScene& s);
+    bool DrawPostSettings(PostSettings& p, bool withExposure);  // shared by the 3D view and the render mode
     void WriteLayerPixels(Document& d, Id surface, const std::vector<float>& src, int channels, int w, int h, bool dataChannel);
     Id AddBakedLayer(DocView& v, PbrChannel c, const std::string& name, const std::vector<float>& src, int channels, int size);
     void PollMeshMapsBake();

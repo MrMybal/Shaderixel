@@ -2,6 +2,8 @@
 #include "render/Renderer.h"
 #include "render/MeshPaint.h"
 
+#include <chrono>
+
 #include <stb_image.h>
 #include "render/Dispatch.h"
 
@@ -42,6 +44,9 @@ struct ViewCB {
     float exposure;
     u32 tonemap;
     float pad[2];
+    float lightVP[16];
+    float4 lightCol, shadow;
+    u32 opts[4];
 };
 struct BrushRootM {
     u32 dw, dh, vw, vh, count;
@@ -118,19 +123,22 @@ gpu::TexturePtr Renderer::BakeNormal(gpu::CommandContext& ctx, gpu::Texture* nor
 
 gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const MeshMaterial& material, u32 w, u32 h) {
     if (!s.vb || w == 0 || h == 0) return nullptr;
+    // Linear HDR target; the post-process (exposure, bloom, tone curve...) makes the display image.
     if (!s.color || s.color->Width() != w || s.color->Height() != h) {
-        s.color = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA8, "MeshView", gpu::UsageRenderTarget);
+        s.color = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA16F, "MeshView", gpu::UsageRenderTarget);
         s.depth = gpu::Dev().CreateTexture(w, h, gpu::Format::D32F, "MeshDepth");
     }
     gpu::GraphicsDesc gd;
-    gd.colorFormats = {gpu::Format::RGBA8};
+    gd.colorFormats = {gpu::Format::RGBA16F};
     auto* p = MeshPipeline("mesh_view.slang", gd);
     if (!p) return nullptr;
     s.UpdateCamera((float)w / h);
     ViewCB cb = {};
     memcpy(cb.vp, s.viewProj.m, sizeof(cb.vp));
     cb.camPos = {s.camPos.x, s.camPos.y, s.camPos.z, 1};
-    float3 l = Normalize(s.camPos - s.target + float3{0.6f, 1.2f, 0.0f});
+    // Key light: attached to the camera, or fixed in the scene (yaw / pitch).
+    float3 l = s.lightFollow ? Normalize(s.camPos - s.target + float3{0.6f, 1.2f, 0.0f})
+                             : Normalize(float3{std::cos(s.lightPitch) * std::sin(s.lightYaw), std::sin(s.lightPitch), -std::cos(s.lightPitch) * std::cos(s.lightYaw)});
     cb.lightDir = {l.x, l.y, l.z, 0};
     cb.flags = 0;
     if (!s.envPixels.empty()) {
@@ -142,8 +150,49 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     cb.envIntensity = s.envIntensity;
     cb.envRotation = s.envRotation;
     cb.viewMode = (float)s.viewChannel;
-    cb.exposure = s.exposure;
-    cb.tonemap = (u32)s.tonemap;
+    cb.exposure = 0;
+    cb.tonemap = 0;
+    const float li = s.envAtlas ? s.sunIntensity : s.lightIntensity;
+    cb.lightCol = {1.0f * li, 0.97f * li, 0.92f * li, 0};
+    cb.opts[0] = 4;  // HDR output
+    const bool quality = s.quality >= 1 && s.viewChannel == 0;
+    // Shadow map of the key light (orthographic, around the model).
+    if (quality && li > 0 && s.shadowStrength > 0) {
+        gpu::GraphicsDesc sd;
+        sd.colorFormats = {};
+        auto* sp = MeshPipeline("mesh_shadow.slang", sd);
+        const u32 S = 2048;
+        if (!s.shadowMap) s.shadowMap = gpu::Dev().CreateTexture(S, S, gpu::Format::D32F, "MeshShadow");
+        if (sp && s.shadowMap) {
+            const float3 c = (s.data.boundsMin + s.data.boundsMax) * 0.5f;
+            const float r = std::max(Length(s.data.boundsMax - s.data.boundsMin) * 0.5f, 0.01f) * 1.05f;
+            Mat4 view = Mat4::LookAtLH(c + l * (r * 3.0f), c, std::fabs(l.y) > 0.98f ? float3{0, 0, 1} : float3{0, 1, 0});
+            Mat4 ortho = Mat4::Identity();
+            const float zn = r * 1.0f, zf = r * 5.0f;
+            ortho.m[0][0] = 1.0f / r;
+            ortho.m[1][1] = 1.0f / r;
+            ortho.m[2][2] = 1.0f / (zf - zn);
+            ortho.m[2][3] = -zn / (zf - zn);
+            Mat4 lvp = ortho * view;
+            memcpy(cb.lightVP, lvp.m, sizeof(cb.lightVP));
+            gpu::DrawDesc dd;
+            dd.pipeline = sp;
+            dd.depth = s.shadowMap.get();
+            dd.clearDepth = true;
+            dd.cbData = cb.lightVP;
+            dd.cbSize = sizeof(cb.lightVP);
+            dd.vertices = s.vb.get();
+            dd.indices = s.ib.get();
+            dd.count = (u32)s.data.indices.size();
+            ctx.Draw(dd);
+            cb.opts[0] |= 1;
+            cb.shadow = {s.shadowStrength, 0.0015f, 1.0f / S, 0};
+        }
+    }
+    if (quality && s.maps && s.aoStrength > 0) {
+        cb.opts[0] |= 2;
+        cb.opts[1] = (u32)std::lround(std::clamp(s.aoStrength, 0.0f, 1.0f) * 1000);
+    }
     bool sky = false;
     if (s.envAtlas && s.envBackground && s.viewChannel == 0) {
         if (auto* k = Kernel("mesh_sky.slang")) {
@@ -154,7 +203,7 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
             float ty = std::tan(s.fov * 0.5f), tx = ty * (float)w / h;
             struct { float4 right, up, fwd; float rotation; float pad[3]; } scb = {
                 {right.x * tx, right.y * tx, right.z * tx, 0}, {up.x * ty, up.y * ty, up.z * ty, 0}, {fwd.x, fwd.y, fwd.z, 0}, s.envRotation, {}};
-            struct { u32 w, h; float blur, intensity; } root = {w, h, s.envBlur, s.envIntensity};
+            struct { u32 w, h; float blur, intensity; u32 hdr; } root = {w, h, s.envBlur, s.envIntensity, 1};
             gpu::DispatchDesc sd;
             sd.pipeline = k;
             sd.srv[0] = s.envAtlas.get();
@@ -170,22 +219,30 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     d.pipeline = p;
     for (int c = 0; c < (int)PbrChannel::Count; ++c) {
         d.srv[c] = material.tex[c];
-        d.srv[7] = s.envAtlas.get();
         if (material.tex[c]) cb.flags |= 1u << c;
     }
+    d.srv[7] = s.envAtlas.get();
+    d.srv[8] = s.maps.get();
+    d.srv[9] = (cb.opts[0] & 1) ? s.shadowMap.get() : nullptr;
     if (s.viewChannel >= 8) d.srv[5] = s.maps.get();  // baked maps shown in place of the occlusion slot
     d.rt[0] = s.color.get();
     d.depth = s.depth.get();
     d.clearColor = !sky;
     d.clearDepth = true;
-    d.clearValue = {0.09f, 0.095f, 0.11f, 1};
+    // Background: linear value of the former display gray.
+    d.clearValue = {0, 0, 0, 0};  // alpha 0: background (post_final shows the usual gray)
+    if (s.viewChannel != 0) d.clearValue = {0.09f, 0.095f, 0.11f, 1};
     d.cbData = &cb;
     d.cbSize = sizeof(cb);
     d.vertices = s.vb.get();
     d.indices = s.ib.get();
     d.count = (u32)s.data.indices.size();
     ctx.Draw(d);
-    return s.color.get();
+    // Channel views are display values: copied as they are.
+    static const auto t0 = std::chrono::steady_clock::now();
+    const float time = std::chrono::duration<float>(std::chrono::steady_clock::now() - t0).count();
+    gpu::Texture* out = s.postChain.Run(ctx, s.color.get(), false, s.viewChannel != 0, s.post, time);
+    return out ? out : s.color.get();
 }
 
 void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,

@@ -30,7 +30,7 @@ using Microsoft::WRL::ComPtr;
 #endif
 
 constexpr u32 kFramesInFlight = 2;
-constexpr u32 kMaxSrv = 8;
+constexpr u32 kMaxSrv = 12;  // Vulkan: storage images start at binding 16
 constexpr u32 kMaxUav = 4;
 constexpr u32 kRootConstants = 16;
 

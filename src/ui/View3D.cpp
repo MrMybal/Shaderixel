@@ -133,12 +133,17 @@ void App::DrawView3D() {
             ui::HelpTooltip("Afficher un canal seul (tel que peint), ou une carte du maillage cuite (masques intelligents)");
             flow(100 * dpi);
             ImGui::SetNextItemWidth(100 * dpi);
-            ImGui::SliderFloat("##expo", &v->mesh->exposure, -4, 4, "Expo %.1f EV");
+            ImGui::SliderFloat("##expo", &v->mesh->post.exposure, -4, 4, "Expo %.1f EV");
             ui::HelpTooltip("Exposition de la vue (double-clic pour saisir)");
-            flow(90 * dpi);
-            ImGui::SetNextItemWidth(90 * dpi);
-            ImGui::Combo("##tone", &v->mesh->tonemap, "Doux\0ACES\0");
-            ui::HelpTooltip("Rendu des hautes lumières : ACES (filmique, comme les moteurs de jeu) ou doux");
+            flow(110 * dpi);
+            ImGui::SetNextItemWidth(110 * dpi);
+            ImGui::Combo("##quality", &v->mesh->quality, "Rendu rapide\0Rendu qualité\0");
+            ui::HelpTooltip("Qualité : ombre de la lumière principale et occlusion cuite du modèle (Cuisson)");
+            if (button("Rendu et caméra...")) ImGui::OpenPopup("##view3drender");
+            if (ImGui::BeginPopup("##view3drender")) {
+                DrawView3DRenderSettings(*v->mesh);
+                ImGui::EndPopup();
+            }
             flow(ImGui::GetFrameHeight() + ImGui::CalcTextSize("Fil de fer").x + 12 * dpi);
             ImGui::Checkbox("Fil de fer", &v->mesh->wireframe);
         }
@@ -373,6 +378,69 @@ void App::DrawView3D() {
         ImGui::SetMouseCursor(ImGuiMouseCursor_None);
     }
     ImGui::End();
+}
+
+void App::DrawView3DRenderSettings(MeshScene& s) {
+    ImGui::PushItemWidth(220 * dpi);
+    ImGui::SeparatorText("Lumière principale");
+    ImGui::Checkbox("Suit la caméra", &s.lightFollow);
+    if (!s.lightFollow) {
+        float yaw = s.lightYaw * 57.29578f, pitch = s.lightPitch * 57.29578f;
+        if (ImGui::SliderFloat("Direction", &yaw, -180, 180, "%.0f°")) s.lightYaw = yaw / 57.29578f;
+        if (ImGui::SliderFloat("Hauteur", &pitch, 5, 89, "%.0f°")) s.lightPitch = pitch / 57.29578f;
+    }
+    if (s.envAtlas) ImGui::SliderFloat("Soleil (avec HDRI)", &s.sunIntensity, 0, 8, "%.2f");
+    else ImGui::SliderFloat("Intensité", &s.lightIntensity, 0, 8, "%.2f");
+    ImGui::SliderFloat("Ombre", &s.shadowStrength, 0, 1, "%.2f");
+    ImGui::SliderFloat("Occlusion cuite", &s.aoStrength, 0, 1, "%.2f");
+    ui::HelpTooltip("Occlusion ambiante cuite du modèle (Cuisson ou masques intelligents) dans la vue, en Rendu qualité.");
+    ImGui::PopItemWidth();
+    DrawPostSettings(s.post, true);
+    ImGui::TextDisabled("Rendu par lancer de rayons : onglet Rendu.");
+}
+
+bool App::DrawPostSettings(PostSettings& p, bool withExposure) {
+    bool changed = false;
+    ImGui::PushID(&p);
+    ImGui::PushItemWidth(220 * dpi);
+    ImGui::SeparatorText("Post-process");
+    changed |= ImGui::Checkbox("Effets de caméra", &p.enabled);
+    if (withExposure) changed |= ImGui::SliderFloat("Exposition", &p.exposure, -6, 6, "%.2f EV");
+    changed |= ImGui::Combo("Courbe", &p.tonemap, "Linéaire\0ACES (film)\0Reinhard\0PBR Neutral (couleurs fidèles)\0AgX (film, naturel)\0Doux\0");
+    ImGui::BeginDisabled(!p.enabled);
+    changed |= ImGui::SliderFloat("Bloom", &p.bloom, 0, 2, "%.2f");
+    if (p.bloom > 0) {
+        changed |= ImGui::SliderFloat("Seuil du bloom", &p.bloomThreshold, 0, 4, "%.2f");
+        changed |= ImGui::SliderFloat("Étendue du bloom", &p.bloomRadius, 0.2f, 1.2f, "%.2f");
+    }
+    changed |= ImGui::SliderFloat("Netteté", &p.sharpen, 0, 1, "%.2f");
+    changed |= ImGui::SliderFloat("Aberration chromatique", &p.chroma, 0, 1, "%.2f");
+    changed |= ImGui::SliderFloat("Température", &p.temperature, -1, 1, "%.2f");
+    changed |= ImGui::SliderFloat("Teinte", &p.tint, -1, 1, "%.2f");
+    changed |= ImGui::SliderFloat("Contraste", &p.contrast, -1, 1, "%.2f");
+    changed |= ImGui::SliderFloat("Saturation", &p.saturation, 0, 2, "%.2f");
+    changed |= ImGui::SliderFloat("Vignettage", &p.vignette, 0, 1, "%.2f");
+    if (p.vignette > 0) changed |= ImGui::SliderFloat("Douceur du vignettage", &p.vignetteSoft, 0, 1, "%.2f");
+    changed |= ImGui::SliderFloat("Grain", &p.grain, 0, 1, "%.2f");
+    ImGui::EndDisabled();
+    static const char* presets[] = {"Neutre", "Studio produit", "Cinéma", "Jeu vidéo", "Vintage"};
+    if (ImGui::BeginCombo("Préréglage", "Choisir...")) {
+        for (int i = 0; i < 5; ++i)
+            if (ImGui::Selectable(presets[i])) {
+                const float e = p.exposure;
+                p = PostSettings{};
+                p.exposure = e;
+                if (i == 1) { p.tonemap = 3; p.sharpen = 0.25f; p.contrast = 0.08f; p.vignette = 0.15f; }
+                if (i == 2) { p.tonemap = 4; p.bloom = 0.35f; p.contrast = 0.15f; p.saturation = 0.9f; p.vignette = 0.45f; p.grain = 0.25f; p.temperature = 0.1f; }
+                if (i == 3) { p.tonemap = 1; p.bloom = 0.5f; p.bloomThreshold = 0.9f; p.sharpen = 0.3f; p.saturation = 1.1f; p.vignette = 0.25f; p.chroma = 0.15f; }
+                if (i == 4) { p.tonemap = 2; p.contrast = -0.1f; p.saturation = 0.7f; p.temperature = 0.35f; p.vignette = 0.6f; p.grain = 0.5f; p.chroma = 0.3f; }
+                changed = true;
+            }
+        ImGui::EndCombo();
+    }
+    ImGui::PopItemWidth();
+    ImGui::PopID();
+    return changed;
 }
 
 void App::MeshPrepare3D(DocView& v) {

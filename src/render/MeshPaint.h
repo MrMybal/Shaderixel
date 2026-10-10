@@ -3,6 +3,7 @@
 // and normal maps, orbit camera and the viewport render targets.
 
 #include "mesh/Mesh.h"
+#include "render/PostProcess.h"
 
 namespace sx {
 
@@ -35,9 +36,17 @@ struct MeshScene {
     bool envBackground = true;  // show the HDRI behind the model
     float envBlur = 0.0f;       // background blur (atlas level 0..5)
     int viewChannel = 0;  // 0 = PBR, k = PbrChannel k-1 alone, 8..11 baked mesh maps
-    float exposure = 0;   // EV
-    int tonemap = 1;      // 0 soft, 1 ACES
     bool wireframe = false;
+    // Rendering (Marmoset-like): post-process, quality, key light and its shadow.
+    PostSettings post;
+    PostChain postChain;
+    int quality = 1;                 // 0 fast, 1 shadows + baked occlusion
+    bool lightFollow = true;         // key light attached to the camera
+    float lightYaw = 0.8f, lightPitch = 0.9f;  // fixed light (radians)
+    float lightIntensity = 1.6f;     // without an HDRI
+    float sunIntensity = 0.0f;       // with an HDRI
+    float shadowStrength = 0.85f, aoStrength = 1.0f;
+    gpu::TexturePtr hdr, shadowMap;
     // Mesh maps for smart masks (R AO, G convexity, B concavity, A thickness), baked on the CPU.
     gpu::TexturePtr maps;
     u32 mapsRev = 0;              // bumped at each bake (smart masks regenerate)
