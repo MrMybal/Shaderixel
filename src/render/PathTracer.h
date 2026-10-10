@@ -219,6 +219,7 @@ struct PtRenderState {
     PtCpuRenderer cpu;
     PostChain post;                   // display image of the accumulation (bloom, grading...)
     gpu::Texture* display = nullptr;  // last post-processed image (PNG export)
+    u64 paintKey = 0;                 // 3D view ray tracing: document state the packed textures belong to
     std::shared_ptr<PtProjectTextures> cpuTex;
     std::vector<gpu::ReadbackPtr> texReadbacks;
     std::vector<float4> cpuPixels;

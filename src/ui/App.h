@@ -142,6 +142,7 @@ struct DocView {
     std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
     std::unique_ptr<MeshScene> mesh;          // 3D painting scene (optional)
     std::unique_ptr<PtRenderState> render;    // render mode scene (3D projects)
+    std::unique_ptr<PtRenderState> viewRT;    // ray-traced 3D view (its own scene: model + floor)
     std::shared_ptr<LinkSession> link;        // opened from the Unreal plugin (sent back on Ctrl+S)
     std::unordered_map<Id, gpu::TexturePtr> snapshots;  // history brush sources (layer state before the first edit)
     int viewMode = 0;                         // 0 final image, 1 active layer only, 2 up to the active layer
@@ -1345,6 +1346,8 @@ private:
     void PollBake();
     void DrawBakerWindow();
     void DrawView3DRenderSettings(MeshScene& s);
+    gpu::Texture* UpdateViewRayTrace(DocView& v, u32 w, u32 h);
+    gpu::Texture* UpdateRenderState(DocView& v, PtRenderState& r, u32 w, u32 h);
     bool DrawPostSettings(PostSettings& p, bool withExposure);  // shared by the 3D view and the render mode
     void WriteLayerPixels(Document& d, Id surface, const std::vector<float>& src, int channels, int w, int h, bool dataChannel);
     Id AddBakedLayer(DocView& v, PbrChannel c, const std::string& name, const std::vector<float>& src, int channels, int size);

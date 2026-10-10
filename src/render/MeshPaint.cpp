@@ -472,6 +472,7 @@ bool LoadEnvironment(MeshScene& s, const std::string& path, std::string* error) 
         y0 += ch;
     }
     s.envName = Narrow(Utf8Path(path).filename().wstring());
+    s.envPath = path;
     return true;
 }
 

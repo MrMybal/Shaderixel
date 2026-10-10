@@ -424,8 +424,82 @@ void App::RenderFromJson(DocView& v, const Json& j, const std::string& baseDir) 
 }
 
 // Scene build, accumulation resets, GPU passes / CPU thread, tone mapping. Returns the display image.
-gpu::Texture* App::UpdateRender(DocView& v, u32 w, u32 h) {
-    PtRenderState& r = RenderStateFor(v);
+gpu::Texture* App::UpdateRender(DocView& v, u32 w, u32 h) { return UpdateRenderState(v, RenderStateFor(v), w, h); }
+
+gpu::Texture* App::UpdateViewRayTrace(DocView& v, u32 w, u32 h) {
+    // Ray-traced 3D view (Marmoset-like viewport): its own scene (the model, an optional floor),
+    // the view's camera, HDRI (or the studio) and key light (as a sun), refined while nothing moves.
+    if (!v.mesh) return nullptr;
+    MeshScene& m = *v.mesh;
+    if (!v.viewRT) {
+        v.viewRT = std::make_unique<PtRenderState>();
+        PtObject model;
+        model.name = "Modèle";
+        model.type = PtObjectType::Project;
+        model.material.useProject = true;
+        v.viewRT->objects.push_back(model);
+    }
+    PtRenderState& r = *v.viewRT;
+    // Floor (shadow catcher look): under the model.
+    const bool hasFloor = r.objects.size() > 1;
+    if (m.rtFloor != hasFloor) {
+        if (m.rtFloor) {
+            PtObject f;
+            f.name = "Sol";
+            f.type = PtObjectType::Plane;
+            f.position = {0, MeshMinY(m.data), 0};
+            f.scale = 6.0f;
+            f.material.baseColor = {0.06f, 0.06f, 0.065f};
+            f.material.roughness = 0.9f;
+            r.objects.push_back(f);
+        } else {
+            r.objects.resize(1);
+        }
+    }
+    PtSettings& s = r.settings;
+    s.device = 0;
+    s.maxSamples = m.rtSamples;
+    s.maxBounces = m.rtBounces;
+    s.viewSize = true;
+    s.fov = m.fov;
+    s.hdri = m.envPath.empty() || !m.envAtlas ? std::string("*studio") : m.envPath;
+    s.envIntensity = m.envAtlas ? m.envIntensity : 1.0f;
+    s.envRotation = m.envRotation * 57.29578f;
+    s.envVisible = m.envAtlas && m.envBackground;
+    s.background = {0.05f, 0.052f, 0.062f};  // about the raster view's gray once tone mapped
+    s.exposure = m.post.exposure;
+    s.tonemap = m.post.tonemap;
+    s.post = m.post;
+    r.yaw = m.yaw;
+    r.pitch = m.pitch;
+    r.distance = m.distance;
+    r.target = m.target;
+    // Key light as a sun (direction toward the scene).
+    r.lights.clear();
+    const float li = m.envAtlas ? m.sunIntensity : m.lightIntensity * 0.6f;
+    if (li > 0) {
+        float3 l = m.lightFollow ? Normalize(m.camPos - m.target + float3{0.6f, 1.2f, 0.0f})
+                                 : Normalize(float3{std::cos(m.lightPitch) * std::sin(m.lightYaw), std::sin(m.lightPitch), -std::cos(m.lightPitch) * std::cos(m.lightYaw)});
+        PtLight sun;
+        sun.name = "Soleil";
+        sun.type = PtLightType::Sun;
+        sun.intensity = li * 2.0f;
+        sun.size = 2.0f;
+        sun.pitch = std::asin(std::clamp(-l.y, -1.0f, 1.0f)) * 57.29578f;
+        sun.yaw = std::atan2(-l.x, -l.z) * 57.29578f;
+        r.lights.push_back(sun);
+    }
+    // Paint changes: the textures are packed again.
+    const u64 key = v.doc->ContentVersion() * 1315423911ull ^ (u64)v.history.Count() * 2654435761ull ^ (u64)v.history.Cursor();
+    if (key != r.paintKey) {
+        r.paintKey = key;
+        r.texDirty = true;
+    }
+    r.lastFrame = ImGui::GetFrameCount();  // shown every frame: no repack for being shown again
+    return UpdateRenderState(v, r, w, h);
+}
+
+gpu::Texture* App::UpdateRenderState(DocView& v, PtRenderState& r, u32 w, u32 h) {
     PtSettings& s = r.settings;
     if (ImGui::GetFrameCount() - r.lastFrame > 1) r.texDirty = true;  // the tab is shown again: the paint may have changed
     r.lastFrame = ImGui::GetFrameCount();

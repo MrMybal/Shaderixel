@@ -436,6 +436,7 @@ public:
     Surface* GetSurface(Id id);
     // Mark a surface changed (whole surface, or only `rect`, used by tiled rendering).
     void TouchSurface(Id id, const Rect* rect = nullptr);
+    u64 ContentVersion() const { return versionCounter; }  // grows with every pixel change
     std::unordered_map<Id, Rect> dirtyRects;  // accumulated since the renderer last consumed them
     bool tiled = false;                       // tiled rendering (very large documents)
     bool forceTiled = false;                  // tiled rendering at any size (tests)

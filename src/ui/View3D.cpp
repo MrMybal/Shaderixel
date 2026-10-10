@@ -137,8 +137,14 @@ void App::DrawView3D() {
             ui::HelpTooltip("Exposition de la vue (double-clic pour saisir)");
             flow(110 * dpi);
             ImGui::SetNextItemWidth(110 * dpi);
-            ImGui::Combo("##quality", &v->mesh->quality, "Rendu rapide\0Rendu qualité\0");
-            ui::HelpTooltip("Qualité : ombre de la lumière principale et occlusion cuite du modèle (Cuisson)");
+            ImGui::Combo("##quality", &v->mesh->quality, "Rendu rapide\0Rendu qualité\0Ray tracing\0");
+            ui::HelpTooltip("Qualité : ombre de la lumière principale et occlusion cuite du modèle (Cuisson).\nRay tracing : lancer de rayons progressif (reflets, ombres douces, lumière indirecte), affiné quand rien ne bouge.");
+            if (v->mesh->quality == 2 && v->viewRT) {
+                char rt[48];
+                snprintf(rt, sizeof(rt), "%d / %d éch.", RenderSamples(*v->viewRT), v->mesh->rtSamples);
+                flow(ImGui::CalcTextSize(rt).x + 8 * dpi);
+                ImGui::TextDisabled("%s", rt);
+            }
             if (button("Rendu et caméra...")) ImGui::OpenPopup("##view3drender");
             if (ImGui::BeginPopup("##view3drender")) {
                 DrawView3DRenderSettings(*v->mesh);
@@ -339,6 +345,8 @@ void App::DrawView3D() {
     // Re-evaluate the document (cached) so the mesh shows the latest paint, then render.
     v->lastImage = v->renderer.Evaluate(doc, *ctx);
     gpu::Texture* img = v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
+    if (s.quality == 2 && s.viewChannel == 0)
+        if (gpu::Texture* rt = UpdateViewRayTrace(*v, w, h)) img = rt;  // ray-traced view (the raster render keeps the brush depth)
     if (gpu::Texture* pv = UvPreviewRender(*v, w, h)) img = pv;  // UV tool: checker on the new layout
     ImDrawList* dl = ImGui::GetWindowDrawList();
     if (img) dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(img), origin, ImVec2(origin.x + w, origin.y + h));
@@ -398,6 +406,13 @@ void App::DrawView3DRenderSettings(MeshScene& s) {
         if (ImGui::SliderFloat("Direction", &yaw, -180, 180, "%.0f°")) s.lightYaw = yaw / 57.29578f;
         if (ImGui::SliderFloat("Hauteur", &pitch, 5, 89, "%.0f°")) s.lightPitch = pitch / 57.29578f;
     }
+    if (s.quality == 2) {
+        ImGui::SeparatorText("Ray tracing");
+        ImGui::SliderInt("Échantillons", &s.rtSamples, 16, 4096, "%d", ImGuiSliderFlags_Logarithmic);
+        ImGui::SliderInt("Rebonds", &s.rtBounces, 1, 16);
+        ImGui::Checkbox("Sol (ombres portées)", &s.rtFloor);
+    }
+    ImGui::SeparatorText("Lumière");
     if (s.envAtlas) ImGui::SliderFloat("Soleil (avec HDRI)", &s.sunIntensity, 0, 8, "%.2f");
     else ImGui::SliderFloat("Intensité", &s.lightIntensity, 0, 8, "%.2f");
     ImGui::SliderFloat("Ombre", &s.shadowStrength, 0, 1, "%.2f");

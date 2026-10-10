@@ -412,6 +412,7 @@ void App::DemoTick() {
             Log("[demo] smart materials: %zu, applied %s", list.size(), list[i]["name"].S().c_str());
             a->mesh->yaw = 0.6f;
             a->mesh->pitch = 0.45f;
+            if (GetEnvironmentVariableA("SX_RT", nullptr, 0) > 0) a->mesh->quality = 2;  // ray-traced view
             if (GetEnvironmentVariableA("SX_POST", nullptr, 0) > 0) {
                 // Cinema look, fixed strong light from the side: bloom, vignette, grain, shadow.
                 PostSettings& p = a->mesh->post;
@@ -461,6 +462,7 @@ void App::DemoTick() {
         const float span = (w->InnerRect.Max.x - w->InnerRect.Min.x) * 0.18f;
         ImGuiIO& io = ImGui::GetIO();
         if (frameCounter == 12) {
+            if (GetEnvironmentVariableA("SX_RT", nullptr, 0) > 0) a->mesh->quality = 2;  // painting in the ray-traced view
             SelectTip(brush, tipId);
             brush.size = 46;
             brush.flow = 1;
