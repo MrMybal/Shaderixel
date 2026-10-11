@@ -190,6 +190,23 @@ void App::ApplyLensPick(EffectInstance& fx) {
     P.status = what.empty() ? "aucune calibration dans ce profil" : "calibré : " + what;
 }
 
+bool App::LensPickFromShot(const Document& doc) {
+    EnsureLensfun();
+    auto& P = lensPick;
+    LensfunDb& db = Lensfun();
+    const Document::Shot& s = doc.shot;
+    if (!db.Loaded() || (s.lens.empty() && s.model.empty())) return false;
+    const LensfunLens* l = !s.lens.empty() ? db.FindLens(s.lens, "") : nullptr;
+    if (!l && !s.model.empty()) l = db.FindLens(s.model, s.make);  // compact: lens named after the camera
+    if (!l) return false;
+    P.lens = (int)(l - db.lenses.data());
+    P.focal = s.focal > 0 ? s.focal : l->minFocal;
+    P.aperture = s.aperture > 0 ? s.aperture : 8;
+    const LensfunCamera* cam = db.FindCamera(s.make, s.model);
+    P.crop = cam ? cam->crop : s.crop;
+    return true;
+}
+
 bool App::LensfunPickerUI(EffectInstance& fx, const Document* doc) {
     EnsureLensfun();
     auto& P = lensPick;
@@ -238,19 +255,7 @@ bool App::LensfunPickerUI(EffectInstance& fx, const Document* doc) {
     // Automatic choice from the photo's metadata (once per document).
     if (doc && doc != P.autoFor) {
         P.autoFor = doc;
-        const Document::Shot& s = doc->shot;
-        if (!s.lens.empty() || !s.model.empty()) {
-            const LensfunLens* l = !s.lens.empty() ? db.FindLens(s.lens, "") : nullptr;
-            if (!l && !s.model.empty()) l = db.FindLens(s.model, s.make);  // compact: lens named after the camera
-            if (l) {
-                P.lens = (int)(l - db.lenses.data());
-                P.focal = s.focal > 0 ? s.focal : l->minFocal;
-                P.aperture = s.aperture > 0 ? s.aperture : 8;
-                const LensfunCamera* cam = db.FindCamera(s.make, s.model);
-                P.crop = cam ? cam->crop : s.crop;
-                apply = true;
-            }
-        }
+        if (LensPickFromShot(*doc)) apply = true;
     }
     if (doc && !doc->shot.summary.empty()) ImGui::TextWrapped("Photo : %s", doc->shot.summary.c_str());
 
@@ -405,6 +410,100 @@ void App::PhotoRawPoll(DocView& v, Layer& l) {
     }
 }
 
+Json App::PhotoRawSettings(const EffectInstance& fx) {
+    Json ps = Json::Object();
+    EffectDefPtr def = fx.Def();
+    for (size_t i = 0; def && i < def->params.size() && i < fx.params.size(); ++i) {
+        const ParamDef& p = def->params[i];
+        if (p.type == ParamType::Curve) {
+            if (i < fx.curves.size() && fx.curves[i].size() >= 2) {
+                Json c = Json::Array();
+                for (auto& pt : fx.curves[i]) c.Push(ToJson(pt));
+                ps["tone"] = c;
+            }
+            continue;
+        }
+        if (fx.params[i].x != p.def.x) ps[p.id] = fx.params[i].x;
+    }
+    return ps;
+}
+
+int App::PhotoRawStep(DocView& v, const Json& p, std::string& error, int& retries) {
+    Document& d = *v.doc;
+    Layer* l = d.ActiveLayer();
+    if (!l) { error = "Photo RAW : aucun calque actif"; return 2; }
+    if (retries == 0) {
+        // Settings over the defaults, lens profile, then (optionally) the automatic white balance / tones.
+        Edit e(d, v.history, "Photo RAW");
+        EffectInstance* fx = FindFilter(l, "camera_raw");
+        if (!fx) {
+            EffectInstance n;
+            n.effectId = "camera_raw";
+            if (auto def = Effects().Find("camera_raw")) n.params = def->DefaultParams();
+            l->filters.push_back(n);
+            fx = &l->filters.back();
+        }
+        std::vector<std::pair<std::string, float>> vals;
+        CurvePoints curve;
+        for (auto& [k, val] : p["settings"].Items()) {
+            if (k == "tone") { for (auto& pt : val.Elements()) curve.push_back(Float2FromJson(pt)); continue; }
+            vals.push_back({k, val.F()});
+        }
+        SetParam(*fx, "temperature", 0);
+        SetParam(*fx, "tint", 0);
+        SetParam(*fx, "exposure", 0);
+        ApplyRawValues(*fx, vals, curve.size() >= 2 ? &curve : nullptr);
+        if (p["lens"].B() && !FindFilter(l, "lens_profile") && LensPickFromShot(d)) {
+            EffectInstance lens;
+            lens.effectId = "lens_profile";
+            if (auto def = Effects().Find("lens_profile")) lens.params = def->DefaultParams();
+            ApplyLensPick(lens);
+            l->filters.insert(l->filters.begin(), lens);
+        }
+        d.SyncGraph();
+        e.Commit();
+        if (!p["auto"].B()) return 0;
+        PhotoRawAuto(v, *l, 3);
+        retries = 1;
+        return 1;
+    }
+    PhotoRawPoll(v, *l);
+    if (camRaw.statsRb) return ++retries > 600 ? (error = "Photo RAW : statistiques non lues", 2) : 1;
+    return 0;
+}
+
+void App::PhotoRawToAction(DocView& v, Layer& l, bool openBatch) {
+    EffectInstance* fx = FindFilter(&l, "camera_raw");
+    if (!fx) return;
+    EffectInstance* lens = FindFilter(&l, "lens_profile");
+    Json p = Json::Object();
+    p["settings"] = PhotoRawSettings(*fx);
+    p["auto"] = false;
+    p["lens"] = lens && lens->enabled;
+    std::string base = "Photo RAW - " + (v.doc->path.empty() ? v.doc->Name() : Narrow(Utf8Path(v.doc->path).stem().wstring()));
+    std::string name = base;
+    for (int k = 2;; ++k) {
+        bool used = false;
+        for (auto& a : actions) used |= a.name == name;
+        if (!used) break;
+        name = base + " (" + std::to_string(k) + ")";
+    }
+    actions.push_back({name, {ActionStep{"photo_raw", p, true}}, ""});
+    SaveActions();
+    if (openBatch) {
+        auto& B = batch;
+        B.open = true;
+        B.sourceKind = 0;
+        B.chain = {"u:" + name};
+        B.format = 2;  // JPG
+        B.extFilter.clear();
+        B.dest.clear();
+        Status("Traitement par lots préparé avec l'action « " + name + " » : choisissez le dossier de RAW puis Démarrer");
+    } else {
+        Status("Action créée : « " + name + " » (panneau Actions, traitement par lots)");
+    }
+}
+
 void App::PhotoRawPresetsUI(EffectInstance& fx, DocView& v) {
     auto& C = camRaw;
     namespace fs = std::filesystem;
@@ -477,6 +576,16 @@ void App::PhotoRawPresetsUI(EffectInstance& fx, DocView& v) {
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Copiez les réglages d'une photo puis collez-les sur une autre (Filtre > Photo RAW...).");
+    ImGui::SameLine();
+    if (ImGui::Button("Lot...")) ImGui::OpenPopup("##rawbatch");
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Appliquer ces réglages à d'autres photos (action, traitement par lots)");
+    if (ImGui::BeginPopup("##rawbatch")) {
+        if (Layer* l = v.doc->FindLayer(camRaw.layer)) {
+            if (ImGui::MenuItem("Traiter un dossier de RAW avec ces réglages...")) PhotoRawToAction(v, *l, true);
+            if (ImGui::MenuItem("Enregistrer comme action")) PhotoRawToAction(v, *l, false);
+        }
+        ImGui::EndPopup();
+    }
     if (ImGui::BeginPopup("##savepreset")) {
         ImGui::SetNextItemWidth(240 * dpi);
         if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();

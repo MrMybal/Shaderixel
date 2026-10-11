@@ -664,7 +664,7 @@ bool App::OpenWithWic(const std::string& path, bool asLayer) {
             s.summary = info.Summary();
         }
         Status("RAW ouvert (32 bits linéaire" + std::string(info.model.empty() ? "" : ", " + info.Summary()) + ")");
-        if (v->doc->ActiveLayer() && v->doc->ActiveLayer()->id == layerId && !Automated()) OpenCameraRaw(*v);
+        if (v->doc->ActiveLayer() && v->doc->ActiveLayer()->id == layerId && !Automated() && !batch.running) OpenCameraRaw(*v);
     } else {
         Status("Ouvert : " + path);
     }

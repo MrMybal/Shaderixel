@@ -1262,6 +1262,11 @@ private:
     void PhotoRawPresetsUI(EffectInstance& fx, DocView& v);
     void PhotoRawAuto(DocView& v, Layer& l, int want);
     void PhotoRawPoll(DocView& v, Layer& l);
+    // Action step "photo_raw" (batch development): 0 done, 1 wait, 2 error.
+    int PhotoRawStep(DocView& v, const Json& p, std::string& error, int& retries);
+    bool LensPickFromShot(const Document& d);  // lensPick <- the lens of the photo's metadata
+    Json PhotoRawSettings(const EffectInstance& fx);  // {id: value} differing from the defaults (+ "tone")
+    void PhotoRawToAction(DocView& v, Layer& l, bool openBatch);
     // Lens picker (lensfun) state shared by Camera Raw and the effect's properties.
     struct {
         char filter[128] = "";

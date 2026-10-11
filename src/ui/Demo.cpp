@@ -447,7 +447,33 @@ void App::DemoTick() {
         // Camera Raw: a RAW (SX_RAW) decoded by LibRaw, the Camera Raw window with a development and the
         // lens corrections preselected from the shot (lensfun base SX_LENSFUN). Without SX_RAW: a checker
         // with the "Correction d'objectif" effect simulating the lens SX_LENS (SX_SIMMODE 1) on it.
-        char raw[512] = "", lf[512] = "", lensName[128] = "";
+        char raw[512] = "", lf[512] = "", lensName[128] = "", bdir[512] = "";
+        if (GetEnvironmentVariableA("SX_BATCHDIR", bdir, sizeof(bdir)) > 0) {
+            // Batch development: an action "photo_raw" (settings + auto + lens) on a folder of RAW, exported as JPG.
+            if (frameCounter == 4) {
+                if (GetEnvironmentVariableA("SX_LENSFUN", lf, sizeof(lf)) > 0) lensfunDir = lf;
+                EnsureLensfun(true);
+                Json p = Json::Object(), st = Json::Object();
+                st["vibrance"] = 30;
+                st["clarity"] = 20;
+                p["settings"] = st;
+                p["auto"] = true;
+                p["lens"] = true;
+                actions.push_back({"Demo Photo RAW", {ActionStep{"photo_raw", p, true}}, ""});
+                batch.sourceKind = 0;
+                batch.source = bdir;
+                batch.dest = std::string(bdir) + "\\out";
+                batch.chain = {"u:Demo Photo RAW"};
+                batch.format = 2;
+                StartBatch();
+            }
+            static bool reported = false;
+            if (!batch.running && frameCounter > 10 && !reported) {
+                reported = true;
+                for (auto& e : batch.log) Log("[demo] batch: %s -> %s (%s)", e.file.c_str(), e.out.c_str(), e.msg.c_str());
+            }
+            return;
+        }
         const bool hasRaw = GetEnvironmentVariableA("SX_RAW", raw, sizeof(raw)) > 0;
         GetEnvironmentVariableA("SX_LENS", lensName, sizeof(lensName));
         if (frameCounter == 4) {

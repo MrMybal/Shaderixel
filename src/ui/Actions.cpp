@@ -5,6 +5,7 @@
 #include "ui/App.h"
 #include "ui/Theme.h"
 #include "doc/Effects.h"
+#include "io/WicLoad.h"
 
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
@@ -36,6 +37,7 @@ const char* kCmds[][2] = {
     {"erase", "Effacer"},
     {"layer_props", "Propriétés du calque"},
     {"export", "Exporter / convertir"},
+    {"photo_raw", "Photo RAW (développement)"},
     {"op", "Opération (outil IA / MCP)"},
 };
 
@@ -97,6 +99,7 @@ Json ActionDefaultParams(const std::string& c) {
     else if (c == "layer_props") { p["opacity"] = 1.0f; }
     else if (c == "new_layer") p["name"] = "";
     else if (c == "op") { p["name"] = "shaderixel.layer_add"; p["args"] = Json::Object(); }
+    else if (c == "photo_raw") { p["settings"] = Json::Object(); p["auto"] = false; p["lens"] = true; }
     return p;
 }
 
@@ -128,6 +131,8 @@ std::string ActionStepSummary(const ActionStep& s) {
         b = p["name"].S();
     } else if (s.cmd == "layer_props") {
         b = Fmt("opacité %.0f %%", p["opacity"].F(1) * 100);
+    } else if (s.cmd == "photo_raw") {
+        b = Fmt("%zu réglages", p["settings"].Items().size()) + (p["auto"].B() ? ", auto" : "") + (p["lens"].B() ? ", objectif" : "");
     }
     return b.empty() ? ActionCmdLabel(s.cmd) : std::string(ActionCmdLabel(s.cmd)) + " : " + b;
 }
@@ -222,6 +227,13 @@ std::string ActionStepDescription(const ActionStep& s) {
         std::string where = p["folder"].S().empty() ? "dans le dossier de l'image d'origine" : "dans « " + p["folder"].S() + " »";
         return what + ", " + where + ", sous le nom <nom de l'image>" + p["suffix"].S() + "." + f +
                ". Le document ouvert n'est pas modifié. Dans un traitement par lots, le dossier et le nom viennent des réglages du lot.";
+    }
+    if (c == "photo_raw") {
+        std::string r = "Développe la photo du calque actif avec le filtre Photo RAW : " + Fmt("%zu réglages", p["settings"].Items().size()) +
+                        " repris (les autres à leur valeur par défaut)";
+        if (p["auto"].B()) r += ", puis balance des blancs et tons automatiques calculés sur chaque image";
+        if (p["lens"].B()) r += ", et correction d'objectif lensfun d'après les métadonnées de la photo (si l'objectif est dans la base)";
+        return r + ".";
     }
     if (c == "op") return "Exécute l'opération « " + p["name"].S() + " » (pont IA / MCP) avec les arguments " + p["args"].Dump(0) + ".";
     return "Commande inconnue : " + c + " (l'étape échouera).";
@@ -618,6 +630,7 @@ int App::ExecActionStep(DocView& v, const ActionStep& s) {
         R.exporting = false;
         return 0;
     }
+    if (s.cmd == "photo_raw") return PhotoRawStep(v, p, R.error, R.retries);
     if (s.cmd == "op") {
         const AiOperation* op = bridge.Find(p["name"].S());
         if (!op) { R.error = "opération inconnue : " + p["name"].S(); return 2; }
@@ -684,10 +697,10 @@ std::vector<std::string> App::BatchScan() const {
             } else if (ch != '*') cur += ch;
         }
     }
-    static const char* exts[] = {".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".hdr", ".exr", ".sxl", ".gif"};
+    static const char* exts[] = {".png", ".jpg", ".jpeg", ".bmp", ".tga", ".psd", ".hdr", ".exr", ".sxl", ".gif", ".tif", ".tiff", ".webp"};
     auto consider = [&](const std::filesystem::path& p) {
         std::string e = Lower(Narrow(p.extension().wstring()));
-        bool image = false;
+        bool image = IsRawExtension(e);
         for (auto* x : exts) image |= e == x;
         if (!image) return;
         if (!want.empty() && std::find(want.begin(), want.end(), e) == want.end() && !(e == ".jpeg" && std::find(want.begin(), want.end(), ".jpg") != want.end())) return;
