@@ -318,6 +318,7 @@ public:
         std::string loadedCopy;
         void (*unload)(void*) = nullptr;
         void* unloadUser = nullptr;
+        long long dllTime = 0;  // write time of the DLL when loaded (automatic reload)
     };
     struct PluginCommand { std::string plugin, path; SxCommandFn fn; void* user; };
     struct PluginPanel { std::string plugin, title; SxPanelFn fn; void* user; bool open = false; };
@@ -341,6 +342,12 @@ public:
     void StopScriptPanel(ScriptPanel& sp);
     void SendScriptPanel(ScriptPanel& sp, const Json& msg);
     void DrawScriptPanel(ScriptPanel& sp);
+    bool pluginAutoReload = false;  // developers: a rebuilt DLL is reloaded by itself
+    double pluginReloadCheck = 0;
+    bool InstallPluginZip(const std::string& zip, std::string* error);
+    bool CreatePluginSkeleton(const std::string& name, int kind, std::string* dirOut, std::string* error);  // 0 Python window, 1 Python command, 2 C++
+    std::string pluginNewName;
+    int pluginNewKind = 0;
     struct PluginRead { std::string plugin; gpu::ReadbackPtr rb; int format; SxPixelsFn done; void* user; };
     struct PluginListener { std::string plugin; SxEventFn fn; void* user; };
     std::vector<PluginListener> pluginListeners;

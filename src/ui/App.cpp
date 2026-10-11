@@ -607,7 +607,10 @@ void App::Frame() {
         std::string ext = Narrow(Utf8Path(pendingDrop).extension().wstring());
         for (auto& c : ext) c = (char)tolower((unsigned char)c);
         std::string src, err;
-        if (ext == ".abr") {
+        if (ext == ".zip") {
+            std::string err;
+            Status(InstallPluginZip(pendingDrop, &err) ? "Plugin installé : " + Narrow(Utf8Path(pendingDrop).stem().wstring()) : "Archive : " + err);
+        } else if (ext == ".abr") {
             ImportAbrFile(pendingDrop);
         } else if (ext == ".pat") {
             ImportPatFile(pendingDrop);

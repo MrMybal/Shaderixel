@@ -425,6 +425,10 @@ bool App::LoadPlugin(PluginEntry& p) {
             return false;
         }
         p.module = mod;
+        {
+            std::error_code ec2;
+            p.dllTime = (long long)fs::last_write_time(Utf8Path(src), ec2).time_since_epoch().count();
+        }
         p.unload = info.unload;
         p.unloadUser = info.user;
         p.loadedCopy = copy;
@@ -520,6 +524,19 @@ void App::PluginEvent(int event, const std::string& text) {
 }
 
 void App::UpdatePlugins() {
+    // Developers: DLLs rebuilt since they were loaded are reloaded (once a second).
+    if (pluginAutoReload && ImGui::GetTime() > pluginReloadCheck) {
+        pluginReloadCheck = ImGui::GetTime() + 1.0;
+        for (auto& p : plugins) {
+            if (!p.loaded || p.dll.empty()) continue;
+            std::error_code ec;
+            const long long t = (long long)fs::last_write_time(Utf8Path(p.dir + "\\" + p.dll), ec).time_since_epoch().count();
+            if (ec || t == p.dllTime) continue;
+            UnloadPlugin(p);
+            LoadPlugin(p);
+            Status(p.error.empty() ? "Plugin « " + p.name + " » rechargé (DLL modifiée)" : "Plugin « " + p.name + " » : " + p.error);
+        }
+    }
     // Events: active document, edits (at most once per frame), settings written when changed.
     {
         DocView* v = Active();
@@ -752,10 +769,42 @@ void App::DrawPluginManager() {
         ShellExecuteW(nullptr, L"open", Utf8Path(u).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     }
     ImGui::SameLine();
+    if (ImGui::Button("Installer depuis un .zip...")) {
+        const std::string zip = platform::OpenFileDialog(hwnd, L"Plugin Shaderixel (*.zip)\0*.zip\0");
+        std::string err;
+        if (!zip.empty()) Status(InstallPluginZip(zip, &err) ? "Plugin installé : " + Narrow(Utf8Path(zip).stem().wstring()) : "Installation impossible : " + err);
+    }
+    ui::HelpTooltip("Une archive contenant un dossier de plugin (plugin.json) : copiée dans votre dossier de plugins et chargée.\nGlisser le .zip sur la fenêtre de Shaderixel fait de même.");
+    ImGui::SameLine();
+    if (ImGui::Button("Créer un plugin...")) ImGui::OpenPopup("##newplugin");
+    if (ImGui::BeginPopup("##newplugin")) {
+        ImGui::SetNextItemWidth(220 * dpi);
+        ImGui::InputTextWithHint("##pname", "nom du plugin", &pluginNewName);
+        ImGui::RadioButton("Python : une fenêtre", &pluginNewKind, 0);
+        ImGui::RadioButton("Python : une commande de menu", &pluginNewKind, 1);
+        ImGui::RadioButton("C++ : DLL (commande, fenêtre, outil)", &pluginNewKind, 2);
+        ImGui::BeginDisabled(pluginNewName.empty());
+        if (ImGui::Button("Créer")) {
+            std::string dir, err;
+            if (CreatePluginSkeleton(pluginNewName, pluginNewKind, &dir, &err)) {
+                Status("Plugin créé : " + dir + (pluginNewKind == 2 ? " (à compiler, voir LISEZMOI.txt)" : " (Plugins > " + pluginNewName + ")"));
+                ShellExecuteW(nullptr, L"open", Utf8Path(dir).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+                ImGui::CloseCurrentPopup();
+            } else {
+                Status("Création impossible : " + err);
+            }
+        }
+        ImGui::EndDisabled();
+        ImGui::EndPopup();
+    }
+    ui::HelpTooltip("Un squelette prêt à modifier dans votre dossier de plugins.");
+    ImGui::SameLine();
     if (ImGui::Button("SDK et exemples")) {
         const std::wstring sdk = Utf8Path(ExeDir()).wstring() + L"\\SDK";
         ShellExecuteW(nullptr, L"open", sdk.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     }
+    ImGui::Checkbox("Rechargement automatique (développement)", &pluginAutoReload);
+    ui::HelpTooltip("Une DLL de plugin recompilée est rechargée toute seule (vérifié chaque seconde).");
     ImGui::Separator();
     if (ImGui::BeginTable("##plugins", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY)) {
         ImGui::TableSetupColumn("Actif", ImGuiTableColumnFlags_WidthFixed, 44 * dpi);
@@ -810,6 +859,190 @@ void App::DrawPluginManager() {
         }
     }
     ImGui::End();
+}
+
+// ---------------------------------------------------------------- install / create
+
+bool App::InstallPluginZip(const std::string& zip, std::string* error) {
+    // Extracted in a temporary folder (Windows' tar), the folder with plugin.json copied to the user's plugins.
+    const std::string user = PluginDirs().size() > 1 ? PluginDirs()[1] : std::string();
+    if (user.empty()) { if (error) *error = "dossier utilisateur introuvable"; return false; }
+    const std::string tmp = PluginWorkspace("install") + "\\" + std::to_string(GetTickCount64());
+    std::error_code ec;
+    fs::create_directories(Utf8Path(tmp), ec);
+    std::wstring cmd = L"tar -xf \"" + Utf8Path(zip).wstring() + L"\" -C \"" + Utf8Path(tmp).wstring() + L"\"";
+    STARTUPINFOW si = {sizeof(si)};
+    si.dwFlags = STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+    PROCESS_INFORMATION pi = {};
+    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
+        if (error) *error = "extraction impossible";
+        return false;
+    }
+    WaitForSingleObject(pi.hProcess, 60000);
+    DWORD code = 1;
+    GetExitCodeProcess(pi.hProcess, &code);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    if (code != 0) { if (error) *error = "archive illisible"; return false; }
+    // The plugin folder: the archive's root or its first sub-folder holding a plugin.json.
+    fs::path found;
+    if (fs::exists(Utf8Path(tmp) / "plugin.json")) found = Utf8Path(tmp);
+    for (auto& e : fs::recursive_directory_iterator(Utf8Path(tmp), ec))
+        if (found.empty() && e.path().filename() == "plugin.json") found = e.path().parent_path();
+    if (found.empty()) { if (error) *error = "pas de plugin.json dans l'archive"; return false; }
+    std::string text;
+    Json m;
+    if (!ReadTextFile(Narrow((found / "plugin.json").wstring()), text) || !Json::Parse(text, m)) { if (error) *error = "plugin.json invalide"; return false; }
+    std::string folder = m["name"].S(Narrow(Utf8Path(zip).stem().wstring()));
+    for (auto& c : folder) if (strchr("\\/:*?\"<>|", c)) c = '_';
+    const std::string id = m["id"].S(folder);
+    // Same plugin already installed: unloaded, replaced.
+    for (auto& p : plugins)
+        if (p.id == id) UnloadPlugin(p);
+    plugins.erase(std::remove_if(plugins.begin(), plugins.end(), [&](const PluginEntry& p) { return p.id == id; }), plugins.end());
+    const fs::path dst = Utf8Path(user) / Utf8Path(folder);
+    fs::remove_all(dst, ec);
+    fs::create_directories(dst, ec);
+    fs::copy(found, dst, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
+    if (ec) { if (error) *error = "copie impossible : " + ec.message(); return false; }
+    fs::remove_all(Utf8Path(tmp), ec);
+    const size_t before = plugins.size();
+    ScanPlugins();
+    for (size_t i = before; i < plugins.size(); ++i)
+        if (plugins[i].enabled) LoadPlugin(plugins[i]);
+    for (size_t i = before; i < plugins.size(); ++i)
+        if (!plugins[i].error.empty()) { if (error) *error = plugins[i].error; return false; }
+    return plugins.size() > before;
+}
+
+bool App::CreatePluginSkeleton(const std::string& name, int kind, std::string* dirOut, std::string* error) {
+    const std::vector<std::string> dirs = PluginDirs();
+    if (dirs.size() < 2 || name.empty()) { if (error) *error = "nom ou dossier manquant"; return false; }
+    std::string folder = name;
+    for (auto& c : folder) if (strchr("\\/:*?\"<>|", c)) c = '_';
+    std::string id = "user.";
+    for (char c : name) id += (isalnum((unsigned char)c) ? (char)tolower((unsigned char)c) : '-');
+    const fs::path dir = Utf8Path(dirs[1]) / Utf8Path(folder);
+    std::error_code ec;
+    if (fs::exists(dir)) { if (error) *error = "un plugin porte déjà ce nom"; return false; }
+    fs::create_directories(dir, ec);
+    auto write = [&](const char* file, const std::string& text) { std::ofstream(dir / file, std::ios::binary) << text; };
+    // SDK: next to the exe (package) or in the repository (development).
+    std::string sdk = ExeDir() + "\\SDK";
+    if (!fs::exists(Utf8Path(sdk))) sdk = ExeDir() + "\\..\\..\\sdk";
+    const std::string sdkInc = Narrow(fs::weakly_canonical(Utf8Path(sdk) / "include", ec).wstring());
+    Json m = Json::Object();
+    m["id"] = id;
+    m["name"] = name;
+    m["version"] = "0.1";
+    m["author"] = "";
+    if (kind == 0 || kind == 1) {
+        for (const char* f : {"shaderixel_client.py", "shaderixel_panel.py"})
+            fs::copy_file(Utf8Path(sdk) / "examples" / "script_plugin" / f, dir / f, fs::copy_options::overwrite_existing, ec);
+        if (kind == 0) {
+            m["description"] = "Une fenêtre en Python (Plugins > Fenêtres > " + name + ").";
+            Json panels = Json::Array();
+            Json pn = Json::Object();
+            pn["title"] = name;
+            pn["run"] = "python main.py";
+            panels.Push(pn);
+            m["panels"] = panels;
+            write("main.py", R"~(""")~" + name + R"~( : fenêtre de plugin Shaderixel (modifiez ce fichier, puis fermez / rouvrez la fenêtre)."""
+from shaderixel_client import call, ShaderixelError
+from shaderixel_panel import Panel
+
+panel = Panel()
+state = {"opacity": 0.5, "color": [1.0, 0.5, 0.1, 1.0]}
+last = {"text": "Prêt."}
+
+
+def ui():
+    return [
+        panel.note("Un calque rempli d'une couleur, à l'opacité choisie."),
+        panel.color("color", "Couleur", state["color"]),
+        panel.slider("opacity", "Opacité", state["opacity"], 0, 1),
+        panel.button("go", "Appliquer"),
+        panel.note(last["text"]),
+    ]
+
+
+@panel.on_change
+def changed(id, value):
+    state[id] = value
+
+
+@panel.on_click
+def clicked(id):
+    try:
+        call("shaderixel.history_group", {"action": "begin"})
+        layer = call("shaderixel.layer_add", {"kind": "pixel", "name": ")~" + name + R"~(", "opacity": state["opacity"]})
+        call("shaderixel.fill", {"color": state["color"], "layer": layer.get("id", 0)})
+        call("shaderixel.history_group", {"action": "end"})
+        last["text"] = "Calque ajouté."
+    except ShaderixelError as e:
+        last["text"] = "Erreur : %s" % e
+
+
+panel.run(ui)
+)~");
+        } else {
+            m["description"] = "Une commande en Python (Plugins > " + name + ").";
+            Json cmds = Json::Array();
+            Json c = Json::Object();
+            c["menu"] = name + "/Lancer";
+            c["run"] = "python main.py";
+            cmds.Push(c);
+            m["commands"] = cmds;
+            write("main.py", R"~(""")~" + name + R"~( : commande de plugin Shaderixel (la dernière ligne affichée va dans la barre d'état)."""
+from shaderixel_client import call
+
+info = call("shaderixel.document_info")
+print("%s : %d x %d, %d calque(s)" % (info.get("name", "?"), info.get("width", 0), info.get("height", 0), len(info.get("layers", []))))
+)~");
+        }
+    } else {
+        m["description"] = "Plugin natif (C++).";
+        m["dll"] = "plugin.dll";
+        write("plugin.cpp", R"~(// )~" + name + R"~( : plugin natif Shaderixel (voir SDK\LISEZMOI_Plugins.md).
+#include "shaderixel_plugin.h"
+
+static const SxHost* H;
+static float amount = 0.5f;
+
+static void Hello(void*) { H->status("Bonjour depuis )~" + name + R"~( !"); }
+
+static void Window(void*) {
+    H->ui->slider_float("Valeur", &amount, 0, 1, "%.2f");
+    if (H->ui->button("Bonjour")) Hello(nullptr);
+}
+
+extern "C" SX_PLUGIN_EXPORT int sx_plugin_load(const SxHost* host, SxPlugin*) {
+    if (!host || host->api_version < 1) return 0;
+    H = host;
+    host->add_command(")~" + name + R"~(/Bonjour", Hello, nullptr);
+    host->add_panel(")~" + name + R"~(", Window, nullptr);
+    return 1;
+}
+)~");
+        std::string inc = sdkInc;
+        for (auto& c : inc) if (c == '\\') c = '/';
+        write("CMakeLists.txt", "cmake_minimum_required(VERSION 3.16)\nproject(Plugin CXX)\nset(CMAKE_CXX_STANDARD 17)\nadd_library(plugin SHARED plugin.cpp)\n"
+                                "target_include_directories(plugin PRIVATE \"" + inc + "\")\n"
+                                "if(MSVC)\n    target_compile_options(plugin PRIVATE /utf-8)\nendif()\n"
+                                "# The DLL next to plugin.json (Plugins > Gestionnaire > Rechargement automatique picks up every rebuild).\n"
+                                "set_target_properties(plugin PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_SOURCE_DIR})\n");
+        write("LISEZMOI.txt", "Compiler (Visual Studio 2022, invite de commandes x64) :\n  cmake -S . -B build -A x64\n  cmake --build build --config Release\n"
+                              "plugin.dll est écrite ici, à côté de plugin.json. Dans Shaderixel : Plugins > Gestionnaire > Rechercher de nouveaux plugins\n"
+                              "(puis cochez « Rechargement automatique » pour retrouver vos modifications à chaque compilation).\n");
+    }
+    write("plugin.json", m.Dump(1));
+    if (dirOut) *dirOut = Narrow(dir.wstring());
+    const size_t before = plugins.size();
+    ScanPlugins();
+    for (size_t i = before; i < plugins.size(); ++i)
+        if (plugins[i].enabled && plugins[i].dll.empty()) LoadPlugin(plugins[i]);  // Python: ready now (C++: once compiled)
+    return true;
 }
 
 // ---------------------------------------------------------------- canvas tool

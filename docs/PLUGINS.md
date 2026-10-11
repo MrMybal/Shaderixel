@@ -18,6 +18,10 @@ Un dossier par plugin, avec un `plugin.json` :
 - `<Shaderixel>\plugins\<Nom>\` (livrés avec l'application) ;
 - `%LOCALAPPDATA%\Shaderixel\Plugins\<Nom>\` (les vôtres).
 
+**Installer** un plugin reçu en `.zip` : Plugins > Gestionnaire > « Installer depuis un .zip... », ou glisser le `.zip` sur la fenêtre de Shaderixel (le dossier contenant `plugin.json` est copié dans votre dossier de plugins et chargé ; une version déjà installée est remplacée). Pour distribuer un plugin : zipper son dossier.
+
+**Créer** un plugin : Plugins > Gestionnaire > « Créer un plugin... » écrit un squelette prêt à modifier dans votre dossier de plugins : fenêtre Python, commande Python, ou DLL C++ (avec son `CMakeLists.txt` qui écrit la DLL à côté de `plugin.json`). Avec « Rechargement automatique (développement) » coché, chaque recompilation de la DLL est rechargée toute seule.
+
 Menu **Plugins > Gestionnaire de plugins...** : liste, activer / désactiver (mémorisé), **Recharger** (une DLL recompilée est rechargée sans redémarrer : Shaderixel charge une copie, l'original reste modifiable), rechercher les nouveaux, ouvrir le dossier utilisateur.
 
 ## plugin.json

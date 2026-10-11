@@ -514,6 +514,29 @@ void App::DemoTick() {
         }
         if (frameCounter == 25 && GetEnvironmentVariableA("SX_PIXELS", nullptr, 0) > 0)
             Log("[demo] pixels: %s, undo step %s", statusMsg.c_str(), a->history.Count() ? a->history.Label(a->history.Count() - 1).c_str() : "-");
+        if (GetEnvironmentVariableA("SX_PLUGCREATE", nullptr, 0) > 0) {
+            // A Python window plugin created from the skeleton, then a plugin installed from a .zip (SX_PLUGZIP).
+            if (frameCounter == 10) {
+                std::string dir, err;
+                const bool ok = CreatePluginSkeleton("Mon essai", 0, &dir, &err);
+                Log("[demo] skeleton: %d %s %s", (int)ok, dir.c_str(), err.c_str());
+                std::string dir2;
+                Log("[demo] native skeleton: %d", (int)CreatePluginSkeleton("Mon natif", 2, &dir2, &err));
+                for (auto& sp : scriptPanels) sp.open = sp.title == "Mon essai";
+                char zip[512] = "";
+                if (GetEnvironmentVariableA("SX_PLUGZIP", zip, sizeof(zip)) > 0) {
+                    const bool zok = InstallPluginZip(zip, &err);
+                    Log("[demo] zip install: %d %s", (int)zok, err.c_str());
+                }
+                std::string list;
+                for (auto& p : plugins) list += p.name + (p.loaded ? "+ " : "- ");
+                Log("[demo] plugins now: %s", list.c_str());
+            }
+            if (frameCounter == 80)
+                for (auto& sp : scriptPanels)
+                    if (sp.title == "Mon essai") Log("[demo] skeleton window: %zu widgets %s", sp.ui.Size(), sp.error.c_str());
+            return;
+        }
         if (GetEnvironmentVariableA("SX_SCRIPTPANEL", nullptr, 0) > 0) {
             // Script window (Python): opened, then its "Dessiner la grille" button pressed (event sent as the window does).
             for (auto& sp : scriptPanels) {
