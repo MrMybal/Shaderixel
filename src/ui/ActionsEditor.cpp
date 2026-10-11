@@ -218,10 +218,10 @@ void App::DrawActionInspector(ActionStep& s, bool readOnly) {
         ImGui::EndDisabled();
         ImGui::TextDisabled("Les cases de gauche choisissent ce que l'étape modifie.");
     } else if (c == "export") {
-        static const char* fm[] = {"png", "jpg", "tga", "bmp", "psd", "sxl"};
+        static const char* fm[] = {"png", "jpg", "tga", "bmp", "psd", "sxl", "tif"};
         int f = 0;
-        for (int k = 0; k < 6; ++k) if (cp["format"].S("png") == fm[k]) f = k;
-        if (ImGui::Combo("Format", &f, "PNG (sans perte, transparence)\0JPG (léger, sans transparence)\0TGA\0BMP\0PSD (calques)\0SXL (document Shaderixel)\0")) { p["format"] = fm[f]; changed = true; }
+        for (int k = 0; k < 7; ++k) if (cp["format"].S("png") == fm[k]) f = k;
+        if (ImGui::Combo("Format", &f, "PNG (sans perte, transparence)\0JPG (léger, sans transparence)\0TGA\0BMP\0PSD (calques)\0SXL (document Shaderixel)\0TIFF 16 bits (photo)\0")) { p["format"] = fm[f]; changed = true; }
         if (f == 1) {
             int q = cp["quality"].I(92);
             if (ImGui::SliderInt("Qualité", &q, 10, 100)) { p["quality"] = q; changed = true; }
@@ -603,7 +603,7 @@ void App::DrawBatchWindow() {
     // 3. Output.
     ImGui::SeparatorText("3. Résultat");
     ImGui::SetNextItemWidth(260 * dpi);
-    ImGui::Combo("Format", &B.format, "Aucun (seulement les étapes Exporter)\0PNG\0JPG\0TGA\0BMP\0PSD\0SXL (document)\0Même format que l'original\0");
+    ImGui::Combo("Format", &B.format, "Aucun (seulement les étapes Exporter)\0PNG\0JPG\0TGA\0BMP\0PSD\0SXL (document)\0Même format que l'original\0TIFF 16 bits\0");
     if (B.format == 2) {
         ImGui::SameLine();
         ImGui::SetNextItemWidth(120 * dpi);
@@ -637,9 +637,9 @@ void App::DrawBatchWindow() {
                 auto saved = B.files;
                 B.files = BatchScan();
                 const size_t n = B.files.size();
-                static const char* kExt[] = {"", ".png", ".jpg", ".tga", ".bmp", ".psd", ".sxl"};
+                static const char* kExt[] = {"", ".png", ".jpg", ".tga", ".bmp", ".psd", ".sxl", "", ".tif"};
                 for (size_t i = 0; i < n && i < 4; ++i) {
-                    std::string ext = B.format == 7 ? Narrow(Utf8Path(B.files[i]).extension().wstring()) : kExt[std::clamp(B.format, 0, 6)];
+                    std::string ext = B.format == 7 ? Narrow(Utf8Path(B.files[i]).extension().wstring()) : kExt[std::clamp(B.format, 0, 8)];
                     preview.push_back(Narrow(Utf8Path(B.files[i]).filename().wstring()) + "  ->  " + BatchFolder(i, nullptr) + "/" + BatchName(i, nullptr) + ext);
                 }
                 if (n > 4) preview.push_back("... " + std::to_string(n) + " image(s) en tout");

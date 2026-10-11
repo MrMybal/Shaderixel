@@ -13,5 +13,7 @@ bool IsRawExtension(const std::string& extLower);
 bool LoadWicFloat(const std::string& path, std::vector<float>& rgba, int& w, int& h, std::string* error);
 // 16-bit RGBA PNG (stb_image_write only does 8 bits).
 bool SavePng16(const std::string& path, const std::vector<u16>& rgba, int w, int h, std::string* error = nullptr);
+// 16-bit RGB(A) TIFF, deflate with horizontal predictor (what photo software exchanges). alpha: keep the 4th channel.
+bool SaveTiff16(const std::string& path, const u16* rgba, int w, int h, bool alpha, std::string* error = nullptr);
 
 }  // namespace sx

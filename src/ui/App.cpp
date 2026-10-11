@@ -642,9 +642,11 @@ void App::Frame() {
             c->width = (u32)e.crop.Width();
             c->height = (u32)e.crop.Height();
             c->ready = true;
-            c->data.resize((size_t)c->width * c->height * 4);
+            c->format = e.rb->format;
+            const size_t bpp = e.rb->data.size() / std::max<size_t>(1, (size_t)e.rb->width * e.rb->height);
+            c->data.resize((size_t)c->width * c->height * bpp);
             for (u32 y = 0; y < c->height; ++y)
-                memcpy(&c->data[(size_t)y * c->width * 4], &e.rb->data[(((size_t)(y + e.crop.y0)) * e.rb->width + e.crop.x0) * 4], (size_t)c->width * 4);
+                memcpy(&c->data[(size_t)y * c->width * bpp], &e.rb->data[(((size_t)(y + e.crop.y0)) * e.rb->width + e.crop.x0) * bpp], (size_t)c->width * bpp);
             e.rb = c;
             e.crop = {};
         }
@@ -653,7 +655,13 @@ void App::Frame() {
             for (auto& ch : ext) ch = (char)tolower(ch);
             int ok = 0;
             std::string native = e.path;
-            if (ext == ".jpg" || ext == ".jpeg") ok = stbi_write_jpg(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data(), std::clamp(e.quality, 1, 100));
+            if (ext == ".tif" || ext == ".tiff") {
+                const u16* px = (const u16*)e.rb->data.data();
+                bool alpha = false;
+                if (e.rb->data.size() >= (size_t)e.rb->width * e.rb->height * 8)
+                    for (size_t k = 3, n = (size_t)e.rb->width * e.rb->height * 4; k < n && !alpha; k += 4) alpha = px[k] != 65535;
+                ok = e.rb->data.size() >= (size_t)e.rb->width * e.rb->height * 8 && SaveTiff16(native, px, (int)e.rb->width, (int)e.rb->height, alpha);
+            } else if (ext == ".jpg" || ext == ".jpeg") ok = stbi_write_jpg(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data(), std::clamp(e.quality, 1, 100));
             else if (ext == ".bmp") ok = stbi_write_bmp(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data());
             else if (ext == ".tga") ok = stbi_write_tga(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data());
             else ok = stbi_write_png(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data(), e.rb->width * 4);
@@ -893,7 +901,10 @@ void App::ExportImage(const std::string& path) {
     if (!v || path.empty()) return;
     gpu::Texture* img = v->renderer.EvaluateComplete(*v->doc, *ctx);
     if (!img) return;
-    auto rb = v->renderer.ExportRGBA8(*ctx, img);
+    std::string ext = Narrow(Utf8Path(path).extension().wstring());
+    for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
+    // TIFF: 16 bits per channel (photo work); the other formats 8 bits.
+    auto rb = ext == ".tif" || ext == ".tiff" ? v->renderer.ExportRGBA16(*ctx, img) : v->renderer.ExportRGBA8(*ctx, img);
     if (rb) exports.push_back({path, rb, {}, exportQuality});
 }
 
@@ -978,7 +989,7 @@ void App::DrawMenuBar() {
         }
         ImGui::Separator();
         if (ImGui::MenuItem("Exporter...", "Ctrl+Alt+Maj+W", false, v != nullptr))
-            ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
+            ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TIFF 16 bits\0*.tif\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
         if (ImGui::BeginMenu("Importer des ressources")) {
             if (ImGui::MenuItem("Pinceaux Photoshop (.abr)...")) {
                 std::string f = platform::OpenFileDialog(hwnd, L"Pinceaux Photoshop (*.abr)\0*.abr\0");

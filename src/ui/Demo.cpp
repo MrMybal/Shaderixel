@@ -464,7 +464,9 @@ void App::DemoTick() {
                 batch.source = bdir;
                 batch.dest = std::string(bdir) + "\\out";
                 batch.chain = {"u:Demo Photo RAW"};
-                batch.format = 2;
+                char bf[8] = "2";
+                GetEnvironmentVariableA("SX_BATCHFMT", bf, sizeof(bf));
+                batch.format = atoi(bf);
                 StartBatch();
             }
             static bool reported = false;

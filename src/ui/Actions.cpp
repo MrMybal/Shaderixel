@@ -674,7 +674,7 @@ void App::UpdateActionRun() {
 
 namespace {
 
-const char* kBatchExt[] = {"", "png", "jpg", "tga", "bmp", "psd", "sxl", ""};
+const char* kBatchExt[] = {"", "png", "jpg", "tga", "bmp", "psd", "sxl", "", "tif"};
 
 std::string Lower(std::string s) {
     for (auto& ch : s) ch = (char)tolower((unsigned char)ch);
@@ -865,12 +865,13 @@ void App::UpdateBatch() {
             B.stage = 3;
             return;
         }
-        std::string ext = kBatchExt[std::clamp(B.format, 0, 7)];
+        std::string ext = kBatchExt[std::clamp(B.format, 0, 8)];
         if (B.format == 7) {
             ext = Lower(Narrow(Utf8Path(file).extension().wstring()));
             if (!ext.empty()) ext.erase(0, 1);
             if (ext == "jpeg") ext = "jpg";
-            if (ext != "png" && ext != "jpg" && ext != "tga" && ext != "bmp" && ext != "psd" && ext != "sxl") ext = "png";
+            if (ext == "tiff") ext = "tif";
+            if (ext != "png" && ext != "jpg" && ext != "tga" && ext != "bmp" && ext != "psd" && ext != "sxl" && ext != "tif") ext = "png";
         }
         const std::string folder = BatchFolder(B.index, &d), name = BatchName(B.index, &d);
         std::string out = folder + "/" + name + "." + ext;
