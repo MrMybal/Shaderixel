@@ -445,7 +445,25 @@ void App::DemoTick() {
     if (demoMode == 94) {
         // Plugins: the example plugin's command, window, tool (synthetic clicks on the canvas) and operation,
         // then the example script plugin's two commands (Python through the bridge).
-        if (frameCounter == 4) NewDocument(1200, 800, Precision::Half16, DocMode::Layers, 1, "Plugins");
+        char palImg[512] = "";
+        const bool palette = GetEnvironmentVariableA("SX_PALIMG", palImg, sizeof(palImg)) > 0;
+        if (frameCounter == 4) {
+            if (palette) OpenImage(palImg, false);
+            else NewDocument(1200, 800, Precision::Half16, DocMode::Layers, 1, "Plugins");
+        }
+        if (palette) {
+            // Palette plugin: its window, an extraction through its operation, the colors logged.
+            if (frameCounter == 10) {
+                for (auto& pp : pluginPanels) pp.open = pp.title == "Palette";
+                if (const AiOperation* op = bridge.Find("palette.extraire")) op->run(Json::Object(), PluginWorkspace("demo"));
+            }
+            if (frameCounter == 20)
+                if (const AiOperation* op = bridge.Find("palette.extraire")) {
+                    AiResult r = op->run(Json::Object(), PluginWorkspace("demo"));
+                    Log("[demo] palette: %s", r.result.Dump(0).c_str());
+                }
+            return;
+        }
         DocView* a = Active();
         if (!a) return;
         if (frameCounter == 8) {

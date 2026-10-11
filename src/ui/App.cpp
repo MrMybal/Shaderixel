@@ -1856,6 +1856,7 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
     }
     saves.push_back(std::move(job));
     Status("Enregistrement de " + path + "...");
+    if (!pluginListeners.empty()) PluginEvent(SX_EVENT_DOCUMENT_SAVED, path);
 }
 
 void App::UpdateSaves() {

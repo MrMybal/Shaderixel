@@ -32,7 +32,7 @@
 extern "C" {
 #endif
 
-#define SX_PLUGIN_API_VERSION 2  /* 2: pixel access, active layer, tools in the 3D view */
+#define SX_PLUGIN_API_VERSION 3  /* 2: pixel access, active layer, tools in the 3D view; 3: colors, settings, events */
 
 #if defined(_WIN32)
 #define SX_PLUGIN_EXPORT __declspec(dllexport)
@@ -66,6 +66,14 @@ enum SxPixelFormat {
 };
 typedef void (*SxPixelsFn)(void* user, int ok, int width, int height, const void* pixels);  /* pixels valid during the call */
 
+/* Events (API 3). */
+enum SxEvent {
+    SX_EVENT_DOCUMENT_ACTIVATED = 1,  /* another document became active (or the last one was closed) */
+    SX_EVENT_DOCUMENT_EDITED = 2,     /* the active document's pixels or layers changed (at most once per frame) */
+    SX_EVENT_DOCUMENT_SAVED = 3       /* text = the saved file */
+};
+typedef void (*SxEventFn)(void* user, int event, const char* text);
+
 /* Immediate-mode widgets, inside a panel callback. Return 1 when the value changed / the button was pressed. */
 typedef struct SxUi {
     void (*text)(const char* text);
@@ -86,6 +94,8 @@ typedef struct SxUi {
     int (*collapsing_header)(const char* label);
     float (*content_width)(void);          /* available width, pixels */
     void (*set_next_width)(float pixels);  /* width of the next widget (negative: from the right edge) */
+    /* API 3: a color swatch button (sRGB straight): returns 1 on a left click, 2 on a right click. */
+    int (*color_button)(const char* id, const float rgba[4], float size);
 } SxUi;
 
 typedef struct SxHost {
@@ -130,6 +140,16 @@ typedef struct SxHost {
     void (*pixels_read)(unsigned layer, int x, int y, int w, int h, int format, SxPixelsFn done, void* user);
     /* Writes a rectangle of a pixel layer (one undo step named undo_label). Returns 1 on success. */
     int (*pixels_write)(unsigned layer, int x, int y, int w, int h, int format, const void* pixels, const char* undo_label);
+
+    /* ---- API 3 ---- */
+    /* Brush colors (sRGB 0..1, straight): which 0 = foreground, 1 = background. */
+    void (*get_color)(int which, float rgba[4]);
+    void (*set_color)(int which, const float rgba[4]);
+    /* Settings of the plugin, kept between sessions (string values; NULL / "" removes a key). */
+    const char* (*setting_get)(const char* key, const char* default_value);
+    void (*setting_set)(const char* key, const char* value);
+    /* Events of the application (SxEvent). */
+    void (*on_event)(SxEventFn fn, void* user);
 } SxHost;
 
 typedef struct SxPlugin {

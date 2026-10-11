@@ -324,6 +324,13 @@ public:
     struct PluginCall { std::string plugin; AiResult result; SxResultFn done; void* user; };
     struct PluginProc { std::string plugin, label, log; void* process; };
     struct PluginRead { std::string plugin; gpu::ReadbackPtr rb; int format; SxPixelsFn done; void* user; };
+    struct PluginListener { std::string plugin; SxEventFn fn; void* user; };
+    std::vector<PluginListener> pluginListeners;
+    Json pluginSettings;           // {plugin id: {key: value}} (plugins_settings.json)
+    bool pluginSettingsDirty = false;
+    const void* pluginLastDoc = nullptr;
+    u64 pluginLastEdit = 0;
+    void PluginEvent(int event, const std::string& text);
     std::vector<PluginRead> pluginReads;
     std::vector<PluginEntry> plugins;
     std::vector<PluginCommand> pluginCommands;

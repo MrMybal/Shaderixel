@@ -87,7 +87,7 @@ function(sx_app target)
             ${SLANG_DIR}/bin/slang.dll ${SLANG_DIR}/bin/slang-compiler.dll
             ${SLANG_DIR}/bin/slang-glslang.dll ${SLANG_DIR}/bin/slang-rt.dll
             $<TARGET_FILE_DIR:${target}>)
-    add_dependencies(${target} ShaderixelExamplePlugin)
+    add_dependencies(${target} ShaderixelExamplePlugin ShaderixelPalettePlugin)
 endfunction()
 
 # Example plugin (sdk/examples): built into <exe dir>/plugins/Exemple with its manifest.
@@ -102,6 +102,18 @@ endif()
 add_custom_command(TARGET ShaderixelExamplePlugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/sdk/examples/example_plugin/plugin.json ${CMAKE_BINARY_DIR}/plugins/Exemple/plugin.json
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/sdk/examples/script_plugin ${CMAKE_BINARY_DIR}/plugins/ExempleScript)
+
+# Palette plugin (shipped): dominant colors of the active layer.
+add_library(ShaderixelPalettePlugin SHARED ${CMAKE_SOURCE_DIR}/sdk/examples/palette_plugin/palette_plugin.cpp)
+target_include_directories(ShaderixelPalettePlugin PRIVATE ${CMAKE_SOURCE_DIR}/sdk/include)
+set_target_properties(ShaderixelPalettePlugin PROPERTIES OUTPUT_NAME "palette_plugin"
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins/Palette
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/plugins/Palette)
+if(MSVC)
+    target_compile_options(ShaderixelPalettePlugin PRIVATE /W4 /utf-8)
+endif()
+add_custom_command(TARGET ShaderixelPalettePlugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/sdk/examples/palette_plugin/plugin.json ${CMAKE_BINARY_DIR}/plugins/Palette/plugin.json)
 
 # D3D12
 sx_app(Shaderixel ${CMAKE_SOURCE_DIR}/src/gpu/DeviceD3D12.cpp ${IMGUI_DIR}/backends/imgui_impl_dx12.cpp)

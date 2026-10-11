@@ -81,6 +81,10 @@ SX_PLUGIN_EXPORT int sx_plugin_load(const SxHost* host, SxPlugin* plugin) {
 | `active_layer()` (API 2) | id du calque actif |
 | `pixels_read(calque, x, y, l, h, format, done, user)` (API 2) | lit un rectangle d'un calque de pixels (calque 0 : la cible de peinture active ; l ou h ≤ 0 : tout le calque) ; le résultat arrive dans `done` à l'image suivante |
 | `pixels_write(calque, x, y, l, h, format, pixels, nom)` (API 2) | écrit un rectangle (une étape d'annulation `nom`) |
+| `get_color` / `set_color(0 ou 1, rgba)` (API 3) | couleur du pinceau (0) ou d'arrière-plan (1), sRGB |
+| `setting_get(clé, défaut)` / `setting_set(clé, valeur)` (API 3) | réglages du plugin, gardés d'une session à l'autre (`plugins_settings.json`) |
+| `on_event(fn, user)` (API 3) | événements : `SX_EVENT_DOCUMENT_ACTIVATED` (autre document actif), `SX_EVENT_DOCUMENT_EDITED` (pixels ou calques modifiés, au plus une fois par image), `SX_EVENT_DOCUMENT_SAVED` (texte = fichier) |
+| `ui->color_button(id, rgba, taille)` (API 3) | pastille de couleur : 1 = clic, 2 = clic droit |
 | `ui` | widgets : texte, bouton, case à cocher, curseurs, saisie de texte, couleur, liste, séparateur, info-bulle, en-tête repliable... |
 | `imgui_context()` | avancé : le contexte Dear ImGui de Shaderixel pour un plugin compilé avec la même version d'ImGui (`imgui_version`) |
 
@@ -97,6 +101,8 @@ Tout est appelé sur le thread principal, entre deux images : un plugin ne doit 
 Les mêmes que l'assistant IA : `shaderixel.document_info`, `document_new`, `document_save`, `layer_add`, `layer_update`, `layer_delete`, `filter_add`, `fill`, `paint_stroke`, `select`, `image_import`, `render` (image en PNG), `undo`, `redo`, `effects_list`, `effect_from_hlsl`, `graph_info`, `node_add`, `node_link`... Leur description et leurs paramètres : `host->operations_json()`.
 
 ### Compiler
+
+`SDK\examples\palette_plugin` : le plugin **Palette** livré avec Shaderixel (couleurs dominantes du calque par k-moyennes, réglages mémorisés, mise à jour automatique sur les modifications, opération `palette.extraire`) — un bon point de départ pour un plugin de traitement d'image.
 
 `SDK\examples\example_plugin` : un exemple complet (commandes, fenêtre, outil Étoile avec aperçu, opération `exemple.etoile`, inversion des couleurs du calque par `pixels_read` / `pixels_write`) avec son `CMakeLists.txt` :
 

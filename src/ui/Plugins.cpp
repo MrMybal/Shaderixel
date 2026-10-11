@@ -53,9 +53,17 @@ void UiPopId() { ImGui::PopID(); }
 int UiCollapsingHeader(const char* l) { return ImGui::CollapsingHeader(l ? l : "?") ? 1 : 0; }
 float UiContentWidth() { return ImGui::GetContentRegionAvail().x; }
 void UiSetNextWidth(float w) { ImGui::SetNextItemWidth(w); }
+int UiColorButton(const char* id, const float rgba[4], float size) {
+    if (!rgba) return 0;
+    const ImVec4 c(rgba[0], rgba[1], rgba[2], rgba[3]);
+    const float s = size > 0 ? size : ImGui::GetFrameHeight();
+    if (ImGui::ColorButton(id ? id : "##c", c, ImGuiColorEditFlags_NoTooltip | ImGuiColorEditFlags_AlphaPreview, ImVec2(s, s))) return 1;
+    return ImGui::IsItemClicked(ImGuiMouseButton_Right) ? 2 : 0;
+}
 
 const SxUi kUi = {UiText,   UiTextDisabled, UiTextWrapped, UiButton,  UiCheckbox, UiSliderFloat,      UiSliderInt,    UiInputText,    UiColorEdit,
-                  UiCombo,  UiSameLine,     UiSeparator,   UiTooltip, UiPushId,   UiPopId,            UiCollapsingHeader, UiContentWidth, UiSetNextWidth};
+                  UiCombo,  UiSameLine,     UiSeparator,   UiTooltip, UiPushId,   UiPopId,            UiCollapsingHeader, UiContentWidth, UiSetNextWidth,
+                  UiColorButton};
 
 }  // namespace
 
@@ -176,6 +184,37 @@ struct PluginGlue {
         if (auto* dl = A().pluginDraw.dl) dl->AddText(DocToScreen(x, y), col, text ? text : "");
     }
     static void* HImGuiContext() { return ImGui::GetCurrentContext(); }
+    static void HGetColor(int which, float rgba[4]) {
+        if (!rgba) return;
+        const float4& c = which ? A().bg : A().fg;
+        rgba[0] = c.x;
+        rgba[1] = c.y;
+        rgba[2] = c.z;
+        rgba[3] = c.w;
+    }
+    static void HSetColor(int which, const float rgba[4]) {
+        if (!rgba) return;
+        float4& c = which ? A().bg : A().fg;
+        c = {std::clamp(rgba[0], 0.0f, 1.0f), std::clamp(rgba[1], 0.0f, 1.0f), std::clamp(rgba[2], 0.0f, 1.0f), std::clamp(rgba[3], 0.0f, 1.0f)};
+    }
+    static const char* HSettingGet(const char* key, const char* def) {
+        App& a = A();
+        const Json& p = a.pluginSettings[a.pluginCurrent];
+        gReturn = key && p.IsObject() && p.Has(key) ? p[key].S(def ? def : "") : std::string(def ? def : "");
+        return gReturn.c_str();
+    }
+    static void HSettingSet(const char* key, const char* value) {
+        App& a = A();
+        if (!key || a.pluginCurrent.empty()) return;
+        if (!a.pluginSettings.IsObject()) a.pluginSettings = Json::Object();
+        if (!a.pluginSettings[a.pluginCurrent].IsObject()) a.pluginSettings[a.pluginCurrent] = Json::Object();
+        if (value && *value) a.pluginSettings[a.pluginCurrent][key] = std::string(value);
+        else a.pluginSettings[a.pluginCurrent].Erase(key);
+        a.pluginSettingsDirty = true;
+    }
+    static void HOnEvent(SxEventFn fn, void* user) {
+        if (fn) A().pluginListeners.push_back({A().pluginCurrent, fn, user});
+    }
     static unsigned HActiveLayer() {
         DocView* v = A().Active();
         return v ? (unsigned)v->doc->S().activeLayer : 0u;
@@ -263,6 +302,11 @@ SxHost MakeHost() {
     h.active_layer = G::HActiveLayer;
     h.pixels_read = G::HPixelsRead;
     h.pixels_write = G::HPixelsWrite;
+    h.get_color = G::HGetColor;
+    h.set_color = G::HSetColor;
+    h.setting_get = G::HSettingGet;
+    h.setting_set = G::HSettingSet;
+    h.on_event = G::HOnEvent;
     return h;
 }
 SxHost gHost;
@@ -300,6 +344,11 @@ void App::InitPlugins() {
     std::ifstream f(Utf8Path(Narrow(Utf8Path(settingsPath).parent_path().wstring()) + "\\plugins_disabled.txt"));
     for (std::string line; std::getline(f, line);)
         if (!line.empty()) pluginsDisabled.insert(line);
+    {
+        std::string text;
+        if (!ReadTextFile(Narrow(Utf8Path(settingsPath).parent_path().wstring()) + "\\plugins_settings.json", text) || !Json::Parse(text, pluginSettings) || !pluginSettings.IsObject())
+            pluginSettings = Json::Object();
+    }
     ScanPlugins();
     for (auto& p : plugins)
         if (p.enabled) LoadPlugin(p);
@@ -391,6 +440,7 @@ void App::RemovePluginRegistrations(const std::string& id) {
     drop(pluginTools);
     drop(pluginCalls);
     drop(pluginReads);
+    drop(pluginListeners);
     for (auto& o : pluginOps)
         if (o.plugin == id) bridge.Unregister(o.op);
     drop(pluginOps);
@@ -448,7 +498,31 @@ Surface* App::PluginSurface(unsigned layer, Id* id) {
     return sid ? d.GetSurface(sid) : nullptr;
 }
 
+void App::PluginEvent(int event, const std::string& text) {
+    const auto listeners = pluginListeners;  // a listener may register / unload meanwhile
+    for (auto& l : listeners) CallPlugin(l.plugin, [&] { l.fn(l.user, event, text.c_str()); });
+}
+
 void App::UpdatePlugins() {
+    // Events: active document, edits (at most once per frame), settings written when changed.
+    {
+        DocView* v = Active();
+        if ((const void*)v != pluginLastDoc) {
+            pluginLastDoc = v;
+            pluginLastEdit = v ? v->doc->ContentVersion() * 31 + v->history.Count() : 0;
+            if (!pluginListeners.empty()) PluginEvent(SX_EVENT_DOCUMENT_ACTIVATED, v ? v->doc->Name() : "");
+        } else if (v) {
+            const u64 k = v->doc->ContentVersion() * 31 + v->history.Count() * 7 + v->history.Cursor();
+            if (k != pluginLastEdit) {
+                pluginLastEdit = k;
+                if (!pluginListeners.empty()) PluginEvent(SX_EVENT_DOCUMENT_EDITED, "");
+            }
+        }
+        if (pluginSettingsDirty) {
+            pluginSettingsDirty = false;
+            std::ofstream(Utf8Path(Narrow(Utf8Path(settingsPath).parent_path().wstring()) + "\\plugins_settings.json"), std::ios::binary) << pluginSettings.Dump(1);
+        }
+    }
     // Pixel reads: converted to the asked format, then given to the plugin.
     for (size_t i = 0; i < pluginReads.size();) {
         auto& rd = pluginReads[i];

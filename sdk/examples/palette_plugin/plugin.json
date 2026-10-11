@@ -1,0 +1,8 @@
+{
+  "id": "shaderixel.palette",
+  "name": "Palette",
+  "version": "1.0",
+  "author": "Shaderixel",
+  "description": "Couleurs dominantes du calque actif (k-moyennes) ; un clic donne la couleur au pinceau. Fenêtre : Plugins > Fenêtres > Palette.",
+  "dll": "palette_plugin.dll"
+}
