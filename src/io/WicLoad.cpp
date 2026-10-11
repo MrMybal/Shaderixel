@@ -12,7 +12,8 @@ using Microsoft::WRL::ComPtr;
 
 bool IsRawExtension(const std::string& e) {
     static const char* raw[] = {".dng", ".cr2", ".cr3", ".crw", ".nef", ".nrw", ".arw", ".srf", ".sr2", ".orf", ".rw2", ".raf",
-                                ".pef", ".srw", ".x3f", ".3fr", ".erf", ".kdc", ".mrw", ".mos", ".iiq", ".rwl"};
+                                ".pef", ".srw", ".x3f", ".3fr", ".erf", ".kdc", ".mrw", ".mos", ".iiq", ".rwl",
+                                ".raw", ".rwz", ".mef", ".dcr", ".dcs", ".k25", ".cap", ".fff", ".mfw", ".ari", ".bay", ".gpr", ".mdc", ".ptx", ".pxn", ".cs1", ".sti"};
     for (auto* r : raw) if (e == r) return true;
     return false;
 }

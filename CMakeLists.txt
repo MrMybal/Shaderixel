@@ -51,6 +51,22 @@ if(MSVC)
     target_compile_options(ufbx PRIVATE /W0 /O2)
 endif()
 
+# ---------------------------------------------------------------- LibRaw (camera RAW decoding, LGPL 2.1 / CDDL 1.0), optional
+set(SX_HAVE_LIBRAW OFF)
+if(EXISTS ${EXT}/LibRaw/libraw/libraw.h)
+    file(GLOB_RECURSE LIBRAW_SOURCES ${EXT}/LibRaw/src/*.cpp)
+    # Files #included by others (not separate translation units).
+    list(FILTER LIBRAW_SOURCES EXCLUDE REGEX "src/.*_ph\\.cpp$")
+    add_library(libraw STATIC ${LIBRAW_SOURCES})
+    target_include_directories(libraw PUBLIC ${EXT}/LibRaw)
+    target_compile_definitions(libraw PUBLIC LIBRAW_NODLL PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX)
+    target_link_libraries(libraw PUBLIC ws2_32)
+    if(MSVC)
+        target_compile_options(libraw PRIVATE /W0 /O2 /EHsc /MP)
+    endif()
+    set(SX_HAVE_LIBRAW ON)
+endif()
+
 # ---------------------------------------------------------------- Slang (prebuilt)
 add_library(slang SHARED IMPORTED)
 set_target_properties(slang PROPERTIES
@@ -89,6 +105,10 @@ function(sx_app target)
             ${SLANG_DIR}/bin/slang-glslang.dll ${SLANG_DIR}/bin/slang-rt.dll
             $<TARGET_FILE_DIR:${target}>)
     add_dependencies(${target} ShaderixelExamplePlugin ShaderixelPalettePlugin ShaderixelScriptPlugins)
+    if(SX_HAVE_LIBRAW)
+        target_link_libraries(${target} PRIVATE libraw)
+        target_compile_definitions(${target} PRIVATE SX_LIBRAW=1)
+    endif()
 endfunction()
 
 # Example plugin (sdk/examples): built into <exe dir>/plugins/Exemple with its manifest.

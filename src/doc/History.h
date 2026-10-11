@@ -21,6 +21,11 @@ public:
     void Undo(Document& doc, gpu::CommandContext& ctx);
     void Redo(Document& doc, gpu::CommandContext& ctx);
     void Clear() { entries.clear(); cursor = 0; bytes = 0; }
+    // Drop the entries from n on (a dialog merging its edits into one step).
+    void TruncateTo(size_t n) {
+        while (entries.size() > n) { bytes -= entries.back().bytes; entries.pop_back(); }
+        if (cursor > entries.size()) cursor = entries.size();
+    }
 
     size_t Count() const { return entries.size(); }
     size_t Cursor() const { return cursor; }

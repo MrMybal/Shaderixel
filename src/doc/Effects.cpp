@@ -299,7 +299,7 @@ EffectDefPtr ParseEffect(const std::string& id, const std::string& text) {
             }
             if (!strs.empty()) p.label = strs.back();
             p.group = group;
-            if (def->params.size() < 32) def->params.push_back(p);
+            if (def->params.size() < 64) def->params.push_back(p);
         }
     }
     if (!generator && !explicitInputs) def->inputs.push_back("Image");

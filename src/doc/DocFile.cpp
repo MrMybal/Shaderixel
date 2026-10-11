@@ -41,6 +41,7 @@ Json EffectToJson(const EffectInstance& fx) {
     for (auto& v : fx.params) p.Push(ToJson(v));
     j["params"] = p;
     j["enabled"] = fx.enabled;
+    if (!fx.note.empty()) j["note"] = fx.note;
     bool anyCurve = false;
     for (auto& c : fx.curves) if (!c.empty()) anyCurve = true;
     if (anyCurve) {
@@ -73,6 +74,7 @@ EffectInstance EffectFromJson(const Json& j) {
     fx.graph = j["graph"].S("");
     for (auto& p : j["params"].Elements()) fx.params.push_back(Float4FromJson(p));
     fx.enabled = j["enabled"].B(true);
+    fx.note = j["note"].S("");
     for (auto& c : j["curves"].Elements()) {
         CurvePoints pts;
         for (auto& p : c.Elements()) pts.push_back(Float2FromJson(p));

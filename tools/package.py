@@ -432,9 +432,9 @@ def main():
     # Third-party licenses (libraries built in or shipped).
     lic = os.path.join(dist, 'licences')
     os.makedirs(lic, exist_ok=True)
-    for lib in ('imgui', 'stb', 'slang', 'volk', 'vulkan-headers', 'xatlas', 'ufbx'):
+    for lib in ('imgui', 'stb', 'slang', 'volk', 'vulkan-headers', 'xatlas', 'ufbx', 'LibRaw'):
         base = os.path.join(ROOT, 'external', lib)
-        for f in ('LICENSE', 'LICENSE.txt', 'LICENSE.md'):
+        for f in ('LICENSE', 'LICENSE.txt', 'LICENSE.md', 'LICENSE.CDDL', 'LICENSE.LGPL', 'COPYRIGHT'):
             if os.path.exists(os.path.join(base, f)):
                 shutil.copy2(os.path.join(base, f), os.path.join(lic, lib + '_' + f))
         if os.path.isdir(os.path.join(base, 'LICENSES')):

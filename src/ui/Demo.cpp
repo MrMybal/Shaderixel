@@ -443,6 +443,120 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 96) {
+        // Camera Raw: a RAW (SX_RAW) decoded by LibRaw, the Camera Raw window with a development and the
+        // lens corrections preselected from the shot (lensfun base SX_LENSFUN). Without SX_RAW: a checker
+        // with the "Correction d'objectif" effect simulating the lens SX_LENS (SX_SIMMODE 1) on it.
+        char raw[512] = "", lf[512] = "", lensName[128] = "";
+        const bool hasRaw = GetEnvironmentVariableA("SX_RAW", raw, sizeof(raw)) > 0;
+        GetEnvironmentVariableA("SX_LENS", lensName, sizeof(lensName));
+        if (frameCounter == 4) {
+            if (GetEnvironmentVariableA("SX_LENSFUN", lf, sizeof(lf)) > 0) lensfunDir = lf;
+            EnsureLensfun(true);
+            Log("[demo] lensfun: %zu lenses, %zu cameras (%s), LibRaw %d", Lensfun().lenses.size(), Lensfun().cameras.size(), Lensfun().Dir().c_str(), (int)HaveLibRaw());
+            if (hasRaw) {
+                RawInfo info;
+                Log("[demo] raw info: %d %s", (int)ReadRawInfo(raw, info), info.Summary().c_str());
+                OpenImage(raw, false);
+            } else {
+                NewDocument(1800, 1200, Precision::Half16, DocMode::Layers, 0, "Objectif");
+                Document& d = *Active()->doc;
+                Layer& f = d.AddEffectLayer(LayerKind::Fill, "checker");
+                d.S().activeLayer = f.id;
+                d.SyncGraph();
+            }
+        }
+        if (frameCounter == 12 && Active()) {
+            DocView& v = *Active();
+            Document& d = *v.doc;
+            Log("[demo] document %ux%u, shot: %s", d.Width(), d.Height(), d.shot.summary.c_str());
+            Layer* l = d.ActiveLayer();
+            if (hasRaw) {
+                OpenCameraRaw(v);
+                l = d.ActiveLayer();
+                for (auto& f : l->filters)
+                    if (f.effectId == "camera_raw") {
+                        auto def = f.Def();
+                        for (size_t i = 0; i < def->params.size(); ++i) {
+                            const std::string& id = def->params[i].id;
+                            if (id == "exposure") f.params[i].x = 0.6f;
+                            if (id == "shadows") f.params[i].x = 35;
+                            if (id == "highlights") f.params[i].x = -30;
+                            if (id == "clarity") f.params[i].x = 20;
+                            if (id == "vibrance") f.params[i].x = 25;
+                            if (id == "nr_luma") f.params[i].x = 30;
+                            if (id == "nr_color") f.params[i].x = 40;
+                            if (id == "mix_s_blue") f.params[i].x = 30;
+                            if (id == "cg_sh_sat") f.params[i].x = 20;
+                        }
+                    }
+                EffectInstance fx;
+                fx.effectId = "lens_profile";
+                fx.params = Effects().Find("lens_profile")->DefaultParams();
+                l->filters.insert(l->filters.begin(), fx);
+                lensPick.autoFor = nullptr;
+                d.SyncGraph();
+            } else if (l) {
+                EffectInstance fx;
+                fx.effectId = "lens_profile";
+                fx.params = Effects().Find("lens_profile")->DefaultParams();
+                char sm[8] = "1";
+                GetEnvironmentVariableA("SX_SIMMODE", sm, sizeof(sm));
+                fx.params[0].x = (float)atoi(sm);
+                lensPick.lens = -1;
+                if (lensName[0]) {
+                    const LensfunLens* L = Lensfun().FindLens(lensName, "");
+                    if (L) {
+                        lensPick.lens = (int)(L - Lensfun().lenses.data());
+                        lensPick.focal = L->minFocal;
+                        lensPick.aperture = 2.8f;
+                        lensPick.crop = L->crop;
+                        ApplyLensPick(fx);
+                    }
+                }
+                Log("[demo] simulated lens: %s (%s)", fx.note.c_str(), lensPick.status.c_str());
+                l->filters.push_back(fx);
+                if (GetEnvironmentVariableA("SX_ROUNDTRIP", nullptr, 0) > 0) {
+                    // Then corrected with the same profile (no fill zoom): the checker should come back straight.
+                    fx.params[0].x = 0;
+                    for (size_t i = 0; i < fx.params.size(); ++i)
+                        if (fx.Def()->params[i].id == "autoscale") fx.params[i].x = 0;
+                    l->filters.push_back(fx);
+                }
+                d.SyncGraph();
+                ImGui::SetWindowFocus("Propriétés");
+            }
+        }
+        if (frameCounter == 40 && hasRaw && lensName[0] && Active()) {
+            // No lens in the metadata (manual lens): chosen by name, as in the list.
+            Layer* l = Active()->doc->ActiveLayer();
+            if (const LensfunLens* L = Lensfun().FindLens(lensName, ""))
+                for (auto& f : l->filters)
+                    if (f.effectId == "lens_profile") {
+                        lensPick.lens = (int)(L - Lensfun().lenses.data());
+                        lensPick.focal = L->minFocal;
+                        lensPick.aperture = 4;
+                        lensPick.crop = 1.613f;  // EOS 550D
+                        ApplyLensPick(f);
+                        Active()->doc->SyncGraph();
+                    }
+        }
+        if (frameCounter == 70 && Active()) {
+            Layer* l = Active()->doc->ActiveLayer();
+            for (auto& f : l->filters) {
+                std::string ps;
+                for (size_t i = 0; i < f.params.size() && i < 24; ++i) {
+                    char b[32];
+                    snprintf(b, sizeof(b), "%.4g ", f.params[i].x);
+                    ps += b;
+                }
+                Log("[demo] filter %s enabled %d note '%s' params %s", f.effectId.c_str(), (int)f.enabled, f.note.c_str(), ps.c_str());
+            }
+            Log("[demo] lens pick %d (%s), focal %.1f f/%.1f crop %.2f, camera raw open %d", lensPick.lens,
+                lensPick.lens >= 0 ? Lensfun().lenses[lensPick.lens].Name().c_str() : "-", lensPick.focal, lensPick.aperture, lensPick.crop, (int)camRaw.open);
+        }
+        return;
+    }
     if (demoMode == 95) {
         // Search everywhere: index built (menus opened invisibly, tabs visited), queries, a menu result
         // reached (Plugins > Gestionnaire de plugins...), then the results list of SX_QUERY shown.

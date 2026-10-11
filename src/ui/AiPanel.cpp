@@ -55,6 +55,7 @@ void App::LoadAiSettings() {
     if (ReadTextFile(settingsPath, text) && Json::Parse(text, j)) {
         aiSettings.FromJson(j["ai"]);
         penPressureGamma = std::clamp(j["tablet"]["pressureGamma"].F(1.0f), 0.2f, 5.0f);
+        lensfunDir = j["lensfun"]["dir"].S("");
         if (j["tablet"]["api"].S("ink") == "wintab" && !platform::SetTabletApi(platform::TabletApi::Wintab))
             Log("Tablet: Wintab unavailable, Windows Ink used");
     }
@@ -77,6 +78,9 @@ void App::SaveAiSettings() {
     t["api"] = platform::GetTabletApi() == platform::TabletApi::Wintab ? "wintab" : "ink";
     t["pressureGamma"] = penPressureGamma;
     j["tablet"] = t;
+    Json lf = Json::Object();
+    lf["dir"] = lensfunDir;
+    j["lensfun"] = lf;
     std::ofstream(Utf8Path(settingsPath), std::ios::binary) << j.Dump(1);
 }
 

@@ -226,7 +226,7 @@ void App::UpdatePhotoJob() {
                     if (!p) {
                         // WIC (TIFF, RAW...): linear float -> 8-bit sRGB for the analysis.
                         std::vector<float> fl;
-                        if (!LoadWicFloat(f, fl, im.w, im.h, nullptr)) { J.error = "illisible : " + f; return false; }
+                        if (!LoadPhotoFloat(f, fl, im.w, im.h, nullptr, nullptr)) { J.error = "illisible : " + f; return false; }
                         im.rgba.resize((size_t)im.w * im.h * 4);
                         for (size_t i = 0; i < fl.size(); ++i) {
                             float v = std::clamp(fl[i], 0.0f, 1.0f);
@@ -612,13 +612,14 @@ bool App::OpenWithWic(const std::string& path, bool asLayer) {
     std::vector<float> px;
     int w = 0, h = 0;
     std::string err;
-    if (!LoadWicFloat(path, px, w, h, &err)) {
-        Status("Impossible d'ouvrir " + path + " : " + err);
-        return false;
-    }
+    RawInfo info;
     std::string ext = Narrow(Utf8Path(path).extension().wstring());
     for (auto& c : ext) c = (char)tolower((unsigned char)c);
     const bool raw = IsRawExtension(ext);
+    if (!LoadPhotoFloat(path, px, w, h, &info, &err)) {
+        Status("Impossible d'ouvrir " + path + " : " + err);
+        return false;
+    }
     std::string name = Narrow(Utf8Path(path).filename().wstring());
     DocView* v = Active();
     Id layerId = 0;
@@ -652,7 +653,18 @@ bool App::OpenWithWic(const std::string& path, bool asLayer) {
             v->doc->SyncGraph();
         }
         v->doc->dirty = false;
-        Status("RAW ouvert (32 bits linéaire) : développez-le avec le filtre Camera Raw dans Propriétés");
+        if (!asLayer) {
+            Document::Shot& s = v->doc->shot;
+            s.make = info.make;
+            s.model = info.model;
+            s.lens = info.lens;
+            s.focal = info.focal;
+            s.aperture = info.aperture;
+            s.crop = info.cropFactor;
+            s.summary = info.Summary();
+        }
+        Status("RAW ouvert (32 bits linéaire" + std::string(info.model.empty() ? "" : ", " + info.Summary()) + ")");
+        if (v->doc->ActiveLayer() && v->doc->ActiveLayer()->id == layerId && !Automated()) OpenCameraRaw(*v);
     } else {
         Status("Ouvert : " + path);
     }

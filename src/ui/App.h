@@ -17,6 +17,8 @@
 #include "render/PathTracer.h"
 #include "io/VideoWriter.h"
 #include "io/GifWriter.h"
+#include "io/Lensfun.h"
+#include "io/RawLoad.h"
 #include "shaderixel_plugin.h"
 #include "ui/Search.h"
 
@@ -586,7 +588,8 @@ private:
     void HandleShortcuts();
 
     // Property editing helpers (undo-aware)
-    bool EffectParamsUI(EffectInstance& fx, const char* label);
+    // onlyGroup: draw the parameters of that //@group only (Camera Raw sections).
+    bool EffectParamsUI(EffectInstance& fx, const char* label, const char* onlyGroup = nullptr);
     void TrackUndo(const char* label);
     void LayerMenuItems();
     void EffectMenu(const std::function<void(const std::string&)>& onPick, bool generators, bool filters);
@@ -1230,6 +1233,40 @@ private:
     void ApplyPhotoJob(PhotoJob& J);
     void WriteMaskData(Document& d, Id surface, const std::vector<float>& m, int mw, int mh);
     bool OpenWithWic(const std::string& path, bool asLayer);
+    // Camera Raw workspace (CameraRawUi.cpp): development of the active layer with the "camera_raw" and
+    // "lens_profile" filters (lensfun profiles), big preview, before / after, OK / Annuler.
+    struct {
+        bool open = false;
+        DocView* view = nullptr;
+        Id layer = 0;
+        std::optional<DocState> before;
+        bool compare = false;      // show the image before the development
+        int zoom = 0;              // 0 fit, 1 100 %
+        float2 pan = {0.5f, 0.5f}; // 100 %: view center (fraction of the image)
+        u64 changeFrame = 0;
+        u64 lastHash = 0;
+        bool firstFrame = false;
+        size_t histStart = 0;      // history entries of the session, merged into one on OK
+        bool savedCr = true, savedLens = true;  // enabled states while comparing
+        gpu::TexturePtr tex;       // preview
+    } camRaw;
+    // Lens picker (lensfun) state shared by Camera Raw and the effect's properties.
+    struct {
+        char filter[128] = "";
+        int lens = -1;          // index in Lensfun().lenses
+        float focal = 0, aperture = 0, distance = 1000, crop = 0;
+        std::string status;
+        const void* autoFor = nullptr;  // document whose shot preselected the lens
+        bool applyDist = true, applyTca = true, applyVig = true;
+    } lensPick;
+    std::string lensfunDir;  // setting ("": automatic)
+    void OpenCameraRaw(DocView& v);
+    void DrawCameraRaw();
+    void EnsureLensfun(bool reload = false);
+    // Lens database status + lens / focal / aperture picker; writes the profile into fx (a lens_profile
+    // effect). doc: its shot metadata preselects the lens. True when fx changed.
+    bool LensfunPickerUI(EffectInstance& fx, const Document* doc);
+    void ApplyLensPick(EffectInstance& fx);  // the lensPick choice -> lens_profile parameters
     void DrawPhotoDialog();
     // Paint 3D projects (Paint3D.cpp).
     struct {

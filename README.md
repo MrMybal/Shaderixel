@@ -19,6 +19,8 @@ en-têtes Vulkan sont présents, `ShaderixelVk.exe` (Vulkan). `build_target.bat 
 - stb : `git clone https://github.com/nothings/stb external/stb`
 - xatlas (dépliage UV automatique, MIT) : `git clone --depth 1 https://github.com/jpcy/xatlas external/xatlas`
 - ufbx (lecture FBX, MIT) : `git clone --depth 1 https://github.com/ufbx/ufbx external/ufbx`
+- LibRaw (décodage de tous les formats RAW d'appareils photo, LGPL 2.1 / CDDL 1.0, optionnel : sans lui, les RAW passent par WIC) : `git clone --depth 1 --branch 0.22.2 https://github.com/LibRaw/LibRaw external/LibRaw`
+- Profils d'objectifs : la base [lensfun](https://github.com/lensfun/lensfun) (dossier `data/db`, CC BY-SA 3.0) n'est pas livrée ; l'utilisateur place ses fichiers XML dans `%LOCALAPPDATA%\Shaderixel\lensfun` (ou choisit un dossier ; une installation darktable / RawTherapee est aussi détectée).
 - Les textures Unreal (.uasset) sont lues par `src/io/uasset` (repris de CyImgView, même auteur) ; les maillages .uasset sont exportés par l'Unreal Editor installé (commandlet, glTF).
 - Slang (release Windows x64), à décompresser dans `external/slang`
 - DXC (`dxcompiler.dll` / `dxil.dll`) : copié automatiquement depuis le Windows SDK

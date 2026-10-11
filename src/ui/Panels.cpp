@@ -194,7 +194,7 @@ void App::TrackUndo(const char* label) {
     }
 }
 
-bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
+bool App::EffectParamsUI(EffectInstance& fx, const char* label, const char* onlyGroup) {
     EffectDefPtr def = fx.Def();
     if (!def) {
         ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "Effet introuvable : %s", fx.effectId.c_str());
@@ -207,10 +207,16 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label) {
     if (fx.curves.size() < def->params.size()) fx.curves.resize(def->params.size());
     std::vector<size_t> curveParams;
     std::string group;
+    if (fx.effectId == "lens_profile" && !onlyGroup) {
+        // Lens profile from the lensfun database (correction or simulation).
+        if (ImGui::CollapsingHeader("Profil d'objectif (lensfun)", ImGuiTreeNodeFlags_DefaultOpen))
+            changed |= LensfunPickerUI(fx, Active() ? &*Active()->doc : nullptr);
+    }
     for (size_t i = 0; i < def->params.size(); ++i) {
         const ParamDef& p = def->params[i];
+        if (onlyGroup && p.group != onlyGroup) continue;
         if (p.type == ParamType::Curve) { curveParams.push_back(i); continue; }
-        if (p.group != group) {
+        if (p.group != group && !onlyGroup) {
             group = p.group;
             if (!group.empty()) ImGui::SeparatorText(group.c_str());
         }
@@ -758,6 +764,10 @@ void App::DrawProperties() {
                 if (open) {
                     changed |= EffectParamsUI(f, "f");
                     if (ImGui::SmallButton("Éditer (code / graphe)")) { efEd.filterIndex = (int)i; OpenGraphEditor(0); }
+                    if (f.effectId == "camera_raw") {
+                        ImGui::SameLine();
+                        if (ImGui::SmallButton("Ouvrir dans Camera Raw...")) OpenCameraRaw(*v);
+                    }
                     ImGui::TreePop();
                 }
                 ImGui::PopID();

@@ -51,6 +51,7 @@ struct EffectInstance {
     std::vector<CurvePoints> curves;  // per param index (curve params only)
     std::vector<Lut3DPtr> luts;       // per param index (lut params only)
     bool enabled = true;
+    std::string note;  // free text shown with the parameters (lens profile of "Correction d'objectif"...)
     EffectDefPtr Def() const;  // resolves library / parses custom code (cached)
     // Keep parameter values aligned with a (new) definition, matching by id.
     void SyncParams(const EffectDefPtr& oldDef);
@@ -423,6 +424,11 @@ public:
     u32 pbrChannels = 0x7F;  // Paint 3D: channels of the texture set (bit per PbrChannel)
     int exportTemplate = 0;  // Paint 3D: 0 separate maps, 1 Unreal (ORM), 2 Unity (mask map)
     std::string unrealSettings;  // Paint 3D: Unreal material / import settings (JSON, saved in the .sx3d)
+    // Shot metadata of a photo opened from a camera RAW (EXIF): finds the lens profile. Not saved.
+    struct Shot {
+        std::string make, model, lens, summary;
+        float focal = 0, aperture = 0, crop = 0;
+    } shot;
     bool dirty = false;
 
     DocState& S() { return state; }

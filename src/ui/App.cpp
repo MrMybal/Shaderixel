@@ -43,7 +43,7 @@ std::string ShaderDir() {
 const wchar_t* kImageFilter =
     L"Documents et images\0*.sxl;*.sx3d;*.uasset;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif;*.tif;*.tiff;*.webp;*.heic;*.dng;*.cr2;*.cr3;*.nef;*.arw;*.orf;*.rw2;*.raf;*.pef;*.srw\0"
     L"Documents Shaderixel (*.sxl, *.sx3d)\0*.sxl;*.sx3d\0Images\0*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif;*.tif;*.tiff;*.webp;*.heic\0"
-    L"Unreal Engine (*.uasset : textures, maillages)\0*.uasset\0Camera RAW\0*.dng;*.cr2;*.cr3;*.nef;*.arw;*.orf;*.rw2;*.raf;*.pef;*.srw\0Tous les fichiers\0*.*\0";
+    L"Unreal Engine (*.uasset : textures, maillages)\0*.uasset\0Camera RAW\0*.dng;*.cr2;*.cr3;*.crw;*.nef;*.nrw;*.arw;*.srf;*.sr2;*.orf;*.rw2;*.raf;*.pef;*.srw;*.x3f;*.3fr;*.fff;*.erf;*.kdc;*.dcr;*.mrw;*.mos;*.mef;*.iiq;*.rwl;*.raw;*.gpr;*.cap\0Tous les fichiers\0*.*\0";
 }  // namespace
 
 // ------------------------------------------------------------------ lifecycle
@@ -90,7 +90,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : m == "drop" ? 69 : m == "uassetconv" ? 70 : m == "layerxf" ? 71 : m == "graphtools" ? 72 : m == "functions" ? 73 : m == "typed" ? 74 : m == "library" ? 75 : m == "trims" ? 76 : m == "nodeui" ? 77 : m == "maketemplates" ? 78 : m == "makescenes" ? 79 : m == "comments" ? 80 : m == "execjoin" ? 81 : m == "call" ? 82 : m == "inpaint" ? 83 : m == "explorer" ? 84 : m == "actioneditor" ? 85 : m == "popout" ? 86 : m == "paint3dtools" ? 87 : m == "smartmat" ? 88 : m == "bake" ? 89 : m == "simulation" ? 90 : m == "projection" ? 91 : m == "smartthumbs" ? 93 : m == "plugins" ? 94 : m == "search" ? 95 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : m == "drop" ? 69 : m == "uassetconv" ? 70 : m == "layerxf" ? 71 : m == "graphtools" ? 72 : m == "functions" ? 73 : m == "typed" ? 74 : m == "library" ? 75 : m == "trims" ? 76 : m == "nodeui" ? 77 : m == "maketemplates" ? 78 : m == "makescenes" ? 79 : m == "comments" ? 80 : m == "execjoin" ? 81 : m == "call" ? 82 : m == "inpaint" ? 83 : m == "explorer" ? 84 : m == "actioneditor" ? 85 : m == "popout" ? 86 : m == "paint3dtools" ? 87 : m == "smartmat" ? 88 : m == "bake" ? 89 : m == "simulation" ? 90 : m == "projection" ? 91 : m == "smartthumbs" ? 93 : m == "plugins" ? 94 : m == "search" ? 95 : m == "cameraraw" ? 96 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
@@ -578,6 +578,7 @@ void App::Frame() {
     DrawPluginManager();
     DrawColorDialogs();
     DrawPhotoDialog();
+    DrawCameraRaw();
     DrawPaint3DNewDialog();
     DrawUvToolWindow();
     UpdateHistogram();
@@ -790,7 +791,7 @@ void App::OpenImage(const std::string& path, bool asLayer) {
         }
     }
     {
-        // Camera RAW (and formats stb does not read): Windows Imaging Component.
+        // Camera RAW (LibRaw, else WIC) and formats stb does not read (Windows Imaging Component).
         std::string ext = Narrow(Utf8Path(path).extension().wstring());
         for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
         if (IsRawExtension(ext) || ext == ".tif" || ext == ".tiff" || ext == ".webp" || ext == ".heic" || ext == ".heif" || ext == ".jxr") {
@@ -1082,6 +1083,7 @@ void App::DrawMenuBar() {
             EffectMenu([&](const std::string& id) { ApplyLibraryEffect(*v, id, FxApply::Destructive); }, false, true);
             ImGui::EndMenu();
         }
+        if (ImGui::MenuItem("Camera Raw...", "Ctrl+Maj+A", false, !layerMode || l)) OpenCameraRaw(*v);
         if (ImGui::MenuItem("Galerie d'effets...")) ImGui::SetWindowFocus("Effets");
         ImGui::EndMenu();
     }
@@ -1341,6 +1343,7 @@ void App::HandleShortcuts() {
     if (ctrl && pressed(ImGuiKey_1)) v->zoom = 1.0f;
 
     // Selection
+    if (ctrl && shift && !alt && pressed(ImGuiKey_A)) OpenCameraRaw(*v);
     if (ctrl && !shift && pressed(ImGuiKey_A))
         v->renderer.SelectShape(d, *ctx, v->history, SelShape::All, {}, SelMode::Replace, false, 0, "Tout sélectionner"), RecordSelect("all");
     if (ctrl && alt && !shift && v) {
