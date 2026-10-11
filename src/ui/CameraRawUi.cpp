@@ -835,6 +835,26 @@ void App::OpenCameraRaw(DocView& v) {
     C.changeFrame = gpu::Dev().FrameNumber();
 }
 
+void App::PhotoRawCompare(Layer* l, bool on) {
+    // "Avant": every Photo RAW filter of the layer off, their states restored afterwards (same order).
+    if (!l) return;
+    auto ours = [](const EffectInstance& f) {
+        return f.effectId == "camera_raw" || f.effectId == "lens_profile" || f.effectId == "photo_raw_geometry" || f.effectId == "photo_raw_local";
+    };
+    if (on) camRaw.savedEnabled.clear();
+    size_t k = 0;
+    for (auto& f : l->filters) {
+        if (!ours(f)) continue;
+        if (on) {
+            camRaw.savedEnabled.push_back(f.enabled);
+            f.enabled = false;
+        } else {
+            f.enabled = k < camRaw.savedEnabled.size() ? camRaw.savedEnabled[k] != 0 : true;
+            ++k;
+        }
+    }
+}
+
 void App::DrawCameraRaw() {
     auto& C = camRaw;
     if (!C.open) return;
@@ -852,9 +872,8 @@ void App::DrawCameraRaw() {
     auto finish = [&](bool ok) {
         // Restore the comparison and merge the session's edits into one history step (or revert them).
         if (C.compare) {
-            if (EffectInstance* f = FindFilter(d.FindLayer(C.layer), "camera_raw")) f->enabled = C.savedCr;
-            if (EffectInstance* f = FindFilter(d.FindLayer(C.layer), "lens_profile")) f->enabled = C.savedLens;
             C.compare = false;
+            PhotoRawCompare(d.FindLayer(C.layer), false);
         }
         v->history.TruncateTo(C.histStart);
         if (ok) {
@@ -892,17 +911,7 @@ void App::DrawCameraRaw() {
     ImGui::BeginChild("##crpreview", ImVec2(-panelW - ImGui::GetStyle().ItemSpacing.x, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     {
         if (ImGui::Checkbox("Avant (P)", &C.compare) || (focused && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_P, false) && (C.compare = !C.compare, true))) {
-            EffectInstance* cr = FindFilter(l, "camera_raw");
-            EffectInstance* lens = FindFilter(l, "lens_profile");
-            if (C.compare) {
-                C.savedCr = cr ? cr->enabled : true;
-                C.savedLens = lens ? lens->enabled : true;
-                if (cr) cr->enabled = false;
-                if (lens) lens->enabled = false;
-            } else {
-                if (cr) cr->enabled = C.savedCr;
-                if (lens) lens->enabled = C.savedLens;
-            }
+            PhotoRawCompare(l, C.compare);
             d.SyncGraph();
         }
         ImGui::SameLine();
@@ -1092,7 +1101,34 @@ void App::DrawCameraRaw() {
                 }
                 ImGui::PopItemWidth();
             }
-            cr = FindFilter(l, "camera_raw");  // the insertion above may have moved it
+            // Geometry: straightening and perspective (after the lens corrections, before the development).
+            ImGui::SeparatorText("Géométrie");
+            EffectInstance* geo = FindFilter(l, "photo_raw_geometry");
+            bool geoOn = geo && geo->enabled && !C.compare;
+            if (ImGui::Checkbox("Redresser / corriger la perspective", &geoOn)) {
+                DocState before = d.S();
+                if (geoOn && !geo) {
+                    EffectInstance fx;
+                    fx.effectId = "photo_raw_geometry";
+                    if (auto def = Effects().Find("photo_raw_geometry")) fx.params = def->DefaultParams();
+                    size_t at = 0;
+                    for (size_t k = 0; k < l->filters.size(); ++k)
+                        if (l->filters[k].effectId == "lens_profile") at = k + 1;
+                    l->filters.insert(l->filters.begin() + at, fx);
+                } else if (geo) {
+                    geo->enabled = geoOn;
+                }
+                d.SyncGraph();
+                v->history.PushState("Géométrie", before, d.S());
+            }
+            geo = FindFilter(l, "photo_raw_geometry");
+            if (geo && geo->enabled) {
+                ImGui::PushItemWidth(-150 * dpi);
+                changed |= EffectParamsUI(*geo, "geo");
+                ImGui::PopItemWidth();
+                ImGui::TextDisabled("Perspective verticale : lignes des bâtiments qui convergent (appareil incliné).");
+            }
+            cr = FindFilter(l, "camera_raw");  // the insertions above may have moved it
         }
         if (cr && header("Effets")) {
             ImGui::PushItemWidth(-150 * dpi);

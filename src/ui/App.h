@@ -1247,7 +1247,7 @@ private:
         u64 lastHash = 0;
         bool firstFrame = false;
         size_t histStart = 0;      // history entries of the session, merged into one on OK
-        bool savedCr = true, savedLens = true;  // enabled states while comparing
+        std::vector<char> savedEnabled;  // states of the Photo RAW filters while comparing
         gpu::TexturePtr tex;       // preview
         bool pickWB = false;       // white balance eyedropper active
         gpu::ReadbackPtr wbRb;     // picked pixels (layer source)
@@ -1266,6 +1266,7 @@ private:
     // Local adjustments overlay (handles on the Photo RAW preview); true while a handle is dragged.
     bool PhotoRawLocalHandles(Layer& l, ImVec2 p0, ImVec2 size, bool activated, bool active);
     void PhotoRawLocalsUI(DocView& v, Layer& l);
+    void PhotoRawCompare(Layer* l, bool on);
     std::optional<EffectInstance> rawClipboard;  // Photo RAW settings copied (Copier / Coller)
     void PhotoRawPresetsUI(EffectInstance& fx, DocView& v);
     void PhotoRawAuto(DocView& v, Layer& l, int want);

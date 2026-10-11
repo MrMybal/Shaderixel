@@ -627,6 +627,21 @@ void App::DemoTick() {
                         break;
                     }
         }
+        if (frameCounter == 30 && Active() && GetEnvironmentVariableA("SX_GEOM", nullptr, 0) > 0) {
+            // Geometry: vertical perspective 40, rotation 5 degrees, grid, frame filled.
+            Layer* l = Active()->doc->ActiveLayer();
+            EffectInstance g;
+            g.effectId = "photo_raw_geometry";
+            auto def = Effects().Find("photo_raw_geometry");
+            g.params = def->DefaultParams();
+            for (size_t i = 0; i < def->params.size(); ++i) {
+                if (def->params[i].id == "vertical") g.params[i].x = 40;
+                if (def->params[i].id == "rotate") g.params[i].x = 5;
+                if (def->params[i].id == "grid") g.params[i].x = 1;
+            }
+            l->filters.insert(l->filters.begin(), g);
+            Active()->doc->SyncGraph();
+        }
         if (frameCounter == 45 && hasRaw && Active() && GetEnvironmentVariableA("SX_AUTO", nullptr, 0) > 0)
             PhotoRawAuto(*Active(), *Active()->doc->ActiveLayer(), 3);  // white balance + tones
         if (frameCounter == 45 && hasRaw && Active() && GetEnvironmentVariableA("SX_WBPICK", nullptr, 0) > 0) {
