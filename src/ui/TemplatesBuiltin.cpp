@@ -193,8 +193,8 @@ std::vector<App::BuiltinTemplate> App::BuildBuiltinTemplates() {
     // ---- Photo
     {
         Document& d = make(1920, 1080, DocMode::Layers, 0, "Retouche photo", "Photo",
-                           "Calques de réglage prêts au-dessus de l'image (Camera Raw, courbes, teinte) : collez ou glissez votre photo dans Arrière-plan.");
-        d.AddEffectLayer(LayerKind::Adjustment, "camera_raw").name = "Camera Raw";
+                           "Calques de réglage prêts au-dessus de l'image (Photo RAW, courbes, teinte) : collez ou glissez votre photo dans Arrière-plan.");
+        d.AddEffectLayer(LayerKind::Adjustment, "camera_raw").name = "Photo RAW";
         d.AddEffectLayer(LayerKind::Adjustment, "curves").name = "Courbes";
         d.AddEffectLayer(LayerKind::Adjustment, "hue_saturation").name = "Teinte / saturation";
         d.SyncGraph();

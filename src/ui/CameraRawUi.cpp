@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
+#include <cstring>
 
 namespace sx {
 
@@ -32,6 +34,96 @@ void SetParam(EffectInstance& fx, const char* id, float v) {
         for (size_t i = fx.params.size(); i < def->params.size(); ++i) fx.params.push_back(def->params[i].def);
     for (size_t i = 0; i < def->params.size(); ++i)
         if (def->params[i].id == id) fx.params[i].x = v;
+}
+
+float GetParam(const EffectInstance& fx, const char* id) {
+    EffectDefPtr def = fx.Def();
+    if (!def) return 0;
+    for (size_t i = 0; i < def->params.size(); ++i)
+        if (def->params[i].id == id) return i < fx.params.size() ? fx.params[i].x : def->params[i].def.x;
+    return 0;
+}
+
+// Straight colors of a readback (RGBA8 / RGBA16F / RGBA32F, premultiplied surfaces).
+bool ReadbackColors(const gpu::ReadbackPtr& rb, std::vector<float4>& out) {
+    if (!rb || !rb->ready) return false;
+    const size_t n = (size_t)rb->width * rb->height;
+    out.clear();
+    out.reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        float4 c;
+        if (rb->format == gpu::Format::RGBA32F && rb->data.size() >= (i + 1) * 16) {
+            memcpy(&c, rb->data.data() + i * 16, 16);
+        } else if (rb->format == gpu::Format::RGBA16F && rb->data.size() >= (i + 1) * 8) {
+            const u16* h = (const u16*)rb->data.data() + i * 4;
+            c = {HalfToFloat(h[0]), HalfToFloat(h[1]), HalfToFloat(h[2]), HalfToFloat(h[3])};
+        } else if (rb->format == gpu::Format::RGBA8 && rb->data.size() >= (i + 1) * 4) {
+            const u8* b = rb->data.data() + i * 4;
+            c = {b[0] / 255.0f, b[1] / 255.0f, b[2] / 255.0f, b[3] / 255.0f};
+        } else {
+            return !out.empty();
+        }
+        if (c.w > 1e-4f) out.push_back({c.x / c.w, c.y / c.w, c.z / c.w, c.w});
+    }
+    return !out.empty();
+}
+
+// Temperature / tint making the (pre white balance) color neutral, in the camera_raw model:
+// rgb *= (1 + .35 t, 1 - .25 g, 1 - .35 t) * (1 + .1 g, 1, 1 + .1 g).
+void SetWhiteBalance(EffectInstance& fx, float r, float g, float b) {
+    r = std::max(r, 1e-5f);
+    g = std::max(g, 1e-5f);
+    b = std::max(b, 1e-5f);
+    float t = std::clamp((b - r) / (0.35f * (r + b)), -1.0f, 1.0f);
+    float a = (1 + 0.35f * t) * r;
+    float tn = std::clamp((g - a) / (0.1f * a + 0.25f * g), -1.0f, 1.0f);
+    SetParam(fx, "temperature", t * 100);
+    SetParam(fx, "tint", tn * 100);
+}
+
+struct RawPreset {
+    const char* name;
+    std::vector<std::pair<const char*, float>> values;
+};
+
+const std::vector<RawPreset>& BuiltinRawPresets() {
+    static const std::vector<RawPreset> p = {
+        {"Neutre", {}},
+        {"Vif", {{"contrast", 20}, {"clarity", 15}, {"vibrance", 40}, {"saturation", 10}}},
+        {"Paysage", {{"highlights", -40}, {"shadows", 30}, {"clarity", 25}, {"dehaze", 15}, {"vibrance", 35}, {"mix_s_blue", 15}, {"mix_s_green", 10}}},
+        {"Portrait doux", {{"highlights", -20}, {"shadows", 15}, {"fine_detail", -15}, {"clarity", -20}, {"vibrance", 10}, {"mix_s_orange", -10}, {"mix_l_orange", 10}}},
+        {"Noir et blanc", {{"saturation", -100}, {"contrast", 15}, {"clarity", 10}}},
+        {"Noir et blanc contrasté", {{"saturation", -100}, {"contrast", 45}, {"clarity", 30}, {"blacks", -20}, {"whites", 15}, {"grain", 15}}},
+        {"Film délavé", {{"contrast", -25}, {"blacks", 25}, {"saturation", -15}, {"cg_sh_hue", 200}, {"cg_sh_sat", 15}, {"cg_hl_hue", 40}, {"cg_hl_sat", 15}, {"grain", 20}}},
+        {"Tons chauds", {{"temperature", 20}, {"vibrance", 20}, {"cg_hl_hue", 35}, {"cg_hl_sat", 20}, {"cg_sh_hue", 25}, {"cg_sh_sat", 10}}},
+        {"Tons froids", {{"temperature", -20}, {"tint", 5}, {"contrast", 10}, {"cg_sh_hue", 215}, {"cg_sh_sat", 20}}},
+        {"Teal & orange", {{"contrast", 15}, {"vibrance", 15}, {"cg_sh_hue", 190}, {"cg_sh_sat", 30}, {"cg_hl_hue", 30}, {"cg_hl_sat", 25}, {"mix_s_orange", 10}}},
+        {"Haute clé", {{"exposure", 0.7f}, {"contrast", -15}, {"highlights", -30}, {"shadows", 40}, {"whites", 20}}},
+        {"Basse clé", {{"exposure", -0.5f}, {"contrast", 25}, {"shadows", -20}, {"blacks", -25}, {"vignette", -30}}},
+    };
+    return p;
+}
+
+std::string RawPresetDir() {
+    const char* la = getenv("LOCALAPPDATA");
+    return la ? std::string(la) + "\\Shaderixel\\photo_raw_presets" : std::string();
+}
+
+// Parameters of a preset are applied over the defaults; white balance and exposure are kept unless the
+// preset sets them.
+void ApplyRawValues(EffectInstance& fx, const std::vector<std::pair<std::string, float>>& values, const CurvePoints* curve) {
+    EffectDefPtr def = fx.Def();
+    if (!def) return;
+    const float keep[3] = {GetParam(fx, "temperature"), GetParam(fx, "tint"), GetParam(fx, "exposure")};
+    fx.params = def->DefaultParams();
+    fx.curves.assign(def->params.size(), {});
+    SetParam(fx, "temperature", keep[0]);
+    SetParam(fx, "tint", keep[1]);
+    SetParam(fx, "exposure", keep[2]);
+    for (auto& [id, val] : values) SetParam(fx, id.c_str(), val);
+    if (curve)
+        for (size_t i = 0; i < def->params.size(); ++i)
+            if (def->params[i].id == "tone") fx.curves[i] = *curve;
 }
 
 std::string Lower(std::string s) {
@@ -239,17 +331,203 @@ bool App::LensfunPickerUI(EffectInstance& fx, const Document* doc) {
     return changed;
 }
 
+// ------------------------------------------------------------------ Photo RAW: automatic settings, presets
+
+void App::PhotoRawAuto(DocView& v, Layer& l, int want) {
+    // Statistics on a small copy of the layer's pixels (before the filters).
+    Surface* s = v.doc->GetSurface(l.surface);
+    gpu::Texture* src = s && s->tex ? s->tex.get() : v.lastImage;
+    if (!src) return;
+    const u32 w = 256, h = std::max(1u, (u32)std::lround(256.0 * src->Height() / std::max(1u, src->Width())));
+    camRaw.statsTex = v.renderer.PreviewCopy(*ctx, src, w, h);
+    if (!camRaw.statsTex) return;
+    camRaw.statsRb = ctx->ReadbackTexture(camRaw.statsTex.get());
+    camRaw.statsWant = want;
+}
+
+void App::PhotoRawPoll(DocView& v, Layer& l) {
+    auto& C = camRaw;
+    EffectInstance* fx = FindFilter(&l, "camera_raw");
+    std::vector<float4> px;
+    if (C.wbRb && C.wbRb->ready) {
+        if (fx && ReadbackColors(C.wbRb, px)) {
+            float4 m = {0, 0, 0, 0};
+            for (auto& p : px) m = {m.x + p.x, m.y + p.y, m.z + p.z, 0};
+            SetWhiteBalance(*fx, m.x, m.y, m.z);
+            v.doc->SyncGraph();
+            Status("Balance des blancs : température " + std::to_string((int)std::lround(GetParam(*fx, "temperature"))) +
+                   ", teinte " + std::to_string((int)std::lround(GetParam(*fx, "tint"))));
+        }
+        C.wbRb.reset();
+    }
+    if (C.statsRb && C.statsRb->ready) {
+        if (fx && ReadbackColors(C.statsRb, px)) {
+            if (C.statsWant & 1) {
+                // Gray world on the unclipped, not too dark pixels, the most neutral ones weighted more.
+                double r = 0, g = 0, b = 0;
+                for (auto& p : px) {
+                    float mx = std::max(p.x, std::max(p.y, p.z)), mn = std::min(p.x, std::min(p.y, p.z));
+                    if (mx > 0.95f || mx < 0.01f) continue;
+                    float wgt = 1.0f / (0.05f + (mx - mn) / mx);
+                    r += p.x * wgt;
+                    g += p.y * wgt;
+                    b += p.z * wgt;
+                }
+                if (g > 0) SetWhiteBalance(*fx, (float)r, (float)g, (float)b);
+            }
+            if (C.statsWant & 2) {
+                std::vector<float> L;
+                L.reserve(px.size());
+                double logSum = 0;
+                for (auto& p : px) {
+                    float y = 0.2126f * p.x + 0.7152f * p.y + 0.0722f * p.z;
+                    L.push_back(y);
+                    logSum += std::log(y + 1e-4);
+                }
+                const float avg = (float)std::exp(logSum / L.size());
+                const float ev = std::clamp(std::log2(0.18f / std::max(avg, 1e-4f)), -3.0f, 4.0f);
+                std::sort(L.begin(), L.end());
+                auto pct = [&](float q) { return L[std::min(L.size() - 1, (size_t)(q * (L.size() - 1)))] * std::exp2(ev); };
+                const float hi = pct(0.995f), lo = pct(0.05f), black = pct(0.005f);
+                SetParam(*fx, "exposure", std::round(ev * 100) / 100);
+                SetParam(*fx, "highlights", hi > 0.9f ? -std::clamp(50 * std::log2(hi / 0.9f) + 10, 0.0f, 80.0f) : 0.0f);
+                SetParam(*fx, "whites", hi < 0.7f ? std::clamp((0.7f - hi) / 0.7f * 60, 0.0f, 40.0f) : 0.0f);
+                SetParam(*fx, "shadows", lo < 0.03f ? std::clamp((0.03f - lo) / 0.03f * 45, 0.0f, 50.0f) : 0.0f);
+                SetParam(*fx, "blacks", black > 0.02f ? -std::clamp((black - 0.02f) * 400, 0.0f, 35.0f) : 0.0f);
+                SetParam(*fx, "contrast", 10);
+            }
+            v.doc->SyncGraph();
+            Status(C.statsWant == 1 ? "Balance des blancs automatique" : "Réglages automatiques");
+        }
+        C.statsRb.reset();
+        C.statsTex.reset();
+        C.statsWant = 0;
+    }
+}
+
+void App::PhotoRawPresetsUI(EffectInstance& fx, DocView& v) {
+    auto& C = camRaw;
+    namespace fs = std::filesystem;
+    // User presets: one JSON per preset ({"params": {id: value}, "tone": [[x, y]...]}).
+    std::vector<std::pair<std::string, std::string>> user;  // name, path
+    {
+        static std::vector<std::pair<std::string, std::string>> cache;
+        static double scanned = -10;
+        if (ImGui::GetTime() - scanned > 2) {
+            scanned = ImGui::GetTime();
+            cache.clear();
+            std::error_code ec;
+            for (auto& e : fs::directory_iterator(Utf8Path(RawPresetDir()), ec))
+                if (e.path().extension() == ".json") cache.push_back({Narrow(e.path().stem().wstring()), Narrow(e.path().wstring())});
+        }
+        user = cache;
+    }
+    const auto& built = BuiltinRawPresets();
+    const int nb = (int)built.size();
+    std::string cur = C.preset >= 0 && C.preset < nb ? built[C.preset].name : C.preset >= nb && C.preset - nb < (int)user.size() ? user[C.preset - nb].first : "Choisir...";
+    DocState before = v.doc->S();
+    bool applied = false;
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::BeginCombo("##rawpreset", ("Préréglage : " + cur).c_str())) {
+        for (int i = 0; i < nb; ++i)
+            if (ImGui::Selectable(built[i].name, C.preset == i)) {
+                std::vector<std::pair<std::string, float>> vals;
+                for (auto& [k, val] : built[i].values) vals.push_back({k, val});
+                ApplyRawValues(fx, vals, nullptr);
+                C.preset = i;
+                applied = true;
+            }
+        if (!user.empty()) ImGui::SeparatorText("Mes préréglages");
+        for (int i = 0; i < (int)user.size(); ++i) {
+            if (ImGui::Selectable(user[i].first.c_str(), C.preset == nb + i)) {
+                std::string text;
+                Json j;
+                if (ReadTextFile(user[i].second, text) && Json::Parse(text, j)) {
+                    std::vector<std::pair<std::string, float>> vals;
+                    for (auto& [k, val] : j["params"].Items()) vals.push_back({k, val.F()});
+                    CurvePoints curve;
+                    for (auto& p : j["tone"].Elements()) curve.push_back(Float2FromJson(p));
+                    ApplyRawValues(fx, vals, curve.size() >= 2 ? &curve : nullptr);
+                    C.preset = nb + i;
+                    applied = true;
+                }
+            }
+            if (ImGui::BeginPopupContextItem()) {
+                if (ImGui::MenuItem("Supprimer ce préréglage")) {
+                    std::error_code ec;
+                    fs::remove(Utf8Path(user[i].second), ec);
+                }
+                ImGui::EndPopup();
+            }
+        }
+        ImGui::EndCombo();
+    }
+    if (ImGui::Button("Enregistrer...")) ImGui::OpenPopup("##savepreset");
+    ImGui::SameLine();
+    if (ImGui::Button("Copier")) {
+        rawClipboard = fx;
+        Status("Réglages Photo RAW copiés");
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!rawClipboard);
+    if (ImGui::Button("Coller") && rawClipboard) {
+        fx.params = rawClipboard->params;
+        fx.curves = rawClipboard->curves;
+        applied = true;
+    }
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Copiez les réglages d'une photo puis collez-les sur une autre (Filtre > Photo RAW...).");
+    if (ImGui::BeginPopup("##savepreset")) {
+        ImGui::SetNextItemWidth(240 * dpi);
+        if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+        ImGui::InputTextWithHint("##pn", "Nom du préréglage", C.presetName, sizeof(C.presetName));
+        ImGui::Checkbox("Inclure la balance des blancs et l'exposition", &C.presetWB);
+        if (ImGui::Button("Enregistrer", ImVec2(120 * dpi, 0)) && C.presetName[0]) {
+            EffectDefPtr def = fx.Def();
+            Json j = Json::Object(), ps = Json::Object();
+            for (size_t i = 0; def && i < def->params.size() && i < fx.params.size(); ++i) {
+                const ParamDef& p = def->params[i];
+                if (p.type == ParamType::Curve) {
+                    if (i < fx.curves.size() && fx.curves[i].size() >= 2) {
+                        Json c = Json::Array();
+                        for (auto& pt : fx.curves[i]) c.Push(ToJson(pt));
+                        j["tone"] = c;
+                    }
+                    continue;
+                }
+                if (!C.presetWB && (p.id == "temperature" || p.id == "tint" || p.id == "exposure")) continue;
+                if (fx.params[i].x != p.def.x) ps[p.id] = fx.params[i].x;
+            }
+            j["params"] = ps;
+            std::error_code ec;
+            fs::create_directories(Utf8Path(RawPresetDir()), ec);
+            std::string name = C.presetName;
+            for (auto& ch : name)
+                if (strchr("\\/:*?\"<>|", ch)) ch = '_';
+            std::ofstream(Utf8Path(RawPresetDir() + "\\" + name + ".json"), std::ios::binary) << j.Dump(1);
+            Status("Préréglage enregistré : " + name);
+            C.presetName[0] = 0;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    if (applied) {
+        v.doc->SyncGraph();
+        v.history.PushState("Préréglage Photo RAW", before, v.doc->S());
+    }
+}
+
 // ------------------------------------------------------------------ Camera Raw
 
 void App::OpenCameraRaw(DocView& v) {
     Document& d = *v.doc;
     if (d.Mode() != DocMode::Layers) {
-        Status("Camera Raw : uniquement pour les documents en calques");
+        Status("Photo RAW : uniquement pour les documents en calques");
         return;
     }
     Layer* l = d.ActiveLayer();
     if (!l) {
-        Status("Camera Raw : aucun calque actif");
+        Status("Photo RAW : aucun calque actif");
         return;
     }
     auto& C = camRaw;
@@ -286,6 +564,7 @@ void App::DrawCameraRaw() {
         return;
     }
     Document& d = *v->doc;
+    PhotoRawPoll(*v, *l);
     auto finish = [&](bool ok) {
         // Restore the comparison and merge the session's edits into one history step (or revert them).
         if (C.compare) {
@@ -296,7 +575,7 @@ void App::DrawCameraRaw() {
         v->history.TruncateTo(C.histStart);
         if (ok) {
             if (C.before) {
-                v->history.PushState("Camera Raw", *C.before, d.S());
+                v->history.PushState("Photo RAW", *C.before, d.S());
                 d.dirty = true;
             }
         } else if (C.before) {
@@ -306,6 +585,7 @@ void App::DrawCameraRaw() {
         d.SyncGraph();
         C.open = false;
         C.tex.reset();
+        C.pickWB = false;
     };
 
     ImGuiViewport* vp0 = ImGui::GetMainViewport();
@@ -313,7 +593,7 @@ void App::DrawCameraRaw() {
     ImGui::SetNextWindowSize(ImVec2(vp0->WorkSize.x * 0.92f, vp0->WorkSize.y * 0.92f), ImGuiCond_Appearing);
     if (C.firstFrame) ImGui::SetNextWindowFocus();
     bool keep = true;
-    std::string title = "Camera Raw - " + d.Name() + "###cameraraw";
+    std::string title = "Photo RAW - " + d.Name() + "###cameraraw";
     if (!ImGui::Begin(title.c_str(), &keep, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         if (!keep) finish(false);
@@ -351,6 +631,7 @@ void App::DrawCameraRaw() {
         ImGui::SameLine();
         ImGui::TextDisabled("%u x %u  -  double-clic : 100 %% / adapter, glisser : déplacer", d.Width(), d.Height());
         if (!d.shot.summary.empty()) ImGui::TextDisabled("%s", d.shot.summary.c_str());
+        if (focused && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_W, false)) C.pickWB = !C.pickWB;
 
         ImVec2 avail = ImGui::GetContentRegionAvail();
         u32 vw = (u32)std::max(16.0f, avail.x), vh = (u32)std::max(16.0f, avail.y);
@@ -359,7 +640,28 @@ void App::DrawCameraRaw() {
         ImGui::InvisibleButton("##crimage", ImVec2((float)vw, (float)vh));
         const float docW = (float)d.Width(), docH = (float)d.Height();
         float inv = C.zoom == 0 ? std::max(docW / vw, docH / vh) : 1.0f / zv[std::clamp(C.zoom, 0, 4)];
-        if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
+        const bool picking = C.pickWB;
+        if (picking && ImGui::IsItemHovered()) {
+            // Eyedropper: a crosshair; the click reads 5 x 5 pixels of the layer under it.
+            ImVec2 m = ImGui::GetIO().MousePos;
+            ImDrawList* dl = ImGui::GetForegroundDrawList();
+            dl->AddCircle(m, 7 * dpi, IM_COL32(255, 255, 255, 230), 0, 1.5f);
+            dl->AddLine(ImVec2(m.x - 12 * dpi, m.y), ImVec2(m.x + 12 * dpi, m.y), IM_COL32(0, 0, 0, 200));
+            dl->AddLine(ImVec2(m.x, m.y - 12 * dpi), ImVec2(m.x, m.y + 12 * dpi), IM_COL32(0, 0, 0, 200));
+            ImGui::SetTooltip("Cliquez sur une zone qui doit être neutre (gris, blanc)");
+            if (ImGui::IsItemClicked(0)) {
+                const float ox = C.zoom == 0 ? (docW - vw * inv) * 0.5f : C.pan.x * docW - vw * inv * 0.5f;
+                const float oy = C.zoom == 0 ? (docH - vh * inv) * 0.5f : C.pan.y * docH - vh * inv * 0.5f;
+                const int x = (int)(ox + (m.x - p0.x) * inv), y = (int)(oy + (m.y - p0.y) * inv);
+                Surface* s = d.GetSurface(l->surface);
+                gpu::Texture* src = s && s->tex ? s->tex.get() : nullptr;
+                if (src && x >= 0 && y >= 0 && x < (int)src->Width() && y < (int)src->Height()) {
+                    Rect r{std::max(0, x - 2), std::max(0, y - 2), std::min((int)src->Width(), x + 3), std::min((int)src->Height(), y + 3)};
+                    C.wbRb = ctx->ReadbackTexture(src, &r);
+                }
+                C.pickWB = false;
+            }
+        } else if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
             if (C.zoom == 0) {
                 // Zoom on the clicked point.
                 float fitInv = inv;
@@ -372,7 +674,7 @@ void App::DrawCameraRaw() {
             }
             inv = C.zoom == 0 ? std::max(docW / vw, docH / vh) : 1.0f / zv[C.zoom];
         }
-        if (C.zoom != 0 && ImGui::IsItemActive() && ImGui::IsMouseDragging(0, 0)) {
+        if (!picking && C.zoom != 0 && ImGui::IsItemActive() && ImGui::IsMouseDragging(0, 0)) {
             ImVec2 dd = ImGui::GetIO().MouseDelta;
             C.pan.x = std::clamp(C.pan.x - dd.x * inv / docW, 0.0f, 1.0f);
             C.pan.y = std::clamp(C.pan.y - dd.y * inv / docH, 0.0f, 1.0f);
@@ -425,9 +727,26 @@ void App::DrawCameraRaw() {
             return ImGui::CollapsingHeader(name, fl);
         };
         EffectInstance* cr = FindFilter(l, "camera_raw");
+        if (cr) PhotoRawPresetsUI(*cr, *v);
+        cr = FindFilter(l, "camera_raw");
         if (cr) {
             ImGui::PushItemWidth(-150 * dpi);
             if (header("Base", ImGuiTreeNodeFlags_DefaultOpen)) {
+                if (ImGui::Button(C.pickWB ? "Pipette... (W)" : "Pipette (W)")) C.pickWB = !C.pickWB;
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Balance des blancs : cliquez dans l'image sur une zone neutre");
+                ImGui::SameLine();
+                if (ImGui::Button("Balance auto")) PhotoRawAuto(*v, *l, 1);
+                ImGui::SameLine();
+                if (ImGui::Button("Tel quel")) {
+                    DocState before = d.S();
+                    SetParam(*cr, "temperature", 0);
+                    SetParam(*cr, "tint", 0);
+                    d.SyncGraph();
+                    v->history.PushState("Balance des blancs", before, d.S());
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Auto")) PhotoRawAuto(*v, *l, 3);
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Balance des blancs, exposition, hautes lumières, ombres, blancs et noirs d'après l'image");
                 changed |= EffectParamsUI(*cr, "crbase", "Base");
                 ImGui::Spacing();
                 changed |= EffectParamsUI(*cr, "crpres", "Présence");
@@ -495,14 +814,17 @@ void App::DrawCameraRaw() {
                 if (auto def = Effects().Find("camera_raw")) f->params = def->DefaultParams();
                 f->curves.clear();
                 d.SyncGraph();
-                v->history.PushState("Réinitialiser Camera Raw", before, d.S());
+                v->history.PushState("Réinitialiser Photo RAW", before, d.S());
             }
         }
         ImGui::SameLine(ImGui::GetContentRegionAvail().x + ImGui::GetCursorPosX() - 210 * dpi);
         bool cancel = ImGui::Button("Annuler", ImVec2(100 * dpi, 0));
         ImGui::SameLine();
         bool ok = ImGui::Button("OK", ImVec2(100 * dpi, 0));
-        if (focused && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) cancel = true;
+        if (focused && !ImGui::GetIO().WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
+            if (C.pickWB) C.pickWB = false;
+            else cancel = true;
+        }
         if (changed) {
             d.SyncGraph();
             C.changeFrame = gpu::Dev().FrameNumber();

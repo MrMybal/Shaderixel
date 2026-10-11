@@ -1,4 +1,4 @@
-//@name Camera Raw
+//@name Photo RAW
 //@category Réglages
 //@halo full
 //@passes 3

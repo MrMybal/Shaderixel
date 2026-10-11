@@ -43,7 +43,7 @@ std::string ShaderDir() {
 const wchar_t* kImageFilter =
     L"Documents et images\0*.sxl;*.sx3d;*.uasset;*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif;*.tif;*.tiff;*.webp;*.heic;*.dng;*.cr2;*.cr3;*.nef;*.arw;*.orf;*.rw2;*.raf;*.pef;*.srw\0"
     L"Documents Shaderixel (*.sxl, *.sx3d)\0*.sxl;*.sx3d\0Images\0*.png;*.jpg;*.jpeg;*.bmp;*.tga;*.psd;*.psb;*.hdr;*.gif;*.tif;*.tiff;*.webp;*.heic\0"
-    L"Unreal Engine (*.uasset : textures, maillages)\0*.uasset\0Camera RAW\0*.dng;*.cr2;*.cr3;*.crw;*.nef;*.nrw;*.arw;*.srf;*.sr2;*.orf;*.rw2;*.raf;*.pef;*.srw;*.x3f;*.3fr;*.fff;*.erf;*.kdc;*.dcr;*.mrw;*.mos;*.mef;*.iiq;*.rwl;*.raw;*.gpr;*.cap\0Tous les fichiers\0*.*\0";
+    L"Unreal Engine (*.uasset : textures, maillages)\0*.uasset\0Photos RAW\0*.dng;*.cr2;*.cr3;*.crw;*.nef;*.nrw;*.arw;*.srf;*.sr2;*.orf;*.rw2;*.raf;*.pef;*.srw;*.x3f;*.3fr;*.fff;*.erf;*.kdc;*.dcr;*.mrw;*.mos;*.mef;*.iiq;*.rwl;*.raw;*.gpr;*.cap\0Tous les fichiers\0*.*\0";
 }  // namespace
 
 // ------------------------------------------------------------------ lifecycle
@@ -1083,7 +1083,7 @@ void App::DrawMenuBar() {
             EffectMenu([&](const std::string& id) { ApplyLibraryEffect(*v, id, FxApply::Destructive); }, false, true);
             ImGui::EndMenu();
         }
-        if (ImGui::MenuItem("Camera Raw...", "Ctrl+Maj+A", false, !layerMode || l)) OpenCameraRaw(*v);
+        if (ImGui::MenuItem("Photo RAW...", "Ctrl+Maj+A", false, !layerMode || l)) OpenCameraRaw(*v);
         if (ImGui::MenuItem("Galerie d'effets...")) ImGui::SetWindowFocus("Effets");
         ImGui::EndMenu();
     }

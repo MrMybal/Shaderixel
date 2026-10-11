@@ -766,7 +766,7 @@ void App::DrawProperties() {
                     if (ImGui::SmallButton("Éditer (code / graphe)")) { efEd.filterIndex = (int)i; OpenGraphEditor(0); }
                     if (f.effectId == "camera_raw") {
                         ImGui::SameLine();
-                        if (ImGui::SmallButton("Ouvrir dans Camera Raw...")) OpenCameraRaw(*v);
+                        if (ImGui::SmallButton("Ouvrir dans Photo RAW...")) OpenCameraRaw(*v);
                     }
                     ImGui::TreePop();
                 }

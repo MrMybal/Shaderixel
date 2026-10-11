@@ -550,7 +550,7 @@ void App::ApplyPhotoJob(PhotoJob& J) {
             snprintf(b, sizeof(b), "%s%+.1f", ev.empty() ? "" : " / ", std::log2(std::max(e, 1e-6f)));
             ev += b;
         }
-        Status("Fusion HDR (32 bits) : " + std::to_string(J.imgs.size()) + " images, écarts d'exposition " + ev + " IL ; réglez le rendu avec le filtre Camera Raw");
+        Status("Fusion HDR (32 bits) : " + std::to_string(J.imgs.size()) + " images, écarts d'exposition " + ev + " IL ; réglez le rendu avec le filtre Photo RAW");
         return;
     }
     DocView* v = J.view;

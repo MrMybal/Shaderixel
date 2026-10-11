@@ -2,6 +2,8 @@
 #include "io/WicLoad.h"
 
 #include <cmath>
+#include <cstring>
+#include <stb_image.h>
 #include <cstdio>
 #include <memory>
 
@@ -75,6 +77,60 @@ bool ReadRawInfo(const std::string& path, RawInfo& info) {
     return true;
 }
 
+bool LoadRawThumb(const std::string& path, std::vector<u8>& rgba, int& w, int& h, RawInfo* info) {
+    auto rp = std::make_unique<LibRaw>();
+    if (rp->open_file(WidePath(path).c_str()) != LIBRAW_SUCCESS) return false;
+    if (info) FillInfo(*rp, *info);
+    if (rp->unpack_thumb() != LIBRAW_SUCCESS) return false;
+    int err = 0;
+    libraw_processed_image_t* img = rp->dcraw_make_mem_thumb(&err);
+    if (!img) return false;
+    std::vector<u8> px;
+    int iw = 0, ih = 0;
+    if (img->type == LIBRAW_IMAGE_JPEG) {
+        int comp = 0;
+        if (stbi_uc* p = stbi_load_from_memory(img->data, (int)img->data_size, &iw, &ih, &comp, 4)) {
+            px.assign(p, p + (size_t)iw * ih * 4);
+            stbi_image_free(p);
+        }
+    } else if (img->type == LIBRAW_IMAGE_BITMAP && img->bits == 8 && (img->colors == 3 || img->colors == 1)) {
+        iw = img->width;
+        ih = img->height;
+        px.resize((size_t)iw * ih * 4);
+        for (size_t i = 0, n = (size_t)iw * ih; i < n; ++i) {
+            const u8* s = img->data + i * img->colors;
+            px[i * 4] = s[0];
+            px[i * 4 + 1] = s[img->colors > 1 ? 1 : 0];
+            px[i * 4 + 2] = s[img->colors > 1 ? 2 : 0];
+            px[i * 4 + 3] = 255;
+        }
+    }
+    LibRaw::dcraw_clear_mem(img);
+    if (px.empty()) return false;
+    // Camera orientation (LibRaw flip: 3 = 180, 5 = 90 counter-clockwise, 6 = 90 clockwise).
+    const int flip = rp->imgdata.sizes.flip;
+    if (flip == 3 || flip == 5 || flip == 6) {
+        const bool swap = flip != 3;
+        const int ow = swap ? ih : iw, oh = swap ? iw : ih;
+        rgba.resize((size_t)ow * oh * 4);
+        for (int y = 0; y < oh; ++y)
+            for (int x = 0; x < ow; ++x) {
+                int sx, sy;
+                if (flip == 3) { sx = iw - 1 - x; sy = ih - 1 - y; }
+                else if (flip == 6) { sx = y; sy = ih - 1 - x; }
+                else { sx = iw - 1 - y; sy = x; }
+                memcpy(&rgba[((size_t)y * ow + x) * 4], &px[((size_t)sy * iw + sx) * 4], 4);
+            }
+        w = ow;
+        h = oh;
+    } else {
+        rgba = std::move(px);
+        w = iw;
+        h = ih;
+    }
+    return true;
+}
+
 bool LoadRawFloat(const std::string& path, std::vector<float>& rgba, int& w, int& h, RawInfo* info, std::string* error,
                   bool halfSize) {
     auto rp = std::make_unique<LibRaw>();  // large object (hundreds of KB): heap
@@ -126,6 +182,7 @@ bool LoadRawFloat(const std::string& path, std::vector<float>& rgba, int& w, int
 
 bool HaveLibRaw() { return false; }
 bool ReadRawInfo(const std::string&, RawInfo&) { return false; }
+bool LoadRawThumb(const std::string&, std::vector<u8>&, int&, int&, RawInfo*) { return false; }
 bool LoadRawFloat(const std::string&, std::vector<float>&, int&, int&, RawInfo*, std::string* error, bool) {
     if (error) *error = "LibRaw absent (external/LibRaw)";
     return false;

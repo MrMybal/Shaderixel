@@ -6,6 +6,8 @@
 #include "ui/App.h"
 #include "ui/Theme.h"
 #include "io/UAsset.h"
+#include "io/RawLoad.h"
+#include "io/WicLoad.h"
 #include "doc/DocFile.h"
 #include "mesh/Mesh.h"
 #include "ai/Net.h"
@@ -34,6 +36,7 @@ std::string Lower(std::string s) {
 }
 
 bool IsImageExt(const std::string& e) {
+    if (IsRawExtension(e)) return true;  // camera RAW: embedded preview
     static const char* x[] = {".png", ".jpg", ".jpeg", ".bmp", ".tga", ".gif", ".hdr", ".psd", ".tif", ".tiff", ".webp", ".sxl"};
     for (const char* k : x) if (e == k) return true;
     return false;
@@ -190,6 +193,12 @@ ThumbResult MakeThumb(const std::string& path, bool mesh) {
         h = (int)uh;
     } else if (ext == ".sxl") {
         return r;  // documents: an icon
+    } else if (IsRawExtension(ext)) {
+        RawInfo info;
+        if (!LoadRawThumb(path, src, w, h, &info)) return r;
+        r.rgba = Fit(src.data(), w, h, N, r.w, r.h);
+        r.info = std::to_string(info.width) + " x " + std::to_string(info.height) + (info.model.empty() ? "" : ", " + info.model);
+        return r;
     } else {
         FILE* f = nullptr;
         if (_wfopen_s(&f, Widen(path).c_str(), L"rb") != 0 || !f) return r;

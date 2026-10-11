@@ -541,6 +541,15 @@ void App::DemoTick() {
                         Active()->doc->SyncGraph();
                     }
         }
+        if (frameCounter == 45 && hasRaw && Active() && GetEnvironmentVariableA("SX_AUTO", nullptr, 0) > 0)
+            PhotoRawAuto(*Active(), *Active()->doc->ActiveLayer(), 3);  // white balance + tones
+        if (frameCounter == 45 && hasRaw && Active() && GetEnvironmentVariableA("SX_WBPICK", nullptr, 0) > 0) {
+            // Eyedropper on the white letters of the shirt (doc coordinates of the test photo).
+            Document& d = *Active()->doc;
+            Surface* s = d.GetSurface(d.ActiveLayer()->surface);
+            Rect r{3202, 2881, 3207, 2886};
+            if (s && s->tex) camRaw.wbRb = ctx->ReadbackTexture(s->tex.get(), &r);
+        }
         if (frameCounter == 70 && Active()) {
             Layer* l = Active()->doc->ActiveLayer();
             for (auto& f : l->filters) {

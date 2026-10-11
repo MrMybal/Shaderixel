@@ -1249,7 +1249,19 @@ private:
         size_t histStart = 0;      // history entries of the session, merged into one on OK
         bool savedCr = true, savedLens = true;  // enabled states while comparing
         gpu::TexturePtr tex;       // preview
+        bool pickWB = false;       // white balance eyedropper active
+        gpu::ReadbackPtr wbRb;     // picked pixels (layer source)
+        gpu::ReadbackPtr statsRb;  // downsampled source for the automatic settings
+        gpu::TexturePtr statsTex;
+        int statsWant = 0;         // 1 white balance, 2 tones
+        int preset = -1;
+        char presetName[64] = "";
+        bool presetWB = false;
     } camRaw;
+    std::optional<EffectInstance> rawClipboard;  // Photo RAW settings copied (Copier / Coller)
+    void PhotoRawPresetsUI(EffectInstance& fx, DocView& v);
+    void PhotoRawAuto(DocView& v, Layer& l, int want);
+    void PhotoRawPoll(DocView& v, Layer& l);
     // Lens picker (lensfun) state shared by Camera Raw and the effect's properties.
     struct {
         char filter[128] = "";

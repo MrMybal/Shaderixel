@@ -29,6 +29,8 @@ bool LoadRawFloat(const std::string& path, std::vector<float>& rgba, int& w, int
                   bool halfSize = false);
 // Metadata only (no decoding). Works for any file LibRaw opens; false otherwise.
 bool ReadRawInfo(const std::string& path, RawInfo& info);
+// Embedded preview (JPEG or bitmap written by the camera), turned upright: fast thumbnails. RGBA8.
+bool LoadRawThumb(const std::string& path, std::vector<u8>& rgba, int& w, int& h, RawInfo* info = nullptr);
 // Any photo file stb does not read: camera RAW through LibRaw (when built with it), else the Windows
 // Imaging Component (TIFF, HEIF, WebP, JPEG XR, RAW with the Microsoft codecs). Linear float RGBA.
 bool LoadPhotoFloat(const std::string& path, std::vector<float>& rgba, int& w, int& h, RawInfo* info, std::string* error);
