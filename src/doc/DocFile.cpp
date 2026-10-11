@@ -220,6 +220,7 @@ std::vector<Id> ReferencedSurfaces(const Document& doc) {
     for (auto& l : s.layers) {
         if (l.surface) ids.insert(l.surface);
         if (l.mask) ids.insert(l.mask);
+        if (l.maskEdit) ids.insert(l.maskEdit);
     }
     CollectGraphSurfaces(s.graph, ids);
     for (auto& n : s.graph.nodes) if (n.kind == NodeKind::SubInput && n.surface) ids.insert(n.surface);  // function editor previews
@@ -511,6 +512,7 @@ Json SerializeDocument(const Document& doc) {
         }
         if (l.material) o["material"] = l.material;
         if (!l.generator.empty()) o["generator"] = l.generator;
+        if (l.maskEdit) o["maskEdit"] = l.maskEdit;
         if (!l.projection.empty()) o["projection"] = l.projection;
         if (l.clipped) o["clipped"] = true;
         if (l.blendIf.Active()) {
@@ -735,6 +737,7 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         l.smartInterp = (u8)std::clamp(o["smartInterp"].I(2), 0, 2);
         l.material = o["material"].U();
         l.generator = o["generator"].S();
+        l.maskEdit = o["maskEdit"].U();
         l.projection = o["projection"].S();
         l.clipped = o["clipped"].B(false);
         if (o.Has("blendIf")) {
@@ -798,6 +801,7 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         }
         if (l.surface && !s.surfaces.count(l.surface)) l.surface = doc->CreateSurface({0, 0, 0, 0});
         if (l.mask && !s.surfaces.count(l.mask)) l.mask = 0;
+        if (l.maskEdit && !s.surfaces.count(l.maskEdit)) l.maskEdit = 0;
         s.layers.push_back(l);
     }
 

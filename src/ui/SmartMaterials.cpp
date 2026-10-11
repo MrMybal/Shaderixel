@@ -127,6 +127,11 @@ void App::UpdateSmartMasks(DocView& v) {
         Json g;
         if (!Json::Parse(l.generator, g)) continue;
         Renderer::MeshGenParams p = GenFromJson(g);
+        if (!l.maskEdit) {
+            // Corrections painted over the smart mask: their own surface, kept when the mask is generated again.
+            const Id e = d.CreateSurface({0, 0, 0, 0});
+            for (auto& x : d.S().layers) if (x.material == l.material) x.maskEdit = e;
+        }
         if (NeedsMaps(p.type) && !s.maps) {
             if (!mapsBake.running) StartMeshMapsBake(v);
             continue;
@@ -149,6 +154,10 @@ void App::UpdateSmartMasks(DocView& v) {
             if (!ss) continue;
             p.source = ss->tex.get();
             sig += "|" + std::to_string(src) + ":" + std::to_string(ss->version);
+        }
+        if (Surface* es = l.maskEdit ? d.GetSurface(l.maskEdit) : nullptr) {
+            p.edits = es->tex.get();
+            sig += "|e" + std::to_string(es->version);
         }
         auto it = smartMaskDone.find(l.mask);
         if (it != smartMaskDone.end() && it->second == sig) continue;

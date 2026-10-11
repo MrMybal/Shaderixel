@@ -543,6 +543,11 @@ Layer& Document::DuplicateLayer(Id id) {
             l.mask = CreateSurface({1, 1, 1, 1});
             pendingCopies.push_back({l.mask, src});
         }
+        if (l.maskEdit) {
+            Id src = l.maskEdit;
+            l.maskEdit = CreateSurface({0, 0, 0, 0});
+            pendingCopies.push_back({l.maskEdit, src});
+        }
     }
     block.back().name += " copie";
     state.layers.insert(state.layers.begin() + i + 1, block.begin(), block.end());
@@ -1020,12 +1025,19 @@ void Document::Unlink(Id to, int input) {
     dirty = true;
 }
 
+bool Document::PaintsMaskEdits() const {
+    if (state.mode != DocMode::Layers || !state.editMask || state.editInpaint) return false;
+    for (auto& l : state.layers)
+        if (l.id == state.activeLayer) return l.mask && l.maskEdit && !l.generator.empty();
+    return false;
+}
+
 Id Document::PaintTarget() const {
     if (state.editInpaint && state.inpaintMask && state.surfaces.count(state.inpaintMask)) return state.inpaintMask;
     if (state.mode == DocMode::Layers) {
         for (auto& l : state.layers)
             if (l.id == state.activeLayer) {
-                if (state.editMask && l.mask) return l.mask;
+                if (state.editMask && l.mask) return !l.generator.empty() && l.maskEdit ? l.maskEdit : l.mask;  // smart mask: its corrections
                 return l.kind == LayerKind::Pixel && !l.locked ? l.surface : 0;
             }
         return 0;

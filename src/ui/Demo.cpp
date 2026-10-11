@@ -527,6 +527,61 @@ void App::DemoTick() {
                 Log("[demo] turntable done at frame %llu: %s", (unsigned long long)frameCounter, turntable.error.c_str());
             }
         }
+        if (GetEnvironmentVariableA("SX_MASKEDIT", nullptr, 0) > 0 && a->mesh->maps) {
+            // Corrections painted over a smart mask (layer SX_MASKLAYER, "Peinture" by default): a black
+            // stroke removes it, then its settings change and the mask is generated again (the stroke stays).
+            static int phase = 0;
+            char ml[64] = "Peinture";
+            GetEnvironmentVariableA("SX_MASKLAYER", ml, sizeof(ml));
+            Id mat = 0;
+            for (auto& l : a->doc->S().layers) if (l.material && l.name == ml) mat = l.material;
+            if (phase == 0 && mat && a->mesh->depth) {
+                SelectMaterial(*a->doc, mat);
+                fg = {0, 0, 0, 1};
+                std::vector<float4> colors;
+                std::vector<Id> targets = Paint3DTargets(*a, colors);
+                for (auto& c : colors) c = {0, 0, 0, 1};  // as the eraser paints corrections: removes the material
+                MeshScene& s = *a->mesh;
+                if (!targets.empty() && a->renderer.BeginStrokeMulti(*a->doc, *ctx, targets)) {
+                    std::vector<Dab> dabs;
+                    const float cx = s.depth->Width() * 0.5f, cy = s.depth->Height() * 0.5f;
+                    for (int i = 0; i <= 160; ++i) dabs.push_back({cx - 200 + i * 2.5f, cy - 40 + 60 * std::sin(i * 0.05f), 26, 1});
+                    a->renderer.MeshStrokeDabsMulti(*a->doc, *ctx, s, dabs, brush, colors, false);
+                    a->renderer.EndStrokeMulti(*a->doc, *ctx, a->history, "Retouche du masque");
+                }
+                Layer* al = a->doc->ActiveLayer();
+                Log("[demo] mask corrections painted into surface %u (layer mask %u, edits %u, generator %d, editMask %d)", targets.empty() ? 0u : targets[0],
+                    al ? al->mask : 0, al ? al->maskEdit : 0, al && !al->generator.empty() ? 1 : 0, a->doc->S().editMask ? 1 : 0);
+                phase = 1;
+            } else if (phase >= 1 && phase < 30) {
+                ++phase;
+            } else if (phase == 30) {
+                // Settings change: the mask is generated again.
+                for (auto& l : a->doc->S().layers)
+                    if (l.material == mat && !l.generator.empty()) {
+                        Json g;
+                        Json::Parse(l.generator, g);
+                        g["amount"] = g["amount"].F(0.3f) + 0.1f;
+                        l.generator = g.Dump(0);
+                    }
+                Log("[demo] smart mask settings changed");
+                phase = 31;
+            } else if (phase >= 31 && phase < 60) {
+                if (++phase == 60)
+                    for (auto& l : a->doc->S().layers)
+                        if (l.material == mat && l.mask) {
+                            Surface* m = a->doc->GetSurface(l.mask);
+                            Surface* e = a->doc->GetSurface(l.maskEdit);
+                            Log("[demo] mask version %llu, edits version %llu", m ? (unsigned long long)m->version : 0ull, e ? (unsigned long long)e->version : 0ull);
+                            char dp[512] = "";
+                            if (GetEnvironmentVariableA("SX_MASKDUMP", dp, sizeof(dp)) > 0 && e && m) {
+                                exports.push_back({std::string(dp) + "_edits.png", a->renderer.ExportRGBA8(*ctx, e->tex.get()), {}});
+                                exports.push_back({std::string(dp) + "_mask.png", a->renderer.ExportRGBA8(*ctx, m->tex.get()), {}});
+                            }
+                            break;
+                        }
+            }
+        }
         static double t0 = 0;
         if (frameCounter == 11) t0 = ImGui::GetTime();
         if (frameCounter == 12) ShowSideTab(5);  // 3D tab: Calques 3D (smart mask settings)

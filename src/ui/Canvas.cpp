@@ -676,7 +676,7 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
     Document& doc = *v.doc;
     if (strokeErase || tool == Tool::Brush || tool == Tool::Eraser) {
         float4 color = strokeTargets.empty() ? PaintColor(doc) : strokeColors[0];
-        const bool maskStroke = doc.S().editInpaint;  // inpainting mask: white paints, the eraser paints black
+        const bool maskStroke = doc.S().editInpaint || doc.PaintsMaskEdits();  // inpainting mask, smart mask corrections: white paints, the eraser paints black
         if (maskStroke) color = strokeErase ? float4{0, 0, 0, 1} : float4{1, 1, 1, 1};
         const bool erase = strokeErase && !maskStroke;
         struct ApplySlots {

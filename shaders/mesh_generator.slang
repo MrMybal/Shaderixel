@@ -7,7 +7,7 @@ cbuffer Root : register(b0)
 {
     uint2 gSize;
     uint gType;      // 0 edge wear, 1 cavity dirt, 2 dust on top, 3 gradient, 4 occlusion, 5 noise, 6 thin parts, 7 full, 8 follows a layer
-    uint gFlags;     // 1 invert, 2 mesh maps bound, 4 source coverage in alpha (paint layer; else red: mask)
+    uint gFlags;     // 1 invert, 2 mesh maps bound, 4 source coverage in alpha (paint layer; else red: mask), 8 painted corrections (t4)
     float gAmount;   // 0..1: how much of the surface is covered
     float gContrast; // edge sharpness (1 soft .. 20 hard)
     float gNoise;    // noise breaking the mask (0..1)
@@ -29,6 +29,7 @@ Texture2D<float4> gPos : register(t0);
 Texture2D<float4> gNrm : register(t1);
 Texture2D<float4> gMaps : register(t2);
 Texture2D<float4> gSource : register(t3);  // layer followed (type 8), same UV space
+Texture2D<float4> gEdit : register(t4);    // painted corrections: premultiplied gray, alpha = how much they override
 RWTexture2D<float4> gOut : register(u0);
 
 float H3(float3 p)
@@ -117,5 +118,10 @@ void main(uint3 id : SV_DispatchThreadID)
     float w = 0.5 / max(gContrast, 0.5);
     float m = (gType == 7 && gNoise <= 0.0) ? 1.0 : smoothstep(t - w, t + w, v);
     if (gFlags & 1) m = 1.0 - m;
+    if (gFlags & 8)
+    {
+        float4 e = gEdit.Load(int3(px, 0));
+        m = saturate(m * (1.0 - e.a) + e.r);
+    }
     gOut[px] = float4(m, m, m, 1.0);
 }

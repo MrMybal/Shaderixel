@@ -226,6 +226,12 @@ void App::DrawView3D() {
     // Layers painted together (3D project paint layer: one per channel) and their values.
     std::vector<float4> meshColors;
     std::vector<Id> meshTargets = Paint3DTargets(*v, meshColors);
+    // Smart mask corrections: the eraser paints black (removes the material) instead of erasing them.
+    bool eraseStroke = tool == Tool::Eraser;
+    if (doc.PaintsMaskEdits()) {
+        for (auto& c : meshColors) c = eraseStroke ? float4{0, 0, 0, 1} : float4{1, 1, 1, 1};
+        eraseStroke = false;
+    }
     // Stencil: placed at the view center at first; S + drag moves it (no painting meanwhile).
     const float stH = decal.size * (float)h * 0.5f, stW = decal.h > 0 ? stH * decal.w / decal.h : stH;
     bool stencilMoving = false;
@@ -305,7 +311,7 @@ void App::DrawView3D() {
             meshLastDab = p;
             meshLazy = p;
             meshDabRemainder = 0;
-            v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, first, b, meshColors, tool == Tool::Eraser, &dabEx);
+            v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, first, b, meshColors, eraseStroke, &dabEx);
             dabEx.clear();
         }
     }
@@ -353,7 +359,7 @@ void App::DrawView3D() {
         }
         // Render first so the occlusion test uses this frame's depth.
         v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
-        if (!dabs.empty()) v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, dabs, b, meshColors, tool == Tool::Eraser, &dabEx);
+        if (!dabs.empty()) v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, dabs, b, meshColors, eraseStroke, &dabEx);
         dabEx.clear();
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || io.KeyShift) {
             v->renderer.EndStrokeMulti(doc, *ctx, v->history, "Peinture 3D");

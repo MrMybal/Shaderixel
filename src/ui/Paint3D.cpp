@@ -343,7 +343,14 @@ void App::DrawLayers3DPanel() {
         DrawProjectionEditor(*v, materialSel);
         DrawMaterialFilters(*v, materialSel);
         if (any->mask) DrawSmartMaskEditor(*v, materialSel);
-        if (any->mask) {
+        if (any->mask && !any->generator.empty() && any->maskEdit) {
+            // Smart mask: brush strokes are corrections over it (kept when it is generated again).
+            if (ImGui::SmallButton("Peindre des retouches")) SelectMaterial(d, materialSel);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Effacer les retouches"))
+                v->renderer.FillSelection(d, *ctx, &v->history, any->maskEdit, 1, {0, 0, 0, 0}, 1, "Effacer les retouches du masque", nullptr, nullptr, false);
+            ImGui::TextDisabled("Pinceau : ajoute le matériau, gomme : l'enlève.\nLes retouches restent quand le masque est recalculé.");
+        } else if (any->mask) {
             if (ImGui::SmallButton("Masque : tout")) v->renderer.FillSelection(d, *ctx, &v->history, any->mask, 0, {1, 1, 1, 1}, 1, "Remplir le masque", nullptr, nullptr, false);
             ImGui::SameLine();
             if (ImGui::SmallButton("rien")) v->renderer.FillSelection(d, *ctx, &v->history, any->mask, 0, {0, 0, 0, 1}, 1, "Vider le masque", nullptr, nullptr, false);

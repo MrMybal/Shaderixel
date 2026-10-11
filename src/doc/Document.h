@@ -155,6 +155,7 @@ struct Layer {
     Id parent = 0;            // enclosing group (0 = root)
     Id material = 0;          // material layer (one fill per PBR channel group, shared mask), 0 = none
     std::string generator;    // material layers: smart mask settings (JSON), the mask is generated from the mesh maps
+    Id maskEdit = 0;          // smart mask: painted corrections laid over the generated mask (premultiplied gray, alpha = override)
     std::string projection;   // projected material (JSON): the pixels are generated from an image projected on the model
     Id smart = 0;             // Smart layers: smart object (Document::smartObjects)
     float2 smartCorners[4];   // Smart layers: where the contents go (TL TR BR BL, document pixels)
@@ -505,6 +506,8 @@ public:
 
     // Surface that brush tools paint into (active layer / mask / surface node).
     Id PaintTarget() const;
+    // The paint target is the corrections of a smart mask: brush white (adds), eraser black (removes).
+    bool PaintsMaskEdits() const;
 
 private:
     void RebuildFromLayers();
