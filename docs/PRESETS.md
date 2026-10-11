@@ -430,6 +430,8 @@ Les modèles livrés de base sont générés par l'application (`--demo maketemp
 
 ## 5. Matériaux intelligents (Paint 3D, `.json`)
 
+Aperçu dans le menu : `thumbs/<nom>.png` à côté du `.json` (192 x 192). `ShaderixelVk.exe --demo smartthumbs` les refait pour tous les matériaux (sur un cube, dossier `SX_THUMBDIR`, par défaut `library/smartmaterials/thumbs`).
+
 Un matériau intelligent est une pile de matériaux de remplissage (du bas vers le haut) ; chacun a des valeurs PBR et un **masque intelligent** calculé à partir de la forme du modèle (cartes cuites : occlusion, convexité, concavité, épaisseur) et d'un bruit 3D sans raccord. Menu : Calques 3D > « + Intelligent ».
 
 ```json

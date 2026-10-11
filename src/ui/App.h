@@ -1429,6 +1429,11 @@ private:
     void StopTurntable();
     void PollTurntable();
     void ApplySmartMaterial(DocView& v, const Json& def);
+    std::vector<std::string> SmartMaterialDirs();
+    gpu::Texture* SmartMaterialThumb(DocView& v, const std::string& name);
+    bool DrawSmartMaterialGrid(DocView& v);
+    bool smartGridRequest = false;  // opens the smart material grid (demos)
+    std::unordered_map<std::string, gpu::TexturePtr> smartThumbs;  // previews (thumbs/<name>.png)
     const std::vector<Json>& SmartMaterials();
     void SelectMaterial(Document& d, Id material);
     void ApplyPaint3DLayout();

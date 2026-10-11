@@ -442,6 +442,95 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 93) {
+        // Previews of the smart materials (thumbs/<name>.png in SX_THUMBDIR, the repository library by default):
+        // each one applied to a sphere, the 3D view captured and cropped, its layers removed, the next one.
+        static size_t idx = 0;
+        static u64 applied = 0;
+        static gpu::ReadbackPtr rb;
+        static ImVec4 rect;
+        static std::vector<Id> before;
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.basePreset = 1;
+            p3dNew.mesh = 1;  // cube: its edges show the wear
+            p3dNew.skipPaintLayer = true;
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh) return;
+        const auto& list = SmartMaterials();
+        MeshScene& s = *a->mesh;
+        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter < 12) return;
+        if (idx >= list.size()) {
+            if (!autoQuit) { Log("[demo] smartthumbs: %zu previews", list.size()); autoQuit = true; }
+            return;
+        }
+        if (!applied) {
+            s.yaw = 0.62f;
+            s.pitch = 0.5f;
+            s.distance = 3.0f;
+            s.target = {};
+            s.quality = 1;
+            s.groundShadow = false;
+            ApplyLightingPreset(s, 1);  // studio 3 points
+            before = MaterialIds(*a->doc);
+            ApplySmartMaterial(*a, list[idx]);
+            applied = frameCounter;
+            return;
+        }
+        if (!rb && s.maps && frameCounter > applied + 30) {
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D")) rect = ImVec4(w->InnerRect.Min.x, w->InnerRect.Min.y, w->InnerRect.Max.x, w->InnerRect.Max.y);
+            rb = gpu::Dev().CaptureNextFrame();
+            return;
+        }
+        if (rb && rb->ready) {
+            // Square around the view center (the sphere), box-filtered to 192 px.
+            char dir[512] = "";
+            std::string out = GetEnvironmentVariableA("SX_THUMBDIR", dir, sizeof(dir)) > 0 ? std::string(dir) : ExeDir() + "/../../library/smartmaterials/thumbs";
+            std::error_code ec;
+            std::filesystem::create_directories(Utf8Path(out), ec);
+            const float sc = (float)rb->width / std::max(ImGui::GetIO().DisplaySize.x, 1.0f);
+            const float cx = (rect.x + rect.z) * 0.5f * sc, cy = (rect.y + rect.w) * 0.5f * sc;
+            const float side = std::min(rect.z - rect.x, rect.w - rect.y) * 0.78f * sc;
+            const int T = 192;
+            std::vector<u8> px((size_t)T * T * 4);
+            for (int y = 0; y < T; ++y)
+                for (int x = 0; x < T; ++x) {
+                    float acc[3] = {};
+                    int n = 0;
+                    for (int sy = 0; sy < 3; ++sy)
+                        for (int sx = 0; sx < 3; ++sx) {
+                            const int X = std::clamp((int)(cx - side * 0.5f + (x + (sx + 0.5f) / 3) * side / T), 0, (int)rb->width - 1);
+                            const int Y = std::clamp((int)(cy - side * 0.5f + (y + (sy + 0.5f) / 3) * side / T), 0, (int)rb->height - 1);
+                            const u8* p = &rb->data[((size_t)Y * rb->width + X) * 4];
+                            for (int c = 0; c < 3; ++c) acc[c] += p[c];
+                            ++n;
+                        }
+                    u8* o = &px[((size_t)y * T + x) * 4];
+                    for (int c = 0; c < 3; ++c) o[c] = (u8)(acc[c] / n + 0.5f);
+                    o[3] = 255;
+                }
+            const std::string name = list[idx]["name"].S("");
+            const std::string file = out + "/" + name + ".png";
+            char dbg[512] = "";
+            if (idx == 0 && GetEnvironmentVariableA("SX_THUMBDEBUG", dbg, sizeof(dbg)) > 0)
+                stbi_write_png(dbg, rb->width, rb->height, 4, rb->data.data(), rb->width * 4);  // whole frame (framing check)
+            stbi_write_png(file.c_str(), T, T, 4, px.data(), T * 4);
+            Log("[demo] smartthumbs: %s", file.c_str());
+            // Next: the layers of this material removed.
+            std::vector<Id> ids;
+            for (auto& l : a->doc->S().layers)
+                if (l.material && std::find(before.begin(), before.end(), l.material) == before.end()) ids.push_back(l.id);
+            for (Id id : ids) a->doc->RemoveLayer(id);
+            a->doc->SyncGraph();
+            rb.reset();
+            applied = 0;
+            ++idx;
+        }
+        return;
+    }
     if (demoMode == 88) {
         // Smart material SX_SMART (index, 0 by default) on SX_MESHFILE (cube otherwise): mesh maps baked, masks generated.
         char sm[8] = "0", view[8] = "0";
@@ -527,6 +616,7 @@ void App::DemoTick() {
                 Log("[demo] turntable done at frame %llu: %s", (unsigned long long)frameCounter, turntable.error.c_str());
             }
         }
+        if (frameCounter == 30 && GetEnvironmentVariableA("SX_SMARTGRID", nullptr, 0) > 0) smartGridRequest = true;
         if (GetEnvironmentVariableA("SX_SOLO", nullptr, 0) > 0 && (frameCounter == 40 || frameCounter == 70)) {
             // Solo of the second 3D layer (frame 40), then every layer again (frame 70).
             std::vector<Id> mats = MaterialIds(*a->doc);

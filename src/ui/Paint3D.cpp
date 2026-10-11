@@ -227,13 +227,10 @@ void App::DrawLayers3DPanel() {
         ImGui::EndPopup();
     }
     ImGui::SameLine();
-    if (ImGui::Button("+ Intelligent \xE2\x96\xBE")) ImGui::OpenPopup("##addsmart3d");
+    if (ImGui::Button("+ Intelligent \xE2\x96\xBE") || std::exchange(smartGridRequest, false)) ImGui::OpenPopup("##addsmart3d");
     ui::HelpTooltip("Matériau intelligent : plusieurs couches dont les masques suivent la forme du modèle\n(usure des arêtes, saleté des creux, poussière, rouille...).");
     if (ImGui::BeginPopup("##addsmart3d")) {
-        for (const Json& sm : SmartMaterials()) {
-            if (ImGui::MenuItem(sm["name"].S().c_str())) ApplySmartMaterial(*v, sm);
-            if (ImGui::IsItemHovered() && !sm["description"].S().empty()) ImGui::SetTooltip("%s", sm["description"].S().c_str());
-        }
+        if (DrawSmartMaterialGrid(*v)) ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
     }
     std::vector<Id> mats = MaterialIds(d);

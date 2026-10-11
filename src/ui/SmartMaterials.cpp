@@ -8,6 +8,7 @@
 #include "mesh/MeshBake.h"
 
 #include <imgui_stdlib.h>
+#include <stb_image.h>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -313,8 +314,7 @@ const std::vector<Json>& App::SmartMaterials() {
                          {Lay("Or", {1.0f, 0.78f, 0.34f}, 0.22f, 1, full), Lay("Patine", {0.3f, 0.22f, 0.1f}, 0.7f, 0.6f, Gen(4, 0.45f, 3, 0.25f, 8))}));
     // Library: next to the exe (package), the repository's library/smartmaterials (development builds)
     // and the user's %LOCALAPPDATA%\Shaderixel\SmartMaterials; same JSON format as Smart() above.
-    std::vector<std::string> dirs = {ExeDir() + "/smartmaterials", ExeDir() + "/../../library/smartmaterials"};
-    if (const char* la = getenv("LOCALAPPDATA")) dirs.push_back(std::string(la) + "/Shaderixel/SmartMaterials");
+    const std::vector<std::string> dirs = SmartMaterialDirs();
     std::set<std::string> names;
     for (auto& j : list) names.insert(j["name"].S());
     for (const std::string& dir : dirs) {
@@ -329,6 +329,73 @@ const std::vector<Json>& App::SmartMaterials() {
         }
     }
     return list;
+}
+
+std::vector<std::string> App::SmartMaterialDirs() {
+    // Library: next to the exe (package), the repository's library/smartmaterials (development builds), the user's folder.
+    std::vector<std::string> dirs = {ExeDir() + "/smartmaterials", ExeDir() + "/../../library/smartmaterials"};
+    if (const char* la = getenv("LOCALAPPDATA")) dirs.push_back(std::string(la) + "/Shaderixel/SmartMaterials");
+    return dirs;
+}
+
+gpu::Texture* App::SmartMaterialThumb(DocView&, const std::string& name) {
+    // Preview on a sphere: thumbs/<name>.png in a library folder (made by --demo smartthumbs), loaded once.
+    if (auto it = smartThumbs.find(name); it != smartThumbs.end()) return it->second.get();
+    gpu::TexturePtr tex;
+    for (const std::string& dir : SmartMaterialDirs()) {
+        FILE* f = nullptr;
+        if (_wfopen_s(&f, Utf8Path(dir + "/thumbs/" + name + ".png").c_str(), L"rb") != 0 || !f) continue;
+        int w = 0, h = 0, comp = 0;
+        stbi_uc* px = stbi_load_from_file(f, &w, &h, &comp, 4);
+        fclose(f);
+        if (px) {
+            // Display values as they are (the UI shows sRGB textures directly).
+            tex = gpu::Dev().CreateTexture((u32)w, (u32)h, gpu::Format::RGBA8, "SmartThumb");
+            if (tex) ctx->Upload(tex.get(), px, (u32)w * 4);
+            stbi_image_free(px);
+        }
+        break;
+    }
+    smartThumbs[name] = tex;  // missing: remembered too (name only)
+    return tex.get();
+}
+
+bool App::DrawSmartMaterialGrid(DocView& v) {
+    // Grid of the smart materials with their preview; a click applies one. True when one was applied.
+    const auto& list = SmartMaterials();
+    const float cell = 96 * dpi;
+    const int cols = 4;
+    bool applied = false;
+    if (ImGui::BeginTable("##smartgrid", cols, ImGuiTableFlags_SizingFixedSame)) {
+        for (size_t i = 0; i < list.size(); ++i) {
+            const Json& sm = list[i];
+            const std::string name = sm["name"].S("");
+            ImGui::TableNextColumn();
+            ImGui::PushID((int)i);
+            ImGui::BeginGroup();
+            const ImVec2 p = ImGui::GetCursorScreenPos();
+            if (ImGui::InvisibleButton("##sm", ImVec2(cell, cell))) {
+                ApplySmartMaterial(v, sm);
+                applied = true;
+            }
+            const bool hot = ImGui::IsItemHovered();
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            dl->AddRectFilled(p, ImVec2(p.x + cell, p.y + cell), IM_COL32(22, 22, 26, 255), 6);
+            if (gpu::Texture* t = SmartMaterialThumb(v, name))
+                dl->AddImageRounded((ImTextureID)gpu::Dev().UiTextureId(t), p, ImVec2(p.x + cell, p.y + cell), ImVec2(0, 0), ImVec2(1, 1), IM_COL32_WHITE, 6);
+            else
+                dl->AddText(ImVec2(p.x + 8, p.y + cell * 0.45f), ui::col::TextDim, "(aperçu)");
+            dl->AddRect(p, ImVec2(p.x + cell, p.y + cell), hot ? ui::col::Accent : ui::col::Border, 6, 0, hot ? 2.0f : 1.0f);
+            if (hot && !sm["description"].S("").empty()) ImGui::SetTooltip("%s\n\n%s", name.c_str(), sm["description"].S("").c_str());
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + cell);
+            ImGui::TextUnformatted(name.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::EndGroup();
+            ImGui::PopID();
+        }
+        ImGui::EndTable();
+    }
+    return applied;
 }
 
 void App::ApplySmartMaterial(DocView& v, const Json& def) {
