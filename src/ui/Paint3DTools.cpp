@@ -56,6 +56,74 @@ int App::PickMeshTriangle(MeshScene& s, float2 sp, u32 w, u32 h) {
     return best;
 }
 
+bool App::PickMeshUv(MeshScene& s, float2 sp, u32 w, u32 h, float2& uv) {
+    // UV under a view point: the nearest triangle there, its UVs interpolated (screen barycentrics).
+    const auto& V = s.data.vertices;
+    const auto& I = s.data.indices;
+    const int t = PickMeshTriangle(s, sp, w, h);
+    if (t < 0) return false;
+    float z[3];
+    const MeshVertex &A = V[I[t * 3]], &B = V[I[t * 3 + 1]], &C = V[I[t * 3 + 2]];
+    const float2 a = ToScreen(s.viewProj, A.pos, w, h, &z[0]), b = ToScreen(s.viewProj, B.pos, w, h, &z[1]), c = ToScreen(s.viewProj, C.pos, w, h, &z[2]);
+    const float area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    if (std::fabs(area) < 1e-8f) return false;
+    const float w0 = ((b.x - sp.x) * (c.y - sp.y) - (b.y - sp.y) * (c.x - sp.x)) / area;
+    const float w1 = ((c.x - sp.x) * (a.y - sp.y) - (c.y - sp.y) * (a.x - sp.x)) / area;
+    const float w2 = 1 - w0 - w1;
+    uv = A.uv * w0 + B.uv * w1 + C.uv * w2;
+    return true;
+}
+
+void App::StartMaterialPick(DocView& v, float2 sp, u32 w, u32 h) {
+    // 3D eyedropper: the channels of the project under the point, read back (one pixel each).
+    float2 uv;
+    if (!v.mesh || !PickMeshUv(*v.mesh, sp, w, h, uv)) { Status("Pipette 3D : cliquez sur le modèle"); return; }
+    Document& d = *v.doc;
+    v.renderer.EvaluateComplete(d, *ctx);
+    const int x = std::clamp((int)(uv.x * d.Width()), 0, (int)d.Width() - 1), y = std::clamp((int)(uv.y * d.Height()), 0, (int)d.Height() - 1);
+    static const PbrChannel chans[4] = {PbrChannel::BaseColor, PbrChannel::Roughness, PbrChannel::Metallic, PbrChannel::Height};
+    for (int k = 0; k < 4; ++k) {
+        gpu::Texture* t = ChannelTexture(v, chans[k]);
+        matPick.rb[k] = t ? v.renderer.ReadPixel(*ctx, t, x, y) : nullptr;
+    }
+    matPick.active = true;
+}
+
+void App::PollMaterialPick() {
+    if (!matPick.active) return;
+    for (auto& rb : matPick.rb)
+        if (rb && !rb->ready) return;
+    auto value = [](const gpu::ReadbackPtr& rb, float4& c) {
+        if (!rb) return false;
+        const auto& d = rb->data;
+        if (rb->format == gpu::Format::RGBA16F && d.size() >= 8) {
+            const u16* h = (const u16*)d.data();
+            c = {HalfToFloat(h[0]), HalfToFloat(h[1]), HalfToFloat(h[2]), HalfToFloat(h[3])};
+        } else if (rb->format == gpu::Format::RGBA32F && d.size() >= 16) {
+            memcpy(&c, d.data(), 16);
+        } else if (d.size() >= 4) {
+            c = {d[0] / 255.0f, d[1] / 255.0f, d[2] / 255.0f, d[3] / 255.0f};
+        } else {
+            return false;
+        }
+        if (c.w > 1e-5f && c.w < 0.999f) c = {c.x / c.w, c.y / c.w, c.z / c.w, 1};
+        return true;
+    };
+    float4 c;
+    std::string msg = "Pipette 3D :";
+    if (value(matPick.rb[0], c)) {
+        fg = {std::clamp(LinearToSrgb(c.x), 0.0f, 1.0f), std::clamp(LinearToSrgb(c.y), 0.0f, 1.0f), std::clamp(LinearToSrgb(c.z), 0.0f, 1.0f), 1.0f};
+        msg += " couleur";
+    }
+    // Data channels hold visual gray levels (as painted).
+    if (value(matPick.rb[1], c)) { brush3D.rough = std::clamp(LinearToSrgb(c.x), 0.0f, 1.0f); msg += ", rugosité " + std::to_string((int)std::lround(brush3D.rough * 100)) + " %"; }
+    if (value(matPick.rb[2], c)) { brush3D.metal = std::clamp(LinearToSrgb(c.x), 0.0f, 1.0f); msg += ", métal " + std::to_string((int)std::lround(brush3D.metal * 100)) + " %"; }
+    if (value(matPick.rb[3], c)) brush3D.height = std::clamp(LinearToSrgb(c.x), 0.0f, 1.0f);
+    Status(msg + " (matériau du pinceau)");
+    for (auto& rb : matPick.rb) rb.reset();
+    matPick.active = false;
+}
+
 void App::BuildMeshTopology(MeshScene& s) {
     auto& T = meshTopo;
     const auto& V = s.data.vertices;

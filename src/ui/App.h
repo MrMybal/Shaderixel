@@ -1373,7 +1373,15 @@ private:
     void UpdateProjections(DocView& v);
     void DrawProjectionEditor(DocView& v, Id material);
     void DrawMaterialFilters(DocView& v, Id material);
-    void SoloMaterial(DocView& v, Id material);
+    void SoloMaterial(DocView& v, Id material);  // Alt + click on a 3D layer's visibility
+    // 3D eyedropper: the material under a point of the 3D view goes to the brush material.
+    bool PickMeshUv(MeshScene& s, float2 sp, u32 w, u32 h, float2& uv);
+    void StartMaterialPick(DocView& v, float2 sp, u32 w, u32 h);
+    void PollMaterialPick();
+    struct {
+        gpu::ReadbackPtr rb[4];  // base color, roughness, metal, height
+        bool active = false;
+    } matPick;
     // Graph: a relay node inserted on the link src -> dst (input, channel), at graph position pos.
     void InsertRelay(DocView& v, Id src, Id dst, int input, u8 channel, float2 pos);  // Alt + click on a 3D layer's visibility
     // Texture export presets (TextureExport.cpp).

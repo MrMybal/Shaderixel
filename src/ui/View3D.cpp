@@ -408,6 +408,9 @@ void App::DrawView3D() {
             UpdateSimulation(*v, emitting && !meshTargets.empty(), local(io.MousePos.x, io.MousePos.y), w, h, meshTargets, meshColors);
         }
     }
+    // Eyedropper: the material under the cursor goes to the brush material (color, roughness, metal, height).
+    if (tool == Tool::Picker && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt)
+        StartMaterialPick(*v, local(io.MousePos.x, io.MousePos.y), w, h);
     // Polygon fill: the triangle / face / UV island / part under the cursor.
     if (tool == Tool::PolyFill && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt) {
         int tri = PickMeshTriangle(s, local(io.MousePos.x, io.MousePos.y), w, h);

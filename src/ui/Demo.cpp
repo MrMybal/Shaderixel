@@ -595,6 +595,14 @@ void App::DemoTick() {
             }
         }
         if (frameCounter == 30 && GetEnvironmentVariableA("SX_SMARTGRID", nullptr, 0) > 0) smartGridRequest = true;
+        if (GetEnvironmentVariableA("SX_PICK", nullptr, 0) > 0 && a->mesh->depth) {
+            // 3D eyedropper at the view center (frame 60), result logged at frame 70.
+            const u32 w = a->mesh->depth->Width(), h = a->mesh->depth->Height();
+            if (frameCounter == 60) StartMaterialPick(*a, float2{w * 0.5f, h * 0.5f}, w, h);
+            if (frameCounter == 70)
+                Log("[demo] picked color %.2f %.2f %.2f, rough %.2f, metal %.2f, height %.2f (%s)", fg.x, fg.y, fg.z, brush3D.rough, brush3D.metal, brush3D.height,
+                    statusMsg.c_str());
+        }
         char ssn[128] = "";
         if (frameCounter == 70 && GetEnvironmentVariableA("SX_SAVESMART", ssn, sizeof(ssn)) > 0) {
             Log("[demo] save smart material %s: %d", ssn, (int)SaveSmartMaterial(*a, ssn, "Enregistré par la démo"));
