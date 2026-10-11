@@ -222,6 +222,7 @@ void App::DrawView3D() {
         v->renderer.meshStencil = {decal.stencilPos.x, decal.stencilPos.y, stW, stH};
         const float a = decal.rotation * 0.0174533f;
         v->renderer.meshStencil2 = {std::cos(a), std::sin(a), decal.stencilInvert ? 1.0f : 0.0f, decal.stencilLuminance ? 1.0f : 0.0f};
+        v->renderer.meshStencil3 = {decal.stencilThreshold, decal.stencilContrast, 0, 0};
     } else {
         v->renderer.meshStencilOn = false;
     }

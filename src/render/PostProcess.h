@@ -28,7 +28,9 @@ public:
     // Returns the sRGB display image (RGBA8, owned by the chain).
     gpu::Texture* Run(gpu::CommandContext& ctx, gpu::Texture* src, bool accumulated, bool raw, const PostSettings& s, float time);
     // Path tracer denoiser (pt_denoise.slang) on an accumulation: linear HDR (owned by the chain), weaker as samples grow.
-    gpu::Texture* Denoise(gpu::CommandContext& ctx, gpu::Texture* accum, int samples, float strength, gpu::Texture* depth = nullptr);
+    // Guides: first-hit albedo / normal sums of the path tracer (preferred), else the depth of a raster view.
+    gpu::Texture* Denoise(gpu::CommandContext& ctx, gpu::Texture* accum, int samples, float strength, gpu::Texture* depth = nullptr,
+                          gpu::Texture* guideA = nullptr, gpu::Texture* guideN = nullptr);
 
 private:
     gpu::TexturePtr prep, out;

@@ -749,7 +749,7 @@ gpu::Texture* App::UpdateRenderState(DocView& v, PtRenderState& r, u32 w, u32 h)
         gpu::Texture* src = r.gpu.accum.get();
         bool accumulated = true;
         if (s.denoise > 0 && s.device == 0)
-            if (gpu::Texture* dn = r.post.Denoise(*ctx, src, RenderSamples(r), s.denoise, r.denoiseDepth)) {
+            if (gpu::Texture* dn = r.post.Denoise(*ctx, src, RenderSamples(r), s.denoise, r.denoiseDepth, r.gpu.guideA.get(), r.gpu.guideN.get())) {
                 src = dn;
                 accumulated = false;
             }

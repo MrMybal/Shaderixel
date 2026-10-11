@@ -47,6 +47,8 @@ void PtGpuRenderer::SetScene(std::shared_ptr<const PtScene> s) {
 void PtGpuRenderer::EnsureAccum(u32 w, u32 h) {
     if (accum && accum->Width() == w && accum->Height() == h) return;
     accum = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA32F, "PtAccum");
+    guideA = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA32F, "PtGuideAlbedo");
+    guideN = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA32F, "PtGuideNormal");
     view = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA8, "PtView");
     Reset();
 }
@@ -166,6 +168,8 @@ bool PtGpuRenderer::Render(gpu::CommandContext& ctx, const std::vector<PtMateria
     d.srv[2] = envCdf.get();
     for (int i = 0; i < 4; ++i) d.srv[3 + i] = packed[i].get();
     d.uav[0] = accum.get();
+    d.uav[1] = guideA.get();
+    d.uav[2] = guideN.get();
     d.cbData = &cb;
     d.cbSize = sizeof(cb);
     struct { u32 w, h, rowStart, pass, seed; } root = {w, h, row, (u32)samples, (u32)samples * 7919u + 17u};

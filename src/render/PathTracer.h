@@ -186,7 +186,8 @@ public:
     gpu::Texture* Tonemap(gpu::CommandContext& ctx, const PtSettings& s);
     int Samples() const { return samples; }
     u32 Row() const { return row; }
-    gpu::TexturePtr accum, view, packed[4];  // packed: base, ORM, emission, normal
+    gpu::TexturePtr accum, view, packed[4];
+    gpu::TexturePtr guideA, guideN;  // first-hit albedo / normal + distance sums (denoiser guides)  // packed: base, ORM, emission, normal
 private:
     void EnsureAccum(u32 w, u32 h);
     std::shared_ptr<const PtScene> scene;

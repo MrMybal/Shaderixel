@@ -31,6 +31,7 @@ cbuffer Paint : register(b1)
     float4 gTip;        // extent (radii covered by a variant), variant count
     float4 gStencil;    // stencil (flag 512): screen center, half size
     float4 gStencil2;   // cos, sin of its rotation, invert, use the luminance
+    float4 gStencil3;   // luminance threshold, contrast
     float4 gDabs[1024]; // screen x, y, radius px, alpha
     float4 gDabsEx[1024]; // cos, sin of the dab angle, variant
 };
@@ -51,7 +52,8 @@ float StencilAt(float2 sp)
     float2 q = float2(gStencil2.x * rel.x + gStencil2.y * rel.y, -gStencil2.y * rel.x + gStencil2.x * rel.y) / max(gStencil.zw, 1.0);
     if (any(abs(q) > 1.0)) return 1.0;
     float4 t = gDecal.SampleLevel(sLinearClamp, q * 0.5 + 0.5, 0);
-    float v = (gStencil2.w > 0.5 ? dot(t.rgb, float3(0.2126, 0.7152, 0.0722)) : 1.0) * t.a;
+    float l = gStencil2.w > 0.5 ? saturate((dot(t.rgb, float3(0.2126, 0.7152, 0.0722)) - gStencil3.x) * gStencil3.y + 0.5) : 1.0;
+    float v = l * t.a;
     return gStencil2.z > 0.5 ? 1.0 - v : v;
 }
 

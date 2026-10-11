@@ -1187,6 +1187,7 @@ private:
         bool imageColor = true;
         // Stencil (Substance-like): the image stays on screen, the brush paints through it.
         bool stencil = false, stencilInvert = false, stencilLuminance = true, stencilPlaced = false;
+        float stencilThreshold = 0.5f, stencilContrast = 2.0f;  // luminance mode: mid-tone images made black and white
         float2 stencilPos;  // view-local pixels
     } decal;
     struct PackJob {

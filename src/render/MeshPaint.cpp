@@ -258,7 +258,7 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
     Surface* sel = doc.Selection();
     struct PaintCB {
         float vp[16];
-        float4 camPos, color, tip, stencil, stencil2;
+        float4 camPos, color, tip, stencil, stencil2, stencil3;
         float4 dabs[1024];
         float4 dabsEx[1024];
     };
@@ -275,6 +275,7 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
         extraFlags |= 512u;
         cb.stencil = meshStencil;
         cb.stencil2 = meshStencil2;
+        cb.stencil3 = meshStencil3;
         decal = meshStencilTex;
     }
     const u32 sym = meshSymmetry == 1 ? 16u : meshSymmetry == 2 ? 64u : meshSymmetry == 3 ? 128u : 0u;

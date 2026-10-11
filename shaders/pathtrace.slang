@@ -42,6 +42,11 @@ Texture2D<float4> gOrm : register(t4);     // roughness, metallic (visual), occl
 Texture2D<float4> gEmis : register(t5);    // linear emission
 Texture2D<float4> gNrm : register(t6);     // tangent-space normal * 0.5 + 0.5
 RWTexture2D<float4> gAccum : register(u0);
+RWTexture2D<float4> gGuideA : register(u1);  // sum of the first-hit albedo (denoiser guide)
+RWTexture2D<float4> gGuideN : register(u2);  // sum of the first-hit normal, w: hit distance
+
+static float3 sHitAlbedo, sHitNormal;
+static float sHitDist;
 
 static const float PI = 3.14159265;
 static const float kFar = 1e30;
@@ -410,6 +415,13 @@ float3 Radiance(float3 o, float3 d, inout uint rng)
             su.ng = -su.ng;
         }
         if (dot(su.n, wo) <= 0) su.n = normalize(su.n + su.ng * (0.01 - dot(su.n, wo)));
+        if (bounce == 0)
+        {
+            // Metals reflect their color, dielectrics diffuse it; glass shows what is behind.
+            sHitAlbedo = su.transmission > 0.5 ? float3(1, 1, 1) : lerp(su.base, max(su.base, 0.04), su.metal);
+            sHitNormal = su.n;
+            sHitDist = h.t;
+        }
         if (Lum(su.emission) > 0) L += Clamped(beta * su.emission, bounce);
 
         // Rough dielectric: reflect or refract through a sampled microfacet.
@@ -572,8 +584,15 @@ void main(uint3 id : SV_DispatchThreadID)
         org += normalize(gCamRight.xyz) * (r * cos(ph)) + normalize(gCamUp.xyz) * (r * sin(ph));
         dir = normalize(focus - org);
     }
+    sHitAlbedo = float3(1, 1, 1);
+    sHitNormal = float3(0, 0, 0);
+    sHitDist = 1e4;
     float3 c = Radiance(org, dir, rng);
     if (any(isnan(c)) || any(isinf(c))) c = 0;
     float4 prev = gPass == 0 ? float4(0, 0, 0, 0) : gAccum[p];
     gAccum[p] = prev + float4(c, 1.0);
+    float4 ga = gPass == 0 ? float4(0, 0, 0, 0) : gGuideA[p];
+    float4 gn = gPass == 0 ? float4(0, 0, 0, 0) : gGuideN[p];
+    gGuideA[p] = ga + float4(sHitAlbedo, 1.0);
+    gGuideN[p] = gn + float4(sHitNormal, min(sHitDist, 1e4));
 }
