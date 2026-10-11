@@ -277,6 +277,11 @@ public:
         bool invert = false;
         float amount = 0.5f, contrast = 4, noise = 0.3f, noiseScale = 6, seed = 0;
         float4 dir = {0, 1, 0, 0};
+        // Type 8 (follows a layer): its coverage (alpha of a paint layer, red of a mask), mode, blur radius (texels).
+        gpu::Texture* source = nullptr;
+        bool sourceAlpha = false;
+        int anchorMode = 0;
+        float anchorRadius = 8;
     };
     bool MeshGenerate(Document& doc, gpu::CommandContext& ctx, MeshScene& s, Id surface, const MeshGenParams& p);
     // Projected material: `image` projected triplanar on the model into `surface` (shaders/mesh_triplanar.slang).

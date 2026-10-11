@@ -6,8 +6,8 @@
 cbuffer Root : register(b0)
 {
     uint2 gSize;
-    uint gType;      // 0 edge wear, 1 cavity dirt, 2 dust on top, 3 gradient, 4 occlusion, 5 noise, 6 thin parts, 7 full
-    uint gFlags;     // 1 invert, 2 mesh maps bound
+    uint gType;      // 0 edge wear, 1 cavity dirt, 2 dust on top, 3 gradient, 4 occlusion, 5 noise, 6 thin parts, 7 full, 8 follows a layer
+    uint gFlags;     // 1 invert, 2 mesh maps bound, 4 source coverage in alpha (paint layer; else red: mask)
     float gAmount;   // 0..1: how much of the surface is covered
     float gContrast; // edge sharpness (1 soft .. 20 hard)
     float gNoise;    // noise breaking the mask (0..1)
@@ -22,11 +22,13 @@ cbuffer Gen : register(b1)
     float4 gDir;        // dust / gradient direction (object space)
     float4 gBoundsMin;
     float4 gBoundsMax;
+    float4 gAnchor;     // follows a layer: mode (0 inside, 1 border, 2 around, 3 outside), radius (texels)
 };
 
 Texture2D<float4> gPos : register(t0);
 Texture2D<float4> gNrm : register(t1);
 Texture2D<float4> gMaps : register(t2);
+Texture2D<float4> gSource : register(t3);  // layer followed (type 8), same UV space
 RWTexture2D<float4> gOut : register(u0);
 
 float H3(float3 p)
@@ -47,6 +49,36 @@ float Fbm3(float3 p)
     float s = 0.0, a = 0.5;
     for (int i = 0; i < 5; ++i) { s += N3(p) * a; p = p * 2.02 + 7.3; a *= 0.5; }
     return s / 0.97;
+}
+
+float Src(float2 uv)
+{
+    float4 c = gSource.SampleLevel(sLinearClamp, uv, 0);
+    return saturate((gFlags & 4) ? c.a : c.r);
+}
+
+// Layer followed (Substance anchor-like): its coverage blurred over `radius` texels.
+float Anchor(float2 uv, float noise)
+{
+    const float c = Src(uv);
+    float b = c;
+    const float r = gAnchor.y;
+    if (r > 0.5)
+    {
+        float acc = c;
+        const int N = 32;
+        for (int i = 1; i <= N; ++i)
+        {
+            float a = i * 2.3999632, rr = sqrt(i / (float)N) * r;
+            acc += Src(uv + float2(cos(a), sin(a)) * rr / float2(gSize));
+        }
+        b = acc / (N + 1);
+    }
+    const int mode = (int)(gAnchor.x + 0.5);
+    if (mode == 1) return saturate(1.0 - abs(b * 2.0 - 1.0));  // band across the edge of the paint
+    if (mode == 2) return saturate(b * 2.0) * (1.0 - c);       // halo around it (not on it)
+    if (mode == 3) return 1.0 - b;                             // everywhere else
+    return b;                                                  // on it (softened)
 }
 
 [numthreads(8, 8, 1)]
@@ -77,6 +109,7 @@ void main(uint3 id : SV_DispatchThreadID)
     case 4: base = 1.0 - maps.r; break;
     case 5: base = noise; break;
     case 6: base = 1.0 - maps.a; break;
+    case 8: base = Anchor(uv, noise); break;
     default: base = 1.0; break;
     }
     float v = base + (noise - 0.5) * 2.0 * gNoise;

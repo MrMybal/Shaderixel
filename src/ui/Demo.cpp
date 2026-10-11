@@ -617,6 +617,27 @@ void App::DemoTick() {
         if (frameCounter == 75) io.AddMouseButtonEvent(0, false);
         if (frameCounter == 78) Log("[demo] polyfill part: %s", statusMsg.c_str());
         if (frameCounter == 80) io.AddMousePosEvent(c.x + span * 0.2f, c.y - span * 0.2f);  // hover highlight shown in the capture
+        char an[8] = "";
+        if (frameCounter == 82 && GetEnvironmentVariableA("SX_ANCHOR", an, sizeof(an)) > 0) {
+            // A material following the painted layer (SX_ANCHOR: 0 on, 1 border, 2 around, 3 elsewhere).
+            Layer* al = a->doc->ActiveLayer();
+            const Id src = al ? al->material : 0;
+            const float3 col = {0.45f, 0.2f, 0.06f};
+            const float rough = 0.9f;
+            if (Id m = AddMaterialLayerValues(*a, "Suit la peinture", &col, &rough, nullptr, nullptr, false)) {
+                Json g = Json::Object();
+                g["type"] = 8;
+                g["source"] = (int)src;
+                g["anchor"] = atoi(an);
+                g["radius"] = 40.0f;
+                g["amount"] = 0.5f;
+                g["contrast"] = 4.0f;
+                g["noise"] = 0.25f;
+                g["scale"] = 12.0f;
+                for (auto& x : a->doc->S().layers) if (x.material == m) x.generator = g.Dump(0);
+                Log("[demo] anchor layer %u follows %u (mode %s)", m, src, an);
+            }
+        }
         return;
     }
     if (demoMode == 86) {

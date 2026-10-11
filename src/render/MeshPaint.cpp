@@ -426,15 +426,18 @@ bool Renderer::MeshGenerate(Document& doc, gpu::CommandContext& ctx, MeshScene& 
     struct Root {
         u32 w, h, type, flags;
         float amount, contrast, noise, noiseScale, seed, blur, pad[2];
-    } root = {W, H, (u32)p.type, (p.invert ? 1u : 0u) | (s.maps ? 2u : 0u), p.amount, p.contrast, p.noise, p.noiseScale, p.seed, 0, {0, 0}};
+    } root = {W, H, (u32)p.type, (p.invert ? 1u : 0u) | (s.maps ? 2u : 0u) | (p.sourceAlpha ? 4u : 0u), p.amount, p.contrast, p.noise, p.noiseScale, p.seed, 0, {0, 0}};
     struct Gen {
-        float4 dir, bmin, bmax;
-    } gen = {{p.dir.x, p.dir.y, p.dir.z, 0}, {s.data.boundsMin.x, s.data.boundsMin.y, s.data.boundsMin.z, 0}, {s.data.boundsMax.x, s.data.boundsMax.y, s.data.boundsMax.z, 0}};
+        float4 dir, bmin, bmax, anchor;
+    } gen = {{p.dir.x, p.dir.y, p.dir.z, 0}, {s.data.boundsMin.x, s.data.boundsMin.y, s.data.boundsMin.z, 0}, {s.data.boundsMax.x, s.data.boundsMax.y, s.data.boundsMax.z, 0},
+             {(float)p.anchorMode, p.anchorRadius * (float)W / 2048.0f, 0, 0}};
+    if (p.type == 8 && !p.source) return false;
     gpu::DispatchDesc d;
     d.pipeline = k;
     d.srv[0] = s.posMap.get();
     d.srv[1] = s.nrmMap.get();
     d.srv[2] = s.maps.get();
+    d.srv[3] = p.source;
     d.uav[0] = sf->tex.get();
     memcpy(d.constants, &root, sizeof(root));
     d.numConstants = sizeof(root) / 4;

@@ -65,10 +65,35 @@ void MaterialPresetValues(int i, float3& color, float& rough, float& metal, floa
 }
 
 std::vector<Id> App::MaterialIds(Document& d) {
+    // Top-down stacking order. Layers do not all drive the same channels: the order of each
+    // channel group (base color first) is merged, a layer missing from one group placed by its neighbors.
     std::vector<Id> ids;
+    auto has = [&](Id m) { return std::find(ids.begin(), ids.end(), m) != ids.end(); };
+    static const PbrChannel order[] = {PbrChannel::BaseColor, PbrChannel::Roughness, PbrChannel::Metallic, PbrChannel::Height,
+                                       PbrChannel::Normal, PbrChannel::Emissive, PbrChannel::Occlusion};
+    for (PbrChannel c : order) {
+        const Id g = FindChannelGroup(d, c);
+        if (!g) continue;
+        std::vector<Id> in;  // top-down in this group
+        for (int i = (int)d.S().layers.size() - 1; i >= 0; --i) {
+            const Layer& l = d.S().layers[i];
+            if (l.parent == g && l.material && std::find(in.begin(), in.end(), l.material) == in.end()) in.push_back(l.material);
+        }
+        for (size_t k = 0; k < in.size(); ++k) {
+            if (has(in[k])) continue;
+            size_t at = ids.size();
+            bool placed = false;
+            for (size_t j = k; j-- > 0;)  // after the nearest layer above it that is already placed
+                if (auto it = std::find(ids.begin(), ids.end(), in[j]); it != ids.end()) { at = (size_t)(it - ids.begin()) + 1; placed = true; break; }
+            if (!placed)
+                for (size_t j = k + 1; j < in.size(); ++j)  // else before the nearest one below it
+                    if (auto it = std::find(ids.begin(), ids.end(), in[j]); it != ids.end()) { at = (size_t)(it - ids.begin()); break; }
+            ids.insert(ids.begin() + at, in[k]);
+        }
+    }
     for (int i = (int)d.S().layers.size() - 1; i >= 0; --i) {
         Id m = d.S().layers[i].material;
-        if (m && std::find(ids.begin(), ids.end(), m) == ids.end()) ids.push_back(m);
+        if (m && !has(m)) ids.push_back(m);
     }
     return ids;
 }

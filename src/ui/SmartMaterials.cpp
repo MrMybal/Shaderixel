@@ -16,7 +16,7 @@ namespace sx {
 
 namespace {
 
-const char* kGenTypes = "Aucun (masque peint)\0Usure des arêtes\0Saleté des creux\0Poussière (dessus)\0Dégradé\0Occlusion\0Bruit\0Parties fines\0Plein\0";
+const char* kGenTypes = "Aucun (masque peint)\0Usure des arêtes\0Saleté des creux\0Poussière (dessus)\0Dégradé\0Occlusion\0Bruit\0Parties fines\0Plein\0Suit un calque\0";
 // Types that read the baked mesh maps.
 bool NeedsMaps(int type) { return type == 0 || type == 1 || type == 4 || type == 6; }
 
@@ -35,6 +35,8 @@ Renderer::MeshGenParams GenFromJson(const Json& g) {
     p.noiseScale = g["scale"].F(6);
     p.seed = g["seed"].F(0);
     { float3 dd = DirOf(g["dir"].I(0)); p.dir = {dd.x, dd.y, dd.z, 0}; }
+    p.anchorMode = g["anchor"].I(0);
+    p.anchorRadius = g["radius"].F(8);
     return p;
 }
 
@@ -129,7 +131,25 @@ void App::UpdateSmartMasks(DocView& v) {
             if (!mapsBake.running) StartMeshMapsBake(v);
             continue;
         }
-        const std::string sig = l.generator + "|" + std::to_string(s.mapsRev) + "|" + std::to_string(s.revision) + "|" + std::to_string(s.posMap->Width());
+        std::string sig = l.generator + "|" + std::to_string(s.mapsRev) + "|" + std::to_string(s.revision) + "|" + std::to_string(s.posMap->Width());
+        if (p.type == 8) {
+            // Follows another 3D layer: regenerated when its pixels change.
+            const Id src = (Id)g["source"].I(0);
+            Surface* ss = nullptr;
+            if (src && src != l.material) {
+                if (IsPaintLayer3D(d, src)) {
+                    Layer* bc = MaterialChannelLayer(d, src, PbrChannel::BaseColor);
+                    if (!bc) bc = AnyMaterialLayer(d, src);
+                    if (bc && bc->surface) ss = d.GetSurface(bc->surface);
+                    p.sourceAlpha = true;
+                } else if (Layer* a = AnyMaterialLayer(d, src); a && a->mask) {
+                    ss = d.GetSurface(a->mask);
+                }
+            }
+            if (!ss) continue;
+            p.source = ss->tex.get();
+            sig += "|" + std::to_string(src) + ":" + std::to_string(ss->version);
+        }
         auto it = smartMaskDone.find(l.mask);
         if (it != smartMaskDone.end() && it->second == sig) continue;
         if (v.renderer.MeshGenerate(d, *ctx, s, l.mask, p)) smartMaskDone[l.mask] = sig;
@@ -153,7 +173,7 @@ void App::DrawSmartMaskEditor(DocView& v, Id material) {
         else {
             const int t = sel - 1;
             // Sensible starting values per kind.
-            static const float amounts[] = {0.25f, 0.4f, 0.35f, 0.5f, 0.5f, 0.5f, 0.3f, 1.0f};
+            static const float amounts[] = {0.25f, 0.4f, 0.35f, 0.5f, 0.5f, 0.5f, 0.3f, 1.0f, 0.5f};
             if (!g.Has("amount") || cg["type"].I(-1) != t) g = Gen(t, amounts[t], 5, t == 5 ? 0.0f : 0.3f, 6);
             g["type"] = t;
         }
@@ -172,6 +192,28 @@ void App::DrawSmartMaskEditor(DocView& v, Id material) {
         slider("Bruit", "noise", 0.3f, 0, 1, "%.2f");
         slider("Échelle", "scale", 6, 0.5f, 40, "%.1f");
         slider("Graine", "seed", 0, 0, 100, "%.0f");
+        if (t == 8) {
+            // Layer followed: another 3D layer (paint or material with a mask).
+            const Id src = (Id)cg["source"].I(0);
+            std::string cur = "(choisir)";
+            if (Layer* a = src ? AnyMaterialLayer(d, src) : nullptr) cur = a->name;
+            ImGui::SetNextItemWidth(-90 * dpi);
+            if (ImGui::BeginCombo("Calque suivi", cur.c_str())) {
+                for (Id m : MaterialIds(d)) {
+                    if (m == material) continue;
+                    Layer* a = AnyMaterialLayer(d, m);
+                    if (!a || (!IsPaintLayer3D(d, m) && !a->mask)) continue;
+                    if (ImGui::Selectable(a->name.c_str(), m == src)) { g["source"] = (int)m; changed = true; }
+                }
+                ImGui::EndCombo();
+            }
+            ui::HelpTooltip("Le masque suit ce que contient ce calque (sa peinture ou son masque) : il se met à jour quand on y peint.");
+            int mode = cg["anchor"].I(0);
+            ImGui::SetNextItemWidth(-90 * dpi);
+            if (ImGui::Combo("Placement", &mode, "Dessus\0Bord\0Autour\0Ailleurs\0")) { g["anchor"] = mode; changed = true; }
+            ui::HelpTooltip("Dessus : sur la peinture du calque suivi.  Bord : une bande à sa limite (usure, écaillage).\nAutour : un halo juste à côté (rouille autour d'une rayure).  Ailleurs : partout sauf dessus.");
+            slider("Rayon", "radius", 8, 0, 64, "%.0f px");
+        }
         if (t == 2 || t == 3) {
             int dir = cg["dir"].I(0);
             ImGui::SetNextItemWidth(-90 * dpi);
@@ -206,11 +248,38 @@ const std::vector<Json>& App::SmartMaterials() {
     static bool loaded = false;
     if (loaded) return list;
     loaded = true;
-    // Mask types: 0 edge wear, 1 cavity dirt, 2 dust, 3 gradient, 4 occlusion, 5 noise, 6 thin parts, 7 full.
+    // Mask types: 0 edge wear, 1 cavity dirt, 2 dust, 3 gradient, 4 occlusion, 5 noise, 6 thin parts, 7 full, 8 follows a layer.
     const Json full = Gen(7, 1, 4, 0, 6);
+    auto follow = [](int rel, int mode, float radius, float amount, float noise) {
+        Json g = Gen(8, amount, 4, noise, 14);
+        g["follow"] = rel;
+        g["anchor"] = mode;
+        g["radius"] = radius;
+        return g;
+    };
     list.push_back(Smart("Métal peint usé", "Peinture écaillée sur les arêtes, métal apparent, saleté dans les creux.",
                          {Lay("Métal", {0.56f, 0.57f, 0.58f}, 0.45f, 1, full), Lay("Peinture", {0.62f, 0.09f, 0.07f}, 0.38f, 0, Gen(0, 0.22f, 7, 0.45f, 9, true)),
                           Lay("Saleté", {0.17f, 0.13f, 0.09f}, 0.95f, 0, Gen(1, 0.35f, 3, 0.35f, 7))}));
+    list.push_back(Smart("Acier peint écaillé", "Peinture bleue écaillée sur les arêtes, rouille qui s'insinue au bord des éclats, saleté dans les creux.",
+                         {Lay("Acier", {0.55f, 0.56f, 0.57f}, 0.4f, 1, full), Lay("Peinture", {0.08f, 0.2f, 0.42f}, 0.42f, 0, Gen(0, 0.25f, 8, 0.5f, 10, true)),
+                          Lay("Rouille au bord des éclats", {0.4f, 0.17f, 0.05f}, 0.85f, 0.1f, follow(-1, 1, 6, 0.55f, 0.35f), 0.5f),
+                          Lay("Saleté", {0.15f, 0.12f, 0.08f}, 0.95f, 0, Gen(1, 0.3f, 3, 0.35f, 7))}));
+    list.push_back(Smart("Cuir patiné", "Cuir brun, assombri et lustré dans les creux, éclairci et mat sur les arêtes usées.",
+                         {Lay("Cuir", {0.24f, 0.12f, 0.06f}, 0.6f, 0, Gen(7, 1, 4, 0, 6)), Lay("Patine des creux", {0.1f, 0.05f, 0.025f}, 0.4f, 0, Gen(1, 0.45f, 2, 0.4f, 9), 0.45f),
+                          Lay("Usure claire", {0.42f, 0.27f, 0.15f}, 0.8f, 0, Gen(0, 0.3f, 3, 0.5f, 12))}));
+    list.push_back(Smart("Béton taché", "Béton gris, coulures sombres vers le bas, mousse claire sur le dessus, salissures dans les creux.",
+                         {Lay("Béton", {0.42f, 0.41f, 0.39f}, 0.92f, 0, Gen(7, 1, 4, 0, 6), 0.5f), Lay("Coulures", {0.2f, 0.19f, 0.17f}, 0.85f, 0, Gen(3, 0.4f, 2, 0.6f, 4, false, 1)),
+                          Lay("Dépôt clair", {0.6f, 0.6f, 0.55f}, 0.95f, 0, Gen(2, 0.25f, 4, 0.5f, 8)), Lay("Saleté", {0.13f, 0.12f, 0.1f}, 0.95f, 0, Gen(1, 0.35f, 3, 0.3f, 7))}));
+    list.push_back(Smart("Céramique ébréchée", "Émail blanc brillant, éclats sur les arêtes qui montrent la terre cuite, bordés d'une fine ligne sombre.",
+                         {Lay("Terre cuite", {0.55f, 0.3f, 0.18f}, 0.85f, 0, Gen(7, 1, 4, 0, 6), 0.45f), Lay("Émail", {0.85f, 0.85f, 0.82f}, 0.08f, 0, Gen(0, 0.15f, 12, 0.55f, 14, true), 0.55f),
+                          Lay("Bord des éclats", {0.16f, 0.12f, 0.1f}, 0.5f, 0, follow(-1, 1, 3, 0.6f, 0.2f))}));
+    list.push_back(Smart("Jouet en plastique peint", "Plastique rouge brillant, peinture jaune écaillée sur les arêtes, poussière dans les creux.",
+                         {Lay("Plastique", {0.7f, 0.06f, 0.05f}, 0.25f, 0, Gen(7, 1, 4, 0, 6)), Lay("Peinture jaune", {0.85f, 0.65f, 0.05f}, 0.35f, 0, Gen(0, 0.35f, 10, 0.5f, 8, true)),
+                          Lay("Plastique apparent", {0.75f, 0.72f, 0.68f}, 0.5f, 0, follow(-1, 1, 4, 0.5f, 0.2f)),
+                          Lay("Poussière", {0.45f, 0.42f, 0.38f}, 1.0f, 0, Gen(1, 0.3f, 3, 0.4f, 8))}));
+    list.push_back(Smart("Fer forgé noirci", "Fer presque noir, arêtes polies brillantes par l'usage, rouille autour des parties polies.",
+                         {Lay("Fer noirci", {0.06f, 0.06f, 0.065f}, 0.7f, 0.8f, Gen(7, 1, 4, 0, 6)), Lay("Arêtes polies", {0.6f, 0.6f, 0.6f}, 0.25f, 1, Gen(0, 0.2f, 6, 0.3f, 10)),
+                          Lay("Rouille", {0.36f, 0.15f, 0.05f}, 0.9f, 0, follow(-1, 2, 18, 0.65f, 0.5f), 0.55f)}));
     list.push_back(Smart("Fer rouillé", "Fer brut, rouille dans les creux et par plaques.",
                          {Lay("Fer", {0.5f, 0.5f, 0.52f}, 0.55f, 1, full), Lay("Rouille des creux", {0.42f, 0.19f, 0.07f}, 0.9f, 0.1f, Gen(1, 0.5f, 3, 0.5f, 6), 0.55f),
                           Lay("Plaques de rouille", {0.5f, 0.24f, 0.09f}, 0.85f, 0.15f, Gen(5, 0.3f, 4, 0, 3), 0.53f)}));
@@ -256,6 +325,7 @@ const std::vector<Json>& App::SmartMaterials() {
 void App::ApplySmartMaterial(DocView& v, const Json& def) {
     v.history.BeginGroup();
     Id last = 0;
+    std::vector<Id> made;
     for (const Json& l : def["layers"].Elements()) {
         float3 col;
         const Json& c = l["color"];
@@ -267,8 +337,15 @@ void App::ApplySmartMaterial(DocView& v, const Json& def) {
         Id mat = AddMaterialLayerValues(v, l["name"].S("Couche"), hasC ? &col : nullptr, l.Has("rough") ? &r : nullptr, l.Has("metal") ? &m : nullptr,
                                         l.Has("height") ? &h : nullptr, full);
         if (!mat) continue;
+        made.push_back(mat);
         if (!full) {
-            const std::string text = mask.Dump(0);
+            Json mk = mask;
+            if (mk["type"].I(0) == 8 && mk.Has("follow")) {
+                // Follows an earlier layer of this smart material (-1: the one just below).
+                const int k = (int)made.size() - 1 + mk["follow"].I(-1);
+                mk["source"] = k >= 0 && k + 1 < (int)made.size() ? (int)made[k] : 0;
+            }
+            const std::string text = mk.Dump(0);
             for (auto& x : v.doc->S().layers) if (x.material == mat) x.generator = text;
         }
         last = mat;

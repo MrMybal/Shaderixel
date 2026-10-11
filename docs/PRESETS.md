@@ -452,15 +452,18 @@ Un matériau intelligent est une pile de matériaux de remplissage (du bas vers 
 | `color` | couleur de base sRGB 0..1 (absente : la couche ne touche pas la couleur) |
 | `rough`, `metal` | 0..1 (absente : canal non touché) |
 | `height` | 0..1, 0.5 = neutre (optionnelle) |
-| `mask.type` | 0 usure des arêtes, 1 saleté des creux, 2 poussière (dessus), 3 dégradé, 4 occlusion, 5 bruit, 6 parties fines, 7 plein |
+| `mask.type` | 0 usure des arêtes, 1 saleté des creux, 2 poussière (dessus), 3 dégradé, 4 occlusion, 5 bruit, 6 parties fines, 7 plein, 8 suit une couche |
 | `mask.amount` | part de la surface couverte (0..1) |
 | `mask.contrast` | netteté du bord (0.5 doux .. 20 net) |
 | `mask.noise`, `mask.scale` | bruit 3D qui casse le bord (0..1) et sa fréquence (le modèle fait environ 2 unités) |
 | `mask.seed` | variante du bruit |
 | `mask.invert` | `true` : inverse (ex. une peinture partout **sauf** sur les arêtes) |
 | `mask.dir` | types 2 et 3 : 0 haut, 1 bas, 2 +X, 3 -X, 4 +Z, 5 -Z |
+| `mask.follow` | type 8 : couche suivie, relative (-1 : celle juste en dessous dans ce matériau, -2 : la précédente...) |
+| `mask.anchor` | type 8 : 0 dessus, 1 bord (bande à la limite de la couche suivie), 2 autour (halo à côté, pas dessus), 3 ailleurs |
+| `mask.radius` | type 8 : largeur du flou / de la bande, en pixels pour une texture 2048 |
 
-Conseils : une couche de base `type 7` (plein, `noise 0`) ; « peinture usée » = couche peinture avec `type 0` + `invert` au-dessus d'un métal ; la saleté et la rouille en `type 1`, la poussière en `type 2`, la mousse en `type 3` (`dir` 1, bas) plus `type 1`.
+Conseils : une couche de base `type 7` (plein, `noise 0`) ; « peinture usée » = couche peinture avec `type 0` + `invert` au-dessus d'un métal ; la saleté et la rouille en `type 1`, la poussière en `type 2`, la mousse en `type 3` (`dir` 1, bas) plus `type 1`. Une couche `type 8` suit la couche du dessous : `"follow": -1, "anchor": 1` met de la rouille au bord des éclats de peinture, `"anchor": 2` un halo autour (voir « Acier peint écaillé »).
 
 Les pinceaux de la catégorie `Texture 3D` (`shaders/brushes/sx3d_*.slang`) suivent le format des pinceaux (`Tip(Brush b)`, voir `shaders/brush_common.slang`) : leur forme est projetée sur le modèle en 3D (8 variantes par la graine `b.seed`).
 
