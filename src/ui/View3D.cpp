@@ -158,7 +158,7 @@ void App::DrawView3D() {
         ImGui::TextDisabled("%s", info);
         ImGui::SameLine();
         ImGui::TextDisabled("(?)");
-        ui::HelpTooltip("Clic droit / Alt+clic : orbite   Molette : zoom   Clic molette : déplacer\nPinceau / gomme : peindre sur le modèle");
+        ui::HelpTooltip("Clic droit / Alt+clic : orbite   Molette : zoom   Clic molette : déplacer\nMaj + clic droit : tourner l'éclairage (HDRI et lumières)\nPinceau / gomme : peindre sur le modèle");
     }
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4 * dpi);
     ImVec2 origin = ImGui::GetCursorScreenPos();
@@ -179,7 +179,26 @@ void App::DrawView3D() {
 
     // Camera
     bool orbit = ImGui::IsItemActive() && (ImGui::IsMouseDown(ImGuiMouseButton_Right) || (io.KeyAlt && ImGui::IsMouseDown(ImGuiMouseButton_Left)));
-    if (orbit) {
+    if (orbit && io.KeyShift && ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+        // Shift + right drag (Substance-like): the lighting turns around the model, not the camera.
+        const float a = io.MouseDelta.x * 0.01f;
+        if (a != 0) {
+            if (s.lightFollow) {
+                // The key light leaves the camera where it is, then turns.
+                const float3 l = s.KeyLightDir();
+                s.lightYaw = std::atan2(l.x, -l.z);
+                s.lightPitch = std::asin(std::clamp(l.y, -1.0f, 1.0f));
+                s.lightFollow = false;
+            }
+            s.lightYaw += a;
+            s.envRotation += a;
+            for (auto& x : s.lights)
+                if (!x.follow) x.yaw += a;
+            char b[64];
+            snprintf(b, sizeof(b), "Éclairage : %.0f°", std::remainder(s.lightYaw * 57.29578f, 360.0f));
+            statusMsg = b;
+        }
+    } else if (orbit) {
         s.yaw -= io.MouseDelta.x * 0.008f;
         s.pitch += io.MouseDelta.y * 0.008f;
     }

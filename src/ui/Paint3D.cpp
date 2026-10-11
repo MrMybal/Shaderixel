@@ -263,11 +263,25 @@ void App::DrawLayers3DPanel() {
         ImGui::PushID((int)m);
         bool vis = any->visible;
         if (ImGui::Checkbox("##vis", &vis)) {
-            Edit e(d, v->history, "Visibilité du calque 3D");
-            for (auto& l : d.S().layers) if (l.material == m) l.visible = vis;
-            d.SyncGraph();
-            e.Commit();
+            if (ImGui::GetIO().KeyAlt) {
+                // Solo: only this 3D layer shown; again on the solo layer: every layer shown.
+                bool solo = any->visible;
+                for (Id o : mats)
+                    if (o != m)
+                        if (Layer* ol = AnyMaterialLayer(d, o); ol && ol->visible) solo = false;
+                Edit e(d, v->history, solo ? "Afficher tous les calques 3D" : "Calque 3D seul");
+                for (auto& l : d.S().layers)
+                    if (l.material) l.visible = solo || l.material == m;
+                d.SyncGraph();
+                e.Commit();
+            } else {
+                Edit e(d, v->history, "Visibilité du calque 3D");
+                for (auto& l : d.S().layers) if (l.material == m) l.visible = vis;
+                d.SyncGraph();
+                e.Commit();
+            }
         }
+        ui::HelpTooltip("Afficher / masquer le calque 3D\nAlt + clic : lui seul (encore : tous)");
         ImGui::SameLine();
         // Thumbnail: base color layer (paint) or swatch (fill).
         ImVec2 sp = ImGui::GetCursorScreenPos();

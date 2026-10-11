@@ -527,6 +527,24 @@ void App::DemoTick() {
                 Log("[demo] turntable done at frame %llu: %s", (unsigned long long)frameCounter, turntable.error.c_str());
             }
         }
+        if (GetEnvironmentVariableA("SX_LIGHTSPIN", nullptr, 0) > 0) {
+            // Shift + right drag on the 3D view: the lighting turns (synthetic events).
+            ImGuiIO& io = ImGui::GetIO();
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D")) {
+                const ImVec2 c((w->InnerRect.Min.x + w->InnerRect.Max.x) * 0.5f, (w->InnerRect.Min.y + w->InnerRect.Max.y) * 0.5f + 60);
+                if (frameCounter == 60) {
+                    io.AddMousePosEvent(c.x, c.y);
+                    io.AddKeyEvent(ImGuiMod_Shift, true);
+                }
+                if (frameCounter == 62) io.AddMouseButtonEvent(1, true);
+                if (frameCounter > 62 && frameCounter <= 92) io.AddMousePosEvent(c.x + (frameCounter - 62) * 8.0f, c.y);
+                if (frameCounter == 94) {
+                    io.AddMouseButtonEvent(1, false);
+                    io.AddKeyEvent(ImGuiMod_Shift, false);
+                }
+                if (frameCounter == 96) Log("[demo] light spin: yaw %.1f deg, follow %d, camera yaw %.2f", a->mesh->lightYaw * 57.29578f, a->mesh->lightFollow ? 1 : 0, a->mesh->yaw);
+            }
+        }
         if (GetEnvironmentVariableA("SX_MASKEDIT", nullptr, 0) > 0 && a->mesh->maps) {
             // Corrections painted over a smart mask (layer SX_MASKLAYER, "Peinture" by default): a black
             // stroke removes it, then its settings change and the mask is generated again (the stroke stays).
