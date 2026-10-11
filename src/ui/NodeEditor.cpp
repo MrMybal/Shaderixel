@@ -357,7 +357,10 @@ void App::DrawNodeEditor() {
     ImVec2 size = ImGui::GetContentRegionAvail();
     if (size.x < 10 || size.y < 10) { ImGui::End(); return; }
     ImGui::InvisibleButton("##graph", size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
-    const bool hovered = ImGui::IsItemHovered();
+    // The minimap (drawn at the end) takes the clicks over it.
+    const bool overMinimap = showMinimap && g.nodes.size() > 1 &&
+                             ImGui::IsMouseHoveringRect(ImVec2(origin.x + size.x - 210 * dpi, origin.y + size.y - 140 * dpi), ImVec2(origin.x + size.x, origin.y + size.y));
+    const bool hovered = ImGui::IsItemHovered() && !overMinimap && !ed.minimapDrag;
     const bool focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
     graphFocused = focused;
     ImDrawList* dl = ImGui::GetWindowDrawList();
@@ -982,8 +985,23 @@ void App::DrawNodeEditor() {
             DocState before = d.S();
             Id nid = picked->make(d, ed.contextPos);
             if (Node* nn = g.Find(nid)) {
-                if (ed.pendFrom && NodeInputCount(*nn) > 0) d.Link(ed.pendFrom, nid, 0, ed.pendChannel);
-                if (ed.pendTo) d.Link(nid, ed.pendTo, ed.pendInput, 0);
+                // Connected through the first pin whose type fits the dragged link (Blueprint-like).
+                if (const Node* src = ed.pendFrom ? g.Find(ed.pendFrom) : nullptr) {
+                    const PinDesc out = NodeOutputPin(*src, NodeOutputPortOf(*src, ed.pendChannel));
+                    int in = -1;
+                    for (int i = 0; i < NodeInputCount(*nn) && in < 0; ++i)
+                        if (PinsCompatible(out, NodeInputPin(*nn, i))) in = i;
+                    if (in >= 0) d.Link(ed.pendFrom, nid, in, ed.pendChannel);
+                    else Status("Aucune entrée de ce nœud n'accepte ce type");
+                }
+                if (const Node* dst = ed.pendTo ? g.Find(ed.pendTo) : nullptr) {
+                    const PinDesc in = NodeInputPin(*dst, ed.pendInput);
+                    int out = -1;
+                    for (int k = 0; k < NodeOutputCount(*nn) && out < 0; ++k)
+                        if (PinsCompatible(NodeOutputPin(*nn, k), in)) out = k;
+                    if (out >= 0) d.Link(nid, ed.pendTo, ed.pendInput, NodeOutputChannel(*nn, out));
+                    else Status("Aucune sortie de ce nœud ne convient à cette entrée");
+                }
             }
             d.S().activeNode = nid;
             ed.selection = {nid};
@@ -1358,6 +1376,7 @@ void App::DrawNodeEditor() {
     }
     if (focused && editable && !io.WantTextInput && !io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C) && !ed.selection.empty()) addComment(ed.contextPos);
     if (focused && !io.WantTextInput && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) for (auto& n : g.nodes) ed.selection.insert(n.id);
+    if (focused && !io.WantTextInput && !io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_M)) showMinimap = !showMinimap;
     if (((focused && !io.WantTextInput && !io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F)) || std::exchange(graphFrameRequest, false)) && !g.nodes.empty()) {
         float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
         for (auto& n : g.nodes) {
@@ -1369,6 +1388,41 @@ void App::DrawNodeEditor() {
         ed.zoom = std::clamp(std::min(size.x / (ext.x + 80), size.y / (ext.y + 80)), 0.2f, 1.5f);
         ed.pan = float2{size.x / ed.zoom * 0.5f, size.y / ed.zoom * 0.5f + 18.0f / ed.zoom} - (mn + ext * 0.5f);  // below the banner
         graphFrameOnly.clear();
+    }
+
+    // Minimap (bottom right): every node and comment, the visible area; click or drag to go there.
+    if (showMinimap && g.nodes.size() > 1) {
+        float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
+        auto grow = [&](float2 a, float2 b) {
+            mn = {std::min(mn.x, a.x), std::min(mn.y, a.y)};
+            mx = {std::max(mx.x, b.x), std::max(mx.y, b.y)};
+        };
+        for (auto& n : g.nodes) grow(n.pos, n.pos + float2{lay(n).w, lay(n).h});
+        for (auto& c : g.comments) grow(c.pos, c.pos + c.size);
+        const float2 view0 = toGraph(origin), view1 = toGraph(ImVec2(origin.x + size.x, origin.y + size.y));
+        grow(view0, view1);
+        const float2 ext = mx - mn;
+        const float mw = 200 * dpi, mh = 130 * dpi, pad = 6 * dpi;
+        const float k = std::min((mw - 2 * pad) / std::max(ext.x, 1.0f), (mh - 2 * pad) / std::max(ext.y, 1.0f));
+        const ImVec2 m0(origin.x + size.x - mw - 10 * dpi, origin.y + size.y - mh - 10 * dpi), m1(m0.x + mw, m0.y + mh);
+        const float ox = m0.x + pad + ((mw - 2 * pad) - ext.x * k) * 0.5f, oy = m0.y + pad + ((mh - 2 * pad) - ext.y * k) * 0.5f;
+        auto mp = [&](float2 p) { return ImVec2(ox + (p.x - mn.x) * k, oy + (p.y - mn.y) * k); };
+        dl->AddRectFilled(m0, m1, IM_COL32(14, 14, 18, 215), 6);
+        dl->AddRect(m0, m1, ui::col::Border, 6);
+        for (auto& c : g.comments) dl->AddRectFilled(mp(c.pos), mp(c.pos + c.size), IM_COL32(90, 90, 110, 60), 2);
+        for (auto& n : g.nodes) {
+            const ImU32 col = ed.selection.count(n.id) ? ui::col::Accent : n.id == g.output ? IM_COL32(230, 160, 40, 220) : IM_COL32(150, 150, 165, 200);
+            dl->AddRectFilled(mp(n.pos), mp(n.pos + float2{lay(n).w, lay(n).h}), col, 1.5f);
+        }
+        dl->AddRect(mp(view0), mp(view1), IM_COL32(255, 255, 255, 170), 2, 0, 1.5f);
+        if (overMinimap && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) ed.minimapDrag = true;
+        if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) ed.minimapDrag = false;
+        if (ed.minimapDrag) {
+            // Center of the view at the pointed graph position.
+            const float2 target{mn.x + (mouse.x - ox) / k, mn.y + (mouse.y - oy) / k};
+            ed.pan = float2{size.x / ed.zoom * 0.5f, size.y / ed.zoom * 0.5f} - target;
+            ed.boxSelecting = false;
+        }
     }
 
     // Header banner
@@ -1417,7 +1471,7 @@ void App::DrawNodeEditor() {
         ImGui::SetCursorScreenPos(ImVec2(bp.x + total - sw, bp.y));
         if (ImGui::SmallButton("Enregistrer dans la bibliothèque")) SaveFunctionToLibrary(*v->funcLink.parent, v->funcLink.node);
     } else {
-        const char* hint = "Clic droit : nœuds  |  tirer un lien dans le vide : nouveau nœud relié  |  rectangle / Ctrl+clic : sélection  |  F : cadrer  |  Suppr";
+        const char* hint = "Clic droit : nœuds  |  tirer un lien dans le vide : nouveau nœud relié  |  rectangle / Ctrl+clic : sélection  |  F : cadrer  |  M : mini-carte  |  Suppr";
         ImVec2 ts = ImGui::CalcTextSize(hint);
         dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + ts.x + 6, bp.y + ts.y + 4), IM_COL32(20, 20, 26, 220), 5);
         dl->AddText(ImVec2(bp.x, bp.y), ui::col::TextDim, hint);

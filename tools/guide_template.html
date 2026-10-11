@@ -104,6 +104,7 @@ td:first-child { white-space: nowrap; width: 1%; }
   <div class="card"><h3>2. Mode nodal et effets</h3><ol>
     <li>Ouvrez <code>05_Mode_nodal.sxl</code>, panneau Graphe en bas.</li>
     <li>Clic droit dans le graphe : ajoutez un effet, reliez-le.</li>
+    <li>Tirez un lien depuis une broche et lâchez-le dans le vide : le nœud choisi est relié par sa première broche du bon type. Mini-carte en bas à droite (clic ou glisser pour s'y rendre, <kbd>M</kbd> pour la masquer).</li>
     <li>Sélectionnez le nœud HLSL et modifiez son code, <kbd>Ctrl</kbd>+<kbd>Entrée</kbd>.</li>
     <li>Ouvrez <code>06_Graphe_d_effet.sxl</code> : onglet Éditeur d'effets.</li>
   </ol></div>
@@ -213,9 +214,9 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Le .uasset doit rester dans le dossier Content de son projet (à côté du .uproject) ; la première conversion d'une version d'Unreal prend un peu plus de temps.</li>
   </ol></div>
   <div class="card"><h3>Plugin Unreal Engine (Shaderixel Link)</h3><ol>
-    <li>Copiez <code>Unreal/&lt;version&gt;/ShaderixelLink</code> (4.27 à 5.8) dans le dossier <code>Plugins</code> de votre projet, puis activez « Shaderixel Link » (Edit &gt; Plugins).</li>
+    <li>Copiez <code>Unreal/&lt;version&gt;/ShaderixelLink</code> (4.25 à 5.8) dans le dossier <code>Plugins</code> de votre projet, puis activez « Shaderixel Link » (Edit &gt; Plugins).</li>
     <li>Content Browser, clic droit sur un Static Mesh &gt; <b>Peindre dans Shaderixel</b> &gt; emplacement de matériau : un projet Paint 3D s'ouvre avec le maillage (ses UV) et les textures du matériau dans un calque « Unreal (textures d'origine) ».</li>
-    <li>Peignez, puis <kbd>Ctrl</kbd>+<kbd>S</kbd> (ou « Envoyer vers Unreal » dans la barre d'état) : les textures sont réimportées en place. Sans texture au départ : nouvelles BaseColor / Normal / ORM et une instance de matériau assignée.</li>
+    <li>Peignez, puis <kbd>Ctrl</kbd>+<kbd>S</kbd> (ou « Envoyer vers Unreal » dans la barre d'état) : les textures sont réimportées en place. Case <b>Direct</b> à côté : envoi automatique un instant après chaque modification, le matériau se met à jour en direct dans Unreal. Sans texture au départ : nouvelles BaseColor / Normal / ORM et une instance de matériau assignée.</li>
     <li>Clic droit sur une Texture 2D &gt; <b>Éditer dans Shaderixel</b>.</li>
     <li><b>Modèle + matériau prêts</b> : dans Shaderixel, Vue 3D &gt; « Unreal... » (ou Fichier &gt; Exporter pour Unreal) règle le nom, le dossier, l'échelle (100 pour un modèle en mètres), le matériau parent, la double face et l'intensité émissive ; ces réglages sont enregistrés dans le .sx3d. L'export écrit le modèle (OBJ), les textures et une description <code>.sxmat.json</code>.</li>
     <li>Dans Unreal : Tools &gt; Shaderixel &gt; <b>Importer un modèle Shaderixel...</b> avec le <code>.sxmat.json</code>, ou directement le projet <code>.sx3d</code> (Shaderixel l'exporte en arrière-plan) : maillage statique SM_, textures T_ réglées (sRGB, compression), instance MI_ du matériau M_ShaderixelPBR2 (ou de votre matériau parent) déjà assignée. Commande console : <code>Shaderixel.Import &lt;fichier&gt; [dossier]</code>.</li>

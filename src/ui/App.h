@@ -233,6 +233,7 @@ struct NodeEditorState {
     Id pendFrom = 0, pendTo = 0;
     int pendInput = 0;
     u8 pendChannel = 0;
+    bool minimapDrag = false;
 };
 
 struct EffectEditorState {
@@ -758,6 +759,7 @@ private:
     std::vector<ToolExportJob> toolExports;
     std::set<Id> toolBusy;
     bool graphFocused = false;       // the graph editor had the focus last frame (its own keys)
+    bool showMinimap = true;         // graph editor minimap (M)
     bool graphFrameRequest = false;  // frame all nodes in the graph editor (demos)
     std::set<Id> graphFrameOnly;     // ... or only these
     bool ViewAlive(const DocView* v) const;
