@@ -1773,7 +1773,8 @@ void App::DemoTick() {
         static bool exported = false;
         if (!exported && frameCounter > 30 && a->render && RenderSamples(*a->render) >= a->render->settings.maxSamples &&
             GetEnvironmentVariableA("SX_EXPORT", b, sizeof(b)) > 0) {
-            ExportRender(*a, b);
+            if (GetEnvironmentVariableA("SX_PASSES", nullptr, 0) > 0) ExportRenderPasses(*a, b);  // + albedo, normal, depth, mask
+            else ExportRender(*a, b);
             exported = true;
             captureFrame = std::min(captureFrame, (int)frameCounter + 20);  // done: capture and quit soon after
             Log("[demo] render exported at frame %d", frameCounter);

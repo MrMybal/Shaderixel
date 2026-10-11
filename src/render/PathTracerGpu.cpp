@@ -191,6 +191,25 @@ void PtGpuRenderer::UploadAverage(gpu::CommandContext& ctx, const std::vector<fl
     if (accum) ctx.Upload(accum.get(), pixels.data(), w * sizeof(float4));
 }
 
+gpu::Texture* PtGpuRenderer::Pass(gpu::CommandContext& ctx, int mode, float farDist) {
+    auto* k = Kernel("pt_passes.slang");
+    mode = std::clamp(mode, 0, 3);
+    if (!k || !accum || !guideA || !guideN) return nullptr;
+    const u32 W = accum->Width(), H = accum->Height();
+    auto& t = passTex[mode];
+    if (!t || t->Width() != W || t->Height() != H) t = gpu::Dev().CreateTexture(W, H, gpu::Format::RGBA8, "PtPass");
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = accum.get();
+    d.srv[1] = guideA.get();
+    d.srv[2] = guideN.get();
+    d.uav[0] = t.get();
+    struct { u32 w, h, mode; float farDist; } root = {W, H, (u32)mode, std::max(farDist, 1e-3f)};
+    SetConstants(d, root);
+    Dispatch2D(ctx, d, W, H);
+    return t.get();
+}
+
 gpu::Texture* PtGpuRenderer::Tonemap(gpu::CommandContext& ctx, const PtSettings& s) {
     auto* k = Kernel("pt_tonemap.slang");
     if (!k || !accum || !view) return nullptr;

@@ -793,6 +793,18 @@ void App::ExportRender(DocView& v, const std::string& path) {
     }
 }
 
+void App::ExportRenderPasses(DocView& v, const std::string& path) {
+    if (path.empty() || !v.render) return;
+    PtRenderState& r = *v.render;
+    ExportRender(v, path);
+    const auto p = Utf8Path(path);
+    const std::string stem = Narrow((p.parent_path() / p.stem()).wstring());
+    static const char* names[] = {"_albedo.png", "_normal.png", "_depth.png", "_mask.png"};
+    for (int m = 0; m < 4; ++m)
+        if (gpu::Texture* t = r.gpu.Pass(*ctx, m, r.distance * 2.5f)) exports.push_back({stem + names[m], ctx->ReadbackTexture(t), {}});
+    Status("Export des passes : " + stem + "_*.png");
+}
+
 void App::DrawRenderView() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     bool open = ImGui::Begin("Rendu", PanelFlag("Rendu"), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -842,6 +854,11 @@ void App::DrawRenderView() {
         std::string f = platform::SaveFileDialog(hwnd, L"PNG (*.png)\0*.png\0Radiance HDR (*.hdr)\0*.hdr\0JPEG (*.jpg)\0*.jpg\0", L"png");
         if (!f.empty()) ExportRender(*v, f);
     }
+    if (s.device == 0 && button("Exporter les passes...")) {
+        std::string f = platform::SaveFileDialog(hwnd, L"PNG (*.png)\0*.png\0", L"png");
+        if (!f.empty()) ExportRenderPasses(*v, f);
+    }
+    ui::HelpTooltip("L'image finale et ses passes pour le compositing : couleur seule (albédo), normales, profondeur, masque\n(<nom>_albedo.png, _normal.png, _depth.png, _mask.png).");
     const int samples = RenderSamples(r);
     const double t = (r.doneTime > 0 ? r.doneTime : Now()) - r.startTime;
     char info[200];

@@ -186,12 +186,15 @@ public:
     gpu::Texture* Tonemap(gpu::CommandContext& ctx, const PtSettings& s);
     int Samples() const { return samples; }
     u32 Row() const { return row; }
-    gpu::TexturePtr accum, view, packed[4];
-    gpu::TexturePtr guideA, guideN;  // first-hit albedo / normal + distance sums (denoiser guides)  // packed: base, ORM, emission, normal
+    gpu::TexturePtr accum, view, packed[4];  // packed: base, ORM, emission, normal
+    gpu::TexturePtr guideA, guideN;          // first-hit albedo (a: hits) / normal + distance sums (denoiser guides, passes)
+    // Render pass image (RGBA8) from the guides: 0 albedo, 1 normal (world), 2 depth (white near, black at `farDist`), 3 mask.
+    gpu::Texture* Pass(gpu::CommandContext& ctx, int mode, float farDist);
 private:
     void EnsureAccum(u32 w, u32 h);
     std::shared_ptr<const PtScene> scene;
     gpu::TexturePtr geo, envTex, envCdf;
+    gpu::TexturePtr passTex[4];
     bool geoDirty = true;
     u32 nodeBase = 0;
     int samples = 0;

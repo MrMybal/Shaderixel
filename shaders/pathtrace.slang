@@ -593,6 +593,6 @@ void main(uint3 id : SV_DispatchThreadID)
     gAccum[p] = prev + float4(c, 1.0);
     float4 ga = gPass == 0 ? float4(0, 0, 0, 0) : gGuideA[p];
     float4 gn = gPass == 0 ? float4(0, 0, 0, 0) : gGuideN[p];
-    gGuideA[p] = ga + float4(sHitAlbedo, 1.0);
+    gGuideA[p] = ga + float4(sHitAlbedo, sHitDist < 1e4 ? 1.0 : 0.0);  // a: hits (coverage)
     gGuideN[p] = gn + float4(sHitNormal, min(sHitDist, 1e4));
 }

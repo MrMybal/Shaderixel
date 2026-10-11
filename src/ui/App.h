@@ -1253,6 +1253,7 @@ private:
     gpu::Texture* UpdateRender(DocView& v, u32 w, u32 h);
     int RenderSamples(PtRenderState& r);
     void ExportRender(DocView& v, const std::string& path);
+    void ExportRenderPasses(DocView& v, const std::string& path);  // image + albedo, normal, depth, mask
     void DrawRenderView();
     void DrawRenderScenePanel();
     void DemoExample3D();  // example projects for the package (DemoExamples.cpp)
