@@ -1257,7 +1257,15 @@ private:
         int preset = -1;
         char presetName[64] = "";
         bool presetWB = false;
+        int localSel = -1;         // selected local adjustment (index among the layer's photo_raw_local filters)
+        int dragHandle = -1;       // 0 A / center, 1 B, 2 both (linear), 3 radius x, 4 radius y
+        float2 viewOrigin = {0, 0};
+        float viewInv = 1;
+        ImVec2 viewPos = {0, 0};
     } camRaw;
+    // Local adjustments overlay (handles on the Photo RAW preview); true while a handle is dragged.
+    bool PhotoRawLocalHandles(Layer& l, ImVec2 p0, ImVec2 size, bool activated, bool active);
+    void PhotoRawLocalsUI(DocView& v, Layer& l);
     std::optional<EffectInstance> rawClipboard;  // Photo RAW settings copied (Copier / Coller)
     void PhotoRawPresetsUI(EffectInstance& fx, DocView& v);
     void PhotoRawAuto(DocView& v, Layer& l, int want);

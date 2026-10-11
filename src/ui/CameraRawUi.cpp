@@ -626,6 +626,181 @@ void App::PhotoRawPresetsUI(EffectInstance& fx, DocView& v) {
     }
 }
 
+// ------------------------------------------------------------------ Photo RAW: local adjustments
+
+namespace {
+
+std::vector<EffectInstance*> LocalFilters(Layer& l) {
+    std::vector<EffectInstance*> out;
+    for (auto& f : l.filters)
+        if (f.effectId == "photo_raw_local") out.push_back(&f);
+    return out;
+}
+
+float4* ParamRef(EffectInstance& fx, const char* id) {
+    EffectDefPtr def = fx.Def();
+    if (!def) return nullptr;
+    if (fx.params.size() < def->params.size())
+        for (size_t i = fx.params.size(); i < def->params.size(); ++i) fx.params.push_back(def->params[i].def);
+    for (size_t i = 0; i < def->params.size(); ++i)
+        if (def->params[i].id == id) return &fx.params[i];
+    return nullptr;
+}
+
+}  // namespace
+
+bool App::PhotoRawLocalHandles(Layer& l, ImVec2 p0, ImVec2 size, bool activated, bool active) {
+    auto& C = camRaw;
+    auto locals = LocalFilters(l);
+    if (C.localSel < 0 || C.localSel >= (int)locals.size() || C.compare) {
+        C.dragHandle = -1;
+        return false;
+    }
+    EffectInstance& fx = *locals[C.localSel];
+    float4 *a = ParamRef(fx, "p0"), *b = ParamRef(fx, "p1"), *rad = ParamRef(fx, "radius"), *ang = ParamRef(fx, "angle"), *kind = ParamRef(fx, "kind");
+    if (!a || !b || !rad || !ang || !kind) return false;
+    DocView* v = C.view;
+    const float W = (float)v->doc->Width(), H = (float)v->doc->Height();
+    auto toScreen = [&](float u, float w) { return ImVec2(p0.x + (u * W - C.viewOrigin.x) / C.viewInv, p0.y + (w * H - C.viewOrigin.y) / C.viewInv); };
+    auto toUV = [&](ImVec2 s) { return float2{(C.viewOrigin.x + (s.x - p0.x) * C.viewInv) / W, (C.viewOrigin.y + (s.y - p0.y) * C.viewInv) / H}; };
+    const bool radial = kind->x > 0.5f;
+    const float r = ang->x * 3.14159265f / 180.0f, cs = std::cos(r), sn = std::sin(r);
+    ImVec2 hA = toScreen(a->x, a->y), hB = toScreen(b->x, b->y);
+    // Radius handles: along the rotated axes (in pixels).
+    ImVec2 hX(hA.x + cs * rad->x * W / C.viewInv, hA.y + sn * rad->x * W / C.viewInv);
+    ImVec2 hY(hA.x - sn * rad->y * H / C.viewInv, hA.y + cs * rad->y * H / C.viewInv);
+    ImVec2 hM((hA.x + hB.x) * 0.5f, (hA.y + hB.y) * 0.5f);
+    struct Hd { int id; ImVec2 p; };
+    std::vector<Hd> hs = radial ? std::vector<Hd>{{0, hA}, {3, hX}, {4, hY}} : std::vector<Hd>{{0, hA}, {1, hB}, {2, hM}};
+    ImVec2 m = ImGui::GetIO().MousePos;
+    int hot = -1;
+    for (auto& h : hs) {
+        float dx = m.x - h.p.x, dy = m.y - h.p.y;
+        if (dx * dx + dy * dy < 100 * dpi * dpi) hot = h.id;
+    }
+    if (activated) C.dragHandle = hot;
+    if (!active) C.dragHandle = -1;
+    if (C.dragHandle >= 0) {
+        float2 uv = toUV(m);
+        uv = {std::clamp(uv.x, -0.5f, 1.5f), std::clamp(uv.y, -0.5f, 1.5f)};
+        if (C.dragHandle == 0) {
+            if (!radial) { *a = {uv.x, uv.y, 0, 0}; }
+            else { *a = {uv.x, uv.y, 0, 0}; }
+        } else if (C.dragHandle == 1) {
+            *b = {uv.x, uv.y, 0, 0};
+        } else if (C.dragHandle == 2) {
+            ImVec2 d = ImGui::GetIO().MouseDelta;
+            float du = d.x * C.viewInv / W, dv = d.y * C.viewInv / H;
+            a->x += du; a->y += dv; b->x += du; b->y += dv;
+        } else {
+            // Radius: distance from the center projected on the handle's axis.
+            float px = (m.x - hA.x) * C.viewInv, py = (m.y - hA.y) * C.viewInv;
+            if (C.dragHandle == 3) rad->x = std::clamp((px * cs + py * sn) / W, 0.01f, 1.5f);
+            else rad->y = std::clamp((-px * sn + py * cs) / H, 0.01f, 1.5f);
+        }
+        v->doc->SyncGraph();
+        C.changeFrame = gpu::Dev().FrameNumber();
+    }
+    // Drawing.
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->PushClipRect(p0, ImVec2(p0.x + size.x, p0.y + size.y), true);
+    const ImU32 white = IM_COL32(255, 255, 255, 220), shadow = IM_COL32(0, 0, 0, 140);
+    auto line = [&](ImVec2 x, ImVec2 y, bool dashed) {
+        dl->AddLine(ImVec2(x.x + 1, x.y + 1), ImVec2(y.x + 1, y.y + 1), shadow, 2);
+        dl->AddLine(x, y, dashed ? IM_COL32(255, 255, 255, 140) : white, 1.5f);
+    };
+    if (!radial) {
+        // Lines across the image through A and B, perpendicular to AB.
+        float dx = hB.x - hA.x, dy = hB.y - hA.y, len = std::max(1.0f, std::sqrt(dx * dx + dy * dy));
+        float nx = -dy / len * 4000, ny = dx / len * 4000;
+        line(ImVec2(hA.x - nx, hA.y - ny), ImVec2(hA.x + nx, hA.y + ny), false);
+        line(ImVec2(hM.x - nx, hM.y - ny), ImVec2(hM.x + nx, hM.y + ny), true);
+        line(ImVec2(hB.x - nx, hB.y - ny), ImVec2(hB.x + nx, hB.y + ny), false);
+        line(hA, hB, true);
+    } else {
+        std::vector<ImVec2> pts;
+        for (int i = 0; i < 72; ++i) {
+            float t = i / 72.0f * 6.2831853f;
+            float ex = std::cos(t) * rad->x * W / C.viewInv, ey = std::sin(t) * rad->y * H / C.viewInv;
+            pts.push_back(ImVec2(hA.x + ex * cs - ey * sn, hA.y + ex * sn + ey * cs));
+        }
+        dl->AddPolyline(pts.data(), (int)pts.size(), shadow, ImDrawFlags_Closed, 3.0f);
+        dl->AddPolyline(pts.data(), (int)pts.size(), white, ImDrawFlags_Closed, 1.5f);
+        const float* fe = &ParamRef(fx, "feather")->x;
+        const float k = 1.0f - std::clamp(*fe / 100.0f, 0.0f, 1.0f);
+        for (auto& p : pts) p = ImVec2(hA.x + (p.x - hA.x) * k, hA.y + (p.y - hA.y) * k);
+        dl->AddPolyline(pts.data(), (int)pts.size(), IM_COL32(255, 255, 255, 110), ImDrawFlags_Closed, 1.0f);
+    }
+    for (auto& h : hs) {
+        const bool on = h.id == hot || h.id == C.dragHandle;
+        const float rr = (h.id == 0 ? 7.0f : 5.5f) * dpi;
+        dl->AddCircleFilled(h.p, rr + 1.5f, shadow);
+        dl->AddCircleFilled(h.p, rr, on ? IM_COL32(120, 200, 255, 255) : (h.id == 0 ? IM_COL32(230, 80, 80, 255) : IM_COL32(240, 240, 240, 255)));
+    }
+    dl->PopClipRect();
+    if (hot >= 0 || C.dragHandle >= 0) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+    return C.dragHandle >= 0 || (activated && hot >= 0);
+}
+
+void App::PhotoRawLocalsUI(DocView& v, Layer& l) {
+    auto& C = camRaw;
+    Document& d = *v.doc;
+    auto add = [&](int kind) {
+        DocState before = d.S();
+        EffectInstance fx;
+        fx.effectId = "photo_raw_local";
+        if (auto def = Effects().Find("photo_raw_local")) fx.params = def->DefaultParams();
+        if (kind == 1) {
+            SetParam(fx, "kind", 1);
+            if (float4* p = ParamRef(fx, "p0")) *p = {0.5f, 0.5f, 0, 0};
+        }
+        l.filters.push_back(fx);
+        C.localSel = (int)LocalFilters(l).size() - 1;
+        d.SyncGraph();
+        v.history.PushState(kind ? "Filtre radial" : "Filtre gradué", before, d.S());
+    };
+    if (ImGui::Button("+ Filtre gradué")) add(0);
+    ImGui::SameLine();
+    if (ImGui::Button("+ Filtre radial")) add(1);
+    auto locals = LocalFilters(l);
+    if (locals.empty()) {
+        ImGui::TextDisabled("Réglages limités à une zone : dégradé (ciel, premier plan) ou ellipse (visage, sujet).");
+        return;
+    }
+    int remove = -1;
+    for (int i = 0; i < (int)locals.size(); ++i) {
+        EffectInstance& f = *locals[i];
+        ImGui::PushID(i);
+        if (ImGui::Checkbox("##on", &f.enabled)) d.SyncGraph();
+        ImGui::SameLine();
+        char label[64];
+        snprintf(label, sizeof(label), "%s %d", GetParam(f, "kind") > 0.5f ? "Radial" : "Dégradé", i + 1);
+        if (ImGui::Selectable(label, C.localSel == i, 0, ImVec2(ImGui::GetContentRegionAvail().x - 30 * dpi, 0))) C.localSel = C.localSel == i ? -1 : i;
+        ImGui::SameLine();
+        if (ui::IconButton("rm", ui::IconTrash, false, 20 * dpi, "Supprimer")) remove = i;
+        ImGui::PopID();
+    }
+    if (remove >= 0) {
+        DocState before = d.S();
+        EffectInstance* target = locals[remove];
+        for (size_t k = 0; k < l.filters.size(); ++k)
+            if (&l.filters[k] == target) { l.filters.erase(l.filters.begin() + k); break; }
+        C.localSel = -1;
+        d.SyncGraph();
+        v.history.PushState("Supprimer la retouche locale", before, d.S());
+        return;
+    }
+    if (C.localSel >= 0 && C.localSel < (int)locals.size()) {
+        EffectInstance& f = *locals[C.localSel];
+        ImGui::TextDisabled("Déplacez les poignées sur l'image (point rouge : A / centre).");
+        bool ch = EffectParamsUI(f, "locshape", "");
+        ch |= EffectParamsUI(f, "locgeom", GetParam(f, "kind") > 0.5f ? "Radial" : "Dégradé");
+        ImGui::SeparatorText("Réglages");
+        ch |= EffectParamsUI(f, "locadj", "Réglages");
+        if (ch) d.SyncGraph();
+    }
+}
+
 // ------------------------------------------------------------------ Camera Raw
 
 void App::OpenCameraRaw(DocView& v) {
@@ -783,7 +958,8 @@ void App::DrawCameraRaw() {
             }
             inv = C.zoom == 0 ? std::max(docW / vw, docH / vh) : 1.0f / zv[C.zoom];
         }
-        if (!picking && C.zoom != 0 && ImGui::IsItemActive() && ImGui::IsMouseDragging(0, 0)) {
+        const bool imgActivated = ImGui::IsItemActivated(), imgActive = ImGui::IsItemActive();
+        if (!picking && C.dragHandle < 0 && C.zoom != 0 && ImGui::IsItemActive() && ImGui::IsMouseDragging(0, 0)) {
             ImVec2 dd = ImGui::GetIO().MouseDelta;
             C.pan.x = std::clamp(C.pan.x - dd.x * inv / docW, 0.0f, 1.0f);
             C.pan.y = std::clamp(C.pan.y - dd.y * inv / docH, 0.0f, 1.0f);
@@ -805,6 +981,10 @@ void App::DrawCameraRaw() {
         gpu::Texture* image = v->lastImage ? v->lastImage : v->renderer.Evaluate(d, *ctx);
         if (image) v->renderer.Display(*ctx, v->renderer.DisplaySource(*ctx, image, inv), d.Width(), d.Height(), vp, C.tex.get());
         ImGui::GetWindowDrawList()->AddImage((ImTextureID)gpu::Dev().UiTextureId(C.tex.get()), p0, ImVec2(p0.x + vw, p0.y + vh));
+        C.viewOrigin = vp.origin;
+        C.viewInv = inv;
+        C.viewPos = p0;
+        if (!picking) PhotoRawLocalHandles(*l, p0, ImVec2((float)vw, (float)vh), imgActivated, imgActive);
         if (C.compare) ImGui::GetWindowDrawList()->AddText(ImVec2(p0.x + 10 * dpi, p0.y + 8 * dpi), IM_COL32(255, 220, 120, 255), "Avant");
     }
     ImGui::EndChild();
@@ -859,6 +1039,10 @@ void App::DrawCameraRaw() {
                 changed |= EffectParamsUI(*cr, "crbase", "Base");
                 ImGui::Spacing();
                 changed |= EffectParamsUI(*cr, "crpres", "Présence");
+            }
+            if (header("Retouches locales")) {
+                PhotoRawLocalsUI(*v, *l);
+                cr = FindFilter(l, "camera_raw");  // filters may have moved
             }
             if (header("Courbe des tonalités")) changed |= EffectParamsUI(*cr, "crcurve", "Courbe des tonalités");
             if (header("Détail")) {

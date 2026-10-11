@@ -569,6 +569,64 @@ void App::DemoTick() {
                         Active()->doc->SyncGraph();
                     }
         }
+        if (frameCounter == 30 && hasRaw && Active() && GetEnvironmentVariableA("SX_LOCAL", nullptr, 0) > 0) {
+            // Local adjustments: a graduated filter darkening / cooling the top, a radial one brightening the face.
+            Layer* l = Active()->doc->ActiveLayer();
+            auto def = Effects().Find("photo_raw_local");
+            auto set = [&](EffectInstance& f, const char* id, float4 v4) {
+                for (size_t i = 0; i < def->params.size(); ++i)
+                    if (def->params[i].id == id) f.params[i] = v4;
+            };
+            EffectInstance g;
+            g.effectId = "photo_raw_local";
+            g.params = def->DefaultParams();
+            set(g, "p0", {0.5f, 0.0f, 0, 0});
+            set(g, "p1", {0.5f, 0.45f, 0, 0});
+            set(g, "exposure", {-1.2f, 0, 0, 0});
+            set(g, "temperature", {-25, 0, 0, 0});
+            l->filters.push_back(g);
+            EffectInstance r = g;
+            r.params = def->DefaultParams();
+            set(r, "kind", {1, 0, 0, 0});
+            set(r, "p0", {0.46f, 0.4f, 0, 0});
+            set(r, "radius", {0.1f, 0.22f, 0, 0});
+            set(r, "angle", {-10, 0, 0, 0});
+            set(r, "exposure", {0.8f, 0, 0, 0});
+            set(r, "shadows", {30, 0, 0, 0});
+            l->filters.push_back(r);
+            camRaw.localSel = GetEnvironmentVariableA("SX_LOCALSEL", nullptr, 0) > 0 ? 0 : 1;
+            Active()->doc->SyncGraph();
+        }
+        if (hasRaw && Active() && GetEnvironmentVariableA("SX_LOCALDRAG", nullptr, 0) > 0 && frameCounter >= 60 && frameCounter <= 72) {
+            // Synthetic drag of the gradient's point B, 120 px down (ImGui events only).
+            Document& d = *Active()->doc;
+            static ImVec2 b;
+            ImGuiIO& io = ImGui::GetIO();
+            if (frameCounter == 60) {
+                for (auto& f : d.ActiveLayer()->filters)
+                    if (f.effectId == "photo_raw_local") {
+                        auto def = f.Def();
+                        for (size_t i = 0; i < def->params.size(); ++i)
+                            if (def->params[i].id == "p1")
+                                b = ImVec2(camRaw.viewPos.x + (f.params[i].x * d.Width() - camRaw.viewOrigin.x) / camRaw.viewInv,
+                                           camRaw.viewPos.y + (f.params[i].y * d.Height() - camRaw.viewOrigin.y) / camRaw.viewInv);
+                        break;
+                    }
+                io.AddMousePosEvent(b.x, b.y);
+            }
+            if (frameCounter == 62) io.AddMouseButtonEvent(0, true);
+            if (frameCounter == 64) io.AddMousePosEvent(b.x, b.y + 60);
+            if (frameCounter == 66) io.AddMousePosEvent(b.x, b.y + 120);
+            if (frameCounter == 68) io.AddMouseButtonEvent(0, false);
+            if (frameCounter == 72)
+                for (auto& f : d.ActiveLayer()->filters)
+                    if (f.effectId == "photo_raw_local") {
+                        auto def = f.Def();
+                        for (size_t i = 0; i < def->params.size(); ++i)
+                            if (def->params[i].id == "p1") Log("[demo] local drag: point B now %.3f %.3f (pan %.3f %.3f)", f.params[i].x, f.params[i].y, camRaw.pan.x, camRaw.pan.y);
+                        break;
+                    }
+        }
         if (frameCounter == 45 && hasRaw && Active() && GetEnvironmentVariableA("SX_AUTO", nullptr, 0) > 0)
             PhotoRawAuto(*Active(), *Active()->doc->ActiveLayer(), 3);  // white balance + tones
         if (frameCounter == 45 && hasRaw && Active() && GetEnvironmentVariableA("SX_WBPICK", nullptr, 0) > 0) {
