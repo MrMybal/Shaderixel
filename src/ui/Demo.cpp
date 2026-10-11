@@ -1,5 +1,6 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
 #include "ui/App.h"
+#include "ui/Search.h"
 #include "doc/GraphTypes.h"
 #include "doc/DocFile.h"
 #include <filesystem>
@@ -439,6 +440,50 @@ void App::DemoTick() {
             Log("[demo] bake: %s", statusMsg.c_str());
             a->mesh->viewChannel = atoi(view);
             baker.open = false;
+        }
+        return;
+    }
+    if (demoMode == 95) {
+        // Search everywhere: index built (menus opened invisibly, tabs visited), queries, a menu result
+        // reached (Plugins > Gestionnaire de plugins...), then the results list of SX_QUERY shown.
+        auto& S = GlobalSearch::Get();
+        if (frameCounter == 4) NewDocument(1200, 800, Precision::Half16, DocMode::Layers, 0, "Recherche");
+        static int phase = 0;
+        static u64 at = 0;
+        if (phase == 0 && frameCounter > 50 && !S.Crawling() && searchCrawlChecked) {
+            int counts[3] = {};
+            for (auto* e : S.Query(" ", 100000)) (void)e;
+            phase = 1;
+            at = frameCounter;
+            for (const char* q : {"flou", "export", "opacite", "gestionnaire plugins", "calques", "rayon"}) {
+                auto r = S.Query(q, 5);
+                std::string list;
+                for (auto* e : r) list += "[" + std::to_string(e->kind) + "] " + e->label + " (" + e->context + ") | ";
+                Log("[demo] search '%s': %s", q, list.c_str());
+            }
+            (void)counts;
+            Log("[demo] search index: %zu entries", S.Size());
+            auto r = S.Query("gestionnaire de plugins", 1);
+            if (!r.empty()) ActivateSearchResult(*r[0]);
+        }
+        if (phase == 1 && frameCounter == at + 40) {
+            Log("[demo] plugin manager open after the menu result: %d", (int)pluginManager);
+            pluginManager = false;
+            char q[64] = "flou";
+            GetEnvironmentVariableA("SX_QUERY", q, sizeof(q));
+            char go[64] = "";
+            if (GetEnvironmentVariableA("SX_GOTO", go, sizeof(go)) > 0) {
+                // A property reached: its window forward, scrolled to it, blinking.
+                auto r = S.Query(go, 1);
+                if (!r.empty()) {
+                    Log("[demo] goto %s -> %s (%s)", go, r[0]->label.c_str(), r[0]->context.c_str());
+                    ActivateSearchResult(*r[0]);
+                }
+            } else {
+                searchText = q;
+                searchOpen = true;
+            }
+            phase = 2;
         }
         return;
     }

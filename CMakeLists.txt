@@ -34,7 +34,8 @@ add_library(imgui STATIC
     ${IMGUI_DIR}/backends/imgui_impl_win32.cpp
     ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp)
 target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends ${IMGUI_DIR}/misc/cpp)
-target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS)
+# Test engine hooks: every item drawn is reported (labels, boxes) to the search index (src/ui/Search.cpp).
+target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS IMGUI_ENABLE_TEST_ENGINE)
 
 # ---------------------------------------------------------------- xatlas (automatic UV unwrapping, MIT)
 add_library(xatlas STATIC ${EXT}/xatlas/source/xatlas/xatlas.cpp)

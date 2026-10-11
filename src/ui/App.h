@@ -385,6 +385,16 @@ public:
     void DrawPluginPanels();
     void DrawPluginManager();
     void PluginToolInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    // ---------------------------------------------------------------- search everywhere (SearchUi.cpp, Search.cpp)
+    std::string searchText;
+    bool searchOpen = false, searchFocusRequest = false, searchHighlight = true, searchCrawlChecked = false, searchWasCrawling = false;
+    int searchSel = 0;
+    void InitSearch();
+    void SaveSearch();
+    void UpdateSearch();
+    void DrawSearchBox();
+    void ActivateSearchResult(const struct SearchEntry& e);
+    void RevealWindow(const std::string& name);
     void PluginTool3DInput(DocView& v, float2 local, u32 w, u32 h, bool hovered);  // tool events over the model (texture pixels)
     Surface* PluginSurface(unsigned layer, Id* id = nullptr);
 
