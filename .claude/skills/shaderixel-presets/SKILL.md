@@ -16,7 +16,7 @@ pin types, operations (`math` ops), execution actions and the pitfalls.
 | Effect (filter), Draw layer (`//@generator`), blend mode (`//@blend`) | `<id>.slang` | `shaders/effects/` |
 | Sub-graph (`"kind": "subgraph"`), tool (`"kind": "tool"`) | `<Name>.sxfn` (JSON) | `library/functions/` (repo), `functions/` (package), `%LOCALAPPDATA%\Shaderixel\Functions\` (user) |
 | Brush (2D and Paint 3D tips) | `<id>.slang` (`float4 Tip(Brush b)`) | `shaders/brushes/` |
-| Smart material (Paint 3D, layers with smart masks) | `<Name>.json` | `library/smartmaterials/` (repo), `smartmaterials/` (package), `%LOCALAPPDATA%\Shaderixel\SmartMaterials\` (user) |
+| Smart material (Paint 3D, layers with smart masks) | `<Name>.json` (+ preview `thumbs/<Name>.png`, regenerate with `ShaderixelVk.exe --demo smartthumbs`) | `library/smartmaterials/` (repo), `smartmaterials/` (package), `%LOCALAPPDATA%\Shaderixel\SmartMaterials\` (user) |
 
 Both are hot-reloaded by a running Shaderixel.
 
