@@ -483,7 +483,7 @@ void App::Frame() {
         exportUnrealDir.clear();
         autoQuit = true;
     }
-    if (autoQuit && saves.empty() && !psdExport && !dumpRb && exports.empty() && packJobs.empty()) {
+    if (autoQuit && saves.empty() && !psdExport && !dumpRb && exports.empty() && packJobs.empty() && !LinkBusy()) {
         for (auto& dv : docs) dv->doc->dirty = false;  // never prompt
         PostMessageW(hwnd, WM_CLOSE, 0, 0);
         autoQuit = false;
@@ -1478,6 +1478,9 @@ void App::DrawStatusBar() {
                     if (ImGui::SmallButton("Envoyer vers Unreal")) SendToUnreal(*v);
                     ImGui::PopStyleColor();
                     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Document ouvert depuis Unreal (plugin Shaderixel Link) : Ctrl+S renvoie aussi les textures.");
+                    bool live = LinkLive(*v);
+                    if (ImGui::Checkbox("Direct", &live)) SetLinkLive(*v, live);
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Envoyer les textures vers Unreal tout seul, un instant après chaque modification\n(le matériau se met à jour dans Unreal sans réimporter à la main).");
                     ImGui::Separator();
                 }
                 ImGui::Text("%.0f %%", v->zoom * 100.0f);

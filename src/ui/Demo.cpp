@@ -1598,6 +1598,8 @@ void App::DemoTick() {
             if (docs[i]->link && activeDoc != i && sentAt < 0) { activeDoc = i; focusDocRequest = i; }
         DocView* a = Active();
         if (!a || !a->link) return;
+        const bool live = GetEnvironmentVariableA("SX_LIVE", nullptr, 0) > 0;  // "Direct": no explicit send
+        if (live && frameCounter == 12 && !LinkLive(*a)) SetLinkLive(*a, true);
         if (sentAt < 0 && frameCounter > 20) {
             Document& d = *a->doc;
             if (a->mesh && a->mesh->depth) {
@@ -1621,7 +1623,7 @@ void App::DemoTick() {
                     a->renderer.EndStroke(d, *ctx, a->history, "Pinceau");
                 }
             }
-            SendToUnreal(*a);
+            if (!live) SendToUnreal(*a);
             sentAt = (int)frameCounter;
         }
         if (sentAt > 0 && frameCounter == (u64)sentAt + 30) Log("[demo] linksend: sent (%s)", a->link ? "ok" : "-");

@@ -1258,7 +1258,10 @@ private:
     void InitLink();
     void ShutdownLink();
     bool OpenLinkSession(const std::string& sessionFile);
-    void SendToUnreal(DocView& v);
+    void SendToUnreal(DocView& v, bool save = true);
+    bool LinkLive(DocView& v) const;
+    bool LinkBusy() const;
+    void SetLinkLive(DocView& v, bool live);
     void UpdateLink();
     bool linkInstanceFile = false;
     std::string pendingLinkOpen;  // --link <session.json>, opened once the app runs

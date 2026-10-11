@@ -5,7 +5,8 @@
 // starts Shaderixel with --link <session.json> or, when an instance runs (instance.json), drops
 // a request into Link\inbox. Shaderixel opens a Paint 3D project (or an image document for a
 // texture session) with the Unreal textures as a layer; "Envoyer vers Unreal" (or Ctrl+S)
-// writes the requested outputs and result.json, which the plugin reimports.
+// writes the requested outputs and result.json, which the plugin reimports. "Direct" sends them
+// by itself a moment after each change (the plugin polls result.json), without saving the project.
 #include "ui/App.h"
 
 #include <ShlObj.h>
@@ -29,7 +30,35 @@ struct LinkSession {
     int revision = 0;
     std::vector<std::string> pending;  // files still being written
     bool resultPending = false;
+    // Live mode: sent once the document stops changing.
+    bool live = false;
+    u64 liveKey = 0, sentKey = 0;
+    double changedAt = 0, sentAt = 0;
 };
+
+namespace {
+u64 LinkContentKey(DocView& v) {
+    // Pixels and layer settings (each edit is a history step).
+    return v.doc->ContentVersion() * 1315423911ull ^ (u64)v.history.Count() * 2654435761ull ^ (u64)v.history.Cursor() * 40503ull;
+}
+}  // namespace
+
+bool App::LinkLive(DocView& v) const { return v.link && v.link->live; }
+
+bool App::LinkBusy() const {
+    // A live session with changes not sent yet, or a result being written.
+    for (auto& v : docs)
+        if (auto L = v->link; L && (L->resultPending || (L->live && L->liveKey != L->sentKey))) return true;
+    return false;
+}
+
+void App::SetLinkLive(DocView& v, bool live) {
+    if (!v.link) return;
+    v.link->live = live;
+    v.link->sentKey = 0;  // sends the current state right away
+    v.link->changedAt = 0;
+    Status(live ? "Lien Unreal direct : les textures partent vers Unreal après chaque modification" : "Lien Unreal : envoi manuel (Ctrl+S)");
+}
 
 namespace {
 
@@ -247,12 +276,12 @@ bool App::OpenLinkSession(const std::string& sessionFile) {
     return true;
 }
 
-void App::SendToUnreal(DocView& v) {
+void App::SendToUnreal(DocView& v, bool save) {
     auto L = v.link;
     if (!L) return;
     Document& d = *v.doc;
     // The project (or image document) stays next to the session: editing again keeps every layer.
-    SaveDocument(v, d.path);
+    if (save) SaveDocument(v, d.path);
     L->pending.clear();
     std::error_code ec;
     if (L->kind == "texture") {
@@ -302,7 +331,7 @@ void App::SendToUnreal(DocView& v) {
         v.renderer.DropNodeCaches(d);
     }
     L->resultPending = true;
-    Status("Envoi vers Unreal...");
+    if (save) Status("Envoi vers Unreal...");
 }
 
 void App::UpdateLink() {
@@ -329,6 +358,23 @@ void App::UpdateLink() {
         std::string s = pendingLinkOpen;
         pendingLinkOpen.clear();
         OpenLinkSession(s);
+    }
+    // Live sessions: sent when the document has not changed for a moment (and no stroke is going on).
+    for (auto& v : docs) {
+        auto L = v->link;
+        if (!L || !L->live || L->resultPending) continue;
+        const u64 key = LinkContentKey(*v);
+        const double t = ImGui::GetTime();
+        if (key != L->liveKey) {
+            L->liveKey = key;
+            L->changedAt = t;
+        }
+        const bool painting = ImGui::IsMouseDown(ImGuiMouseButton_Left) && v.get() == Active();
+        if (key != L->sentKey && t - L->changedAt > 0.8 && t - L->sentAt > 1.5 && !painting) {
+            SendToUnreal(*v, false);
+            L->sentKey = key;
+            L->sentAt = t;
+        }
     }
     // Results: once every output file is written.
     for (auto& v : docs) {
