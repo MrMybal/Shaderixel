@@ -578,6 +578,19 @@ void App::RegisterAiOps() {
                          return AiResult::Ok(Json::Object());
                      }});
 
+    bridge.Register({"shaderixel.history_group",
+                     "Regroupe les modifications suivantes en une seule étape d'annulation : action = begin, puis les opérations, puis end.",
+                     Schema({{"action", T("string")}}, {"action"}), true, {}, [this, need](const Json& p, const std::string&) {
+                         AiResult e;
+                         DocView* v = need(e);
+                         if (!v) return e;
+                         const std::string a = p["action"].S("");
+                         if (a == "begin") v->history.BeginGroup();
+                         else if (a == "end") v->history.EndGroup();
+                         else return AiResult::Fail("InvalidParameters", "action : begin ou end");
+                         return AiResult::Ok(Json::Object());
+                     }});
+
     bridge.Register({"shaderixel.document_save", "Enregistre le document (.sxl) ou exporte une image (.png, .jpg) au chemin donné.",
                      Schema({{"path", T("string")}}, {"path"}), true, {}, [this, need](const Json& p, const std::string&) {
                          AiResult e;

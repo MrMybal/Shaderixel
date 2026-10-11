@@ -12,7 +12,9 @@
 #include <imgui_stdlib.h>
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <sstream>
+#include <thread>
 
 namespace sx {
 
@@ -377,6 +379,8 @@ void App::ScanPlugins() {
             p.author = m["author"].S("");
             p.description = m["description"].S("");
             p.dll = m["dll"].S("");
+            for (const Json& c : m["panels"].Elements())
+                if (!c["title"].S("").empty() && !c["run"].S("").empty()) p.panels.push_back({c["title"].S(""), c["run"].S("")});
             for (const Json& c : m["commands"].Elements()) {
                 if (c["menu"].S("").empty() || c["run"].S("").empty()) continue;
                 p.scripts.push_back({c["menu"].S(""), c["run"].S(""), c["description"].S("")});
@@ -425,6 +429,14 @@ bool App::LoadPlugin(PluginEntry& p) {
         p.unloadUser = info.user;
         p.loadedCopy = copy;
     }
+    for (auto& pn : p.panels) {
+        ScriptPanel sp;
+        sp.plugin = p.id;
+        sp.title = pn.title;
+        sp.run = pn.run;
+        sp.dir = p.dir;
+        scriptPanels.push_back(std::move(sp));
+    }
     p.loaded = true;
     return true;
 }
@@ -441,6 +453,9 @@ void App::RemovePluginRegistrations(const std::string& id) {
     drop(pluginCalls);
     drop(pluginReads);
     drop(pluginListeners);
+    for (auto& sp : scriptPanels)
+        if (sp.plugin == id) StopScriptPanel(sp);
+    drop(scriptPanels);
     for (auto& o : pluginOps)
         if (o.plugin == id) bridge.Unregister(o.op);
     drop(pluginOps);
@@ -465,6 +480,7 @@ void App::UnloadPlugin(PluginEntry& p) {
 }
 
 void App::ShutdownPlugins() {
+    for (auto& sp : scriptPanels) StopScriptPanel(sp);
     for (auto& p : plugins) UnloadPlugin(p);
     for (auto& pr : pluginProcs) CloseHandle(pr.process);
     pluginProcs.clear();
@@ -665,8 +681,9 @@ void App::DrawPluginsMenu() {
         if (p.loaded)
             for (auto& s : p.scripts)
                 if (MenuPath(s.menu)) RunPluginScript(p, s);
-    if (!pluginPanels.empty() && ImGui::BeginMenu("Fenêtres")) {
+    if ((!pluginPanels.empty() || !scriptPanels.empty()) && ImGui::BeginMenu("Fenêtres")) {
         for (auto& p : pluginPanels) ImGui::MenuItem(p.title.c_str(), nullptr, &p.open);
+        for (auto& p : scriptPanels) ImGui::MenuItem(p.title.c_str(), nullptr, &p.open);
         ImGui::EndMenu();
     }
     if (!pluginTools.empty() && ImGui::BeginMenu("Outils")) {
@@ -688,6 +705,18 @@ void App::DrawPluginsMenu() {
 }
 
 void App::DrawPluginPanels() {
+    for (auto& sp : scriptPanels) {
+        if (!sp.open) {
+            if (sp.process) StopScriptPanel(sp);  // closed: its program ends
+            continue;
+        }
+        if (!sp.process && sp.error.empty()) StartScriptPanel(sp);
+        ImGui::SetNextWindowSize(ImVec2(320 * dpi, 360 * dpi), ImGuiCond_FirstUseEver);
+        bool open = true;
+        if (ImGui::Begin(sp.title.c_str(), &open)) DrawScriptPanel(sp);
+        ImGui::End();
+        sp.open = open;
+    }
     for (size_t i = 0; i < pluginPanels.size(); ++i) {
         auto& p = pluginPanels[i];
         if (!p.open) continue;
@@ -848,6 +877,214 @@ void App::PluginTool3DInput(DocView& v, float2 local, u32 w, u32 h, bool hovered
         send(SX_TOOL_RELEASE);
     } else if (hovered && (io.MouseDelta.x != 0 || io.MouseDelta.y != 0)) {
         send(SX_TOOL_HOVER);
+    }
+}
+
+// ---------------------------------------------------------------- script panels
+
+// Lines read from the program's stdout by a thread (the window takes them each frame).
+struct ScriptPanelIo {
+    std::mutex mutex;
+    std::vector<std::string> lines;
+    std::string partial;
+    std::atomic<bool> ended{false};
+    std::thread reader;
+    void* stdoutRead = nullptr;
+    ~ScriptPanelIo() {
+        if (reader.joinable()) reader.join();
+        if (stdoutRead) CloseHandle(stdoutRead);
+    }
+};
+
+void App::StartScriptPanel(ScriptPanel& sp) {
+    if (!bridge.Running()) bridge.Start(ExeDir() + "/Shaderixel");
+    SECURITY_ATTRIBUTES sa = {sizeof(sa), nullptr, TRUE};
+    HANDLE outR = nullptr, outW = nullptr, inR = nullptr, inW = nullptr;
+    if (!CreatePipe(&outR, &outW, &sa, 0) || !CreatePipe(&inR, &inW, &sa, 0)) { sp.error = "tubes indisponibles"; return; }
+    SetHandleInformation(outR, HANDLE_FLAG_INHERIT, 0);
+    SetHandleInformation(inW, HANDLE_FLAG_INHERIT, 0);
+    std::wstring env;
+    {
+        wchar_t* block = GetEnvironmentStringsW();
+        for (wchar_t* e = block; e && *e; e += wcslen(e) + 1) {
+            std::wstring kv = e;
+            if (kv.rfind(L"SHADERIXEL_", 0) == 0 || kv.rfind(L"PYTHONUNBUFFERED", 0) == 0) continue;
+            env += kv;
+            env.push_back(L'\0');
+        }
+        FreeEnvironmentStringsW(block);
+        auto add = [&](const std::wstring& kv) { env += kv; env.push_back(L'\0'); };
+        add(L"SHADERIXEL_URL=http://127.0.0.1:" + std::to_wstring(bridge.Port()) + L"/shaderixel/v1");
+        add(L"SHADERIXEL_TOKEN=" + Widen(bridge.PluginToken()));
+        add(L"SHADERIXEL_WORKSPACE=" + Widen(PluginWorkspace(sp.plugin)));
+        add(L"PYTHONIOENCODING=utf-8");
+        add(L"PYTHONUNBUFFERED=1");
+        env.push_back(L'\0');
+    }
+    // Errors of the program go to a log (its stdout is the protocol).
+    const std::string log = PluginWorkspace(sp.plugin) + "\\panel_errors.log";
+    HANDLE errW = CreateFileW(Utf8Path(log).c_str(), GENERIC_WRITE, FILE_SHARE_READ, &sa, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    STARTUPINFOW si = {sizeof(si)};
+    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+    si.hStdOutput = outW;
+    si.hStdError = errW;
+    si.hStdInput = inR;
+    PROCESS_INFORMATION pi = {};
+    std::wstring cmd = L"cmd /c " + Widen(sp.run);
+    const BOOL ok = CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT, env.data(), Utf8Path(sp.dir).c_str(), &si, &pi);
+    CloseHandle(outW);
+    CloseHandle(inR);
+    if (errW != INVALID_HANDLE_VALUE) CloseHandle(errW);
+    if (!ok) {
+        CloseHandle(outR);
+        CloseHandle(inW);
+        sp.error = "impossible de lancer : " + sp.run;
+        return;
+    }
+    CloseHandle(pi.hThread);
+    sp.process = pi.hProcess;
+    sp.stdinWrite = inW;
+    auto io = std::make_shared<ScriptPanelIo>();
+    io->stdoutRead = outR;
+    ScriptPanelIo* raw = io.get();
+    io->reader = std::thread([raw] {
+        char buf[4096];
+        DWORD n = 0;
+        while (ReadFile(raw->stdoutRead, buf, sizeof(buf), &n, nullptr) && n > 0) {
+            std::lock_guard lock(raw->mutex);
+            raw->partial.append(buf, n);
+            size_t pos;
+            while ((pos = raw->partial.find('\n')) != std::string::npos) {
+                std::string line = raw->partial.substr(0, pos);
+                if (!line.empty() && line.back() == '\r') line.pop_back();
+                raw->lines.push_back(std::move(line));
+                raw->partial.erase(0, pos + 1);
+            }
+        }
+        raw->ended = true;
+    });
+    sp.io = io;
+    sp.ui = Json::Array();
+    Json hello = Json::Object();
+    hello["event"] = "open";
+    SendScriptPanel(sp, hello);
+}
+
+void App::StopScriptPanel(ScriptPanel& sp) {
+    if (!sp.process) return;
+    Json bye = Json::Object();
+    bye["event"] = "close";
+    SendScriptPanel(sp, bye);
+    if (sp.stdinWrite) CloseHandle(sp.stdinWrite);  // end of input: the program may end by itself
+    sp.stdinWrite = nullptr;
+    if (WaitForSingleObject(sp.process, 300) != WAIT_OBJECT_0) TerminateProcess(sp.process, 0);
+    CloseHandle(sp.process);
+    sp.process = nullptr;
+    sp.io.reset();  // joins the reader (its pipe ended with the process)
+}
+
+void App::SendScriptPanel(ScriptPanel& sp, const Json& msg) {
+    if (!sp.stdinWrite) return;
+    const std::string line = msg.Dump(0) + "\n";
+    DWORD n = 0;
+    WriteFile(sp.stdinWrite, line.data(), (DWORD)line.size(), &n, nullptr);
+}
+
+void App::DrawScriptPanel(ScriptPanel& sp) {
+    // Messages of the program: {"ui": [...]} (whole window), {"status": "..."}, {"log": "..."}.
+    if (sp.io) {
+        std::vector<std::string> lines;
+        {
+            std::lock_guard lock(sp.io->mutex);
+            lines.swap(sp.io->lines);
+        }
+        for (auto& line : lines) {
+            Json m;
+            if (!Json::Parse(line, m) || !m.IsObject()) {
+                Log("[plugin %s] %s", sp.plugin.c_str(), line.c_str());
+                continue;
+            }
+            if (m.Has("ui") && m["ui"].IsArray()) sp.ui = m["ui"];
+            if (m.Has("status")) Status(m["status"].S(""));
+            if (m.Has("log")) Log("[plugin %s] %s", sp.plugin.c_str(), m["log"].S("").c_str());
+        }
+        if (sp.io->ended && sp.process && WaitForSingleObject(sp.process, 0) == WAIT_OBJECT_0) {
+            DWORD code = 0;
+            GetExitCodeProcess(sp.process, &code);
+            std::string err;
+            ReadTextFile(PluginWorkspace(sp.plugin) + "\\panel_errors.log", err);
+            sp.error = "le programme s'est arrêté (code " + std::to_string(code) + ")" + (err.empty() ? "" : " :\n" + err.substr(err.size() > 600 ? err.size() - 600 : 0));
+            CloseHandle(sp.process);
+            sp.process = nullptr;
+            if (sp.stdinWrite) CloseHandle(sp.stdinWrite);
+            sp.stdinWrite = nullptr;
+            sp.io.reset();
+        }
+    }
+    if (!sp.error.empty()) {
+        ImGui::TextColored(ImVec4(1, 0.5f, 0.4f, 1), "%s", sp.error.c_str());
+        if (ImGui::Button("Relancer")) sp.error.clear();
+        return;
+    }
+    if (sp.ui.Size() == 0) {
+        ImGui::TextDisabled("Démarrage du script...");
+        return;
+    }
+    auto send = [&](const char* event, const Json& w, const Json* value) {
+        Json m = Json::Object();
+        m["event"] = event;
+        m["id"] = w["id"].S("");
+        if (value) m["value"] = *value;
+        SendScriptPanel(sp, m);
+    };
+    // Widgets; the values are kept here (smooth sliders) and sent when they change.
+    for (size_t i = 0; i < sp.ui.Size(); ++i) {
+        Json& w = const_cast<Json&>(sp.ui.At(i));
+        const std::string type = w["type"].S("text"), label = w["label"].S(w["id"].S("")) + "##" + w["id"].S(std::to_string(i));
+        ImGui::PushID((int)i);
+        if (type == "text") ImGui::TextWrapped("%s", w["text"].S("").c_str());
+        else if (type == "note") ImGui::TextDisabled("%s", w["text"].S("").c_str());
+        else if (type == "separator") {
+            if (w["label"].S("").empty()) ImGui::Separator();
+            else ImGui::SeparatorText(w["label"].S("").c_str());
+        } else if (type == "same_line") ImGui::SameLine();
+        else if (type == "button") {
+            if (ImGui::Button(label.c_str())) send("click", w, nullptr);
+        } else if (type == "slider") {
+            const bool isInt = w["int"].B(false);
+            if (isInt) {
+                int v = w["value"].I(0);
+                if (ImGui::SliderInt(label.c_str(), &v, w["min"].I(0), w["max"].I(100))) { w["value"] = v; Json jv = v; send("change", w, &jv); }
+            } else {
+                float v = w["value"].F(0);
+                if (ImGui::SliderFloat(label.c_str(), &v, w["min"].F(0), w["max"].F(1), w["format"].S("%.2f").c_str())) { w["value"] = v; Json jv = v; send("change", w, &jv); }
+            }
+        } else if (type == "checkbox") {
+            bool v = w["value"].B(false);
+            if (ImGui::Checkbox(label.c_str(), &v)) { w["value"] = v; Json jv = v; send("change", w, &jv); }
+        } else if (type == "input") {
+            std::string v = w["value"].S("");
+            if (ImGui::InputText(label.c_str(), &v)) { w["value"] = v; Json jv = v; send("change", w, &jv); }
+        } else if (type == "color") {
+            float c[4] = {1, 1, 1, 1};
+            const Json& jc = w["value"];
+            for (int k = 0; k < 4 && k < (int)jc.Size(); ++k) c[k] = jc.At(k).F(1);
+            if (ImGui::ColorEdit4(label.c_str(), c, ImGuiColorEditFlags_NoInputs)) {
+                Json jv = Json::Array();
+                for (float f : c) jv.Push(f);
+                w["value"] = jv;
+                send("change", w, &jv);
+            }
+        } else if (type == "combo") {
+            std::string items;
+            for (const Json& it : w["items"].Elements()) { items += it.S(""); items.push_back('\0'); }
+            items.push_back('\0');
+            int v = w["value"].I(0);
+            if (ImGui::Combo(label.c_str(), &v, items.c_str())) { w["value"] = v; Json jv = v; send("change", w, &jv); }
+        }
+        if (w.Has("tooltip") && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", w["tooltip"].S("").c_str());
+        ImGui::PopID();
     }
 }
 

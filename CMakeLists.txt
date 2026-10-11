@@ -87,7 +87,7 @@ function(sx_app target)
             ${SLANG_DIR}/bin/slang.dll ${SLANG_DIR}/bin/slang-compiler.dll
             ${SLANG_DIR}/bin/slang-glslang.dll ${SLANG_DIR}/bin/slang-rt.dll
             $<TARGET_FILE_DIR:${target}>)
-    add_dependencies(${target} ShaderixelExamplePlugin ShaderixelPalettePlugin)
+    add_dependencies(${target} ShaderixelExamplePlugin ShaderixelPalettePlugin ShaderixelScriptPlugins)
 endfunction()
 
 # Example plugin (sdk/examples): built into <exe dir>/plugins/Exemple with its manifest.
@@ -100,7 +100,9 @@ if(MSVC)
     target_compile_options(ShaderixelExamplePlugin PRIVATE /W4 /utf-8)
 endif()
 add_custom_command(TARGET ShaderixelExamplePlugin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/sdk/examples/example_plugin/plugin.json ${CMAKE_BINARY_DIR}/plugins/Exemple/plugin.json
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/sdk/examples/example_plugin/plugin.json ${CMAKE_BINARY_DIR}/plugins/Exemple/plugin.json)
+# Script plugin example: copied at every build (no compilation step to trigger it).
+add_custom_target(ShaderixelScriptPlugins ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/sdk/examples/script_plugin ${CMAKE_BINARY_DIR}/plugins/ExempleScript)
 
 # Palette plugin (shipped): dominant colors of the active layer.

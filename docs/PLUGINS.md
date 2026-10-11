@@ -6,7 +6,7 @@ Deux sortes de plugins :
 
 | | Natif (DLL C/C++) | Script (Python ou autre programme) |
 |---|---|---|
-| Ajoute | commandes, fenêtres, outils, opérations | commandes de menu |
+| Ajoute | commandes, fenêtres, outils, opérations | commandes de menu, fenêtres |
 | Tourne | dans Shaderixel (thread principal) | dans son propre processus |
 | Pilote Shaderixel | `host->call(opération, json)` | pont HTTP local (`shaderixel_client.py`) |
 | Compilation | oui (n'importe quel compilateur Windows x64) | non |
@@ -32,11 +32,15 @@ Menu **Plugins > Gestionnaire de plugins...** : liste, activer / désactiver (m�
   "dll": "mon_plugin.dll",
   "commands": [
     {"menu": "Mon plugin/Faire quelque chose", "run": "python faire.py --fort", "description": "..."}
+  ],
+  "panels": [
+    {"title": "Mon outil", "run": "python fenetre.py"}
   ]
 }
 ```
 
 - `dll` : plugin natif (optionnel).
+- `panels` : fenêtres de script (optionnel, voir plus bas).
 - `commands` : commandes de script (optionnel). `run` est une ligne de commande lancée dans le dossier du plugin ; `menu` est le chemin dans le menu Plugins (`/` = sous-menu).
 
 Un plugin peut avoir les deux.
@@ -132,3 +136,42 @@ print("Terminé")   # la dernière ligne affichée va dans la barre d'état
 ```
 
 La sortie du script est gardée dans `%TEMP%\Shaderixel\plugins\<id>\run_*.log`.
+
+Plusieurs opérations à annuler d'un coup : `call("shaderixel.history_group", {"action": "begin"})`, les opérations, puis `{"action": "end"}`.
+
+### Fenêtres de script
+
+Une entrée `panels` du `plugin.json` ouvre une fenêtre (Plugins > Fenêtres) dessinée par Shaderixel à partir de la description qu'envoie le programme. Le programme tourne tant que la fenêtre est ouverte.
+
+Avec Python, `shaderixel_panel.py` :
+
+```python
+from shaderixel_client import call
+from shaderixel_panel import Panel
+
+panel = Panel()
+etat = {"taille": 32}
+
+def ui():
+    return [panel.slider("taille", "Taille", etat["taille"], 4, 256, integer=True),
+            panel.button("go", "Appliquer"),
+            panel.note("Réglez puis Appliquer.")]
+
+@panel.on_change
+def change(id, valeur):
+    etat[id] = valeur
+
+@panel.on_click
+def clic(id):
+    if id == "go":
+        call("shaderixel.fill", {"color": [1, 0, 0, 1]})
+        panel.status("Fait")
+
+panel.run(ui)
+```
+
+Widgets : `text`, `note`, `separator`, `same_line`, `button`, `slider` (réel ou entier), `checkbox`, `input` (texte), `color`, `combo` ; chacun peut avoir une info-bulle. L'interface est renvoyée après chaque clic (la fonction `ui()` peut donc l'adapter à l'état).
+
+Protocole (un objet JSON par ligne, pour un autre langage que Python) : Shaderixel envoie sur l'entrée standard `{"event": "open" | "click" | "change" | "close", "id": ..., "value": ...}` ; le programme écrit sur la sortie standard `{"ui": [widgets...]}`, `{"status": "..."}` ou `{"log": "..."}`. Les erreurs du programme (sortie d'erreur) sont affichées dans la fenêtre s'il s'arrête.
+
+Exemple : `SDK\examples\script_plugin\grid_panel.py` (fenêtre **Grille** : une grille sur un nouveau calque, espacement, épaisseur, couleur, orientation, annulable d'un coup).

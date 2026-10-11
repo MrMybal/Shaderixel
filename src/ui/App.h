@@ -311,6 +311,8 @@ public:
         std::string id, name, version, author, description, dir, dll, error;
         struct Script { std::string menu, run, description; };
         std::vector<Script> scripts;  // script plugins: menu commands running a program
+        struct Panel { std::string title, run; };
+        std::vector<Panel> panels;    // script plugins: windows drawn from a program's JSON
         bool enabled = true, loaded = false;
         void* module = nullptr;  // HMODULE
         std::string loadedCopy;
@@ -323,6 +325,22 @@ public:
     struct PluginOp { std::string plugin, op; };
     struct PluginCall { std::string plugin; AiResult result; SxResultFn done; void* user; };
     struct PluginProc { std::string plugin, label, log; void* process; };
+    // Script panel: a long-running program (plugin.json "panels") describing its window in JSON lines on
+    // stdout; the host draws it and sends the user's actions on its stdin (see docs/PLUGINS.md).
+    struct ScriptPanel {
+        std::string plugin, title, run, dir;
+        bool open = false;
+        void* process = nullptr;  // HANDLE
+        void* stdinWrite = nullptr;
+        std::shared_ptr<struct ScriptPanelIo> io;
+        Json ui = Json::Array();
+        std::string error;
+    };
+    std::vector<ScriptPanel> scriptPanels;
+    void StartScriptPanel(ScriptPanel& sp);
+    void StopScriptPanel(ScriptPanel& sp);
+    void SendScriptPanel(ScriptPanel& sp, const Json& msg);
+    void DrawScriptPanel(ScriptPanel& sp);
     struct PluginRead { std::string plugin; gpu::ReadbackPtr rb; int format; SxPixelsFn done; void* user; };
     struct PluginListener { std::string plugin; SxEventFn fn; void* user; };
     std::vector<PluginListener> pluginListeners;

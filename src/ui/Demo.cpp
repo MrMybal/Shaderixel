@@ -514,6 +514,34 @@ void App::DemoTick() {
         }
         if (frameCounter == 25 && GetEnvironmentVariableA("SX_PIXELS", nullptr, 0) > 0)
             Log("[demo] pixels: %s, undo step %s", statusMsg.c_str(), a->history.Count() ? a->history.Label(a->history.Count() - 1).c_str() : "-");
+        if (GetEnvironmentVariableA("SX_SCRIPTPANEL", nullptr, 0) > 0) {
+            // Script window (Python): opened, then its "Dessiner la grille" button pressed (event sent as the window does).
+            for (auto& sp : scriptPanels) {
+                if (frameCounter == 10) sp.open = true;
+                if (frameCounter == 60 && sp.process) {
+                    Json m = Json::Object();
+                    m["event"] = "click";
+                    m["id"] = "draw";
+                    SendScriptPanel(sp, m);
+                    Log("[demo] script panel %s: %zu widgets", sp.title.c_str(), sp.ui.Size());
+                }
+                if (frameCounter == 200) Log("[demo] script panel after: %s / %s", statusMsg.c_str(), sp.error.c_str());
+                auto grids = [&] {
+                    int n = 0;
+                    for (auto& l : a->doc->S().layers) n += l.name == "Grille" ? 1 : 0;
+                    return n;
+                };
+                if (frameCounter == 205 && sp.process && GetEnvironmentVariableA("SX_SCRIPTUNDO", nullptr, 0) > 0) {
+                    Log("[demo] grid layers before undo: %d", grids());
+                    Json m = Json::Object();
+                    m["event"] = "click";
+                    m["id"] = "undo";
+                    SendScriptPanel(sp, m);
+                }
+                if (frameCounter == 240 && GetEnvironmentVariableA("SX_SCRIPTUNDO", nullptr, 0) > 0) Log("[demo] grid layers after one undo: %d", grids());
+            }
+            return;
+        }
         if (frameCounter == 26) {
             // Hot reload of the native plugin (as the manager's "Recharger" button).
             for (auto& p : plugins)
