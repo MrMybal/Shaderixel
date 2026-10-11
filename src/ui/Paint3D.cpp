@@ -250,6 +250,9 @@ void App::DrawLayers3DPanel() {
     ImGui::SameLine();
     bool del = ImGui::Button("Supprimer");
     ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button("+ Dossier")) CreateFolder3D(*v, IsFolder3D(d, materialSel) ? 0 : materialSel);
+    ui::HelpTooltip("Dossier de calques 3D : visibilité, opacité, fusion et masque (intelligent) communs.\nAutour du calque sélectionné, ou vide en haut.");
     ImGui::Separator();
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float hh = ImGui::GetFrameHeight() * 1.5f;
@@ -257,6 +260,9 @@ void App::DrawLayers3DPanel() {
         Layer* any = AnyMaterialLayer(d, m);
         if (!any) continue;
         const bool paint = IsPaintLayer3D(d, m);
+        const bool folder = any->kind == LayerKind::Group;
+        const int depth = Folder3DDepth(d, m);
+        if (depth) ImGui::Indent(depth * 18 * dpi);
         ImGui::PushID((int)m);
         bool vis = any->visible;
         if (ImGui::Checkbox("##vis", &vis)) {
@@ -274,7 +280,12 @@ void App::DrawLayers3DPanel() {
         // Thumbnail: base color layer (paint) or swatch (fill).
         ImVec2 sp = ImGui::GetCursorScreenPos();
         Layer* bc = MaterialChannelLayer(d, m, PbrChannel::BaseColor);
-        if (paint && bc && bc->surface) {
+        if (folder) {
+            // Folder: a folder shape.
+            const ImU32 fc = IM_COL32(200, 170, 90, 255);
+            dl->AddRectFilled(ImVec2(sp.x + hh * 0.1f, sp.y + hh * 0.22f), ImVec2(sp.x + hh * 0.5f, sp.y + hh * 0.36f), fc, 2);
+            dl->AddRectFilled(ImVec2(sp.x + hh * 0.1f, sp.y + hh * 0.32f), ImVec2(sp.x + hh * 0.9f, sp.y + hh * 0.82f), fc, 3);
+        } else if (paint && bc && bc->surface) {
             if (Surface* s = d.GetSurface(bc->surface)) {
                 gpu::Texture* th = v->renderer.Thumbnail(*ctx, (2ull << 58) | m, s->tex.get(), s->version, (u32)hh, (u32)hh);
                 dl->AddRectFilled(sp, ImVec2(sp.x + hh, sp.y + hh), IM_COL32(60, 60, 66, 255), 3);
@@ -305,9 +316,11 @@ void App::DrawLayers3DPanel() {
                 static const char* abbr[] = {"C", "R", "M", "N", "E", "O", "H"};
                 chans += std::string(abbr[(int)c]) + " ";
             }
-        ImGui::TextDisabled("%s  %s%s", paint ? "Peinture" : "Remplissage", chans.c_str(), any->mask ? " + masque" : "");
+        if (folder) ImGui::TextDisabled("Dossier%s", any->mask ? " + masque" : "");
+        else ImGui::TextDisabled("%s  %s%s", paint ? "Peinture" : "Remplissage", chans.c_str(), any->mask ? " + masque" : "");
         ImGui::EndGroup();
         ImGui::PopID();
+        if (depth) ImGui::Unindent(depth * 18 * dpi);
     }
     if (del && materialSel) {
         Edit e(d, v->history, "Supprimer le calque 3D");
@@ -319,7 +332,24 @@ void App::DrawLayers3DPanel() {
     }
     // Selected layer: opacity, mask tools.
     if (Layer* any = materialSel ? AnyMaterialLayer(d, materialSel) : nullptr) {
-        ImGui::SeparatorText("Calque sélectionné");
+        ImGui::SeparatorText(any->kind == LayerKind::Group ? "Dossier sélectionné" : "Calque sélectionné");
+        {
+            // Folders: in / out, ungroup.
+            const Id in = Folder3DOf(d, materialSel);
+            Id above = 0;  // the folder just above in the list (same level)
+            for (size_t k = 0; k < mats.size(); ++k)
+                if (mats[k] == materialSel) {
+                    for (size_t j = k; j-- > 0;)
+                        if (Folder3DOf(d, mats[j]) == in) { above = IsFolder3D(d, mats[j]) ? mats[j] : 0; break; }
+                    break;
+                }
+            bool any3 = false;
+            if (above && above != materialSel) { if (ImGui::SmallButton("Entrer dans le dossier au-dessus")) MoveIntoFolder3D(*v, materialSel, above); any3 = true; }
+            if (in) { if (any3) ImGui::SameLine(); if (ImGui::SmallButton("Sortir du dossier")) MoveOutOfFolder3D(*v, materialSel); any3 = true; }
+            if (any->kind == LayerKind::Group) { if (any3) ImGui::SameLine(); if (ImGui::SmallButton("Dégrouper")) UngroupFolder3D(*v, materialSel); }
+        }
+        any = materialSel ? AnyMaterialLayer(d, materialSel) : nullptr;
+        if (!any) { ImGui::End(); return; }
         float op = any->opacity * 100;
         ImGui::SetNextItemWidth(-FLT_MIN);
         if (ImGui::SliderFloat("##op3d", &op, 0, 100, "Opacité %.0f %%")) {
@@ -395,9 +425,12 @@ void App::SoloMaterial(DocView& v, Id m) {
     for (Id o : MaterialIds(d))
         if (o != m)
             if (Layer* ol = AnyMaterialLayer(d, o); ol && ol->visible) solo = false;
+    // Its folders stay visible (a hidden folder hides what it holds).
+    std::vector<Id> keep = {m};
+    for (Id f = Folder3DOf(d, m); f && keep.size() < 16; f = Folder3DOf(d, f)) keep.push_back(f);
     Edit e(d, v.history, solo ? "Afficher tous les calques 3D" : "Calque 3D seul");
     for (auto& l : d.S().layers)
-        if (l.material) l.visible = solo || l.material == m;
+        if (l.material) l.visible = solo || std::find(keep.begin(), keep.end(), l.material) != keep.end();
     d.SyncGraph();
     e.Commit();
 }

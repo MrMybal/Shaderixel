@@ -1375,6 +1375,14 @@ private:
     void DrawProjectionEditor(DocView& v, Id material);
     void DrawMaterialFilters(DocView& v, Id material);
     void SoloMaterial(DocView& v, Id material);  // Alt + click on a 3D layer's visibility
+    // 3D folders: a group per channel group (same material id, shared mask).
+    bool IsFolder3D(Document& d, Id material);
+    Id Folder3DOf(Document& d, Id material);
+    int Folder3DDepth(Document& d, Id material);
+    Id CreateFolder3D(DocView& v, Id wrap);
+    void MoveIntoFolder3D(DocView& v, Id material, Id folder);
+    void MoveOutOfFolder3D(DocView& v, Id material);
+    void UngroupFolder3D(DocView& v, Id folder);
     // 3D eyedropper: the material under a point of the 3D view goes to the brush material.
     bool PickMeshUv(MeshScene& s, float2 sp, u32 w, u32 h, float2& uv);
     void StartMaterialPick(DocView& v, float2 sp, u32 w, u32 h);

@@ -405,7 +405,7 @@ bool App::SaveSmartMaterial(DocView& v, const std::string& name, const std::stri
     std::reverse(mats.begin(), mats.end());  // bottom first, like the JSON
     std::vector<Id> saved;
     int skippedPaint = 0, paintedMasks = 0;
-    for (Id m : mats) if (!IsPaintLayer3D(d, m)) saved.push_back(m);
+    for (Id m : mats) if (!IsPaintLayer3D(d, m) && !IsFolder3D(d, m)) saved.push_back(m);
     Json layers = Json::Array();
     for (Id m : saved) {
         Layer* any = AnyMaterialLayer(d, m);
@@ -450,7 +450,7 @@ bool App::SaveSmartMaterial(DocView& v, const std::string& name, const std::stri
         l["mask"] = g;
         layers.Push(l);
     }
-    skippedPaint = (int)(mats.size() - saved.size());
+    for (Id m : mats) skippedPaint += IsPaintLayer3D(d, m) ? 1 : 0;
     if (layers.Size() == 0) { Status("Matériau intelligent : aucun calque de matériau à enregistrer"); return false; }
     Json sm = Json::Object();
     sm["name"] = name;

@@ -64,6 +64,19 @@ void MaterialPresetValues(int i, float3& color, float& rough, float& metal, floa
     hasHeight = p.hasHeight;
 }
 
+namespace {
+// Layer l is inside group g (directly or through 3D folders).
+bool Inside(Document& d, const Layer& l, Id g) {
+    Id p = l.parent;
+    for (int guard = 0; p && guard < 64; ++guard) {
+        if (p == g) return true;
+        const Layer* pl = d.FindLayer(p);
+        p = pl ? pl->parent : 0;
+    }
+    return false;
+}
+}  // namespace
+
 std::vector<Id> App::MaterialIds(Document& d) {
     // Top-down stacking order. Layers do not all drive the same channels: the order of each
     // channel group (base color first) is merged, a layer missing from one group placed by its neighbors.
@@ -77,7 +90,7 @@ std::vector<Id> App::MaterialIds(Document& d) {
         std::vector<Id> in;  // top-down in this group
         for (int i = (int)d.S().layers.size() - 1; i >= 0; --i) {
             const Layer& l = d.S().layers[i];
-            if (l.parent == g && l.material && std::find(in.begin(), in.end(), l.material) == in.end()) in.push_back(l.material);
+            if (l.material && Inside(d, l, g) && std::find(in.begin(), in.end(), l.material) == in.end()) in.push_back(l.material);
         }
         for (size_t k = 0; k < in.size(); ++k) {
             if (has(in[k])) continue;
@@ -101,8 +114,130 @@ std::vector<Id> App::MaterialIds(Document& d) {
 Layer* App::MaterialChannelLayer(Document& d, Id material, PbrChannel c) {
     Id g = FindChannelGroup(d, c);
     for (auto& l : d.S().layers)
-        if (l.material == material && l.parent == g) return &l;
+        if (l.material == material && Inside(d, l, g)) return &l;
     return nullptr;
+}
+
+// ------------------------------------------------------------------ 3D folders
+// A folder is a group layer in every channel group (same material id, shared mask) holding the
+// channel layers of its 3D layers: visibility, opacity, blending and a (smart) mask for all of them.
+
+bool App::IsFolder3D(Document& d, Id material) {
+    const Layer* l = material ? AnyMaterialLayer(d, material) : nullptr;
+    return l && l->kind == LayerKind::Group;
+}
+
+Id App::Folder3DOf(Document& d, Id material) {
+    const Layer* l = material ? AnyMaterialLayer(d, material) : nullptr;
+    const Layer* p = l && l->parent ? d.FindLayer(l->parent) : nullptr;
+    return p && p->kind == LayerKind::Group && p->material ? p->material : 0;
+}
+
+int App::Folder3DDepth(Document& d, Id material) {
+    int depth = 0;
+    for (Id f = Folder3DOf(d, material); f && depth < 16; f = Folder3DOf(d, f)) ++depth;
+    return depth;
+}
+
+Id App::CreateFolder3D(DocView& v, Id wrap) {
+    // New folder around the 3D layer `wrap` (or empty, on top).
+    Document& d = *v.doc;
+    if (d.Mode() != DocMode::Layers) return 0;
+    Edit e(d, v.history, "Nouveau dossier 3D");
+    const Id folder = d.NewId();
+    const Id mask = d.CreateSurface({1, 1, 1, 1});
+    int count = 1;
+    for (Id m : MaterialIds(d)) count += IsFolder3D(d, m) ? 1 : 0;
+    const std::string name = "Dossier " + std::to_string(count);
+    for (int ci = 0; ci < (int)PbrChannel::Count; ++ci) {
+        const Id g = FindChannelGroup(d, (PbrChannel)ci);
+        if (!g) continue;
+        Layer f;
+        f.id = d.NewId();
+        f.kind = LayerKind::Group;
+        f.name = name;
+        f.material = folder;
+        f.mask = mask;
+        f.passThrough = false;
+        auto& L = d.S().layers;
+        if (Layer* member = wrap ? MaterialChannelLayer(d, wrap, (PbrChannel)ci) : nullptr) {
+            // The folder takes the member's place; the member becomes its child.
+            f.parent = member->parent;
+            const Id mid = member->id;
+            member->parent = f.id;
+            L.insert(L.begin() + d.LayerIndex(mid) + 1, f);
+        } else {
+            f.parent = g;
+            L.insert(L.begin() + d.LayerIndex(g), f);  // top of the channel group
+        }
+    }
+    d.SyncGraph();
+    e.Commit();
+    SelectMaterial(d, folder);
+    return folder;
+}
+
+void App::MoveIntoFolder3D(DocView& v, Id material, Id folder) {
+    // Every channel layer of `material` becomes the bottom child of the folder's group in the same channel.
+    Document& d = *v.doc;
+    Edit e(d, v.history, "Entrer dans le dossier");
+    for (int ci = 0; ci < (int)PbrChannel::Count; ++ci) {
+        Layer* ml = MaterialChannelLayer(d, material, (PbrChannel)ci);
+        Layer* fl = MaterialChannelLayer(d, folder, (PbrChannel)ci);
+        if (!ml || !fl) continue;
+        const Id mid = ml->id, fid = fl->id;
+        auto& L = d.S().layers;
+        const int s = d.BlockStart(mid), i = d.LayerIndex(mid);
+        std::vector<Layer> block(L.begin() + s, L.begin() + i + 1);
+        L.erase(L.begin() + s, L.begin() + i + 1);
+        block.back().parent = fid;
+        const int at = d.BlockStart(fid);
+        L.insert(L.begin() + at, block.begin(), block.end());
+    }
+    d.SyncGraph();
+    e.Commit();
+}
+
+void App::MoveOutOfFolder3D(DocView& v, Id material) {
+    // Just under its folder, in the folder's parent.
+    Document& d = *v.doc;
+    Edit e(d, v.history, "Sortir du dossier");
+    for (int ci = 0; ci < (int)PbrChannel::Count; ++ci) {
+        Layer* ml = MaterialChannelLayer(d, material, (PbrChannel)ci);
+        Layer* fl = ml ? d.FindLayer(ml->parent) : nullptr;
+        if (!ml || !fl || fl->kind != LayerKind::Group || !fl->material) continue;
+        const Id mid = ml->id, fid = fl->id, outer = fl->parent;
+        auto& L = d.S().layers;
+        const int s = d.BlockStart(mid), i = d.LayerIndex(mid);
+        std::vector<Layer> block(L.begin() + s, L.begin() + i + 1);
+        L.erase(L.begin() + s, L.begin() + i + 1);
+        block.back().parent = outer;
+        const int at = d.BlockStart(fid);
+        L.insert(L.begin() + at, block.begin(), block.end());
+    }
+    d.SyncGraph();
+    e.Commit();
+}
+
+void App::UngroupFolder3D(DocView& v, Id folder) {
+    // The folder's layers go back to its parent, in place; the folder itself is removed.
+    Document& d = *v.doc;
+    Edit e(d, v.history, "Dégrouper le dossier");
+    std::vector<Id> groups;
+    for (auto& l : d.S().layers)
+        if (l.material == folder && l.kind == LayerKind::Group) groups.push_back(l.id);
+    for (Id gid : groups) {
+        Layer* g = d.FindLayer(gid);
+        if (!g) continue;
+        const Id outer = g->parent;
+        for (auto& l : d.S().layers)
+            if (l.parent == gid) l.parent = outer;
+        auto& L = d.S().layers;
+        L.erase(L.begin() + d.LayerIndex(gid));
+    }
+    d.SyncGraph();
+    e.Commit();
+    materialSel = 0;
 }
 
 Layer* App::AnyMaterialLayer(Document& d, Id material) {

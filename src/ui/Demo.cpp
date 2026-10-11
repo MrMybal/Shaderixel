@@ -598,6 +598,32 @@ void App::DemoTick() {
             }
         }
         if (frameCounter == 30 && GetEnvironmentVariableA("SX_SMARTGRID", nullptr, 0) > 0) smartGridRequest = true;
+        if (GetEnvironmentVariableA("SX_FOLDER", nullptr, 0) > 0) {
+            // 3D folder around the paint layer (2nd from the top), a gradient smart mask on the folder (the
+            // bottom of the model loses the paint); then the dirt goes in and out (logged), the folder stays.
+            static Id folder = 0;
+            std::vector<Id> mats = MaterialIds(*a->doc);
+            if (frameCounter == 40 && mats.size() > 2) {
+                folder = CreateFolder3D(*a, mats[2]);
+                for (auto& l : a->doc->S().layers)
+                    if (l.material == folder) l.generator = "{\"type\":3,\"amount\":0.5,\"contrast\":3,\"noise\":0.3,\"scale\":6,\"dir\":0}";
+                Log("[demo] folder %u around %u: depth of the layer %d", folder, mats[2], Folder3DDepth(*a->doc, mats[2]));
+            }
+            if (frameCounter == 50 && folder && !mats.empty() && mats[0] != folder) {
+                MoveIntoFolder3D(*a, mats[0], folder);  // the top layer (above the folder) cannot enter: logged as it is
+                Log("[demo] after entering: depth %d", Folder3DDepth(*a->doc, mats[0]));
+                MoveOutOfFolder3D(*a, mats[0]);
+                Log("[demo] after leaving: depth %d", Folder3DDepth(*a->doc, mats[0]));
+            }
+            char fm[8] = "";
+            GetEnvironmentVariableA("SX_FOLDER", fm, sizeof(fm));
+            if (frameCounter == 53 && folder && atoi(fm) == 2) UngroupFolder3D(*a, folder);
+            if (frameCounter == 55) {
+                std::string order;
+                for (Id m : MaterialIds(*a->doc)) order += std::string(Folder3DDepth(*a->doc, m) ? "  " : "") + AnyMaterialLayer(*a->doc, m)->name + " | ";
+                Log("[demo] 3D layers: %s", order.c_str());
+            }
+        }
         if (GetEnvironmentVariableA("SX_PICK", nullptr, 0) > 0 && a->mesh->depth) {
             // 3D eyedropper at the view center (frame 60), result logged at frame 70.
             const u32 w = a->mesh->depth->Width(), h = a->mesh->depth->Height();
