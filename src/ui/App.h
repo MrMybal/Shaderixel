@@ -18,6 +18,7 @@
 #include "io/VideoWriter.h"
 #include "io/GifWriter.h"
 #include "shaderixel_plugin.h"
+#include "ui/Search.h"
 
 #include <mutex>
 
@@ -393,7 +394,16 @@ public:
     void SaveSearch();
     void UpdateSearch();
     void DrawSearchBox();
-    void ActivateSearchResult(const struct SearchEntry& e);
+    void ActivateSearchResult(const SearchEntry& e);
+    struct SearchRow {
+        int group = 0;  // 0..2 UI (entry), 3 effect, 4 brush, 5 smart material, 6 library function
+        std::string label, context, payload;
+        SearchEntry entry;
+    };
+    std::vector<SearchRow> searchRows, recentSearches;
+    std::string searchRowsQuery = "\x01";
+    void BuildSearchRows(const std::string& q);
+    void RunSearchRow(const SearchRow& r);
     void RevealWindow(const std::string& name);
     void PluginTool3DInput(DocView& v, float2 local, u32 w, u32 h, bool hovered);  // tool events over the model (texture pixels)
     Surface* PluginSurface(unsigned layer, Id* id = nullptr);

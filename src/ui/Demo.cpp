@@ -471,6 +471,17 @@ void App::DemoTick() {
             pluginManager = false;
             char q[64] = "flou";
             GetEnvironmentVariableA("SX_QUERY", q, sizeof(q));
+            if (GetEnvironmentVariableA("SX_CONTENT", nullptr, 0) > 0) {
+                // A content result run: the gaussian blur effect added to the active layer.
+                BuildSearchRows("flou gaussien");
+                for (auto& r : searchRows)
+                    if (r.group == 3) {
+                        RunSearchRow(r);
+                        break;
+                    }
+                const Layer* l = Active() ? Active()->doc->ActiveLayer() : nullptr;
+                Log("[demo] content result: filters on the active layer %zu, recent %zu", l ? l->filters.size() : 0, recentSearches.size());
+            }
             char go[64] = "";
             if (GetEnvironmentVariableA("SX_GOTO", go, sizeof(go)) > 0) {
                 // A property reached: its window forward, scrolled to it, blinking.
