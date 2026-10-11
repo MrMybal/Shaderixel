@@ -7,8 +7,10 @@
 #include "render/MeshPaint.h"
 #include "mesh/MeshBake.h"
 
+#include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <stb_image.h>
+#include <stb_image_write.h>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -254,10 +256,10 @@ void App::DrawSmartMaskEditor(DocView& v, Id material) {
 // ------------------------------------------------------------------ smart materials
 
 const std::vector<Json>& App::SmartMaterials() {
-    static std::vector<Json> list;
-    static bool loaded = false;
-    if (loaded) return list;
-    loaded = true;
+    auto& list = smartList;
+    if (smartListLoaded) return list;
+    smartListLoaded = true;
+    list.clear();
     // Mask types: 0 edge wear, 1 cavity dirt, 2 dust, 3 gradient, 4 occlusion, 5 noise, 6 thin parts, 7 full, 8 follows a layer.
     const Json full = Gen(7, 1, 4, 0, 6);
     auto follow = [](int rel, int mode, float radius, float amount, float noise) {
@@ -334,8 +336,15 @@ const std::vector<Json>& App::SmartMaterials() {
 std::vector<std::string> App::SmartMaterialDirs() {
     // Library: next to the exe (package), the repository's library/smartmaterials (development builds), the user's folder.
     std::vector<std::string> dirs = {ExeDir() + "/smartmaterials", ExeDir() + "/../../library/smartmaterials"};
-    if (const char* la = getenv("LOCALAPPDATA")) dirs.push_back(std::string(la) + "/Shaderixel/SmartMaterials");
+    dirs.push_back(SmartMaterialUserDir());
     return dirs;
+}
+
+std::string App::SmartMaterialUserDir() {
+    // The user's library (SX_SMARTUSERDIR: another folder, for tests).
+    if (const char* t = getenv("SX_SMARTUSERDIR"); t && *t) return t;
+    const char* la = getenv("LOCALAPPDATA");
+    return la ? std::string(la) + "/Shaderixel/SmartMaterials" : std::string();
 }
 
 gpu::Texture* App::SmartMaterialThumb(DocView&, const std::string& name) {
@@ -358,6 +367,118 @@ gpu::Texture* App::SmartMaterialThumb(DocView&, const std::string& name) {
     }
     smartThumbs[name] = tex;  // missing: remembered too (name only)
     return tex.get();
+}
+
+void App::SaveViewCrop(const gpu::Readback& rb, ImVec4 rect, const std::string& path) {
+    // Square around the center of a captured view (screen rect), box-filtered to 192 px.
+    const float sc = (float)rb.width / std::max(ImGui::GetIO().DisplaySize.x, 1.0f);
+    const float cx = (rect.x + rect.z) * 0.5f * sc, cy = (rect.y + rect.w) * 0.5f * sc;
+    const float side = std::min(rect.z - rect.x, rect.w - rect.y) * 0.78f * sc;
+    const int T = 192;
+    std::vector<u8> px((size_t)T * T * 4);
+    for (int y = 0; y < T; ++y)
+        for (int x = 0; x < T; ++x) {
+            float acc[3] = {};
+            for (int sy = 0; sy < 3; ++sy)
+                for (int sx = 0; sx < 3; ++sx) {
+                    const int X = std::clamp((int)(cx - side * 0.5f + (x + (sx + 0.5f) / 3) * side / T), 0, (int)rb.width - 1);
+                    const int Y = std::clamp((int)(cy - side * 0.5f + (y + (sy + 0.5f) / 3) * side / T), 0, (int)rb.height - 1);
+                    const u8* p = &rb.data[((size_t)Y * rb.width + X) * 4];
+                    for (int c = 0; c < 3; ++c) acc[c] += p[c];
+                }
+            u8* o = &px[((size_t)y * T + x) * 4];
+            for (int c = 0; c < 3; ++c) o[c] = (u8)(acc[c] / 9 + 0.5f);
+            o[3] = 255;
+        }
+    std::error_code ec;
+    std::filesystem::create_directories(Utf8Path(path).parent_path(), ec);
+    stbi_write_png(path.c_str(), T, T, 4, px.data(), T * 4);
+}
+
+bool App::SaveSmartMaterial(DocView& v, const std::string& name, const std::string& desc) {
+    // The 3D layers of the project (fill materials, bottom to top) as a smart material of the user's library.
+    Document& d = *v.doc;
+    if (name.empty()) { Status("Matériau intelligent : donnez-lui un nom"); return false; }
+    const std::string dir = SmartMaterialUserDir();
+    if (dir.empty()) return false;
+    std::vector<Id> mats = MaterialIds(d);
+    std::reverse(mats.begin(), mats.end());  // bottom first, like the JSON
+    std::vector<Id> saved;
+    int skippedPaint = 0, paintedMasks = 0;
+    for (Id m : mats) if (!IsPaintLayer3D(d, m)) saved.push_back(m);
+    Json layers = Json::Array();
+    for (Id m : saved) {
+        Layer* any = AnyMaterialLayer(d, m);
+        if (!any) continue;
+        Json l = Json::Object();
+        l["name"] = any->name;
+        auto val = [&](PbrChannel c, float4& out) {
+            Layer* cl = MaterialChannelLayer(d, m, c);
+            if (!cl || cl->effect.params.empty()) return false;
+            out = cl->effect.params[0];
+            return true;
+        };
+        float4 p;
+        if (val(PbrChannel::BaseColor, p)) {
+            Json c = Json::Array();
+            c.Push(LinearToSrgb(p.x));
+            c.Push(LinearToSrgb(p.y));
+            c.Push(LinearToSrgb(p.z));
+            l["color"] = c;
+        }
+        if (val(PbrChannel::Roughness, p)) l["rough"] = LinearToSrgb(p.x);
+        if (val(PbrChannel::Metallic, p)) l["metal"] = LinearToSrgb(p.x);
+        if (val(PbrChannel::Height, p)) l["height"] = LinearToSrgb(p.x);
+        Json g;
+        if (!any->generator.empty() && Json::Parse(any->generator, g) && g.IsObject()) {
+            if (g["type"].I(0) == 8) {
+                // Follows another layer: kept when that layer is saved too (relative index), else full.
+                const Id src = (Id)g["source"].I(0);
+                const auto it = std::find(saved.begin(), saved.end(), src);
+                const auto me = std::find(saved.begin(), saved.end(), m);
+                if (it != saved.end() && it < me) g["follow"] = (int)(it - me);
+                else g = Gen(7, 1, 4, 0, 6);
+                Json clean = Json::Object();
+                for (const char* k : {"type", "amount", "contrast", "noise", "scale", "seed", "invert", "dir", "anchor", "radius", "follow"})
+                    if (g.Has(k)) clean[k] = g[k];
+                g = clean;
+            }
+        } else {
+            g = Gen(7, 1, 4, 0, 6);  // no smart mask: full (a painted mask cannot be carried to another model)
+            ++paintedMasks;
+        }
+        l["mask"] = g;
+        layers.Push(l);
+    }
+    skippedPaint = (int)(mats.size() - saved.size());
+    if (layers.Size() == 0) { Status("Matériau intelligent : aucun calque de matériau à enregistrer"); return false; }
+    Json sm = Json::Object();
+    sm["name"] = name;
+    sm["description"] = desc;
+    sm["layers"] = layers;
+    std::error_code ec;
+    std::filesystem::create_directories(Utf8Path(dir), ec);
+    std::ofstream(Utf8Path(dir + "/" + name + ".json"), std::ios::binary) << sm.Dump(1);
+    // Preview: the 3D view as it is now (captured at the end of this frame).
+    if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D")) {
+        smartSave.rect = ImVec4(w->InnerRect.Min.x, w->InnerRect.Min.y, w->InnerRect.Max.x, w->InnerRect.Max.y);
+        smartSave.path = dir + "/thumbs/" + name + ".png";
+        smartSave.name = name;
+        smartSave.rb = gpu::Dev().CaptureNextFrame();
+    }
+    smartListLoaded = false;  // reloaded with the new one
+    std::string msg = "Matériau intelligent « " + name + " » enregistré (" + std::to_string(layers.Size()) + " couches)";
+    if (skippedPaint) msg += ", " + std::to_string(skippedPaint) + " calque(s) de peinture ignoré(s)";
+    if (paintedMasks) msg += ", " + std::to_string(paintedMasks) + " masque(s) sans réglage intelligent enregistré(s) pleins";
+    Status(msg);
+    return true;
+}
+
+void App::PollSmartMaterialSave() {
+    if (!smartSave.rb || !smartSave.rb->ready) return;
+    SaveViewCrop(*smartSave.rb, smartSave.rect, smartSave.path);
+    smartThumbs.erase(smartSave.name);
+    smartSave.rb.reset();
 }
 
 bool App::DrawSmartMaterialGrid(DocView& v) {
@@ -395,6 +516,18 @@ bool App::DrawSmartMaterialGrid(DocView& v) {
         }
         ImGui::EndTable();
     }
+    ImGui::Separator();
+    ImGui::TextDisabled("Enregistrer les calques 3D actuels comme matériau intelligent :");
+    ImGui::SetNextItemWidth(200 * dpi);
+    ImGui::InputTextWithHint("##smname", "nom", &smartSaveName);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(160 * dpi);
+    ImGui::InputTextWithHint("##smdesc", "description", &smartSaveDesc);
+    ImGui::SameLine();
+    ImGui::BeginDisabled(smartSaveName.empty());
+    if (ImGui::Button("Enregistrer") && SaveSmartMaterial(v, smartSaveName, smartSaveDesc)) applied = true;
+    ImGui::EndDisabled();
+    ui::HelpTooltip("Les calques de matériau (valeurs et masques intelligents) vont dans votre bibliothèque\n(%LOCALAPPDATA%\\Shaderixel\\SmartMaterials), avec l'aperçu de la vue 3D.\nLes calques de peinture et les masques peints ne sont pas transportables.");
     return applied;
 }
 

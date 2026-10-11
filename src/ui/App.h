@@ -1430,9 +1430,21 @@ private:
     void PollTurntable();
     void ApplySmartMaterial(DocView& v, const Json& def);
     std::vector<std::string> SmartMaterialDirs();
+    std::string SmartMaterialUserDir();
     gpu::Texture* SmartMaterialThumb(DocView& v, const std::string& name);
     bool DrawSmartMaterialGrid(DocView& v);
     bool smartGridRequest = false;  // opens the smart material grid (demos)
+    std::vector<Json> smartList;
+    bool smartListLoaded = false;
+    bool SaveSmartMaterial(DocView& v, const std::string& name, const std::string& desc);
+    void SaveViewCrop(const gpu::Readback& rb, ImVec4 rect, const std::string& path);
+    void PollSmartMaterialSave();
+    std::string smartSaveName, smartSaveDesc;
+    struct {
+        gpu::ReadbackPtr rb;
+        ImVec4 rect;
+        std::string path, name;
+    } smartSave;
     std::unordered_map<std::string, gpu::TexturePtr> smartThumbs;  // previews (thumbs/<name>.png)
     const std::vector<Json>& SmartMaterials();
     void SelectMaterial(Document& d, Id material);

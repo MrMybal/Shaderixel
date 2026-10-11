@@ -486,38 +486,11 @@ void App::DemoTick() {
             return;
         }
         if (rb && rb->ready) {
-            // Square around the view center (the sphere), box-filtered to 192 px.
             char dir[512] = "";
             std::string out = GetEnvironmentVariableA("SX_THUMBDIR", dir, sizeof(dir)) > 0 ? std::string(dir) : ExeDir() + "/../../library/smartmaterials/thumbs";
-            std::error_code ec;
-            std::filesystem::create_directories(Utf8Path(out), ec);
-            const float sc = (float)rb->width / std::max(ImGui::GetIO().DisplaySize.x, 1.0f);
-            const float cx = (rect.x + rect.z) * 0.5f * sc, cy = (rect.y + rect.w) * 0.5f * sc;
-            const float side = std::min(rect.z - rect.x, rect.w - rect.y) * 0.78f * sc;
-            const int T = 192;
-            std::vector<u8> px((size_t)T * T * 4);
-            for (int y = 0; y < T; ++y)
-                for (int x = 0; x < T; ++x) {
-                    float acc[3] = {};
-                    int n = 0;
-                    for (int sy = 0; sy < 3; ++sy)
-                        for (int sx = 0; sx < 3; ++sx) {
-                            const int X = std::clamp((int)(cx - side * 0.5f + (x + (sx + 0.5f) / 3) * side / T), 0, (int)rb->width - 1);
-                            const int Y = std::clamp((int)(cy - side * 0.5f + (y + (sy + 0.5f) / 3) * side / T), 0, (int)rb->height - 1);
-                            const u8* p = &rb->data[((size_t)Y * rb->width + X) * 4];
-                            for (int c = 0; c < 3; ++c) acc[c] += p[c];
-                            ++n;
-                        }
-                    u8* o = &px[((size_t)y * T + x) * 4];
-                    for (int c = 0; c < 3; ++c) o[c] = (u8)(acc[c] / n + 0.5f);
-                    o[3] = 255;
-                }
             const std::string name = list[idx]["name"].S("");
             const std::string file = out + "/" + name + ".png";
-            char dbg[512] = "";
-            if (idx == 0 && GetEnvironmentVariableA("SX_THUMBDEBUG", dbg, sizeof(dbg)) > 0)
-                stbi_write_png(dbg, rb->width, rb->height, 4, rb->data.data(), rb->width * 4);  // whole frame (framing check)
-            stbi_write_png(file.c_str(), T, T, 4, px.data(), T * 4);
+            SaveViewCrop(*rb, rect, file);
             Log("[demo] smartthumbs: %s", file.c_str());
             // Next: the layers of this material removed.
             std::vector<Id> ids;
@@ -622,6 +595,17 @@ void App::DemoTick() {
             }
         }
         if (frameCounter == 30 && GetEnvironmentVariableA("SX_SMARTGRID", nullptr, 0) > 0) smartGridRequest = true;
+        char ssn[128] = "";
+        if (frameCounter == 70 && GetEnvironmentVariableA("SX_SAVESMART", ssn, sizeof(ssn)) > 0) {
+            Log("[demo] save smart material %s: %d", ssn, (int)SaveSmartMaterial(*a, ssn, "Enregistré par la démo"));
+            Log("[demo] %s", statusMsg.c_str());
+        }
+        if (frameCounter == 90 && GetEnvironmentVariableA("SX_SAVESMART", ssn, sizeof(ssn)) > 0) {
+            bool found = false;
+            for (const Json& j : SmartMaterials()) found |= j["name"].S("") == ssn;
+            Log("[demo] library reloaded: %zu materials, saved one listed %d", SmartMaterials().size(), (int)found);
+            smartGridRequest = true;
+        }
         if (GetEnvironmentVariableA("SX_SOLO", nullptr, 0) > 0 && (frameCounter == 40 || frameCounter == 70)) {
             // Solo of the second 3D layer (frame 40), then every layer again (frame 70).
             std::vector<Id> mats = MaterialIds(*a->doc);
