@@ -256,7 +256,9 @@ void App::StopTurntable() {
     auto& T = turntable;
     if (!T.running) return;
     T.running = false;
-    if (DocView* v = T.view; v && v->mesh) {
+    bool alive = false;
+    for (auto& d : docs) alive |= d.get() == T.view;  // the document may have been closed meanwhile
+    if (DocView* v = alive ? T.view : nullptr; v && v->mesh) {
         MeshScene& s = *v->mesh;
         s.yaw = T.yaw0;
         s.envRotation = T.env0;
@@ -304,6 +306,11 @@ void App::TurntableCapture(DocView& v, gpu::Texture* img) {
 
 void App::PollTurntable() {
     auto& T = turntable;
+    if (T.running) {
+        bool alive = false;
+        for (auto& d : docs) alive |= d.get() == T.view;
+        if (!alive) StopTurntable();
+    }
     while (!T.pending.empty() && T.pending.front() && T.pending.front()->ready) {
         const gpu::Readback& rb = *T.pending.front();
         const auto base = Utf8Path(T.path);
