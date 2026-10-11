@@ -64,6 +64,8 @@ struct MeshScene {
     float sunIntensity = 0.0f;       // with an HDRI
     float shadowStrength = 0.85f, aoStrength = 1.0f;
     bool groundShadow = true;        // shadow on the ground under the model (quality view)
+    float ssao = 0.8f;               // screen-space ambient occlusion strength (quality view, 0 off)
+    gpu::TexturePtr aoTex;
     std::vector<MeshLight> lights;   // extra lights (up to kMaxMeshLights)
     float dofAperture = 0.0f, dofFocus = 2.8f;  // depth of field (ray-traced view): lens radius, focus distance
     std::vector<CameraBookmark> cameras;

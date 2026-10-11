@@ -286,6 +286,29 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     d.indices = s.ib.get();
     d.count = (u32)s.data.indices.size();
     ctx.Draw(d);
+    if (quality && s.ssao > 0) {
+        // Screen-space ambient occlusion (shaders/mesh_ssao.slang): occlusion from the depth, then blurred into the color.
+        if (auto* ak = Kernel("mesh_ssao.slang")) {
+            if (!s.aoTex || s.aoTex->Width() != w || s.aoTex->Height() != h) s.aoTex = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA16F, "MeshSsao");
+            const float radius = std::max(Length(s.data.boundsMax - s.data.boundsMin) * 0.5f, 0.01f) * 0.15f;
+            struct { u32 w, h, pass; float tanY, aspect, radius, strength, bias; } root = {w, h, 0, std::tan(s.fov * 0.5f), (float)w / h, radius,
+                                                                                         std::clamp(s.ssao, 0.0f, 2.0f), 0.08f};
+            gpu::DispatchDesc a0;
+            a0.pipeline = ak;
+            a0.srv[0] = s.depth.get();
+            a0.uav[0] = s.aoTex.get();
+            SetConstants(a0, root);
+            Dispatch2D(ctx, a0, w, h);
+            root.pass = 1;
+            gpu::DispatchDesc a1;
+            a1.pipeline = ak;
+            a1.srv[0] = s.depth.get();
+            a1.srv[1] = s.aoTex.get();
+            a1.uav[0] = s.color.get();
+            SetConstants(a1, root);
+            Dispatch2D(ctx, a1, w, h);
+        }
+    }
     if (quality && s.groundShadow) {
         // Ground under the model: key light shadow and contact shadow on the background (shaders/mesh_ground.slang).
         if (auto* gk = Kernel("mesh_ground.slang")) {

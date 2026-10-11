@@ -1804,6 +1804,7 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
             vj["shadow"] = m.shadowStrength;
             vj["ao"] = m.aoStrength;
             vj["ground"] = m.groundShadow;
+            vj["ssao"] = m.ssao;
             if (m.envAtlas && !m.envPath.empty()) {
                 vj["env"] = m.envPath;
                 vj["envIntensity"] = m.envIntensity;
@@ -1967,6 +1968,7 @@ bool App::LoadSxl(const std::string& path) {
             m.shadowStrength = vj["shadow"].F(m.shadowStrength);
             m.aoStrength = vj["ao"].F(m.aoStrength);
             m.groundShadow = vj["ground"].B(true);
+            m.ssao = vj["ssao"].F(0.8f);
             if (const std::string env = vj["env"].S(""); !env.empty()) {
                 std::string err;
                 if (LoadEnvironment(m, env, &err)) {

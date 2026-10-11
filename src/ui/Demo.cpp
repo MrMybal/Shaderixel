@@ -552,6 +552,8 @@ void App::DemoTick() {
                 a->mesh->distance = 1.9f;
             }
             if (GetEnvironmentVariableA("SX_FOV", rs, sizeof(rs)) > 0) a->mesh->fov = (float)atof(rs);
+            if (GetEnvironmentVariableA("SX_SSAO", rs, sizeof(rs)) > 0) a->mesh->ssao = (float)atof(rs);
+            if (GetEnvironmentVariableA("SX_NOAO", nullptr, 0) > 0) a->mesh->aoStrength = 0;  // without the baked occlusion
             char envId[64] = "";
             if (GetEnvironmentVariableA("SX_ENV", envId, sizeof(envId)) > 0) {
                 std::string err;

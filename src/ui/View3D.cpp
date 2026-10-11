@@ -534,6 +534,8 @@ void App::DrawView3DRenderSettings(MeshScene& s) {
     else ImGui::SliderFloat("Intensité", &s.lightIntensity, 0, 8, "%.2f");
     ImGui::SliderFloat("Ombre", &s.shadowStrength, 0, 1, "%.2f");
     ImGui::Checkbox("Ombre au sol", &s.groundShadow);
+    ImGui::SliderFloat("Occlusion d'écran", &s.ssao, 0, 2, s.ssao > 0 ? "%.2f" : "désactivée");
+    ui::HelpTooltip("Rendu qualité : assombrit les creux et les contacts en temps réel (SSAO), sans cuisson.");
     ui::HelpTooltip("Rendu qualité : l'ombre de la lumière principale et une ombre de contact sur un sol invisible sous le modèle.");
     ImGui::SliderFloat("Occlusion cuite", &s.aoStrength, 0, 1, "%.2f");
     ui::HelpTooltip("Occlusion ambiante cuite du modèle (Cuisson ou masques intelligents) dans la vue, en Rendu qualité.");
