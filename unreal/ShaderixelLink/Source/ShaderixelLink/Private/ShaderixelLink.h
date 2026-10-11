@@ -12,6 +12,21 @@ class UTexture;
 class UMaterialInterface;
 
 #define SX_UE5 (ENGINE_MAJOR_VERSION >= 5)
+#define SX_UE_AT_LEAST(Major, Minor) (ENGINE_MAJOR_VERSION > (Major) || (ENGINE_MAJOR_VERSION == (Major) && ENGINE_MINOR_VERSION >= (Minor)))
+
+// Engine API differences (4.25 .. 5.x).
+#if SX_UE_AT_LEAST(4, 26)
+#define SX_CREATE_PACKAGE(Name) CreatePackage(Name)
+#else
+#define SX_CREATE_PACKAGE(Name) CreatePackage(nullptr, Name)
+#endif
+#if SX_UE_AT_LEAST(4, 27)
+#define SX_STATIC_MATERIALS(Mesh) (Mesh)->GetStaticMaterials()
+#define SX_RENDER_DATA(Mesh) (Mesh)->GetRenderData()
+#else
+#define SX_STATIC_MATERIALS(Mesh) (Mesh)->StaticMaterials
+#define SX_RENDER_DATA(Mesh) (Mesh)->RenderData.Get()
+#endif
 
 struct FShaderixelOutput
 {

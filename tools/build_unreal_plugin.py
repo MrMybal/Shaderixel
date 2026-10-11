@@ -1,4 +1,4 @@
-"""Builds the Shaderixel Link Unreal plugin for every installed engine (4.27 and 5.x).
+"""Builds the Shaderixel Link Unreal plugin for every installed engine (4.25, 4.27 and 5.x).
 
     python tools/build_unreal_plugin.py                 # every engine found under the engines root
     python tools/build_unreal_plugin.py 4.27 5.5         # some versions only
@@ -27,7 +27,7 @@ def engines(root_dirs):
             if not m:
                 continue
             ver = (int(m.group(1)), int(m.group(2)))
-            if ver < (4, 27):
+            if ver < (4, 25):
                 continue
             uat = os.path.join(r, d, 'Engine', 'Build', 'BatchFiles', 'RunUAT.bat')
             if os.path.exists(uat):

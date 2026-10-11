@@ -31,7 +31,7 @@ FName AssetClassName(const FAssetData& A) { return A.AssetClass; }
 
 void PaintMenu(FMenuBuilder& Menu, UStaticMesh* Mesh)
 {
-	const TArray<FStaticMaterial>& Materials = Mesh->GetStaticMaterials();
+	const TArray<FStaticMaterial>& Materials = SX_STATIC_MATERIALS(Mesh);
 	for (int32 i = 0; i < Materials.Num(); ++i)
 	{
 		const FString Label = FString::Printf(TEXT("%d : %s"), i, *(Materials[i].MaterialSlotName.IsNone() ? FString(TEXT("Slot")) : Materials[i].MaterialSlotName.ToString()));

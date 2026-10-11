@@ -121,7 +121,7 @@ UStaticMesh* BuildStaticMeshFromObj(const FString& ObjFile, const FString& Packa
 	const bool bNew = Mesh == nullptr;
 	if (bNew)
 	{
-		UPackage* Package = CreatePackage(*PackageName);
+		UPackage* Package = SX_CREATE_PACKAGE(*PackageName);
 		if (!Package)
 		{
 			Error = TEXT("paquet impossible : ") + PackageName;
@@ -185,7 +185,7 @@ UStaticMesh* BuildStaticMeshFromObj(const FString& ObjFile, const FString& Packa
 			MD->CreatePolygon(Group, Tri);
 	}
 	Mesh->CommitMeshDescription(0);
-	TArray<FStaticMaterial>& Materials = Mesh->GetStaticMaterials();
+	TArray<FStaticMaterial>& Materials = SX_STATIC_MATERIALS(Mesh);
 	if (Materials.Num() == 0)
 		Materials.Add(FStaticMaterial(Material, FName(TEXT("Shaderixel")), FName(TEXT("Shaderixel"))));
 	else
@@ -352,7 +352,7 @@ bool ExportTexturePng(UTexture2D* Texture, const FString& File, FString& Error)
 // loading): Unreal (x, y, z) -> (y, z, -x), so the model is not mirrored once loaded.
 bool BuildMeshObj(UStaticMesh* Mesh, int32 Slot, int32 UVChannel, FString& Out, FString& Error)
 {
-	const FStaticMeshRenderData* RenderData = Mesh->GetRenderData();
+	const FStaticMeshRenderData* RenderData = SX_RENDER_DATA(Mesh);
 	if (!RenderData || RenderData->LODResources.Num() == 0)
 	{
 		Error = TEXT("maillage sans données de rendu");
@@ -509,7 +509,7 @@ void FShaderixelLink::PaintMesh(UStaticMesh* Mesh, int32 Slot)
 	if (!Mesh)
 		return;
 	const UShaderixelLinkSettings* Settings = GetDefault<UShaderixelLinkSettings>();
-	const TArray<FStaticMaterial>& Materials = Mesh->GetStaticMaterials();
+	const TArray<FStaticMaterial>& Materials = SX_STATIC_MATERIALS(Mesh);
 	Slot = FMath::Clamp(Slot, 0, FMath::Max(Materials.Num() - 1, 0));
 	FString Name = Mesh->GetName();
 	if (Materials.Num() > 1)
@@ -688,14 +688,18 @@ UTexture* FShaderixelLink::ImportOrReimport(const FShaderixelOutput& Out, bool& 
 	if (UTexture* Existing = LoadObject<UTexture>(nullptr, *Out.AssetPath, nullptr, LOAD_NoWarn | LOAD_Quiet))
 	{
 		// Same asset, new pixels (its settings stay: compression, sRGB, LOD group...).
+#if SX_UE_AT_LEAST(4, 26)
 		if (FReimportManager::Instance()->Reimport(Existing, false, false, Out.File, nullptr, INDEX_NONE, false, true))
+#else
+		if (FReimportManager::Instance()->Reimport(Existing, false, false, Out.File, nullptr, INDEX_NONE, false))
+#endif
 			return Existing;
 		return nullptr;
 	}
 	const FString PackageName = FPackageName::ObjectPathToPackageName(Out.AssetPath);
 	const FString AssetName = FPackageName::GetShortName(PackageName);
 	// The texture factory directly (same path on every engine version, no import pipeline UI).
-	UPackage* Package = CreatePackage(*PackageName);
+	UPackage* Package = SX_CREATE_PACKAGE(*PackageName);
 	if (!Package)
 		return nullptr;
 	UTextureFactory* Factory = NewObject<UTextureFactory>();
@@ -1103,7 +1107,7 @@ void FShaderixelLink::ApplySidecarMaterial(UStaticMesh* Mesh)
 	if (UMaterialInterface* Material = ImportMaterialDescription(D, FPaths::GetPath(Sidecar), PackagePath, NumTextures))
 	{
 		Mesh->Modify();
-		for (int32 i = 0; i < FMath::Max(1, Mesh->GetStaticMaterials().Num()); ++i)
+		for (int32 i = 0; i < FMath::Max(1, SX_STATIC_MATERIALS(Mesh).Num()); ++i)
 			Mesh->SetMaterial(i, Material);
 		Mesh->PostEditChange();
 		Mesh->MarkPackageDirty();

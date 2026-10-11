@@ -1,4 +1,4 @@
-// Shaderixel Link: editor module, same sources for Unreal Engine 4.27 to 5.8.
+// Shaderixel Link: editor module, same sources for Unreal Engine 4.25 to 5.8.
 using UnrealBuildTool;
 
 public class ShaderixelLink : ModuleRules
@@ -21,13 +21,16 @@ public class ShaderixelLink : ModuleRules
 			"MaterialEditor",
 			"ImageWrapper",
 			"Json",
-			"DeveloperSettings",
 			"LevelEditor",
 			"DesktopPlatform",
 			"ToolMenus",
 			"MeshDescription",
 			"StaticMeshDescription",
 		});
+		if (Target.Version.MajorVersion >= 5 || Target.Version.MinorVersion >= 26)
+		{
+			PrivateDependencyModuleNames.Add("DeveloperSettings");  // UDeveloperSettings (in Engine before 4.26)
+		}
 		if (Target.Version.MajorVersion >= 5)
 		{
 			PrivateDependencyModuleNames.Add("ContentBrowserData");  // FContentBrowserItemPath (current folder)

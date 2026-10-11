@@ -1,4 +1,4 @@
-# Shaderixel Link (Unreal Engine 4.27 – 5.8)
+# Shaderixel Link (Unreal Engine 4.25 – 5.8)
 
 Plugin d'éditeur : peindre un maillage statique ou retoucher une texture dans Shaderixel, puis
 réimporter le résultat automatiquement dans Unreal.
@@ -20,6 +20,8 @@ Project Settings > Plugins > Shaderixel Link > Executable Path.
   Emissive, Height, reconnues d'après le nom du paramètre ou de la texture), sous forme d'un calque
   « Unreal (textures d'origine) ». Peignez par-dessus, puis **Ctrl+S** (ou « Envoyer vers Unreal ») :
   les textures sont réimportées en place (mêmes assets, mêmes réglages).
+  Case **Direct** (barre d'état de Shaderixel) : les textures partent toutes seules vers Unreal un
+  instant après chaque modification ; le matériau se met à jour dans l'éditeur sans rien faire.
 - Matériau sans texture : de nouvelles textures `T_<maillage>_BC / _N / _ORM` et une instance
   `MI_<maillage>` du matériau `M_ShaderixelPBR2` (créé une fois dans `/Game/Shaderixel`) sont créées
   dans le dossier `Shaderixel` à côté du maillage, et assignées à l'emplacement.
