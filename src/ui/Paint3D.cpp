@@ -264,16 +264,7 @@ void App::DrawLayers3DPanel() {
         bool vis = any->visible;
         if (ImGui::Checkbox("##vis", &vis)) {
             if (ImGui::GetIO().KeyAlt) {
-                // Solo: only this 3D layer shown; again on the solo layer: every layer shown.
-                bool solo = any->visible;
-                for (Id o : mats)
-                    if (o != m)
-                        if (Layer* ol = AnyMaterialLayer(d, o); ol && ol->visible) solo = false;
-                Edit e(d, v->history, solo ? "Afficher tous les calques 3D" : "Calque 3D seul");
-                for (auto& l : d.S().layers)
-                    if (l.material) l.visible = solo || l.material == m;
-                d.SyncGraph();
-                e.Commit();
+                SoloMaterial(*v, m);
             } else {
                 Edit e(d, v->history, "Visibilité du calque 3D");
                 for (auto& l : d.S().layers) if (l.material == m) l.visible = vis;
@@ -396,6 +387,22 @@ void App::DrawLayers3DPanel() {
         ui::HelpTooltip("Chaque trait est aussi peint de l'autre côté du modèle (miroir sur l'axe choisi de l'objet).");
     }
     ImGui::End();
+}
+
+void App::SoloMaterial(DocView& v, Id m) {
+    // Only this 3D layer shown; again on the solo layer: every layer shown.
+    Document& d = *v.doc;
+    Layer* any = AnyMaterialLayer(d, m);
+    if (!any) return;
+    bool solo = any->visible;
+    for (Id o : MaterialIds(d))
+        if (o != m)
+            if (Layer* ol = AnyMaterialLayer(d, o); ol && ol->visible) solo = false;
+    Edit e(d, v.history, solo ? "Afficher tous les calques 3D" : "Calque 3D seul");
+    for (auto& l : d.S().layers)
+        if (l.material) l.visible = solo || l.material == m;
+    d.SyncGraph();
+    e.Commit();
 }
 
 void App::DrawMaterialFilters(DocView& v, Id material) {

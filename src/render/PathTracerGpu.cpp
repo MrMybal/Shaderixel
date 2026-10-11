@@ -139,7 +139,7 @@ bool PtGpuRenderer::Render(gpu::CommandContext& ctx, const std::vector<PtMateria
         cb.mat[i * 4] = {m.baseColor.x, m.baseColor.y, m.baseColor.z, m.roughness};
         cb.mat[i * 4 + 1] = {e.x, e.y, e.z, m.metallic};
         cb.mat[i * 4 + 2] = {m.transmission, m.ior, m.useProject ? 1.0f : 0.0f, 0};
-        cb.mat[i * 4 + 3] = {m.coat, m.coatRoughness, 0, 0};
+        cb.mat[i * 4 + 3] = {m.coat, m.coatRoughness, m.backdrop ? 1.0f : 0.0f, 0};
     }
     u32 nl = 0;
     for (const PtLight& l : lights) {

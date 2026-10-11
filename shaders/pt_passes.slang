@@ -21,16 +21,16 @@ void main(uint3 id : SV_DispatchThreadID)
     int3 p = int3(id.xy, 0);
     const float n = max(gAccum.Load(p).a, 1.0);
     const float4 ga = gGuideA.Load(p) / n, gn = gGuideN.Load(p) / n;
-    const float cover = saturate(ga.a);
+    const float cover = saturate(ga.a);             // objects (floor excluded)
+    const float hit = saturate(length(gn.xyz));     // any surface (mean of unit normals)
     float3 c = 0;
-    if (gMode == 0) c = cover > 0 ? LinearToSrgb(saturate(ga.rgb)) : 0;
+    if (gMode == 0) c = hit > 0 ? LinearToSrgb(saturate(ga.rgb)) : 0;
     else if (gMode == 1) c = length(gn.xyz) > 1e-3 ? normalize(gn.xyz) * 0.5 + 0.5 : float3(0.5, 0.5, 0.5);
     else if (gMode == 2)
     {
-        // Mean distance of the hits only (the background counts 1e4 per sample).
-        const float d = cover > 0 ? (gn.w - (1.0 - cover) * 1e4) / cover : 1e4;
-        c = (1.0 - saturate(d / gFar)) * cover;
+        // Mean distance (the background counts as far away: black, like the edges against it).
+        c = 1.0 - saturate(gn.w / gFar);
     }
     else c = cover;
-    gOut[id.xy] = float4(c, cover > 0 || gMode == 1 ? 1.0 : (gMode == 3 ? 1.0 : 0.0));
+    gOut[id.xy] = float4(c, 1.0);
 }

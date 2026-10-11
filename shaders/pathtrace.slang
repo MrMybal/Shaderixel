@@ -46,7 +46,7 @@ RWTexture2D<float4> gGuideA : register(u1);  // sum of the first-hit albedo (den
 RWTexture2D<float4> gGuideN : register(u2);  // sum of the first-hit normal, w: hit distance
 
 static float3 sHitAlbedo, sHitNormal;
-static float sHitDist;
+static float sHitDist, sHitMask;
 
 static const float PI = 3.14159265;
 static const float kFar = 1e30;
@@ -421,6 +421,7 @@ float3 Radiance(float3 o, float3 d, inout uint rng)
             sHitAlbedo = su.transmission > 0.5 ? float3(1, 1, 1) : lerp(su.base, max(su.base, 0.04), su.metal);
             sHitNormal = su.n;
             sHitDist = h.t;
+            sHitMask = m3.z > 0.5 ? 0.0 : 1.0;  // floor / backdrop: not in the mask
         }
         if (Lum(su.emission) > 0) L += Clamped(beta * su.emission, bounce);
 
@@ -587,12 +588,13 @@ void main(uint3 id : SV_DispatchThreadID)
     sHitAlbedo = float3(1, 1, 1);
     sHitNormal = float3(0, 0, 0);
     sHitDist = 1e4;
+    sHitMask = 0;
     float3 c = Radiance(org, dir, rng);
     if (any(isnan(c)) || any(isinf(c))) c = 0;
     float4 prev = gPass == 0 ? float4(0, 0, 0, 0) : gAccum[p];
     gAccum[p] = prev + float4(c, 1.0);
     float4 ga = gPass == 0 ? float4(0, 0, 0, 0) : gGuideA[p];
     float4 gn = gPass == 0 ? float4(0, 0, 0, 0) : gGuideN[p];
-    gGuideA[p] = ga + float4(sHitAlbedo, sHitDist < 1e4 ? 1.0 : 0.0);  // a: hits (coverage)
+    gGuideA[p] = ga + float4(sHitAlbedo, sHitMask);  // a: hits on the objects (coverage mask, floor excluded)
     gGuideN[p] = gn + float4(sHitNormal, min(sHitDist, 1e4));
 }

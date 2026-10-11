@@ -1373,6 +1373,7 @@ private:
     void UpdateProjections(DocView& v);
     void DrawProjectionEditor(DocView& v, Id material);
     void DrawMaterialFilters(DocView& v, Id material);
+    void SoloMaterial(DocView& v, Id material);  // Alt + click on a 3D layer's visibility
     // Texture export presets (TextureExport.cpp).
     struct TexExportOptions {
         bool open = false;

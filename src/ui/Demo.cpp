@@ -527,6 +527,16 @@ void App::DemoTick() {
                 Log("[demo] turntable done at frame %llu: %s", (unsigned long long)frameCounter, turntable.error.c_str());
             }
         }
+        if (GetEnvironmentVariableA("SX_SOLO", nullptr, 0) > 0 && (frameCounter == 40 || frameCounter == 70)) {
+            // Solo of the second 3D layer (frame 40), then every layer again (frame 70).
+            std::vector<Id> mats = MaterialIds(*a->doc);
+            if (mats.size() > 1) {
+                if (frameCounter == 40 || GetEnvironmentVariableA("SX_SOLO", nullptr, 0) > 0) SoloMaterial(*a, mats[1]);
+                int shown = 0;
+                for (Id m : mats) if (Layer* l = AnyMaterialLayer(*a->doc, m); l && l->visible) ++shown;
+                Log("[demo] solo at frame %llu: %d of %zu 3D layers shown", (unsigned long long)frameCounter, shown, mats.size());
+            }
+        }
         if (GetEnvironmentVariableA("SX_LIGHTSPIN", nullptr, 0) > 0) {
             // Shift + right drag on the 3D view: the lighting turns (synthetic events).
             ImGuiIO& io = ImGui::GetIO();

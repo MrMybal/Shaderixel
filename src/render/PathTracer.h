@@ -29,6 +29,7 @@ struct PtMaterial {
     float coat = 0.0f, coatRoughness = 0.05f;  // clear varnish over the base (glaze, lacquer, varnished wood)
     bool useProject = false;  // base color / roughness / metal / emissive / normal from its texture set
     int texSet = 0;           // runtime: atlas tile (0 = the open project, then imported .sx3d / model textures)
+    bool backdrop = false;    // runtime: floor / backdrop (left out of the coverage mask pass)
 };
 
 enum class PtObjectType : int { Project, Plane, Backdrop, Cube, Sphere, File, Sx3d };

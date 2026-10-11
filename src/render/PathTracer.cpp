@@ -139,7 +139,10 @@ std::vector<PtMaterial> SceneMaterials(const std::vector<PtObject>& objects) {
     std::vector<PtMaterial> m;
     for (auto& o : objects) {
         if (o.UsesParts()) m.insert(m.end(), o.parts.begin(), o.parts.end());
-        else m.push_back(o.material);
+        else {
+            m.push_back(o.material);
+            m.back().backdrop = o.type == PtObjectType::Plane || o.type == PtObjectType::Backdrop;
+        }
     }
     return m;
 }
