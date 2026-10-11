@@ -489,6 +489,13 @@ void App::DemoTick() {
             for (auto& p : plugins)
                 for (auto& sc : p.scripts) RunPluginScript(p, sc);
         }
+        if (frameCounter == 22 && GetEnvironmentVariableA("SX_PIXELS", nullptr, 0) > 0) {
+            // Pixel API (plugin command): the active layer (stars) read and written back inverted.
+            for (auto& c : pluginCommands)
+                if (c.path == "Exemple/Inverser les couleurs du calque") CallPlugin(c.plugin, [&] { c.fn(c.user); });
+        }
+        if (frameCounter == 25 && GetEnvironmentVariableA("SX_PIXELS", nullptr, 0) > 0)
+            Log("[demo] pixels: %s, undo step %s", statusMsg.c_str(), a->history.Count() ? a->history.Label(a->history.Count() - 1).c_str() : "-");
         if (frameCounter == 26) {
             // Hot reload of the native plugin (as the manager's "Recharger" button).
             for (auto& p : plugins)
@@ -666,6 +673,21 @@ void App::DemoTick() {
             }
         }
         if (frameCounter == 30 && GetEnvironmentVariableA("SX_SMARTGRID", nullptr, 0) > 0) smartGridRequest = true;
+        if (GetEnvironmentVariableA("SX_PLUGTOOL3D", nullptr, 0) > 0) {
+            // A plugin tool in the 3D view (example Étoile): a click on the model paints on its texture.
+            ImGuiIO& io = ImGui::GetIO();
+            ImGuiWindow* vw = ImGui::FindWindowByName("Vue 3D");
+            if (frameCounter == 40 && vw) {
+                for (size_t i = 0; i < pluginTools.size(); ++i)
+                    if (pluginTools[i].name == "\xC3\x89toile") { tool = Tool::Plugin; pluginTool = (int)i; }
+                // The paint layer of the project as target.
+                AddPaintLayer3D(*a, "Plugin");
+                io.AddMousePosEvent((vw->InnerRect.Min.x + vw->InnerRect.Max.x) * 0.5f, (vw->InnerRect.Min.y + vw->InnerRect.Max.y) * 0.5f + 40);
+            }
+            if (frameCounter == 43) io.AddMouseButtonEvent(0, true);
+            if (frameCounter == 45) io.AddMouseButtonEvent(0, false);
+            if (frameCounter == 50) Log("[demo] 3D plugin tool: last undo step %s", a->history.Count() ? a->history.Label(a->history.Count() - 1).c_str() : "-");
+        }
         if (GetEnvironmentVariableA("SX_FOLDER", nullptr, 0) > 0) {
             // 3D folder around the paint layer (2nd from the top), a gradient smart mask on the folder (the
             // bottom of the model loses the paint); then the dirt goes in and out (logged), the folder stays.

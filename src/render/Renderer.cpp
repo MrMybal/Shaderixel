@@ -32,6 +32,22 @@ struct DisplayCB {
 };
 }  // namespace
 
+u16 FloatToHalf(float f) {
+    f = std::clamp(f, -65504.0f, 65504.0f);
+    u32 x;
+    memcpy(&x, &f, 4);
+    const u32 sign = (x >> 16) & 0x8000u;
+    const int e = (int)((x >> 23) & 0xFF) - 127 + 15;
+    u32 m = x & 0x7FFFFFu;
+    if (e <= 0) {
+        if (e < -10) return (u16)sign;
+        m = (m | 0x800000u) >> (1 - e);
+        return (u16)(sign | ((m + 0x1000u) >> 13));
+    }
+    const u32 r = sign | ((u32)e << 10) | (m >> 13);
+    return (u16)(r + ((m >> 12) & 1u));
+}
+
 float HalfToFloat(u16 h) {
     u32 sign = (h >> 15) & 1, exp = (h >> 10) & 0x1f, mant = h & 0x3ff;
     u32 f;

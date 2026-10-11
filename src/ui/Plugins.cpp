@@ -176,6 +176,63 @@ struct PluginGlue {
         if (auto* dl = A().pluginDraw.dl) dl->AddText(DocToScreen(x, y), col, text ? text : "");
     }
     static void* HImGuiContext() { return ImGui::GetCurrentContext(); }
+    static unsigned HActiveLayer() {
+        DocView* v = A().Active();
+        return v ? (unsigned)v->doc->S().activeLayer : 0u;
+    }
+    static void HPixelsRead(unsigned layer, int x, int y, int w, int h, int format, SxPixelsFn done, void* user) {
+        App& a = A();
+        Surface* s = a.PluginSurface(layer);
+        if (!s || !s->tex) { if (done) done(user, 0, 0, 0, nullptr); return; }
+        const int W = (int)s->tex->Width(), H = (int)s->tex->Height();
+        if (w <= 0 || h <= 0) { x = 0; y = 0; w = W; h = H; }
+        Rect r = {std::clamp(x, 0, W), std::clamp(y, 0, H), std::clamp(x + w, 0, W), std::clamp(y + h, 0, H)};
+        if (r.Empty()) { if (done) done(user, 0, 0, 0, nullptr); return; }
+        a.pluginReads.push_back({a.pluginCurrent, a.ctx->ReadbackTexture(s->tex.get(), &r), format, done, user});
+    }
+    static int HPixelsWrite(unsigned layer, int x, int y, int w, int h, int format, const void* pixels, const char* label) {
+        App& a = A();
+        Id sid = 0;
+        Surface* s = a.PluginSurface(layer, &sid);
+        DocView* v = a.Active();
+        if (!s || !s->tex || !v || !pixels || w <= 0 || h <= 0) return 0;
+        const int W = (int)s->tex->Width(), H = (int)s->tex->Height();
+        if (x < 0 || y < 0 || x + w > W || y + h > H) return 0;
+        const gpu::Format fmt = s->tex->GetFormat();
+        if (fmt != gpu::Format::RGBA16F && fmt != gpu::Format::RGBA32F) return 0;
+        // Into the layer's format: linear, premultiplied (8-bit input: sRGB straight).
+        const size_t n = (size_t)w * h;
+        std::vector<float> lin(n * 4);
+        for (size_t i = 0; i < n; ++i) {
+            float c[4];
+            if (format == SX_PIXELS_RGBA8) {
+                const unsigned char* p = (const unsigned char*)pixels + i * 4;
+                const float al = p[3] / 255.0f;
+                for (int k = 0; k < 3; ++k) c[k] = SrgbToLinear(p[k] / 255.0f) * al;
+                c[3] = al;
+            } else {
+                memcpy(c, (const float*)pixels + i * 4, 16);
+            }
+            memcpy(&lin[i * 4], c, 16);
+        }
+        auto after = gpu::Dev().CreateTexture((u32)w, (u32)h, fmt, "PluginPixels");
+        auto before = gpu::Dev().CreateTexture((u32)w, (u32)h, fmt, "UndoBefore");
+        if (!after || !before) return 0;
+        if (fmt == gpu::Format::RGBA32F) {
+            a.ctx->Upload(after.get(), lin.data(), (u32)w * 16);
+        } else {
+            std::vector<u16> hv(n * 4);
+            for (size_t i = 0; i < n * 4; ++i) hv[i] = FloatToHalf(lin[i]);
+            a.ctx->Upload(after.get(), hv.data(), (u32)w * 8);
+        }
+        const Rect r = {x, y, x + w, y + h};
+        a.ctx->CopyRegion(before.get(), 0, 0, s->tex.get(), r);
+        a.ctx->CopyRegion(s->tex.get(), x, y, after.get(), Rect{0, 0, w, h});
+        v->doc->TouchSurface(sid);
+        v->history.PushPaint(label && *label ? label : "Plugin : pixels", sid, r, before, after);
+        v->doc->dirty = true;
+        return 1;
+    }
 };
 
 namespace {
@@ -203,6 +260,9 @@ SxHost MakeHost() {
     h.draw_text = G::HDrawText;
     h.imgui_context = G::HImGuiContext;
     h.imgui_version = IMGUI_VERSION;
+    h.active_layer = G::HActiveLayer;
+    h.pixels_read = G::HPixelsRead;
+    h.pixels_write = G::HPixelsWrite;
     return h;
 }
 SxHost gHost;
@@ -330,6 +390,7 @@ void App::RemovePluginRegistrations(const std::string& id) {
     drop(pluginPanels);
     drop(pluginTools);
     drop(pluginCalls);
+    drop(pluginReads);
     for (auto& o : pluginOps)
         if (o.plugin == id) bridge.Unregister(o.op);
     drop(pluginOps);
@@ -375,7 +436,53 @@ void App::FinishPluginCall(const std::string& plugin, const AiResult& r, SxResul
     pluginCurrent = prev;
 }
 
+Surface* App::PluginSurface(unsigned layer, Id* id) {
+    // A pixel layer's surface (0: the active paint target).
+    DocView* v = Active();
+    if (!v) return nullptr;
+    Document& d = *v->doc;
+    Id sid = 0;
+    if (!layer) sid = d.PaintTarget();
+    else if (Layer* l = d.FindLayer((Id)layer); l && l->kind == LayerKind::Pixel) sid = l->surface;
+    if (id) *id = sid;
+    return sid ? d.GetSurface(sid) : nullptr;
+}
+
 void App::UpdatePlugins() {
+    // Pixel reads: converted to the asked format, then given to the plugin.
+    for (size_t i = 0; i < pluginReads.size();) {
+        auto& rd = pluginReads[i];
+        if (rd.rb && !rd.rb->ready) { ++i; continue; }
+        PluginRead r = std::move(rd);
+        pluginReads.erase(pluginReads.begin() + i);
+        if (!r.done) continue;
+        const gpu::Readback* rb = r.rb.get();
+        const size_t n = rb ? (size_t)rb->width * rb->height : 0;
+        std::vector<float> f(n * 4);
+        bool ok = rb != nullptr;
+        if (ok && rb->format == gpu::Format::RGBA16F && rb->data.size() >= n * 8) {
+            const u16* h = (const u16*)rb->data.data();
+            for (size_t k = 0; k < n * 4; ++k) f[k] = HalfToFloat(h[k]);
+        } else if (ok && rb->format == gpu::Format::RGBA32F && rb->data.size() >= n * 16) {
+            memcpy(f.data(), rb->data.data(), n * 16);
+        } else {
+            ok = false;
+        }
+        std::vector<unsigned char> b;
+        if (ok && r.format == SX_PIXELS_RGBA8) {
+            b.resize(n * 4);
+            for (size_t k = 0; k < n; ++k) {
+                const float al = std::clamp(f[k * 4 + 3], 0.0f, 1.0f);
+                for (int c = 0; c < 3; ++c) {
+                    const float v = al > 1e-6f ? f[k * 4 + c] / al : 0.0f;
+                    b[k * 4 + c] = (unsigned char)std::lround(std::clamp(LinearToSrgb(v), 0.0f, 1.0f) * 255.0f);
+                }
+                b[k * 4 + 3] = (unsigned char)std::lround(al * 255.0f);
+            }
+        }
+        const void* data = !ok ? nullptr : r.format == SX_PIXELS_RGBA8 ? (const void*)b.data() : (const void*)f.data();
+        CallPlugin(r.plugin, [&] { r.done(r.user, ok ? 1 : 0, ok ? (int)rb->width : 0, ok ? (int)rb->height : 0, data); });
+    }
     for (size_t i = 0; i < pluginCalls.size();) {
         auto& c = pluginCalls[i];
         if (!c.result.poll || c.result.poll(c.result)) {
@@ -616,6 +723,7 @@ void App::PluginToolInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     e.pressure = frameSamples.empty() ? 1.0f : std::clamp(frameSamples.back().pressure, 0.0f, 1.0f);
     e.modifiers = (io.KeyShift ? SX_MOD_SHIFT : 0) | (io.KeyCtrl ? SX_MOD_CTRL : 0) | (io.KeyAlt ? SX_MOD_ALT : 0);
     e.zoom = v.zoom;
+    e.view = 0;
     auto send = [&](int type) {
         e.type = type;
         CallPlugin(t.plugin, [&] { t.fn(t.user, &e); });
@@ -633,6 +741,40 @@ void App::PluginToolInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     }
     if (hovered || pluginToolDown) send(SX_TOOL_DRAW);
     pluginDraw.dl = nullptr;
+}
+
+void App::PluginTool3DInput(DocView& v, float2 local, u32 w, u32 h, bool hovered) {
+    // Over the model: the texture pixel under the cursor (the plugin paints the document as usual).
+    if (pluginTool < 0 || pluginTool >= (int)pluginTools.size() || !v.mesh) return;
+    const PluginTool t = pluginTools[pluginTool];
+    ImGuiIO& io = ImGui::GetIO();
+    float2 uv;
+    SxToolEvent e = {};
+    e.x = e.y = -1;
+    if (hovered && PickMeshUv(*v.mesh, local, w, h, uv)) {
+        e.x = uv.x * v.doc->Width();
+        e.y = uv.y * v.doc->Height();
+    }
+    e.pressure = frameSamples.empty() ? 1.0f : std::clamp(frameSamples.back().pressure, 0.0f, 1.0f);
+    e.modifiers = (io.KeyShift ? SX_MOD_SHIFT : 0) | (io.KeyCtrl ? SX_MOD_CTRL : 0) | (io.KeyAlt ? SX_MOD_ALT : 0);
+    e.zoom = 1;
+    e.view = 1;
+    pluginDraw.dl = nullptr;  // no overlay in the 3D view
+    auto send = [&](int type) {
+        e.type = type;
+        CallPlugin(t.plugin, [&] { t.fn(t.user, &e); });
+    };
+    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt && e.x >= 0) {
+        pluginToolDown = true;
+        send(SX_TOOL_PRESS);
+    } else if (pluginToolDown && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        if ((io.MouseDelta.x != 0 || io.MouseDelta.y != 0) && e.x >= 0) send(SX_TOOL_DRAG);
+    } else if (pluginToolDown) {
+        pluginToolDown = false;
+        send(SX_TOOL_RELEASE);
+    } else if (hovered && (io.MouseDelta.x != 0 || io.MouseDelta.y != 0)) {
+        send(SX_TOOL_HOVER);
+    }
 }
 
 }  // namespace sx

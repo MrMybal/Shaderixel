@@ -141,7 +141,7 @@ void App::DrawToolbar() {
             }
             ImGui::PopID();
         }
-        if (!pluginTools.empty() && !p3d) {
+        if (!pluginTools.empty()) {
             // Tools of the plugins (Plugins > Outils too).
             ImVec2 c = ImGui::GetCursorScreenPos();
             ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);

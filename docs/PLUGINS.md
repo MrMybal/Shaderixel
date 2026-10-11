@@ -78,8 +78,17 @@ SX_PLUGIN_EXPORT int sx_plugin_load(const SxHost* host, SxPlugin* plugin) {
 | `call(opération, paramètres JSON, done, user)` | lance une opération de Shaderixel ou d'un plugin ; le résultat arrive dans `done` (tout de suite ou quelques images plus tard) |
 | `operations_json()` | liste des opérations (id, description, schéma des paramètres) |
 | `document_size`, `workspace_dir`, `open_panel`, `select_tool`, `log`, `status` | utilitaires |
+| `active_layer()` (API 2) | id du calque actif |
+| `pixels_read(calque, x, y, l, h, format, done, user)` (API 2) | lit un rectangle d'un calque de pixels (calque 0 : la cible de peinture active ; l ou h ≤ 0 : tout le calque) ; le résultat arrive dans `done` à l'image suivante |
+| `pixels_write(calque, x, y, l, h, format, pixels, nom)` (API 2) | écrit un rectangle (une étape d'annulation `nom`) |
 | `ui` | widgets : texte, bouton, case à cocher, curseurs, saisie de texte, couleur, liste, séparateur, info-bulle, en-tête repliable... |
 | `imgui_context()` | avancé : le contexte Dear ImGui de Shaderixel pour un plugin compilé avec la même version d'ImGui (`imgui_version`) |
+
+Formats de pixels : `SX_PIXELS_RGBA8` (4 octets, sRGB, alpha droit, comme un PNG) ou `SX_PIXELS_RGBA32F` (4 flottants, linéaire, alpha prémultiplié, comme les calques sont stockés).
+
+Les **outils** marchent aussi dans la **Vue 3D** des projets Paint 3D (API 2) : l'événement porte `view = 1` et `x, y` = le pixel de la texture sous le curseur (`-1` hors du modèle) ; un plugin qui peint en (x, y) peint donc sur le modèle. Pas d'aperçu dessiné dans la vue 3D.
+
+Compatibilité : `SX_PLUGIN_API_VERSION` augmente quand l'hôte ajoute des fonctions (toujours à la fin des structures) ; un plugin vérifie `host->api_version` avant d'utiliser une fonction récente. Un plugin compilé pour une version plus ancienne continue de fonctionner.
 
 Tout est appelé sur le thread principal, entre deux images : un plugin ne doit pas bloquer (travail long : un thread à lui, puis `call` depuis une commande / une fenêtre).
 
@@ -89,7 +98,7 @@ Les mêmes que l'assistant IA : `shaderixel.document_info`, `document_new`, `doc
 
 ### Compiler
 
-`SDK\examples\example_plugin` : un exemple complet (commande, fenêtre, outil Étoile avec aperçu, opération `exemple.etoile`) avec son `CMakeLists.txt` :
+`SDK\examples\example_plugin` : un exemple complet (commandes, fenêtre, outil Étoile avec aperçu, opération `exemple.etoile`, inversion des couleurs du calque par `pixels_read` / `pixels_write`) avec son `CMakeLists.txt` :
 
 ```
 cmake -S SDK\examples\example_plugin -B build -A x64

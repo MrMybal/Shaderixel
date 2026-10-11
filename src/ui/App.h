@@ -323,6 +323,8 @@ public:
     struct PluginOp { std::string plugin, op; };
     struct PluginCall { std::string plugin; AiResult result; SxResultFn done; void* user; };
     struct PluginProc { std::string plugin, label, log; void* process; };
+    struct PluginRead { std::string plugin; gpu::ReadbackPtr rb; int format; SxPixelsFn done; void* user; };
+    std::vector<PluginRead> pluginReads;
     std::vector<PluginEntry> plugins;
     std::vector<PluginCommand> pluginCommands;
     std::vector<PluginPanel> pluginPanels;
@@ -351,6 +353,8 @@ public:
     void DrawPluginPanels();
     void DrawPluginManager();
     void PluginToolInput(DocView& v, ImVec2 canvasMin, bool hovered);
+    void PluginTool3DInput(DocView& v, float2 local, u32 w, u32 h, bool hovered);  // tool events over the model (texture pixels)
+    Surface* PluginSurface(unsigned layer, Id* id = nullptr);
 
     // Workspace state (saved in the ImGui ini / layouts, see Workspace.cpp).
     static constexpr int kSideTabs = 7;  // Général, Outils, Effets, Fusion, Peinture, 3D, IA

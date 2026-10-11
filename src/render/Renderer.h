@@ -427,5 +427,6 @@ private:
 };
 
 float HalfToFloat(u16 h);
+u16 FloatToHalf(float f);
 
 }  // namespace sx

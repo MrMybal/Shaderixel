@@ -32,7 +32,7 @@
 extern "C" {
 #endif
 
-#define SX_PLUGIN_API_VERSION 1
+#define SX_PLUGIN_API_VERSION 2  /* 2: pixel access, active layer, tools in the 3D view */
 
 #if defined(_WIN32)
 #define SX_PLUGIN_EXPORT __declspec(dllexport)
@@ -55,8 +55,16 @@ typedef struct SxToolEvent {
     float pressure;    /* 0..1 (tablet), 1 with a mouse */
     int modifiers;     /* SxModifiers */
     float zoom;        /* screen pixels per document pixel */
+    int view;          /* API 2: 0 canvas, 1 3D view (x, y = texture pixel under the cursor, -1 off the model; no overlay) */
 } SxToolEvent;
 typedef void (*SxToolFn)(void* user, const SxToolEvent* e);
+
+/* Pixels (API 2). */
+enum SxPixelFormat {
+    SX_PIXELS_RGBA8 = 0,   /* 4 bytes per pixel, sRGB, straight alpha (like a PNG) */
+    SX_PIXELS_RGBA32F = 1  /* 4 floats per pixel, linear, premultiplied alpha (as the layers are stored) */
+};
+typedef void (*SxPixelsFn)(void* user, int ok, int width, int height, const void* pixels);  /* pixels valid during the call */
 
 /* Immediate-mode widgets, inside a panel callback. Return 1 when the value changed / the button was pressed. */
 typedef struct SxUi {
@@ -114,6 +122,14 @@ typedef struct SxHost {
        version (host->imgui_version); with it a panel may use ImGui directly (ImGui::SetCurrentContext). */
     void* (*imgui_context)(void);
     const char* imgui_version;
+
+    /* ---- API 2 (check host->api_version >= 2) ---- */
+    unsigned (*active_layer)(void);  /* id of the active layer (0: none) */
+    /* Reads a rectangle of a pixel layer (layer 0: the active paint target; w or h <= 0: the whole layer).
+       The result comes through `done` a frame later. */
+    void (*pixels_read)(unsigned layer, int x, int y, int w, int h, int format, SxPixelsFn done, void* user);
+    /* Writes a rectangle of a pixel layer (one undo step named undo_label). Returns 1 on success. */
+    int (*pixels_write)(unsigned layer, int x, int y, int w, int h, int format, const void* pixels, const char* undo_label);
 } SxHost;
 
 typedef struct SxPlugin {

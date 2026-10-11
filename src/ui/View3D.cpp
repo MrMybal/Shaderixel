@@ -408,6 +408,7 @@ void App::DrawView3D() {
             UpdateSimulation(*v, emitting && !meshTargets.empty(), local(io.MousePos.x, io.MousePos.y), w, h, meshTargets, meshColors);
         }
     }
+    if (tool == Tool::Plugin) PluginTool3DInput(*v, local(io.MousePos.x, io.MousePos.y), w, h, hovered);
     // Eyedropper: the material under the cursor goes to the brush material (color, roughness, metal, height).
     if (tool == Tool::Picker && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt)
         StartMaterialPick(*v, local(io.MousePos.x, io.MousePos.y), w, h);

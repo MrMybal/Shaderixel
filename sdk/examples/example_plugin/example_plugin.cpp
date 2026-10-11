@@ -4,7 +4,9 @@
 // - a window (Plugins > Fenêtres > Exemple de plugin): document size, layer count, a button adding a
 //   blur filter to the active layer, star settings;
 // - a canvas tool "Étoile": a click paints a star (preview while hovering);
-// - an operation "exemple.etoile" ({x, y, radius}) for the assistant, actions and other plugins.
+// - an operation "exemple.etoile" ({x, y, radius}) for the assistant, actions and other plugins;
+// - API 2: "Inverser les couleurs" reads the active layer's pixels and writes them back inverted (one undo step).
+//   The Étoile tool works in the 3D view too (the event gives the texture pixel under the cursor).
 //
 // Built with Shaderixel (CMake target ShaderixelExamplePlugin) into <exe>/plugins/Exemple/ next to plugin.json.
 #include "shaderixel_plugin.h"
@@ -86,6 +88,21 @@ void OnBlurInfo(void*, int ok, const char* json) {
     H->call("shaderixel.filter_add", params, [](void*, int ok2, const char* r) { H->status(ok2 ? "Exemple : flou ajouté au calque actif" : r); }, nullptr);
 }
 
+// Pixels (API 2): the whole active layer, 8-bit sRGB; colors inverted, alpha kept.
+void OnPixels(void*, int ok, int w, int h, const void* pixels) {
+    if (!ok) { H->status("Exemple : le calque actif n'est pas un calque de pixels"); return; }
+    std::string buf((const char*)pixels, (size_t)w * h * 4);
+    for (size_t i = 0; i < buf.size(); i += 4)
+        for (int c = 0; c < 3; ++c) buf[i + c] = (char)(255 - (unsigned char)buf[i + c]);
+    if (H->pixels_write(0, 0, 0, w, h, SX_PIXELS_RGBA8, buf.data(), "Exemple : inverser"))
+        H->status("Exemple : couleurs inversées (Ctrl+Z pour annuler)");
+}
+
+void InvertCommand(void*) {
+    if (H->api_version < 2) { H->status("Exemple : Shaderixel trop ancien (API 2)"); return; }
+    H->pixels_read(0, 0, 0, 0, 0, SX_PIXELS_RGBA8, OnPixels, nullptr);
+}
+
 void DrawPanel(void*) {
     const SxUi* ui = H->ui;
     ui->separator("Document");
@@ -95,6 +112,8 @@ void DrawPanel(void*) {
     ui->text_disabled(S.info.c_str());
     if (ui->button("Flou sur le calque actif")) H->call("shaderixel.document_info", "{}", OnBlurInfo, nullptr);
     ui->tooltip("Ajoute un filtre non destructif (shaderixel.filter_add).");
+    if (H->api_version >= 2 && ui->button("Inverser les couleurs du calque actif")) H->pixels_read(0, 0, 0, 0, 0, SX_PIXELS_RGBA8, OnPixels, nullptr);
+    ui->tooltip("Lit les pixels du calque, les inverse et les réécrit (API 2 : pixels_read / pixels_write).");
     ui->separator("Outil Étoile");
     ui->slider_float("Rayon", &S.radius, 5, 400, "%.0f px");
     ui->slider_int("Branches", &S.branches, 3, 12);
@@ -136,10 +155,11 @@ void Unload(void*) { H->log("Exemple : déchargé"); }
 }  // namespace
 
 extern "C" SX_PLUGIN_EXPORT int sx_plugin_load(const SxHost* host, SxPlugin* plugin) {
-    if (!host || host->api_version < SX_PLUGIN_API_VERSION) return 0;
+    if (!host || host->api_version < 1) return 0;  // works with API 1 (pixels: only from API 2)
     H = host;
     plugin->unload = Unload;
     host->add_command("Exemple/Dire bonjour", SayHello, nullptr);
+    host->add_command("Exemple/Inverser les couleurs du calque", InvertCommand, nullptr);
     host->add_panel("Exemple de plugin", DrawPanel, nullptr);
     host->add_tool("Étoile", "Clic : peint une étoile (réglages dans la fenêtre Exemple de plugin)", StarTool, nullptr);
     host->add_operation("exemple.etoile", "Peint une étoile sur le calque de pixels actif (plugin Exemple).",
