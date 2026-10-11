@@ -98,10 +98,22 @@ void App::DrawView3D() {
             if (hasChannels && button("Exporter les textures PBR..."))
                 ExportPbrTextures(*v, platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png"));
         }
-        if (button(v->mesh->envAtlas || !v->mesh->envPixels.empty() ? "HDRI (actif)" : "HDRI...")) {
-            std::string path = platform::OpenFileDialog(hwnd, L"Environnement HDR (*.hdr)\0*.hdr\0Images\0*.png;*.jpg;*.exr\0");
-            std::string err;
-            if (!path.empty() && !LoadEnvironment(*v->mesh, path, &err)) Status("HDRI : " + err);
+        const std::string envLabel = v->mesh->envAtlas || !v->mesh->envPixels.empty() ? v->mesh->envName + " \xE2\x96\xBE" : std::string("HDRI \xE2\x96\xBE");
+        if (button(envLabel.c_str())) ImGui::OpenPopup("##envmenu");
+        ui::HelpTooltip("Environnement : intégré (studio, ciel couvert, plein soleil, coucher de soleil, néons) ou fichier HDR.");
+        if (ImGui::BeginPopup("##envmenu")) {
+            for (auto& [id, label] : ProceduralEnvironments())
+                if (ImGui::Selectable(label.c_str(), v->mesh->envAtlas && v->mesh->envPath == id)) {
+                    std::string err;
+                    if (!LoadEnvironment(*v->mesh, id, &err)) Status("HDRI : " + err);
+                }
+            ImGui::Separator();
+            if (ImGui::Selectable("Fichier HDR...")) {
+                std::string path = platform::OpenFileDialog(hwnd, L"Environnement HDR (*.hdr)\0*.hdr\0Images\0*.png;*.jpg;*.exr\0");
+                std::string err;
+                if (!path.empty() && !LoadEnvironment(*v->mesh, path, &err)) Status("HDRI : " + err);
+            }
+            ImGui::EndPopup();
         }
         if (v->mesh->envAtlas) {
             flow(110 * dpi);

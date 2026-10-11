@@ -579,6 +579,11 @@ void App::DemoTick() {
                 a->mesh->distance = 1.9f;
             }
             if (GetEnvironmentVariableA("SX_FOV", rs, sizeof(rs)) > 0) a->mesh->fov = (float)atof(rs);
+            char envId[64] = "";
+            if (GetEnvironmentVariableA("SX_ENV", envId, sizeof(envId)) > 0) {
+                std::string err;
+                Log("[demo] environment %s: %d %s", envId, (int)LoadEnvironment(*a->mesh, envId, &err), err.c_str());
+            }
         }
         if (frameCounter == 14 && GetEnvironmentVariableA("SX_DOF", nullptr, 0) > 0) {
             // Focus on the nearest corner region (left of center), as a click would.

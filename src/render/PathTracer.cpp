@@ -254,6 +254,78 @@ std::shared_ptr<PtEnvironment> MakeStudioEnvironment() {
     return env;
 }
 
+const std::vector<std::pair<std::string, std::string>>& ProceduralEnvironments() {
+    static const std::vector<std::pair<std::string, std::string>> list = {
+        {"*studio", "Studio photo"}, {"*couvert", "Ciel couvert"}, {"*soleil", "Plein soleil"}, {"*coucher", "Coucher de soleil"}, {"*neons", "Néons"}};
+    return list;
+}
+
+std::shared_ptr<PtEnvironment> MakeProceduralEnvironment(const std::string& id) {
+    if (id == "*studio") return MakeStudioEnvironment();
+    int kind = id == "*couvert" ? 0 : id == "*soleil" ? 1 : id == "*coucher" ? 2 : id == "*neons" ? 3 : -1;
+    if (kind < 0) return nullptr;
+    auto env = std::make_shared<PtEnvironment>();
+    env->width = 1024;
+    env->height = 512;
+    env->pixels.resize((size_t)env->width * env->height);
+    auto smooth = [](float a, float b, float x) {
+        float t = std::clamp((x - a) / (b - a), 0.0f, 1.0f);
+        return t * t * (3 - 2 * t);
+    };
+    // Sun (or main light): direction and angular radius.
+    const float sunEl = kind == 1 ? 0.75f : 0.07f, sunAz = kind == 1 ? -0.7f : 0.9f;
+    const float3 sun = Normalize({std::cos(sunEl) * std::sin(sunAz), std::sin(sunEl), -std::cos(sunEl) * std::cos(sunAz)});
+    struct Strip { float3 dir; float size, aspect; float3 color; };
+    const Strip neon[] = {{Normalize({-0.8f, 0.25f, -0.4f}), 0.9f, 0.08f, {9.0f, 1.2f, 6.0f}},
+                          {Normalize({0.85f, 0.2f, 0.3f}), 0.9f, 0.08f, {0.8f, 6.0f, 9.0f}},
+                          {Normalize({0.1f, 1.0f, -0.2f}), 0.5f, 1.2f, {0.6f, 0.6f, 0.7f}},
+                          {Normalize({0.2f, 0.15f, -0.95f}), 0.2f, 3.0f, {6.0f, 3.0f, 0.6f}}};
+    for (int y = 0; y < env->height; ++y)
+        for (int x = 0; x < env->width; ++x) {
+            const float u = (x + 0.5f) / env->width, v = (y + 0.5f) / env->height;
+            const float phi = (u - 0.5f) * 2 * kPi, th = v * kPi;
+            const float3 d = {std::sin(th) * std::sin(phi), std::cos(th), -std::sin(th) * std::cos(phi)};
+            const float t = d.y;
+            float3 c;
+            if (kind == 0) {
+                // Overcast: bright even sky, a little brighter at the zenith, gray-brown ground.
+                c = t > 0 ? Lerp3({1.05f, 1.07f, 1.1f}, {1.35f, 1.38f, 1.42f}, smooth(0, 1, t)) : Lerp3({0.5f, 0.5f, 0.5f}, {0.16f, 0.15f, 0.13f}, smooth(0, 0.15f, -t));
+            } else if (kind == 1) {
+                // Clear day: deep blue zenith, pale horizon, warm ground, small strong sun.
+                c = t > 0 ? Lerp3({0.75f, 0.85f, 1.0f}, {0.18f, 0.35f, 0.85f}, std::pow(smooth(0, 1, t), 0.6f)) * 1.3f
+                          : Lerp3({0.45f, 0.43f, 0.4f}, {0.22f, 0.19f, 0.15f}, smooth(0, 0.2f, -t));
+            } else if (kind == 2) {
+                // Sunset: orange horizon, purple then deep blue sky, dark ground.
+                const float s = smooth(0, 0.45f, t);
+                c = t > 0 ? Lerp3(Lerp3({2.2f, 0.9f, 0.35f}, {0.45f, 0.25f, 0.45f}, s), {0.04f, 0.07f, 0.2f}, smooth(0.3f, 1, t))
+                          : Lerp3({0.25f, 0.12f, 0.07f}, {0.03f, 0.025f, 0.025f}, smooth(0, 0.12f, -t));
+                const float az = Dot(Normalize(float3{d.x, 0, d.z}), Normalize(float3{sun.x, 0, sun.z}));
+                c = c + float3{1.4f, 0.55f, 0.2f} * (std::pow(std::max(az, 0.0f), 6.0f) * (1 - smooth(0, 0.35f, std::abs(t))));  // glow toward the sun
+            } else {
+                // Neons: dark room, colored light strips.
+                c = t > 0 ? float3{0.012f, 0.012f, 0.02f} : float3{0.006f, 0.006f, 0.008f};
+                for (const Strip& b : neon) {
+                    const float3 bu = Normalize(Cross({0, 1, 0}, b.dir)), bv = Cross(b.dir, bu);
+                    const float cd = Dot(d, b.dir);
+                    if (cd <= 0) continue;
+                    const float px = Dot(d, bu) / cd, py = Dot(d, bv) / cd;
+                    const float e = std::max(std::abs(px) / (b.size * b.aspect), std::abs(py) / b.size);
+                    const float k = std::clamp((1.0f - e) / 0.2f, 0.0f, 1.0f);
+                    c = c + b.color * (k * k * (3 - 2 * k));
+                }
+            }
+            if (kind == 1 || kind == 2) {
+                const float cs = Dot(d, sun), r = kind == 1 ? 0.9995f : 0.9990f;
+                const float3 sc = kind == 1 ? float3{400.0f, 380.0f, 340.0f} : float3{160.0f, 70.0f, 25.0f};
+                if (cs > r) c = c + sc;
+                c = c + sc * (0.002f * std::pow(std::max(cs, 0.0f), 300.0f));  // halo
+            }
+            env->pixels[(size_t)y * env->width + x] = {c.x, c.y, c.z, 1};
+        }
+    BuildEnvTables(*env);
+    return env;
+}
+
 void BuildEnvTables(PtEnvironment& e) {
     PtEnvironment* env = &e;
     // Importance: luminance * sin(theta); conditional CDF per row, marginal over rows.

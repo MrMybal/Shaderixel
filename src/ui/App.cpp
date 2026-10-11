@@ -1804,6 +1804,13 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
             vj["shadow"] = m.shadowStrength;
             vj["ao"] = m.aoStrength;
             vj["ground"] = m.groundShadow;
+            if (m.envAtlas && !m.envPath.empty()) {
+                vj["env"] = m.envPath;
+                vj["envIntensity"] = m.envIntensity;
+                vj["envRotation"] = m.envRotation;
+                vj["envBackground"] = m.envBackground;
+                vj["envBlur"] = m.envBlur;
+            }
             auto farr = [](std::initializer_list<float> l) {
                 Json a = Json::Array();
                 for (float f : l) a.Push(f);
@@ -1960,6 +1967,17 @@ bool App::LoadSxl(const std::string& path) {
             m.shadowStrength = vj["shadow"].F(m.shadowStrength);
             m.aoStrength = vj["ao"].F(m.aoStrength);
             m.groundShadow = vj["ground"].B(true);
+            if (const std::string env = vj["env"].S(""); !env.empty()) {
+                std::string err;
+                if (LoadEnvironment(m, env, &err)) {
+                    m.envIntensity = vj["envIntensity"].F(1);
+                    m.envRotation = vj["envRotation"].F(0);
+                    m.envBackground = vj["envBackground"].B(true);
+                    m.envBlur = vj["envBlur"].F(0);
+                } else {
+                    Log("HDRI de la vue 3D : %s (%s)", err.c_str(), env.c_str());
+                }
+            }
             m.lights.clear();
             for (size_t i = 0; i < vj["lights"].Size() && (int)i < kMaxMeshLights; ++i) {
                 const Json& o = vj["lights"].At(i);

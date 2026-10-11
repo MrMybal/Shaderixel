@@ -631,7 +631,7 @@ gpu::Texture* App::UpdateRenderState(DocView& v, PtRenderState& r, u32 w, u32 h)
     if (r.envPath != s.hdri) {
         r.envPath = s.hdri;
         r.env.reset();
-        if (s.hdri == "*studio") r.env = MakeStudioEnvironment();
+        if (!s.hdri.empty() && s.hdri[0] == '*') r.env = MakeProceduralEnvironment(s.hdri);
         else if (!s.hdri.empty()) {
             std::string err;
             r.env = LoadPtEnvironment(s.hdri, &err);
@@ -1104,9 +1104,18 @@ void App::DrawRenderScenePanel() {
     }
     // ---------------------------------------------------------------- environment
     if (ImGui::CollapsingHeader("Environnement (HDRI)", ImGuiTreeNodeFlags_DefaultOpen)) {
-        int mode = s.hdri == "*studio" ? 0 : s.hdri.empty() ? 2 : 1;
+        const bool builtin = !s.hdri.empty() && s.hdri[0] == '*';
+        int mode = builtin ? 0 : s.hdri.empty() ? 2 : 1;
         std::string fileLabel = mode == 1 ? Narrow(Utf8Path(s.hdri).filename().wstring()) : std::string("Fichier HDRI...");
-        if (ImGui::RadioButton("Studio intégré", mode == 0)) s.hdri = "*studio";
+        std::string cur = "Intégré...";
+        for (auto& [id, label] : ProceduralEnvironments()) if (id == s.hdri) cur = label;
+        ImGui::SetNextItemWidth(200 * dpi);
+        if (ImGui::BeginCombo("##envbuiltin", cur.c_str())) {
+            for (auto& [id, label] : ProceduralEnvironments())
+                if (ImGui::Selectable(label.c_str(), id == s.hdri)) s.hdri = id;
+            ImGui::EndCombo();
+        }
+        ui::HelpTooltip("Environnements intégrés : studio photo, ciel couvert, plein soleil, coucher de soleil, néons.");
         ImGui::SameLine();
         if (ImGui::RadioButton("Aucun", mode == 2)) s.hdri.clear();
         if (ImGui::Button(fileLabel.c_str())) {

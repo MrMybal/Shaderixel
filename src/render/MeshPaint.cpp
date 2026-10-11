@@ -1,6 +1,7 @@
 // Mesh viewport rendering, UV bake and projection painting.
 #include "render/Renderer.h"
 #include "render/MeshPaint.h"
+#include "render/PathTracer.h"
 
 #include <chrono>
 
@@ -162,8 +163,33 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     cb.opts[2] = nx;
     cb.flags = 0;
     if (!s.envPixels.empty()) {
-        s.envAtlas = gpu::Dev().CreateTexture(s.envW, s.envH, gpu::Format::RGBA32F, "Environment");
-        if (s.envAtlas) ctx.Upload(s.envAtlas.get(), s.envPixels.data(), s.envW * sizeof(float4));
+        // Half floats: filterable on every GPU (32-bit float filtering is optional in Vulkan: blocky reflections).
+        s.envAtlas = gpu::Dev().CreateTexture(s.envW, s.envH, gpu::Format::RGBA16F, "Environment");
+        if (s.envAtlas) {
+            auto half = [](float f) -> u16 {
+                f = std::clamp(f, -65504.0f, 65504.0f);
+                u32 x;
+                memcpy(&x, &f, 4);
+                const u32 sign = (x >> 16) & 0x8000u;
+                const int e = (int)((x >> 23) & 0xFF) - 127 + 15;
+                u32 m = x & 0x7FFFFFu;
+                if (e <= 0) {
+                    if (e < -10) return (u16)sign;
+                    m = (m | 0x800000u) >> (1 - e);
+                    return (u16)(sign | ((m + 0x1000u) >> 13));
+                }
+                const u32 r = sign | ((u32)e << 10) | (m >> 13);
+                return (u16)(r + ((m >> 12) & 1u));  // rounding (may carry into the exponent: fine)
+            };
+            std::vector<u16> h(s.envPixels.size() * 4);
+            for (size_t i = 0; i < s.envPixels.size(); ++i) {
+                h[i * 4] = half(s.envPixels[i].x);
+                h[i * 4 + 1] = half(s.envPixels[i].y);
+                h[i * 4 + 2] = half(s.envPixels[i].z);
+                h[i * 4 + 3] = half(1.0f);
+            }
+            ctx.Upload(s.envAtlas.get(), h.data(), s.envW * 8);
+        }
         s.envPixels.clear();
     }
     if (s.envAtlas) cb.flags |= 128;
@@ -506,11 +532,28 @@ bool Renderer::MeshProject(Document& doc, gpu::CommandContext& ctx, MeshScene& s
 
 bool LoadEnvironment(MeshScene& s, const std::string& path, std::string* error) {
     int w = 0, h = 0, comp = 0;
-    FILE* f = nullptr;
-    if (_wfopen_s(&f, Widen(path).c_str(), L"rb") != 0 || !f) { if (error) *error = "fichier introuvable"; return false; }
-    float* src = stbi_loadf_from_file(f, &w, &h, &comp, 3);
-    fclose(f);
-    if (!src) { if (error) *error = "image illisible"; return false; }
+    float* src = nullptr;
+    std::vector<float> builtin;
+    if (!path.empty() && path[0] == '*') {
+        // Built-in environment (also used by the ray-traced view and the render tab).
+        auto env = MakeProceduralEnvironment(path);
+        if (!env) { if (error) *error = "environnement inconnu"; return false; }
+        w = env->width;
+        h = env->height;
+        builtin.resize((size_t)w * h * 3);
+        for (size_t i = 0; i < (size_t)w * h; ++i) {
+            builtin[i * 3] = env->pixels[i].x;
+            builtin[i * 3 + 1] = env->pixels[i].y;
+            builtin[i * 3 + 2] = env->pixels[i].z;
+        }
+        src = builtin.data();
+    } else {
+        FILE* f = nullptr;
+        if (_wfopen_s(&f, Widen(path).c_str(), L"rb") != 0 || !f) { if (error) *error = "fichier introuvable"; return false; }
+        src = stbi_loadf_from_file(f, &w, &h, &comp, 3);
+        fclose(f);
+        if (!src) { if (error) *error = "image illisible"; return false; }
+    }
     // Resample to 1024 x 512 (bilinear, wrapping horizontally), then box-downsample 5 times.
     const int W = 1024, H = 512, levels = 6;
     auto at = [&](int x, int y) {
@@ -530,7 +573,7 @@ bool LoadEnvironment(MeshScene& s, const std::string& path, std::string* error) 
             auto mix = [](float4 p, float4 q, float t) { return float4{p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t, p.z + (q.z - p.z) * t, 1}; };
             lv[0][(size_t)y * W + x] = mix(mix(a, b, tx), mix(c, d, tx), ty);
         }
-    stbi_image_free(src);
+    if (builtin.empty()) stbi_image_free(src);
     for (int k = 1; k < levels; ++k) {
         int pw = W >> (k - 1), ph = H >> (k - 1), cw = W >> k, ch = H >> k;
         lv[k].resize((size_t)cw * ch);
@@ -559,6 +602,7 @@ bool LoadEnvironment(MeshScene& s, const std::string& path, std::string* error) 
         y0 += ch;
     }
     s.envName = Narrow(Utf8Path(path).filename().wstring());
+    for (auto& [id, label] : ProceduralEnvironments()) if (id == path) s.envName = label;
     s.envPath = path;
     return true;
 }

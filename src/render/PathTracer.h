@@ -124,6 +124,9 @@ std::shared_ptr<PtEnvironment> LoadPtEnvironment(const std::string& path, std::s
 void BuildEnvTables(PtEnvironment& env);
 // Built-in studio environment (soft boxes over a gray gradient), used when no HDRI file is chosen.
 std::shared_ptr<PtEnvironment> MakeStudioEnvironment();
+// Built-in environments ("*studio", "*couvert", "*coucher", "*soleil", "*neons"): id and label.
+const std::vector<std::pair<std::string, std::string>>& ProceduralEnvironments();
+std::shared_ptr<PtEnvironment> MakeProceduralEnvironment(const std::string& id);  // null: unknown id
 // Primitive meshes (object space).
 MeshData MakeBackdrop();  // floor curving up into a wall (cyclorama)
 MeshData MakeFloorPlane(float half = 6.0f);
