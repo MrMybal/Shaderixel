@@ -374,6 +374,10 @@ void NodeSignature(const Node& n, std::vector<PinDesc>* ins, std::vector<PinDesc
             o = {P("", PinType::Exec), {"Valeur", n.value.type, n.value.array}};
             break;
         case NodeKind::Event: o = {P("Exécuter", PinType::Exec)}; break;
+        case NodeKind::Reroute:
+            i = {{"", n.value.type, n.value.array}};
+            o = {{"", n.value.type, n.value.array}};
+            break;
         case NodeKind::Math:
             if (auto* d = FindMathOp(n.op)) { i = d->ins; o = d->outs; }
             break;

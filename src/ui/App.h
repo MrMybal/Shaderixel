@@ -1373,7 +1373,9 @@ private:
     void UpdateProjections(DocView& v);
     void DrawProjectionEditor(DocView& v, Id material);
     void DrawMaterialFilters(DocView& v, Id material);
-    void SoloMaterial(DocView& v, Id material);  // Alt + click on a 3D layer's visibility
+    void SoloMaterial(DocView& v, Id material);
+    // Graph: a relay node inserted on the link src -> dst (input, channel), at graph position pos.
+    void InsertRelay(DocView& v, Id src, Id dst, int input, u8 channel, float2 pos);  // Alt + click on a 3D layer's visibility
     // Texture export presets (TextureExport.cpp).
     struct TexExportOptions {
         bool open = false;

@@ -537,6 +537,10 @@ void App::UpdateExec() {
             r.items.push_back({ExecItem::Follow, id, 0, 0, r.owner});
             continue;
         }
+        if (n->kind == NodeKind::Reroute) {
+            r.items.push_back({ExecItem::Follow, id, 0, 0, r.owner});  // relay of an execution link
+            continue;
+        }
         if (n->kind != NodeKind::Action) continue;
         const std::string op = n->op;
         auto follow = [&](int port) { r.items.push_back({ExecItem::Follow, id, port, 0, r.owner}); };

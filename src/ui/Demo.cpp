@@ -1388,6 +1388,25 @@ void App::DemoTick() {
             fn->sub = sub;
             graphFrameRequest = true;
         }
+        if (frameCounter == 11 && GetEnvironmentVariableA("SX_RELAY", nullptr, 0) > 0) {
+            // Relays on a value link (Multiply -> Vibrance), an execution link (Event -> Bake) and an image link (-> Bake).
+            auto inputOf = [&](Id dst, Id src) {
+                if (const Node* n = g.Find(dst))
+                    for (int i = 0; i < (int)n->inputs.size(); ++i) if (n->inputs[i] == src) return i;
+                return -1;
+            };
+            if (int i = inputOf(vib, mulId); i >= 0) InsertRelay(*a, mulId, vib, i, 0, {-150, 850});
+            if (int i = inputOf(bake, evt); i >= 0) InsertRelay(*a, evt, bake, i, 0, {-450, 1150});
+            if (const Node* bn = g.Find(bake); bn && bn->inputs.size() > 1 && bn->inputs[1]) InsertRelay(*a, bn->inputs[1], bake, 1, InputChannel(*bn, 1), {-450, 1250});
+            int relays = 0;
+            std::string types;
+            for (auto& n : g.nodes)
+                if (n.kind == NodeKind::Reroute) {
+                    ++relays;
+                    types += std::string(PinTypeLabel(n.value.type)) + " ";
+                }
+            Log("[demo] relays inserted: %d (%s)", relays, types.c_str());
+        }
         if (frameCounter == 14) {
             Value m = a->renderer.EvalValue(d, mulId, 0);
             Log("[demo] typed multiply = %s", ValueToText(m).c_str());

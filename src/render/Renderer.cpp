@@ -254,6 +254,7 @@ Renderer::EvalResult Renderer::Eval(Document& doc, gpu::CommandContext& ctx, Id 
             break;
         }
         case NodeKind::Split:
+        case NodeKind::Reroute:
         case NodeKind::SubOutput:
         case NodeKind::Function:  // only without contents (flattened otherwise)
             result = EvalInput(doc, ctx, *n, 0, depth + 1);

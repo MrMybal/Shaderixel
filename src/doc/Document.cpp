@@ -878,6 +878,13 @@ Node& Document::AddNode(NodeKind kind, float2 pos) {
             n.name = "Séparer RGBA";
             n.inputs = {0};
             break;
+        case NodeKind::Reroute:
+            // Relay point of a link (any type: taken from the first link plugged in).
+            n.name = "Relais";
+            n.inputs = {0};
+            n.value.type = PinType::RGBA;
+            n.value.array = false;
+            break;
         case NodeKind::SubInput:
         case NodeKind::SubOutput: {
             int count = 0;
@@ -983,6 +990,24 @@ bool Document::Link(Id from, Id to, int input, u8 channel) {
     Node* dst = state.graph.Find(to);
     const Node* srcNode = state.graph.Find(from);
     if (!dst || !srcNode || from == to) return false;
+    // A relay with no link yet takes the type of the first one.
+    auto freeRelay = [&](const Node& r) {
+        if (r.kind != NodeKind::Reroute || (!r.inputs.empty() && r.inputs[0])) return false;
+        for (auto& m : state.graph.nodes) {
+            for (Id x : m.inputs) if (x == r.id) return false;
+            for (auto& e : m.execLinks) if (e.src == r.id) return false;
+        }
+        return true;
+    };
+    if (freeRelay(*dst)) {
+        const PinDesc o = NodeOutputPin(*srcNode, NodeOutputPortOf(*srcNode, channel));
+        dst->value.type = o.type;
+        dst->value.array = o.array;
+    } else if (Node* sn = state.graph.Find(from); sn && freeRelay(*sn)) {
+        const PinDesc i = NodeInputPin(*dst, input);
+        sn->value.type = i.type;
+        sn->value.array = i.array;
+    }
     // Pin types must match (images with images, values with values, execution with execution).
     if (!PinsCompatible(NodeOutputPin(*srcNode, NodeOutputPortOf(*srcNode, channel)), NodeInputPin(*dst, input))) return false;
     if (NodeInputType(*dst, input) == PinType::Exec) {

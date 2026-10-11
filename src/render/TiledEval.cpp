@@ -133,6 +133,7 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
             res = n->inputs.empty() ? TileRes{} : EvalTileInput(doc, ctx, *n, 0, need, depth + 1);
             break;
         case NodeKind::Split:
+        case NodeKind::Reroute:
         case NodeKind::SubOutput:
         case NodeKind::Function:
             res = EvalTileInput(doc, ctx, *n, 0, need, depth + 1);

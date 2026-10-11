@@ -199,7 +199,7 @@ struct LayerComp {
 // Math: an operation on values (GraphTypes.cpp, MathOps()). VarGet / VarSet: graph variables.
 // Event: entry of an execution flow (a button on the function / in the graph). Action: a step of
 // an execution flow (GraphTypes.cpp, ExecActions()): bake, upscale, ComfyUI, set a variable...
-enum class NodeKind : u8 { Output, Surface, Effect, Blend, Split, Tool, Function, SubInput, SubOutput, Value, Math, VarGet, VarSet, Event, Action };
+enum class NodeKind : u8 { Output, Surface, Effect, Blend, Split, Tool, Function, SubInput, SubOutput, Value, Math, VarGet, VarSet, Event, Action, Reroute };
 
 // Pin types: images (RGBA, single channel), values, and the execution flow.
 enum class PinType : u8 { RGBA, Channel, Float, Int, Bool, Vec2, Color, String, Name, Exec };

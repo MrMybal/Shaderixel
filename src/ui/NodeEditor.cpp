@@ -30,6 +30,7 @@ ImU32 HeaderColor(const Node& n) {
         case NodeKind::Math: return IM_COL32(60, 110, 90, 255);
         case NodeKind::VarGet: case NodeKind::VarSet: return IM_COL32(120, 90, 50, 255);
         case NodeKind::Event: return IM_COL32(170, 40, 40, 255);
+        case NodeKind::Reroute: return IM_COL32(60, 60, 70, 255);
         case NodeKind::Action: return IM_COL32(60, 70, 110, 255);
         case NodeKind::Function: return n.funcKind == "tool" ? IM_COL32(170, 124, 26, 255) : IM_COL32(150, 80, 180, 255);
         case NodeKind::SubInput: return IM_COL32(40, 130, 150, 255);
@@ -66,6 +67,7 @@ NodeTag NodeTypeTag(Document& d, const Node& n) {
         case NodeKind::Math: return {"MATH", IM_COL32(120, 220, 170, 255)};
         case NodeKind::VarGet: case NodeKind::VarSet: return {"VAR", IM_COL32(230, 180, 90, 255)};
         case NodeKind::Event: return {"EVENT", IM_COL32(255, 110, 110, 255)};
+        case NodeKind::Reroute: return {"", IM_COL32(150, 150, 160, 255)};
         case NodeKind::Action: return {"EXEC", IM_COL32(170, 190, 255, 255)};
         case NodeKind::SubOutput: return {"OUT", IM_COL32(70, 200, 130, 255)};
         case NodeKind::Blend: return l && l->kind == LayerKind::Group ? sub : blend;
@@ -156,6 +158,16 @@ Layout NodeLayout(const Node& n, float aspect) {
     Layout l;
     l.inputs = NodeInputCount(n);
     l.outputs = NodeOutputCount(n);
+    if (n.kind == NodeKind::Reroute) {
+        // Relay: a small pill, pins at the height of a first row.
+        l.rows = 1;
+        l.w = 34;
+        l.h = kHeader + kRow;
+        l.thumbW = l.thumbH = 0;
+        l.valX.assign(1, -1.0f);
+        l.valW.assign(1, 0.0f);
+        return l;
+    }
     l.rows = std::max({l.inputs, l.outputs, 1});
     // Width: inputs (label + value field) and outputs (label) never overlap.
     std::vector<PinDesc> ins, outs;
@@ -228,6 +240,8 @@ std::vector<NodeEntry> NodeEntries() {
         e.push_back({f.kind == "tool" ? "Bibliothèque : outils" : "Bibliothèque : sous-graphes", f.name, f.desc + " fonction bibliotheque library",
                      [path](Document& d, float2 p) { return g_insertLibraryFunction ? g_insertLibraryFunction(d, p, path) : (Id)0; }});
     }
+    e.push_back({"Organisation", "Relais (point de passage d'un lien)", "reroute relais knot point passage lien organiser",
+                 [](Document& d, float2 p) { return d.AddNode(NodeKind::Reroute, p).id; }});
     e.push_back({"Canaux", "Séparer RGBA (R, V, B, A)", "split channels canal", [](Document& d, float2 p) { return d.AddNode(NodeKind::Split, p).id; }});
     e.push_back({"Calques", "Calque pixel", "surface peinture", [](Document& d, float2 p) { return d.AddNode(NodeKind::Surface, p).id; }});
     e.push_back({"Fusion", "Fusion (mode de fusion)", "blend mélange", [](Document& d, float2 p) { return d.AddNode(NodeKind::Blend, p).id; }});
@@ -336,6 +350,23 @@ void App::DrawNodePalette() {
     }
     ImGui::EndChild();
     ImGui::End();
+}
+
+void App::InsertRelay(DocView& v, Id src, Id dst, int input, u8 channel, float2 pos) {
+    Document& d = *v.doc;
+    Node* t = d.S().graph.Find(dst);
+    if (!t) return;
+    for (auto& e : t->execLinks)
+        if (e.pin == input) { Status("Relais : ce lien d'exécution rejoint d'autres flux, insérez-le plus haut"); return; }
+    DocState before = d.S();
+    const Id r = d.AddNode(NodeKind::Reroute, pos).id;
+    d.Unlink(dst, input);
+    if (!d.Link(src, r, 0, channel) || !d.Link(r, dst, input, 0)) {
+        d.S() = before;
+        Status("Relais : lien impossible");
+        return;
+    }
+    v.history.PushState("Insérer un relais", before, d.S());
 }
 
 void App::DrawNodeEditor() {
@@ -507,6 +538,27 @@ void App::DrawNodeEditor() {
     // Double click on a function: its graph opens in a tab.
     if (hovered && hoverNode && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         if (const Node* fn = g.Find(hoverNode); fn && fn->kind == NodeKind::Function) functionEditRequest = {v, hoverNode};
+    // Double click on a link: a relay is inserted there (Blueprint-like).
+    if (hovered && editableAtStart && !hoverNode && !hoverOut && !hoverInNode && !ed.hoverComment && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+        float best = 8.0f * dpi;
+        Id ls = 0, ld = 0;
+        int li = -1;
+        u8 lc = 0;
+        for (const Node& n : g.nodes)
+            for (int i = 0; i < (int)n.inputs.size() && i < NodeInputCount(n); ++i) {
+                const Node* src = n.inputs[i] ? g.Find(n.inputs[i]) : nullptr;
+                if (!src) continue;
+                const u8 ch = (u8)InputChannel(n, i);
+                const ImVec2 a = outPin(*src, NodeOutputPortOf(*src, ch)), b = inPin(n, i);
+                const float dx = std::max(std::abs(b.x - a.x) * 0.5f, 40.0f * ed.zoom);
+                for (int t = 0; t <= 32; ++t) {
+                    const ImVec2 p = ImBezierCubicCalc(a, ImVec2(a.x + dx, a.y), ImVec2(b.x - dx, b.y), b, t / 32.0f);
+                    const float dd = std::sqrt((p.x - mouse.x) * (p.x - mouse.x) + (p.y - mouse.y) * (p.y - mouse.y));
+                    if (dd < best) { best = dd; ls = src->id; ld = n.id; li = i; lc = ch; }
+                }
+            }
+        if (ls) InsertRelay(*v, ls, ld, li, lc, toGraph(mouse) - float2{17, kHeader + kRow * 0.5f});
+    }
     // Layer mode: editing a link (or adding a node) turns the document into a free graph.
     bool editable = editableAtStart;
     auto toNodeMode = [&] {
@@ -758,6 +810,19 @@ void App::DrawNodeEditor() {
         if (b.x < origin.x || b.y < origin.y || a.x > origin.x + size.x || a.y > origin.y + size.y) continue;
         float r = 6 * ed.zoom;
         bool selected = ed.selection.count(n.id) || n.id == d.S().activeNode;
+        if (n.kind == NodeKind::Reroute) {
+            // Relay: a pill in the color of its type, its two pins at the ends.
+            const PinDesc pin = NodeInputPin(n, 0);
+            const ImVec2 pa = inPin(n, 0), pb = outPin(n, 0);
+            const float hh = 8 * ed.zoom;
+            const ImU32 tc = TypeColor(pin.type, 255);
+            dl->AddRectFilled(ImVec2(pa.x, pa.y - hh), ImVec2(pb.x, pb.y + hh), IM_COL32(34, 34, 42, 240), hh);
+            dl->AddRect(ImVec2(pa.x, pa.y - hh), ImVec2(pb.x, pb.y + hh), selected ? ui::col::Selection : n.id == hoverNode ? IM_COL32(200, 200, 210, 255) : tc, hh, 0,
+                        selected ? 2.5f : 1.5f);
+            DrawPin(dl, pa, pinR, pin, !n.inputs.empty() && n.inputs[0], ed.zoom);
+            DrawPin(dl, pb, pinR, NodeOutputPin(n, 0), true, ed.zoom);
+            continue;
+        }
         bool failedNode = v->renderer.NodeFailed(n.id);
         bool isPaint = n.kind == NodeKind::Surface && n.surface == d.PaintTarget();
         dl->AddRectFilled(ImVec2(a.x + 3, a.y + 4), ImVec2(b.x + 3, b.y + 4), IM_COL32(0, 0, 0, 70), r);

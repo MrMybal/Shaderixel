@@ -28,6 +28,7 @@ Value Renderer::EvalValue(Document& doc, Id id, int port, int depth) {
         case NodeKind::Value:
         case NodeKind::SubInput: r = n->value; break;
         case NodeKind::Split:
+        case NodeKind::Reroute:
         case NodeKind::SubOutput:
         case NodeKind::Function:
             if (!n->inputs.empty() && n->inputs[0])
