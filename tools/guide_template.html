@@ -186,6 +186,12 @@ td:first-child { white-space: nowrap; width: 1%; }
     <li>Dynamique : angle, suivre le trait, variations d'angle / de taille / de flux, dispersion. Trait : lissage au fil (<i>lazy mouse</i>), angle limite (faces de biais), <kbd>Maj</kbd>+clic pour une ligne droite depuis la fin du trait précédent.</li>
     <li>Outil <b>Remplissage par polygone</b> (clic droit sur l'outil Projection) : remplit le triangle, la face plate, l'île UV, la pièce ou tout le modèle sous le curseur (surligné au survol) avec le matériau du pinceau ; <kbd>Ctrl</kbd>+clic efface.</li>
   </ol></div>
+  <div class="card"><h3>Plugins</h3><ol>
+    <li>Menu <b>Plugins</b> : les commandes, fenêtres (Plugins &gt; Fenêtres) et outils (Plugins &gt; Outils, et en bas de la barre d'outils) ajoutés par les plugins.</li>
+    <li>Livrés en exemple : <b>Exemple (C++)</b> (Plugins &gt; Exemple &gt; Dire bonjour, fenêtre « Exemple de plugin », outil <b>Étoile</b> : un clic peint une étoile avec aperçu au survol) et <b>Exemple (script Python)</b> (lister les calques, ajouter un calque bleu, par le pont local).</li>
+    <li><b>Plugins &gt; Gestionnaire de plugins...</b> : activer / désactiver, recharger une DLL recompilée sans redémarrer, rechercher les nouveaux, ouvrir le dossier utilisateur (%LOCALAPPDATA%\Shaderixel\Plugins).</li>
+    <li>Créer un plugin : dossier <code>SDK</code> (en-tête C <code>shaderixel_plugin.h</code>, exemples, <code>LISEZMOI_Plugins.md</code>). Un plugin natif ajoute commandes, fenêtres, outils et opérations (utilisables par l'assistant IA et les actions) ; un plugin script lance un programme qui pilote Shaderixel.</li>
+  </ol></div>
   <div class="card"><h3>Paint 3D : masques et matériaux intelligents</h3><ol>
     <li>Calques 3D &gt; « + Intelligent » : matériaux en plusieurs couches qui suivent la forme du modèle (métal peint usé, fer rouillé, plastique sale, bois verni usé, cuivre oxydé, chrome poussiéreux, caoutchouc usé, pierre moussue, peinture militaire, or patiné). Ajoutez les vôtres en JSON dans <code>library/smartmaterials</code>.</li>
     <li><b>Dossiers</b> : « + Dossier » range le calque 3D sélectionné dans un dossier (visibilité, opacité, fusion et masque communs, masque intelligent possible) ; « Entrer dans le dossier au-dessus », « Sortir du dossier », « Dégrouper ».</li>

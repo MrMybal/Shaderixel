@@ -1,0 +1,8 @@
+{
+  "id": "shaderixel.exemple",
+  "name": "Exemple (C++)",
+  "version": "1.0",
+  "author": "Shaderixel",
+  "description": "Plugin natif d'exemple : une commande, une fenêtre, l'outil Étoile et l'opération exemple.etoile.",
+  "dll": "example_plugin.dll"
+}

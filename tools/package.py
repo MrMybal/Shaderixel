@@ -410,6 +410,12 @@ def main():
     # Preset reference (effects, Draw layers, blends, sub-graphs, tools): next to the exe and with its skill.
     shutil.copy2(os.path.join(ROOT, 'docs', 'PRESETS.md'), os.path.join(dist, 'PRESETS.md'))
     shutil.copy2(os.path.join(ROOT, 'docs', 'PRESETS.md'), os.path.join(dist, 'IA', 'skills', 'shaderixel-presets', 'PRESETS.md'))
+    # Plugins built with the app (example native plugin, example script plugin) and the SDK.
+    built_plugins = os.path.join(BUILD, 'plugins')
+    if os.path.isdir(built_plugins):
+        shutil.copytree(built_plugins, os.path.join(dist, 'plugins'), ignore=shutil.ignore_patterns('*.pdb', '*.ilk', '*.lib', '*.exp', '__pycache__'))
+    shutil.copytree(os.path.join(ROOT, 'sdk'), os.path.join(dist, 'SDK'), ignore=shutil.ignore_patterns('__pycache__', 'build'))
+    shutil.copy2(os.path.join(ROOT, 'docs', 'PLUGINS.md'), os.path.join(dist, 'SDK', 'LISEZMOI_Plugins.md'))
     # Python helpers run by the app (Select > Subject).
     shutil.copytree(os.path.join(ROOT, 'tools', 'ai'), os.path.join(dist, 'ai'))
     # Unreal Engine plugin: built for each engine (tools/build_unreal_plugin.py), plus the sources.

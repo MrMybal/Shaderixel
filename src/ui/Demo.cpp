@@ -442,6 +442,74 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 94) {
+        // Plugins: the example plugin's command, window, tool (synthetic clicks on the canvas) and operation,
+        // then the example script plugin's two commands (Python through the bridge).
+        if (frameCounter == 4) NewDocument(1200, 800, Precision::Half16, DocMode::Layers, 1, "Plugins");
+        DocView* a = Active();
+        if (!a) return;
+        if (frameCounter == 8) {
+            std::string list;
+            for (auto& p : plugins) list += p.name + (p.loaded ? " (chargé)" : " (" + p.error + ")") + ", ";
+            Log("[demo] plugins: %s commands %zu panels %zu tools %zu ops %zu", list.c_str(), pluginCommands.size(), pluginPanels.size(), pluginTools.size(), pluginOps.size());
+            for (auto& c : pluginCommands)
+                if (c.path == "Exemple/Dire bonjour") CallPlugin(c.plugin, [&] { c.fn(c.user); });
+            Log("[demo] after the command: %s", statusMsg.c_str());
+            for (auto& pp : pluginPanels) pp.open = true;
+            // New pixel layer to paint on.
+            if (const AiOperation* op = bridge.Find("shaderixel.layer_add")) {
+                Json prm = Json::Object();
+                prm["kind"] = "pixel";
+                prm["name"] = "Étoiles";
+                op->run(prm, PluginWorkspace("demo"));
+            }
+        }
+        ImGuiIO& io = ImGui::GetIO();
+        ImGuiWindow* cw = ImGui::FindWindowByName("Canevas");
+        if (frameCounter == 12) {
+            for (size_t i = 0; i < pluginTools.size(); ++i)
+                if (pluginTools[i].name == "\xC3\x89toile") { tool = Tool::Plugin; pluginTool = (int)i; }
+            if (cw) io.AddMousePosEvent(cw->InnerRect.Min.x + (cw->InnerRect.Max.x - cw->InnerRect.Min.x) * 0.35f, (cw->InnerRect.Min.y + cw->InnerRect.Max.y) * 0.5f);
+        }
+        if (frameCounter == 14) io.AddMouseButtonEvent(0, true);
+        if (frameCounter == 16) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 20) {
+            // The plugin's operation, as the assistant would call it.
+            if (const AiOperation* op = bridge.Find("exemple.etoile")) {
+                Json prm = Json::Object();
+                prm["x"] = 800;
+                prm["y"] = 400;
+                prm["radius"] = 150;
+                AiResult r = op->run(prm, PluginWorkspace("demo"));
+                Log("[demo] exemple.etoile: %s %s", r.errorCode.c_str(), r.result.Dump(0).c_str());
+            }
+            if (cw) io.AddMousePosEvent(cw->InnerRect.Min.x + (cw->InnerRect.Max.x - cw->InnerRect.Min.x) * 0.55f, cw->InnerRect.Min.y + (cw->InnerRect.Max.y - cw->InnerRect.Min.y) * 0.3f);
+        }
+        if (frameCounter == 24) {
+            for (auto& p : plugins)
+                for (auto& sc : p.scripts) RunPluginScript(p, sc);
+        }
+        if (frameCounter == 26) {
+            // Hot reload of the native plugin (as the manager's "Recharger" button).
+            for (auto& p : plugins)
+                if (!p.dll.empty()) {
+                    UnloadPlugin(p);
+                    const bool ok = LoadPlugin(p);
+                    Log("[demo] reload %s: %d %s, tools %zu panels %zu", p.name.c_str(), (int)ok, p.error.c_str(), pluginTools.size(), pluginPanels.size());
+                }
+            for (auto& pp : pluginPanels) pp.open = true;
+            pluginManager = true;
+        }
+        static bool logged = false;
+        if (frameCounter > 30 && pluginProcs.empty() && !logged) {
+            logged = true;
+            Log("[demo] scripts done at frame %llu: %s", (unsigned long long)frameCounter, statusMsg.c_str());
+            int layers = 0;
+            for (auto& l : a->doc->S().layers) layers += l.kind == LayerKind::Pixel ? 1 : 0;
+            Log("[demo] pixel layers: %d", layers);
+        }
+        return;
+    }
     if (demoMode == 93) {
         // Previews of the smart materials (thumbs/<name>.png in SX_THUMBDIR, the repository library by default):
         // each one applied to a sphere, the 3D view captured and cropped, its layers removed, the next one.

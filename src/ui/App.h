@@ -17,6 +17,7 @@
 #include "render/PathTracer.h"
 #include "io/VideoWriter.h"
 #include "io/GifWriter.h"
+#include "shaderixel_plugin.h"
 
 #include <mutex>
 
@@ -37,7 +38,7 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Plugin, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
@@ -300,8 +301,56 @@ inline constexpr const char* kEffectPayload = "SX_EFFECT";
 inline constexpr const char* kPalettePayload = "SX_PALETTE";  // node palette item: "<0|1><key>"
 
 class App {
+    friend struct PluginGlue;  // C host table of the plugins (Plugins.cpp)
+
 public:
     int Run();
+
+    // ---------------------------------------------------------------- plugins (Plugins.cpp, sdk/include/shaderixel_plugin.h)
+    struct PluginEntry {
+        std::string id, name, version, author, description, dir, dll, error;
+        struct Script { std::string menu, run, description; };
+        std::vector<Script> scripts;  // script plugins: menu commands running a program
+        bool enabled = true, loaded = false;
+        void* module = nullptr;  // HMODULE
+        std::string loadedCopy;
+        void (*unload)(void*) = nullptr;
+        void* unloadUser = nullptr;
+    };
+    struct PluginCommand { std::string plugin, path; SxCommandFn fn; void* user; };
+    struct PluginPanel { std::string plugin, title; SxPanelFn fn; void* user; bool open = false; };
+    struct PluginTool { std::string plugin, name, help; SxToolFn fn; void* user; };
+    struct PluginOp { std::string plugin, op; };
+    struct PluginCall { std::string plugin; AiResult result; SxResultFn done; void* user; };
+    struct PluginProc { std::string plugin, label, log; void* process; };
+    std::vector<PluginEntry> plugins;
+    std::vector<PluginCommand> pluginCommands;
+    std::vector<PluginPanel> pluginPanels;
+    std::vector<PluginTool> pluginTools;
+    std::vector<PluginOp> pluginOps;
+    std::vector<PluginCall> pluginCalls;
+    std::vector<PluginProc> pluginProcs;
+    std::set<std::string> pluginsDisabled;
+    std::string pluginCurrent;  // plugin being called (its registrations are tagged with it)
+    int pluginTool = -1;
+    bool pluginToolDown = false, pluginManager = false;
+    struct { ImVec2 canvasMin; float2 pan; float zoom = 1; ImDrawList* dl = nullptr; } pluginDraw;
+    void InitPlugins();
+    void ScanPlugins();
+    std::vector<std::string> PluginDirs();
+    std::string PluginWorkspace(const std::string& plugin);
+    bool LoadPlugin(PluginEntry& p);
+    void UnloadPlugin(PluginEntry& p);
+    void RemovePluginRegistrations(const std::string& id);
+    void ShutdownPlugins();
+    void UpdatePlugins();
+    void FinishPluginCall(const std::string& plugin, const AiResult& r, SxResultFn done, void* user);
+    void RunPluginScript(const PluginEntry& p, const PluginEntry::Script& s);
+    void CallPlugin(const std::string& plugin, const std::function<void()>& fn);
+    void DrawPluginsMenu();
+    void DrawPluginPanels();
+    void DrawPluginManager();
+    void PluginToolInput(DocView& v, ImVec2 canvasMin, bool hovered);
 
     // Workspace state (saved in the ImGui ini / layouts, see Workspace.cpp).
     static constexpr int kSideTabs = 7;  // Général, Outils, Effets, Fusion, Peinture, 3D, IA

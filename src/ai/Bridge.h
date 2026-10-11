@@ -64,6 +64,12 @@ class AiBridge {
 public:
     ~AiBridge() { Shutdown(); }
     void Register(AiOperation op) { ops.push_back(std::move(op)); }
+    void Unregister(const std::string& id) {
+        for (size_t i = 0; i < ops.size(); ++i)
+            if (ops[i].id == id) { ops.erase(ops.begin() + i); return; }
+    }
+    // Token of the script plugins started by the user (their writes are allowed).
+    const std::string& PluginToken() const { return pluginToken; }
     const std::vector<AiOperation>& Operations() const { return ops; }
     const AiOperation* Find(const std::string& id) const {
         for (auto& o : ops) if (o.id == id) return &o;
@@ -92,6 +98,7 @@ private:
     struct Call {
         std::string callId, op, workspace;
         Json params;
+        bool trusted = false;  // script plugin started by the user
         std::shared_ptr<std::promise<std::string>> promise;
     };
     struct Pending {
@@ -103,7 +110,7 @@ private:
     std::string Finish(const Call& c, const AiResult& r);
 
     net::LoopbackServer server;
-    std::string token, connectionFile, serviceFile, project;
+    std::string token, pluginToken, connectionFile, serviceFile, project;
     std::vector<AiOperation> ops;
     std::mutex mutex;
     std::deque<Call> queue;

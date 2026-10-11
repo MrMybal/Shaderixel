@@ -50,6 +50,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Projection, ui::IconStamp, "Projection (décalque 3D)", "P"},
     {Tool::PolyFill, ui::IconBucket, "Remplissage par polygone (3D)", "-"},
     {Tool::Particles, ui::IconDrop, "Simulation de peinture (particules 3D)", "-"},
+    {Tool::Plugin, ui::IconWand, "Outil de plugin", "-"},
 };
 
 // Toolbar slots; tools sharing a slot appear in a flyout (right-click).
@@ -139,6 +140,23 @@ void App::DrawToolbar() {
                 }
             }
             ImGui::PopID();
+        }
+        if (!pluginTools.empty() && !p3d) {
+            // Tools of the plugins (Plugins > Outils too).
+            ImVec2 c = ImGui::GetCursorScreenPos();
+            ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);
+            ImGui::Dummy(ImVec2(size, 3 * dpi));
+            for (size_t i = 0; i < pluginTools.size(); ++i) {
+                const auto& pt = pluginTools[i];
+                ImGui::PushID(1000 + (int)i);
+                const std::string tip = pt.name + (pt.help.empty() ? "" : "\n" + pt.help) + "\n(outil de plugin)";
+                if (ui::IconButton("pt", ui::IconWand, tool == Tool::Plugin && pluginTool == (int)i, size, tip.c_str())) {
+                    if (xf.active && xf.view) TransformCommit(*xf.view);
+                    tool = Tool::Plugin;
+                    pluginTool = (int)i;
+                }
+                ImGui::PopID();
+            }
         }
         ImGui::Spacing();
         // Foreground / background swatches (Photoshop style).
@@ -442,6 +460,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (tool == Tool::Pen) {
         PenInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::Plugin) {
+        PluginToolInput(v, canvasMin, hovered);
         return;
     }
 

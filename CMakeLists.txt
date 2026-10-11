@@ -74,7 +74,7 @@ endforeach()
 
 function(sx_app target)
     add_executable(${target} WIN32 ${SX_SOURCES} ${ARGN} ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc)
-    target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${EXT}/stb)
+    target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/sdk/include ${EXT}/stb)
     target_link_libraries(${target} PRIVATE imgui slang xatlas ufbx comdlg32 shell32 ole32 d3d11 windowscodecs advapi32)
     target_compile_definitions(${target} PRIVATE
         NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE
@@ -87,7 +87,21 @@ function(sx_app target)
             ${SLANG_DIR}/bin/slang.dll ${SLANG_DIR}/bin/slang-compiler.dll
             ${SLANG_DIR}/bin/slang-glslang.dll ${SLANG_DIR}/bin/slang-rt.dll
             $<TARGET_FILE_DIR:${target}>)
+    add_dependencies(${target} ShaderixelExamplePlugin)
 endfunction()
+
+# Example plugin (sdk/examples): built into <exe dir>/plugins/Exemple with its manifest.
+add_library(ShaderixelExamplePlugin SHARED ${CMAKE_SOURCE_DIR}/sdk/examples/example_plugin/example_plugin.cpp)
+target_include_directories(ShaderixelExamplePlugin PRIVATE ${CMAKE_SOURCE_DIR}/sdk/include)
+set_target_properties(ShaderixelExamplePlugin PROPERTIES OUTPUT_NAME "example_plugin"
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/plugins/Exemple
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/plugins/Exemple)
+if(MSVC)
+    target_compile_options(ShaderixelExamplePlugin PRIVATE /W4 /utf-8)
+endif()
+add_custom_command(TARGET ShaderixelExamplePlugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/sdk/examples/example_plugin/plugin.json ${CMAKE_BINARY_DIR}/plugins/Exemple/plugin.json
+    COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/sdk/examples/script_plugin ${CMAKE_BINARY_DIR}/plugins/ExempleScript)
 
 # D3D12
 sx_app(Shaderixel ${CMAKE_SOURCE_DIR}/src/gpu/DeviceD3D12.cpp ${IMGUI_DIR}/backends/imgui_impl_dx12.cpp)

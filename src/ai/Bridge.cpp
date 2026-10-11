@@ -85,6 +85,7 @@ void AiSettings::FromJson(const Json& j) {
 bool AiBridge::Start(const std::string& projectHint) {
     if (server.Running()) return true;
     token = net::RandomToken(32);
+    pluginToken = net::RandomToken(32);
     project = projectHint;
     int base = 39500 + (int)(GetCurrentProcessId() % 500);
     if (!server.Start(base, 41000, [this](const net::Request& r, std::string& out) { return Handle(r, out); })) return false;
@@ -172,7 +173,8 @@ std::string AiBridge::Describe() const {
 int AiBridge::Handle(const net::Request& req, std::string& out) {
     if (req.headers.count("origin")) return 403;  // never callable from a browser page
     auto auth = req.headers.find("authorization");
-    if (auth == req.headers.end() || auth->second != "Bearer " + token) return 403;
+    if (auth == req.headers.end() || (auth->second != "Bearer " + token && auth->second != "Bearer " + pluginToken)) return 403;
+    const bool trusted = auth->second == "Bearer " + pluginToken;
     if (req.method != "POST" || req.path != "/shaderixel/v1") return 404;
     Json j;
     if (!Json::Parse(req.body, j) || !j.IsObject()) {
@@ -208,6 +210,7 @@ int AiBridge::Handle(const net::Request& req, std::string& out) {
             c.op = j["operation"].S("");
             c.params = j["parameters"];
             c.workspace = j["workspace"].S("");
+            c.trusted = trusted;
             c.promise = std::make_shared<std::promise<std::string>>();
             fut = c.promise->get_future().share();
             calls[callId] = fut;
@@ -239,7 +242,7 @@ void AiBridge::Pump() {
         for (auto& o : ops) if (o.id == c.op) op = &o;
         AiResult r;
         if (!op) r = AiResult::Fail("UnknownOperation", "Opération inconnue : " + c.op);
-        else if (op->write && !allowWrites) r = AiResult::Fail("AccessDenied", "L'écriture par l'IA est désactivée dans Shaderixel (panneau Assistant IA).");
+        else if (op->write && !allowWrites && !c.trusted) r = AiResult::Fail("AccessDenied", "L'écriture par l'IA est désactivée dans Shaderixel (panneau Assistant IA).");
         else {
             try {
                 r = op->run(c.params, c.workspace);
