@@ -186,11 +186,13 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
         if (sp && s.shadowMap) {
             const float3 c = (s.data.boundsMin + s.data.boundsMax) * 0.5f;
             const float r = std::max(Length(s.data.boundsMax - s.data.boundsMin) * 0.5f, 0.01f) * 1.05f;
-            Mat4 view = Mat4::LookAtLH(c + l * (r * 3.0f), c, std::fabs(l.y) > 0.98f ? float3{0, 0, 1} : float3{0, 1, 0});
+            // With the ground shadow, the map also covers the ground around the model (long shadows of a low light).
+            const float cover = s.groundShadow ? r * std::clamp(1.0f + 0.8f / std::max(std::fabs(l.y), 0.15f), 1.0f, 4.0f) : r;
+            Mat4 view = Mat4::LookAtLH(c + l * (cover * 3.0f), c, std::fabs(l.y) > 0.98f ? float3{0, 0, 1} : float3{0, 1, 0});
             Mat4 ortho = Mat4::Identity();
-            const float zn = r * 1.0f, zf = r * 5.0f;
-            ortho.m[0][0] = 1.0f / r;
-            ortho.m[1][1] = 1.0f / r;
+            const float zn = cover * 1.0f, zf = cover * 5.0f;
+            ortho.m[0][0] = 1.0f / cover;
+            ortho.m[1][1] = 1.0f / cover;
             ortho.m[2][2] = 1.0f / (zf - zn);
             ortho.m[2][3] = -zn / (zf - zn);
             Mat4 lvp = ortho * view;
@@ -258,6 +260,35 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     d.indices = s.ib.get();
     d.count = (u32)s.data.indices.size();
     ctx.Draw(d);
+    if (quality && s.groundShadow) {
+        // Ground under the model: key light shadow and contact shadow on the background (shaders/mesh_ground.slang).
+        if (auto* gk = Kernel("mesh_ground.slang")) {
+            float3 fwd = Normalize(s.target - s.camPos);
+            float3 right = Normalize(Cross(float3{0, 1, 0}, fwd));
+            float3 up = Cross(fwd, right);
+            const float ty = std::tan(s.fov * 0.5f), tx = ty * (float)w / h;
+            const float3 c = (s.data.boundsMin + s.data.boundsMax) * 0.5f, half = (s.data.boundsMax - s.data.boundsMin) * 0.5f;
+            const bool hasShadow = (cb.opts[0] & 1) != 0;
+            struct {
+                float4 camPos, right, up, fwd, plane, foot;
+                float lightVP[16];
+                float4 shadow;
+                u32 size[4];
+            } gcb = {{s.camPos.x, s.camPos.y, s.camPos.z, 0}, {right.x * tx, right.y * tx, right.z * tx, 0}, {up.x * ty, up.y * ty, up.z * ty, 0},
+                     {fwd.x, fwd.y, fwd.z, 0}, {s.data.boundsMin.y, std::max(half.x, half.z) * 4.0f, c.x, c.z},
+                     {std::max(half.x, 1e-3f) * 1.1f, std::max(half.z, 1e-3f) * 1.1f, 0.45f, hasShadow ? s.shadowStrength * 0.8f : 0.0f}, {},
+                     {0.004f, 0, 0, 0}, {w, h, 0, 0}};
+            memcpy(gcb.lightVP, cb.lightVP, sizeof(gcb.lightVP));
+            gpu::DispatchDesc gd2;
+            gd2.pipeline = gk;
+            gd2.srv[0] = s.depth.get();
+            gd2.srv[1] = hasShadow ? s.shadowMap.get() : nullptr;
+            gd2.uav[0] = s.color.get();
+            gd2.cbData = &gcb;
+            gd2.cbSize = sizeof(gcb);
+            Dispatch2D(ctx, gd2, w, h);
+        }
+    }
     // Channel views are display values: copied as they are.
     static const auto t0 = std::chrono::steady_clock::now();
     const float time = std::chrono::duration<float>(std::chrono::steady_clock::now() - t0).count();

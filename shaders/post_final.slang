@@ -82,9 +82,11 @@ void main(uint3 id : SV_DispatchThreadID)
         return;
     }
     float2 uv = (float2(id.xy) + 0.5) / float2(gSize);
-    if (gHdr.Load(int3(id.xy, 0)).a < 0.5)
+    const float bgA = gHdr.Load(int3(id.xy, 0)).a;
+    if (bgA < 0.5)
     {
-        gOut[id.xy] = float4(0.09, 0.095, 0.11, 1.0);  // empty background of the 3D view
+        // Empty background of the 3D view; alpha > 0: ground shadow there (mesh_ground).
+        gOut[id.xy] = float4(float3(0.09, 0.095, 0.11) * (1.0 - saturate(bgA / 0.45) * 0.85), 1.0);
         return;
     }
     if (gFlags & 2) c += gBloomTex.SampleLevel(sLinearClamp, uv, 0).rgb * gBloom;

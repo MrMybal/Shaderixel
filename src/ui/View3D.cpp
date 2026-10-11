@@ -499,6 +499,8 @@ void App::DrawView3DRenderSettings(MeshScene& s) {
     if (s.envAtlas) ImGui::SliderFloat("Soleil (avec HDRI)", &s.sunIntensity, 0, 8, "%.2f");
     else ImGui::SliderFloat("Intensité", &s.lightIntensity, 0, 8, "%.2f");
     ImGui::SliderFloat("Ombre", &s.shadowStrength, 0, 1, "%.2f");
+    ImGui::Checkbox("Ombre au sol", &s.groundShadow);
+    ui::HelpTooltip("Rendu qualité : l'ombre de la lumière principale et une ombre de contact sur un sol invisible sous le modèle.");
     ImGui::SliderFloat("Occlusion cuite", &s.aoStrength, 0, 1, "%.2f");
     ui::HelpTooltip("Occlusion ambiante cuite du modèle (Cuisson ou masques intelligents) dans la vue, en Rendu qualité.");
     ImGui::PopItemWidth();

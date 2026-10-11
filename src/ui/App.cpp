@@ -1803,6 +1803,7 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
             vj["sunIntensity"] = m.sunIntensity;
             vj["shadow"] = m.shadowStrength;
             vj["ao"] = m.aoStrength;
+            vj["ground"] = m.groundShadow;
             auto farr = [](std::initializer_list<float> l) {
                 Json a = Json::Array();
                 for (float f : l) a.Push(f);
@@ -1958,6 +1959,7 @@ bool App::LoadSxl(const std::string& path) {
             m.sunIntensity = vj["sunIntensity"].F(m.sunIntensity);
             m.shadowStrength = vj["shadow"].F(m.shadowStrength);
             m.aoStrength = vj["ao"].F(m.aoStrength);
+            m.groundShadow = vj["ground"].B(true);
             m.lights.clear();
             for (size_t i = 0; i < vj["lights"].Size() && (int)i < kMaxMeshLights; ++i) {
                 const Json& o = vj["lights"].At(i);
