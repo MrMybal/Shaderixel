@@ -483,6 +483,49 @@ void App::DemoTick() {
                 a->mesh->lightPitch = (float)atof(lp);
                 a->mesh->lightIntensity = 3.5f;
             }
+            // Presentation: lighting preset, depth of field, camera bookmark.
+            if (GetEnvironmentVariableA("SX_LIGHTS", rs, sizeof(rs)) > 0) ApplyLightingPreset(*a->mesh, atoi(rs));
+            if (GetEnvironmentVariableA("SX_DOF", rs, sizeof(rs)) > 0) {
+                a->mesh->dofAperture = (float)atof(rs);
+                a->mesh->distance = 1.9f;
+            }
+            if (GetEnvironmentVariableA("SX_FOV", rs, sizeof(rs)) > 0) a->mesh->fov = (float)atof(rs);
+        }
+        if (frameCounter == 14 && GetEnvironmentVariableA("SX_DOF", nullptr, 0) > 0) {
+            // Focus on the nearest corner region (left of center), as a click would.
+            focusPick = true;
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D")) {
+                ImGuiIO& io = ImGui::GetIO();
+                const ImVec2 c((w->InnerRect.Min.x + w->InnerRect.Max.x) * 0.5f, (w->InnerRect.Min.y + w->InnerRect.Max.y) * 0.5f);
+                io.AddMousePosEvent(c.x - (w->InnerRect.Max.x - w->InnerRect.Min.x) * 0.06f, c.y + 30);
+            }
+        }
+        if (frameCounter == 16 && focusPick) ImGui::GetIO().AddMouseButtonEvent(0, true);
+        if (frameCounter == 17 && GetEnvironmentVariableA("SX_DOF", nullptr, 0) > 0) {
+            ImGui::GetIO().AddMouseButtonEvent(0, false);
+            Log("[demo] focus distance %.3f (camera distance %.3f)", a->mesh->dofFocus, a->mesh->distance);
+        }
+        {
+            // Turntable export SX_TURNTABLE (.mp4), SX_TTFRAMES frames at 640 x 360.
+            char tp[512] = "";
+            if (frameCounter == 30 && GetEnvironmentVariableA("SX_TURNTABLE", tp, sizeof(tp)) > 0) {
+                char nf[16] = "24";
+                GetEnvironmentVariableA("SX_TTFRAMES", nf, sizeof(nf));
+                turntable.path = tp;
+                turntable.frames = atoi(nf);
+                turntable.width = 640;
+                turntable.height = 360;
+                turntable.viewSize = false;
+                turntable.png = true;
+                turntable.samples = 32;
+                turntable.open = true;
+                StartTurntable(*a);
+            }
+            static bool ttLogged = false;
+            if (frameCounter > 30 && !ttLogged && GetEnvironmentVariableA("SX_TURNTABLE", nullptr, 0) > 0 && !turntable.running && turntable.pending.empty()) {
+                ttLogged = true;
+                Log("[demo] turntable done at frame %llu: %s", (unsigned long long)frameCounter, turntable.error.c_str());
+            }
         }
         static double t0 = 0;
         if (frameCounter == 11) t0 = ImGui::GetTime();

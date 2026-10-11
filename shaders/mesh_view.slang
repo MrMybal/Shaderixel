@@ -19,7 +19,9 @@ cbuffer View : register(b1)
     row_major float4x4 gLightVP;  // shadow map
     float4 gLightCol;             // key light color x intensity
     float4 gShadow;               // x strength, y bias, z 1 / map size
-    uint4 gOpts;                  // x: 1 shadows, 2 baked occlusion, 4 HDR output (post-process after); y: occlusion strength (x1000)
+    uint4 gOpts;                  // x: 1 shadows, 2 baked occlusion, 4 HDR output (post-process after); y: occlusion strength (x1000); z: extra lights
+    float4 gXDir[4];              // extra lights (fill, rim...): direction toward the light
+    float4 gXCol[4];              // color x intensity
 };
 
 float3 Aces(float3 x)
@@ -199,6 +201,8 @@ float4 psMain(VSOut i, bool front : SV_IsFrontFace) : SV_Target0
         col += diffColor * Sky(n) * 0.6 * ao;
         col += Fenv * lerp(Sky(r), Sky(n) * 0.6, rough) * ao;
     }
+    for (uint xi = 0; xi < min(gOpts.z, 4u); ++xi)
+        col += Shade(n, v, normalize(gXDir[xi].xyz), gXCol[xi].rgb, diffColor, f0, rough);
     col += emissive;
     int vmode = (int)(gViewMode + 0.5);
     if ((gOpts.x & 4) && vmode == 0) return float4(col, 1.0);  // linear HDR: exposure, tone curve... in the post-process

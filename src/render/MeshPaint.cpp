@@ -20,6 +20,17 @@ void MeshScene::UpdateCamera(float aspect) {
     viewProj = proj * view;
 }
 
+float3 MeshScene::KeyLightDir() const {
+    return lightFollow ? Normalize(camPos - target + float3{0.6f, 1.2f, 0.0f})
+                       : Normalize(float3{std::cos(lightPitch) * std::sin(lightYaw), std::sin(lightPitch), -std::cos(lightPitch) * std::cos(lightYaw)});
+}
+
+float3 MeshScene::LightDir(const MeshLight& l) const {
+    // Same angles as the camera orbit: follow = offset from the camera's yaw / pitch.
+    const float y = l.yaw + (l.follow ? yaw : 0.0f), p = std::clamp(l.pitch, -1.55f, 1.55f);
+    return Normalize(float3{std::cos(p) * std::sin(y), std::sin(p), -std::cos(p) * std::cos(y)});
+}
+
 namespace {
 const gpu::GraphicsPipeline* MeshPipeline(const char* file, const gpu::GraphicsDesc& desc) {
     static std::unordered_map<std::string, gpu::GraphicsPipelinePtr> cache;
@@ -47,6 +58,7 @@ struct ViewCB {
     float lightVP[16];
     float4 lightCol, shadow;
     u32 opts[4];
+    float4 xDir[kMaxMeshLights], xCol[kMaxMeshLights];  // extra lights
 };
 struct BrushRootM {
     u32 dw, dh, vw, vh, count;
@@ -137,9 +149,17 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     memcpy(cb.vp, s.viewProj.m, sizeof(cb.vp));
     cb.camPos = {s.camPos.x, s.camPos.y, s.camPos.z, 1};
     // Key light: attached to the camera, or fixed in the scene (yaw / pitch).
-    float3 l = s.lightFollow ? Normalize(s.camPos - s.target + float3{0.6f, 1.2f, 0.0f})
-                             : Normalize(float3{std::cos(s.lightPitch) * std::sin(s.lightYaw), std::sin(s.lightPitch), -std::cos(s.lightPitch) * std::cos(s.lightYaw)});
+    float3 l = s.KeyLightDir();
     cb.lightDir = {l.x, l.y, l.z, 0};
+    u32 nx = 0;
+    for (const MeshLight& x : s.lights) {
+        if (!x.on || x.intensity <= 0 || nx >= (u32)kMaxMeshLights) continue;
+        const float3 d = s.LightDir(x), c = x.color * x.intensity;
+        cb.xDir[nx] = {d.x, d.y, d.z, 0};
+        cb.xCol[nx] = {c.x, c.y, c.z, 0};
+        ++nx;
+    }
+    cb.opts[2] = nx;
     cb.flags = 0;
     if (!s.envPixels.empty()) {
         s.envAtlas = gpu::Dev().CreateTexture(s.envW, s.envH, gpu::Format::RGBA32F, "Environment");

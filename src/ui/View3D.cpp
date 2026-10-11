@@ -143,6 +143,8 @@ void App::DrawView3D() {
                 ImGui::TextDisabled("%s", rt);
             }
             if (button("Rendu et caméra...")) ImGui::OpenPopup("##view3drender");
+            if (button("Turntable...")) turntable.open = true;
+            ui::HelpTooltip("Exporter une vidéo (MP4) ou des images du modèle qui tourne sur lui-même.");
             if (ImGui::BeginPopup("##view3drender")) {
                 DrawView3DRenderSettings(*v->mesh);
                 ImGui::EndPopup();
@@ -170,7 +172,9 @@ void App::DrawView3D() {
     MeshScene& s = *v->mesh;
     u32 w = (u32)std::max(1.0f, avail.x), h = (u32)std::max(1.0f, avail.y);
     ImGui::InvisibleButton("##view3d", avail, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
-    bool hovered = ImGui::IsItemHovered();
+    // Turntable export: the frames are rendered at their own size, nothing is painted meanwhile.
+    const bool tt = turntable.running && turntable.view == v;
+    bool hovered = ImGui::IsItemHovered() && !tt;
     ImGuiIO& io = ImGui::GetIO();
 
     // Camera
@@ -192,6 +196,23 @@ void App::DrawView3D() {
         if (io.KeyCtrl) decal.size = std::clamp(decal.size * std::pow(1.1f, io.MouseWheel), 0.02f, 3.0f);
         else decal.rotation = std::fmod(decal.rotation + io.MouseWheel * 5.0f + 540.0f, 360.0f) - 180.0f;
     } else if (hovered && io.MouseWheel != 0) s.distance *= std::pow(0.88f, io.MouseWheel);
+    UpdateCameraAnimation(s);
+    if (tt) TurntableFrame(*v, w, h);
+    // Depth of field: a click on the model chooses the sharp distance.
+    if (focusPick && hovered) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt) {
+            if (PickFocus(s, float2{io.MousePos.x - origin.x, io.MousePos.y - origin.y}, w, h)) {
+                char b[64];
+                snprintf(b, sizeof(b), "Mise au point : %.2f", s.dofFocus);
+                Status(b);
+            } else {
+                Status("Mise au point : cliquez sur le modèle");
+            }
+            focusPick = false;
+            io.MouseClicked[ImGuiMouseButton_Left] = false;  // not a paint stroke
+        }
+    }
 
     MeshPrepare3D(*v);
     UpdateSmartMasks(*v);
@@ -369,7 +390,18 @@ void App::DrawView3D() {
         if (gpu::Texture* rt = UpdateViewRayTrace(*v, w, h)) img = rt;  // ray-traced view (the raster render keeps the brush depth)
     if (gpu::Texture* pv = UvPreviewRender(*v, w, h)) img = pv;  // UV tool: checker on the new layout
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    if (img) dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(img), origin, ImVec2(origin.x + w, origin.y + h));
+    if (img) {
+        ImVec2 a = origin, b(origin.x + w, origin.y + h);
+        if (tt) {
+            // Turntable frame (its own size) fitted in the view.
+            const float k = std::min(avail.x / w, avail.y / h);
+            a = ImVec2(origin.x + (avail.x - w * k) * 0.5f, origin.y + (avail.y - h * k) * 0.5f);
+            b = ImVec2(a.x + w * k, a.y + h * k);
+            dl->AddRectFilled(origin, ImVec2(origin.x + avail.x, origin.y + avail.y), IM_COL32(16, 16, 18, 255));
+        }
+        dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(img), a, b);
+    }
+    if (tt) TurntableCapture(*v, img);
     if (hovered && tool == Tool::Projection && !orbit && decal.tex) {
         // Decal preview at the cursor (rotated quad).
         float c = std::cos(decal.rotation * 0.0174533f), sn = std::sin(decal.rotation * 0.0174533f);
@@ -379,7 +411,7 @@ void App::DrawView3D() {
                          IM_COL32(255, 255, 255, 150));
         dl->AddPolyline(q, 4, IM_COL32(255, 140, 0, 220), ImDrawFlags_Closed, 1.5f);
     }
-    if (s.wireframe) {
+    if (s.wireframe && !tt) {
         // Edges of the front-facing triangles (capped for heavy models).
         const auto& V = s.data.vertices;
         const auto& I = s.data.indices;
@@ -438,12 +470,24 @@ void App::DrawView3DRenderSettings(MeshScene& s) {
         if (ImGui::SliderFloat("Direction", &yaw, -180, 180, "%.0f°")) s.lightYaw = yaw / 57.29578f;
         if (ImGui::SliderFloat("Hauteur", &pitch, 5, 89, "%.0f°")) s.lightPitch = pitch / 57.29578f;
     }
+    DrawLightingSettings(s);
     if (s.quality == 2) {
         ImGui::SeparatorText("Ray tracing");
         ImGui::SliderInt("Échantillons", &s.rtSamples, 16, 4096, "%d", ImGuiSliderFlags_Logarithmic);
         ImGui::SliderInt("Rebonds", &s.rtBounces, 1, 16);
         ImGui::Checkbox("Sol (ombres portées)", &s.rtFloor);
         ImGui::SliderFloat("Débruitage", &s.rtDenoise, 0, 1, s.rtDenoise > 0 ? "%.2f" : "désactivé");
+        ImGui::SeparatorText("Profondeur de champ");
+        ImGui::SliderFloat("Ouverture", &s.dofAperture, 0, 0.15f, s.dofAperture > 0 ? "%.3f" : "désactivée", ImGuiSliderFlags_Logarithmic);
+        ui::HelpTooltip("Taille de l'objectif : plus elle est grande, plus ce qui est hors de la distance nette est flou.");
+        if (s.dofAperture > 0) {
+            ImGui::SliderFloat("Distance nette", &s.dofFocus, 0.05f, 30, "%.2f", ImGuiSliderFlags_Logarithmic);
+            if (ImGui::SmallButton("Choisir sur le modèle")) {
+                focusPick = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ui::HelpTooltip("Puis cliquez sur le point du modèle qui doit être net.");
+        }
     }
     ImGui::SeparatorText("Lumière");
     if (s.envAtlas) ImGui::SliderFloat("Soleil (avec HDRI)", &s.sunIntensity, 0, 8, "%.2f");
@@ -452,6 +496,7 @@ void App::DrawView3DRenderSettings(MeshScene& s) {
     ImGui::SliderFloat("Occlusion cuite", &s.aoStrength, 0, 1, "%.2f");
     ui::HelpTooltip("Occlusion ambiante cuite du modèle (Cuisson ou masques intelligents) dans la vue, en Rendu qualité.");
     ImGui::PopItemWidth();
+    DrawCameraBookmarks(s);
     DrawPostSettings(s.post, true);
     ImGui::TextDisabled("Rendu par lancer de rayons : onglet Rendu.");
 }

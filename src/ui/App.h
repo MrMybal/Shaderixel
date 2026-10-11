@@ -15,6 +15,7 @@
 #include "mesh/UvUnwrap.h"
 #include "mesh/MeshBake.h"
 #include "render/PathTracer.h"
+#include "io/VideoWriter.h"
 
 #include <mutex>
 
@@ -1387,6 +1388,37 @@ private:
     void StartTextureExport(DocView& v);
     void PollTextureExports();
     void DrawTextureExportDialog();
+    // Presentation (Marmoset-like): lighting presets, camera bookmarks, focus picking, turntable export.
+    struct TurntableState {
+        bool open = false, running = false;
+        int frames = 120, fps = 30, width = 1920, height = 1080, samples = 96;
+        bool viewSize = false, png = false, mp4 = true, fixedLighting = true;
+        std::string path;  // .mp4 (images: <name>_0001.png beside it)
+        DocView* view = nullptr;
+        int frame = 0, settle = 0, written = 0;
+        float yaw0 = 0, env0 = 0, lightYaw0 = 0;
+        int samples0 = 0;
+        std::vector<float> xYaw0;
+        std::vector<gpu::ReadbackPtr> pending;  // in frame order
+        std::unique_ptr<VideoWriter> video;
+        std::string error;
+    } turntable;
+    struct {
+        bool on = false;
+        float t = 0;
+        CameraBookmark from, to;
+    } camAnim;
+    bool focusPick = false;  // next click on the 3D view sets the depth of field's focus
+    void DrawLightingSettings(MeshScene& s);  // + ApplyLightingPreset (below App)
+    void DrawCameraBookmarks(MeshScene& s);
+    void UpdateCameraAnimation(MeshScene& s);
+    bool PickFocus(MeshScene& s, float2 local, u32 w, u32 h);
+    void DrawTurntableDialog();
+    void StartTurntable(DocView& v);
+    void TurntableFrame(DocView& v, u32& w, u32& h);
+    void TurntableCapture(DocView& v, gpu::Texture* img);
+    void StopTurntable();
+    void PollTurntable();
     void ApplySmartMaterial(DocView& v, const Json& def);
     const std::vector<Json>& SmartMaterials();
     void SelectMaterial(Document& d, Id material);
@@ -1551,5 +1583,9 @@ private:
     double statusTime = 0;
     std::string pendingDrop;
 };
+
+// Lighting presets of the 3D view (Presentation.cpp).
+int LightingPresetCount();
+void ApplyLightingPreset(MeshScene& s, int index);
 
 }  // namespace sx

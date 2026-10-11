@@ -15,6 +15,23 @@ struct MeshMaterial {
     gpu::Texture* tex[(int)PbrChannel::Count] = {};
 };
 
+// Extra directional light of the 3D view (fill, rim...): no shadow map; the ray-traced view casts its shadows.
+struct MeshLight {
+    bool on = true;
+    bool follow = true;          // direction relative to the camera (like the key light)
+    float yaw = 0, pitch = 0.5f; // radians
+    float3 color = {1, 1, 1};
+    float intensity = 1.0f;
+};
+constexpr int kMaxMeshLights = 4;
+
+// Saved point of view of the 3D view.
+struct CameraBookmark {
+    std::string name;
+    float yaw = 0, pitch = 0, distance = 2.8f, fov = 0.8f;
+    float3 target;
+};
+
 struct MeshScene {
     MeshData data;
     gpu::BufferPtr vb, ib;
@@ -46,6 +63,9 @@ struct MeshScene {
     float lightIntensity = 1.6f;     // without an HDRI
     float sunIntensity = 0.0f;       // with an HDRI
     float shadowStrength = 0.85f, aoStrength = 1.0f;
+    std::vector<MeshLight> lights;   // extra lights (up to kMaxMeshLights)
+    float dofAperture = 0.0f, dofFocus = 2.8f;  // depth of field (ray-traced view): lens radius, focus distance
+    std::vector<CameraBookmark> cameras;
     gpu::TexturePtr hdr, shadowMap;
     int rtSamples = 512, rtBounces = 6;  // ray-traced view (quality 2)
     float rtDenoise = 0.6f;
@@ -56,6 +76,8 @@ struct MeshScene {
     u32 mapsRev = 0;              // bumped at each bake (smart masks regenerate)
     u32 mapsForRevision = ~0u;    // geometry revision the maps belong to
     void UpdateCamera(float aspect);
+    float3 KeyLightDir() const;                    // toward the light
+    float3 LightDir(const MeshLight& l) const;
 };
 
 // Load an equirectangular .hdr (or any image) as the 3D view's environment.

@@ -62,6 +62,9 @@ int App::Run() {
             quitting = true;
         }
         if (quitting) {
+            // Scripted runs never ask (a bake finishing after the capture marks the document modified again).
+            if (Automated())
+                for (auto& dv : docs) dv->doc->dirty = false;
             // Ask about each unsaved document, then leave once all are handled and saves finished.
             int dirtyIdx = -1;
             for (int i = 0; i < (int)docs.size(); ++i) if (docs[i]->doc->dirty) { dirtyIdx = i; break; }
@@ -562,6 +565,7 @@ void App::Frame() {
     DrawUnrealExportDialog();
     DrawBakerWindow();
     DrawTextureExportDialog();
+    DrawTurntableDialog();
     DrawColorDialogs();
     DrawPhotoDialog();
     DrawPaint3DNewDialog();
@@ -1796,6 +1800,33 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
             vj["sunIntensity"] = m.sunIntensity;
             vj["shadow"] = m.shadowStrength;
             vj["ao"] = m.aoStrength;
+            auto farr = [](std::initializer_list<float> l) {
+                Json a = Json::Array();
+                for (float f : l) a.Push(f);
+                return a;
+            };
+            Json lj = Json::Array();
+            for (const MeshLight& x : m.lights) {
+                Json o = Json::Object();
+                o["on"] = x.on;
+                o["follow"] = x.follow;
+                o["yaw"] = x.yaw;
+                o["pitch"] = x.pitch;
+                o["color"] = farr({x.color.x, x.color.y, x.color.z});
+                o["intensity"] = x.intensity;
+                lj.Push(o);
+            }
+            vj["lights"] = lj;
+            vj["dofAperture"] = m.dofAperture;
+            vj["dofFocus"] = m.dofFocus;
+            Json cj = Json::Array();
+            for (const CameraBookmark& c : m.cameras) {
+                Json o = Json::Object();
+                o["name"] = c.name;
+                o["view"] = farr({c.yaw, c.pitch, c.distance, c.fov, c.target.x, c.target.y, c.target.z});
+                cj.Push(o);
+            }
+            vj["cameras"] = cj;
             job->meta["view3d"] = vj;
         }
         if (v.render) job->meta["render"] = RenderToJson(*v.render, Narrow(Utf8Path(path).parent_path().wstring()));
@@ -1924,6 +1955,34 @@ bool App::LoadSxl(const std::string& path) {
             m.sunIntensity = vj["sunIntensity"].F(m.sunIntensity);
             m.shadowStrength = vj["shadow"].F(m.shadowStrength);
             m.aoStrength = vj["ao"].F(m.aoStrength);
+            m.lights.clear();
+            for (size_t i = 0; i < vj["lights"].Size() && (int)i < kMaxMeshLights; ++i) {
+                const Json& o = vj["lights"].At(i);
+                MeshLight x;
+                x.on = o["on"].B(true);
+                x.follow = o["follow"].B(true);
+                x.yaw = o["yaw"].F();
+                x.pitch = o["pitch"].F(0.5f);
+                if (o["color"].Size() == 3) x.color = {o["color"].At(0).F(1), o["color"].At(1).F(1), o["color"].At(2).F(1)};
+                x.intensity = o["intensity"].F(1);
+                m.lights.push_back(x);
+            }
+            m.dofAperture = vj["dofAperture"].F(0);
+            m.dofFocus = vj["dofFocus"].F(2.8f);
+            m.cameras.clear();
+            for (size_t i = 0; i < vj["cameras"].Size(); ++i) {
+                const Json& o = vj["cameras"].At(i);
+                const Json& a = o["view"];
+                if (a.Size() != 7) continue;
+                CameraBookmark c;
+                c.name = o["name"].S("");
+                c.yaw = a.At(0).F();
+                c.pitch = a.At(1).F();
+                c.distance = a.At(2).F(2.8f);
+                c.fov = a.At(3).F(0.8f);
+                c.target = {a.At(4).F(), a.At(5).F(), a.At(6).F()};
+                m.cameras.push_back(c);
+            }
         }
         const Json& cam = meta["camera"];
         if (view->mesh && cam.Size() == 6) {

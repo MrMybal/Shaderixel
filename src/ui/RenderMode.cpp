@@ -481,8 +481,7 @@ gpu::Texture* App::UpdateViewRayTrace(DocView& v, u32 w, u32 h) {
     r.lights.clear();
     const float li = m.envAtlas ? m.sunIntensity : m.lightIntensity * 0.6f;
     if (li > 0) {
-        float3 l = m.lightFollow ? Normalize(m.camPos - m.target + float3{0.6f, 1.2f, 0.0f})
-                                 : Normalize(float3{std::cos(m.lightPitch) * std::sin(m.lightYaw), std::sin(m.lightPitch), -std::cos(m.lightPitch) * std::cos(m.lightYaw)});
+        float3 l = m.KeyLightDir();
         PtLight sun;
         sun.name = "Soleil";
         sun.type = PtLightType::Sun;
@@ -492,6 +491,21 @@ gpu::Texture* App::UpdateViewRayTrace(DocView& v, u32 w, u32 h) {
         sun.yaw = std::atan2(-l.x, -l.z) * 57.29578f;
         r.lights.push_back(sun);
     }
+    for (const MeshLight& x : m.lights) {
+        if (!x.on || x.intensity <= 0) continue;
+        const float3 l = m.LightDir(x);
+        PtLight sun;
+        sun.name = "Lumière";
+        sun.type = PtLightType::Sun;
+        sun.color = x.color;
+        sun.intensity = x.intensity * 1.2f;
+        sun.size = 4.0f;
+        sun.pitch = std::asin(std::clamp(-l.y, -1.0f, 1.0f)) * 57.29578f;
+        sun.yaw = std::atan2(-l.x, -l.z) * 57.29578f;
+        r.lights.push_back(sun);
+    }
+    s.aperture = m.dofAperture;
+    s.focusDistance = m.dofFocus;
     // Paint changes: the textures are packed again.
     const u64 key = v.doc->ContentVersion() * 1315423911ull ^ (u64)v.history.Count() * 2654435761ull ^ (u64)v.history.Cursor();
     if (key != r.paintKey) {
