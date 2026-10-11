@@ -16,6 +16,7 @@
 #include "mesh/MeshBake.h"
 #include "render/PathTracer.h"
 #include "io/VideoWriter.h"
+#include "io/GifWriter.h"
 
 #include <mutex>
 
@@ -1409,7 +1410,7 @@ private:
     struct TurntableState {
         bool open = false, running = false;
         int frames = 120, fps = 30, width = 1920, height = 1080, samples = 96;
-        bool viewSize = false, png = false, mp4 = true, fixedLighting = true;
+        bool viewSize = false, png = false, mp4 = true, gif = false, fixedLighting = true;
         std::string path;  // .mp4 (images: <name>_0001.png beside it)
         DocView* view = nullptr;
         int frame = 0, settle = 0, written = 0;
@@ -1418,6 +1419,7 @@ private:
         std::vector<float> xYaw0;
         std::vector<gpu::ReadbackPtr> pending;  // in frame order
         std::unique_ptr<VideoWriter> video;
+        std::unique_ptr<GifWriter> gifw;
         std::string error;
     } turntable;
     struct {

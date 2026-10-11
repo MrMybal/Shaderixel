@@ -205,6 +205,9 @@ void App::DrawTurntableDialog() {
                     "Sinon la caméra tourne autour du modèle dans un éclairage fixe.");
     ImGui::Checkbox("Vidéo MP4", &T.mp4);
     ImGui::SameLine();
+    ImGui::Checkbox("GIF animé", &T.gif);
+    ui::HelpTooltip("À côté de la vidéo (même nom, .gif), 720 px de large au plus, en boucle : facile à partager.");
+    ImGui::SameLine();
     ImGui::Checkbox("Images PNG", &T.png);
     ImGui::SetNextItemWidth(300 * dpi);
     ImGui::InputTextWithHint("##ttpath", "fichier .mp4", &T.path);
@@ -217,7 +220,7 @@ void App::DrawTurntableDialog() {
     ImGui::EndDisabled();
     ImGui::Separator();
     if (!T.running) {
-        ImGui::BeginDisabled(T.path.empty() || (!T.mp4 && !T.png) || !T.pending.empty());
+        ImGui::BeginDisabled(T.path.empty() || (!T.mp4 && !T.png && !T.gif) || !T.pending.empty());
         if (ImGui::Button("Lancer", ImVec2(140 * dpi, 0))) StartTurntable(*v);
         ImGui::EndDisabled();
     } else {
@@ -248,6 +251,7 @@ void App::StartTurntable(DocView& v) {
     for (auto& l : s.lights) T.xYaw0.push_back(l.yaw);
     T.pending.clear();
     T.video.reset();
+    T.gifw.reset();
     camAnim.on = false;
     Status("Turntable : rendu de " + std::to_string(T.frames) + " images...");
 }
@@ -323,6 +327,15 @@ void App::PollTurntable() {
             }
         }
         if (T.video) T.video->Write(rb.data.data(), rb.width, rb.height);
+        if (T.gif && !T.gifw && T.error.empty()) {
+            T.gifw = std::make_unique<GifWriter>();
+            std::string err;
+            if (!T.gifw->Open(Narrow((base.parent_path() / base.stem()).wstring()) + ".gif", (u32)T.fps, 720, &err)) {
+                T.gifw.reset();
+                T.error = "GIF : " + err;
+            }
+        }
+        if (T.gifw) T.gifw->Write(rb.data.data(), rb.width, rb.height);
         if (T.png) {
             char num[16];
             snprintf(num, sizeof(num), "_%04d.png", T.written + 1);
@@ -333,8 +346,10 @@ void App::PollTurntable() {
         T.pending.erase(T.pending.begin());
     }
     if (!T.running && T.pending.empty() && T.written > 0) {
-        const bool ok = !T.video || T.video->Close();
+        bool ok = !T.video || T.video->Close();
         T.video.reset();
+        if (T.gifw) ok = T.gifw->Close() && ok;
+        T.gifw.reset();
         Status(ok && T.error.empty() ? "Turntable exporté : " + std::to_string(T.written) + " images" + (T.mp4 ? " -> " + T.path : "")
                                      : "Turntable : " + (T.error.empty() ? std::string("échec de la vidéo") : T.error));
         T.written = 0;

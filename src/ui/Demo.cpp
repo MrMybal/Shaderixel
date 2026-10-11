@@ -584,6 +584,7 @@ void App::DemoTick() {
                 turntable.height = 360;
                 turntable.viewSize = false;
                 turntable.png = true;
+                turntable.gif = GetEnvironmentVariableA("SX_TTGIF", nullptr, 0) > 0;
                 turntable.samples = 32;
                 turntable.open = true;
                 StartTurntable(*a);
