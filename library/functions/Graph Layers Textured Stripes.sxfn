@@ -1,0 +1,513 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Textured Stripes",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Graph assembly blending stripe and value-noise layers, then adding directional relief. Separate stripe and noise outputs remain accessible. Artistic surface pattern; not a physically calibrated PBR material.",
+ "graph": {
+  "output": 21,
+  "variables": [
+   {
+    "name": "Stripe Coverage",
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Stripe Angle (degrees)",
+    "value": {
+     "type": "Float",
+     "f": 45
+    },
+    "exposed": true,
+    "desc": "Range: -180 to 180."
+   },
+   {
+    "name": "Stripe Phase",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Noise Low Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.015,
+      0.02,
+      0.035,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Noise High Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.12,
+      0.2,
+      0.35,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Noise Scale (px)",
+    "value": {
+     "type": "Float",
+     "f": 24
+    },
+    "exposed": true,
+    "desc": "Range: 2 to 512."
+   },
+   {
+    "name": "Noise Offset (px)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0,
+      0
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: -4096 to 4096."
+   },
+   {
+    "name": "Noise Contrast",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 4."
+   },
+   {
+    "name": "Relief Sample Distance (px)",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 16."
+   },
+   {
+    "name": "Relief Light Angle (degrees)",
+    "value": {
+     "type": "Float",
+     "f": 135
+    },
+    "exposed": true,
+    "desc": "Range: -180 to 180."
+   },
+   {
+    "name": "Relief Relief Strength",
+    "value": {
+     "type": "Float",
+     "f": 2
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 8."
+   },
+   {
+    "name": "Relief Mix Strength",
+    "value": {
+     "type": "Float",
+     "f": 0.35
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Stripe Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.015,
+      0.025,
+      0.08,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Stripe Background Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.12,
+      0.3,
+      0.6,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     320
+    ],
+    "inputs": [],
+    "name": "Stripe Period (px)",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 32
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Stripe Coverage",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Stripe Angle (degrees)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Stripe Phase",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "name": "Graph Diagonal Stripes",
+    "effect": {
+     "effect": "graph_draw_stripes",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b",
+     "spacing",
+     "duty",
+     "angle",
+     "phase"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Noise Low Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Noise High Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Noise Scale (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "varget",
+    "pos": [
+     320,
+     960
+    ],
+    "inputs": [],
+    "op": "Noise Offset (px)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "varget",
+    "pos": [
+     320,
+     1120
+    ],
+    "inputs": [],
+    "op": "Noise Contrast",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     640,
+     160
+    ],
+    "inputs": [
+     8,
+     9,
+     10,
+     11,
+     12
+    ],
+    "name": "Graph Soft Noise",
+    "effect": {
+     "effect": "graph_draw_soft_noise",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b",
+     "scale",
+     "offset",
+     "contrast"
+    ]
+   },
+   {
+    "id": 14,
+    "kind": "subinput",
+    "pos": [
+     0,
+     480
+    ],
+    "inputs": [],
+    "name": "Texture Mix",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 0.3
+    }
+   },
+   {
+    "id": 15,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7,
+     13,
+     0,
+     14
+    ],
+    "name": "Mix Through Optional Mask",
+    "effect": {
+     "effect": "photo_masked_mix",
+     "set": {}
+    },
+    "paramPinNames": [
+     "amount"
+    ]
+   },
+   {
+    "id": 16,
+    "kind": "varget",
+    "pos": [
+     320,
+     1280
+    ],
+    "inputs": [],
+    "op": "Relief Sample Distance (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 17,
+    "kind": "varget",
+    "pos": [
+     320,
+     1440
+    ],
+    "inputs": [],
+    "op": "Relief Light Angle (degrees)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 18,
+    "kind": "varget",
+    "pos": [
+     320,
+     1600
+    ],
+    "inputs": [],
+    "op": "Relief Relief Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 19,
+    "kind": "varget",
+    "pos": [
+     320,
+     1760
+    ],
+    "inputs": [],
+    "op": "Relief Mix Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 20,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     15,
+     16,
+     17,
+     18,
+     19
+    ],
+    "name": "Graph Directional Relief",
+    "effect": {
+     "effect": "graph_effect_relief",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius",
+     "angle",
+     "depth",
+     "amount"
+    ]
+   },
+   {
+    "id": 21,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     20
+    ],
+    "name": "Pattern Surface",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 22,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     160
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Stripe Layer",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 23,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     320
+    ],
+    "inputs": [
+     13
+    ],
+    "name": "Noise Layer",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

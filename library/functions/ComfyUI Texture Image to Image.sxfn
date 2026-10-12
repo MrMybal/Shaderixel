@@ -1,0 +1,189 @@
+{
+ "format": "shaderixel-function",
+ "name": "ComfyUI Texture Image to Image",
+ "kind": "tool",
+ "applyMode": false,
+ "description": "Process Texture runs ComfyUI image-to-image, then light denoise and tiled inspection. Empty workflow: built-in pipeline using the AI settings checkpoint. Optional API workflow: only documented Shaderixel substitutions apply; denoise remains the value saved in that workflow.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Optional API Workflow",
+    "value": {
+     "type": "Text",
+     "s": ""
+    },
+    "exposed": true,
+    "desc": "Absolute API workflow path; empty: built-in image-to-image pipeline."
+   },
+   {
+    "name": "Final Cleanup",
+    "value": {
+     "type": "Float",
+     "f": 0.15
+    },
+    "exposed": true,
+    "desc": "Denoise strength after receiving the AI result (0 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Texture",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Texture Prompt",
+    "port": 1,
+    "value": {
+     "type": "Text",
+     "s": "Front-facing material texture, uniform lighting, no cast shadows, sharp details, no text"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "AI Denoise",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 0.2
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Optional API Workflow",
+    "value": {
+     "type": "Text"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Final Cleanup",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "event",
+    "pos": [
+     0,
+     -300
+    ],
+    "inputs": [],
+    "name": "Process Texture"
+   },
+   {
+    "id": 7,
+    "kind": "action",
+    "pos": [
+     640,
+     -240
+    ],
+    "inputs": [
+     6,
+     1,
+     2,
+     3,
+     4
+    ],
+    "op": "comfyui",
+    "name": "ComfyUI Processing"
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7,
+     5
+    ],
+    "effect": {
+     "effect": "texture_debruitage"
+    },
+    "paramPinNames": [
+     "force"
+    ],
+    "inputChannels": [
+     8,
+     0
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     1280,
+     200
+    ],
+    "inputs": [
+     8
+    ],
+    "effect": {
+     "effect": "texture_apercu_repetition"
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Processed Texture",
+    "port": 0
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     200
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Seam Inspection",
+    "port": 1
+   }
+  ]
+ }
+}

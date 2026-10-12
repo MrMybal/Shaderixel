@@ -1,0 +1,172 @@
+{
+ "format": "shaderixel-function",
+ "name": "Textures Detail and High Pass",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Separate high frequencies using Gaussian blur. Outputs adjustable sharpening and a high-pass map centered on gray 0.5. For color textures, not normal renormalization.",
+ "graph": {
+  "output": 8,
+  "variables": [
+   {
+    "name": "Detail Radius",
+    "value": {
+     "type": "Float",
+     "f": 2
+    },
+    "exposed": true,
+    "desc": "Blur radius in pixels (0 to 250)."
+   },
+   {
+    "name": "Threshold",
+    "value": {
+     "type": "Float",
+     "f": 0.01
+    },
+    "exposed": true,
+    "desc": "Avoid enhancing very small variations (0 to 0.25)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Texture",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Detail Strength",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Detail Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Threshold",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     3
+    ],
+    "effect": {
+     "effect": "gaussian_blur"
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     5,
+     2,
+     4
+    ],
+    "effect": {
+     "effect": "texture_details"
+    },
+    "paramPinNames": [
+     "force",
+     "seuil"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     960,
+     200
+    ],
+    "inputs": [
+     1,
+     5,
+     4
+    ],
+    "effect": {
+     "effect": "texture_details",
+     "set": {
+      "mode": 1,
+      "force": 1
+     }
+    },
+    "paramPinNames": [
+     "seuil"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Enhanced Texture",
+    "port": 0
+   },
+   {
+    "id": 9,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     200
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "High Pass",
+    "port": 1
+   }
+  ]
+ }
+}

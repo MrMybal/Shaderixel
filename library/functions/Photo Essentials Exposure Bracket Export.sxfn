@@ -1,0 +1,334 @@
+{
+ "format": "shaderixel-function",
+ "name": "Photo Essentials Exposure Bracket Export",
+ "kind": "tool",
+ "applyMode": false,
+ "description": "Export Exposure Bracket bakes and saves one PNG for each exposure offset in the input array. Default offsets are -1, 0 and +1 stops. Filenames use array indices. The output keeps the last baked variant; the Exposure Offset variable ends at the last value.",
+ "graph": {
+  "output": 17,
+  "variables": [
+   {
+    "name": "Exposure Offset",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Exposure offset set by the export loop (stops)."
+   },
+   {
+    "name": "Temperature",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "White balance applied before each bracket (-1 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Exposure Offsets",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "array": true,
+     "items": [
+      [
+       -1,
+       0,
+       0,
+       0
+      ],
+      [
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       1,
+       0,
+       0,
+       0
+      ]
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "File Prefix",
+    "port": 2,
+    "value": {
+     "type": "Text",
+     "s": "photo"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Exposure Offset",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Temperature",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     5
+    ],
+    "effect": {
+     "effect": "photo_white_balance"
+    },
+    "paramPinNames": [
+     "temperature"
+    ],
+    "name": "Bracket White Balance"
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6,
+     4
+    ],
+    "effect": {
+     "effect": "photo_tone_balance"
+    },
+    "paramPinNames": [
+     "exposure"
+    ],
+    "name": "Bracket Exposure"
+   },
+   {
+    "id": 8,
+    "kind": "event",
+    "pos": [
+     0,
+     -300
+    ],
+    "inputs": [],
+    "name": "Export Exposure Bracket"
+   },
+   {
+    "id": 9,
+    "kind": "action",
+    "pos": [
+     640,
+     -300
+    ],
+    "inputs": [
+     8,
+     2
+    ],
+    "op": "foreach",
+    "name": "For Each Variant"
+   },
+   {
+    "id": 10,
+    "kind": "varset",
+    "pos": [
+     960,
+     -300
+    ],
+    "inputs": [
+     9,
+     9
+    ],
+    "op": "Exposure Offset",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Set Exposure Offset",
+    "inputChannels": [
+     0,
+     8
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "math",
+    "pos": [
+     960,
+     -100
+    ],
+    "inputs": [
+     9
+    ],
+    "op": "to_string",
+    "name": "Variant Index",
+    "inputChannels": [
+     16
+    ]
+   },
+   {
+    "id": 12,
+    "kind": "math",
+    "pos": [
+     1280,
+     -100
+    ],
+    "inputs": [
+     3,
+     0
+    ],
+    "op": "concat",
+    "name": "Build Filename",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_exposure_"
+     }
+    ]
+   },
+   {
+    "id": 13,
+    "kind": "math",
+    "pos": [
+     1600,
+     -100
+    ],
+    "inputs": [
+     12,
+     11
+    ],
+    "op": "concat",
+    "name": "Append Index"
+   },
+   {
+    "id": 14,
+    "kind": "math",
+    "pos": [
+     1920,
+     -100
+    ],
+    "inputs": [
+     13,
+     0
+    ],
+    "op": "concat",
+    "name": "Build Filename",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": ".png"
+     }
+    ]
+   },
+   {
+    "id": 15,
+    "kind": "action",
+    "pos": [
+     1600,
+     -300
+    ],
+    "inputs": [
+     10,
+     7
+    ],
+    "op": "bake",
+    "name": "Bake Variant"
+   },
+   {
+    "id": 16,
+    "kind": "action",
+    "pos": [
+     1920,
+     -300
+    ],
+    "inputs": [
+     15,
+     15,
+     14
+    ],
+    "op": "export_png",
+    "name": "Export Variant",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 17,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     15
+    ],
+    "name": "Last Exported Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     8
+    ]
+   }
+  ]
+ }
+}

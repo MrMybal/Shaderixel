@@ -1,0 +1,225 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Blend Protected Highlights",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Alpha-correct foreground compositing with independent soft highlight and shadow protection.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Shadow Protection",
+    "value": {
+     "type": "Float",
+     "f": 0.0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Highlight Threshold",
+    "value": {
+     "type": "Float",
+     "f": 0.8
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Shadow Threshold",
+    "value": {
+     "type": "Float",
+     "f": 0.15
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Protection Softness",
+    "value": {
+     "type": "Float",
+     "f": 0.15
+    },
+    "exposed": true,
+    "desc": "Range: 0.001 to 0.5."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Background",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Foreground",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Optional Mask",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     450
+    ],
+    "inputs": [],
+    "name": "Foreground Opacity",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 1.0
+    }
+   },
+   {
+    "id": 5,
+    "kind": "subinput",
+    "pos": [
+     0,
+     600
+    ],
+    "inputs": [],
+    "name": "Highlight Protection",
+    "port": 4,
+    "value": {
+     "type": "Float",
+     "f": 1.0
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Shadow Protection",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Shadow Protection"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Highlight Threshold",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Highlight Threshold"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Shadow Threshold",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Shadow Threshold"
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     450
+    ],
+    "inputs": [],
+    "op": "Protection Softness",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Protection Softness"
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9
+    ],
+    "effect": {
+     "effect": "blend_protected_highlights",
+     "set": {}
+    },
+    "paramPinNames": [
+     "opacity",
+     "protect_highlights",
+     "protect_shadows",
+     "high",
+     "low",
+     "softness"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Protected Highlights",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

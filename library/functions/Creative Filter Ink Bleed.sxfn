@@ -1,0 +1,186 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Filter Ink Bleed",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Spread colored alpha ink into irregular absorbent edges; opaque scans should first become ink on transparency.",
+ "graph": {
+  "output": 8,
+  "variables": [
+   {
+    "name": "Edge Irregularity",
+    "value": {
+     "type": "Float",
+     "f": 0.55
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Absorption Scale (px)",
+    "value": {
+     "type": "Float",
+     "f": 8.0
+    },
+    "exposed": true,
+    "desc": "Range: 1 to 128."
+   },
+   {
+    "name": "Seed",
+    "value": {
+     "type": "Int",
+     "f": 1.0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 65535."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Ink",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Spread Radius (px)",
+    "port": 1,
+    "value": {
+     "type": "Int",
+     "f": 3.0
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Absorption",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 0.65
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Edge Irregularity",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Edge Irregularity"
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Absorption Scale (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Absorption Scale (px)"
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Seed",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Seed"
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "effect": {
+     "effect": "art_ink_bleed",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius",
+     "amount",
+     "irregularity",
+     "scale",
+     "seed"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Ink Bleed",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     160
+    ],
+    "inputs": [
+     1
+    ],
+    "name": "Original",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

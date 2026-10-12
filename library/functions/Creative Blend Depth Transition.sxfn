@@ -1,0 +1,200 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Blend Depth Transition",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Reveal the foreground from low to high depth, with explicit numeric PNG decoding and endpoint control.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Invert Depth",
+    "value": {
+     "type": "Bool",
+     "f": 0.0
+    },
+    "exposed": true,
+    "desc": "0 = off; 1 = on."
+   },
+   {
+    "name": "Decode PNG Numeric Depth",
+    "value": {
+     "type": "Bool",
+     "f": 1.0
+    },
+    "exposed": true,
+    "desc": "0 = off; 1 = on."
+   },
+   {
+    "name": "Foreground Opacity",
+    "value": {
+     "type": "Float",
+     "f": 1.0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Background",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Foreground",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Optional Height",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     450
+    ],
+    "inputs": [],
+    "name": "Transition Progress",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    }
+   },
+   {
+    "id": 5,
+    "kind": "subinput",
+    "pos": [
+     0,
+     600
+    ],
+    "inputs": [],
+    "name": "Depth Softness",
+    "port": 4,
+    "value": {
+     "type": "Float",
+     "f": 0.08
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Invert Depth",
+    "value": {
+     "type": "Bool"
+    },
+    "name": "Get Invert Depth"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Decode PNG Numeric Depth",
+    "value": {
+     "type": "Bool"
+    },
+    "name": "Get Decode PNG Numeric Depth"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Foreground Opacity",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Foreground Opacity"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "effect": {
+     "effect": "blend_depth_transition",
+     "set": {}
+    },
+    "paramPinNames": [
+     "progress",
+     "softness",
+     "invert",
+     "decode_srgb",
+     "opacity"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Depth Transition",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

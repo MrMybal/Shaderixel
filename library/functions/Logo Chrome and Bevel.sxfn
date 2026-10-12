@@ -1,0 +1,339 @@
+{
+ "format": "shaderixel-function",
+ "name": "Logo Chrome and Bevel",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Procedural metallic reflection bands, alpha-based bevel and dark outline. Reflection coordinates span the document; phase shifts the highlight. Transparent input supplies the shape.",
+ "graph": {
+  "output": 15,
+  "variables": [
+   {
+    "name": "Reflection Bands",
+    "value": {
+     "type": "Float",
+     "f": 3
+    },
+    "exposed": true,
+    "desc": "Bands across the document (1 to 12)."
+   },
+   {
+    "name": "Reflection Phase",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Reflection pattern phase (0 to 1)."
+   },
+   {
+    "name": "Bevel Width",
+    "value": {
+     "type": "Int",
+     "f": 2
+    },
+    "exposed": true,
+    "desc": "Alpha gradient sampling radius (1 to 16 pixels)."
+   },
+   {
+    "name": "Bevel Depth",
+    "value": {
+     "type": "Float",
+     "f": 3
+    },
+    "exposed": true,
+    "desc": "Surface slope strength (0 to 12)."
+   },
+   {
+    "name": "Light Angle",
+    "value": {
+     "type": "Float",
+     "f": 135
+    },
+    "exposed": true,
+    "desc": "Degrees; positive vertical direction points down."
+   },
+   {
+    "name": "Bevel Strength",
+    "value": {
+     "type": "Float",
+     "f": 0.7
+    },
+    "exposed": true,
+    "desc": "Tint strength (0 to 1)."
+   },
+   {
+    "name": "Outline Width",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Square outline radius (0 to 32 pixels)."
+   },
+   {
+    "name": "Outline Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.01,
+      0.025,
+      0.06,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Outline linear color and opacity."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Logo with Alpha",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Dark Reflection",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.01,
+      0.025,
+      0.06,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Light Reflection",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.85,
+      0.95,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Reflection Bands",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Reflection Phase",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "logo_chrome_fill",
+     "set": {}
+    },
+    "paramPinNames": [
+     "dark",
+     "light",
+     "bands",
+     "phase"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "op": "Bevel Width",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     540
+    ],
+    "inputs": [],
+    "op": "Bevel Depth",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     720
+    ],
+    "inputs": [],
+    "op": "Light Angle",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     900
+    ],
+    "inputs": [],
+    "op": "Bevel Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6,
+     7,
+     8,
+     9,
+     10
+    ],
+    "effect": {
+     "effect": "logo_alpha_bevel",
+     "set": {}
+    },
+    "paramPinNames": [
+     "width",
+     "depth",
+     "angle",
+     "amount"
+    ]
+   },
+   {
+    "id": 12,
+    "kind": "varget",
+    "pos": [
+     320,
+     1080
+    ],
+    "inputs": [],
+    "op": "Outline Width",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 13,
+    "kind": "varget",
+    "pos": [
+     320,
+     1260
+    ],
+    "inputs": [],
+    "op": "Outline Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 14,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     11,
+     12,
+     13
+    ],
+    "effect": {
+     "effect": "logo_soft_outline",
+     "set": {}
+    },
+    "paramPinNames": [
+     "width",
+     "color"
+    ]
+   },
+   {
+    "id": 15,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     14
+    ],
+    "name": "Chrome Logo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

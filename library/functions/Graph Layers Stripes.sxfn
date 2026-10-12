@@ -1,0 +1,180 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Stripes",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Rotatable pixel-scale stripes with coverage and phase, assembled from native nodes. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+ "graph": {
+  "output": 8,
+  "variables": [
+   {
+    "name": "Stripe Coverage",
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Angle (degrees)",
+    "value": {
+     "type": "Float",
+     "f": 45
+    },
+    "exposed": true,
+    "desc": "Range: -180 to 180."
+   },
+   {
+    "name": "Phase",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Stripe Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.015,
+      0.025,
+      0.08,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Background Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.12,
+      0.3,
+      0.6,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     320
+    ],
+    "inputs": [],
+    "name": "Stripe Period (px)",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 32
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Stripe Coverage",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Angle (degrees)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Phase",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "name": "Graph Diagonal Stripes",
+    "effect": {
+     "effect": "graph_draw_stripes",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b",
+     "spacing",
+     "duty",
+     "angle",
+     "phase"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Layer",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

@@ -1,0 +1,283 @@
+{
+ "format": "shaderixel-function",
+ "name": "Game Art Outline and Shadow",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Add an integer-width outline and pixel-aligned drop shadow to a transparent sprite. Separate shadow color and offset are exposed. Keep transparent document padding to avoid clipping the outline or shadow.",
+ "graph": {
+  "output": 12,
+  "variables": [
+   {
+    "name": "Outline Shape",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "0: square; 1: round."
+   },
+   {
+    "name": "Shadow Offset",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      4,
+      4
+     ]
+    },
+    "exposed": true,
+    "desc": "Shadow offset in pixels; rounded to integer pixels."
+   },
+   {
+    "name": "Shadow Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0,
+      0,
+      0,
+      0.5
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA shadow color."
+   },
+   {
+    "name": "Shadow Softness",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Box-filter radius (0 to 4 pixels)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Sprite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Outline Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.01,
+      0.01,
+      0.01,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Outline Width",
+    "port": 2,
+    "value": {
+     "type": "Int",
+     "f": 2
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Outline Shape",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Shadow Offset",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Shadow Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Shadow Softness",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "effect": {
+     "effect": "sprite_outline"
+    },
+    "paramPinNames": [
+     "color",
+     "width",
+     "shape"
+    ],
+    "name": "Sprite Outline"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     8,
+     5,
+     6,
+     7
+    ],
+    "effect": {
+     "effect": "sprite_drop_shadow"
+    },
+    "paramPinNames": [
+     "offset",
+     "color",
+     "softness"
+    ],
+    "name": "Pixel-Aligned Shadow"
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     960,
+     400
+    ],
+    "inputs": [],
+    "effect": {
+     "effect": "sprite_draw_checker"
+    },
+    "paramPinNames": [],
+    "name": "Transparency Checker"
+   },
+   {
+    "id": 11,
+    "kind": "blend",
+    "pos": [
+     1280,
+     400
+    ],
+    "inputs": [
+     10,
+     9,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1,
+    "name": "Sprite over Checker"
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Outlined Sprite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 13,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     200
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Sprite with Shadow",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 14,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     400
+    ],
+    "inputs": [
+     11
+    ],
+    "name": "Checker Preview",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

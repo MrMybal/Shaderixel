@@ -1,0 +1,277 @@
+{
+ "format": "shaderixel-function",
+ "name": "Photo Essentials Local Contrast and Sharpen",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Combine midtone local contrast and fine sharpening with optional coverage mask. Separate radii let you enhance structure without using the same scale for fine detail.",
+ "graph": {
+  "output": 14,
+  "variables": [
+   {
+    "name": "Local Radius",
+    "value": {
+     "type": "Float",
+     "f": 16
+    },
+    "exposed": true,
+    "desc": "Structural blur radius (0 to 250 pixels)."
+   },
+   {
+    "name": "Fine Radius",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Fine-detail blur radius (0 to 250 pixels)."
+   },
+   {
+    "name": "Strength",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Overall effect strength (0 to 1)."
+   },
+   {
+    "name": "Detail Threshold",
+    "value": {
+     "type": "Float",
+     "f": 0.01
+    },
+    "exposed": true,
+    "desc": "Suppress very small fine-detail variations (0 to 0.25)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Local Contrast",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 0.3
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Sharpening",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 0.4
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Mask",
+    "port": 3,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Local Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Fine Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Detail Threshold",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     5
+    ],
+    "effect": {
+     "effect": "gaussian_blur"
+    },
+    "paramPinNames": [
+     "radius"
+    ],
+    "name": "Structural Blur"
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     9,
+     2
+    ],
+    "effect": {
+     "effect": "photo_local_contrast"
+    },
+    "paramPinNames": [
+     "amount"
+    ],
+    "name": "Midtone Contrast"
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     1280,
+     200
+    ],
+    "inputs": [
+     10,
+     6
+    ],
+    "effect": {
+     "effect": "gaussian_blur"
+    },
+    "paramPinNames": [
+     "radius"
+    ],
+    "name": "Fine Detail Blur"
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     10,
+     11,
+     3,
+     8
+    ],
+    "effect": {
+     "effect": "texture_details"
+    },
+    "paramPinNames": [
+     "force",
+     "seuil"
+    ],
+    "name": "Sharpen Fine Detail"
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     1,
+     12,
+     4,
+     7
+    ],
+    "effect": {
+     "effect": "photo_masked_mix"
+    },
+    "paramPinNames": [
+     "amount"
+    ],
+    "name": "Mix Grade through Mask"
+   },
+   {
+    "id": 14,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     13
+    ],
+    "name": "Enhanced Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

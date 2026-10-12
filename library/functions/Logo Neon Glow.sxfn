@@ -1,0 +1,218 @@
+{
+ "format": "shaderixel-function",
+ "name": "Logo Neon Glow",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Bright face and colored soft tube outline with Gaussian glow behind the logo. Transparent alpha is required for the silhouette. Leave padding of about three glow radii; radius zero disables glow.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Core Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.8,
+      0.95,
+      1,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Bright face color; RGB is used, original alpha is preserved."
+   },
+   {
+    "name": "Tube Width",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Square outline radius (0 to 32 pixels)."
+   },
+   {
+    "name": "Glow Radius",
+    "value": {
+     "type": "Float",
+     "f": 8
+    },
+    "exposed": true,
+    "desc": "Gaussian sigma (0 to 64 pixels)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Logo with Alpha",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Neon Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.02,
+      0.6,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Glow Strength",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 1.5
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Core Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     4,
+     4
+    ],
+    "effect": {
+     "effect": "logo_gradient_fill",
+     "set": {}
+    },
+    "paramPinNames": [
+     "top",
+     "bottom"
+    ]
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Tube Width",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     5,
+     6,
+     2
+    ],
+    "effect": {
+     "effect": "logo_soft_outline",
+     "set": {}
+    },
+    "paramPinNames": [
+     "width",
+     "color"
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "op": "Glow Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     8,
+     2,
+     3,
+     9
+    ],
+    "effect": {
+     "effect": "logo_soft_glow",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color",
+     "strength",
+     "radius"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Neon Logo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

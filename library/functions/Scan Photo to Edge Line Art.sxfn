@@ -1,0 +1,420 @@
+{
+ "format": "shaderixel-function",
+ "name": "Scan Photo to Edge Line Art",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Sobel gradients converted into transparent colored edge strokes, with width and feather controls. Extracts tonal boundaries; does not infer semantic outlines or perform vector tracing.",
+ "graph": {
+  "output": 13,
+  "variables": [
+   {
+    "name": "Edge Radius",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Sobel sample radius (1 to 8 pixels)."
+   },
+   {
+    "name": "Edge Threshold",
+    "value": {
+     "type": "Float",
+     "f": 0.05
+    },
+    "exposed": true,
+    "desc": "Suppress weak gradients (0 to 1)."
+   },
+   {
+    "name": "Edge Softness",
+    "value": {
+     "type": "Float",
+     "f": 0.1
+    },
+    "exposed": true,
+    "desc": "Gradient threshold transition (0.001 to 1)."
+   },
+   {
+    "name": "Expand Radius",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Square dilation radius (0 to 16 pixels); zero keeps original width."
+   },
+   {
+    "name": "Feather Radius",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Coverage blur radius (0 to 16 pixels)."
+   },
+   {
+    "name": "Paper Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.92,
+      0.86,
+      0.72,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear paper color and opacity."
+   },
+   {
+    "name": "Paper Seed",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Deterministic seed (0 to 65535)."
+   },
+   {
+    "name": "Paper Grain",
+    "value": {
+     "type": "Float",
+     "f": 0.035
+    },
+    "exposed": true,
+    "desc": "Fine grain strength (0 to 0.3)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Edge Strength",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 3
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Edge Radius",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Edge Threshold",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "op": "Edge Softness",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "scan_edge_coverage",
+     "set": {}
+    },
+    "paramPinNames": [
+     "strength",
+     "radius",
+     "threshold",
+     "softness"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     540
+    ],
+    "inputs": [],
+    "op": "Expand Radius",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     720
+    ],
+    "inputs": [],
+    "op": "Feather Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6,
+     7
+    ],
+    "effect": {
+     "effect": "mask_morphology",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     9,
+     8
+    ],
+    "effect": {
+     "effect": "mask_feather_levels",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Ink Color",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.01,
+      0.01,
+      0.01,
+      1
+     ]
+    }
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     10,
+     11
+    ],
+    "effect": {
+     "effect": "scan_colorize_ink",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color"
+    ]
+   },
+   {
+    "id": 13,
+    "kind": "suboutput",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     12
+    ],
+    "name": "Transparent Edge Ink",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   },
+   {
+    "id": 14,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     180
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Edge Coverage",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   },
+   {
+    "id": 15,
+    "kind": "varget",
+    "pos": [
+     320,
+     900
+    ],
+    "inputs": [],
+    "op": "Paper Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 16,
+    "kind": "varget",
+    "pos": [
+     320,
+     1080
+    ],
+    "inputs": [],
+    "op": "Paper Seed",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 17,
+    "kind": "varget",
+    "pos": [
+     320,
+     1260
+    ],
+    "inputs": [],
+    "op": "Paper Grain",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 18,
+    "kind": "effect",
+    "pos": [
+     640,
+     180
+    ],
+    "inputs": [
+     15,
+     16,
+     17
+    ],
+    "effect": {
+     "effect": "print_draw_paper",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color",
+     "seed",
+     "grain"
+    ]
+   },
+   {
+    "id": 19,
+    "kind": "blend",
+    "pos": [
+     1920,
+     180
+    ],
+    "inputs": [
+     18,
+     12,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1
+   },
+   {
+    "id": 20,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     19
+    ],
+    "name": "Paper Preview",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

@@ -1,0 +1,166 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Gradient",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Aspect-aware directional color and alpha gradient, assembled from native graph nodes. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+ "graph": {
+  "output": 7,
+  "variables": [
+   {
+    "name": "Angle (degrees)",
+    "value": {
+     "type": "Float",
+     "f": 90
+    },
+    "exposed": true,
+    "desc": "Range: -180 to 180."
+   },
+   {
+    "name": "Center (UV)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.5,
+      0.5
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Span (short image side)",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.01 to 4."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Start Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.015,
+      0.04,
+      0.15,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "End Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.6,
+      0.08,
+      0.3,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Angle (degrees)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Center (UV)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Span (short image side)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "name": "Graph Linear Gradient",
+    "effect": {
+     "effect": "graph_draw_gradient",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b",
+     "angle",
+     "center",
+     "span"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Layer",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

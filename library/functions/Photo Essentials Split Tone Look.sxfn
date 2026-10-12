@@ -1,0 +1,299 @@
+{
+ "format": "shaderixel-function",
+ "name": "Photo Essentials Split Tone Look",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Apply independently colored shadows and highlights, then optional grain and vignette. An optional coverage mask and overall strength control the complete look.",
+ "graph": {
+  "output": 14,
+  "variables": [
+   {
+    "name": "Strength",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Overall mix strength (0 to 1)."
+   },
+   {
+    "name": "Tint Strength",
+    "value": {
+     "type": "Float",
+     "f": 0.25
+    },
+    "exposed": true,
+    "desc": "Split-tone intensity (0 to 1)."
+   },
+   {
+    "name": "Tone Balance",
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    },
+    "exposed": true,
+    "desc": "Shadow/highlight transition (0.05 to 0.95)."
+   },
+   {
+    "name": "Grain",
+    "value": {
+     "type": "Float",
+     "f": 0.1
+    },
+    "exposed": true,
+    "desc": "Deterministic fine grain (0 to 1)."
+   },
+   {
+    "name": "Vignette",
+    "value": {
+     "type": "Float",
+     "f": 0.15
+    },
+    "exposed": true,
+    "desc": "Edge darkening (0 to 1)."
+   },
+   {
+    "name": "Grain Seed",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Deterministic grain seed (0 to 9999)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Shadow Tint",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.12,
+      0.22,
+      0.42,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Highlight Tint",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.65,
+      0.42,
+      0.2,
+      1
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Mask",
+    "port": 3,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Tint Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Tone Balance",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Grain",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Vignette",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Grain Seed",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     6,
+     7
+    ],
+    "effect": {
+     "effect": "photo_split_tone"
+    },
+    "paramPinNames": [
+     "shadow_color",
+     "highlight_color",
+     "amount",
+     "balance"
+    ],
+    "name": "Split Tone"
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     11,
+     8,
+     9,
+     10
+    ],
+    "effect": {
+     "effect": "photo_film_finish"
+    },
+    "paramPinNames": [
+     "grain",
+     "vignette",
+     "seed"
+    ],
+    "name": "Film Finish"
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     1,
+     12,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "photo_masked_mix"
+    },
+    "paramPinNames": [
+     "amount"
+    ],
+    "name": "Mix Grade through Mask"
+   },
+   {
+    "id": 14,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     13
+    ],
+    "name": "Graded Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

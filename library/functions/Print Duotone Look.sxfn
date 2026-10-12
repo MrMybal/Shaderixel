@@ -1,0 +1,149 @@
+{
+ "format": "shaderixel-function",
+ "name": "Print Duotone Look",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Two-color perceptual duotone with adjustable strength and tone curve. Preserves source alpha; fill color alpha is ignored.",
+ "graph": {
+  "output": 7,
+  "variables": [
+   {
+    "name": "Tone Curve",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Perceptual tone exponent (0.1 to 4)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Dark Ink",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.02,
+      0.04,
+      0.12,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Light Ink",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      1,
+      0.86,
+      0.62,
+      1
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Strength",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 1
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Tone Curve",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "print_duotone",
+     "set": {}
+    },
+    "paramPinNames": [
+     "ink",
+     "paper",
+     "amount",
+     "gamma"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Duotone",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

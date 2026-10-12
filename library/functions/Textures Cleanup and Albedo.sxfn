@@ -1,0 +1,248 @@
+{
+ "format": "shaderixel-function",
+ "name": "Textures Cleanup and Albedo",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Edge-preserving denoise, approximate removal of large-scale lighting variations, then adjustable sharpening. Outputs cleaned photo and corrected albedo.",
+ "graph": {
+  "output": 12,
+  "variables": [
+   {
+    "name": "Denoise",
+    "value": {
+     "type": "Float",
+     "f": 0.7
+    },
+    "exposed": true,
+    "desc": "Denoise strength (0 to 1)."
+   },
+   {
+    "name": "Lighting Radius",
+    "value": {
+     "type": "Float",
+     "f": 48
+    },
+    "exposed": true,
+    "desc": "Reference blur radius in pixels (0 to 250)."
+   },
+   {
+    "name": "Saturation",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Albedo saturation (0 to 2)."
+   },
+   {
+    "name": "Sharpening",
+    "value": {
+     "type": "Float",
+     "f": 0.3
+    },
+    "exposed": true,
+    "desc": "Detail strength (-2 to 4)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Lighting Correction",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 0.8
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Denoise",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Lighting Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Saturation",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Sharpening",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     3
+    ],
+    "effect": {
+     "effect": "texture_debruitage"
+    },
+    "paramPinNames": [
+     "force"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7,
+     4
+    ],
+    "effect": {
+     "effect": "gaussian_blur"
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     7,
+     8,
+     2,
+     5
+    ],
+    "effect": {
+     "effect": "texture_albedo_photo"
+    },
+    "paramPinNames": [
+     "correction",
+     "saturation"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "effect": {
+     "effect": "gaussian_blur",
+     "set": {
+      "radius": 1
+     }
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     9,
+     10,
+     6
+    ],
+    "effect": {
+     "effect": "texture_details"
+    },
+    "paramPinNames": [
+     "force"
+    ]
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Cleaned Photo",
+    "port": 0
+   },
+   {
+    "id": 13,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     180
+    ],
+    "inputs": [
+     11
+    ],
+    "name": "Albedo",
+    "port": 1
+   }
+  ]
+ }
+}

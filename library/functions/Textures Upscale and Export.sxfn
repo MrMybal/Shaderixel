@@ -1,0 +1,162 @@
+{
+ "format": "shaderixel-function",
+ "name": "Textures Upscale and Export",
+ "kind": "tool",
+ "applyMode": false,
+ "description": "Upscale and Export uses local bicubic or a ComfyUI AI model, then exports PNG at full enlarged resolution. Graph output is fitted to document size. Scale factor 1 to 8; install the selected model in ComfyUI when AI is enabled.",
+ "graph": {
+  "output": 9,
+  "variables": [
+   {
+    "name": "Use ComfyUI",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Off: local bicubic; on: AI model on the configured server."
+   },
+   {
+    "name": "Upscale Model",
+    "value": {
+     "type": "Name",
+     "s": "4x-UltraSharp.pth"
+    },
+    "exposed": true,
+    "desc": "Exact name of a model installed in ComfyUI models/upscale_models."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Texture",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Scale Factor",
+    "port": 1,
+    "value": {
+     "type": "Int",
+     "f": 2
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "PNG File",
+    "port": 2,
+    "value": {
+     "type": "Text",
+     "s": "texture_upscaled.png"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Use ComfyUI",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Upscale Model",
+    "value": {
+     "type": "Name"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "event",
+    "pos": [
+     0,
+     -300
+    ],
+    "inputs": [],
+    "name": "Upscale and Export"
+   },
+   {
+    "id": 7,
+    "kind": "action",
+    "pos": [
+     640,
+     -240
+    ],
+    "inputs": [
+     6,
+     1,
+     2,
+     4,
+     5
+    ],
+    "op": "upscale",
+    "name": "Upscale Texture"
+   },
+   {
+    "id": 8,
+    "kind": "action",
+    "pos": [
+     960,
+     -240
+    ],
+    "inputs": [
+     7,
+     7,
+     3
+    ],
+    "op": "export_png",
+    "name": "Export Full Resolution",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Upscaled Texture",
+    "port": 0,
+    "inputChannels": [
+     8
+    ]
+   }
+  ]
+ }
+}

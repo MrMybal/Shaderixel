@@ -1,0 +1,159 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Soft Noise",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Smooth deterministic value noise with pixel scale, offset, color ramp and contrast. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+ "graph": {
+  "output": 7,
+  "variables": [
+   {
+    "name": "Noise Offset (px)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0,
+      0
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: -4096 to 4096."
+   },
+   {
+    "name": "Noise Contrast",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 4."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Low Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.015,
+      0.04,
+      0.1,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "High Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.3,
+      0.55,
+      0.8,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     320
+    ],
+    "inputs": [],
+    "name": "Noise Scale (px)",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 64
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Noise Offset (px)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Noise Contrast",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "name": "Graph Soft Noise",
+    "effect": {
+     "effect": "graph_draw_soft_noise",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b",
+     "scale",
+     "offset",
+     "contrast"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Layer",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

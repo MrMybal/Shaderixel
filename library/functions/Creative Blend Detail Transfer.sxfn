@@ -1,0 +1,200 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Blend Detail Transfer",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Transfer source high-frequency luminance or color detail while retaining background alpha and broad tone.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Detail Threshold",
+    "value": {
+     "type": "Float",
+     "f": 0.01
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 0.5."
+   },
+   {
+    "name": "Transfer Color Detail",
+    "value": {
+     "type": "Bool",
+     "f": 0.0
+    },
+    "exposed": true,
+    "desc": "0 = off; 1 = on."
+   },
+   {
+    "name": "Transfer Opacity",
+    "value": {
+     "type": "Float",
+     "f": 1.0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Background",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Detail Source",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Optional Mask",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     450
+    ],
+    "inputs": [],
+    "name": "Detail Strength",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 0.8
+    }
+   },
+   {
+    "id": 5,
+    "kind": "subinput",
+    "pos": [
+     0,
+     600
+    ],
+    "inputs": [],
+    "name": "Detail Radius (px)",
+    "port": 4,
+    "value": {
+     "type": "Int",
+     "f": 3.0
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Detail Threshold",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Detail Threshold"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Transfer Color Detail",
+    "value": {
+     "type": "Bool"
+    },
+    "name": "Get Transfer Color Detail"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Transfer Opacity",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Transfer Opacity"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "effect": {
+     "effect": "blend_detail_transfer",
+     "set": {}
+    },
+    "paramPinNames": [
+     "amount",
+     "radius",
+     "threshold",
+     "color_detail",
+     "opacity"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Detail Transfer",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

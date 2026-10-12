@@ -1,0 +1,262 @@
+{
+ "format": "shaderixel-function",
+ "name": "Logo Sticker Border",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Two nested square outlines preserving soft alpha, followed by a drop shadow. Supports rasterized text, logos and cutouts; leave document padding for borders and shadow.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Inner Border Width",
+    "value": {
+     "type": "Int",
+     "f": 3
+    },
+    "exposed": true,
+    "desc": "Square outline radius (0 to 32 pixels)."
+   },
+   {
+    "name": "Inner Border Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Outline linear color and opacity."
+   },
+   {
+    "name": "Outer Border Width",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Square outline radius (0 to 32 pixels)."
+   },
+   {
+    "name": "Outer Border Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.02,
+      0.02,
+      0.02,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Outline linear color and opacity."
+   },
+   {
+    "name": "Shadow Offset",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      4,
+      4
+     ]
+    },
+    "exposed": true,
+    "desc": "Rounded pixel offset (-128 to 128)."
+   },
+   {
+    "name": "Shadow Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0,
+      0,
+      0,
+      0.5
+     ]
+    },
+    "exposed": true,
+    "desc": "Shadow linear color and opacity."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Logo with Alpha",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Inner Border Width",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Inner Border Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3
+    ],
+    "effect": {
+     "effect": "logo_soft_outline",
+     "set": {}
+    },
+    "paramPinNames": [
+     "width",
+     "color"
+    ]
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "op": "Outer Border Width",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     540
+    ],
+    "inputs": [],
+    "op": "Outer Border Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     4,
+     5,
+     6
+    ],
+    "effect": {
+     "effect": "logo_soft_outline",
+     "set": {}
+    },
+    "paramPinNames": [
+     "width",
+     "color"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     720
+    ],
+    "inputs": [],
+    "op": "Shadow Offset",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     900
+    ],
+    "inputs": [],
+    "op": "Shadow Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     7,
+     8,
+     9
+    ],
+    "effect": {
+     "effect": "sprite_drop_shadow",
+     "set": {
+      "softness": 2
+     }
+    },
+    "paramPinNames": [
+     "offset",
+     "color"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Sticker Logo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

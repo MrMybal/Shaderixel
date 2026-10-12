@@ -1,0 +1,456 @@
+{
+ "format": "shaderixel-function",
+ "name": "ComfyUI Depth to Surface Maps",
+ "kind": "tool",
+ "applyMode": false,
+ "description": "Requires a depth API workflow installed in ComfyUI with its models and nodes, LoadImage and a single depth SaveImage. Empty path: show a message without running AI. Adapt scene depth into height, normals, occlusion and curvature; depth does not measure surface microrelief. Outputs preview the input before execution.",
+ "graph": {
+  "output": 20,
+  "variables": [
+   {
+    "name": "Prompt",
+    "value": {
+     "type": "Text",
+     "s": ""
+    },
+    "exposed": true,
+    "desc": "Prompt substituted in workflow text encoders when present."
+   },
+   {
+    "name": "Invert Depth",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Depending on the workflow, enable when nearby areas are dark."
+   },
+   {
+    "name": "Depth Curve",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Adjust the height distribution (0.1 to 4)."
+   },
+   {
+    "name": "DirectX Normals",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Off: OpenGL; on: flip green for DirectX."
+   },
+   {
+    "name": "Occlusion Radius",
+    "value": {
+     "type": "Float",
+     "f": 16
+    },
+    "exposed": true,
+    "desc": "Neighborhood radius in pixels (1 to 128)."
+   },
+   {
+    "name": "Occlusion Strength",
+    "value": {
+     "type": "Float",
+     "f": 4
+    },
+    "exposed": true,
+    "desc": "Estimated local occlusion strength (0 to 32)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Normal Strength",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 4
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "API Workflow Path",
+    "port": 2,
+    "value": {
+     "type": "Text",
+     "s": ""
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Prompt",
+    "value": {
+     "type": "Text"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "event",
+    "pos": [
+     0,
+     -300
+    ],
+    "inputs": [],
+    "name": "Estimate Depth"
+   },
+   {
+    "id": 6,
+    "kind": "math",
+    "pos": [
+     320,
+     -160
+    ],
+    "inputs": [
+     3
+    ],
+    "op": "text_length",
+    "name": "Check Workflow Path"
+   },
+   {
+    "id": 7,
+    "kind": "math",
+    "pos": [
+     640,
+     -160
+    ],
+    "inputs": [
+     6,
+     0
+    ],
+    "op": "greater",
+    "pinValues": [
+     {
+      "type": "Float"
+     },
+     {
+      "type": "Float",
+      "f": 0
+     }
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "action",
+    "pos": [
+     960,
+     -300
+    ],
+    "inputs": [
+     5,
+     7
+    ],
+    "op": "branch",
+    "name": "Workflow Provided"
+   },
+   {
+    "id": 9,
+    "kind": "action",
+    "pos": [
+     1280,
+     -500
+    ],
+    "inputs": [
+     8,
+     0
+    ],
+    "op": "print",
+    "name": "Workflow Required",
+    "pinValues": [
+     {
+      "type": "Exec"
+     },
+     {
+      "type": "Text",
+      "s": "Enter a ComfyUI API workflow path with LoadImage and a single SaveImage for the required map."
+     }
+    ],
+    "inputChannels": [
+     8,
+     0
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "action",
+    "pos": [
+     1280,
+     -240
+    ],
+    "inputs": [
+     8,
+     1,
+     4,
+     0,
+     3
+    ],
+    "op": "comfyui",
+    "name": "Generate Map with ComfyUI",
+    "pinValues": [
+     {
+      "type": "Exec"
+     },
+     {
+      "type": "Image"
+     },
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Float",
+      "f": 0
+     },
+     {
+      "type": "Text"
+     }
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Invert Depth",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Depth Curve",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     10,
+     11,
+     12
+    ],
+    "effect": {
+     "effect": "texture_carte_reglage"
+    },
+    "paramPinNames": [
+     "inverser",
+     "gamma"
+    ],
+    "inputChannels": [
+     8,
+     0,
+     0
+    ]
+   },
+   {
+    "id": 14,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "DirectX Normals",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 15,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Occlusion Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 16,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Occlusion Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 17,
+    "kind": "effect",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     13,
+     2,
+     14
+    ],
+    "effect": {
+     "effect": "texture_normales_hauteur"
+    },
+    "paramPinNames": [
+     "force",
+     "directx"
+    ]
+   },
+   {
+    "id": 18,
+    "kind": "effect",
+    "pos": [
+     1920,
+     200
+    ],
+    "inputs": [
+     13,
+     15,
+     16
+    ],
+    "effect": {
+     "effect": "texture_ao_hauteur"
+    },
+    "paramPinNames": [
+     "rayon",
+     "force"
+    ]
+   },
+   {
+    "id": 19,
+    "kind": "effect",
+    "pos": [
+     1920,
+     400
+    ],
+    "inputs": [
+     13
+    ],
+    "effect": {
+     "effect": "texture_courbure_hauteur"
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 20,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "AI Depth",
+    "port": 0,
+    "inputChannels": [
+     8
+    ]
+   },
+   {
+    "id": 21,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     180
+    ],
+    "inputs": [
+     13
+    ],
+    "name": "Height",
+    "port": 1
+   },
+   {
+    "id": 22,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     360
+    ],
+    "inputs": [
+     17
+    ],
+    "name": "Normals",
+    "port": 2
+   },
+   {
+    "id": 23,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     540
+    ],
+    "inputs": [
+     18
+    ],
+    "name": "Occlusion",
+    "port": 3
+   },
+   {
+    "id": 24,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     720
+    ],
+    "inputs": [
+     19
+    ],
+    "name": "Curvature",
+    "port": 4
+   }
+  ]
+ }
+}

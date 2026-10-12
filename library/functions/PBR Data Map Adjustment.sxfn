@@ -1,0 +1,215 @@
+{
+ "format": "shaderixel-function",
+ "name": "PBR Data Map Adjustment",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Adjust levels and curve for a channel: height, depth, roughness, occlusion or metalness mask. Also extract channels from packed maps. Output is opaque grayscale.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Black Point",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Source black point (0 to 1)."
+   },
+   {
+    "name": "White Point",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Source white point (0 to 1)."
+   },
+   {
+    "name": "Curve",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Power (0.1 to 4)."
+   },
+   {
+    "name": "Invert",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Invert the map before remapping the output range."
+   },
+   {
+    "name": "Minimum Value",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Lower output limit."
+   },
+   {
+    "name": "Maximum Value",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Upper output limit."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Map",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Channel (0 R, 1 G, 2 B, 3 A, 4 Luminance)",
+    "port": 1,
+    "value": {
+     "type": "Int",
+     "f": 0
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Black Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "White Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Curve",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Invert",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Minimum Value",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Maximum Value",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "effect": {
+     "effect": "texture_carte_reglage"
+    },
+    "paramPinNames": [
+     "canal",
+     "noir",
+     "blanc",
+     "gamma",
+     "inverser",
+     "minimum",
+     "maximum"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Adjusted Map",
+    "port": 0
+   }
+  ]
+ }
+}

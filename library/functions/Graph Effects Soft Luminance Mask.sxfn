@@ -1,0 +1,127 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Effects Soft Luminance Mask",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Bright-pixel selection into opaque linear coverage, including source alpha once. Output RGB is linear mask coverage with opaque alpha. The underlying effect carries its editable native-node visual graph.",
+ "graph": {
+  "output": 6,
+  "variables": [
+   {
+    "name": "Softness",
+    "value": {
+     "type": "Float",
+     "f": 0.05
+    },
+    "exposed": true,
+    "desc": "Range: 0.001 to 0.5."
+   },
+   {
+    "name": "Invert (0 or 1)",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Threshold",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Softness",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Invert (0 or 1)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "name": "Graph Soft Luminance Mask",
+    "effect": {
+     "effect": "graph_effect_luminance_mask",
+     "set": {}
+    },
+    "paramPinNames": [
+     "threshold",
+     "softness",
+     "invert"
+    ]
+   },
+   {
+    "id": 6,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     5
+    ],
+    "name": "Linear Coverage",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

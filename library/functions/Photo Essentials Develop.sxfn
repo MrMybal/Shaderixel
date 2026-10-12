@@ -1,0 +1,474 @@
+{
+ "format": "shaderixel-function",
+ "name": "Photo Essentials Develop",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "White balance, exposure, shadows/highlights, vibrance, local contrast and light sharpening with optional coverage mask. Strength crossfades against the original in linear light. Tonal controls do not reconstruct clipped source detail.",
+ "graph": {
+  "output": 23,
+  "variables": [
+   {
+    "name": "Temperature",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Blue/amber balance (-1 to 1)."
+   },
+   {
+    "name": "Tint",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Green/magenta balance (-1 to 1)."
+   },
+   {
+    "name": "Shadows",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Shadow adjustment (-1 to 1)."
+   },
+   {
+    "name": "Highlights",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Highlight adjustment (-1 to 1)."
+   },
+   {
+    "name": "Contrast",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Contrast around middle gray (-0.8 to 1)."
+   },
+   {
+    "name": "Vibrance",
+    "value": {
+     "type": "Float",
+     "f": 0.15
+    },
+    "exposed": true,
+    "desc": "Favor less saturated colors (-1 to 1)."
+   },
+   {
+    "name": "Local Contrast",
+    "value": {
+     "type": "Float",
+     "f": 0.2
+    },
+    "exposed": true,
+    "desc": "Midtone local contrast (-1 to 2)."
+   },
+   {
+    "name": "Local Radius",
+    "value": {
+     "type": "Float",
+     "f": 12
+    },
+    "exposed": true,
+    "desc": "Reference Gaussian blur radius (0 to 250 pixels)."
+   },
+   {
+    "name": "Sharpening",
+    "value": {
+     "type": "Float",
+     "f": 0.2
+    },
+    "exposed": true,
+    "desc": "Fine-detail sharpening strength (-2 to 4)."
+   },
+   {
+    "name": "Denoise",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Optional edge-preserving cleanup (0 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Mask",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Strength",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 1
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Exposure (Stops)",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 0
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Temperature",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Tint",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Shadows",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Highlights",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Contrast",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Vibrance",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "varget",
+    "pos": [
+     320,
+     960
+    ],
+    "inputs": [],
+    "op": "Local Contrast",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "varget",
+    "pos": [
+     320,
+     1120
+    ],
+    "inputs": [],
+    "op": "Local Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 13,
+    "kind": "varget",
+    "pos": [
+     320,
+     1280
+    ],
+    "inputs": [],
+    "op": "Sharpening",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 14,
+    "kind": "varget",
+    "pos": [
+     320,
+     1440
+    ],
+    "inputs": [],
+    "op": "Denoise",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 15,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     14
+    ],
+    "effect": {
+     "effect": "texture_debruitage"
+    },
+    "paramPinNames": [
+     "force"
+    ],
+    "name": "Edge-Preserving Cleanup"
+   },
+   {
+    "id": 16,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     15,
+     5,
+     6
+    ],
+    "effect": {
+     "effect": "photo_white_balance"
+    },
+    "paramPinNames": [
+     "temperature",
+     "tint"
+    ],
+    "name": "White Balance"
+   },
+   {
+    "id": 17,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     16,
+     4,
+     7,
+     8,
+     9,
+     10
+    ],
+    "effect": {
+     "effect": "photo_tone_balance"
+    },
+    "paramPinNames": [
+     "exposure",
+     "shadows",
+     "highlights",
+     "contrast",
+     "vibrance"
+    ],
+    "name": "Tone Balance"
+   },
+   {
+    "id": 18,
+    "kind": "effect",
+    "pos": [
+     1600,
+     180
+    ],
+    "inputs": [
+     17,
+     12
+    ],
+    "effect": {
+     "effect": "gaussian_blur"
+    },
+    "paramPinNames": [
+     "radius"
+    ],
+    "name": "Local Reference Blur"
+   },
+   {
+    "id": 19,
+    "kind": "effect",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     17,
+     18,
+     11
+    ],
+    "effect": {
+     "effect": "photo_local_contrast"
+    },
+    "paramPinNames": [
+     "amount"
+    ],
+    "name": "Local Contrast"
+   },
+   {
+    "id": 20,
+    "kind": "effect",
+    "pos": [
+     2240,
+     180
+    ],
+    "inputs": [
+     19
+    ],
+    "effect": {
+     "effect": "gaussian_blur",
+     "set": {
+      "radius": 1
+     }
+    },
+    "paramPinNames": [],
+    "name": "Fine Reference Blur"
+   },
+   {
+    "id": 21,
+    "kind": "effect",
+    "pos": [
+     2560,
+     0
+    ],
+    "inputs": [
+     19,
+     20,
+     13
+    ],
+    "effect": {
+     "effect": "texture_details"
+    },
+    "paramPinNames": [
+     "force"
+    ],
+    "name": "Fine Sharpening"
+   },
+   {
+    "id": 22,
+    "kind": "effect",
+    "pos": [
+     2880,
+     0
+    ],
+    "inputs": [
+     1,
+     21,
+     2,
+     3
+    ],
+    "effect": {
+     "effect": "photo_masked_mix"
+    },
+    "paramPinNames": [
+     "amount"
+    ],
+    "name": "Mix Grade through Mask"
+   },
+   {
+    "id": 23,
+    "kind": "suboutput",
+    "pos": [
+     3200,
+     0
+    ],
+    "inputs": [
+     22
+    ],
+    "name": "Developed Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

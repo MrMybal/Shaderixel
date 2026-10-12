@@ -1,0 +1,408 @@
+{
+ "format": "shaderixel-function",
+ "name": "Masks Color Key and Despill",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Select a background color, invert it into foreground coverage, optionally contract/feather the matte, apply alpha and suppress spill. This is a color key, not semantic background removal. Outputs cutout, matte and checker preview.",
+ "graph": {
+  "output": 18,
+  "variables": [
+   {
+    "name": "Selection Softness",
+    "value": {
+     "type": "Float",
+     "f": 0.08
+    },
+    "exposed": true,
+    "desc": "Color-distance transition width (0.001 to 1)."
+   },
+   {
+    "name": "Distance Metric",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "0: RGB distance; 1: normalized chroma distance."
+   },
+   {
+    "name": "Contract Radius",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Square matte contraction (0 to 16 pixels)."
+   },
+   {
+    "name": "Feather Radius",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Gaussian feather radius (0 to 16 pixels)."
+   },
+   {
+    "name": "Matte Black Point",
+    "value": {
+     "type": "Float",
+     "f": 0.1
+    },
+    "exposed": true,
+    "desc": "Lower coverage limit (0 to 1)."
+   },
+   {
+    "name": "Matte White Point",
+    "value": {
+     "type": "Float",
+     "f": 0.9
+    },
+    "exposed": true,
+    "desc": "Upper coverage limit (0 to 1)."
+   },
+   {
+    "name": "Despill Strength",
+    "value": {
+     "type": "Float",
+     "f": 0.6
+    },
+    "exposed": true,
+    "desc": "Edge spill suppression (0 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Background Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0,
+      1,
+      0,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Color Tolerance",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 0.12
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Selection Softness",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Distance Metric",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Contract Radius",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Feather Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Matte Black Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Matte White Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     960
+    ],
+    "inputs": [],
+    "op": "Despill Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "mask_color_selection",
+     "set": {
+      "invert": 1,
+      "respect_alpha": 0
+     }
+    },
+    "paramPinNames": [
+     "key_color",
+     "tolerance",
+     "softness",
+     "metric"
+    ],
+    "name": "Foreground Color Selection"
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     11,
+     6
+    ],
+    "effect": {
+     "effect": "mask_morphology",
+     "set": {
+      "operation": 1
+     }
+    },
+    "paramPinNames": [
+     "radius"
+    ],
+    "name": "Contract Matte"
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     12,
+     7,
+     8,
+     9
+    ],
+    "effect": {
+     "effect": "mask_feather_levels"
+    },
+    "paramPinNames": [
+     "radius",
+     "black",
+     "white"
+    ],
+    "name": "Feather and Remap Coverage"
+   },
+   {
+    "id": 14,
+    "kind": "effect",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     1,
+     13
+    ],
+    "effect": {
+     "effect": "mask_apply_coverage"
+    },
+    "paramPinNames": [],
+    "name": "Apply Foreground Matte"
+   },
+   {
+    "id": 15,
+    "kind": "effect",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     14,
+     13,
+     2,
+     10
+    ],
+    "effect": {
+     "effect": "mask_edge_despill"
+    },
+    "paramPinNames": [
+     "key_color",
+     "amount"
+    ],
+    "name": "Suppress Edge Spill"
+   },
+   {
+    "id": 16,
+    "kind": "effect",
+    "pos": [
+     1920,
+     400
+    ],
+    "inputs": [],
+    "effect": {
+     "effect": "sprite_draw_checker"
+    },
+    "paramPinNames": [],
+    "name": "Transparency Checker"
+   },
+   {
+    "id": 17,
+    "kind": "blend",
+    "pos": [
+     2240,
+     400
+    ],
+    "inputs": [
+     16,
+     15,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1,
+    "name": "Sprite over Checker"
+   },
+   {
+    "id": 18,
+    "kind": "suboutput",
+    "pos": [
+     2560,
+     0
+    ],
+    "inputs": [
+     15
+    ],
+    "name": "Foreground",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 19,
+    "kind": "suboutput",
+    "pos": [
+     2560,
+     200
+    ],
+    "inputs": [
+     13
+    ],
+    "name": "Coverage Mask",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 20,
+    "kind": "suboutput",
+    "pos": [
+     2560,
+     400
+    ],
+    "inputs": [
+     17
+    ],
+    "name": "Checker Preview",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

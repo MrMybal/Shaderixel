@@ -1,0 +1,325 @@
+{
+ "format": "shaderixel-function",
+ "name": "PBR Height to Surface Maps",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Convert a grayscale height or depth map into adjusted height, OpenGL or DirectX normals, estimated occlusion and signed curvature. Map values correspond to the imported/exported PNG values.",
+ "graph": {
+  "output": 14,
+  "variables": [
+   {
+    "name": "Black Point",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Source value mapped to zero (0 to 1)."
+   },
+   {
+    "name": "White Point",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Source value mapped to one (0 to 1)."
+   },
+   {
+    "name": "Invert Depth",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Enable when areas close to the camera are dark."
+   },
+   {
+    "name": "Height Curve",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Power applied to height (0.1 to 4)."
+   },
+   {
+    "name": "DirectX Normals",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Off: OpenGL; on: flip green for DirectX."
+   },
+   {
+    "name": "Occlusion Radius",
+    "value": {
+     "type": "Float",
+     "f": 16
+    },
+    "exposed": true,
+    "desc": "Neighborhood radius in pixels (1 to 128)."
+   },
+   {
+    "name": "Occlusion Strength",
+    "value": {
+     "type": "Float",
+     "f": 4
+    },
+    "exposed": true,
+    "desc": "Estimated local occlusion strength (0 to 32)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Height or Depth",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Normal Strength",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 4
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Black Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "White Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Invert Depth",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Height Curve",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     3,
+     4,
+     6,
+     5
+    ],
+    "effect": {
+     "effect": "texture_carte_reglage"
+    },
+    "paramPinNames": [
+     "noir",
+     "blanc",
+     "gamma",
+     "inverser"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "DirectX Normals",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Occlusion Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     960
+    ],
+    "inputs": [],
+    "op": "Occlusion Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7,
+     2,
+     8
+    ],
+    "effect": {
+     "effect": "texture_normales_hauteur"
+    },
+    "paramPinNames": [
+     "force",
+     "directx"
+    ]
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     960,
+     200
+    ],
+    "inputs": [
+     7,
+     9,
+     10
+    ],
+    "effect": {
+     "effect": "texture_ao_hauteur"
+    },
+    "paramPinNames": [
+     "rayon",
+     "force"
+    ]
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     960,
+     400
+    ],
+    "inputs": [
+     7
+    ],
+    "effect": {
+     "effect": "texture_courbure_hauteur"
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 14,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Height",
+    "port": 0
+   },
+   {
+    "id": 15,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     180
+    ],
+    "inputs": [
+     11
+    ],
+    "name": "Normals",
+    "port": 1
+   },
+   {
+    "id": 16,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     360
+    ],
+    "inputs": [
+     12
+    ],
+    "name": "Occlusion",
+    "port": 2
+   },
+   {
+    "id": 17,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     540
+    ],
+    "inputs": [
+     13
+    ],
+    "name": "Curvature",
+    "port": 3
+   }
+  ]
+ }
+}

@@ -1,0 +1,161 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Glow Disc",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Soft radial colored disc on transparency, with center, pixel radius and falloff. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+ "graph": {
+  "output": 7,
+  "variables": [
+   {
+    "name": "Center (UV)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.5,
+      0.5
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Falloff",
+    "value": {
+     "type": "Float",
+     "f": 2
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 8."
+   },
+   {
+    "name": "Glow Opacity",
+    "value": {
+     "type": "Float",
+     "f": 0.8
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Glow Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.05,
+      0.4,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Center (UV)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Glow Radius (px)",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 160
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Falloff",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Glow Opacity",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "name": "Graph Glow Disc",
+    "effect": {
+     "effect": "graph_draw_glow_disc",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color",
+     "center",
+     "radius",
+     "falloff",
+     "opacity"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Layer",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

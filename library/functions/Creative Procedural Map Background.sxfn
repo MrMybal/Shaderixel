@@ -1,0 +1,313 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Procedural Map Background",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Terrain contour generator with a secondary flow-line layer and a soft noise reveal. All intermediate layers remain separate outputs.",
+ "graph": {
+  "output": 12,
+  "variables": [
+   {
+    "name": "Contour Levels",
+    "value": {
+     "type": "Int",
+     "f": 18
+    },
+    "exposed": true,
+    "desc": "Number of terrain contour levels (2 to 128)."
+   },
+   {
+    "name": "Terrain Seed",
+    "value": {
+     "type": "Int",
+     "f": 7
+    },
+    "exposed": true,
+    "desc": "Deterministic terrain seed (0 to 65535)."
+   },
+   {
+    "name": "Flow Contribution",
+    "value": {
+     "type": "Float",
+     "f": 0.18
+    },
+    "exposed": true,
+    "desc": "Flow layer opacity (0 to 1)."
+   },
+   {
+    "name": "Flow Spacing (px)",
+    "value": {
+     "type": "Float",
+     "f": 20
+    },
+    "exposed": true,
+    "desc": "Flow line spacing (2 to 256 pixels)."
+   },
+   {
+    "name": "Flow Bend (px)",
+    "value": {
+     "type": "Float",
+     "f": 70
+    },
+    "exposed": true,
+    "desc": "Flow field amplitude (0 to 512 pixels)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Background Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.72,
+      0.86,
+      0.72,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Contour Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.02,
+      0.14,
+      0.12,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Terrain Scale (px)",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 180
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Contour Levels",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Contour Levels"
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Terrain Seed",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Terrain Seed"
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Flow Contribution",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Flow Contribution"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     450
+    ],
+    "inputs": [],
+    "op": "Flow Spacing (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Flow Spacing (px)"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     600
+    ],
+    "inputs": [],
+    "op": "Flow Bend (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Flow Bend (px)"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     3,
+     4,
+     5,
+     2,
+     1
+    ],
+    "effect": {
+     "effect": "draw_topographic_lines",
+     "set": {}
+    },
+    "paramPinNames": [
+     "scale",
+     "levels",
+     "seed",
+     "line",
+     "background"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     640,
+     350
+    ],
+    "inputs": [
+     3,
+     5,
+     2,
+     1,
+     7,
+     8
+    ],
+    "effect": {
+     "effect": "draw_flow_lines",
+     "set": {}
+    },
+    "paramPinNames": [
+     "scale",
+     "seed",
+     "line",
+     "background",
+     "spacing",
+     "bend"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     9,
+     10,
+     0,
+     6,
+     5
+    ],
+    "effect": {
+     "effect": "blend_noise_dissolve",
+     "set": {
+      "progress": 0.65,
+      "scale": 80,
+      "softness": 0.2
+     }
+    },
+    "paramPinNames": [
+     "opacity",
+     "seed"
+    ]
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     11
+    ],
+    "name": "Procedural Map Background",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 13,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     160
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Terrain Contours",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 14,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     320
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Flow Layer",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

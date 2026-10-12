@@ -1,0 +1,271 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Filter Crosshatch Shading",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Convert image shadows into up to four directional hatch layers while preserving source alpha.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Stroke Width (px)",
+    "value": {
+     "type": "Float",
+     "f": 1.0
+    },
+    "exposed": true,
+    "desc": "Range: 0.2 to 12."
+   },
+   {
+    "name": "First Direction (degrees)",
+    "value": {
+     "type": "Float",
+     "f": 25.0
+    },
+    "exposed": true,
+    "desc": "Range: -180 to 180."
+   },
+   {
+    "name": "Hatch Layers",
+    "value": {
+     "type": "Int",
+     "f": 4.0
+    },
+    "exposed": true,
+    "desc": "Range: 1 to 4."
+   },
+   {
+    "name": "Shadow Curve",
+    "value": {
+     "type": "Float",
+     "f": 1.0
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 4."
+   },
+   {
+    "name": "Ink Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.012,
+      0.009,
+      0.006,
+      1.0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Paper Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.9,
+      0.84,
+      0.7,
+      1.0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Line Spacing (px)",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 8.0
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Stroke Width (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Stroke Width (px)"
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "First Direction (degrees)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get First Direction (degrees)"
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Hatch Layers",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Hatch Layers"
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     450
+    ],
+    "inputs": [],
+    "op": "Shadow Curve",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Shadow Curve"
+   },
+   {
+    "id": 7,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Effect Strength",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 1.0
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     600
+    ],
+    "inputs": [],
+    "op": "Ink Color",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Ink Color"
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     750
+    ],
+    "inputs": [],
+    "op": "Paper Color",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Paper Color"
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9
+    ],
+    "effect": {
+     "effect": "art_crosshatch_shading",
+     "set": {}
+    },
+    "paramPinNames": [
+     "spacing",
+     "width",
+     "angle",
+     "layers",
+     "contrast",
+     "strength",
+     "ink",
+     "paper"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Crosshatch Shading",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     160
+    ],
+    "inputs": [
+     1
+    ],
+    "name": "Original",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

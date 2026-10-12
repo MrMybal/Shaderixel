@@ -1,0 +1,190 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Rings",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Concentric pixel-scale rings with transparent background and native-node distance controls. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+ "graph": {
+  "output": 8,
+  "variables": [
+   {
+    "name": "Background Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Center (UV)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.5,
+      0.5
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Ring Width (px)",
+    "value": {
+     "type": "Float",
+     "f": 3
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 64."
+   },
+   {
+    "name": "Edge Softness (px)",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 8."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Ring Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.02,
+      0.5,
+      0.8,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Background Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Center (UV)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Ring Spacing (px)",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 32
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Ring Width (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Edge Softness (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "name": "Graph Concentric Rings",
+    "effect": {
+     "effect": "graph_draw_rings",
+     "set": {}
+    },
+    "paramPinNames": [
+     "line_color",
+     "background",
+     "center",
+     "spacing",
+     "width",
+     "softness"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Layer",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

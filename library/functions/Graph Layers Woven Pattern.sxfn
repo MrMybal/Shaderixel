@@ -1,0 +1,132 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Woven Pattern",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Alternating woven tiles with cosine thread shading, created entirely with native nodes. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+ "graph": {
+  "output": 6,
+  "variables": [
+   {
+    "name": "Thread Shading",
+    "value": {
+     "type": "Float",
+     "f": 0.25
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Warp Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.12,
+      0.32,
+      0.5,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Weft Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.65,
+      0.3,
+      0.12,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     320
+    ],
+    "inputs": [],
+    "name": "Thread Period (px)",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 8
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Thread Shading",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "name": "Graph Woven Pattern",
+    "effect": {
+     "effect": "graph_draw_woven_pattern",
+     "set": {}
+    },
+    "paramPinNames": [
+     "warp",
+     "weft",
+     "spacing",
+     "shading"
+    ]
+   },
+   {
+    "id": 6,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     5
+    ],
+    "name": "Layer",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

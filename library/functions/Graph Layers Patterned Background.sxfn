@@ -1,0 +1,591 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Patterned Background",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Editable main-graph assembly of aspect-aware gradient, soft noise and transparent dot layer. Outputs expose each layer separately. Each generator also contains its native-node visual graph.",
+ "graph": {
+  "output": 23,
+  "variables": [
+   {
+    "name": "Gradient Angle (degrees)",
+    "value": {
+     "type": "Float",
+     "f": 90
+    },
+    "exposed": true,
+    "desc": "Range: -180 to 180."
+   },
+   {
+    "name": "Gradient Center (UV)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.5,
+      0.5
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Gradient Span (short image side)",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.01 to 4."
+   },
+   {
+    "name": "Noise Low Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.015,
+      0.04,
+      0.1,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Noise High Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.3,
+      0.55,
+      0.8,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Noise Scale (px)",
+    "value": {
+     "type": "Float",
+     "f": 64
+    },
+    "exposed": true,
+    "desc": "Range: 2 to 512."
+   },
+   {
+    "name": "Noise Offset (px)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0,
+      0
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: -4096 to 4096."
+   },
+   {
+    "name": "Noise Contrast",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 4."
+   },
+   {
+    "name": "Dots Dot Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      1,
+      1,
+      1,
+      0.08
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Dots Background Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Dots Cell Spacing (px)",
+    "value": {
+     "type": "Float",
+     "f": 32
+    },
+    "exposed": true,
+    "desc": "Range: 2 to 256."
+   },
+   {
+    "name": "Dots Dot Radius (px)",
+    "value": {
+     "type": "Float",
+     "f": 2
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 64."
+   },
+   {
+    "name": "Dots Edge Softness (px)",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 8."
+   },
+   {
+    "name": "Dots Offset (px)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0,
+      0
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: -256 to 256."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Gradient Start Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.015,
+      0.04,
+      0.15,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Gradient End Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.6,
+      0.08,
+      0.3,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Gradient Angle (degrees)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Gradient Center (UV)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Gradient Span (short image side)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "name": "Graph Linear Gradient",
+    "effect": {
+     "effect": "graph_draw_gradient",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b",
+     "angle",
+     "center",
+     "span"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Noise Low Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Noise High Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Noise Scale (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     960
+    ],
+    "inputs": [],
+    "op": "Noise Offset (px)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "varget",
+    "pos": [
+     320,
+     1120
+    ],
+    "inputs": [],
+    "op": "Noise Contrast",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     640,
+     160
+    ],
+    "inputs": [
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "name": "Graph Soft Noise",
+    "effect": {
+     "effect": "graph_draw_soft_noise",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b",
+     "scale",
+     "offset",
+     "contrast"
+    ]
+   },
+   {
+    "id": 13,
+    "kind": "subinput",
+    "pos": [
+     0,
+     320
+    ],
+    "inputs": [],
+    "name": "Noise Mix",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 0.25
+    }
+   },
+   {
+    "id": 14,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6,
+     12,
+     0,
+     13
+    ],
+    "name": "Mix Through Optional Mask",
+    "effect": {
+     "effect": "photo_masked_mix",
+     "set": {}
+    },
+    "paramPinNames": [
+     "amount"
+    ]
+   },
+   {
+    "id": 15,
+    "kind": "varget",
+    "pos": [
+     320,
+     1280
+    ],
+    "inputs": [],
+    "op": "Dots Dot Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 16,
+    "kind": "varget",
+    "pos": [
+     320,
+     1440
+    ],
+    "inputs": [],
+    "op": "Dots Background Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 17,
+    "kind": "varget",
+    "pos": [
+     320,
+     1600
+    ],
+    "inputs": [],
+    "op": "Dots Cell Spacing (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 18,
+    "kind": "varget",
+    "pos": [
+     320,
+     1760
+    ],
+    "inputs": [],
+    "op": "Dots Dot Radius (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 19,
+    "kind": "varget",
+    "pos": [
+     320,
+     1920
+    ],
+    "inputs": [],
+    "op": "Dots Edge Softness (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 20,
+    "kind": "varget",
+    "pos": [
+     320,
+     2080
+    ],
+    "inputs": [],
+    "op": "Dots Offset (px)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 21,
+    "kind": "effect",
+    "pos": [
+     640,
+     320
+    ],
+    "inputs": [
+     15,
+     16,
+     17,
+     18,
+     19,
+     20
+    ],
+    "name": "Graph Dot Grid",
+    "effect": {
+     "effect": "graph_draw_dot_grid",
+     "set": {}
+    },
+    "paramPinNames": [
+     "dot_color",
+     "background",
+     "spacing",
+     "radius",
+     "softness",
+     "offset"
+    ]
+   },
+   {
+    "id": 22,
+    "kind": "blend",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     14,
+     21,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1,
+    "name": "Composite Layer"
+   },
+   {
+    "id": 23,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     22
+    ],
+    "name": "Background",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 24,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     160
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Gradient Layer",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 25,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     320
+    ],
+    "inputs": [
+     12
+    ],
+    "name": "Noise Layer",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 26,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     480
+    ],
+    "inputs": [
+     21
+    ],
+    "name": "Dot Layer",
+    "port": 3,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

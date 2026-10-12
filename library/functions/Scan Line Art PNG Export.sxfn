@@ -1,0 +1,772 @@
+{
+ "format": "shaderixel-function",
+ "name": "Scan Line Art PNG Export",
+ "kind": "tool",
+ "applyMode": false,
+ "description": "Clean and extract strokes, then bake and export prefix_ink.png with transparency and prefix_paper.png with procedural paper. Existing output filenames may be overwritten.",
+ "graph": {
+  "output": 37,
+  "variables": [
+   {
+    "name": "Denoise",
+    "value": {
+     "type": "Float",
+     "f": 0.25
+    },
+    "exposed": true,
+    "desc": "Edge-preserving cleanup strength (0 to 1)."
+   },
+   {
+    "name": "Paper Radius",
+    "value": {
+     "type": "Float",
+     "f": 24
+    },
+    "exposed": true,
+    "desc": "Broad Gaussian paper reference (0 to 250 pixels)."
+   },
+   {
+    "name": "Paper Correction",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Local paper brightening (0 to 1). Dense filled areas can be overcorrected."
+   },
+   {
+    "name": "Black Point",
+    "value": {
+     "type": "Float",
+     "f": 0.05
+    },
+    "exposed": true,
+    "desc": "Display-space black point (0 to 0.9)."
+   },
+   {
+    "name": "White Point",
+    "value": {
+     "type": "Float",
+     "f": 0.98
+    },
+    "exposed": true,
+    "desc": "Display-space white point (0.1 to 1); must exceed black point."
+   },
+   {
+    "name": "Monochrome",
+    "value": {
+     "type": "Bool",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Use monochrome or retain scan colors."
+   },
+   {
+    "name": "Adaptive Strength",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Blend global threshold with local paper reference (0 to 1)."
+   },
+   {
+    "name": "Local Bias",
+    "value": {
+     "type": "Float",
+     "f": 0.08
+    },
+    "exposed": true,
+    "desc": "Subtract from local paper brightness (0 to 0.5)."
+   },
+   {
+    "name": "Threshold Softness",
+    "value": {
+     "type": "Float",
+     "f": 0.02
+    },
+    "exposed": true,
+    "desc": "Display-space threshold softness (0 to 0.25)."
+   },
+   {
+    "name": "Adaptive Radius",
+    "value": {
+     "type": "Float",
+     "f": 16
+    },
+    "exposed": true,
+    "desc": "Local Gaussian reference radius (0 to 250 pixels)."
+   },
+   {
+    "name": "Expand Radius",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Square dilation radius (0 to 16 pixels); zero keeps original width."
+   },
+   {
+    "name": "Feather Radius",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Coverage blur radius (0 to 16 pixels)."
+   },
+   {
+    "name": "Paper Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.92,
+      0.86,
+      0.72,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear paper color and opacity."
+   },
+   {
+    "name": "Paper Seed",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Deterministic seed (0 to 65535)."
+   },
+   {
+    "name": "Paper Grain",
+    "value": {
+     "type": "Float",
+     "f": 0.035
+    },
+    "exposed": true,
+    "desc": "Fine grain strength (0 to 0.3)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Scan",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "File Prefix",
+    "port": 1,
+    "value": {
+     "type": "Text",
+     "s": "line_art"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Denoise",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Paper Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "op": "Paper Correction",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     540
+    ],
+    "inputs": [],
+    "op": "Black Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     720
+    ],
+    "inputs": [],
+    "op": "White Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     900
+    ],
+    "inputs": [],
+    "op": "Monochrome",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     3
+    ],
+    "effect": {
+     "effect": "texture_debruitage",
+     "set": {}
+    },
+    "paramPinNames": [
+     "force"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     9,
+     4
+    ],
+    "effect": {
+     "effect": "gaussian_blur",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     9,
+     10,
+     5,
+     6,
+     7,
+     8
+    ],
+    "effect": {
+     "effect": "scan_paper_normalize",
+     "set": {}
+    },
+    "paramPinNames": [
+     "amount",
+     "black",
+     "white",
+     "monochrome"
+    ]
+   },
+   {
+    "id": 12,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Threshold",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    }
+   },
+   {
+    "id": 13,
+    "kind": "varget",
+    "pos": [
+     320,
+     1080
+    ],
+    "inputs": [],
+    "op": "Adaptive Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 14,
+    "kind": "varget",
+    "pos": [
+     320,
+     1260
+    ],
+    "inputs": [],
+    "op": "Local Bias",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 15,
+    "kind": "varget",
+    "pos": [
+     320,
+     1440
+    ],
+    "inputs": [],
+    "op": "Threshold Softness",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 16,
+    "kind": "varget",
+    "pos": [
+     320,
+     1620
+    ],
+    "inputs": [],
+    "op": "Adaptive Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 17,
+    "kind": "effect",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     11,
+     16
+    ],
+    "effect": {
+     "effect": "gaussian_blur",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 18,
+    "kind": "effect",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     11,
+     17,
+     12,
+     13,
+     14,
+     15
+    ],
+    "effect": {
+     "effect": "scan_ink_threshold",
+     "set": {}
+    },
+    "paramPinNames": [
+     "threshold",
+     "adaptive",
+     "bias",
+     "softness"
+    ]
+   },
+   {
+    "id": 19,
+    "kind": "varget",
+    "pos": [
+     320,
+     1800
+    ],
+    "inputs": [],
+    "op": "Expand Radius",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 20,
+    "kind": "varget",
+    "pos": [
+     320,
+     1980
+    ],
+    "inputs": [],
+    "op": "Feather Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 21,
+    "kind": "effect",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     18,
+     19
+    ],
+    "effect": {
+     "effect": "mask_morphology",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 22,
+    "kind": "effect",
+    "pos": [
+     2560,
+     0
+    ],
+    "inputs": [
+     21,
+     20
+    ],
+    "effect": {
+     "effect": "mask_feather_levels",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 23,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Ink Color",
+    "port": 3,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.01,
+      0.01,
+      0.01,
+      1
+     ]
+    }
+   },
+   {
+    "id": 24,
+    "kind": "effect",
+    "pos": [
+     2880,
+     0
+    ],
+    "inputs": [
+     22,
+     23
+    ],
+    "effect": {
+     "effect": "scan_colorize_ink",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color"
+    ]
+   },
+   {
+    "id": 25,
+    "kind": "varget",
+    "pos": [
+     320,
+     2160
+    ],
+    "inputs": [],
+    "op": "Paper Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 26,
+    "kind": "varget",
+    "pos": [
+     320,
+     2340
+    ],
+    "inputs": [],
+    "op": "Paper Seed",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 27,
+    "kind": "varget",
+    "pos": [
+     320,
+     2520
+    ],
+    "inputs": [],
+    "op": "Paper Grain",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 28,
+    "kind": "effect",
+    "pos": [
+     640,
+     180
+    ],
+    "inputs": [
+     25,
+     26,
+     27
+    ],
+    "effect": {
+     "effect": "print_draw_paper",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color",
+     "seed",
+     "grain"
+    ]
+   },
+   {
+    "id": 29,
+    "kind": "blend",
+    "pos": [
+     3200,
+     0
+    ],
+    "inputs": [
+     28,
+     24,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1
+   },
+   {
+    "id": 30,
+    "kind": "event",
+    "pos": [
+     320,
+     2700
+    ],
+    "inputs": [],
+    "name": "Export Ink and Paper Preview"
+   },
+   {
+    "id": 31,
+    "kind": "action",
+    "pos": [
+     3200,
+     180
+    ],
+    "inputs": [
+     30,
+     24
+    ],
+    "op": "bake"
+   },
+   {
+    "id": 32,
+    "kind": "math",
+    "pos": [
+     320,
+     2880
+    ],
+    "inputs": [
+     2,
+     0
+    ],
+    "op": "concat",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_ink.png"
+     }
+    ]
+   },
+   {
+    "id": 33,
+    "kind": "action",
+    "pos": [
+     3520,
+     0
+    ],
+    "inputs": [
+     31,
+     31,
+     32
+    ],
+    "op": "export_png",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 34,
+    "kind": "action",
+    "pos": [
+     3840,
+     0
+    ],
+    "inputs": [
+     33,
+     29
+    ],
+    "op": "bake"
+   },
+   {
+    "id": 35,
+    "kind": "math",
+    "pos": [
+     320,
+     3060
+    ],
+    "inputs": [
+     2,
+     0
+    ],
+    "op": "concat",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_paper.png"
+     }
+    ]
+   },
+   {
+    "id": 36,
+    "kind": "action",
+    "pos": [
+     4160,
+     0
+    ],
+    "inputs": [
+     34,
+     34,
+     35
+    ],
+    "op": "export_png",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 37,
+    "kind": "suboutput",
+    "pos": [
+     3520,
+     180
+    ],
+    "inputs": [
+     31
+    ],
+    "name": "Exported Transparent Ink",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     8
+    ]
+   },
+   {
+    "id": 38,
+    "kind": "suboutput",
+    "pos": [
+     4160,
+     180
+    ],
+    "inputs": [
+     34
+    ],
+    "name": "Exported Paper Preview",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     8
+    ]
+   }
+  ]
+ }
+}

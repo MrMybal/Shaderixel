@@ -1,0 +1,309 @@
+{
+ "format": "shaderixel-function",
+ "name": "Game Art Transparency Inspection",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Preview a sprite over checker, light and dark backgrounds and extract its exact alpha as linear coverage. Preview backgrounds are composited with normal source-over; the source sprite remains a separate output.",
+ "graph": {
+  "output": 12,
+  "variables": [
+   {
+    "name": "Checker Size",
+    "value": {
+     "type": "Int",
+     "f": 16
+    },
+    "exposed": true,
+    "desc": "Checker cell size (1 to 128 pixels)."
+   },
+   {
+    "name": "Light Background",
+    "value": {
+     "type": "Color",
+     "f": [
+      1,
+      1,
+      1,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA light preview background."
+   },
+   {
+    "name": "Dark Background",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.025,
+      0.025,
+      0.025,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA dark preview background."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Sprite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Checker Size",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Light Background",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Dark Background",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     2
+    ],
+    "effect": {
+     "effect": "sprite_draw_checker"
+    },
+    "paramPinNames": [
+     "cell_size"
+    ],
+    "name": "Transparency Checker"
+   },
+   {
+    "id": 6,
+    "kind": "blend",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     5,
+     1,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1,
+    "name": "Sprite over Checker"
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     200
+    ],
+    "inputs": [
+     3,
+     3
+    ],
+    "effect": {
+     "effect": "sprite_draw_checker"
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b"
+    ],
+    "name": "Light Preview Background"
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     640,
+     400
+    ],
+    "inputs": [
+     4,
+     4
+    ],
+    "effect": {
+     "effect": "sprite_draw_checker"
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b"
+    ],
+    "name": "Dark Preview Background"
+   },
+   {
+    "id": 9,
+    "kind": "blend",
+    "pos": [
+     960,
+     200
+    ],
+    "inputs": [
+     7,
+     1,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1,
+    "name": "Sprite over Light"
+   },
+   {
+    "id": 10,
+    "kind": "blend",
+    "pos": [
+     960,
+     400
+    ],
+    "inputs": [
+     8,
+     1,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1,
+    "name": "Sprite over Dark"
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     640,
+     600
+    ],
+    "inputs": [
+     1
+    ],
+    "effect": {
+     "effect": "mask_channel_selection",
+     "set": {
+      "channel": 3
+     }
+    },
+    "paramPinNames": [],
+    "name": "Exact Sprite Alpha"
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     1
+    ],
+    "name": "Original Sprite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 13,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     180
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Checker Preview",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 14,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     360
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Light Preview",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 15,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     540
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Dark Preview",
+    "port": 3,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 16,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     720
+    ],
+    "inputs": [
+     11
+    ],
+    "name": "Alpha Mask",
+    "port": 4,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

@@ -1,0 +1,159 @@
+{
+ "format": "shaderixel-function",
+ "name": "PBR Normal Blend and Conversion",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Blend two normal maps using the same convention with reorientation, optional mask and detail strength. Flip output green to convert OpenGL / DirectX. PNG data maps; avoid color adjustments on normals.",
+ "graph": {
+  "output": 9,
+  "variables": [
+   {
+    "name": "Flip Output Green",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "OpenGL / DirectX conversion after blending."
+   },
+   {
+    "name": "Final Strength",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Tangent component strength (0 to 8)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Base Normals",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Detail Normals",
+    "port": 1
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Mask",
+    "port": 2
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Detail Strength",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 1
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Flip Output Green",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Final Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "effect": {
+     "effect": "texture_fusion_normales"
+    },
+    "paramPinNames": [
+     "force"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7,
+     6,
+     5
+    ],
+    "effect": {
+     "effect": "texture_normales_reglage"
+    },
+    "paramPinNames": [
+     "force",
+     "inverser_vert"
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Normals",
+    "port": 0
+   }
+  ]
+ }
+}

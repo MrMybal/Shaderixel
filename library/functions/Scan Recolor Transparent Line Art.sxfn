@@ -1,0 +1,332 @@
+{
+ "format": "shaderixel-function",
+ "name": "Scan Recolor Transparent Line Art",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Extract existing alpha, optionally expand or feather it, and replace the ink color. Input must already have transparent paper; opaque scans require ink extraction first.",
+ "graph": {
+  "output": 9,
+  "variables": [
+   {
+    "name": "Expand Radius",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Square dilation radius (0 to 16 pixels); zero keeps original width."
+   },
+   {
+    "name": "Feather Radius",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Coverage blur radius (0 to 16 pixels)."
+   },
+   {
+    "name": "Paper Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.92,
+      0.86,
+      0.72,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear paper color and opacity."
+   },
+   {
+    "name": "Paper Seed",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Deterministic seed (0 to 65535)."
+   },
+   {
+    "name": "Paper Grain",
+    "value": {
+     "type": "Float",
+     "f": 0.035
+    },
+    "exposed": true,
+    "desc": "Fine grain strength (0 to 0.3)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Line Art with Alpha",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "New Ink Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.04,
+      0.12,
+      0.5,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "effect",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [
+     1
+    ],
+    "effect": {
+     "effect": "mask_channel_selection",
+     "set": {
+      "channel": 3
+     }
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Expand Radius",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "op": "Feather Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     3,
+     4
+    ],
+    "effect": {
+     "effect": "mask_morphology",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6,
+     5
+    ],
+    "effect": {
+     "effect": "mask_feather_levels",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     7,
+     2
+    ],
+    "effect": {
+     "effect": "scan_colorize_ink",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color"
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Recolored Ink",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     180
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Ink Coverage",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "varget",
+    "pos": [
+     320,
+     540
+    ],
+    "inputs": [],
+    "op": "Paper Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "varget",
+    "pos": [
+     320,
+     720
+    ],
+    "inputs": [],
+    "op": "Paper Seed",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 13,
+    "kind": "varget",
+    "pos": [
+     320,
+     900
+    ],
+    "inputs": [],
+    "op": "Paper Grain",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 14,
+    "kind": "effect",
+    "pos": [
+     640,
+     180
+    ],
+    "inputs": [
+     11,
+     12,
+     13
+    ],
+    "effect": {
+     "effect": "print_draw_paper",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color",
+     "seed",
+     "grain"
+    ]
+   },
+   {
+    "id": 15,
+    "kind": "blend",
+    "pos": [
+     1600,
+     180
+    ],
+    "inputs": [
+     14,
+     8,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1
+   },
+   {
+    "id": 16,
+    "kind": "suboutput",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     15
+    ],
+    "name": "Paper Preview",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

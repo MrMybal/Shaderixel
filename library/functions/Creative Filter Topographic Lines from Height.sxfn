@@ -1,0 +1,271 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Filter Topographic Lines from Height",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Extract styled contours from an existing grayscale height map; PNG numeric decoding is on by default.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Decode PNG Numeric Height",
+    "value": {
+     "type": "Bool",
+     "f": 1.0
+    },
+    "exposed": true,
+    "desc": "0 = off; 1 = on."
+   },
+   {
+    "name": "Major Contour Interval",
+    "value": {
+     "type": "Int",
+     "f": 5.0
+    },
+    "exposed": true,
+    "desc": "Range: 1 to 16."
+   },
+   {
+    "name": "Major Line Width (px)",
+    "value": {
+     "type": "Float",
+     "f": 2.0
+    },
+    "exposed": true,
+    "desc": "Range: 0.2 to 12."
+   },
+   {
+    "name": "Contour Offset",
+    "value": {
+     "type": "Float",
+     "f": 0.0
+    },
+    "exposed": true,
+    "desc": "Range: -1 to 1."
+   },
+   {
+    "name": "Line Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.02,
+      0.14,
+      0.12,
+      1.0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Background Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.72,
+      0.86,
+      0.72,
+      1.0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Height",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Decode PNG Numeric Height",
+    "value": {
+     "type": "Bool"
+    },
+    "name": "Get Decode PNG Numeric Height"
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Contour Levels",
+    "port": 1,
+    "value": {
+     "type": "Int",
+     "f": 18.0
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Line Width (px)",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 1.0
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Major Contour Interval",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Major Contour Interval"
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Major Line Width (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Major Line Width (px)"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     450
+    ],
+    "inputs": [],
+    "op": "Contour Offset",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Contour Offset"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     600
+    ],
+    "inputs": [],
+    "op": "Line Color",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Line Color"
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     750
+    ],
+    "inputs": [],
+    "op": "Background Color",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Background Color"
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9
+    ],
+    "effect": {
+     "effect": "art_topographic_from_height",
+     "set": {}
+    },
+    "paramPinNames": [
+     "decode_srgb",
+     "levels",
+     "width",
+     "major_every",
+     "major_width",
+     "offset",
+     "line",
+     "background"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Topographic Lines from Height",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     160
+    ],
+    "inputs": [
+     1
+    ],
+    "name": "Original",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

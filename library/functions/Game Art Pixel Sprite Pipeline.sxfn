@@ -1,0 +1,384 @@
+{
+ "format": "shaderixel-function",
+ "name": "Game Art Pixel Sprite Pipeline",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Sample an integer pixel grid, apply a four-color palette with ordered dither, then add an outline. Outputs pixel sprite, outlined sprite and checker preview. This changes appearance without resizing the document; leave transparent padding around the sprite.",
+ "graph": {
+  "output": 16,
+  "variables": [
+   {
+    "name": "Outline Width",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Outline width (0 to 16 pixels)."
+   },
+   {
+    "name": "Alpha Threshold",
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    },
+    "exposed": true,
+    "desc": "Threshold for hard pixel-grid alpha (0 to 1)."
+   },
+   {
+    "name": "Ordered Dither",
+    "value": {
+     "type": "Float",
+     "f": 0.15
+    },
+    "exposed": true,
+    "desc": "Palette dithering intensity (0 to 1)."
+   },
+   {
+    "name": "Palette Color 1",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.01,
+      0.015,
+      0.025,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA palette color."
+   },
+   {
+    "name": "Palette Color 2",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.05,
+      0.16,
+      0.12,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA palette color."
+   },
+   {
+    "name": "Palette Color 3",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.35,
+      0.55,
+      0.22,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA palette color."
+   },
+   {
+    "name": "Palette Color 4",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.8,
+      0.9,
+      0.5,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA palette color."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Sprite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Pixel Block Size",
+    "port": 1,
+    "value": {
+     "type": "Int",
+     "f": 4
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Outline Color",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.01,
+      0.01,
+      0.01,
+      1
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Outline Width",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Alpha Threshold",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Ordered Dither",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Palette Color 1",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Palette Color 2",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Palette Color 3",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     960
+    ],
+    "inputs": [],
+    "op": "Palette Color 4",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     5
+    ],
+    "effect": {
+     "effect": "sprite_pixel_grid"
+    },
+    "paramPinNames": [
+     "block_size",
+     "alpha_threshold"
+    ],
+    "name": "Pixel Grid"
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     11,
+     7,
+     8,
+     9,
+     10,
+     6
+    ],
+    "effect": {
+     "effect": "sprite_palette_four"
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b",
+     "color_c",
+     "color_d",
+     "dither"
+    ],
+    "name": "Four-Color Palette"
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     12,
+     4,
+     3
+    ],
+    "effect": {
+     "effect": "sprite_outline"
+    },
+    "paramPinNames": [
+     "width",
+     "color"
+    ],
+    "name": "Pixel Outline"
+   },
+   {
+    "id": 14,
+    "kind": "effect",
+    "pos": [
+     1280,
+     400
+    ],
+    "inputs": [],
+    "effect": {
+     "effect": "sprite_draw_checker"
+    },
+    "paramPinNames": [],
+    "name": "Transparency Checker"
+   },
+   {
+    "id": 15,
+    "kind": "blend",
+    "pos": [
+     1600,
+     400
+    ],
+    "inputs": [
+     14,
+     13,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1,
+    "name": "Sprite over Checker"
+   },
+   {
+    "id": 16,
+    "kind": "suboutput",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     12
+    ],
+    "name": "Pixel Sprite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 17,
+    "kind": "suboutput",
+    "pos": [
+     1920,
+     200
+    ],
+    "inputs": [
+     13
+    ],
+    "name": "Outlined Sprite",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 18,
+    "kind": "suboutput",
+    "pos": [
+     1920,
+     400
+    ],
+    "inputs": [
+     15
+    ],
+    "name": "Checker Preview",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

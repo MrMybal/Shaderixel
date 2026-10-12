@@ -1,0 +1,191 @@
+{
+ "format": "shaderixel-function",
+ "name": "PBR Roughness and Glossiness",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Estimate roughness from photo detail and luminance, then output complementary glossiness. Base roughness remains an artistic and physical choice.",
+ "graph": {
+  "output": 9,
+  "variables": [
+   {
+    "name": "Detail Radius",
+    "value": {
+     "type": "Float",
+     "f": 3
+    },
+    "exposed": true,
+    "desc": "Blur radius (0 to 250 pixels)."
+   },
+   {
+    "name": "Detail Weight",
+    "value": {
+     "type": "Float",
+     "f": 1.5
+    },
+    "exposed": true,
+    "desc": "Roughness increase in detailed areas (0 to 8)."
+   },
+   {
+    "name": "Dark Tone Weight",
+    "value": {
+     "type": "Float",
+     "f": 0.15
+    },
+    "exposed": true,
+    "desc": "Luminance influence (-1 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Base Roughness",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 0.6
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Detail Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Detail Weight",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Dark Tone Weight",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     3
+    ],
+    "effect": {
+     "effect": "gaussian_blur"
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     6,
+     2,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "texture_rugosite_photo"
+    },
+    "paramPinNames": [
+     "base",
+     "details",
+     "tonalite"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     1280,
+     200
+    ],
+    "inputs": [
+     7
+    ],
+    "effect": {
+     "effect": "texture_carte_reglage",
+     "set": {
+      "inverser": 1
+     }
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 9,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Roughness",
+    "port": 0
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     180
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Glossiness",
+    "port": 1
+   }
+  ]
+ }
+}

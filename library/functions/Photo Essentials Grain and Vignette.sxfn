@@ -1,0 +1,224 @@
+{
+ "format": "shaderixel-function",
+ "name": "Photo Essentials Grain and Vignette",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Add deterministic grain and an aspect-aware vignette with optional coverage mask. A fixed seed keeps the grain stable while editing.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Vignette Radius",
+    "value": {
+     "type": "Float",
+     "f": 0.8
+    },
+    "exposed": true,
+    "desc": "Vignette start radius relative to the short image dimension (0.1 to 2)."
+   },
+   {
+    "name": "Vignette Softness",
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    },
+    "exposed": true,
+    "desc": "Transition width (0.01 to 1)."
+   },
+   {
+    "name": "Grain Seed",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Deterministic grain seed (0 to 9999)."
+   },
+   {
+    "name": "Strength",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Overall mix strength (0 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Grain",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 0.15
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Vignette",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 0.2
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Mask",
+    "port": 3,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Vignette Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Vignette Softness",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Grain Seed",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     7
+    ],
+    "effect": {
+     "effect": "photo_film_finish"
+    },
+    "paramPinNames": [
+     "grain",
+     "vignette",
+     "radius",
+     "softness",
+     "seed"
+    ],
+    "name": "Grain and Vignette"
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     9,
+     4,
+     8
+    ],
+    "effect": {
+     "effect": "photo_masked_mix"
+    },
+    "paramPinNames": [
+     "amount"
+    ],
+    "name": "Mix Grade through Mask"
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Finished Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

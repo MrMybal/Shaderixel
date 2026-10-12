@@ -1,0 +1,226 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Filter Selective Detail",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Sparse alpha-weighted high-pass detail with luminance gating and a flat-region threshold.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Detail Radius (px)",
+    "value": {
+     "type": "Int",
+     "f": 2.0
+    },
+    "exposed": true,
+    "desc": "Range: 1 to 8."
+   },
+   {
+    "name": "Luminance Low",
+    "value": {
+     "type": "Float",
+     "f": 0.05
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Luminance High",
+    "value": {
+     "type": "Float",
+     "f": 0.95
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Luminance Softness",
+    "value": {
+     "type": "Float",
+     "f": 0.08
+    },
+    "exposed": true,
+    "desc": "Range: 0.001 to 0.5."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Optional Mask",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Detail Strength",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 0.7
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Detail Radius (px)",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Detail Radius (px)"
+   },
+   {
+    "id": 5,
+    "kind": "subinput",
+    "pos": [
+     0,
+     450
+    ],
+    "inputs": [],
+    "name": "Detail Threshold",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 0.025
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Luminance Low",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Luminance Low"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Luminance High",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Luminance High"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     450
+    ],
+    "inputs": [],
+    "op": "Luminance Softness",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Luminance Softness"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "effect": {
+     "effect": "texture_selective_detail",
+     "set": {}
+    },
+    "paramPinNames": [
+     "amount",
+     "radius",
+     "threshold",
+     "low",
+     "high",
+     "softness"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Selective Detail",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     160
+    ],
+    "inputs": [
+     1
+    ],
+    "name": "Original",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

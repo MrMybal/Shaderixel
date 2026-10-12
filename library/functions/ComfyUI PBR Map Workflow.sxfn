@@ -1,0 +1,199 @@
+{
+ "format": "shaderixel-function",
+ "name": "ComfyUI PBR Map Workflow",
+ "kind": "tool",
+ "applyMode": false,
+ "description": "Run a supplied API workflow for one PBR map: normal, roughness, albedo, etc. Requires LoadImage and a single SaveImage for the required map. Shaderixel retrieves only the first output image; use one instance per map. Empty path: show a message without running image-to-image. Output previews the photo before execution.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Prompt",
+    "value": {
+     "type": "Text",
+     "s": ""
+    },
+    "exposed": true,
+    "desc": "Prompt substituted in workflow text encoders when present."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "API Workflow Path",
+    "port": 1,
+    "value": {
+     "type": "Text",
+     "s": ""
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Prompt",
+    "value": {
+     "type": "Text"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "event",
+    "pos": [
+     0,
+     -300
+    ],
+    "inputs": [],
+    "name": "Generate PBR Map"
+   },
+   {
+    "id": 5,
+    "kind": "math",
+    "pos": [
+     320,
+     -160
+    ],
+    "inputs": [
+     2
+    ],
+    "op": "text_length",
+    "name": "Check Workflow Path"
+   },
+   {
+    "id": 6,
+    "kind": "math",
+    "pos": [
+     640,
+     -160
+    ],
+    "inputs": [
+     5,
+     0
+    ],
+    "op": "greater",
+    "pinValues": [
+     {
+      "type": "Float"
+     },
+     {
+      "type": "Float",
+      "f": 0
+     }
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "action",
+    "pos": [
+     960,
+     -300
+    ],
+    "inputs": [
+     4,
+     6
+    ],
+    "op": "branch",
+    "name": "Workflow Provided"
+   },
+   {
+    "id": 8,
+    "kind": "action",
+    "pos": [
+     1280,
+     -500
+    ],
+    "inputs": [
+     7,
+     0
+    ],
+    "op": "print",
+    "name": "Workflow Required",
+    "pinValues": [
+     {
+      "type": "Exec"
+     },
+     {
+      "type": "Text",
+      "s": "Enter a ComfyUI API workflow path with LoadImage and a single SaveImage for the required map."
+     }
+    ],
+    "inputChannels": [
+     8,
+     0
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "action",
+    "pos": [
+     1280,
+     -240
+    ],
+    "inputs": [
+     7,
+     1,
+     3,
+     0,
+     2
+    ],
+    "op": "comfyui",
+    "name": "Generate Map with ComfyUI",
+    "pinValues": [
+     {
+      "type": "Exec"
+     },
+     {
+      "type": "Image"
+     },
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Float",
+      "f": 0
+     },
+     {
+      "type": "Text"
+     }
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Generated Map",
+    "port": 0,
+    "inputChannels": [
+     8
+    ]
+   }
+  ]
+ }
+}

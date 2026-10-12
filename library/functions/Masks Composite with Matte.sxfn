@@ -1,0 +1,219 @@
+{
+ "format": "shaderixel-function",
+ "name": "Masks Composite with Matte",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Refine a required linear coverage matte, multiply foreground alpha by it, then composite over the background using normal source-over. Outputs composite, isolated foreground and refined matte. Connect a white matte to retain the complete foreground.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Black Point",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Coverage black point (0 to 1)."
+   },
+   {
+    "name": "White Point",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Coverage white point (0 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Background",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Foreground",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Coverage Mask",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Feather Radius",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 0
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Black Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "White Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     200
+    ],
+    "inputs": [
+     3,
+     4,
+     5,
+     6
+    ],
+    "effect": {
+     "effect": "mask_feather_levels"
+    },
+    "paramPinNames": [
+     "radius",
+     "black",
+     "white"
+    ],
+    "name": "Feather and Remap Coverage"
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     2,
+     7
+    ],
+    "effect": {
+     "effect": "mask_apply_coverage"
+    },
+    "paramPinNames": [],
+    "name": "Mask Foreground"
+   },
+   {
+    "id": 9,
+    "kind": "blend",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     1,
+     8,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1,
+    "name": "Normal Source-over"
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Composite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     200
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Masked Foreground",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     400
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Refined Mask",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

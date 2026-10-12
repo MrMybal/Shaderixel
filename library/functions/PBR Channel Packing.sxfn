@@ -1,0 +1,179 @@
+{
+ "format": "shaderixel-function",
+ "name": "PBR Channel Packing",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Pack occlusion, roughness and metalness into ORM, RMA or MRA. Optional height in alpha makes the map appear transparent. Missing inputs use occlusion 1, adjustable roughness and adjustable metalness.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Height in Alpha",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Enable only if the target 3D engine uses this channel."
+   },
+   {
+    "name": "Fallback Roughness",
+    "value": {
+     "type": "Float",
+     "f": 0.6
+    },
+    "exposed": true,
+    "desc": "Value used when no roughness map is connected."
+   },
+   {
+    "name": "Fallback Metalness",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Value used when no metalness map is connected."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Occlusion",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Roughness",
+    "port": 1
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Metalness",
+    "port": 2
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Height",
+    "port": 3
+   },
+   {
+    "id": 5,
+    "kind": "subinput",
+    "pos": [
+     0,
+     720
+    ],
+    "inputs": [],
+    "name": "Layout (0 ORM, 1 RMA, 2 MRA)",
+    "port": 4,
+    "value": {
+     "type": "Int",
+     "f": 0
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Height in Alpha",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Fallback Roughness",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Fallback Metalness",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "effect": {
+     "effect": "texture_empaquetage_pbr"
+    },
+    "paramPinNames": [
+     "disposition",
+     "hauteur_alpha",
+     "rugosite_defaut",
+     "metal_defaut"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Packed Map",
+    "port": 0
+   }
+  ]
+ }
+}

@@ -1,0 +1,243 @@
+{
+ "format": "shaderixel-function",
+ "name": "Scan Paper Cleanup",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Denoise and normalize uneven paper brightness, then remap black and white points. Use a paper radius larger than the strokes; dense dark regions may need lower correction.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Denoise",
+    "value": {
+     "type": "Float",
+     "f": 0.25
+    },
+    "exposed": true,
+    "desc": "Edge-preserving cleanup strength (0 to 1)."
+   },
+   {
+    "name": "Paper Radius",
+    "value": {
+     "type": "Float",
+     "f": 24
+    },
+    "exposed": true,
+    "desc": "Broad Gaussian paper reference (0 to 250 pixels)."
+   },
+   {
+    "name": "Paper Correction",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Local paper brightening (0 to 1). Dense filled areas can be overcorrected."
+   },
+   {
+    "name": "Black Point",
+    "value": {
+     "type": "Float",
+     "f": 0.05
+    },
+    "exposed": true,
+    "desc": "Display-space black point (0 to 0.9)."
+   },
+   {
+    "name": "White Point",
+    "value": {
+     "type": "Float",
+     "f": 0.98
+    },
+    "exposed": true,
+    "desc": "Display-space white point (0.1 to 1); must exceed black point."
+   },
+   {
+    "name": "Monochrome",
+    "value": {
+     "type": "Bool",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Use monochrome or retain scan colors."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Scan",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Denoise",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Paper Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "op": "Paper Correction",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     540
+    ],
+    "inputs": [],
+    "op": "Black Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     720
+    ],
+    "inputs": [],
+    "op": "White Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     900
+    ],
+    "inputs": [],
+    "op": "Monochrome",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2
+    ],
+    "effect": {
+     "effect": "texture_debruitage",
+     "set": {}
+    },
+    "paramPinNames": [
+     "force"
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     8,
+     3
+    ],
+    "effect": {
+     "effect": "gaussian_blur",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     8,
+     9,
+     4,
+     5,
+     6,
+     7
+    ],
+    "effect": {
+     "effect": "scan_paper_normalize",
+     "set": {}
+    },
+    "paramPinNames": [
+     "amount",
+     "black",
+     "white",
+     "monochrome"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Cleaned Scan",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

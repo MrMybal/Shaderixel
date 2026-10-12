@@ -1,0 +1,201 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Filter Screen Print Wear",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Remove ink alpha with deterministic holes and elongated scratches, optionally restricted by a linear coverage mask.",
+ "graph": {
+  "output": 9,
+  "variables": [
+   {
+    "name": "Hole Softness",
+    "value": {
+     "type": "Float",
+     "f": 0.06
+    },
+    "exposed": true,
+    "desc": "Range: 0.001 to 0.3."
+   },
+   {
+    "name": "Scratch Contribution",
+    "value": {
+     "type": "Float",
+     "f": 0.2
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Seed",
+    "value": {
+     "type": "Int",
+     "f": 3.0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 65535."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Ink",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Optional Mask",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Wear Amount",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 0.25
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     450
+    ],
+    "inputs": [],
+    "name": "Hole Scale (px)",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 5.0
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Hole Softness",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Hole Softness"
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Scratch Contribution",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Scratch Contribution"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Seed",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Seed"
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "effect": {
+     "effect": "art_screen_print_wear",
+     "set": {}
+    },
+    "paramPinNames": [
+     "amount",
+     "scale",
+     "softness",
+     "scratches",
+     "seed"
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Screen Print Wear",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     160
+    ],
+    "inputs": [
+     1
+    ],
+    "name": "Original",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

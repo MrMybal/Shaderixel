@@ -1,0 +1,355 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Glowing Panel",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Rounded panel generator with adjustable border and Gaussian glow behind it. Face and bordered face remain separate outputs. Half Size is in pixels; leave document padding for border and glow.",
+ "graph": {
+  "output": 14,
+  "variables": [
+   {
+    "name": "Panel Center (UV)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.5,
+      0.5
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Panel Corner Radius (px)",
+    "value": {
+     "type": "Float",
+     "f": 24
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1024."
+   },
+   {
+    "name": "Panel Edge Softness (px)",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 8."
+   },
+   {
+    "name": "Border Width",
+    "value": {
+     "type": "Int",
+     "f": 2
+    },
+    "exposed": true,
+    "desc": "Square border radius (0 to 32 pixels)."
+   },
+   {
+    "name": "Border Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.1,
+      0.5,
+      1,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA border color."
+   },
+   {
+    "name": "Glow Radius",
+    "value": {
+     "type": "Float",
+     "f": 12
+    },
+    "exposed": true,
+    "desc": "Gaussian sigma (0 to 64 pixels)."
+   },
+   {
+    "name": "Glow Strength",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Glow alpha gain (0 to 4)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Panel Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.04,
+      0.1,
+      0.24,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Panel Center (UV)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Panel Half Size (px)",
+    "port": 1,
+    "value": {
+     "type": "Vec2",
+     "f": [
+      240,
+      120
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Panel Corner Radius (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Panel Edge Softness (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "name": "Graph Rounded Panel",
+    "effect": {
+     "effect": "graph_draw_rounded_panel",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color",
+     "center",
+     "half_size",
+     "radius",
+     "softness"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Border Width",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Border Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6,
+     7,
+     8
+    ],
+    "name": "Panel Border",
+    "effect": {
+     "effect": "logo_soft_outline",
+     "set": {}
+    },
+    "paramPinNames": [
+     "width",
+     "color"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "subinput",
+    "pos": [
+     0,
+     320
+    ],
+    "inputs": [],
+    "name": "Glow Color",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.02,
+      0.35,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "id": 11,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Glow Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "varget",
+    "pos": [
+     320,
+     960
+    ],
+    "inputs": [],
+    "op": "Glow Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     9,
+     10,
+     11,
+     12
+    ],
+    "name": "Panel Glow",
+    "effect": {
+     "effect": "logo_soft_glow",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color",
+     "radius",
+     "strength"
+    ]
+   },
+   {
+    "id": 14,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     13
+    ],
+    "name": "Glowing Panel",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 15,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     160
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Panel Face",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 16,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     160
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Panel and Border",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

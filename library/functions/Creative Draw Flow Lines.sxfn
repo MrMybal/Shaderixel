@@ -1,0 +1,240 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Draw Flow Lines",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Curved contours of a smooth directional field with gradient-corrected stroke width.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Line Width (px)",
+    "value": {
+     "type": "Float",
+     "f": 1.5
+    },
+    "exposed": true,
+    "desc": "Range: 0.2 to 16."
+   },
+   {
+    "name": "Flow Scale (px)",
+    "value": {
+     "type": "Float",
+     "f": 160.0
+    },
+    "exposed": true,
+    "desc": "Range: 4 to 2048."
+   },
+   {
+    "name": "Direction (degrees)",
+    "value": {
+     "type": "Float",
+     "f": 0.0
+    },
+    "exposed": true,
+    "desc": "Range: -180 to 180."
+   },
+   {
+    "name": "Seed",
+    "value": {
+     "type": "Int",
+     "f": 4.0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 65535."
+   },
+   {
+    "name": "Line Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.015,
+      0.1,
+      0.18,
+      1.0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Background Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.66,
+      0.85,
+      0.91,
+      1.0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Line Spacing (px)",
+    "port": 0,
+    "value": {
+     "type": "Float",
+     "f": 14.0
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Line Width (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Line Width (px)"
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Flow Scale (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Flow Scale (px)"
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Bend Amplitude (px)",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 70.0
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Direction (degrees)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Direction (degrees)"
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     450
+    ],
+    "inputs": [],
+    "op": "Seed",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Seed"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     600
+    ],
+    "inputs": [],
+    "op": "Line Color",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Line Color"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     750
+    ],
+    "inputs": [],
+    "op": "Background Color",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Background Color"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "effect": {
+     "effect": "draw_flow_lines",
+     "set": {}
+    },
+    "paramPinNames": [
+     "spacing",
+     "width",
+     "scale",
+     "bend",
+     "angle",
+     "seed",
+     "line",
+     "background"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Flow Lines",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

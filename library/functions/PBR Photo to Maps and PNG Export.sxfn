@@ -1,0 +1,1034 @@
+{
+ "format": "shaderixel-function",
+ "name": "PBR Photo to Maps and PNG Export",
+ "kind": "tool",
+ "applyMode": false,
+ "description": "Extract and Export estimates, bakes and exports albedo, height, normals, occlusion, roughness, manual metalness and ORM. File prefix without extension. PNG is 8-bit; disable sRGB for data maps in the 3D engine. For precise height, use a 16-bit document export that keeps sRGB encoding.",
+ "graph": {
+  "output": 31,
+  "variables": [
+   {
+    "name": "Denoise",
+    "value": {
+     "type": "Float",
+     "f": 0.65
+    },
+    "exposed": true,
+    "desc": "Cleanup strength before extraction (0 to 1)."
+   },
+   {
+    "name": "Lighting Radius",
+    "value": {
+     "type": "Float",
+     "f": 48
+    },
+    "exposed": true,
+    "desc": "Blur radius in pixels (0 to 250): separates shading from detail."
+   },
+   {
+    "name": "Lighting Correction",
+    "value": {
+     "type": "Float",
+     "f": 0.8
+    },
+    "exposed": true,
+    "desc": "Approximate removal of photo lighting (0 to 1)."
+   },
+   {
+    "name": "Large-Scale Shapes",
+    "value": {
+     "type": "Float",
+     "f": 0.2
+    },
+    "exposed": true,
+    "desc": "Weight of large-scale luminance changes in the height map (0 to 2)."
+   },
+   {
+    "name": "Invert Height",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "White means high by default; invert to suit the material."
+   },
+   {
+    "name": "Roughness Detail",
+    "value": {
+     "type": "Float",
+     "f": 1.5
+    },
+    "exposed": true,
+    "desc": "Weight of local contrast in roughness (0 to 8)."
+   },
+   {
+    "name": "Uniform Metalness",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Manual choice (0: dielectric, 1: metal); a photo alone cannot determine metalness."
+   },
+   {
+    "name": "DirectX Normals",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Off: OpenGL; on: flip green for DirectX."
+   },
+   {
+    "name": "Occlusion Radius",
+    "value": {
+     "type": "Float",
+     "f": 16
+    },
+    "exposed": true,
+    "desc": "Neighborhood radius in pixels (1 to 128)."
+   },
+   {
+    "name": "Occlusion Strength",
+    "value": {
+     "type": "Float",
+     "f": 4
+    },
+    "exposed": true,
+    "desc": "Estimated local occlusion strength (0 to 32)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Detail Height",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 1.5
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Normal Strength",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 4
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Base Roughness",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 0.6
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Denoise",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Lighting Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Lighting Correction",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Large-Scale Shapes",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Invert Height",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Roughness Detail",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "varget",
+    "pos": [
+     320,
+     960
+    ],
+    "inputs": [],
+    "op": "Uniform Metalness",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     5
+    ],
+    "effect": {
+     "effect": "texture_debruitage"
+    },
+    "paramPinNames": [
+     "force"
+    ]
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     12,
+     6
+    ],
+    "effect": {
+     "effect": "gaussian_blur"
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 14,
+    "kind": "effect",
+    "pos": [
+     960,
+     200
+    ],
+    "inputs": [
+     12
+    ],
+    "effect": {
+     "effect": "gaussian_blur",
+     "set": {
+      "radius": 3
+     }
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 15,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     12,
+     13,
+     7
+    ],
+    "effect": {
+     "effect": "texture_albedo_photo"
+    },
+    "paramPinNames": [
+     "correction"
+    ]
+   },
+   {
+    "id": 16,
+    "kind": "effect",
+    "pos": [
+     1280,
+     200
+    ],
+    "inputs": [
+     12,
+     13,
+     2,
+     8,
+     9
+    ],
+    "effect": {
+     "effect": "texture_hauteur_photo"
+    },
+    "paramPinNames": [
+     "detail",
+     "forme",
+     "inverser"
+    ]
+   },
+   {
+    "id": 17,
+    "kind": "effect",
+    "pos": [
+     1280,
+     400
+    ],
+    "inputs": [
+     12,
+     14,
+     4,
+     10
+    ],
+    "effect": {
+     "effect": "texture_rugosite_photo"
+    },
+    "paramPinNames": [
+     "base",
+     "details"
+    ]
+   },
+   {
+    "id": 18,
+    "kind": "effect",
+    "pos": [
+     1280,
+     600
+    ],
+    "inputs": [
+     11
+    ],
+    "effect": {
+     "effect": "texture_draw_carte_constante"
+    },
+    "paramPinNames": [
+     "valeur"
+    ],
+    "name": "Selected Metalness"
+   },
+   {
+    "id": 19,
+    "kind": "varget",
+    "pos": [
+     320,
+     1120
+    ],
+    "inputs": [],
+    "op": "DirectX Normals",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 20,
+    "kind": "varget",
+    "pos": [
+     320,
+     1280
+    ],
+    "inputs": [],
+    "op": "Occlusion Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 21,
+    "kind": "varget",
+    "pos": [
+     320,
+     1440
+    ],
+    "inputs": [],
+    "op": "Occlusion Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 22,
+    "kind": "effect",
+    "pos": [
+     1600,
+     200
+    ],
+    "inputs": [
+     16,
+     3,
+     19
+    ],
+    "effect": {
+     "effect": "texture_normales_hauteur"
+    },
+    "paramPinNames": [
+     "force",
+     "directx"
+    ]
+   },
+   {
+    "id": 23,
+    "kind": "effect",
+    "pos": [
+     1600,
+     400
+    ],
+    "inputs": [
+     16,
+     20,
+     21
+    ],
+    "effect": {
+     "effect": "texture_ao_hauteur"
+    },
+    "paramPinNames": [
+     "rayon",
+     "force"
+    ]
+   },
+   {
+    "id": 24,
+    "kind": "effect",
+    "pos": [
+     1600,
+     600
+    ],
+    "inputs": [
+     16
+    ],
+    "effect": {
+     "effect": "texture_courbure_hauteur"
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 25,
+    "kind": "effect",
+    "pos": [
+     1920,
+     400
+    ],
+    "inputs": [
+     23,
+     17,
+     18,
+     16
+    ],
+    "effect": {
+     "effect": "texture_empaquetage_pbr"
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 26,
+    "kind": "subinput",
+    "pos": [
+     0,
+     720
+    ],
+    "inputs": [],
+    "name": "File Prefix",
+    "port": 4,
+    "value": {
+     "type": "Text",
+     "s": "material"
+    }
+   },
+   {
+    "id": 27,
+    "kind": "event",
+    "pos": [
+     0,
+     -300
+    ],
+    "inputs": [],
+    "name": "Extract and Export"
+   },
+   {
+    "id": 28,
+    "kind": "math",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     26,
+     0
+    ],
+    "op": "concat",
+    "name": "File Albedo",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_albedo.png"
+     }
+    ]
+   },
+   {
+    "id": 29,
+    "kind": "action",
+    "pos": [
+     2560,
+     0
+    ],
+    "inputs": [
+     27,
+     15
+    ],
+    "op": "bake",
+    "name": "Bake Albedo"
+   },
+   {
+    "id": 30,
+    "kind": "action",
+    "pos": [
+     2880,
+     0
+    ],
+    "inputs": [
+     29,
+     29,
+     28
+    ],
+    "op": "export_png",
+    "name": "Export Albedo",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 31,
+    "kind": "suboutput",
+    "pos": [
+     3200,
+     0
+    ],
+    "inputs": [
+     29
+    ],
+    "name": "Albedo",
+    "port": 0,
+    "inputChannels": [
+     8
+    ]
+   },
+   {
+    "id": 32,
+    "kind": "math",
+    "pos": [
+     2240,
+     200
+    ],
+    "inputs": [
+     26,
+     0
+    ],
+    "op": "concat",
+    "name": "File Height",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_height.png"
+     }
+    ]
+   },
+   {
+    "id": 33,
+    "kind": "action",
+    "pos": [
+     2560,
+     200
+    ],
+    "inputs": [
+     30,
+     16
+    ],
+    "op": "bake",
+    "name": "Bake Height"
+   },
+   {
+    "id": 34,
+    "kind": "action",
+    "pos": [
+     2880,
+     200
+    ],
+    "inputs": [
+     33,
+     33,
+     32
+    ],
+    "op": "export_png",
+    "name": "Export Height",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 35,
+    "kind": "suboutput",
+    "pos": [
+     3200,
+     200
+    ],
+    "inputs": [
+     33
+    ],
+    "name": "Height",
+    "port": 1,
+    "inputChannels": [
+     8
+    ]
+   },
+   {
+    "id": 36,
+    "kind": "math",
+    "pos": [
+     2240,
+     400
+    ],
+    "inputs": [
+     26,
+     0
+    ],
+    "op": "concat",
+    "name": "File Normals",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_normal.png"
+     }
+    ]
+   },
+   {
+    "id": 37,
+    "kind": "action",
+    "pos": [
+     2560,
+     400
+    ],
+    "inputs": [
+     34,
+     22
+    ],
+    "op": "bake",
+    "name": "Bake Normals"
+   },
+   {
+    "id": 38,
+    "kind": "action",
+    "pos": [
+     2880,
+     400
+    ],
+    "inputs": [
+     37,
+     37,
+     36
+    ],
+    "op": "export_png",
+    "name": "Export Normals",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 39,
+    "kind": "suboutput",
+    "pos": [
+     3200,
+     400
+    ],
+    "inputs": [
+     37
+    ],
+    "name": "Normals",
+    "port": 2,
+    "inputChannels": [
+     8
+    ]
+   },
+   {
+    "id": 40,
+    "kind": "math",
+    "pos": [
+     2240,
+     600
+    ],
+    "inputs": [
+     26,
+     0
+    ],
+    "op": "concat",
+    "name": "File Occlusion",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_occlusion.png"
+     }
+    ]
+   },
+   {
+    "id": 41,
+    "kind": "action",
+    "pos": [
+     2560,
+     600
+    ],
+    "inputs": [
+     38,
+     23
+    ],
+    "op": "bake",
+    "name": "Bake Occlusion"
+   },
+   {
+    "id": 42,
+    "kind": "action",
+    "pos": [
+     2880,
+     600
+    ],
+    "inputs": [
+     41,
+     41,
+     40
+    ],
+    "op": "export_png",
+    "name": "Export Occlusion",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 43,
+    "kind": "suboutput",
+    "pos": [
+     3200,
+     600
+    ],
+    "inputs": [
+     41
+    ],
+    "name": "Occlusion",
+    "port": 3,
+    "inputChannels": [
+     8
+    ]
+   },
+   {
+    "id": 44,
+    "kind": "math",
+    "pos": [
+     2240,
+     800
+    ],
+    "inputs": [
+     26,
+     0
+    ],
+    "op": "concat",
+    "name": "File Roughness",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_roughness.png"
+     }
+    ]
+   },
+   {
+    "id": 45,
+    "kind": "action",
+    "pos": [
+     2560,
+     800
+    ],
+    "inputs": [
+     42,
+     17
+    ],
+    "op": "bake",
+    "name": "Bake Roughness"
+   },
+   {
+    "id": 46,
+    "kind": "action",
+    "pos": [
+     2880,
+     800
+    ],
+    "inputs": [
+     45,
+     45,
+     44
+    ],
+    "op": "export_png",
+    "name": "Export Roughness",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 47,
+    "kind": "suboutput",
+    "pos": [
+     3200,
+     800
+    ],
+    "inputs": [
+     45
+    ],
+    "name": "Roughness",
+    "port": 4,
+    "inputChannels": [
+     8
+    ]
+   },
+   {
+    "id": 48,
+    "kind": "math",
+    "pos": [
+     2240,
+     1000
+    ],
+    "inputs": [
+     26,
+     0
+    ],
+    "op": "concat",
+    "name": "File Metalness",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_metal.png"
+     }
+    ]
+   },
+   {
+    "id": 49,
+    "kind": "action",
+    "pos": [
+     2560,
+     1000
+    ],
+    "inputs": [
+     46,
+     18
+    ],
+    "op": "bake",
+    "name": "Bake Metalness"
+   },
+   {
+    "id": 50,
+    "kind": "action",
+    "pos": [
+     2880,
+     1000
+    ],
+    "inputs": [
+     49,
+     49,
+     48
+    ],
+    "op": "export_png",
+    "name": "Export Metalness",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 51,
+    "kind": "suboutput",
+    "pos": [
+     3200,
+     1000
+    ],
+    "inputs": [
+     49
+    ],
+    "name": "Metalness",
+    "port": 5,
+    "inputChannels": [
+     8
+    ]
+   },
+   {
+    "id": 52,
+    "kind": "math",
+    "pos": [
+     2240,
+     1200
+    ],
+    "inputs": [
+     26,
+     0
+    ],
+    "op": "concat",
+    "name": "File ORM",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_orm.png"
+     }
+    ]
+   },
+   {
+    "id": 53,
+    "kind": "action",
+    "pos": [
+     2560,
+     1200
+    ],
+    "inputs": [
+     50,
+     25
+    ],
+    "op": "bake",
+    "name": "Bake ORM"
+   },
+   {
+    "id": 54,
+    "kind": "action",
+    "pos": [
+     2880,
+     1200
+    ],
+    "inputs": [
+     53,
+     53,
+     52
+    ],
+    "op": "export_png",
+    "name": "Export ORM",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 55,
+    "kind": "suboutput",
+    "pos": [
+     3200,
+     1200
+    ],
+    "inputs": [
+     53
+    ],
+    "name": "ORM",
+    "port": 6,
+    "inputChannels": [
+     8
+    ]
+   }
+  ]
+ }
+}

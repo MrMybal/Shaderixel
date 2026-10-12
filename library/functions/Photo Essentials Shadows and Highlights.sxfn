@@ -1,0 +1,250 @@
+{
+ "format": "shaderixel-function",
+ "name": "Photo Essentials Shadows and Highlights",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Adjust shadows and highlights with optional mask. Also output shadow/highlight selection masks as linear coverage for subsequent selective processing. No reconstruction of clipped detail.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Strength",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Mix strength against the original (0 to 1)."
+   },
+   {
+    "name": "Exposure",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Exposure offset in stops (-5 to 5)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Shadows",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 0.3
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Highlights",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": -0.25
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Mask",
+    "port": 3,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Exposure",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     6
+    ],
+    "effect": {
+     "effect": "photo_tone_balance"
+    },
+    "paramPinNames": [
+     "shadows",
+     "highlights",
+     "exposure"
+    ],
+    "name": "Shadow and Highlight Balance"
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     7,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "photo_masked_mix"
+    },
+    "paramPinNames": [
+     "amount"
+    ],
+    "name": "Mix Grade through Mask"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     640,
+     200
+    ],
+    "inputs": [
+     1
+    ],
+    "effect": {
+     "effect": "mask_luminance_selection",
+     "set": {
+      "low": 0,
+      "high": 0.4,
+      "softness": 0.1
+     }
+    },
+    "paramPinNames": [],
+    "name": "Shadow Selection"
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     640,
+     400
+    ],
+    "inputs": [
+     1
+    ],
+    "effect": {
+     "effect": "mask_luminance_selection",
+     "set": {
+      "low": 0.6,
+      "high": 1,
+      "softness": 0.1
+     }
+    },
+    "paramPinNames": [],
+    "name": "Highlight Selection"
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Balanced Photo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     200
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Shadow Mask",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 13,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     400
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Highlight Mask",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

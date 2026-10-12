@@ -1,0 +1,190 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Dot Grid",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Repeating antialiased dots in document pixels with phase and transparent background. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+ "graph": {
+  "output": 8,
+  "variables": [
+   {
+    "name": "Background Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0,
+      0,
+      0,
+      0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Dot Radius (px)",
+    "value": {
+     "type": "Float",
+     "f": 4
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 64."
+   },
+   {
+    "name": "Edge Softness (px)",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 8."
+   },
+   {
+    "name": "Offset (px)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0,
+      0
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: -256 to 256."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Dot Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.8,
+      0.15,
+      0.025,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Background Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Cell Spacing (px)",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 24
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Dot Radius (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Edge Softness (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Offset (px)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "name": "Graph Dot Grid",
+    "effect": {
+     "effect": "graph_draw_dot_grid",
+     "set": {}
+    },
+    "paramPinNames": [
+     "dot_color",
+     "background",
+     "spacing",
+     "radius",
+     "softness",
+     "offset"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Layer",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

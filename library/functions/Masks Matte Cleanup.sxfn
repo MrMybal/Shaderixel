@@ -1,0 +1,244 @@
+{
+ "format": "shaderixel-function",
+ "name": "Masks Matte Cleanup",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Expand or contract a linear coverage mask, then feather and remap levels. Outputs refined coverage and its inverse. For imported numeric grayscale PNG masks, convert first with Masks Imported Matte to Coverage.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Operation",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "0: expand; 1: contract. Square neighborhood."
+   },
+   {
+    "name": "Black Point",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Coverage mapped to zero (0 to 1)."
+   },
+   {
+    "name": "White Point",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Coverage mapped to one (0 to 1)."
+   },
+   {
+    "name": "Coverage Curve",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Coverage power (0.1 to 4)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Coverage Mask",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Morphology Radius",
+    "port": 1,
+    "value": {
+     "type": "Int",
+     "f": 1
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Feather Radius",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 1
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Operation",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Black Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "White Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Coverage Curve",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     4
+    ],
+    "effect": {
+     "effect": "mask_morphology"
+    },
+    "paramPinNames": [
+     "radius",
+     "operation"
+    ],
+    "name": "Expand or Contract"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     8,
+     3,
+     5,
+     6,
+     7
+    ],
+    "effect": {
+     "effect": "mask_feather_levels"
+    },
+    "paramPinNames": [
+     "radius",
+     "black",
+     "white",
+     "gamma"
+    ],
+    "name": "Feather and Levels"
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     1280,
+     200
+    ],
+    "inputs": [
+     9
+    ],
+    "effect": {
+     "effect": "mask_feather_levels",
+     "set": {
+      "radius": 0,
+      "invert": 1
+     }
+    },
+    "paramPinNames": [],
+    "name": "Invert Refined Mask"
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Refined Mask",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     200
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Inverse Mask",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

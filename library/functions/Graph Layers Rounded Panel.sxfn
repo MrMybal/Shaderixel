@@ -1,0 +1,164 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Layers Rounded Panel",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Native-node rounded rectangle signed distance with pixel dimensions and transparent edges. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+ "graph": {
+  "output": 7,
+  "variables": [
+   {
+    "name": "Center (UV)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.5,
+      0.5
+     ]
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Corner Radius (px)",
+    "value": {
+     "type": "Float",
+     "f": 24
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1024."
+   },
+   {
+    "name": "Edge Softness (px)",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 8."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Panel Color",
+    "port": 0,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.04,
+      0.1,
+      0.24,
+      1
+     ]
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Center (UV)",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Half Size (px)",
+    "port": 1,
+    "value": {
+     "type": "Vec2",
+     "f": [
+      240,
+      120
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Corner Radius (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Edge Softness (px)",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "name": "Graph Rounded Panel",
+    "effect": {
+     "effect": "graph_draw_rounded_panel",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color",
+     "center",
+     "half_size",
+     "radius",
+     "softness"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Layer",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

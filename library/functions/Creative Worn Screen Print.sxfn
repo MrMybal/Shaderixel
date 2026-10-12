@@ -1,0 +1,388 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Worn Screen Print",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Halftone colored ink, irregular spread and mask-controlled missing ink over procedural paper. Outputs include transparent ink for reuse.",
+ "graph": {
+  "output": 16,
+  "variables": [
+   {
+    "name": "Screen Spacing (px)",
+    "value": {
+     "type": "Float",
+     "f": 8
+    },
+    "exposed": true,
+    "desc": "Halftone cell spacing (2 to 128 pixels)."
+   },
+   {
+    "name": "Screen Angle",
+    "value": {
+     "type": "Float",
+     "f": 45
+    },
+    "exposed": true,
+    "desc": "Screen angle in degrees (-180 to 180)."
+   },
+   {
+    "name": "Ink Spread (px)",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Spread radius (0 to 12 pixels)."
+   },
+   {
+    "name": "Wear Scale (px)",
+    "value": {
+     "type": "Float",
+     "f": 5
+    },
+    "exposed": true,
+    "desc": "Missing ink noise scale (1 to 256 pixels)."
+   },
+   {
+    "name": "Wear Seed",
+    "value": {
+     "type": "Int",
+     "f": 3
+    },
+    "exposed": true,
+    "desc": "Deterministic wear seed (0 to 65535)."
+   },
+   {
+    "name": "Paper Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.9,
+      0.84,
+      0.7,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA paper color."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Optional Wear Mask",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Ink Color",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.08,
+      0.24,
+      0.36,
+      1
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     450
+    ],
+    "inputs": [],
+    "name": "Wear Amount",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 0.25
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Screen Spacing (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Screen Spacing (px)"
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Screen Angle",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Screen Angle"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Ink Spread (px)",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Ink Spread (px)"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     450
+    ],
+    "inputs": [],
+    "op": "Wear Scale (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Wear Scale (px)"
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     600
+    ],
+    "inputs": [],
+    "op": "Wear Seed",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Wear Seed"
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     750
+    ],
+    "inputs": [],
+    "op": "Paper Color",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Paper Color"
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     5,
+     6,
+     3
+    ],
+    "effect": {
+     "effect": "print_halftone_screen",
+     "set": {
+      "transparent_paper": 1
+     }
+    },
+    "paramPinNames": [
+     "spacing",
+     "angle",
+     "ink"
+    ]
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     11,
+     7
+    ],
+    "effect": {
+     "effect": "art_ink_bleed",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     12,
+     2,
+     4,
+     8,
+     9
+    ],
+    "effect": {
+     "effect": "art_screen_print_wear",
+     "set": {}
+    },
+    "paramPinNames": [
+     "amount",
+     "scale",
+     "seed"
+    ]
+   },
+   {
+    "id": 14,
+    "kind": "effect",
+    "pos": [
+     640,
+     400
+    ],
+    "inputs": [
+     10
+    ],
+    "effect": {
+     "effect": "print_draw_paper",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color"
+    ]
+   },
+   {
+    "id": 15,
+    "kind": "effect",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     14,
+     13,
+     0
+    ],
+    "effect": {
+     "effect": "print_blend_ink",
+     "set": {}
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 16,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     15
+    ],
+    "name": "Worn Screen Print",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 17,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     160
+    ],
+    "inputs": [
+     13
+    ],
+    "name": "Worn Ink",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 18,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     320
+    ],
+    "inputs": [
+     11
+    ],
+    "name": "Halftone Ink",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 19,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     480
+    ],
+    "inputs": [
+     14
+    ],
+    "name": "Paper",
+    "port": 3,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

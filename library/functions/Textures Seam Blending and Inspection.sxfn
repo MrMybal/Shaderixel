@@ -1,0 +1,204 @@
+{
+ "format": "shaderixel-function",
+ "name": "Textures Seam Blending and Inspection",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Blend opposite texture edges, output a wrapped offset for seam inspection and a tiled preview. At strength 1, opposite edge pixels match; patterns may still need retouching. Apply before generating normals.",
+ "graph": {
+  "output": 9,
+  "variables": [
+   {
+    "name": "Seam Blend Strength",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Strength 1: equalize opposite edge pixels; 0: original texture."
+   },
+   {
+    "name": "Repeats",
+    "value": {
+     "type": "Int",
+     "f": 3
+    },
+    "exposed": true,
+    "desc": "Number of tiles per side in the preview (1 to 12)."
+   },
+   {
+    "name": "UV Offset",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.5,
+      0.5
+     ]
+    },
+    "exposed": true,
+    "desc": "Wrapped offset for inspecting seams."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Texture",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Seam Width",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 0.08
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Seam Blend Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Repeats",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "UV Offset",
+    "value": {
+     "type": "Vec2"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3
+    ],
+    "effect": {
+     "effect": "texture_raccord_bords"
+    },
+    "paramPinNames": [
+     "largeur",
+     "force"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     960,
+     200
+    ],
+    "inputs": [
+     6,
+     5
+    ],
+    "effect": {
+     "effect": "texture_decalage_boucle"
+    },
+    "paramPinNames": [
+     "decalage"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     960,
+     400
+    ],
+    "inputs": [
+     6,
+     4
+    ],
+    "effect": {
+     "effect": "texture_apercu_repetition"
+    },
+    "paramPinNames": [
+     "repetitions"
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Seam-Blended Texture",
+    "port": 0
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     200
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Offset Seams",
+    "port": 1
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     400
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Tiled Preview",
+    "port": 2
+   }
+  ]
+ }
+}

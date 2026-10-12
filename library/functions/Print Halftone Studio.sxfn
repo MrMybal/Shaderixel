@@ -1,0 +1,199 @@
+{
+ "format": "shaderixel-function",
+ "name": "Print Halftone Studio",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Pixel-scale dots, lines or crosshatch with screen angle, ink color, density curve and optional transparent paper. Tone is evaluated per pixel; large dots do not average a cell.",
+ "graph": {
+  "output": 9,
+  "variables": [
+   {
+    "name": "Screen Angle",
+    "value": {
+     "type": "Float",
+     "f": 45
+    },
+    "exposed": true,
+    "desc": "Rotation in degrees."
+   },
+   {
+    "name": "Pattern",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "0 dots, 1 lines, 2 crosshatch."
+   },
+   {
+    "name": "Ink Curve",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Coverage exponent (0.1 to 4)."
+   },
+   {
+    "name": "Transparent Paper",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Return ink on transparency instead of white."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Cell Spacing",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 8
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Ink Color",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.01,
+      0.01,
+      0.01,
+      1
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Screen Angle",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Pattern",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "op": "Ink Curve",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     540
+    ],
+    "inputs": [],
+    "op": "Transparent Paper",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "effect": {
+     "effect": "print_halftone_screen",
+     "set": {}
+    },
+    "paramPinNames": [
+     "spacing",
+     "ink",
+     "angle",
+     "pattern",
+     "gamma",
+     "transparent_paper"
+    ]
+   },
+   {
+    "id": 9,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Screened Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

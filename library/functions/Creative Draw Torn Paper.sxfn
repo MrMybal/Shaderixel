@@ -1,0 +1,266 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Draw Torn Paper",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Rotatable paper cutout with multiscale torn edges, fine grain and transparent surroundings.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Paper Center (UV)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.5,
+      0.5
+     ]
+    },
+    "exposed": true,
+    "desc": "Component range: 0 to 1."
+   },
+   {
+    "name": "Rotation (degrees)",
+    "value": {
+     "type": "Float",
+     "f": -6.0
+    },
+    "exposed": true,
+    "desc": "Range: -180 to 180."
+   },
+   {
+    "name": "Tear Amplitude (px)",
+    "value": {
+     "type": "Float",
+     "f": 12.0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 128."
+   },
+   {
+    "name": "Tear Scale (px)",
+    "value": {
+     "type": "Float",
+     "f": 32.0
+    },
+    "exposed": true,
+    "desc": "Range: 2 to 256."
+   },
+   {
+    "name": "Edge Softness (px)",
+    "value": {
+     "type": "Float",
+     "f": 1.2
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 8."
+   },
+   {
+    "name": "Paper Grain",
+    "value": {
+     "type": "Float",
+     "f": 0.03
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 0.3."
+   },
+   {
+    "name": "Seed",
+    "value": {
+     "type": "Int",
+     "f": 9.0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 65535."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Paper Center (UV)",
+    "value": {
+     "type": "Vec2"
+    },
+    "name": "Get Paper Center (UV)"
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Paper Half Size (UV)",
+    "port": 0,
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.35,
+      0.35
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Rotation (degrees)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Rotation (degrees)"
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Tear Amplitude (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Tear Amplitude (px)"
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     450
+    ],
+    "inputs": [],
+    "op": "Tear Scale (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Tear Scale (px)"
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     600
+    ],
+    "inputs": [],
+    "op": "Edge Softness (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Edge Softness (px)"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     750
+    ],
+    "inputs": [],
+    "op": "Paper Grain",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Paper Grain"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     900
+    ],
+    "inputs": [],
+    "op": "Seed",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Seed"
+   },
+   {
+    "id": 9,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Paper Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.9,
+      0.83,
+      0.67,
+      1.0
+     ]
+    }
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8,
+     9
+    ],
+    "effect": {
+     "effect": "draw_torn_paper",
+     "set": {}
+    },
+    "paramPinNames": [
+     "center",
+     "half_size",
+     "angle",
+     "roughness",
+     "scale",
+     "softness",
+     "grain",
+     "seed",
+     "color"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Torn Paper",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

@@ -1,0 +1,332 @@
+{
+ "format": "shaderixel-function",
+ "name": "Print Halftone Variants Export",
+ "kind": "tool",
+ "applyMode": false,
+ "description": "Export one PNG per cell spacing. Default spacings 4, 8 and 12 pixels; suffixes use array indices. The last result and current spacing are retained. Existing output filenames may be overwritten.",
+ "graph": {
+  "output": 17,
+  "variables": [
+   {
+    "name": "Current Spacing",
+    "value": {
+     "type": "Float",
+     "f": 8
+    },
+    "exposed": true,
+    "desc": "Loop-controlled spacing (2 to 128 pixels), retained after export."
+   },
+   {
+    "name": "Screen Angle",
+    "value": {
+     "type": "Float",
+     "f": 45
+    },
+    "exposed": true,
+    "desc": "Degrees."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Cell Spacings",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "array": true,
+     "items": [
+      [
+       4,
+       0,
+       0,
+       0
+      ],
+      [
+       8,
+       0,
+       0,
+       0
+      ],
+      [
+       12,
+       0,
+       0,
+       0
+      ]
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "File Prefix",
+    "port": 2,
+    "value": {
+     "type": "Text",
+     "s": "halftone"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Ink Color",
+    "port": 3,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.01,
+      0.01,
+      0.01,
+      1
+     ]
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Current Spacing",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Screen Angle",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     5,
+     4,
+     6
+    ],
+    "effect": {
+     "effect": "print_halftone_screen",
+     "set": {}
+    },
+    "paramPinNames": [
+     "spacing",
+     "ink",
+     "angle"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "event",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "name": "Export Halftone Variants"
+   },
+   {
+    "id": 9,
+    "kind": "action",
+    "pos": [
+     640,
+     180
+    ],
+    "inputs": [
+     8,
+     2
+    ],
+    "op": "foreach",
+    "name": "For Each Spacing"
+   },
+   {
+    "id": 10,
+    "kind": "varset",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     9,
+     9
+    ],
+    "op": "Current Spacing",
+    "value": {
+     "type": "Float"
+    },
+    "inputChannels": [
+     0,
+     8
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "math",
+    "pos": [
+     960,
+     180
+    ],
+    "inputs": [
+     9
+    ],
+    "op": "to_string",
+    "inputChannels": [
+     16
+    ]
+   },
+   {
+    "id": 12,
+    "kind": "math",
+    "pos": [
+     320,
+     540
+    ],
+    "inputs": [
+     3,
+     0
+    ],
+    "op": "concat",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_spacing_"
+     }
+    ]
+   },
+   {
+    "id": 13,
+    "kind": "math",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     12,
+     11
+    ],
+    "op": "concat"
+   },
+   {
+    "id": 14,
+    "kind": "math",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     13,
+     0
+    ],
+    "op": "concat",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": ".png"
+     }
+    ]
+   },
+   {
+    "id": 15,
+    "kind": "action",
+    "pos": [
+     1280,
+     180
+    ],
+    "inputs": [
+     10,
+     7
+    ],
+    "op": "bake"
+   },
+   {
+    "id": 16,
+    "kind": "action",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     15,
+     15,
+     14
+    ],
+    "op": "export_png",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 17,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     180
+    ],
+    "inputs": [
+     15
+    ],
+    "name": "Last Exported Variant",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     8
+    ]
+   }
+  ]
+ }
+}

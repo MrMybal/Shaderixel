@@ -1,0 +1,589 @@
+{
+ "format": "shaderixel-function",
+ "name": "PBR Photo to Maps",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Estimate seven maps from a photo: albedo, height, normals, occlusion, roughness, manually chosen metalness and ORM. Shading and color can be confused with surface relief. Data maps preserve numeric values through Shaderixel sRGB PNG export; disable sRGB in the 3D engine for all maps except albedo.",
+ "graph": {
+  "output": 26,
+  "variables": [
+   {
+    "name": "Denoise",
+    "value": {
+     "type": "Float",
+     "f": 0.65
+    },
+    "exposed": true,
+    "desc": "Cleanup strength before extraction (0 to 1)."
+   },
+   {
+    "name": "Lighting Radius",
+    "value": {
+     "type": "Float",
+     "f": 48
+    },
+    "exposed": true,
+    "desc": "Blur radius in pixels (0 to 250): separates shading from detail."
+   },
+   {
+    "name": "Lighting Correction",
+    "value": {
+     "type": "Float",
+     "f": 0.8
+    },
+    "exposed": true,
+    "desc": "Approximate removal of photo lighting (0 to 1)."
+   },
+   {
+    "name": "Large-Scale Shapes",
+    "value": {
+     "type": "Float",
+     "f": 0.2
+    },
+    "exposed": true,
+    "desc": "Weight of large-scale luminance changes in the height map (0 to 2)."
+   },
+   {
+    "name": "Invert Height",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "White means high by default; invert to suit the material."
+   },
+   {
+    "name": "Roughness Detail",
+    "value": {
+     "type": "Float",
+     "f": 1.5
+    },
+    "exposed": true,
+    "desc": "Weight of local contrast in roughness (0 to 8)."
+   },
+   {
+    "name": "Uniform Metalness",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Manual choice (0: dielectric, 1: metal); a photo alone cannot determine metalness."
+   },
+   {
+    "name": "DirectX Normals",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Off: OpenGL; on: flip green for DirectX."
+   },
+   {
+    "name": "Occlusion Radius",
+    "value": {
+     "type": "Float",
+     "f": 16
+    },
+    "exposed": true,
+    "desc": "Neighborhood radius in pixels (1 to 128)."
+   },
+   {
+    "name": "Occlusion Strength",
+    "value": {
+     "type": "Float",
+     "f": 4
+    },
+    "exposed": true,
+    "desc": "Estimated local occlusion strength (0 to 32)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Photo",
+    "port": 0
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Detail Height",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 1.5
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Normal Strength",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 4
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Base Roughness",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 0.6
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Denoise",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Lighting Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Lighting Correction",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Large-Scale Shapes",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Invert Height",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     800
+    ],
+    "inputs": [],
+    "op": "Roughness Detail",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "varget",
+    "pos": [
+     320,
+     960
+    ],
+    "inputs": [],
+    "op": "Uniform Metalness",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     5
+    ],
+    "effect": {
+     "effect": "texture_debruitage"
+    },
+    "paramPinNames": [
+     "force"
+    ]
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     12,
+     6
+    ],
+    "effect": {
+     "effect": "gaussian_blur"
+    },
+    "paramPinNames": [
+     "radius"
+    ]
+   },
+   {
+    "id": 14,
+    "kind": "effect",
+    "pos": [
+     960,
+     200
+    ],
+    "inputs": [
+     12
+    ],
+    "effect": {
+     "effect": "gaussian_blur",
+     "set": {
+      "radius": 3
+     }
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 15,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     12,
+     13,
+     7
+    ],
+    "effect": {
+     "effect": "texture_albedo_photo"
+    },
+    "paramPinNames": [
+     "correction"
+    ]
+   },
+   {
+    "id": 16,
+    "kind": "effect",
+    "pos": [
+     1280,
+     200
+    ],
+    "inputs": [
+     12,
+     13,
+     2,
+     8,
+     9
+    ],
+    "effect": {
+     "effect": "texture_hauteur_photo"
+    },
+    "paramPinNames": [
+     "detail",
+     "forme",
+     "inverser"
+    ]
+   },
+   {
+    "id": 17,
+    "kind": "effect",
+    "pos": [
+     1280,
+     400
+    ],
+    "inputs": [
+     12,
+     14,
+     4,
+     10
+    ],
+    "effect": {
+     "effect": "texture_rugosite_photo"
+    },
+    "paramPinNames": [
+     "base",
+     "details"
+    ]
+   },
+   {
+    "id": 18,
+    "kind": "effect",
+    "pos": [
+     1280,
+     600
+    ],
+    "inputs": [
+     11
+    ],
+    "effect": {
+     "effect": "texture_draw_carte_constante"
+    },
+    "paramPinNames": [
+     "valeur"
+    ],
+    "name": "Selected Metalness"
+   },
+   {
+    "id": 19,
+    "kind": "varget",
+    "pos": [
+     320,
+     1120
+    ],
+    "inputs": [],
+    "op": "DirectX Normals",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 20,
+    "kind": "varget",
+    "pos": [
+     320,
+     1280
+    ],
+    "inputs": [],
+    "op": "Occlusion Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 21,
+    "kind": "varget",
+    "pos": [
+     320,
+     1440
+    ],
+    "inputs": [],
+    "op": "Occlusion Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 22,
+    "kind": "effect",
+    "pos": [
+     1600,
+     200
+    ],
+    "inputs": [
+     16,
+     3,
+     19
+    ],
+    "effect": {
+     "effect": "texture_normales_hauteur"
+    },
+    "paramPinNames": [
+     "force",
+     "directx"
+    ]
+   },
+   {
+    "id": 23,
+    "kind": "effect",
+    "pos": [
+     1600,
+     400
+    ],
+    "inputs": [
+     16,
+     20,
+     21
+    ],
+    "effect": {
+     "effect": "texture_ao_hauteur"
+    },
+    "paramPinNames": [
+     "rayon",
+     "force"
+    ]
+   },
+   {
+    "id": 24,
+    "kind": "effect",
+    "pos": [
+     1600,
+     600
+    ],
+    "inputs": [
+     16
+    ],
+    "effect": {
+     "effect": "texture_courbure_hauteur"
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 25,
+    "kind": "effect",
+    "pos": [
+     1920,
+     400
+    ],
+    "inputs": [
+     23,
+     17,
+     18,
+     16
+    ],
+    "effect": {
+     "effect": "texture_empaquetage_pbr"
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 26,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     15
+    ],
+    "name": "Albedo",
+    "port": 0
+   },
+   {
+    "id": 27,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     180
+    ],
+    "inputs": [
+     16
+    ],
+    "name": "Height",
+    "port": 1
+   },
+   {
+    "id": 28,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     360
+    ],
+    "inputs": [
+     22
+    ],
+    "name": "Normals",
+    "port": 2
+   },
+   {
+    "id": 29,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     540
+    ],
+    "inputs": [
+     23
+    ],
+    "name": "Occlusion",
+    "port": 3
+   },
+   {
+    "id": 30,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     720
+    ],
+    "inputs": [
+     17
+    ],
+    "name": "Roughness",
+    "port": 4
+   },
+   {
+    "id": 31,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     900
+    ],
+    "inputs": [
+     18
+    ],
+    "name": "Metalness",
+    "port": 5
+   },
+   {
+    "id": 32,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     1080
+    ],
+    "inputs": [
+     25
+    ],
+    "name": "ORM",
+    "port": 6
+   }
+  ]
+ }
+}

@@ -1,0 +1,368 @@
+{
+ "format": "shaderixel-function",
+ "name": "Graph Effects Graphic Color Stack",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Editable main graph chaining perceptual levels, dithered RGB posterization and a two-color gradient map. Strength and optional mask mix the full stack with the original; intermediate stages are separate outputs.",
+ "graph": {
+  "output": 16,
+  "variables": [
+   {
+    "name": "Levels Black Point",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 0.99."
+   },
+   {
+    "name": "Levels White Point",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.01 to 1."
+   },
+   {
+    "name": "Levels Tone Curve",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 4."
+   },
+   {
+    "name": "Posterize Dither Strength",
+    "value": {
+     "type": "Float",
+     "f": 0.25
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Map Tone Curve",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Range: 0.1 to 4."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     160
+    ],
+    "inputs": [],
+    "name": "Optional Mask",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     320
+    ],
+    "inputs": [],
+    "name": "Strength",
+    "port": 2,
+    "value": {
+     "type": "Float",
+     "f": 1
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Levels Black Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Levels White Point",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Levels Tone Curve",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     4,
+     5,
+     6
+    ],
+    "name": "Graph Perceptual Levels",
+    "effect": {
+     "effect": "graph_effect_levels",
+     "set": {
+      "amount": 1
+     }
+    },
+    "paramPinNames": [
+     "black",
+     "white",
+     "gamma"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "subinput",
+    "pos": [
+     0,
+     480
+    ],
+    "inputs": [],
+    "name": "Posterize Levels per Channel",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 6
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Posterize Dither Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7,
+     8,
+     9
+    ],
+    "name": "Graph Dithered Posterize",
+    "effect": {
+     "effect": "graph_effect_posterize",
+     "set": {
+      "amount": 1
+     }
+    },
+    "paramPinNames": [
+     "levels",
+     "dither"
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "subinput",
+    "pos": [
+     0,
+     640
+    ],
+    "inputs": [],
+    "name": "Map Dark Color (RGB)",
+    "port": 4,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.02,
+      0.04,
+      0.15,
+      1
+     ]
+    }
+   },
+   {
+    "id": 12,
+    "kind": "subinput",
+    "pos": [
+     0,
+     800
+    ],
+    "inputs": [],
+    "name": "Map Light Color (RGB)",
+    "port": 5,
+    "value": {
+     "type": "Color",
+     "f": [
+      1,
+      0.65,
+      0.2,
+      1
+     ]
+    }
+   },
+   {
+    "id": 13,
+    "kind": "varget",
+    "pos": [
+     320,
+     640
+    ],
+    "inputs": [],
+    "op": "Map Tone Curve",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 14,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     10,
+     11,
+     12,
+     13
+    ],
+    "name": "Graph Gradient Map",
+    "effect": {
+     "effect": "graph_effect_gradient_map",
+     "set": {
+      "amount": 1
+     }
+    },
+    "paramPinNames": [
+     "dark",
+     "light",
+     "gamma"
+    ]
+   },
+   {
+    "id": 15,
+    "kind": "effect",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     1,
+     14,
+     2,
+     3
+    ],
+    "name": "Mix Through Optional Mask",
+    "effect": {
+     "effect": "photo_masked_mix",
+     "set": {}
+    },
+    "paramPinNames": [
+     "amount"
+    ]
+   },
+   {
+    "id": 16,
+    "kind": "suboutput",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     15
+    ],
+    "name": "Graphic Look",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 17,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     160
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Leveled Image",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 18,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     160
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Posterized Image",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

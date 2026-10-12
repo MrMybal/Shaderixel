@@ -1,0 +1,342 @@
+{
+ "format": "shaderixel-function",
+ "name": "Print Two Ink Risograph",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Two complementary RGB absorption plates over procedural paper, with optional misregistration. Artistic overprint approximation; no color-managed CMYK separation.",
+ "graph": {
+  "output": 14,
+  "variables": [
+   {
+    "name": "Ink Density",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Pigment coverage multiplier (0 to 2)."
+   },
+   {
+    "name": "Paper Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.92,
+      0.86,
+      0.72,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear paper color and opacity."
+   },
+   {
+    "name": "Paper Seed",
+    "value": {
+     "type": "Int",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Deterministic seed (0 to 65535)."
+   },
+   {
+    "name": "Paper Grain",
+    "value": {
+     "type": "Float",
+     "f": 0.035
+    },
+    "exposed": true,
+    "desc": "Fine grain strength (0 to 0.3)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "First Ink",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.8,
+      0.06,
+      0.025,
+      0.85
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Second Ink",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.02,
+      0.15,
+      0.6,
+      0.85
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Registration Offset",
+    "port": 3,
+    "value": {
+     "type": "Vec2",
+     "f": [
+      2,
+      1
+     ]
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Ink Density",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     5
+    ],
+    "effect": {
+     "effect": "print_ink_plate",
+     "set": {
+      "channel": 1
+     }
+    },
+    "paramPinNames": [
+     "ink",
+     "density"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     180
+    ],
+    "inputs": [
+     1,
+     3,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "print_ink_plate",
+     "set": {
+      "channel": 3
+     }
+    },
+    "paramPinNames": [
+     "ink",
+     "offset",
+     "density"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Paper Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "op": "Paper Seed",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     540
+    ],
+    "inputs": [],
+    "op": "Paper Grain",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "effect",
+    "pos": [
+     640,
+     360
+    ],
+    "inputs": [
+     8,
+     9,
+     10
+    ],
+    "effect": {
+     "effect": "print_draw_paper",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color",
+     "seed",
+     "grain"
+    ]
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     11,
+     6,
+     0
+    ],
+    "effect": {
+     "effect": "print_blend_ink",
+     "set": {}
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     12,
+     7,
+     0
+    ],
+    "effect": {
+     "effect": "print_blend_ink",
+     "set": {}
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 14,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     13
+    ],
+    "name": "Two-Ink Print",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   },
+   {
+    "id": 15,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     180
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "First Ink Plate",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   },
+   {
+    "id": 16,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     360
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Second Ink Plate",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

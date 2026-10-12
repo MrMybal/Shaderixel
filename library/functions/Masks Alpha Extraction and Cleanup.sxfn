@@ -1,0 +1,245 @@
+{
+ "format": "shaderixel-function",
+ "name": "Masks Alpha Extraction and Cleanup",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Extract exact image alpha as opaque linear coverage, optionally expand/contract and feather it, then replace image alpha with the cleaned matte. Transparent source RGB cannot be reconstructed. Defaults preserve existing alpha exactly.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Morphology Radius",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Square neighborhood radius (0 to 16 pixels)."
+   },
+   {
+    "name": "Operation",
+    "value": {
+     "type": "Int",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "0: expand; 1: contract."
+   },
+   {
+    "name": "Feather Radius",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Gaussian feather radius (0 to 16 pixels)."
+   },
+   {
+    "name": "Coverage Curve",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Matte power (0.1 to 4)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Morphology Radius",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Operation",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Feather Radius",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     480
+    ],
+    "inputs": [],
+    "op": "Coverage Curve",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1
+    ],
+    "effect": {
+     "effect": "mask_channel_selection",
+     "set": {
+      "channel": 3
+     }
+    },
+    "paramPinNames": [],
+    "name": "Extract Source Alpha"
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6,
+     2,
+     3
+    ],
+    "effect": {
+     "effect": "mask_morphology"
+    },
+    "paramPinNames": [
+     "radius",
+     "operation"
+    ],
+    "name": "Refine Alpha Shape"
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     7,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "mask_feather_levels"
+    },
+    "paramPinNames": [
+     "radius",
+     "gamma"
+    ],
+    "name": "Feather Alpha"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     1,
+     8
+    ],
+    "effect": {
+     "effect": "mask_apply_coverage",
+     "set": {
+      "mode": 1
+     }
+    },
+    "paramPinNames": [],
+    "name": "Replace Cleaned Alpha"
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Cleaned Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1920,
+     200
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Coverage Mask",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     1920,
+     400
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Original Alpha",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

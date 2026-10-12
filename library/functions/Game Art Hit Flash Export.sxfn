@@ -1,0 +1,321 @@
+{
+ "format": "shaderixel-function",
+ "name": "Game Art Hit Flash Export",
+ "kind": "tool",
+ "applyMode": false,
+ "description": "Export Hit Flash Variants bakes and exports one PNG for each flash strength in the input array. Default strengths are 0, 0.35, 0.65 and 1. Filenames use array indices. Preserves sprite alpha. Output and Flash Strength variable retain the last variant.",
+ "graph": {
+  "output": 16,
+  "variables": [
+   {
+    "name": "Flash Strength",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Flash strength set by the export loop (0 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Sprite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Flash Strengths",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "array": true,
+     "items": [
+      [
+       0,
+       0,
+       0,
+       0
+      ],
+      [
+       0.35,
+       0,
+       0,
+       0
+      ],
+      [
+       0.65,
+       0,
+       0,
+       0
+      ],
+      [
+       1,
+       0,
+       0,
+       0
+      ]
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "File Prefix",
+    "port": 2,
+    "value": {
+     "type": "Text",
+     "s": "sprite"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Flash Color",
+    "port": 3,
+    "value": {
+     "type": "Color",
+     "f": [
+      1,
+      1,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Flash Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "sprite_hit_flash"
+    },
+    "paramPinNames": [
+     "color",
+     "amount"
+    ],
+    "name": "Flash Variant"
+   },
+   {
+    "id": 7,
+    "kind": "event",
+    "pos": [
+     0,
+     -300
+    ],
+    "inputs": [],
+    "name": "Export Hit Flash Variants"
+   },
+   {
+    "id": 8,
+    "kind": "action",
+    "pos": [
+     640,
+     -300
+    ],
+    "inputs": [
+     7,
+     2
+    ],
+    "op": "foreach",
+    "name": "For Each Variant"
+   },
+   {
+    "id": 9,
+    "kind": "varset",
+    "pos": [
+     960,
+     -300
+    ],
+    "inputs": [
+     8,
+     8
+    ],
+    "op": "Flash Strength",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Set Flash Strength",
+    "inputChannels": [
+     0,
+     8
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "math",
+    "pos": [
+     960,
+     -100
+    ],
+    "inputs": [
+     8
+    ],
+    "op": "to_string",
+    "name": "Variant Index",
+    "inputChannels": [
+     16
+    ]
+   },
+   {
+    "id": 11,
+    "kind": "math",
+    "pos": [
+     1280,
+     -100
+    ],
+    "inputs": [
+     3,
+     0
+    ],
+    "op": "concat",
+    "name": "Build Filename",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": "_flash_"
+     }
+    ]
+   },
+   {
+    "id": 12,
+    "kind": "math",
+    "pos": [
+     1600,
+     -100
+    ],
+    "inputs": [
+     11,
+     10
+    ],
+    "op": "concat",
+    "name": "Append Index"
+   },
+   {
+    "id": 13,
+    "kind": "math",
+    "pos": [
+     1920,
+     -100
+    ],
+    "inputs": [
+     12,
+     0
+    ],
+    "op": "concat",
+    "name": "Build Filename",
+    "pinValues": [
+     {
+      "type": "Text"
+     },
+     {
+      "type": "Text",
+      "s": ".png"
+     }
+    ]
+   },
+   {
+    "id": 14,
+    "kind": "action",
+    "pos": [
+     1600,
+     -300
+    ],
+    "inputs": [
+     9,
+     6
+    ],
+    "op": "bake",
+    "name": "Bake Variant"
+   },
+   {
+    "id": 15,
+    "kind": "action",
+    "pos": [
+     1920,
+     -300
+    ],
+    "inputs": [
+     14,
+     14,
+     13
+    ],
+    "op": "export_png",
+    "name": "Export Variant",
+    "inputChannels": [
+     0,
+     8,
+     0
+    ]
+   },
+   {
+    "id": 16,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     14
+    ],
+    "name": "Last Exported Sprite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     8
+    ]
+   }
+  ]
+ }
+}

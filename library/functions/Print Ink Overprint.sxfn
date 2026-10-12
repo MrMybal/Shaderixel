@@ -1,0 +1,135 @@
+{
+ "format": "shaderixel-function",
+ "name": "Print Ink Overprint",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Alpha-correct multiply for transparent ink plates, with optional linear coverage mask and adjustable opacity. An unconnected mask means full coverage.",
+ "graph": {
+  "output": 7,
+  "variables": [
+   {
+    "name": "Display-Space Mix",
+    "value": {
+     "type": "Bool",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Use display-space pigment multiplication instead of linear-light multiplication."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Paper or Previous Ink",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Ink Layer",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Optional Mask",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Ink Opacity",
+    "port": 3,
+    "value": {
+     "type": "Float",
+     "f": 1
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Display-Space Mix",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ],
+    "effect": {
+     "effect": "print_blend_ink",
+     "set": {}
+    },
+    "paramPinNames": [
+     "opacity",
+     "display_space"
+    ]
+   },
+   {
+    "id": 7,
+    "kind": "suboutput",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6
+    ],
+    "name": "Overprinted Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

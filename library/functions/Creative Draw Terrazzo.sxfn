@@ -1,0 +1,242 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Draw Terrazzo",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Deterministic convex polygon chips with three palette colors, density and size variation.",
+ "graph": {
+  "output": 10,
+  "variables": [
+   {
+    "name": "Chip Size Variation",
+    "value": {
+     "type": "Float",
+     "f": 0.7
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 1."
+   },
+   {
+    "name": "Seed",
+    "value": {
+     "type": "Int",
+     "f": 11.0
+    },
+    "exposed": true,
+    "desc": "Range: 0 to 65535."
+   },
+   {
+    "name": "Chip Color A",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.04,
+      0.12,
+      0.18,
+      1.0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Chip Color B",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.5,
+      0.12,
+      0.06,
+      1.0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   },
+   {
+    "name": "Chip Color C",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.9,
+      0.83,
+      0.6,
+      1.0
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA color."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Chip Cell Size (px)",
+    "port": 0,
+    "value": {
+     "type": "Float",
+     "f": 36.0
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Chip Density",
+    "port": 1,
+    "value": {
+     "type": "Float",
+     "f": 0.8
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Chip Size Variation",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Chip Size Variation"
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Seed",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Seed"
+   },
+   {
+    "id": 5,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Binder Color",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.78,
+      0.72,
+      0.6,
+      1.0
+     ]
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Chip Color A",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Chip Color A"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     450
+    ],
+    "inputs": [],
+    "op": "Chip Color B",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Chip Color B"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     600
+    ],
+    "inputs": [],
+    "op": "Chip Color C",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Chip Color C"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "effect": {
+     "effect": "draw_terrazzo",
+     "set": {}
+    },
+    "paramPinNames": [
+     "size",
+     "density",
+     "variation",
+     "seed",
+     "background",
+     "color_a",
+     "color_b",
+     "color_c"
+    ]
+   },
+   {
+    "id": 10,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     9
+    ],
+    "name": "Terrazzo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

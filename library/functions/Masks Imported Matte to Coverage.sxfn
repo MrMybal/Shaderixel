@@ -1,0 +1,170 @@
+{
+ "format": "shaderixel-function",
+ "name": "Masks Imported Matte to Coverage",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Convert a numeric grayscale or channel PNG imported through Shaderixel color-image import into linear mask coverage. This compensates sRGB decoding so a PNG byte value 128 becomes about 0.5 coverage. Alpha is always read directly. Do not enable PNG decoding for an existing linear coverage mask.",
+ "graph": {
+  "output": 8,
+  "variables": [
+   {
+    "name": "Decode PNG Numeric Values",
+    "value": {
+     "type": "Bool",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Enable for normally imported grayscale PNG data; disable for existing linear masks."
+   },
+   {
+    "name": "Invert Mask",
+    "value": {
+     "type": "Bool",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Invert after channel extraction."
+   },
+   {
+    "name": "Coverage Curve",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Coverage power (0.1 to 4)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Imported Matte",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Channel (0 R, 1 G, 2 B, 3 A, 4 Luminance)",
+    "port": 1,
+    "value": {
+     "type": "Int",
+     "f": 0
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Decode PNG Numeric Values",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Invert Mask",
+    "value": {
+     "type": "Bool"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     320
+    ],
+    "inputs": [],
+    "op": "Coverage Curve",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "effect": {
+     "effect": "mask_channel_selection"
+    },
+    "paramPinNames": [
+     "channel",
+     "decode_srgb",
+     "invert"
+    ],
+    "name": "Decode Imported Coverage"
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     6,
+     5
+    ],
+    "effect": {
+     "effect": "mask_feather_levels",
+     "set": {
+      "radius": 0
+     }
+    },
+    "paramPinNames": [
+     "gamma"
+    ],
+    "name": "Remap Imported Coverage"
+   },
+   {
+    "id": 8,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     7
+    ],
+    "name": "Coverage Mask",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

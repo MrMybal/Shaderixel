@@ -1,0 +1,243 @@
+{
+ "format": "shaderixel-function",
+ "name": "Game Art Four Color Recolor",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Map visible pixels to the nearest of four exposed palette colors, with optional ordered dither and strength. RGB distance is evaluated in display space. Palette alpha can intentionally fade a mapped color.",
+ "graph": {
+  "output": 11,
+  "variables": [
+   {
+    "name": "Ordered Dither",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Ordered dither intensity (0 to 1)."
+   },
+   {
+    "name": "Palette Strength",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Crossfade to the palette (0 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Sprite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Palette Color 1",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.01,
+      0.015,
+      0.025,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "Palette Color 2",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.05,
+      0.16,
+      0.12,
+      1
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Palette Color 3",
+    "port": 3,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.35,
+      0.55,
+      0.22,
+      1
+     ]
+    }
+   },
+   {
+    "id": 5,
+    "kind": "subinput",
+    "pos": [
+     0,
+     720
+    ],
+    "inputs": [],
+    "name": "Palette Color 4",
+    "port": 4,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.8,
+      0.9,
+      0.5,
+      1
+     ]
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Ordered Dither",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     160
+    ],
+    "inputs": [],
+    "op": "Palette Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 8,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "effect": {
+     "effect": "sprite_palette_four"
+    },
+    "paramPinNames": [
+     "color_a",
+     "color_b",
+     "color_c",
+     "color_d",
+     "dither",
+     "amount"
+    ],
+    "name": "Four-Color Recolor"
+   },
+   {
+    "id": 9,
+    "kind": "effect",
+    "pos": [
+     640,
+     400
+    ],
+    "inputs": [],
+    "effect": {
+     "effect": "sprite_draw_checker"
+    },
+    "paramPinNames": [],
+    "name": "Transparency Checker"
+   },
+   {
+    "id": 10,
+    "kind": "blend",
+    "pos": [
+     960,
+     400
+    ],
+    "inputs": [
+     9,
+     8,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1,
+    "name": "Sprite over Checker"
+   },
+   {
+    "id": 11,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     8
+    ],
+    "name": "Recolored Sprite",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "suboutput",
+    "pos": [
+     1280,
+     400
+    ],
+    "inputs": [
+     10
+    ],
+    "name": "Checker Preview",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

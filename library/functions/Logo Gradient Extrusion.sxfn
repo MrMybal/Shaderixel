@@ -1,0 +1,404 @@
+{
+ "format": "shaderixel-function",
+ "name": "Logo Gradient Extrusion",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Gradient fill, alpha-based bevel and long extrusion behind a transparent logo or rasterized text. Colors preserve original face alpha. Leave document padding for the extrusion.",
+ "graph": {
+  "output": 18,
+  "variables": [
+   {
+    "name": "Gradient Angle",
+    "value": {
+     "type": "Float",
+     "f": 90
+    },
+    "exposed": true,
+    "desc": "Degrees; 90 runs from top to bottom."
+   },
+   {
+    "name": "Gradient Center",
+    "value": {
+     "type": "Float",
+     "f": 0.5
+    },
+    "exposed": true,
+    "desc": "Center in document coordinates (-1 to 2)."
+   },
+   {
+    "name": "Gradient Span",
+    "value": {
+     "type": "Float",
+     "f": 1
+    },
+    "exposed": true,
+    "desc": "Gradient width relative to document (0.01 to 3)."
+   },
+   {
+    "name": "Bevel Width",
+    "value": {
+     "type": "Int",
+     "f": 2
+    },
+    "exposed": true,
+    "desc": "Alpha gradient sampling radius (1 to 16 pixels)."
+   },
+   {
+    "name": "Bevel Depth",
+    "value": {
+     "type": "Float",
+     "f": 3
+    },
+    "exposed": true,
+    "desc": "Surface slope strength (0 to 12)."
+   },
+   {
+    "name": "Light Angle",
+    "value": {
+     "type": "Float",
+     "f": 135
+    },
+    "exposed": true,
+    "desc": "Degrees; positive vertical direction points down."
+   },
+   {
+    "name": "Bevel Strength",
+    "value": {
+     "type": "Float",
+     "f": 0.7
+    },
+    "exposed": true,
+    "desc": "Tint strength (0 to 1)."
+   },
+   {
+    "name": "Extrusion Angle",
+    "value": {
+     "type": "Float",
+     "f": 45
+    },
+    "exposed": true,
+    "desc": "Degrees in image coordinates; 45 points down and right."
+   },
+   {
+    "name": "Extrusion Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.08,
+      0.01,
+      0.04,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Extrusion linear color and opacity."
+   },
+   {
+    "name": "Extrusion Fade",
+    "value": {
+     "type": "Float",
+     "f": 0
+    },
+    "exposed": true,
+    "desc": "Coverage fade along length (0 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Logo with Alpha",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     180
+    ],
+    "inputs": [],
+    "name": "Start Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      1,
+      0.4,
+      0.02,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     360
+    ],
+    "inputs": [],
+    "name": "End Color",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.5,
+      0.02,
+      0.1,
+      1
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Gradient Angle",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     180
+    ],
+    "inputs": [],
+    "op": "Gradient Center",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     360
+    ],
+    "inputs": [],
+    "op": "Gradient Span",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "effect": {
+     "effect": "logo_gradient_fill",
+     "set": {}
+    },
+    "paramPinNames": [
+     "top",
+     "bottom",
+     "angle",
+     "center",
+     "span"
+    ]
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     540
+    ],
+    "inputs": [],
+    "op": "Bevel Width",
+    "value": {
+     "type": "Int"
+    }
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     720
+    ],
+    "inputs": [],
+    "op": "Bevel Depth",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     900
+    ],
+    "inputs": [],
+    "op": "Light Angle",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 11,
+    "kind": "varget",
+    "pos": [
+     320,
+     1080
+    ],
+    "inputs": [],
+    "op": "Bevel Strength",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     7,
+     8,
+     9,
+     10,
+     11
+    ],
+    "effect": {
+     "effect": "logo_alpha_bevel",
+     "set": {}
+    },
+    "paramPinNames": [
+     "width",
+     "depth",
+     "angle",
+     "amount"
+    ]
+   },
+   {
+    "id": 13,
+    "kind": "subinput",
+    "pos": [
+     0,
+     540
+    ],
+    "inputs": [],
+    "name": "Extrusion Length",
+    "port": 3,
+    "value": {
+     "type": "Int",
+     "f": 24
+    }
+   },
+   {
+    "id": 14,
+    "kind": "varget",
+    "pos": [
+     320,
+     1260
+    ],
+    "inputs": [],
+    "op": "Extrusion Angle",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 15,
+    "kind": "varget",
+    "pos": [
+     320,
+     1440
+    ],
+    "inputs": [],
+    "op": "Extrusion Color",
+    "value": {
+     "type": "Color"
+    }
+   },
+   {
+    "id": 16,
+    "kind": "varget",
+    "pos": [
+     320,
+     1620
+    ],
+    "inputs": [],
+    "op": "Extrusion Fade",
+    "value": {
+     "type": "Float"
+    }
+   },
+   {
+    "id": 17,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     12,
+     13,
+     14,
+     15,
+     16
+    ],
+    "effect": {
+     "effect": "logo_long_extrusion",
+     "set": {}
+    },
+    "paramPinNames": [
+     "distance",
+     "angle",
+     "color",
+     "fade"
+    ]
+   },
+   {
+    "id": 18,
+    "kind": "suboutput",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     17
+    ],
+    "name": "Extruded Logo",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    },
+    "inputChannels": [
+     0
+    ]
+   }
+  ]
+ }
+}

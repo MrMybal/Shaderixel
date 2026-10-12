@@ -1,0 +1,144 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Filter Alpha Edge Padding",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Extend nearest nontransparent RGB into empty alpha; tiny carrier alpha quantizes to zero in 8-bit PNG.",
+ "graph": {
+  "output": 6,
+  "variables": [
+   {
+    "name": "Minimum Source Alpha",
+    "value": {
+     "type": "Float",
+     "f": 0.1
+    },
+    "exposed": true,
+    "desc": "Range: 0.001 to 1."
+   },
+   {
+    "name": "RGB Carrier Alpha",
+    "value": {
+     "type": "Float",
+     "f": 0.0001
+    },
+    "exposed": true,
+    "desc": "Range: 0.000002 to 0.001."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Padding Radius (px)",
+    "port": 1,
+    "value": {
+     "type": "Int",
+     "f": 8.0
+    }
+   },
+   {
+    "id": 3,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Minimum Source Alpha",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Minimum Source Alpha"
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "RGB Carrier Alpha",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get RGB Carrier Alpha"
+   },
+   {
+    "id": 5,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "effect": {
+     "effect": "texture_alpha_edge_padding",
+     "set": {}
+    },
+    "paramPinNames": [
+     "radius",
+     "source_alpha",
+     "carrier_alpha"
+    ]
+   },
+   {
+    "id": 6,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     5
+    ],
+    "name": "Alpha Edge Padding",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 7,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     160
+    ],
+    "inputs": [
+     1
+    ],
+    "name": "Original",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}

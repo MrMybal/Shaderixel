@@ -1,0 +1,563 @@
+{
+ "format": "shaderixel-function",
+ "name": "Creative Paper Collage",
+ "kind": "subgraph",
+ "applyMode": false,
+ "description": "Two torn paper pieces over a paper background. An optional image is clipped onto the front piece; the back piece carries terrazzo chips. Outputs retain reusable piece transparency.",
+ "graph": {
+  "output": 23,
+  "variables": [
+   {
+    "name": "Tear Amplitude (px)",
+    "value": {
+     "type": "Float",
+     "f": 12
+    },
+    "exposed": true,
+    "desc": "Edge amplitude (0 to 128 pixels)."
+   },
+   {
+    "name": "Tear Seed",
+    "value": {
+     "type": "Int",
+     "f": 9
+    },
+    "exposed": true,
+    "desc": "Deterministic tear seed (0 to 65535)."
+   },
+   {
+    "name": "Front Center (UV)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.57,
+      0.54
+     ]
+    },
+    "exposed": true,
+    "desc": "Normalized front piece center."
+   },
+   {
+    "name": "Front Angle",
+    "value": {
+     "type": "Float",
+     "f": -8
+    },
+    "exposed": true,
+    "desc": "Front piece rotation in degrees."
+   },
+   {
+    "name": "Front Half Size (UV)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.29,
+      0.3
+     ]
+    },
+    "exposed": true,
+    "desc": "Normalized half size per axis."
+   },
+   {
+    "name": "Back Half Size (UV)",
+    "value": {
+     "type": "Vec2",
+     "f": [
+      0.32,
+      0.34
+     ]
+    },
+    "exposed": true,
+    "desc": "Normalized half size per axis."
+   },
+   {
+    "name": "Background Color",
+    "value": {
+     "type": "Color",
+     "f": [
+      0.66,
+      0.58,
+      0.43,
+      1
+     ]
+    },
+    "exposed": true,
+    "desc": "Linear RGBA background paper color."
+   },
+   {
+    "name": "Image Opacity",
+    "value": {
+     "type": "Float",
+     "f": 0.85
+    },
+    "exposed": true,
+    "desc": "Clipped front image opacity (0 to 1)."
+   }
+  ],
+  "nodes": [
+   {
+    "id": 1,
+    "kind": "subinput",
+    "pos": [
+     0,
+     0
+    ],
+    "inputs": [],
+    "name": "Optional Front Image",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 2,
+    "kind": "subinput",
+    "pos": [
+     0,
+     150
+    ],
+    "inputs": [],
+    "name": "Front Paper Color",
+    "port": 1,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.9,
+      0.83,
+      0.67,
+      1
+     ]
+    }
+   },
+   {
+    "id": 3,
+    "kind": "subinput",
+    "pos": [
+     0,
+     300
+    ],
+    "inputs": [],
+    "name": "Back Paper Color",
+    "port": 2,
+    "value": {
+     "type": "Color",
+     "f": [
+      0.08,
+      0.25,
+      0.3,
+      1
+     ]
+    }
+   },
+   {
+    "id": 4,
+    "kind": "varget",
+    "pos": [
+     320,
+     0
+    ],
+    "inputs": [],
+    "op": "Tear Amplitude (px)",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Tear Amplitude (px)"
+   },
+   {
+    "id": 5,
+    "kind": "varget",
+    "pos": [
+     320,
+     150
+    ],
+    "inputs": [],
+    "op": "Tear Seed",
+    "value": {
+     "type": "Int"
+    },
+    "name": "Get Tear Seed"
+   },
+   {
+    "id": 6,
+    "kind": "varget",
+    "pos": [
+     320,
+     300
+    ],
+    "inputs": [],
+    "op": "Front Center (UV)",
+    "value": {
+     "type": "Vec2"
+    },
+    "name": "Get Front Center (UV)"
+   },
+   {
+    "id": 7,
+    "kind": "varget",
+    "pos": [
+     320,
+     450
+    ],
+    "inputs": [],
+    "op": "Front Angle",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Front Angle"
+   },
+   {
+    "id": 8,
+    "kind": "varget",
+    "pos": [
+     320,
+     600
+    ],
+    "inputs": [],
+    "op": "Front Half Size (UV)",
+    "value": {
+     "type": "Vec2"
+    },
+    "name": "Get Front Half Size (UV)"
+   },
+   {
+    "id": 9,
+    "kind": "varget",
+    "pos": [
+     320,
+     750
+    ],
+    "inputs": [],
+    "op": "Back Half Size (UV)",
+    "value": {
+     "type": "Vec2"
+    },
+    "name": "Get Back Half Size (UV)"
+   },
+   {
+    "id": 10,
+    "kind": "varget",
+    "pos": [
+     320,
+     900
+    ],
+    "inputs": [],
+    "op": "Background Color",
+    "value": {
+     "type": "Color"
+    },
+    "name": "Get Background Color"
+   },
+   {
+    "id": 11,
+    "kind": "varget",
+    "pos": [
+     320,
+     1050
+    ],
+    "inputs": [],
+    "op": "Image Opacity",
+    "value": {
+     "type": "Float"
+    },
+    "name": "Get Image Opacity"
+   },
+   {
+    "id": 12,
+    "kind": "effect",
+    "pos": [
+     640,
+     0
+    ],
+    "inputs": [
+     2,
+     4,
+     5,
+     6,
+     7,
+     8
+    ],
+    "effect": {
+     "effect": "draw_torn_paper",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color",
+     "roughness",
+     "seed",
+     "center",
+     "angle",
+     "half_size"
+    ]
+   },
+   {
+    "id": 13,
+    "kind": "effect",
+    "pos": [
+     640,
+     350
+    ],
+    "inputs": [
+     3,
+     9,
+     4
+    ],
+    "effect": {
+     "effect": "draw_torn_paper",
+     "set": {
+      "center": [
+       0.42,
+       0.45
+      ],
+      "angle": 11,
+      "seed": 23
+     }
+    },
+    "paramPinNames": [
+     "color",
+     "half_size",
+     "roughness"
+    ]
+   },
+   {
+    "id": 14,
+    "kind": "effect",
+    "pos": [
+     960,
+     0
+    ],
+    "inputs": [
+     12
+    ],
+    "effect": {
+     "effect": "mask_channel_selection",
+     "set": {
+      "channel": 3
+     }
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 15,
+    "kind": "effect",
+    "pos": [
+     960,
+     350
+    ],
+    "inputs": [
+     13
+    ],
+    "effect": {
+     "effect": "mask_channel_selection",
+     "set": {
+      "channel": 3
+     }
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 16,
+    "kind": "effect",
+    "pos": [
+     640,
+     700
+    ],
+    "inputs": [
+     3
+    ],
+    "effect": {
+     "effect": "draw_terrazzo",
+     "set": {
+      "size": 22,
+      "color_a": [
+       0.018,
+       0.05,
+       0.08,
+       1
+      ],
+      "color_b": [
+       0.25,
+       0.48,
+       0.44,
+       1
+      ]
+     }
+    },
+    "paramPinNames": [
+     "background"
+    ]
+   },
+   {
+    "id": 17,
+    "kind": "effect",
+    "pos": [
+     1280,
+     350
+    ],
+    "inputs": [
+     16,
+     15
+    ],
+    "effect": {
+     "effect": "mask_apply_coverage",
+     "set": {}
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 18,
+    "kind": "effect",
+    "pos": [
+     1280,
+     0
+    ],
+    "inputs": [
+     12,
+     1,
+     14,
+     11
+    ],
+    "effect": {
+     "effect": "blend_protected_highlights",
+     "set": {
+      "protect_highlights": 0,
+      "protect_shadows": 0
+     }
+    },
+    "paramPinNames": [
+     "opacity"
+    ]
+   },
+   {
+    "id": 19,
+    "kind": "effect",
+    "pos": [
+     1600,
+     0
+    ],
+    "inputs": [
+     18,
+     14
+    ],
+    "effect": {
+     "effect": "mask_apply_coverage",
+     "set": {
+      "mode": 1
+     }
+    },
+    "paramPinNames": []
+   },
+   {
+    "id": 20,
+    "kind": "effect",
+    "pos": [
+     960,
+     700
+    ],
+    "inputs": [
+     10
+    ],
+    "effect": {
+     "effect": "print_draw_paper",
+     "set": {}
+    },
+    "paramPinNames": [
+     "color"
+    ]
+   },
+   {
+    "id": 21,
+    "kind": "blend",
+    "pos": [
+     1600,
+     350
+    ],
+    "inputs": [
+     20,
+     17,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1
+   },
+   {
+    "id": 22,
+    "kind": "blend",
+    "pos": [
+     1920,
+     0
+    ],
+    "inputs": [
+     21,
+     19,
+     0
+    ],
+    "blend": 0,
+    "opacity": 1
+   },
+   {
+    "id": 23,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     0
+    ],
+    "inputs": [
+     22
+    ],
+    "name": "Paper Collage",
+    "port": 0,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 24,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     160
+    ],
+    "inputs": [
+     19
+    ],
+    "name": "Front Piece",
+    "port": 1,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 25,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     320
+    ],
+    "inputs": [
+     17
+    ],
+    "name": "Back Piece",
+    "port": 2,
+    "value": {
+     "type": "Image"
+    }
+   },
+   {
+    "id": 26,
+    "kind": "suboutput",
+    "pos": [
+     2240,
+     480
+    ],
+    "inputs": [
+     14
+    ],
+    "name": "Front Coverage Mask",
+    "port": 3,
+    "value": {
+     "type": "Image"
+    }
+   }
+  ]
+ }
+}
