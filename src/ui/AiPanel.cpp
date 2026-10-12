@@ -59,14 +59,15 @@ void App::LoadAiSettings() {
         if (j["tablet"]["api"].S("ink") == "wintab" && !platform::SetTabletApi(platform::TabletApi::Wintab))
             Log("Tablet: Wintab unavailable, Windows Ink used");
     }
-    if (aiSettings.companionScript.empty()) {
-        for (const char* c : {"<CyUEMCPSDK>/Bridge/run.py"})
-            if (fs::exists(c)) aiSettings.companionScript = c;
-    }
-    if (aiSettings.python == "python") {
-        const char* venv = "<CyUEMCPSDK>/Runtime/python/Scripts/python.exe";
-        if (fs::exists(venv)) aiSettings.python = venv;
-    }
+    // CyUEMCPSDK companion: %CYUEMCPSDK_DIR%, else a CyUEMCPSDK folder next to the Shaderixel sources.
+    fs::path sdk;
+    if (const char* e = getenv("CYUEMCPSDK_DIR")) sdk = Utf8Path(e);
+    else sdk = Utf8Path(SX_SHADER_DIR).parent_path().parent_path() / "CyUEMCPSDK";
+    std::error_code ec;
+    if (aiSettings.companionScript.empty() && fs::exists(sdk / "Bridge" / "run.py", ec))
+        aiSettings.companionScript = Narrow((sdk / "Bridge" / "run.py").generic_wstring());
+    if (aiSettings.python == "python" && fs::exists(sdk / "Runtime" / "python" / "Scripts" / "python.exe", ec))
+        aiSettings.python = Narrow((sdk / "Runtime" / "python" / "Scripts" / "python.exe").generic_wstring());
     bridge.allowWrites = aiSettings.allowWrites;
 }
 

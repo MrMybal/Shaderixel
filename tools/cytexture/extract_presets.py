@@ -15,8 +15,12 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import local_paths  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_SRC = r'<CyTexture_plugin>\Plugins\CyTexture\Source\CyTexture\Private\CyTextureMaterialPresetGenerator.cpp'
+# CyTextureMaterialPresetGenerator.cpp of the CyTexture plugin: argument, or tools/local_paths.json "cytexture_preset_source".
+DEFAULT_SRC = local_paths.get('cytexture_preset_source', '')
 
 SHIM = r'''
 #include <cmath>
@@ -139,6 +143,8 @@ def find_vcvars():
 
 def main():
     src = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_SRC
+    if not src:
+        sys.exit('usage: extract_presets.py <CyTextureMaterialPresetGenerator.cpp> (or set cytexture_preset_source in tools/local_paths.json)')
     text = open(src, encoding='utf-8-sig').read()
     lines = text.split('\n')
     start = next(i for i, l in enumerate(lines) if l.strip() == 'namespace')

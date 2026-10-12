@@ -5,6 +5,7 @@ shadercache/
 shaderixel_layout.ini
 dist/
 tools/unreal/export.json
+tools/local_paths.json
 shaders/patterns/
 shaders/brushes/abr_*.slang
 shaders/brushes/textures/abr/

@@ -17,8 +17,11 @@ import shutil
 import subprocess
 import sys
 
+import local_paths
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ENGINES = r'C:\Program Files\Epic Games'
+# Folder holding UE_<version> engines: tools/local_paths.json "unreal_engines" (first entry) or UNREAL_ENGINES.
+ENGINES = (local_paths.get('unreal_engines', []) or [r'C:\Program Files\Epic Games'])[0]
 SHADERIXEL = os.path.join(ROOT, 'build', 'Release', 'Shaderixel.exe')
 
 UE_SCRIPT = r'''

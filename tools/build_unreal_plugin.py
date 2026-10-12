@@ -12,9 +12,12 @@ import re
 import subprocess
 import sys
 
+import local_paths
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLUGIN = os.path.join(ROOT, 'unreal', 'ShaderixelLink', 'ShaderixelLink.uplugin')
-DEFAULT_ROOTS = [r'C:\Program Files\Epic Games', r'C:\Program Files\Epic Games', r'D:\Epic Games']
+# Engines roots: tools/local_paths.json "unreal_engines" (or UNREAL_ENGINES), else the usual install folder.
+DEFAULT_ROOTS = local_paths.get('unreal_engines', []) + [r'C:\Program Files\Epic Games']
 
 
 def engines(root_dirs):
