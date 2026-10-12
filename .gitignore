@@ -12,3 +12,4 @@ shaders/brushes/textures/abr/
 shaders/effects/user_*.slang
 shaders/effects/blend_user_*.slang
 shaders/brushes/user_*.slang
+__pycache__/
