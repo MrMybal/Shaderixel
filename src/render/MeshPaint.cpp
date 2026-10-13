@@ -13,11 +13,12 @@
 namespace sx {
 
 void MeshScene::UpdateCamera(float aspect) {
-    pitch = std::clamp(pitch, -1.5f, 1.5f);
+    pitch = std::clamp(pitch, -1.5695f, 1.5695f);  // top / bottom views reachable
     distance = std::clamp(distance, 0.2f, 50.0f);
     camPos = target + float3{std::cos(pitch) * std::sin(yaw), std::sin(pitch), -std::cos(pitch) * std::cos(yaw)} * distance;
     Mat4 view = Mat4::LookAtLH(camPos, target, {0, 1, 0});
-    Mat4 proj = Mat4::PerspectiveLH(fov, std::max(aspect, 0.01f), 0.02f, 200.0f);
+    const float hh = OrthoHalfHeight();
+    Mat4 proj = ortho ? Mat4::OrthoLH(hh * std::max(aspect, 0.01f), hh, -100.0f, 200.0f) : Mat4::PerspectiveLH(fov, std::max(aspect, 0.01f), 0.02f, 200.0f);
     viewProj = proj * view;
 }
 
@@ -148,7 +149,7 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     s.UpdateCamera((float)w / h);
     ViewCB cb = {};
     memcpy(cb.vp, s.viewProj.m, sizeof(cb.vp));
-    cb.camPos = {s.camPos.x, s.camPos.y, s.camPos.z, 1};
+    cb.camPos = {s.ShadingEye().x, s.ShadingEye().y, s.ShadingEye().z, 1};
     // Key light: attached to the camera, or fixed in the scene (yaw / pitch).
     float3 l = s.KeyLightDir();
     cb.lightDir = {l.x, l.y, l.z, 0};
@@ -286,7 +287,7 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     d.indices = s.ib.get();
     d.count = (u32)s.data.indices.size();
     ctx.Draw(d);
-    if (quality && s.ssao > 0) {
+    if (quality && s.ssao > 0 && !s.ortho) {  // the occlusion reconstructs perspective depth
         // Screen-space ambient occlusion (shaders/mesh_ssao.slang): occlusion from the depth, then blurred into the color.
         if (auto* ak = Kernel("mesh_ssao.slang")) {
             if (!s.aoTex || s.aoTex->Width() != w || s.aoTex->Height() != h) s.aoTex = gpu::Dev().CreateTexture(w, h, gpu::Format::RGBA16F, "MeshSsao");
@@ -315,7 +316,7 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
             float3 fwd = Normalize(s.target - s.camPos);
             float3 right = Normalize(Cross(float3{0, 1, 0}, fwd));
             float3 up = Cross(fwd, right);
-            const float ty = std::tan(s.fov * 0.5f), tx = ty * (float)w / h;
+            const float ty = s.ortho ? s.OrthoHalfHeight() : std::tan(s.fov * 0.5f), tx = ty * (float)w / h;
             const float3 c = (s.data.boundsMin + s.data.boundsMax) * 0.5f, half = (s.data.boundsMax - s.data.boundsMin) * 0.5f;
             const bool hasShadow = (cb.opts[0] & 1) != 0;
             struct {
@@ -326,7 +327,7 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
             } gcb = {{s.camPos.x, s.camPos.y, s.camPos.z, 0}, {right.x * tx, right.y * tx, right.z * tx, 0}, {up.x * ty, up.y * ty, up.z * ty, 0},
                      {fwd.x, fwd.y, fwd.z, 0}, {s.data.boundsMin.y, std::max(half.x, half.z) * 4.0f, c.x, c.z},
                      {std::max(half.x, 1e-3f) * 1.1f, std::max(half.z, 1e-3f) * 1.1f, 0.45f, hasShadow ? s.shadowStrength * 0.8f : 0.0f}, {},
-                     {0.004f, 0, 0, 0}, {w, h, 0, 0}};
+                     {0.004f, 0, 0, 0}, {w, h, s.ortho ? 1u : 0u, 0}};
             memcpy(gcb.lightVP, cb.lightVP, sizeof(gcb.lightVP));
             gpu::DispatchDesc gd2;
             gd2.pipeline = gk;
@@ -364,7 +365,7 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
     };
     static PaintCB cb;
     memcpy(cb.vp, s.viewProj.m, sizeof(cb.vp));
-    cb.camPos = {s.camPos.x, s.camPos.y, s.camPos.z, 1};
+    cb.camPos = {s.ShadingEye().x, s.ShadingEye().y, s.ShadingEye().z, 1};
     cb.color = color;
     // Programmable tip: shapes from the atlas (not for decals).
     const bool useTip = meshTipOn && meshTipAtlas && !(extraFlags & (4u | 256u));

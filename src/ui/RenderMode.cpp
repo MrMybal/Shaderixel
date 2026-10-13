@@ -307,6 +307,7 @@ Json App::RenderToJson(const PtRenderState& r, const std::string& baseDir) {
     sj["aperture"] = s.aperture;
     sj["focus"] = s.focusDistance;
     sj["fov"] = s.fov;
+    sj["ortho"] = s.ortho;
     sj["clamp"] = s.clampIndirect;
     sj["hdri"] = SceneRelPath(s.hdri, baseDir);
     sj["envIntensity"] = s.envIntensity;
@@ -395,6 +396,7 @@ void SceneFromJson(const Json& j, const std::string& baseDir, PtRenderState& r) 
     s.aperture = sj["aperture"].F(0);
     s.focusDistance = sj["focus"].F(s.focusDistance);
     s.fov = sj["fov"].F(s.fov);
+    s.ortho = sj["ortho"].B(false);
     s.clampIndirect = sj["clamp"].F(s.clampIndirect);
     s.hdri = SceneAbsPath(sj["hdri"].S(s.hdri), baseDir);
     s.envIntensity = sj["envIntensity"].F(1);
@@ -464,6 +466,7 @@ gpu::Texture* App::UpdateViewRayTrace(DocView& v, u32 w, u32 h) {
     s.maxBounces = m.rtBounces;
     s.viewSize = true;
     s.fov = m.fov;
+    s.ortho = m.ortho;
     s.hdri = m.envPath.empty() || !m.envAtlas ? std::string("*studio") : m.envPath;
     s.envIntensity = m.envAtlas ? m.envIntensity : 1.0f;
     s.envRotation = m.envRotation * 57.29578f;
@@ -687,7 +690,7 @@ gpu::Texture* App::UpdateRenderState(DocView& v, PtRenderState& r, u32 w, u32 h)
         for (float f : {l.yaw, l.pitch, l.intensity, l.size, l.spotAngle}) Key(sk, f);
     }
     for (float f : {r.yaw, r.pitch, r.distance, s.fov, s.aperture, s.focusDistance, s.clampIndirect, s.envIntensity, s.envRotation, (float)s.maxBounces,
-                    (float)s.device, (float)w, (float)h, s.envVisible ? 1.0f : 0.0f})
+                    (float)s.device, (float)w, (float)h, s.envVisible ? 1.0f : 0.0f, s.ortho ? 1.0f : 0.0f})
         Key(sk, f);
     Key(sk, r.target);
     Key(sk, s.background);
@@ -1134,6 +1137,8 @@ void App::DrawRenderScenePanel() {
     // ---------------------------------------------------------------- camera
     if (ImGui::CollapsingHeader("Caméra")) {
         float fovDeg = s.fov * 57.29578f;
+        ImGui::Checkbox("Orthographique", &s.ortho);
+        ui::HelpTooltip("Projection parallèle (plans techniques, vues de face / côté / dessus) : la taille de la vue suit la distance et le champ de vision.");
         if (ImGui::SliderFloat("Champ de vision", &fovDeg, 10, 100, "%.0f°")) s.fov = fovDeg / 57.29578f;
         ImGui::DragFloat("Ouverture (flou)", &s.aperture, 0.001f, 0, 1, "%.3f");
         ui::HelpTooltip("Profondeur de champ : rayon de l'objectif. 0 = tout est net.");

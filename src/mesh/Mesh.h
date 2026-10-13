@@ -25,6 +25,7 @@ struct Mat4 {
     static Mat4 Identity();
     static Mat4 LookAtLH(float3 eye, float3 at, float3 up);
     static Mat4 PerspectiveLH(float fovY, float aspect, float zn, float zf);
+    static Mat4 OrthoLH(float halfW, float halfH, float zn, float zf);  // zn may be negative
     Mat4 operator*(const Mat4& b) const;
     float4 Transform(float4 v) const;
 };

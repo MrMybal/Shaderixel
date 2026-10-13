@@ -577,6 +577,12 @@ void main(uint3 id : SV_DispatchThreadID)
     float3 fwd = gCamFwd.xyz;
     float3 dir = normalize(fwd + gCamRight.xyz * px + gCamUp.xyz * py);
     float3 org = gCamPos.xyz;
+    if (gCamUp.w > 0)
+    {
+        // Orthographic: parallel rays from the view plane (moved back to see what is behind the eye).
+        org = gCamPos.xyz + gCamRight.xyz * px + gCamUp.xyz * py - fwd * 100.0;
+        dir = fwd;
+    }
     if (gCamPos.w > 0)
     {
         // Thin lens: sharp plane at the focus distance, aperture disc of radius w.

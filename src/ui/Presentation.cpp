@@ -166,7 +166,7 @@ bool App::PickFocus(MeshScene& s, float2 local, u32 w, u32 h) {
     float t = 0;
     if (!sim.rc.Ray(o, d, 1000.0f, &p, &n, &t)) return false;
     // The path tracer's focus plane is measured along the view axis.
-    s.dofFocus = std::max(t * Dot(d, Normalize(s.target - s.camPos)), 0.01f);
+    s.dofFocus = std::max((s.ortho ? t - 100.0f + s.distance : t) * Dot(d, Normalize(s.target - s.camPos)), 0.01f);
     return true;
 }
 

@@ -126,10 +126,10 @@ bool PtGpuRenderer::Render(gpu::CommandContext& ctx, const std::vector<PtMateria
     cb = {};
     float3 fwd = Normalize(cam.target - cam.position);
     float3 right = Normalize(Cross(cam.up, fwd)), up = Cross(fwd, right);
-    float ty = std::tan(s.fov * 0.5f), tx = ty * (float)w / h;
-    cb.camPos = {cam.position.x, cam.position.y, cam.position.z, s.aperture};
+    float ty = std::tan(s.fov * 0.5f) * (s.ortho ? Length(cam.target - cam.position) : 1.0f), tx = ty * (float)w / h;
+    cb.camPos = {cam.position.x, cam.position.y, cam.position.z, s.ortho ? 0.0f : s.aperture};
     cb.camRight = {right.x * tx, right.y * tx, right.z * tx, s.focusDistance};
-    cb.camUp = {up.x * ty, up.y * ty, up.z * ty, 0};
+    cb.camUp = {up.x * ty, up.y * ty, up.z * ty, s.ortho ? 1.0f : 0.0f};
     cb.camFwd = {fwd.x, fwd.y, fwd.z, s.envRotation / 360.0f};
     cb.maxBounces = (u32)std::max(s.maxBounces, 0);
     cb.numMaterials = (u32)std::min<size_t>(materials.size(), kMaxMaterials);

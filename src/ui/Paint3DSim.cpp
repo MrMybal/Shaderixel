@@ -46,8 +46,14 @@ bool App::CameraRay(MeshScene& s, float2 local, u32 w, u32 h, float3& o, float3&
     const float3 fwd = Normalize(s.target - s.camPos);
     const float3 right = Normalize(Cross(float3{0, 1, 0}, fwd));
     const float3 up = Cross(fwd, right);
-    const float ty = std::tan(s.fov * 0.5f), tx = ty * (float)w / std::max(h, 1u);
+    const float ty = s.ortho ? s.OrthoHalfHeight() : std::tan(s.fov * 0.5f), tx = ty * (float)w / std::max(h, 1u);
     const float nx = (local.x + 0.5f) / w * 2.0f - 1.0f, ny = 1.0f - (local.y + 0.5f) / h * 2.0f;
+    if (s.ortho) {
+        // Parallel rays starting well in front of the model.
+        o = s.camPos + right * (nx * tx) + up * (ny * ty) - fwd * 100.0f;
+        d = fwd;
+        return true;
+    }
     o = s.camPos;
     d = Normalize(fwd + right * (nx * tx) + up * (ny * ty));
     return true;

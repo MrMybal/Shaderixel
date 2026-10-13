@@ -73,6 +73,7 @@ struct PtSettings {
     float aperture = 0.0f;     // lens radius (scene units), 0 = pinhole
     float focusDistance = 2.8f;
     float fov = 0.8f;          // vertical, radians
+    bool ortho = false;        // orthographic: parallel rays, view height = distance * tan(fov / 2) * 2
     float clampIndirect = 20.0f;
     std::string hdri = "*studio";  // equirectangular .hdr / image, "*studio" built-in, "" = background color + no env light
     float envIntensity = 1.0f, envRotation = 0.0f;  // rotation: degrees

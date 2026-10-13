@@ -583,6 +583,7 @@ private:
     void DrawImageGenPanel();
     void DrawView3D();
     void AttachMesh(DocView& v, MeshData data);
+    void SetView3DPreset(MeshScene& s, int k);  // 0 front, 1 back, 2 left, 3 right, 4 top, 5 bottom (orthographic)
     void MeshPrepare3D(DocView& v);
     EffectInstance* EditedEffect(DocView& v, std::string* where);
     void HandleShortcuts();

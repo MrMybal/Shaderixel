@@ -45,11 +45,13 @@ void main(uint3 id : SV_DispatchThreadID)
     int2 p = int2(id.xy);
     if (gDepth.Load(int3(p, 0)) < 0.99999) return;  // the model is there
     float nx = (p.x + 0.5) / gSize.x * 2.0 - 1.0, ny = 1.0 - (p.y + 0.5) / gSize.y * 2.0;
-    float3 d = normalize(gFwd.xyz + gRight.xyz * nx + gUp.xyz * ny);
+    // Perspective: rays from the eye; orthographic (gSize.z): parallel rays from the view plane.
+    float3 o = gSize.z ? gCamPos.xyz + gRight.xyz * nx + gUp.xyz * ny - gFwd.xyz * 100.0 : gCamPos.xyz;
+    float3 d = gSize.z ? normalize(gFwd.xyz) : normalize(gFwd.xyz + gRight.xyz * nx + gUp.xyz * ny);
     if (d.y > -1e-4) return;
-    float t = (gPlane.x - gCamPos.y) / d.y;
+    float t = (gPlane.x - o.y) / d.y;
     if (t <= 0.0) return;
-    float3 g = gCamPos.xyz + d * t;
+    float3 g = o + d * t;
     float2 rel = g.xz - gPlane.zw;
     float fade = 1.0 - smoothstep(gPlane.y * 0.5, gPlane.y, length(rel));
     if (fade <= 0.0) return;

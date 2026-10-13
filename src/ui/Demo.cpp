@@ -2392,6 +2392,31 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 97) {
+        // 3D view projection: a Paint 3D cube project, SX_VIEW (-1: 3/4 view, 0..5 presets), SX_ORTHO, SX_Q (2 path tracing).
+        char vw[8] = "-1", q[8] = "1";
+        GetEnvironmentVariableA("SX_VIEW", vw, sizeof(vw));
+        GetEnvironmentVariableA("SX_Q", q, sizeof(q));
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.mesh = 1;
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh) return;
+        MeshScene& s = *a->mesh;
+        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 10) {
+            const int k = atoi(vw);
+            if (k >= 0) SetView3DPreset(s, k);
+            else { s.yaw = 0.65f; s.pitch = 0.45f; }
+            s.ortho = GetEnvironmentVariableA("SX_ORTHO", nullptr, 0) > 0 || k >= 0;
+            s.quality = atoi(q);
+            s.distance = 3.2f;
+            Log("[demo] view3d: view %d ortho %d quality %d", k, (int)s.ortho, s.quality);
+        }
+        return;
+    }
     if (demoMode == 65) {
         // Example Paint 3D project: SX_MESHFILE (a mug without UVs -> xatlas), gold rim (material + mask),
         // blue glossy pattern (paint layer, several channels), logo decal (SX_DECAL), saved to SX_OUT.

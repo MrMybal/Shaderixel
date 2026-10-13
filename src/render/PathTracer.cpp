@@ -860,7 +860,7 @@ void PtCpuRenderer::Loop() {
     const int W = width, H = height;
     float3 fwd = Normalize(camera.target - camera.position);
     float3 right = Normalize(Cross(camera.up, fwd)), up = Cross(fwd, right);
-    float ty = std::tan(settings.fov * 0.5f), tx = ty * W / H;
+    float ty = std::tan(settings.fov * 0.5f) * (settings.ortho ? Length(camera.target - camera.position) : 1.0f), tx = ty * W / H;
     const unsigned nt = std::max(1u, std::thread::hardware_concurrency() - 1);
     std::vector<float4> pass((size_t)W * H);
     while (!stop) {
@@ -880,7 +880,10 @@ void PtCpuRenderer::Loop() {
                         float px = (x + Rnd(rng)) / W * 2 - 1, py = 1 - (y + Rnd(rng)) / H * 2;
                         float3 dir = Normalize(fwd + right * (px * tx) + up * (py * ty));
                         float3 org = camera.position;
-                        if (settings.aperture > 0) {
+                        if (settings.ortho) {
+                            org = camera.position + right * (px * tx) + up * (py * ty) - fwd * 100.0f;
+                            dir = fwd;
+                        } else if (settings.aperture > 0) {
                             // Thin lens: aperture disc, sharp plane at the focus distance.
                             float3 focus = org + dir * (settings.focusDistance / std::max(Dot(dir, fwd), 1e-4f));
                             float r = std::sqrt(Rnd(rng)) * settings.aperture, ph = 2 * kPi * Rnd(rng);

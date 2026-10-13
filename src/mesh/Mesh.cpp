@@ -34,6 +34,16 @@ Mat4 Mat4::PerspectiveLH(float fovY, float aspect, float zn, float zf) {
     return r;
 }
 
+Mat4 Mat4::OrthoLH(float halfW, float halfH, float zn, float zf) {
+    Mat4 r;
+    r.m[0][0] = 1.0f / halfW;
+    r.m[1][1] = 1.0f / halfH;
+    r.m[2][2] = 1.0f / (zf - zn);
+    r.m[2][3] = -zn / (zf - zn);
+    r.m[3][3] = 1;
+    return r;
+}
+
 Mat4 Mat4::operator*(const Mat4& b) const {
     Mat4 r;
     for (int i = 0; i < 4; ++i)

@@ -15,6 +15,17 @@ void App::AttachMesh(DocView& v, MeshData data) {
     Status("Maillage : " + v.mesh->data.name + " (" + std::to_string(v.mesh->data.indices.size() / 3) + " triangles)");
 }
 
+void App::SetView3DPreset(MeshScene& s, int k) {
+    // 0 front, 1 back, 2 left, 3 right, 4 top, 5 bottom; orthographic like CAD / Blender views.
+    static const float yaws[] = {0.0f, 3.14159265f, -1.5707963f, 1.5707963f, 0.0f, 0.0f};
+    static const float pitches[] = {0.0f, 0.0f, 0.0f, 0.0f, 1.5695f, -1.5695f};
+    k = std::clamp(k, 0, 5);
+    s.yaw = yaws[k];
+    s.pitch = pitches[k];
+    s.ortho = true;
+    s.target = (s.data.boundsMin + s.data.boundsMax) * 0.5f;
+}
+
 void App::DrawView3D() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     bool open = ImGui::Begin("Vue 3D", PanelFlag("Vue 3D"), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
@@ -146,8 +157,8 @@ void App::DrawView3D() {
             ui::HelpTooltip("Exposition de la vue (double-clic pour saisir)");
             flow(110 * dpi);
             ImGui::SetNextItemWidth(110 * dpi);
-            ImGui::Combo("##quality", &v->mesh->quality, "Rendu rapide\0Rendu qualité\0Ray tracing\0");
-            ui::HelpTooltip("Qualité : ombre de la lumière principale et occlusion cuite du modèle (Cuisson).\nRay tracing : lancer de rayons progressif (reflets, ombres douces, lumière indirecte), affiné quand rien ne bouge.");
+            ImGui::Combo("##quality", &v->mesh->quality, "Rendu rapide\0Rendu qualité\0Path tracing\0");
+            ui::HelpTooltip("Rendu rapide : rastérisation simple.\nRendu qualité : ombre de la lumière principale, occlusion, sol.\nPath tracing : le moteur du mode Rendu dans la vue (reflets, ombres douces, lumière indirecte), affiné quand rien ne bouge.");
             if (v->mesh->quality == 2 && v->viewRT) {
                 char rt[48];
                 snprintf(rt, sizeof(rt), "%d / %d éch.", RenderSamples(*v->viewRT), v->mesh->rtSamples);
@@ -163,6 +174,20 @@ void App::DrawView3D() {
             }
             flow(ImGui::GetFrameHeight() + ImGui::CalcTextSize("Fil de fer").x + 12 * dpi);
             ImGui::Checkbox("Fil de fer", &v->mesh->wireframe);
+            flow(ImGui::GetFrameHeight() + ImGui::CalcTextSize("Ortho").x + 12 * dpi);
+            ImGui::Checkbox("Ortho", &v->mesh->ortho);
+            ui::HelpTooltip("Vue orthographique (projection parallèle), aussi en path tracing. Pavé numérique 5.");
+            if (button("Vues \xE2\x96\xBE")) ImGui::OpenPopup("##views3d");
+            ui::HelpTooltip("Vues de face, de côté, de dessus (orthographiques)\nPavé numérique : 1 face, 3 droite, 7 dessus (Ctrl : opposé), 5 perspective / ortho");
+            if (ImGui::BeginPopup("##views3d")) {
+                static const char* names[] = {"Face", "Arrière", "Gauche", "Droite", "Dessus", "Dessous"};
+                for (int k = 0; k < 6; ++k)
+                    if (ImGui::Selectable(names[k])) SetView3DPreset(*v->mesh, k);
+                ImGui::Separator();
+                if (ImGui::Selectable("Perspective", !v->mesh->ortho)) v->mesh->ortho = false;
+                if (ImGui::Selectable("Orthographique", v->mesh->ortho)) v->mesh->ortho = true;
+                ImGui::EndPopup();
+            }
         }
         char info[160];
         snprintf(info, sizeof(info), "%s - %zu triangles", v->mesh->data.name.c_str(), v->mesh->data.indices.size() / 3);
@@ -227,6 +252,13 @@ void App::DrawView3D() {
         if (io.KeyCtrl) decal.size = std::clamp(decal.size * std::pow(1.1f, io.MouseWheel), 0.02f, 3.0f);
         else decal.rotation = std::fmod(decal.rotation + io.MouseWheel * 5.0f + 540.0f, 360.0f) - 180.0f;
     } else if (hovered && io.MouseWheel != 0) s.distance *= std::pow(0.88f, io.MouseWheel);
+    // Numeric keypad (Blender-like): views, perspective / orthographic.
+    if (hovered && !io.WantTextInput) {
+        if (ImGui::IsKeyPressed(ImGuiKey_Keypad5, false)) s.ortho = !s.ortho;
+        if (ImGui::IsKeyPressed(ImGuiKey_Keypad1, false)) SetView3DPreset(s, io.KeyCtrl ? 1 : 0);
+        if (ImGui::IsKeyPressed(ImGuiKey_Keypad3, false)) SetView3DPreset(s, io.KeyCtrl ? 2 : 3);
+        if (ImGui::IsKeyPressed(ImGuiKey_Keypad7, false)) SetView3DPreset(s, io.KeyCtrl ? 5 : 4);
+    }
     UpdateCameraAnimation(s);
     if (tt) TurntableFrame(*v, w, h);
     // Depth of field: a click on the model chooses the sharp distance.
