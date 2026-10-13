@@ -447,6 +447,7 @@ void App::DrawLayers() {
                 SelectFromLayer(*v, l, m);
             } else {
                 d.S().activeLayer = l.id;
+                d.S().activeNode = 0;  // the layer itself (not one of its filter nodes)
                 d.S().editMask = false;
                 if (group && ImGui::IsMouseDoubleClicked(0)) l.collapsed = !l.collapsed;
                 if (l.kind == LayerKind::Smart && ImGui::IsMouseDoubleClicked(0)) smartEditRequest = l.id;
@@ -550,6 +551,7 @@ void App::DrawLayers() {
                 ImGui::SetCursorScreenPos(tp);
                 if (ImGui::InvisibleButton("##content", ImVec2(thumb, thumb))) {
                     d.S().activeLayer = l.id;
+                    d.S().activeNode = 0;
                     d.S().editMask = false;
                 }
                 textX += thumb + 8;
@@ -656,6 +658,31 @@ void App::DrawProperties() {
             ImGui::TextDisabled("Aucun calque sélectionné.");
         } else {
             bool changed = false;
+            // A filter node selected in the graph: its parameters first, the layer's properties folded below.
+            int selFilter = -1;
+            if (const Node* gn = d.S().graph.Find(d.S().activeNode); gn && gn->layer == l->id && (gn->id & 0x40000000u)) {
+                const u32 role = gn->id & 31u;
+                if (role >= 1 && role <= 15 && role - 1 < l->filters.size() && l->filters[role - 1].effectId == gn->fx.effectId) selFilter = (int)role - 1;
+            }
+            if (selFilter >= 0) {
+                EffectInstance& f = l->filters[selFilter];
+                auto def = f.Def();
+                ImGui::PushID("selfilter");
+                ImGui::SeparatorText(("Filtre : " + (def ? def->name : f.effectId)).c_str());
+                if (ImGui::Checkbox("Actif", &f.enabled)) changed = true;
+                TrackUndo("Activer le filtre");
+                ImGui::SameLine();
+                ImGui::TextDisabled("calque « %s »", l->name.c_str());
+                changed |= EffectParamsUI(f, "sel");
+                if (ImGui::SmallButton("Éditer (code / graphe)")) { efEd.filterIndex = selFilter; OpenGraphEditor(0); }
+                if (f.effectId == "camera_raw" || f.effectId == "lens_profile" || f.effectId == "photo_raw_local" || f.effectId == "photo_raw_geometry") {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Ouvrir dans Photo RAW...")) OpenCameraRaw(*v);
+                }
+                ImGui::PopID();
+                ImGui::Spacing();
+            }
+            if (selFilter < 0 || ImGui::CollapsingHeader(("Calque : " + l->name).c_str())) {
             ImGui::InputText("Nom", &l->name);
             TrackUndo("Renommer");
             if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
@@ -801,6 +828,7 @@ void App::DrawProperties() {
                 }, false, true);
                 ImGui::EndPopup();
             }
+            }  // layer properties
             if (changed) d.SyncGraph();
         }
     } else {

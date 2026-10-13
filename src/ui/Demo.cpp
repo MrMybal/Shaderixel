@@ -627,6 +627,15 @@ void App::DemoTick() {
                         break;
                     }
         }
+        if (frameCounter == 50 && Active() && GetEnvironmentVariableA("SX_SELFILTER", nullptr, 0) > 0) {
+            // The camera_raw filter node of the active layer selected in the graph (as a click on it does).
+            camRaw.open = false;
+            Document& d = *Active()->doc;
+            for (auto& n : d.S().graph.nodes)
+                if (n.layer == d.S().activeLayer && n.fx.effectId == "camera_raw") d.S().activeNode = n.id;
+            ImGui::SetWindowFocus("Propriétés");
+            Log("[demo] selected filter node %u", (unsigned)d.S().activeNode);
+        }
         if (frameCounter == 30 && Active() && GetEnvironmentVariableA("SX_GEOM", nullptr, 0) > 0) {
             // Geometry: vertical perspective 40, rotation 5 degrees, grid, frame filled.
             Layer* l = Active()->doc->ActiveLayer();
