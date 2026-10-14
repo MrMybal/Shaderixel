@@ -225,6 +225,26 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             dl->AddLine(P(0.0f, 0.52f), P(0.0f, 0.7f), col, t);
             break;
         }
+        case IconParticles: {
+            // Drops running down a surface, with their trails.
+            dl->AddLine(P(-0.75f, 0.75f), P(0.75f, 0.75f), col, t);
+            for (float x : {-0.45f, 0.05f, 0.5f}) {
+                const float y = x == 0.05f ? 0.25f : -0.05f;
+                dl->AddLine(P(x, -0.7f), P(x, y), col, t * 0.8f);
+                dl->AddCircleFilled(P(x, y + 0.16f), 0.15f * (P(1, 0).x - P(0, 0).x), col);
+            }
+            break;
+        }
+        case IconPolyFill: {
+            // Mesh triangles, one of them filled.
+            dl->AddTriangleFilled(P(-0.7f, 0.6f), P(0.0f, -0.6f), P(0.7f, 0.6f), (col & 0x00FFFFFF) | 0x50000000);
+            dl->AddTriangleFilled(P(-0.35f, 0.0f), P(0.35f, 0.0f), P(0.0f, 0.6f), col);
+            dl->AddTriangle(P(-0.7f, 0.6f), P(0.0f, -0.6f), P(0.7f, 0.6f), col, t);
+            dl->AddLine(P(-0.35f, 0.0f), P(0.35f, 0.0f), col, t);
+            dl->AddLine(P(-0.35f, 0.0f), P(0.0f, 0.6f), col, t);
+            dl->AddLine(P(0.35f, 0.0f), P(0.0f, 0.6f), col, t);
+            break;
+        }
         case IconTransform: {
             // Bounding box with corner handles and a rotation arc.
             dl->AddRect(P(-0.6f, -0.6f), P(0.6f, 0.6f), col, 0, 0, t);

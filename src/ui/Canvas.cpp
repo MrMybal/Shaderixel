@@ -48,8 +48,8 @@ const ToolInfo kToolInfo[] = {
     {Tool::Text, ui::IconText, "Texte", "T"},
     {Tool::Shape, ui::IconShape, "Forme", "U"},
     {Tool::Projection, ui::IconStamp, "Projection (décalque 3D)", "P"},
-    {Tool::PolyFill, ui::IconBucket, "Remplissage par polygone (3D)", "-"},
-    {Tool::Particles, ui::IconDrop, "Simulation de peinture (particules 3D)", "-"},
+    {Tool::PolyFill, ui::IconPolyFill, "Remplissage par polygone (3D)", "-"},
+    {Tool::Particles, ui::IconParticles, "Simulation de peinture (particules 3D : coulures, poussière, éclaboussures...)", "-"},
     {Tool::Plugin, ui::IconWand, "Outil de plugin", "-"},
 };
 
@@ -62,7 +62,9 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::QuickSelect, Tool::Wand},
     {Tool::Crop, Tool::Trim},
     {Tool::Brush, Tool::HistoryBrush},
-    {Tool::Projection, Tool::PolyFill, Tool::Particles},
+    {Tool::Projection},
+    {Tool::PolyFill},
+    {Tool::Particles},
     {Tool::Eraser, Tool::BackgroundEraser, Tool::MagicEraser},
     {Tool::Clone, Tool::PatternStamp},
     {Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye},
@@ -88,16 +90,18 @@ void App::DrawToolbar() {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4 * dpi, 3 * dpi));
     if (ImGui::Begin("Outils", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar)) {
         float size = std::min(ImGui::GetContentRegionAvail().x, 38.0f * dpi);
-        // Paint 3D projects: painting tools only.
+        // Paint 3D projects: painting tools only; documents with a model in the 3D view: the 3D tools too.
         const bool p3d = Active() && Active()->doc->kind == 1;
+        const bool has3D = p3d || (Active() && Active()->mesh);
+        auto only3D = [](Tool t) { return t == Tool::Projection || t == Tool::PolyFill || t == Tool::Particles; };
         auto allowed3D = [](Tool t) {
             return t == Tool::Brush || t == Tool::Eraser || t == Tool::Projection || t == Tool::PolyFill || t == Tool::Particles || t == Tool::Clone || t == Tool::Blur || t == Tool::Picker ||
                    t == Tool::Hand || t == Tool::Zoom || t == Tool::Lasso || t == Tool::RectSelect;
         };
         for (size_t g = 0; g < kGroups.size(); ++g) {
             const auto& group = kGroups[g];
-            if (p3d ? !allowed3D(group[0]) : group[0] == Tool::Projection) continue;
-            if (g == 1 || g == 5 || g == 14) {
+            if (p3d ? !allowed3D(group[0]) : (only3D(group[0]) && !has3D)) continue;
+            if (g == 1 || g == 5 || g == 16) {  // separators before transform, brushes, gradients
                 ImVec2 c = ImGui::GetCursorScreenPos();
                 ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);
                 ImGui::Dummy(ImVec2(size, 3 * dpi));
@@ -116,6 +120,11 @@ void App::DrawToolbar() {
             if (ui::IconButton("t", info.icon, inGroup, size, tip)) {
                 if (xf.active && xf.view) TransformCommit(*xf.view);
                 tool = shown;
+                // The 3D tools are set in the brush material panel: brought forward.
+                if (only3D(shown)) {
+                    *PanelFlag("Matériau du pinceau") = true;
+                    ImGui::SetWindowFocus("Matériau du pinceau");
+                }
             }
             if (group.size() > 1) {
                 ImGui::GetWindowDrawList()->AddTriangleFilled(ImVec2(pos.x + size - 2, pos.y + size - 7), ImVec2(pos.x + size - 2, pos.y + size - 2),

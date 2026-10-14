@@ -505,6 +505,18 @@ void App::DrawMaterialFilters(DocView& v, Id material) {
 
 void App::DrawBrushMaterialPanel() {
     if (!ImGui::Begin("Matériau du pinceau", PanelFlag("Matériau du pinceau"))) { ImGui::End(); return; }
+    // A 3D tool just chosen: its section is scrolled into view (they sit at the bottom of the panel).
+    static Tool seenTool = Tool::Brush;
+    const bool toolJump = tool != seenTool;
+    seenTool = tool;
+    auto section = [&](const char* title, Tool t) {
+        if (tool == t) {
+            if (toolJump) ImGui::SetScrollHereY(0.0f);
+            ImGui::PushStyleColor(ImGuiCol_Text, ui::col::Accent);
+        }
+        ImGui::SeparatorText(title);
+        if (tool == t) ImGui::PopStyleColor();
+    };
     auto& B = brush3D;
     ImGui::TextDisabled("Valeurs peintes dans chaque canal d'un calque de peinture.");
     if (ImGui::BeginCombo("Préréglage", "Choisir...")) {
@@ -592,12 +604,12 @@ void App::DrawBrushMaterialPanel() {
             ImGui::TreePop();
         }
     }
-    ImGui::SeparatorText("Remplissage par polygone");
+    section("Remplissage par polygone", Tool::PolyFill);
     ImGui::SetNextItemWidth(-FLT_MIN);
     ImGui::Combo("##polymode", &B.polyMode, "Triangle\0Face (polygone plat)\0Île UV\0Pièce du maillage\0Tout le modèle\0");
     if (ImGui::Button("Outil Remplissage par polygone")) tool = Tool::PolyFill;
     ui::HelpTooltip("Clic sur le modèle : remplit l'élément sous le curseur avec le matériau du pinceau\n(ou le masque du matériau). Ctrl+clic : efface.");
-    ImGui::SeparatorText("Simulation (particules)");
+    section("Simulation (particules)", Tool::Particles);
     ImGui::SetNextItemWidth(-FLT_MIN);
     if (ImGui::BeginCombo("##simpreset", SimPresetName(B.simPreset))) {
         for (int i = 0; i < SimPresetCount(); ++i) {
@@ -615,7 +627,7 @@ void App::DrawBrushMaterialPanel() {
     if (B.simPreset == 3) ImGui::SliderFloat("Dispersion", &B.simSpread, 0, 2, "%.2f");
     if (ImGui::Button("Outil Simulation")) tool = Tool::Particles;
     ui::HelpTooltip("Maintenez le clic sur le modèle : les particules partent du pinceau (sa taille fixe la zone)\net peignent le matériau du pinceau là où elles passent, même hors de la vue.");
-    ImGui::SeparatorText("Projection (décalque)");
+    section("Projection (décalque)", Tool::Projection);
     std::string dn = decal.path.empty() ? "(aucune image)" : Narrow(Utf8Path(decal.path).filename().wstring());
     ImGui::TextUnformatted(dn.c_str());
     if (ImGui::Button("Choisir une image...")) {

@@ -2414,6 +2414,11 @@ void App::DemoTick() {
             s.quality = atoi(q);
             s.distance = 3.2f;
             Log("[demo] view3d: view %d ortho %d quality %d", k, (int)s.ortho, s.quality);
+            if (GetEnvironmentVariableA("SX_SIMTOOL", nullptr, 0) > 0) {
+                tool = Tool::Particles;  // as chosen in the toolbar: its panel brought forward
+                *PanelFlag("Matériau du pinceau") = true;
+                ImGui::SetWindowFocus("Matériau du pinceau");
+            }
         }
         return;
     }
