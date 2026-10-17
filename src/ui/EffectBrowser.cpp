@@ -536,6 +536,37 @@ void App::DrawLayerPreview() {
     static int what = 0;
     Layer* l = d.Mode() == DocMode::Layers ? d.ActiveLayer() : nullptr;
     bool hasMask = l && l->mask;
+    // Layer mode with a node selected in the graph: that node's result (blend, filter, mask, output...).
+    const Node* selNode = d.Mode() == DocMode::Layers ? d.S().graph.Find(d.S().activeNode) : nullptr;
+    if (selNode && selNode->layer && l && selNode->layer != l->id) selNode = nullptr;  // stale: another layer is active now
+    if (selNode) {
+        ImGui::TextDisabled("Nœud : %s", selNode->name.c_str());
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Voir le calque")) d.S().activeNode = 0;
+        u64 nh = 0;
+        gpu::Texture* nt = v->renderer.NodeOutput(selNode->id);
+        if (nt) nh = v->renderer.NodeHash(selNode->id);
+        else if (selNode->kind == NodeKind::Output && v->lastImage) { nt = v->lastImage; nh = v->renderer.ImageVersion(); }
+        else if (selNode->kind == NodeKind::Surface)
+            if (Surface* s = d.GetSurface(selNode->surface)) { nt = s->tex.get(); nh = s->version; }
+        ImVec2 av = ImGui::GetContentRegionAvail();
+        if (!nt || av.x < 8 || av.y < 8) {
+            ImGui::TextDisabled("Rien à afficher pour ce nœud");
+            ImGui::End();
+            return;
+        }
+        const float a = (float)nt->Width() / nt->Height();
+        float w = av.x, h = w / a;
+        if (h > av.y) { h = av.y; w = h * a; }
+        const u32 tw = (u32)std::max(1.0f, w), th = (u32)std::max(1.0f, h);
+        gpu::Texture* t = v->renderer.Thumbnail(*ctx, kLayerPreviewKey, nt, nh ^ ((u64)tw << 40) ^ ((u64)th << 20) ^ ((u64)selNode->id << 8) ^ 7, tw, th);
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        p.x += (av.x - w) * 0.5f;
+        ImGui::SetCursorScreenPos(p);
+        ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(t), ImVec2(w, h));
+        ImGui::End();
+        return;
+    }
     if (d.Mode() == DocMode::Layers) {
         ImGui::RadioButton("Calque", &what, 0);
         ImGui::SameLine();

@@ -652,7 +652,16 @@ void App::DrawProperties() {
     Document& d = *v->doc;
     ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.42f);
 
-    if (d.Mode() == DocMode::Layers) {
+    const Node* selNode = d.Mode() == DocMode::Layers ? d.S().graph.Find(d.S().activeNode) : nullptr;
+    if (selNode && selNode->kind == NodeKind::Output) {
+        // Output node of the layer graph: the final image (shown in Aperçu du calque) and the document.
+        ImGui::SeparatorText("Sortie : image finale");
+        ImGui::TextWrapped("Composition de tous les calques visibles, telle qu'elle est affichée et exportée.");
+        if (ImGui::Button("Exporter l'image..."))
+            ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TIFF 16 bits\0*.tif\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
+        ImGui::SameLine();
+        if (ImGui::Button("Retour au calque actif")) d.S().activeNode = 0;
+    } else if (d.Mode() == DocMode::Layers) {
         Layer* l = d.ActiveLayer();
         if (!l) {
             ImGui::TextDisabled("Aucun calque sélectionné.");
@@ -660,10 +669,59 @@ void App::DrawProperties() {
             bool changed = false;
             // A filter node selected in the graph: its parameters first, the layer's properties folded below.
             int selFilter = -1;
+            u32 selRole = 0;  // generated node of this layer: 16 fill / adjustment, 17 blend, 18 mask
             if (const Node* gn = d.S().graph.Find(d.S().activeNode); gn && gn->layer == l->id && (gn->id & 0x40000000u)) {
                 const u32 role = gn->id & 31u;
                 if (role >= 1 && role <= 15 && role - 1 < l->filters.size() && l->filters[role - 1].effectId == gn->fx.effectId) selFilter = (int)role - 1;
+                if (role >= 16 && role <= 18) selRole = role;
+                if (gn->kind == NodeKind::Blend) selRole = 17;
             }
+            if (selRole == 17) {
+                // Blend node: how the layer is laid over what is below (its result in Aperçu du calque).
+                ImGui::PushID("selblend");
+                ImGui::SeparatorText(("Fusion : " + l->name).c_str());
+                if (ImGui::BeginCombo("Mode", BlendModeName(l->blend))) {
+                    for (int i = 0; i < kBlendMenuCount; ++i) {
+                        int m = kBlendMenuOrder[i];
+                        if (m < 0) { ImGui::Separator(); continue; }
+                        if (ImGui::Selectable(BlendModeName((BlendMode)m), (int)l->blend == m)) {
+                            DocState before = d.S();
+                            l->blend = (BlendMode)m;
+                            d.SyncGraph();
+                            v->history.PushState("Mode de fusion", before, d.S());
+                        }
+                    }
+                    ImGui::EndCombo();
+                }
+                float op = l->opacity * 100.0f;
+                if (ImGui::SliderFloat("Opacité", &op, 0, 100, "%.0f %%")) { l->opacity = op / 100.0f; changed = true; }
+                TrackUndo("Opacité");
+                if (ImGui::Checkbox("Masque d'écrêtage", &l->clipped)) changed = true;
+                TrackUndo("Masque d'écrêtage");
+                ImGui::TextDisabled("Entrée A : calques du dessous   Entrée B : ce calque (filtres compris)");
+                ImGui::PopID();
+                ImGui::Spacing();
+            } else if (selRole == 18 && l->mask) {
+                ImGui::PushID("selmask");
+                ImGui::SeparatorText(("Masque : " + l->name).c_str());
+                if (ImGui::Checkbox("Activé", &l->maskEnabled)) changed = true;
+                TrackUndo("Masque activé");
+                ImGui::SameLine();
+                bool edit = d.S().editMask;
+                if (ImGui::Checkbox("Peindre le masque", &edit)) d.S().editMask = edit;
+                ImGui::TextDisabled("Blanc : le calque est visible, noir : masqué.");
+                ImGui::PopID();
+                ImGui::Spacing();
+            } else if (selRole == 16 && (l->kind == LayerKind::Fill || l->kind == LayerKind::Adjustment)) {
+                ImGui::PushID("seleffect");
+                auto def = l->effect.Def();
+                ImGui::SeparatorText(((l->kind == LayerKind::Fill ? "Remplissage : " : "Réglage : ") + (def ? def->name : l->name)).c_str());
+                changed |= EffectParamsUI(l->effect, "selmain");
+                if (ImGui::SmallButton("Éditer (code / graphe)")) { efEd.filterIndex = -1; OpenGraphEditor(0); }
+                ImGui::PopID();
+                ImGui::Spacing();
+            }
+            const bool nodeFirst = selFilter >= 0 || selRole == 17 || (selRole == 18 && l->mask) || (selRole == 16 && (l->kind == LayerKind::Fill || l->kind == LayerKind::Adjustment));
             if (selFilter >= 0) {
                 EffectInstance& f = l->filters[selFilter];
                 auto def = f.Def();
@@ -682,7 +740,7 @@ void App::DrawProperties() {
                 ImGui::PopID();
                 ImGui::Spacing();
             }
-            if (selFilter < 0 || ImGui::CollapsingHeader(("Calque : " + l->name).c_str())) {
+            if (!nodeFirst || ImGui::CollapsingHeader(("Calque : " + l->name).c_str())) {
             ImGui::InputText("Nom", &l->name);
             TrackUndo("Renommer");
             if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;

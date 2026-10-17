@@ -2392,6 +2392,26 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 98) {
+        // Layer graph node selection (the demo scene): SX_NODE = blend (the top layer's blend node) or output.
+        char which[16] = "blend";
+        GetEnvironmentVariableA("SX_NODE", which, sizeof(which));
+        if (frameCounter == 20 && Active()) {
+            Document& d = *Active()->doc;
+            const Node* pick = nullptr;
+            for (auto& n : d.S().graph.nodes) {
+                if (std::string(which) == "output" && n.kind == NodeKind::Output) pick = &n;
+                if (std::string(which) == "blend" && n.kind == NodeKind::Blend && n.layer) pick = &n;  // last one: the top layer
+            }
+            if (pick) {
+                if (pick->layer) d.S().activeLayer = pick->layer;
+                d.S().activeNode = pick->id;
+                Log("[demo] nodesel: %s (%s)", pick->name.c_str(), which);
+            }
+            ImGui::SetWindowFocus("Propriétés");
+        }
+        return;
+    }
     if (demoMode == 97) {
         // 3D view projection: a Paint 3D cube project, SX_VIEW (-1: 3/4 view, 0..5 presets), SX_ORTHO, SX_Q (2 path tracing).
         char vw[8] = "-1", q[8] = "1";
