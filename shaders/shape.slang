@@ -1,5 +1,5 @@
 // Vector shape layer rendered from signed distance fields (antialiased fill + stroke).
-// Types: 0 rectangle (rounded), 1 ellipse, 2 line, 3 regular polygon, 4 star.
+// Types: 0 rectangle (rounded), 1 ellipse, 2 line, 3 regular polygon, 4 star, 5 custom outline (distance field texture).
 // Extra components combine with the main shape in order (boolean operations on the
 // distances): 0 unite (min), 1 subtract (max(a, -b)), 2 intersect (max), 3 exclude (xor).
 #include "common.slang"
@@ -23,7 +23,10 @@ cbuffer Shape : register(b1)
     float4 gPartRect[MAX_PARTS];
     float4 gPartParam[MAX_PARTS];   // type, radius, sides, rotation (radians)
     float4 gPartOp[MAX_PARTS];      // x: operation
+    float4 gSdfBox;                 // custom shape: area of the distance field, frame coordinates around the center
 };
+
+Texture2D<float> gSdf : register(t0);  // custom shape: signed distance (pixels)
 
 RWTexture2D<float4> gOut : register(u0);
 
@@ -89,7 +92,19 @@ void main(uint3 id : SV_DispatchThreadID)
 {
     if (any(id.xy >= gSize)) return;
     float2 p = float2(id.xy) + 0.5;
-    float d = ShapeSd(p, gType, gRect, gRadius, gSides, gRotation);
+    float d;
+    if (gType == 5)
+    {
+        // Custom outline: the distance field around the frame center (rotated), extended outside its area.
+        float2 c = (gRect.xy + gRect.zw) * 0.5;
+        float2 q = p - c;
+        float cs = cos(-gRotation), sn = sin(-gRotation);
+        q = float2(cs * q.x - sn * q.y, sn * q.x + cs * q.y);
+        float2 uv = (q - gSdfBox.xy) / max(gSdfBox.zw, 1e-3);
+        float2 cuv = saturate(uv);
+        d = gSdf.SampleLevel(sLinearClamp, cuv, 0) + length((uv - cuv) * gSdfBox.zw);
+    }
+    else d = ShapeSd(p, gType, gRect, gRadius, gSides, gRotation);
     for (uint i = 0; i < min(gPartCount, (uint)MAX_PARTS); ++i)
     {
         float4 pp = gPartParam[i];

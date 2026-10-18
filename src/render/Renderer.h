@@ -404,6 +404,12 @@ private:
     std::unordered_map<u64, Value> frameValues;
     std::unordered_map<Id, std::string> failed;
     std::unordered_map<u64, ThumbCache> thumbs;
+    struct ShapeSdfCache {
+        u64 key = 0;
+        gpu::TexturePtr tex;
+        float4 box;
+    };
+    std::unordered_map<Id, ShapeSdfCache> shapeSdf;  // custom shape layers: distance field of their outline
     std::unordered_map<const EffectDef*, ProgramEntry> programs;
     u64 effectGeneration = ~0ull;
     bool pending = false;

@@ -1280,9 +1280,10 @@ void App::DrawBrush() {
         if (ImGui::Button("Annuler (Échap)") && xf.view) TransformCancel(*xf.view);
     } else if (tool == Tool::Shape) {
         ImGui::SeparatorText("Forme");
-        ImGui::Combo("Type", &shapeDefaults.type, "Rectangle\0Ellipse\0Ligne\0Polygone\0Étoile\0");
+        ImGui::Combo("Type", &shapeDefaults.type, "Rectangle\0Ellipse\0Ligne\0Polygone\0Étoile\0Personnalisée\0");
+        if (shapeDefaults.type == 5) ShapePicker(shapeDefaults, Active());
         if (shapeDefaults.type == 0) ImGui::SliderFloat("Rayon des coins", &shapeDefaults.radius, 0, 500, "%.0f px");
-        if (shapeDefaults.type >= 3) ImGui::SliderInt("Côtés / branches", &shapeDefaults.sides, 3, 32);
+        if (shapeDefaults.type == 3 || shapeDefaults.type == 4) ImGui::SliderInt("Côtés / branches", &shapeDefaults.sides, 3, 32);
         if (shapeDefaults.type == 4) ImGui::SliderFloat("Creux", &shapeDefaults.radius, 0.05f, 0.95f, "%.2f");
         ImGui::Checkbox("Fond (premier plan)", &shapeDefaults.fillOn);
         ImGui::Checkbox("Contour (arrière-plan)", &shapeDefaults.strokeOn);

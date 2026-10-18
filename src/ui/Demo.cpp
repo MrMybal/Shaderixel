@@ -1,4 +1,5 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
+#include "doc/ShapePaths.h"
 #include "ui/App.h"
 #include "ui/Filter.h"
 #include "ui/Search.h"
@@ -443,6 +444,54 @@ void App::DemoTick() {
             a->mesh->viewChannel = atoi(view);
             baker.open = false;
         }
+        return;
+    }
+    if (demoMode == 102 && v) {
+        // Custom shapes: every built-in shape as a shape layer on a grid (fill + stroke), one rotated, then the tool options.
+        Document& d = *v->doc;
+        if (frameCounter == 6) {
+            const auto& shapes = BuiltinShapes();
+            const int cols = 5;
+            const float cw = d.Width() / (float)cols, ch = d.Height() / (float)((shapes.size() + cols - 1) / cols);
+            for (size_t i = 0; i < shapes.size(); ++i) {
+                ShapeStyle st;
+                st.type = 5;
+                st.custom = shapes[i].path;
+                st.customName = shapes[i].name;
+                const float x = (i % cols) * cw, y = (i / cols) * ch;
+                st.rect = {x + cw * 0.15f, y + ch * 0.12f, x + cw * 0.85f, y + ch * 0.88f};
+                st.fill = {0.25f + 0.05f * (i % 4), 0.5f, 0.9f - 0.04f * i, 1};
+                st.strokeOn = (i % 3) == 0;
+                st.stroke = {0.05f, 0.05f, 0.1f, 1};
+                st.strokeWidth = 6;
+                if (i == 1) st.rotation = -20;
+                d.AddShapeLayer(st);
+            }
+            d.SyncGraph();
+            tool = Tool::Shape;
+            shapeDefaults.type = 5;
+            Log("[shapes] %zu shape layers", shapes.size());
+            // SVG reading (not saved): a path with relative commands and an arc, and a polygon.
+            auto svg = ParseSvgFile("<svg><path fill='red' d='m10 10 h80 v30 q0 10 -10 10 a5 5 0 0 1 -5 5 H10 z'/><polygon points='0,0 50,0 25,40'/></svg>");
+            size_t pts = 0;
+            for (auto& sp : svg) pts += sp.pts.size();
+            {
+                // The custom outlines through the document format.
+                Json j = SerializeDocument(d);
+                std::string err;
+                auto back = DeserializeDocument(j, {}, &err);
+                int same = 0, total = 0;
+                if (back)
+                    for (auto& l : d.S().layers)
+                        if (l.kind == LayerKind::Shape)
+                            for (auto& l2 : back->S().layers)
+                                if (l2.id == l.id) { ++total; same += l2.shape.CustomHash() == l.shape.CustomHash() && l2.shape.customName == l.shape.customName && l2.shape.type == 5; }
+                Log("[shapes] document round trip: %d / %d custom shapes identical %s", same, total, err.c_str());
+            }
+            Log("[shapes] svg: %zu subpaths, %zu points, closed %d %d", svg.size(), pts, svg.size() > 0 && svg[0].closed, svg.size() > 1 && svg[1].closed);
+        }
+        if (frameCounter == 10) ShowSideTab(1);
+        if (frameCounter == 16) ImGui::SetWindowFocus("Options");
         return;
     }
     if (demoMode == 101) {

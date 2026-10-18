@@ -95,7 +95,7 @@ struct ShapePart {
 };
 
 struct ShapeStyle {
-    int type = 0;                    // 0 rectangle, 1 ellipse, 2 line, 3 polygon, 4 star
+    int type = 0;                    // 0 rectangle, 1 ellipse, 2 line, 3 polygon, 4 star, 5 custom (outline below)
     float4 rect = {0, 0, 100, 100};  // x0 y0 x1 y1 (line: endpoints)
     float radius = 0;                // corner radius (rect) / inner ratio (star)
     int sides = 5;
@@ -105,10 +105,21 @@ struct ShapeStyle {
     float4 stroke = {0, 0, 0, 1};
     float strokeWidth = 4;
     std::vector<ShapePart> parts;    // boolean components (up to 8)
+    std::vector<SubPath> custom;     // custom shape: outline in the unit square, stretched to the frame
+    std::string customName;
+    u64 CustomHash() const {
+        Hasher h;
+        for (auto& s : custom) {
+            h.Pod(s.closed);
+            for (auto& a : s.pts) { h.Pod(a.p); h.Pod(a.in); h.Pod(a.out); }
+        }
+        return h.h;
+    }
     u64 Hash() const {
         Hasher h;
         h.Pod(type); h.Pod(rect); h.Pod(radius); h.Pod(sides); h.Pod(rotation); h.Pod(fillOn); h.Pod(strokeOn);
         h.Pod(fill); h.Pod(stroke); h.Pod(strokeWidth);
+        if (type == 5) h.Pod(CustomHash());
         for (auto& p : parts) { h.Pod(p.op); h.Pod(p.type); h.Pod(p.rect); h.Pod(p.radius); h.Pod(p.sides); h.Pod(p.rotation); }
         return h.h;
     }

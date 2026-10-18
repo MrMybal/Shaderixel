@@ -544,6 +544,20 @@ Json SerializeDocument(const Document& doc) {
             t["fill"] = ToJson(l.shape.fill);
             t["stroke"] = ToJson(l.shape.stroke);
             t["strokeWidth"] = l.shape.strokeWidth;
+            if (!l.shape.custom.empty()) {
+                // Custom outline: [closed, [x, y, in x, in y, out x, out y, ...]] per subpath.
+                Json cs = Json::Array();
+                for (auto& sp : l.shape.custom) {
+                    Json e = Json::Array(), pts = Json::Array();
+                    e.Push(sp.closed);
+                    for (auto& a : sp.pts)
+                        for (float f : {a.p.x, a.p.y, a.in.x, a.in.y, a.out.x, a.out.y}) pts.Push(f);
+                    e.Push(pts);
+                    cs.Push(e);
+                }
+                t["custom"] = cs;
+                t["customName"] = l.shape.customName;
+            }
             if (!l.shape.parts.empty()) {
                 Json ps = Json::Array();
                 for (auto& p : l.shape.parts) {
@@ -782,6 +796,17 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
             l.shape.fill = Float4FromJson(t["fill"], {0, 0, 0, 1});
             l.shape.stroke = Float4FromJson(t["stroke"], {0, 0, 0, 1});
             l.shape.strokeWidth = t["strokeWidth"].F(4);
+            for (auto& e : t["custom"].Elements()) {
+                SubPath sp;
+                sp.closed = e.Size() > 0 && e.At(0).B(true);
+                if (e.Size() > 1) {
+                    const auto& v = e.At(1).Elements();
+                    for (size_t k = 0; k + 5 < v.size(); k += 6)
+                        sp.pts.push_back({{v[k].F(), v[k + 1].F()}, {v[k + 2].F(), v[k + 3].F()}, {v[k + 4].F(), v[k + 5].F()}});
+                }
+                l.shape.custom.push_back(sp);
+            }
+            l.shape.customName = t["customName"].S("");
         }
         if (o.Has("text")) {
             const Json& t = o["text"];

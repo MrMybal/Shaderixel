@@ -1,4 +1,5 @@
 // Canvas-level operations: image size, canvas size, crop, rotate, flip.
+#include "doc/ShapePaths.h"
 #include "render/Renderer.h"
 #include "render/Dispatch.h"
 
@@ -55,6 +56,7 @@ struct ShapeCB {
     i32 sides;
     u32 partCount, pad[3];
     float4 partRect[8], partParam[8], partOp[8];
+    float4 sdfBox;  // custom shape: distance field over [x, y] .. [x + z, y + w] (frame coordinates around its center)
 };
 }  // namespace
 
@@ -85,6 +87,25 @@ void Renderer::RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, 
     gpu::DispatchDesc d;
     d.pipeline = k;
     d.uav[0] = sf->tex.get();
+    if (s.type == 5 && !s.custom.empty()) {
+        // Custom outline: signed distance field computed on the CPU (cached per surface).
+        const float bw = std::max(1.0f, std::abs(s.rect.z - s.rect.x)), bh = std::max(1.0f, std::abs(s.rect.w - s.rect.y));
+        const float margin = s.strokeWidth + 4;
+        const u64 key = s.CustomHash() ^ ((u64)(bw * 16) << 20) ^ ((u64)(bh * 16) << 42) ^ (u64)(margin * 64);
+        auto& cache = shapeSdf[surface];
+        if (cache.key != key || !cache.tex) {
+            std::vector<float> field;
+            int tw = 0, th = 0;
+            float scale = 1;
+            ShapeDistanceField(s.custom, bw, bh, margin, 1024, field, tw, th, scale);
+            cache.tex = gpu::Dev().CreateTexture((u32)tw, (u32)th, gpu::Format::R32F, "ShapeSDF");
+            ctx.Upload(cache.tex.get(), field.data(), (u32)tw * sizeof(float));
+            cache.key = key;
+            cache.box = {-bw * 0.5f - margin, -bh * 0.5f - margin, tw / scale, th / scale};
+        }
+        d.srv[0] = cache.tex.get();
+        cb.sdfBox = cache.box;
+    }
     {
         // Only the shape's (rotated) extent receives non-zero pixels.
         Rect all;

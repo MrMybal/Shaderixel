@@ -23,6 +23,7 @@
 #include "shaderixel_plugin.h"
 #include "ui/Search.h"
 #include "ui/CodeEdit.h"
+#include "doc/ShapePaths.h"
 
 #include <mutex>
 
@@ -1758,6 +1759,15 @@ private:
         bool dragging = false;
     } abCompare;
     void TakeSnapshot(DocView& v);
+    // Custom shapes (ShapeLibrary.cpp).
+    std::vector<CustomShape> userShapes;
+    bool userShapesLoaded = false;
+    std::string shapeNewName;
+    gpu::TexturePtr shapeAtlas;  // picker icons
+    u64 shapeAtlasKey = 0;
+    std::vector<CustomShape>& UserShapes();
+    bool SaveUserShape(const std::string& name, std::vector<SubPath> path);
+    bool ShapePicker(ShapeStyle& s, DocView* v);  // true: the shape changed
     bool CompareSplitInput(DocView& v, ImVec2 canvasMin, ImVec2 size, bool hovered);
     void DrawCompareMenu();
     struct AnalysisSampler {

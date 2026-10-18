@@ -65,7 +65,7 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             // Photoshop: Shift unite, Alt subtract, Shift+Alt intersect.
             ShapePart p;
             p.op = io.KeyShift && io.KeyAlt ? 2 : io.KeyAlt ? 1 : 0;
-            p.type = shapeDefaults.type == 2 ? 0 : shapeDefaults.type;
+            p.type = shapeDefaults.type == 2 || shapeDefaults.type == 5 ? 0 : shapeDefaults.type;  // components: built-in kinds
             p.sides = shapeDefaults.sides;
             p.radius = shapeDefaults.radius;
             p.rect = {dp.x, dp.y, dp.x + 1, dp.y + 1};
@@ -332,11 +332,18 @@ void App::ShapePropertiesUI(DocView& v, Layer& l) {
     Document& d = *v.doc;
     ShapeStyle& s = l.shape;
     ImGui::SeparatorText("Forme");
-    if (ImGui::Combo("Type", &s.type, "Rectangle\0Ellipse\0Ligne\0Polygone\0Étoile\0")) v.history.PushState("Type de forme", frameBefore, d.S());
+    if (ImGui::Combo("Type", &s.type, "Rectangle\0Ellipse\0Ligne\0Polygone\0Étoile\0Personnalisée\0")) {
+        if (s.type == 5) ShapePicker(s, &v);  // a custom outline right away
+        v.history.PushState("Type de forme", frameBefore, d.S());
+    }
+    if (s.type == 5) {
+        ImGui::TextDisabled("Forme : %s", s.customName.empty() ? "?" : s.customName.c_str());
+        if (ShapePicker(s, &v)) v.history.PushState("Forme personnalisée", frameBefore, d.S());
+    }
     if (ImGui::DragFloat4("Cadre", &s.rect.x, 1.0f, -100000, 100000, "%.0f")) d.dirty = true;
     TrackUndo("Cadre de la forme");
     if (s.type == 0) { ImGui::SliderFloat("Rayon des coins", &s.radius, 0, 1000, "%.0f px"); TrackUndo("Rayon"); }
-    if (s.type >= 3) { ImGui::SliderInt("Côtés / branches", &s.sides, 3, 32); TrackUndo("Côtés"); }
+    if (s.type == 3 || s.type == 4) { ImGui::SliderInt("Côtés / branches", &s.sides, 3, 32); TrackUndo("Côtés"); }
     if (s.type == 4) { ImGui::SliderFloat("Creux", &s.radius, 0.05f, 0.95f, "%.2f"); TrackUndo("Creux"); }
     if (s.type != 2) { ImGui::SliderFloat("Rotation", &s.rotation, -180, 180, "%.1f°"); TrackUndo("Rotation"); }
     if (s.type != 2) {

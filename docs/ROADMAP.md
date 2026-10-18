@@ -40,7 +40,7 @@
 ### Photoshop
 - Déplacer le contour de sélection (glisser à l'intérieur, flèches) : **fait** , Transformer la sélection : **fait** , Sélection rapide (croissance géodésique sensible aux bords) : **fait**
 - Blend-If (options de fusion) : **fait** (gris, poignées séparables, import/export PSD), par canal R/V/B : **fait**
-- Tracés vectoriels : **fait** (outil Plume, édition Ctrl, panneau Tracés : sélection, remplissage, contour au pinceau ; sauvegardés dans le .sxl). Sélection → tracé (contour sous-pixel, simplification, angles conservés ; aller-retour à 0,1 % près) : **fait**. Tracés dans les PSD (ressources 2000+, export et import, vérifiés avec psd-tools) : **fait**. Reste : formes personnalisées depuis un tracé
+- Tracés vectoriels : **fait** (outil Plume, édition Ctrl, panneau Tracés : sélection, remplissage, contour au pinceau ; sauvegardés dans le .sxl). Sélection → tracé (contour sous-pixel, simplification, angles conservés ; aller-retour à 0,1 % près) : **fait**. Tracés dans les PSD (ressources 2000+, export et import, vérifiés avec psd-tools) : **fait**. Formes personnalisées (bibliothèque fournie, depuis un tracé, import SVG ; champ de distance calculé sur le processeur) : **fait**
 - Fluidité (pinceau : déformation avant, tourbillons, contraction, dilatation, reconstruction) : **fait**
 - LUT 3D (.cube) : **fait** (réglage Correspondance de couleur, LUT embarquée dans le .sxl, type de paramètre `lut` disponible pour les effets)
 - Déformation (Édition > Déformation, ou depuis la transformation manuelle : grille de Bézier 4×4, points, poignées, glisser la surface, sélection incluse) : **fait**
@@ -56,7 +56,7 @@
 - Fusionner vers le bas / les calques visibles / aplatir : **fait**
 
 ### 3D
-- Import glTF 2.0 (.gltf / .glb) : **fait** ; reste : FBX, plusieurs matériaux / UDIM
+- Import glTF 2.0 (.gltf / .glb) et FBX : **fait** ; reste : plusieurs matériaux / UDIM
 - Canaux PBR (couleur, rugosité, métal, normale, émissif, occlusion) en groupes de calques, rendu PBR GGX, export textures + script de matériau Unreal : **fait** , canal Hauteur (relief en vue 3D, cuit dans la normale à l'export) : **fait** , éclairage HDRI (préfiltré par rugosité, intensité/rotation) : **fait** , affichage d'un canal seul : **fait**, fond HDRI visible (flou réglable) : **fait**
 - Pinceau en espace UV / triplanar, masquage par ID de matériau
 
