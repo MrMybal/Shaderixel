@@ -387,7 +387,17 @@ def main():
     date = datetime.date.today().strftime('%Y%m%d')
     name = 'Shaderixel-' + date
     dist = os.path.join(ROOT, 'dist', name)
+    # Files the user made in a package of the same day (layouts, settings, saved workspaces): kept.
+    kept = {}
     if os.path.exists(dist):
+        for f in os.listdir(dist):
+            if (f.startswith('shaderixel_layout') and f.endswith('.ini')) or f.endswith('_settings.json') or f in ('plugins_disabled.txt', 'effect_recent.txt', 'shaderixel_actions.json'):
+                kept[f] = open(os.path.join(dist, f), 'rb').read()
+        lay = os.path.join(dist, 'layouts')
+        if os.path.isdir(lay):
+            for f in os.listdir(lay):
+                if f.endswith('.ini'):
+                    kept[os.path.join('layouts', f)] = open(os.path.join(lay, f), 'rb').read()
         shutil.rmtree(dist)
     os.makedirs(dist)
     for f in os.listdir(BUILD):
@@ -443,6 +453,10 @@ def main():
                 shutil.copy2(os.path.join(base, f), os.path.join(lic, lib + '_' + f))
         if os.path.isdir(os.path.join(base, 'LICENSES')):
             shutil.copytree(os.path.join(base, 'LICENSES'), os.path.join(lic, lib + '_LICENSES'))
+    for rel, data in kept.items():
+        os.makedirs(os.path.dirname(os.path.join(dist, rel)) or dist, exist_ok=True)
+        with open(os.path.join(dist, rel), 'wb') as fh:
+            fh.write(data)
     ex = os.path.join(dist, 'Exemples')
     shots = os.path.join(dist, 'Guide_images')
     os.makedirs(ex)
