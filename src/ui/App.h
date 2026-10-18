@@ -733,6 +733,11 @@ private:
     int focusDocRequest = -1;
 
     Tool tool = Tool::Brush;
+    // Working view: the toolbar offers the canvas tools or the 3D painting tools after it, not after the project kind.
+    int canvasShownFrame = -10, view3dShownFrame = -10;
+    int workView = 0;                                  // 0 canvas, 1 3D view (last clicked when both are visible)
+    Tool viewTool[2] = {Tool::Brush, Tool::Brush};     // last tool of each view
+    bool Use3DTools();
     BrushSettings brush;
     BrushSettings eraser;
     BrushSettings retouch;

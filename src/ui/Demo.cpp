@@ -2426,6 +2426,7 @@ void App::DemoTick() {
         if (!a || !a->mesh) return;
         MeshScene& s = *a->mesh;
         if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 30 && GetEnvironmentVariableA("SX_CANVAS", nullptr, 0) > 0) ImGui::SetWindowFocus("Canevas");  // image tools back
         if (frameCounter == 10) {
             const int k = atoi(vw);
             if (k >= 0) SetView3DPreset(s, k);

@@ -85,22 +85,44 @@ const ToolInfo& Info(Tool t) {
 }
 }  // namespace
 
+bool App::Use3DTools() {
+    // The 3D painting tools when the 3D view is the one worked in: the only one shown, or the last clicked.
+    DocView* v = Active();
+    if (!v || !v->mesh) return false;
+    const int f = ImGui::GetFrameCount();
+    const bool canvas = canvasShownFrame >= f - 1, view3d = view3dShownFrame >= f - 1;
+    if (view3d && !canvas) return true;
+    if (canvas && !view3d) return false;
+    return workView == 1;
+}
+
 void App::DrawToolbar() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6 * dpi, 8 * dpi));
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4 * dpi, 3 * dpi));
     if (ImGui::Begin("Outils", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar)) {
         float size = std::min(ImGui::GetContentRegionAvail().x, 38.0f * dpi);
-        // Paint 3D projects: painting tools only; documents with a model in the 3D view: the 3D tools too.
-        const bool p3d = Active() && Active()->doc->kind == 1;
-        const bool has3D = p3d || (Active() && Active()->mesh);
+        // 3D view: the painting tools that work on the model; canvas: every image tool (whatever the project).
+        const bool p3d = Use3DTools();
         auto only3D = [](Tool t) { return t == Tool::Projection || t == Tool::PolyFill || t == Tool::Particles; };
         auto allowed3D = [](Tool t) {
             return t == Tool::Brush || t == Tool::Eraser || t == Tool::Projection || t == Tool::PolyFill || t == Tool::Particles || t == Tool::Clone || t == Tool::Blur || t == Tool::Picker ||
-                   t == Tool::Hand || t == Tool::Zoom || t == Tool::Lasso || t == Tool::RectSelect;
+                   t == Tool::Hand || t == Tool::Zoom || t == Tool::Lasso || t == Tool::RectSelect || t == Tool::Plugin;
         };
+        {
+            // Each view keeps its own tool: switching views brings back the last one used there.
+            static int lastView = -1;
+            const int cur = p3d ? 1 : 0;
+            if (lastView >= 0 && lastView != cur) {
+                viewTool[lastView] = tool;
+                tool = viewTool[cur];
+            }
+            if (cur == 1 && !allowed3D(tool)) tool = Tool::Brush;
+            if (cur == 0 && only3D(tool)) tool = Tool::Brush;
+            lastView = cur;
+        }
         for (size_t g = 0; g < kGroups.size(); ++g) {
             const auto& group = kGroups[g];
-            if (p3d ? !allowed3D(group[0]) : (only3D(group[0]) && !has3D)) continue;
+            if (p3d ? !allowed3D(group[0]) : only3D(group[0])) continue;
             if (g == 1 || g == 5 || g == 16) {  // separators before transform, brushes, gradients
                 ImVec2 c = ImGui::GetCursorScreenPos();
                 ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);
@@ -215,6 +237,10 @@ void App::DrawCanvas() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     bool visible = ImGui::Begin("Canevas", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoTitleBar);
     ImGui::PopStyleVar();
+    if (visible) {
+        canvasShownFrame = ImGui::GetFrameCount();
+        if (ImGui::IsWindowHovered() && (ImGui::IsMouseClicked(0) || ImGui::IsMouseClicked(1) || ImGui::IsMouseClicked(2))) workView = 0;
+    }
     DocView* v = Active();
     if (!visible && v) {
         // Hidden canvas (other tab active): keep the document evaluated for previews and the 3D view.

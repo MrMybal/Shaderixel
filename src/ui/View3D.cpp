@@ -30,6 +30,10 @@ void App::DrawView3D() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     bool open = ImGui::Begin("Vue 3D", PanelFlag("Vue 3D"), ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     ImGui::PopStyleVar();
+    if (open) {
+        view3dShownFrame = ImGui::GetFrameCount();
+        if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) && (ImGui::IsMouseClicked(0) || ImGui::IsMouseClicked(1) || ImGui::IsMouseClicked(2))) workView = 1;
+    }
     DocView* v = Active();
     if (!open || !v) { ImGui::End(); return; }
     Document& doc = *v->doc;
