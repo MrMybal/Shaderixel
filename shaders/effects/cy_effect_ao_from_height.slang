@@ -1,6 +1,6 @@
 //@name AO From Height
 //@category Traitements
-//@graph {"name":"AO From Height","category":"Traitements","inputs":1,"premultiplied":false,"nextId":13,"nodes":[{"id":1,"op":"texture","pos":[40,40],"in":[],"value":[0,0,0,0],"index":0,"name":"CyInput"},{"id":2,"op":"uv","pos":[40,150],"in":[],"value":[0,0,0,0]},{"id":3,"op":"canvassize","pos":[40,240],"in":[],"value":[0,0,0,0]},{"id":4,"op":"param","pos":[40,330],"in":[],"value":[24.0,0.0,0.0,0.0],"name":"Radius","text":"Radius","index":1,"min":1.0,"max":512.0},{"id":5,"op":"param","pos":[40,440],"in":[],"value":[24.0,0.0,0.0,0.0],"name":"Steps","text":"Steps","index":1,"min":4.0,"max":48.0},{"id":6,"op":"param","pos":[40,550],"in":[],"value":[0.00499999989,0.0,0.0,0.0],"name":"Bias","text":"Bias","index":1,"min":-1.0,"max":1.0},{"id":7,"op":"param","pos":[40,660],"in":[],"value":[5.0,0.0,0.0,0.0],"name":"Strength","text":"Strength","index":1,"min":0.0,"max":64.0},{"id":8,"op":"param","pos":[40,770],"in":[],"value":[1.20000005,0.0,0.0,0.0],"name":"Power","text":"Power","index":1,"min":0.0500000007,"max":8.0},{"id":9,"op":"param","pos":[40,880],"in":[],"value":[0.0,0.0,0.0,0.0],"name":"Invert","text":"Invert","index":1},{"id":10,"op":"paramcolor","pos":[40,990],"in":[],"value":[1.0,0.0,0.0,0.0],"name":"HeightChannel","text":"Height Channel","index":1},{"id":11,"op":"custom","pos":[420,40],"in":[[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[10,0]],"value":[0,0,0,0],"name":"AO From Height","text":"    float2 texel=1.0/max(CyCanvasSize.xy,1.0);float center=dot(Texture2DSample(CyInput,CyInputSampler,UV).rgb,HeightChannel.rgb);int count=clamp((int)round(Steps),4,48);float occ=0;[loop]for(int i=0;i<48;i++){if(i>=count)break;float f=(i+.5)/count;float a=i*2.39996323;float2 o=float2(cos(a),sin(a))*Radius*sqrt(f)*texel;float h=dot(Texture2DSample(CyInput,CyInputSampler,UV+o).rgb,HeightChannel.rgb);occ+=saturate((h-center-Bias)*Strength/(sqrt(f)+.05));}occ=pow(saturate(occ/count),Power);float ao=lerp(1.0-occ,occ,Invert);return float4(ao.xxx,Texture2DSample(CyInput,CyInputSampler,UV).a);","pins":[["CyInput",5],["UV",2],["CyCanvasSize",4],["Radius",1],["Steps",1],["Bias",1],["Strength",1],["Power",1],["Invert",1],["HeightChannel",3]],"outs":[["Resultat",4]]},{"id":12,"op":"output","pos":[780,40],"in":[[11,0],[0,0],[0,0]],"value":[0,0,0,0]}]}
+//@graph {"category":"Traitements","inputs":1,"name":"AO From Height","nextId":13,"nodes":[{"id":1,"in":[],"name":"CyInput","op":"texture","pos":[40, 40],"value":[0, 0, 0, 0]},{"id":2,"in":[],"op":"uv","pos":[40, 150],"value":[0, 0, 0, 0]},{"id":3,"in":[],"op":"canvassize","pos":[40, 240],"value":[0, 0, 0, 0]},{"id":4,"in":[],"index":1,"max":512,"min":1,"name":"Radius","op":"param","pos":[40, 330],"text":"Radius","value":[24, 0, 0, 0]},{"id":5,"in":[],"index":1,"max":48,"min":4,"name":"Steps","op":"param","pos":[40, 440],"text":"Steps","value":[24, 0, 0, 0]},{"id":6,"in":[],"index":1,"max":1,"min":-1,"name":"Bias","op":"param","pos":[40, 550],"text":"Bias","value":[0.00499999989, 0, 0, 0]},{"id":7,"in":[],"index":1,"max":64,"min":0,"name":"Strength","op":"param","pos":[40, 660],"text":"Strength","value":[5, 0, 0, 0]},{"id":8,"in":[],"index":1,"max":8,"min":0.0500000007,"name":"Power","op":"param","pos":[40, 770],"text":"Power","value":[1.20000005, 0, 0, 0]},{"id":9,"in":[],"index":1,"name":"Invert","op":"param","pos":[40, 880],"text":"Invert","value":[0, 0, 0, 0]},{"id":10,"in":[],"index":1,"name":"HeightChannel","op":"paramcolor","pos":[40, 990],"text":"Height Channel","value":[1, 0, 0, 0]},{"id":11,"in":[[1, 0],[2, 0],[3, 0],[4, 0],[5, 0],[6, 0],[7, 0],[8, 0],[9, 0],[10, 0]],"name":"AO From Height","op":"custom","outs":[["Resultat",4]],"pins":[["CyInput",5],["UV",2],["CyCanvasSize",4],["Radius",1],["Steps",1],["Bias",1],["Strength",1],["Power",1],["Invert",1],["HeightChannel",3]],"pos":[420, 40],"text":"    float2 texel = 1.0 / max(CyCanvasSize.xy, 1.0);\n    float center = dot(Texture2DSample(CyInput, CyInputSampler, UV).rgb, HeightChannel.rgb);\n    int count = clamp((int)round(Steps), 4, 48);\n    float occ = 0;\n    [loop] for (int i = 0; i < 48; i++) {\n        if (i >= count) break;\n        float f = (i + .5) / count;\n        float a = i * 2.39996323;\n        float2 o = float2(cos(a), sin(a)) * Radius * sqrt(f) * texel;\n        float h = dot(Texture2DSample(CyInput, CyInputSampler, UV + o).rgb, HeightChannel.rgb);\n        occ += saturate((h - center - Bias) * Strength / (sqrt(f) + .05));\n    }\n    occ = pow(saturate(occ / count), Power);\n    float ao = lerp(1.0 - occ, occ, Invert);\n    return float4(ao.xxx, Texture2DSample(CyInput, CyInputSampler, UV).a);","value":[0, 0, 0, 0]},{"id":12,"in":[[11, 0],[0, 0],[0, 0]],"op":"output","pos":[780, 40],"value":[0, 0, 0, 0]}],"premultiplied":false}
 //@input Image
 //@halo full
 //@param Radius float 24 1 512 "Radius"
@@ -10,18 +10,31 @@
 //@param Power float 1.2 0.05 8 "Power"
 //@param Invert float 0 0 1 "Invert"
 //@param HeightChannel color 1 0 0 0 "Height Channel"
-
 // Imported preset (Effect / PBR): Generates a horizon-style ambient-occlusion mask from a linear height texture with adjustable sample quality.
 // Unreal Custom-node code kept as written; Texture2DSample reads the effect inputs.
-float4 CyTex(uint i, float2 uv) { return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0); }
+float4 CyTex(uint i, float2 uv) {
+    return HasInput(i) ? InputUV(i, uv) : float4(1.0, 1.0, 1.0, 1.0);
+}
 #define Texture2DSample(T, S, UVS) CyTex(T, UVS)
 static const uint CyInput = 0;
-
 float4 CyPreset(float2 UV, float4 CyCanvasSize, float Radius, float Steps, float Bias, float Strength, float Power, float Invert, float3 HeightChannel)
 {
-    float2 texel=1.0/max(CyCanvasSize.xy,1.0);float center=dot(Texture2DSample(CyInput,CyInputSampler,UV).rgb,HeightChannel.rgb);int count=clamp((int)round(Steps),4,48);float occ=0;[loop]for(int i=0;i<48;i++){if(i>=count)break;float f=(i+.5)/count;float a=i*2.39996323;float2 o=float2(cos(a),sin(a))*Radius*sqrt(f)*texel;float h=dot(Texture2DSample(CyInput,CyInputSampler,UV+o).rgb,HeightChannel.rgb);occ+=saturate((h-center-Bias)*Strength/(sqrt(f)+.05));}occ=pow(saturate(occ/count),Power);float ao=lerp(1.0-occ,occ,Invert);return float4(ao.xxx,Texture2DSample(CyInput,CyInputSampler,UV).a);
+    float2 texel = 1.0 / max(CyCanvasSize.xy, 1.0);
+    float center = dot(Texture2DSample(CyInput, CyInputSampler, UV).rgb, HeightChannel.rgb);
+    int count = clamp((int)round(Steps), 4, 48);
+    float occ = 0;
+    [loop] for (int i = 0; i < 48; i++) {
+        if (i >= count) break;
+        float f = (i + .5) / count;
+        float a = i * 2.39996323;
+        float2 o = float2(cos(a), sin(a)) * Radius * sqrt(f) * texel;
+        float h = dot(Texture2DSample(CyInput, CyInputSampler, UV + o).rgb, HeightChannel.rgb);
+        occ += saturate((h - center - Bias) * Strength / (sqrt(f) + .05));
+    }
+    occ = pow(saturate(occ / count), Power);
+    float ao = lerp(1.0 - occ, occ, Invert);
+    return float4(ao.xxx, Texture2DSample(CyInput, CyInputSampler, UV).a);
 }
-
 float4 Effect(EffectContext ctx)
 {
     return CyPreset(ctx.uv, float4(ctx.size, ctx.texel), Radius, Steps, Bias, Strength, Power, Invert, HeightChannel.rgb);

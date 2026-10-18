@@ -34,6 +34,8 @@
 #include <unordered_map>
 
 namespace sx {
+// Lays out the compacted HLSL of the library effects of a folder (--format-library); number of files rewritten.
+int FormatLibraryCode(const std::string& dir);
 
 std::string ExeDir();  // folder of the executable
 
@@ -254,6 +256,7 @@ struct EffectEditorState {
     float2 ctxPos;
     char search[64] = {};
     bool libCode = false;  // library graph effect: its code shown instead of the graph
+    Id bigCode = 0;        // custom node whose code is open in the large editor window
     std::string cachedJson;
     EffectGraph graph;
     std::optional<DocState> pendingBefore;

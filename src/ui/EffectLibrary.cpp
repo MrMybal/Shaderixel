@@ -2,6 +2,7 @@
 // with a search, start from a template (a copy), open the original (user items, or
 // protected ones after an explicit unlock), and cancel an edit to get back to the
 // state and the panel from before.
+#include "ui/CodeEdit.h"
 #include "ui/App.h"
 #include "ui/Theme.h"
 #include "doc/Effects.h"
@@ -336,6 +337,54 @@ void App::DrawEditSessionBar() {
         ImGui::PopStyleColor();
         ui::HelpTooltip("Remplace le fichier de la bibliothèque (déverrouillé pour cette édition).");
     }
+}
+
+// Compacted HLSL of the library effects (imported presets): the code of the graph nodes and the generated
+// shader laid out one statement per line. Only whitespace changes; returns the number of files rewritten.
+int FormatLibraryCode(const std::string& dir) {
+    int count = 0;
+    std::error_code ec;
+    for (auto& entry : std::filesystem::directory_iterator(Utf8Path(dir), ec)) {
+        if (entry.path().extension() != ".slang") continue;
+        const std::string path = Narrow(entry.path().wstring());
+        std::string text;
+        if (!ReadTextFile(path, text)) continue;
+        std::string out, body;
+        bool touched = false;
+        for (size_t start = 0; start < text.size();) {
+            size_t e = text.find('\n', start);
+            if (e == std::string::npos) e = text.size();
+            std::string line = text.substr(start, e - start);
+            start = e + 1;
+            if (line.rfind("//@graph ", 0) == 0) {
+                EffectGraph g;
+                if (EffectGraph::Deserialize(line.substr(9), g)) {
+                    bool changed = false;
+                    for (auto& n : g.nodes) {
+                        if (n.op != "custom") continue;
+                        std::string t = ui::FormatHlsl(n.text), d = ui::FormatHlsl(n.decl, 0);
+                        if (t != n.text || d != n.decl) { n.text = t; n.decl = d; changed = true; }
+                    }
+                    if (changed) { line = "//@graph " + g.Serialize(); touched = true; }
+                }
+                out += line + "\n";
+            } else if (line.rfind("//@", 0) == 0 && body.empty()) {
+                out += line + "\n";
+            } else {
+                body += line + "\n";
+            }
+        }
+        std::string fb = ui::FormatHlsl(body, 0);
+        if (fb != body) {
+            fb += "\n";
+            if (fb != body) touched = true;
+        }
+        if (!touched) continue;
+        std::ofstream f(Utf8Path(path), std::ios::binary);
+        f << out << fb;
+        ++count;
+    }
+    return count;
 }
 
 }  // namespace sx

@@ -4189,9 +4189,18 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
                 if (g[0] == '2') demoGraphOpen = true;
             }
         }
+        if (frameCounter == 40 && demoGraphOpen) {
+            // The HLSL node selected (code editor), SX_FXCODE=big: its large editor window too.
+            for (auto& n : efEd.graph.nodes)
+                if (n.op == "custom") {
+                    efEd.selected = n.id;
+                    if (const char* c = getenv("SX_FXCODE"); c && std::string(c) == "big") efEd.bigCode = n.id;
+                }
+        }
         if (frameCounter == 30 && demoGraphOpen) {
+            const char* want = getenv("SX_FXID");
             for (auto& def : Effects().All())
-                if (!def->blend && !def->graph.empty()) {
+                if (!def->blend && !def->graph.empty() && (!want || def->id == want)) {
                     Log("[fxbrowser] open graph of %s", def->id.c_str());
                     ApplyLibraryEffect(*v, def->id, FxApply::Filter);
                     efEd.target = 0;

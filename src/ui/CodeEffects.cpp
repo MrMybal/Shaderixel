@@ -1,6 +1,7 @@
 // Custom HLSL/Slang effects: declarations editor (inputs and parameters, kept as
 // //@input and //@param lines of the code), code editor, compilation and saving
 // to the effect library. Shared by effect nodes, fill/adjustment layers and filters.
+#include "ui/CodeEdit.h"
 #include "ui/App.h"
 #include "ui/Theme.h"
 #include "gpu/ShaderSystem.h"
@@ -249,9 +250,7 @@ bool App::CustomCodeUI(DocView& v, EffectInstance& fx, Id errorNode, const char*
 
     // Code.
     ImGui::SeparatorText("Code HLSL / Slang");
-    ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-    ImGui::InputTextMultiline("##code", &buffer, ImVec2(-1, std::max(220.0f * dpi, ImGui::GetContentRegionAvail().y - 120 * dpi)), ImGuiInputTextFlags_AllowTabInput);
-    ImGui::PopFont();
+    ui::CodeEditor("##code", &buffer, ImVec2(-1, std::max(220.0f * dpi, ImGui::GetContentRegionAvail().y - 120 * dpi)));
     if (ImGui::Button("Compiler (Ctrl+Entrée)") || (ImGui::IsKeyPressed(ImGuiKey_Enter) && ImGui::GetIO().KeyCtrl)) commit("Modifier le code");
     ImGui::SameLine();
     if (ImGui::Button("Enregistrer dans la bibliothèque...")) ImGui::OpenPopup("##savefx");

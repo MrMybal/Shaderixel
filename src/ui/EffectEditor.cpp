@@ -1,6 +1,7 @@
 // Visual effect editor (Unreal-material-editor style) for graph-based effects.
 #include "ui/App.h"
 #include "ui/Theme.h"
+#include "ui/CodeEdit.h"
 #include "doc/Brushes.h"
 #include "doc/HlslImport.h"
 
@@ -474,14 +475,44 @@ void App::DrawEffectEditor() {
                 pinList(sel->outs, "Sorties (une seule : return ; plusieurs : paramètres out)", false);
                 sel->inputs.resize(sel->pins.size());
                 ImGui::TextDisabled("Déclarations (fonctions, constantes)");
-                ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-                track(ImGui::InputTextMultiline("##decl", &sel->decl, ImVec2(-1, 60 * dpi), ImGuiInputTextFlags_AllowTabInput));
-                ImGui::PopFont();
+                track(ui::CodeEditor("##decl", &sel->decl, ImVec2(-1, 90 * dpi)));
             }
+            // Names known in the code: pins, then the effect context.
+            std::vector<std::string> names;
+            for (auto& p : sel->pins) names.push_back(p.name);
+            for (auto& p : sel->outs) names.push_back(p.name);
+            if (!sel->HasPins()) for (const char* k : {"A", "B", "C", "D"}) names.push_back(k);  // legacy float4 inputs
+            for (const char* k : {"UV", "ctx", "CyCanvasSize", "CyInput", "CyInputSampler"}) names.push_back(k);
+            ImGui::AlignTextToFramePadding();
             ImGui::TextDisabled("Code");
-            ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-            track(ImGui::InputTextMultiline("##code", &sel->text, ImVec2(-1, 180 * dpi), ImGuiInputTextFlags_AllowTabInput));
-            ImGui::PopFont();
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Mettre en forme")) {
+                std::string f = ui::FormatHlsl(sel->text);
+                if (f != sel->text) { sel->text = f; changed = true; changeLabel = "Mettre en forme le code"; }
+            }
+            ui::HelpTooltip("Une instruction par ligne, blocs indentés (code compacté sur une ligne).");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Agrandir")) ed.bigCode = sel->id;
+            track(ui::CodeEditor("##code", &sel->text, ImVec2(-1, 260 * dpi), false, &names));
+            // Large editor in its own window (same node, same undo).
+            if (ed.bigCode == sel->id) {
+                bool openBig = true;
+                ImGui::SetNextWindowSize(ImVec2(980 * dpi, 680 * dpi), ImGuiCond_FirstUseEver);
+                if (ImGui::Begin(("Code du nœud : " + sel->name + "###efbigcode").c_str(), &openBig)) {
+                    if (ImGui::Button("Mettre en forme")) {
+                        std::string f = ui::FormatHlsl(sel->text);
+                        if (f != sel->text) { sel->text = f; changed = true; changeLabel = "Mettre en forme le code"; }
+                    }
+                    if (!sel->decl.empty() || sel->HasPins()) {
+                        ImGui::TextDisabled("Déclarations (fonctions, constantes)");
+                        track(ui::CodeEditor("##bigdecl", &sel->decl, ImVec2(-1, 120 * dpi), false, &names));
+                    }
+                    ImGui::TextDisabled("Code");
+                    track(ui::CodeEditor("##bigcode", &sel->text, ImVec2(-1, -1), false, &names));
+                }
+                ImGui::End();
+                if (!openBig) ed.bigCode = 0;
+            }
         }
         if (op != "output" && ImGui::Button("Supprimer le nœud")) {
             Id rid = sel->id;
@@ -518,10 +549,8 @@ void App::DrawEffectEditor() {
     DrawHlslImportPopup(&g, ed.ctxPos.x == 0 && ed.ctxPos.y == 0 ? float2{120, 120} : ed.ctxPos, &changed);
     if (ImGui::Button("Voir le HLSL généré")) ImGui::OpenPopup("##hlsl");
     if (ImGui::BeginPopup("##hlsl")) {
-        ImGui::PushFont(ui::GetFonts().mono, 0.0f);
         std::string code = cr.code;
-        ImGui::InputTextMultiline("##gen", &code, ImVec2(620 * dpi, 420 * dpi), ImGuiInputTextFlags_ReadOnly);
-        ImGui::PopFont();
+        ui::CodeEditor("##gen", &code, ImVec2(820 * dpi, 560 * dpi), true);
         ImGui::EndPopup();
     }
     if (brushMode) {
@@ -939,9 +968,22 @@ void App::DrawLibraryItemView(DocView& v, EffectInstance& fx, bool blend) {
     }
     std::string text;
     ReadTextFile(gpu::Shaders().ShaderDir() + "/effects/" + fx.effectId + ".slang", text);
-    ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-    ImGui::InputTextMultiline("##libcode", &text, ImVec2(-1, -1), ImGuiInputTextFlags_ReadOnly);
-    ImGui::PopFont();
+    // The saved graph (one long JSON line) is not shown; compacted code is laid out.
+    std::string shown;
+    for (size_t start = 0; start < text.size();) {
+        size_t e = text.find('\n', start);
+        if (e == std::string::npos) e = text.size();
+        std::string_view line(text.data() + start, e - start);
+        if (line.rfind("//@graph", 0) == 0) shown += "//@graph ... (graphe enregistré : bouton « Voir le graphe »)\n";
+        else shown.append(line).append("\n");
+        start = e + 1;
+    }
+    static std::string formattedKey, formatted;
+    if (formattedKey != shown) {
+        formattedKey = shown;
+        formatted = ui::FormatHlsl(shown, 0);
+    }
+    ui::CodeEditor("##libcode", &formatted, ImVec2(-1, -1), true);
 }
 
 void App::DrawEffectCodeEditor(DocView& v, EffectInstance& fx) {
@@ -1000,9 +1042,7 @@ void App::DrawBrushCodeEditor(DocView& v, BrushSettings& b) {
         ImGui::SameLine();
         newButtons();
         std::string text = td->text;
-        ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-        ImGui::InputTextMultiline("##brushlib", &text, ImVec2(-1, -1), ImGuiInputTextFlags_ReadOnly);
-        ImGui::PopFont();
+        ui::CodeEditor("##brushlib", &text, ImVec2(-1, -1), true);
         return;
     }
     // Edited copy.
@@ -1013,10 +1053,7 @@ void App::DrawBrushCodeEditor(DocView& v, BrushSettings& b) {
     ImGui::Text("%s", name.c_str());
     ImGui::SameLine();
     ImGui::TextDisabled("copie modifiable (réglages du pinceau) : la bibliothèque n'est pas touchée");
-    ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-    ImGui::InputTextMultiline("##brushcode", &brushEd.buffer, ImVec2(-1, std::max(160.0f * dpi, ImGui::GetContentRegionAvail().y - 80 * dpi)),
-                              ImGuiInputTextFlags_AllowTabInput);
-    ImGui::PopFont();
+    ui::CodeEditor("##brushcode", &brushEd.buffer, ImVec2(-1, std::max(160.0f * dpi, ImGui::GetContentRegionAvail().y - 80 * dpi)));
     bool apply = ImGui::Button("Appliquer (Ctrl+Entrée)") ||
                  (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && ImGui::IsKeyPressed(ImGuiKey_Enter) && ImGui::GetIO().KeyCtrl);
     if (apply && brushEd.buffer != b.tipCode) {
@@ -1136,7 +1173,7 @@ void App::DrawHlslImportPopup(EffectGraph* g, float2 pos, bool* changed) {
             "}\n";
     }
     ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-    ImGui::InputTextMultiline("##hlslsrc", &hlslImportBuffer, ImVec2(760 * dpi, 420 * dpi), ImGuiInputTextFlags_AllowTabInput);
+    ui::CodeEditor("##hlslsrc", &hlslImportBuffer, ImVec2(760 * dpi, 420 * dpi));
     ImGui::PopFont();
     if (ImGui::Button(g ? "Ajouter le nœud" : "Créer l'effet")) {
         hlslImportError.clear();
