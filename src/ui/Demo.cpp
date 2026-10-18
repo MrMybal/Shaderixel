@@ -445,6 +445,29 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 101) {
+        // Image analysis: SX_FILE opened, the panel on tab SX_ANTAB (or the 4 views with SX_ANQUAD), source SX_ANSRC.
+        char file[512] = "", tab[8] = "0";
+        GetEnvironmentVariableA("SX_FILE", file, sizeof(file));
+        GetEnvironmentVariableA("SX_ANTAB", tab, sizeof(tab));
+        if (frameCounter == 4 && file[0]) OpenImage(file, false);
+        if (frameCounter == 30) {
+            panelOpen["Analyse d'image"].open = true;
+            analysis.quad = GetEnvironmentVariableA("SX_ANQUAD", nullptr, 0) > 0;
+            analysis.waveMode = GetEnvironmentVariableA("SX_ANWAVE", nullptr, 0) > 0 ? 2 : 0;
+            analysis.source = GetEnvironmentVariableA("SX_ANSRC", nullptr, 0) > 0 ? 1 : 0;
+        }
+        if (frameCounter == 34) {
+            ShowSideTab(0);
+            ImGui::SetWindowFocus("Analyse d'image");
+            analysis.demoTab = atoi(tab);
+        }
+        if (frameCounter == 80) {
+            Log("[analysis] valid %d, %u x %u, luma mean %.3f sd %.3f, palette %zu", (int)analysis.valid, analysis.w, analysis.h,
+                analysis.stats[3].mean, analysis.stats[3].sd, analysis.palette.size());
+        }
+        return;
+    }
     if (demoMode == 96) {
         // Camera Raw: a RAW (SX_RAW) decoded by LibRaw, the Camera Raw window with a development and the
         // lens corrections preselected from the shot (lensfun base SX_LENSFUN). Without SX_RAW: a checker

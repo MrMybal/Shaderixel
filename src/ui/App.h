@@ -443,7 +443,7 @@ public:
     std::vector<bool> extraWindows;  // "Fenêtre 2..." (open flags)
     struct PanelOpenFlag { bool open = true; };
     std::map<std::string, PanelOpenFlag> panelOpen;  // closed panels (tab cross)
-    static constexpr int kLayoutMigration = 3;
+    static constexpr int kLayoutMigration = 4;
     int layoutMigration = 0, layoutMigrationFrames = 0;  // saved layouts from older versions start at 0
     int layoutKind = 0;  // workspace currently built for: 0 image documents, 1 Paint 3D projects
     std::vector<std::string> focusAfterLayout;
@@ -1746,6 +1746,42 @@ private:
     gpu::Texture* ReferenceTexture(DocView& v);
     // Reference images (N x N, RGBA8): 0 logo on a background, 1 color chart, 2 gradient, 3 checker, 4 white, 5 black.
     std::vector<u8> ReferencePixels(int kind, int N);
+    // Image analysis panel (Analysis.cpp): scopes from a reduced sRGB copy of the image or of the active layer / node.
+    struct AnalysisStat {
+        float min = 0, max = 0, mean = 0, median = 0, sd = 0, clipLow = 0, clipHigh = 0;
+    };
+    struct {
+        int source = 0;          // 0 whole image, 1 active layer / node
+        int waveMode = 0;        // 0 luma, 1 RGB overlay, 2 RGB parade
+        int histoChannel = 0;
+        bool logHisto = false, quad = false;
+        float gain = 1.0f;       // scope brightness
+        gpu::ReadbackPtr rb;
+        DocView* view = nullptr;
+        u64 hash = 0, frame = 0, version = 0;
+        bool valid = false;
+        u32 w = 0, h = 0, srcW = 0, srcH = 0, waveW = 0;
+        std::vector<float> px;   // RGBA 0..1 (sRGB)
+        u64 bins[5][256] = {};   // R, G, B, luma, alpha
+        AnalysisStat stats[5];
+        float transparent = 0;
+        std::vector<u32> wave[4];
+        std::vector<u32> vs;
+        std::vector<float> vsColor, spectrum;
+        std::vector<std::pair<float4, float>> palette;  // dominant colors and their share
+        gpu::TexturePtr tex[4];  // waveform, vectorscope, spectrum, false color
+        u64 texKey[4] = {};
+        gpu::ReadbackPtr probe;
+        float4 probeValue;
+        bool probeValid = false, wantProbe = false;
+        float2 probePos{-1, -1};
+        u64 probeFrame = 0;
+        int demoTab = -1;        // demos: tab to select
+    } analysis;
+    void UpdateAnalysis();
+    void ComputeAnalysis();
+    gpu::Texture* AnalysisImage(DocView& v, int kind);
+    void DrawAnalysis();
     // Effect previews (effect editor and its library page): simulated inputs run through an effect.
     struct {
         int src[4] = {0, 2, 4, 3};  // per input: logo, chart, gradient, checker, white, black, active layer, whole image, file
