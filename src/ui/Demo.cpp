@@ -463,6 +463,19 @@ void App::DemoTick() {
         if (frameCounter == 34) {
             ShowSideTab(0);
             ImGui::SetWindowFocus("Analyse d'image");
+            if (GetEnvironmentVariableA("SX_ANSEL", nullptr, 0) > 0 && v) {
+                // Selection on the face; two samplers (face, shirt).
+                Document& dd = *v->doc;
+                const float W = (float)dd.Width(), H = (float)dd.Height();
+                v->renderer.SelectShape(dd, *ctx, v->history, SelShape::Ellipse, {W * 0.38f, H * 0.18f, W * 0.62f, H * 0.62f}, SelMode::Replace, true, 0, "Ellipse");
+                analysis.selectionOnly = true;
+                analysis.samplers.clear();
+                AnalysisSampler a, b;
+                a.pos = {std::floor(W * 0.47f), std::floor(H * 0.45f)};
+                b.pos = {std::floor(W * 0.30f), std::floor(H * 0.85f)};
+                analysis.samplers.push_back(a);
+                analysis.samplers.push_back(b);
+            }
             if (GetEnvironmentVariableA("SX_ANCMP", nullptr, 0) > 0 && v)
                 for (auto& l : v->doc->S().layers)
                     if (l.id != v->doc->S().activeLayer && l.name != "Arrière-plan") { analysis.compareLayer = l.id; break; }

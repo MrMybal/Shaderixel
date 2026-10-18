@@ -1747,6 +1747,13 @@ private:
     // Reference images (N x N, RGBA8): 0 logo on a background, 1 color chart, 2 gradient, 3 checker, 4 white, 5 black.
     std::vector<u8> ReferencePixels(int kind, int N);
     // Image analysis panel (Analysis.cpp): scopes from a reduced sRGB copy of the image or of the active layer / node.
+    struct AnalysisSampler {
+        float2 pos;
+        gpu::ReadbackPtr rb;
+        float4 value;
+        bool valid = false;
+        u64 frame = 0;
+    };
     struct AnalysisStat {
         float min = 0, max = 0, mean = 0, median = 0, sd = 0, clipLow = 0, clipHigh = 0;
     };
@@ -1789,6 +1796,12 @@ private:
         u64 probeFrame = 0;
         int demoTab = -1;        // demos: tab to select
         int overlay = 0;         // on the canvas: 1 zebras, 2 clipping, 3 false color, 4 focus peaking, 5 luminance
+        bool selectionOnly = false;  // only the pixels of the selection
+        gpu::ReadbackPtr rbSel;      // selection reduced to the analysis size
+        std::vector<float> sel;      // coverage 0..1 per analysed pixel (empty: none)
+        u64 selVersion = 0;
+        // Color samplers pinned on the canvas (Shift+click with the eyedropper), read continuously.
+        std::vector<AnalysisSampler> samplers;
         float zebra = 0.95f, peaking = 0.12f;
     } analysis;
     void UpdateAnalysis();

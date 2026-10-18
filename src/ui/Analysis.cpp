@@ -80,13 +80,24 @@ void App::UpdateAnalysis() {
     DocView* v = Active();
     if (!v) { A.valid = false; return; }
     // Result of the readback: the CPU analysis.
-    if (A.rb && A.rb->ready) {
+    if (A.rb && A.rb->ready && (!A.rbSel || A.rbSel->ready)) {
+        A.sel.clear();
+        if (A.rbSel && A.rbSel->width == A.rb->width && A.rbSel->height == A.rb->height) {
+            const u16* sp = (const u16*)A.rbSel->data.data();
+            A.sel.resize((size_t)A.rbSel->width * A.rbSel->height);
+            for (size_t i = 0; i < A.sel.size(); ++i) A.sel[i] = sp[i * 4] / 65535.0f;
+        }
+        A.rbSel.reset();
         const u32 w = A.rb->width, h = A.rb->height;
         const u16* p = (const u16*)A.rb->data.data();
         A.w = w;
         A.h = h;
         A.px.resize((size_t)w * h * 4);
         for (size_t i = 0; i < A.px.size(); ++i) A.px[i] = p[i] / 65535.0f;
+        // Selection only: the pixels outside count as transparent (left out of the scopes).
+        if (!A.sel.empty())
+            for (size_t i = 0; i < A.sel.size(); ++i)
+                if (A.sel[i] < 0.5f) A.px[i * 4 + 3] = 0.0f;
         A.rb.reset();
         ComputeAnalysis();
         A.valid = true;
@@ -99,11 +110,19 @@ void App::UpdateAnalysis() {
     else src = ActiveLayerContent(*v, hash);
     if (!src) return;
     hash ^= (u64)A.source * 0x9E3779B97F4A7C15ull;
+    if (A.selectionOnly)
+        if (Surface* s = v->doc->Selection()) hash ^= (s->version + 1) * 0xC2B2AE3D27D4EB4Full;
+    hash ^= A.selectionOnly ? 0x165667B19E3779F9ull : 0;
     const u64 frame = gpu::Dev().FrameNumber();
     if (!A.rb && (hash != A.hash || A.view != v) && frame - A.frame >= 12) {
         const u32 w = std::min<u32>(kMaxW, src->Width()), h = std::max<u32>(1, (u32)((u64)w * src->Height() / std::max<u32>(1, src->Width())));
         if (auto copy = v->renderer.PreviewCopy(*ctx, src, w, h)) {
             A.rb = v->renderer.ExportRGBA16(*ctx, copy.get(), true);
+            // The selection at the same size (red = coverage), read back with it.
+            A.rbSel.reset();
+            if (A.selectionOnly)
+                if (Surface* s = v->doc->Selection())
+                    if (auto sc = v->renderer.PreviewCopy(*ctx, s->tex.get(), w, h)) A.rbSel = v->renderer.ExportRGBA16(*ctx, sc.get(), false);
             A.hash = hash;
             A.view = v;
             A.frame = frame;
@@ -163,6 +182,24 @@ void App::UpdateAnalysis() {
             }
     }
     A.compareWanted = false;
+    // Color samplers.
+    for (auto& sp : A.samplers) {
+        if (sp.rb && sp.rb->ready) {
+            auto& d = sp.rb->data;
+            if (sp.rb->format == gpu::Format::RGBA16F && d.size() >= 8) {
+                const u16* hh = (const u16*)d.data();
+                sp.value = {HalfToFloat(hh[0]), HalfToFloat(hh[1]), HalfToFloat(hh[2]), HalfToFloat(hh[3])};
+            } else if (sp.rb->format == gpu::Format::RGBA32F && d.size() >= 16) {
+                memcpy(&sp.value, d.data(), 16);
+            }
+            sp.valid = true;
+            sp.rb.reset();
+        }
+        if (!sp.rb && v->lastImage && frame - sp.frame >= 10 && sp.pos.x < v->lastImage->Width() && sp.pos.y < v->lastImage->Height()) {
+            sp.rb = v->renderer.ReadPixel(*ctx, v->lastImage, (int)sp.pos.x, (int)sp.pos.y);
+            sp.frame = frame;
+        }
+    }
     // Pixel inspector: the exact value under the cursor (composited image).
     if (A.probe && A.probe->ready) {
         auto& d = A.probe->data;
@@ -507,6 +544,11 @@ void App::DrawAnalysis() {
     ImGui::SliderFloat("##angain", &A.gain, 0.25f, 4.0f, "Intensité %.2f", ImGuiSliderFlags_Logarithmic);
     ImGui::SameLine();
     ImGui::Checkbox("4 vues", &A.quad);
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!v || !v->doc->Selection());
+    ImGui::Checkbox("Sélection", &A.selectionOnly);
+    ImGui::EndDisabled();
+    ui::HelpTooltip("Seulement les pixels de la sélection (scopes, statistiques, couleurs).");
     ui::HelpTooltip("Histogramme, waveform, vectorscope et spectre ensemble.");
     // Overlay on the canvas (full resolution, in the display shader).
     ImGui::SetNextItemWidth(170 * dpi);
@@ -816,6 +858,30 @@ void App::DrawAnalysis() {
                 if (straight.x > 1 || straight.y > 1 || straight.z > 1) ImGui::TextColored(ImVec4(1, 0.7f, 0.3f, 1), "Au-delà de 1 (HDR)");
                 ImGui::EndGroup();
             }
+            // Pinned samplers.
+            ImGui::SeparatorText("Points de mesure");
+            if (A.samplers.empty()) ImGui::TextDisabled("Pipette + Maj+clic sur le canevas : un point de mesure (4 au plus), lu en continu.");
+            int removeAt = -1;
+            for (size_t k = 0; k < A.samplers.size(); ++k) {
+                const auto& sp = A.samplers[k];
+                ImGui::PushID((int)k);
+                const float a = sp.value.w;
+                const float4 st = a > 1e-5f ? float4{sp.value.x / a, sp.value.y / a, sp.value.z / a, a} : float4{0, 0, 0, 0};
+                const float r = std::clamp(LinearToSrgb(st.x), 0.0f, 1.0f), g = std::clamp(LinearToSrgb(st.y), 0.0f, 1.0f), b = std::clamp(LinearToSrgb(st.z), 0.0f, 1.0f);
+                ImGui::ColorButton("##sp", ImVec4(r, g, b, 1), 0, ImVec2(22 * dpi, 22 * dpi));
+                ImGui::SameLine();
+                ImGui::AlignTextToFramePadding();
+                if (sp.valid)
+                    ImGui::Text("%d  (%d, %d)   %3d %3d %3d   #%02X%02X%02X   L %.0f %%", (int)k + 1, (int)sp.pos.x, (int)sp.pos.y, (int)(r * 255 + 0.5f),
+                                (int)(g * 255 + 0.5f), (int)(b * 255 + 0.5f), (int)(r * 255 + 0.5f), (int)(g * 255 + 0.5f), (int)(b * 255 + 0.5f),
+                                Luma(st.x, st.y, st.z) * 100);
+                else ImGui::Text("%d  (%d, %d)", (int)k + 1, (int)sp.pos.x, (int)sp.pos.y);
+                ImGui::SameLine();
+                if (ImGui::SmallButton("x")) removeAt = (int)k;
+                ImGui::PopID();
+            }
+            if (removeAt >= 0) A.samplers.erase(A.samplers.begin() + removeAt);
+            if (!A.samplers.empty() && ImGui::SmallButton("Retirer tous les points")) A.samplers.clear();
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();

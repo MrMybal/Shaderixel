@@ -340,6 +340,18 @@ void App::DrawCanvas() {
     ImVec2 d1(d0.x + doc.Width() * v->zoom, d0.y + doc.Height() * v->zoom);
     dl->AddRect(ImVec2(d0.x - 1, d0.y - 1), ImVec2(d1.x + 1, d1.y + 1), IM_COL32(0, 0, 0, 120));
     DrawSelectToolsOverlay(*v, d0, d1, dl);
+    for (size_t i = 0; i < analysis.samplers.size(); ++i) {
+        const auto& sp = analysis.samplers[i];
+        const ImVec2 c(d0.x + (sp.pos.x + 0.5f) * v->zoom, d0.y + (sp.pos.y + 0.5f) * v->zoom);
+        dl->AddCircle(c, 7, IM_COL32(0, 0, 0, 200), 0, 3.0f);
+        dl->AddCircle(c, 7, IM_COL32(255, 255, 255, 255), 0, 1.5f);
+        dl->AddLine(ImVec2(c.x - 11, c.y), ImVec2(c.x - 4, c.y), IM_COL32(255, 255, 255, 255), 1.5f);
+        dl->AddLine(ImVec2(c.x + 4, c.y), ImVec2(c.x + 11, c.y), IM_COL32(255, 255, 255, 255), 1.5f);
+        char nb[4];
+        snprintf(nb, sizeof(nb), "%d", (int)i + 1);
+        dl->AddText(ImVec2(c.x + 9, c.y + 4), IM_COL32(0, 0, 0, 255), nb);
+        dl->AddText(ImVec2(c.x + 8, c.y + 3), IM_COL32(255, 255, 255, 255), nb);
+    }
 
     // Overlays
     ImVec2 mouse = ImGui::GetMousePos();
@@ -513,7 +525,17 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     // Eyedropper (also Alt with paint tools)
     bool picker = tool == Tool::Picker || (alt && (tool == Tool::Brush || tool == Tool::Gradient || tool == Tool::Bucket));
     if (picker && !stroking) {
-        if (hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left) && v.lastImage && !pickReadback &&
+        // Shift+click: a color sampler pinned there (4 at most), shown in Analyse d'image > Pixel.
+        if (tool == Tool::Picker && hovered && ImGui::GetIO().KeyShift && ImGui::IsMouseClicked(ImGuiMouseButton_Left) &&
+            dp.x >= 0 && dp.y >= 0 && dp.x < doc.Width() && dp.y < doc.Height()) {
+            if (analysis.samplers.size() >= 4) analysis.samplers.erase(analysis.samplers.begin());
+            App::AnalysisSampler sp;
+            sp.pos = {std::floor(dp.x), std::floor(dp.y)};
+            analysis.samplers.push_back(sp);
+            Status("Point de mesure " + std::to_string(analysis.samplers.size()) + " : Analyse d'image > Pixel");
+            return;
+        }
+        if (hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left) && v.lastImage && !pickReadback && !ImGui::GetIO().KeyShift &&
             dp.x >= 0 && dp.y >= 0 && dp.x < doc.Width() && dp.y < doc.Height())
             pickReadback = v.renderer.ReadPixel(*ctx, v.lastImage, (int)dp.x, (int)dp.y);
         return;

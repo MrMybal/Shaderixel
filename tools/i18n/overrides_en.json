@@ -316,5 +316,11 @@
  "Zébras": "Zebras",
  "Écrêtage": "Clipping",
  "Focus peaking": "Focus peaking",
- "Panneau Analyse d'image...": "Image analysis panel..."
+ "Panneau Analyse d'image...": "Image analysis panel...",
+ "Sélection": "Selection",
+ "Seulement les pixels de la sélection (scopes, statistiques, couleurs).": "Only the pixels of the selection (scopes, statistics, colors).",
+ "Points de mesure": "Color samplers",
+ "Pipette + Maj+clic sur le canevas : un point de mesure (4 au plus), lu en continu.": "Eyedropper + Shift+click on the canvas: a color sampler (4 at most), read continuously.",
+ "Retirer tous les points": "Remove all samplers",
+ "Point de mesure {n} : Analyse d'image > Pixel": "Color sampler {n}: Image analysis > Pixel"
 }
