@@ -3618,6 +3618,7 @@
  "{n} Mo par calque": "{n} MB per layer",
  "{n} commande(s), {n} fenêtre(s)": "{n} command(s), {n} window(s)",
  "{n} commande(s), {n} fenêtre(s)\n{n} outil(s), {n} opération(s)": "{n} command(s), {n} window(s)\n{n} tool(s), {n} operation(s)",
+ "{n} erreur(s) : survolez la ligne en rouge": "{n} error(s): hover the red line",
  "{n} objectifs, {n} boîtiers": "{n} lenses, {n} camera bodies",
  "{n} outil(s), {n} opération(s)": "{n} tool(s), {n} operation(s)",
  "{n} plage(s) de style, {n} paragraphe(s) stylé(s) (panneau Styles de texte)": "{n} style range(s), {n} styled paragraph(s) (Text Styles panel)",

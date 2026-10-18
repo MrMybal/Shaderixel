@@ -159,6 +159,9 @@ bool App::CustomCodeUI(DocView& v, EffectInstance& fx, Id errorNode, const char*
     bool declChanged = false;
     ImGui::SeparatorText("Entrées et paramètres");
     ImGui::PushID(key);
+    // Scrolled list (a third of the height at most): the code keeps the room.
+    ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(FLT_MAX, std::max(120.0f * dpi, ImGui::GetContentRegionAvail().y * 0.34f)));
+    ImGui::BeginChild("##decls", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY);
     int removeAt = -1;
     const float fh = ImGui::GetFrameHeight();
     for (size_t i = 0; i < decls.size(); ++i) {
@@ -243,14 +246,28 @@ bool App::CustomCodeUI(DocView& v, EffectInstance& fx, Id errorNode, const char*
         declChanged = true;
     }
     ui::HelpTooltip("Variable utilisable dans le code ; réglable ensuite comme les paramètres des effets de la bibliothèque.");
+    ImGui::EndChild();
     if (declChanged) {
         buffer = Join(decls, other);
         commit("Modifier les paramètres");
     }
 
+    // Errors of the compiled code: lines marked in the editor (found back by their text).
+    std::string err;
+    if (!errorNode)
+        for (auto& n : d.S().graph.nodes)
+            if (n.kind == NodeKind::Effect && n.fx.customCode == fx.customCode) errorNode = n.id;
+    const bool failed = errorNode && v.renderer.NodeFailed(errorNode, &err);
+    std::vector<ui::CodeMark> marks;
+    if (failed)
+        if (auto cdef = fx.Def())
+            for (auto& [line, msg] : ui::ParseShaderErrors(err))
+                if (int l = ui::FindCodeLine(buffer, ui::LineOf(cdef->body, line)); l >= 0) marks.push_back({l, msg});
+
     // Code.
     ImGui::SeparatorText("Code HLSL / Slang");
-    ui::CodeEditor("##code", &buffer, ImVec2(-1, std::max(220.0f * dpi, ImGui::GetContentRegionAvail().y - 120 * dpi)));
+    if (!marks.empty()) ImGui::TextColored(ImVec4(1, 0.45f, 0.45f, 1), "%d erreur(s) : survolez la ligne en rouge", (int)marks.size());
+    ui::CodeEditor("##code", &buffer, ImVec2(-1, std::max(220.0f * dpi, ImGui::GetContentRegionAvail().y - 120 * dpi)), false, nullptr, &marks);
     if (ImGui::Button("Compiler (Ctrl+Entrée)") || (ImGui::IsKeyPressed(ImGuiKey_Enter) && ImGui::GetIO().KeyCtrl)) commit("Modifier le code");
     ImGui::SameLine();
     if (ImGui::Button("Enregistrer dans la bibliothèque...")) ImGui::OpenPopup("##savefx");
@@ -262,12 +279,8 @@ bool App::CustomCodeUI(DocView& v, EffectInstance& fx, Id errorNode, const char*
         if (LibrarySavePopup("##savefx", blend ? LibKind::Blend : LibKind::Effect, sd ? sd->name : "Mon effet", cat, buffer)) fxBrowser.previews.clear();
     }
     // Errors.
-    std::string err;
-    if (!errorNode)
-        for (auto& n : d.S().graph.nodes)
-            if (n.kind == NodeKind::Effect && n.fx.customCode == fx.customCode) errorNode = n.id;
     auto def = fx.Def();
-    if (errorNode && v.renderer.NodeFailed(errorNode, &err)) {
+    if (failed) {
         ImGui::PushFont(ui::GetFonts().mono, 0.0f);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0.45f, 0.45f, 1));
         ImGui::TextWrapped("%s", err.c_str());
@@ -288,6 +301,15 @@ void App::ConvertToCustomCode(DocView& v, EffectInstance& fx) {
     DocState before = d.S();
     std::string text;
     if (!fx.effectId.empty()) ReadTextFile(gpu::Shaders().ShaderDir() + "/effects/" + fx.effectId + ".slang", text);
+    // The saved graph (//@graph) no longer applies to the code copy: dropped.
+    std::string kept;
+    for (size_t start = 0; start < text.size();) {
+        size_t e = text.find('\n', start);
+        if (e == std::string::npos) e = text.size();
+        if (text.compare(start, 8, "//@graph") != 0) kept.append(text, start, e - start).append("\n");
+        start = e + 1;
+    }
+    text = kept;
     auto old = fx.Def();
     fx.customCode = text.empty() ? kCustomEffectTemplate : text;
     fx.effectId.clear();

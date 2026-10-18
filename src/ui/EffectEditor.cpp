@@ -619,7 +619,7 @@ void App::DrawEffectEditor() {
                 pinList(sel->outs, "Sorties (une seule : return ; plusieurs : paramètres out)", false);
                 sel->inputs.resize(sel->pins.size());
                 ImGui::TextDisabled("Déclarations (fonctions, constantes)");
-                track(ui::CodeEditor("##decl", &sel->decl, ImVec2(-1, 90 * dpi)));
+                track(ui::CodeEditor("##decl", &sel->decl, ImVec2(-1, 90 * dpi), false, nullptr, ed.declMarks.count(sel->id) ? &ed.declMarks[sel->id] : nullptr));
             }
             // Names known in the code: pins, then the effect context.
             std::vector<std::string> names;
@@ -637,7 +637,9 @@ void App::DrawEffectEditor() {
             ui::HelpTooltip("Une instruction par ligne, blocs indentés (code compacté sur une ligne).");
             ImGui::SameLine();
             if (ImGui::SmallButton("Agrandir")) ed.bigCode = sel->id;
-            track(ui::CodeEditor("##code", &sel->text, ImVec2(-1, 260 * dpi), false, &names));
+            const std::vector<ui::CodeMark>* marks = ed.codeMarks.count(sel->id) ? &ed.codeMarks[sel->id] : nullptr;
+            if (marks) ImGui::TextColored(ImVec4(1, 0.45f, 0.45f, 1), "%d erreur(s) : survolez la ligne en rouge", (int)marks->size());
+            track(ui::CodeEditor("##code", &sel->text, ImVec2(-1, 260 * dpi), false, &names, marks));
             // Large editor in its own window (same node, same undo).
             if (ed.bigCode == sel->id) {
                 bool openBig = true;
@@ -649,10 +651,10 @@ void App::DrawEffectEditor() {
                     }
                     if (!sel->decl.empty() || sel->HasPins()) {
                         ImGui::TextDisabled("Déclarations (fonctions, constantes)");
-                        track(ui::CodeEditor("##bigdecl", &sel->decl, ImVec2(-1, 120 * dpi), false, &names));
+                        track(ui::CodeEditor("##bigdecl", &sel->decl, ImVec2(-1, 120 * dpi), false, &names, ed.declMarks.count(sel->id) ? &ed.declMarks[sel->id] : nullptr));
                     }
                     ImGui::TextDisabled("Code");
-                    track(ui::CodeEditor("##bigcode", &sel->text, ImVec2(-1, -1), false, &names));
+                    track(ui::CodeEditor("##bigcode", &sel->text, ImVec2(-1, -1), false, &names, marks));
                 }
                 ImGui::End();
                 if (!openBig) ed.bigCode = 0;
@@ -680,6 +682,24 @@ void App::DrawEffectEditor() {
     bool failed = renderNode && v->renderer.NodeFailed(renderNode, &shaderErr);
     if (brushMode)
         if (auto td = TipDef(brushTarget)) failed = !v->renderer.BrushPipeline(*td, &shaderErr) && !shaderErr.empty();
+    // Shader errors: the line of the generated code found back in the HLSL node that holds it
+    // (kept for the next frame: the code is drawn above).
+    const std::string errKey = failed && !brushMode ? shaderErr + "#" + cr.code : std::string();
+    if (errKey != ed.marksKey) {
+        ed.marksKey = errKey;
+        ed.codeMarks.clear();
+        ed.declMarks.clear();
+        if (!errKey.empty())
+            if (auto cdef = ParseEffect("", cr.code))
+                for (auto& [line, msg] : ui::ParseShaderErrors(shaderErr)) {
+                    const std::string text = ui::LineOf(cdef->body, line);
+                    for (auto& n : g.nodes) {
+                        if (n.op != "custom") continue;
+                        if (int l = ui::FindCodeLine(n.text, text); l >= 0) { ed.codeMarks[n.id].push_back({l, msg}); break; }
+                        if (int l = ui::FindCodeLine(n.decl, text); l >= 0) { ed.declMarks[n.id].push_back({l, msg}); break; }
+                    }
+                }
+    }
     if (!cr.error.empty()) ImGui::TextColored(ImVec4(1, 0.5f, 0.4f, 1), "%s", cr.error.c_str());
     else if (failed) {
         ImGui::PushFont(ui::GetFonts().mono, 0.0f);
@@ -975,6 +995,8 @@ void App::DrawEffectEditor() {
     float fs = ImGui::GetFontSize() * ed.zoom;
     bool text = ed.zoom > 0.45f;
     std::set<Id> errNodes(cr.errorNodes.begin(), cr.errorNodes.end());
+    for (auto& [id, mk] : ed.codeMarks) errNodes.insert(id);
+    for (auto& [id, mk] : ed.declMarks) errNodes.insert(id);
     for (auto& n : g.nodes) {
         if (!FindOp(n.op)) continue;
         const EGOpDef eff = EffectiveOp(n);

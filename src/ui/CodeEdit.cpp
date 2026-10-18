@@ -370,7 +370,91 @@ std::string FormatHlsl(const std::string& code, int baseIndent) {
     return out;
 }
 
-bool CodeEditor(const char* label, std::string* text, ImVec2 size, bool readOnly, const std::vector<std::string>* names) {
+std::vector<std::pair<int, std::string>> ParseShaderErrors(const std::string& log) {
+    // Two formats: "name.slang(12): error 30019: message", and
+    // "error[E30015]: message" followed by "  --> name.slang:46:30" and the line with "^^^^ detail".
+    std::vector<std::string> lines;
+    for (size_t start = 0; start < log.size();) {
+        size_t e = log.find('\n', start);
+        if (e == std::string::npos) e = log.size();
+        lines.push_back(log.substr(start, e - start));
+        start = e + 1;
+    }
+    auto isNumber = [](const std::string& s) { return !s.empty() && std::all_of(s.begin(), s.end(), [](char c) { return std::isdigit((unsigned char)c); }); };
+    std::vector<std::pair<int, std::string>> out;
+    std::string pending;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        const std::string& line = lines[i];
+        size_t a = line.find_first_not_of(" \t");
+        std::string t = a == std::string::npos ? std::string() : line.substr(a);
+        // Old format.
+        size_t p = line.find("): ");
+        size_t o = p == std::string::npos ? std::string::npos : line.rfind('(', p);
+        if (o != std::string::npos) {
+            std::string num = line.substr(o + 1, p - o - 1);
+            if (size_t comma = num.find(','); comma != std::string::npos) num = num.substr(0, comma);
+            std::string msg = line.substr(p + 3);
+            if (isNumber(num) && (msg.rfind("error", 0) == 0 || msg.rfind("warning", 0) == 0)) {
+                out.push_back({std::atoi(num.c_str()), msg});
+                continue;
+            }
+        }
+        // New format: the message, then its position.
+        if ((t.rfind("error", 0) == 0 || t.rfind("warning", 0) == 0) && t.find(": ") != std::string::npos) {
+            pending = t.substr(t.find(": ") + 2);
+            continue;
+        }
+        if (t.rfind("-->", 0) == 0 && !pending.empty()) {
+            size_t c2 = t.rfind(':'), c1 = c2 == std::string::npos || c2 == 0 ? std::string::npos : t.rfind(':', c2 - 1);
+            std::string num = c1 == std::string::npos ? std::string() : t.substr(c1 + 1, c2 - c1 - 1);
+            if (isNumber(num)) {
+                std::string msg = pending;
+                // Detail after the carets, a few lines below.
+                for (size_t k = i + 1; k < lines.size() && k < i + 5; ++k)
+                    if (size_t caret = lines[k].find('^'); caret != std::string::npos) {
+                        size_t d = lines[k].find_first_not_of("^ ", caret);
+                        if (d != std::string::npos) msg = lines[k].substr(d);
+                        break;
+                    }
+                out.push_back({std::atoi(num.c_str()), msg});
+            }
+            pending.clear();
+        }
+    }
+    return out;
+}
+
+static std::string Trimmed(std::string_view s) {
+    size_t a = s.find_first_not_of(" \t\r"), b = s.find_last_not_of(" \t\r");
+    return a == std::string_view::npos ? std::string() : std::string(s.substr(a, b - a + 1));
+}
+
+int FindCodeLine(const std::string& code, const std::string& line) {
+    const std::string want = Trimmed(line);
+    if (want.empty()) return -1;
+    int n = 0;
+    for (size_t start = 0; start <= code.size(); ++n) {
+        size_t e = code.find('\n', start);
+        if (e == std::string::npos) e = code.size();
+        if (Trimmed(std::string_view(code).substr(start, e - start)) == want) return n;
+        start = e + 1;
+    }
+    return -1;
+}
+
+std::string LineOf(const std::string& text, int n) {
+    size_t start = 0;
+    for (int i = 1; i < n && start < text.size(); ++i) {
+        size_t e = text.find('\n', start);
+        if (e == std::string::npos) return {};
+        start = e + 1;
+    }
+    size_t e = text.find('\n', start);
+    return text.substr(start, (e == std::string::npos ? text.size() : e) - start);
+}
+
+bool CodeEditor(const char* label, std::string* text, ImVec2 size, bool readOnly, const std::vector<std::string>* names,
+                const std::vector<CodeMark>* marks) {
     ImGuiContext& g = *GImGui;
     ImGui::PushFont(GetFonts().mono, 0.0f);
     ImFont* font = ImGui::GetFont();
@@ -417,7 +501,18 @@ bool CodeEditor(const char* label, std::string* text, ImVec2 size, bool readOnly
             const float y = origin.y + n * fs;
             std::string_view line(text->data() + start, e - start);
             // Comments spanning lines need the lines above even when they are not visible.
+            const CodeMark* mark = nullptr;
+            if (marks)
+                for (const CodeMark& cm : *marks) if (cm.line == n) { mark = &cm; break; }
             if (y + fs >= clip.Min.y && y <= clip.Max.y) {
+                if (mark) {
+                    dl->AddRectFilled(ImVec2(clip.Min.x, y), ImVec2(clip.Max.x, y + fs), IM_COL32(200, 50, 50, 70));
+                    if (ImGui::IsMouseHoveringRect(ImVec2(gutterPos.x, y), ImVec2(clip.Max.x, y + fs)) && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
+                        ImGui::PopFont();
+                        ImGui::SetTooltip("%s", mark->message.c_str());
+                        ImGui::PushFont(GetFonts().mono, 0.0f);
+                    }
+                }
                 TokenizeLine(line, inComment, names, spans);
                 float x = origin.x;
                 size_t at = 0;
@@ -436,7 +531,7 @@ bool CodeEditor(const char* label, std::string* text, ImVec2 size, bool readOnly
                 char nb[16];
                 snprintf(nb, sizeof(nb), "%d", n + 1);
                 const float w = font->CalcTextSizeA(fs, FLT_MAX, 0, nb).x;
-                pdl->AddText(font, fs, ImVec2(gutterPos.x + gutter - w - fs * 0.45f, y), IM_COL32(110, 112, 125, 255), nb);
+                pdl->AddText(font, fs, ImVec2(gutterPos.x + gutter - w - fs * 0.45f, y), mark ? IM_COL32(255, 110, 110, 255) : IM_COL32(110, 112, 125, 255), nb);
             } else {
                 TokenizeLine(line, inComment, names, spans);
                 if (y > clip.Max.y) break;

@@ -152,5 +152,6 @@
  "Supprimer des nœuds": "Delete nodes",
  "Coller des nœuds": "Paste nodes",
  "Couper des nœuds": "Cut nodes",
- "Clic droit : ajouter  |  sortie vers entrée : relier  |  cadre : sélection  |  Ctrl+C / X / V / D  |  F : cadrer  |  Suppr": "Right-click: add  |  output to input: link  |  box: select  |  Ctrl+C / X / V / D  |  F: frame  |  Del"
+ "Clic droit : ajouter  |  sortie vers entrée : relier  |  cadre : sélection  |  Ctrl+C / X / V / D  |  F : cadrer  |  Suppr": "Right-click: add  |  output to input: link  |  box: select  |  Ctrl+C / X / V / D  |  F: frame  |  Del",
+ "{n} erreur(s) : survolez la ligne en rouge": "{n} error(s): hover the red line"
 }

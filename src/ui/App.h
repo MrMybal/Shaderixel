@@ -22,6 +22,7 @@
 #include "io/RawLoad.h"
 #include "shaderixel_plugin.h"
 #include "ui/Search.h"
+#include "ui/CodeEdit.h"
 
 #include <mutex>
 
@@ -266,6 +267,8 @@ struct EffectEditorState {
     bool boxing = false;                // box selection from an empty spot
     ImVec2 boxStart;
     bool frameAll = false;              // frame the whole graph on the next frame (a graph was opened)
+    std::string marksKey;               // shader errors mapped to the HLSL nodes (code lines marked red)
+    std::map<Id, std::vector<ui::CodeMark>> codeMarks, declMarks;
     bool nodePreviews = true;           // result previews drawn in the nodes (effect graphs)
     double lastEdit = 0;                // time of the last change (node previews wait for a pause)
     std::string cachedJson;

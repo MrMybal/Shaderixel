@@ -4221,6 +4221,41 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
             if (frameCounter == 85) { key(ImGuiKey_A, false); key(ImGuiKey_LeftCtrl, false); key(ImGuiMod_Ctrl, false); }
             if (frameCounter == 88) Log("[fxkeys] after Ctrl+A: selected %zu of %d", efEd.multi.size(), count());
         }
+        if (frameCounter == 50 && demoGraphOpen && getenv("SX_FXBREAK")) {
+            // A typing error in the HLSL node of the first filter: the editor marks the line.
+            if (Layer* l = d.ActiveLayer(); l && !l->filters.empty()) {
+                EffectInstance& f = l->filters[0];
+                if (std::string(getenv("SX_FXBREAK")) == "code") {
+                    ConvertToCustomCode(*v, f);
+                    size_t at = f.customCode.find("sin(");
+                    if (at != std::string::npos) f.customCode.replace(at, 4, "sinn(");
+                    d.SyncGraph();
+                    Log("[fxbreak] code effect broken");
+                }
+                EffectGraph tg;
+                auto fdef = f.Def();
+                if (f.customCode.empty() && EffectGraph::Deserialize(f.graph.empty() && fdef ? fdef->graph : f.graph, tg)) {
+                    for (auto& n : tg.nodes)
+                        if (n.op == "custom") {
+                            size_t at = n.text.find("sin(");
+                            if (at != std::string::npos) n.text.replace(at, 4, "sinn(");
+                        }
+                    f.graph = tg.Serialize();
+                    f.effectId.clear();
+                    f.SyncParams(fdef);
+                    d.SyncGraph();
+                    Log("[fxbreak] code broken");
+                }
+            }
+        }
+        if (frameCounter == 150 && demoGraphOpen && getenv("SX_FXBREAK")) {
+            for (auto& n : d.S().graph.nodes)
+                if (n.kind == NodeKind::Effect) {
+                    std::string e;
+                    bool f = v->renderer.NodeFailed(n.id, &e);
+                    Log("[fxbreak] node %u code %zu graph %zu failed %d", n.id, n.fx.customCode.size(), n.fx.graph.size(), (int)f);
+                }
+        }
         if (frameCounter == 60 && demoGraphOpen) {
             if (const char* z = getenv("SX_FXZOOM")) {
                 // Zoomed view on the first computing nodes.
