@@ -447,6 +447,53 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 104) {
+        // Undo pixels in system memory: a 4096 x 4096 document, 12 destructive steps (256 MB of undo data each),
+        // the older ones moved off the GPU; everything undone then redone, compared with the original / final image.
+        static gpu::ReadbackPtr original, final_, undone, redone;
+        static int step = 0;
+        DocView* dv = Active();
+        if (frameCounter == 4) {
+            NewDocument(4096, 4096, Precision::Half16, DocMode::Layers, 0, "Historique");
+            dv = Active();
+            Document& d = *dv->doc;
+            Layer& l = d.AddPixelLayer("Peinture");
+            d.S().activeLayer = l.id;
+            d.SyncGraph();
+        }
+        if (!dv) return;
+        Document& d = *dv->doc;
+        auto grab = [&] { return dv->renderer.ExportRGBA8(*ctx, dv->renderer.EvaluateComplete(d, *ctx)); };
+        if (frameCounter == 10) {
+            ApplyLibraryEffect(*dv, "checker", FxApply::Destructive);  // some content
+            dv->history.Clear();
+        }
+        if (frameCounter == 14) original = grab();
+        if (frameCounter >= 20 && frameCounter < 20 + 12 * 12 && (frameCounter - 20) % 12 == 0) {
+            ApplyLibraryEffect(*dv, (step % 2) ? "invert" : "posterize", FxApply::Destructive);
+            ++step;
+            Log("[undoram] step %d: GPU %.0f MB, system %.0f MB, VRAM %.0f MB", step, dv->history.MemoryBytes() / 1048576.0,
+                dv->history.SystemBytes() / 1048576.0, gpu::Dev().VideoMemoryUsage() / 1048576.0);
+        }
+        if (frameCounter == 200 || frameCounter == 320) {
+            Log("[undoram] after the steps: %zu entries, GPU %.0f MB, system %.0f MB, VRAM %.0f MB", dv->history.Count(),
+                dv->history.MemoryBytes() / 1048576.0, dv->history.SystemBytes() / 1048576.0, gpu::Dev().VideoMemoryUsage() / 1048576.0);
+            if (frameCounter == 320) final_ = grab();
+        }
+        if (frameCounter == 324) {
+            while (dv->history.CanUndo()) Undo();
+        }
+        if (frameCounter == 328) undone = grab();
+        if (frameCounter == 332) {
+            while (dv->history.CanRedo()) Redo();
+        }
+        if (frameCounter == 336) redone = grab();
+        if (frameCounter == 350 && original && undone && final_ && redone) {
+            CompareReadbacks("undo all vs original", *original, *undone, 0);
+            CompareReadbacks("redo all vs final", *final_, *redone, 0);
+        }
+        return;
+    }
     if (demoMode == 103 && v) {
         // Native PSD adjustment layers: 7 adjustments with known settings, exported, imported back, compared.
         Document& d = *v->doc;
