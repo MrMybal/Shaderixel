@@ -368,7 +368,18 @@
  "Forme : %s": "Shape: %s",
  "Forme personnalisée": "Custom shape",
  "Enregistrer": "Save",
- "Mémoire de l'historique : GPU {n} Mo, système {n} Mo": "History memory: GPU {n} MB, system {n} MB",
  "Les dernières retouches restent sur la carte graphique ; les plus anciennes sont compressées": "The latest edits stay on the graphics card; older ones are compressed",
- "en mémoire système (VRAM libérée) et rechargées quand on les annule.": "into system memory (VRAM freed) and loaded back when they are undone."
+ "en mémoire système (VRAM libérée) et rechargées quand on les annule.": "into system memory (VRAM freed) and loaded back when they are undone.",
+ "Mémoire : GPU {n} / {n} Mo, système {n} Mo": "Memory: GPU {n} / {n} MB, system {n} MB",
+ "Réglages mémoire...": "Memory settings...",
+ "Mémoire de l'historique": "History memory",
+ "Carte graphique : {n} Go": "Graphics card: {n} GB",
+ "VRAM pour l'annulation instantanée": "VRAM for instant undo",
+ "VRAM maximale de l'historique": "Maximum history VRAM",
+ "Mémoire système maximale": "Maximum system memory",
+ "Les retouches récentes restent sur la carte graphique jusqu'à ce volume ;": "Recent edits stay on the graphics card up to this amount;",
+ "au-delà, les plus anciennes passent en mémoire système (compressées).": "beyond it, the oldest move to system memory (compressed).",
+ "Au-delà (si la mémoire système ne suit pas), les étapes les plus anciennes sont oubliées.": "Beyond it (if system memory cannot follow), the oldest steps are dropped.",
+ "Retouches anciennes, compressées. Au-delà, les plus anciennes sont oubliées.": "Older edits, compressed. Beyond it, the oldest are dropped.",
+ "Auto": "Auto"
 }

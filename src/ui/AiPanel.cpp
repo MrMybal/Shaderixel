@@ -58,6 +58,9 @@ void App::LoadAiSettings() {
         penPressureGamma = std::clamp(j["tablet"]["pressureGamma"].F(1.0f), 0.2f, 5.0f);
         lensfunDir = j["lensfun"]["dir"].S("");
         uiLanguage = j["ui"]["language"].S("en");
+        histGpuMB = j["history"]["gpuMB"].I(0);
+        histGpuMaxMB = j["history"]["gpuMaxMB"].I(0);
+        histRamMB = j["history"]["ramMB"].I(0);
         if (j["tablet"]["api"].S("ink") == "wintab" && !platform::SetTabletApi(platform::TabletApi::Wintab))
             Log("Tablet: Wintab unavailable, Windows Ink used");
     }
@@ -87,6 +90,11 @@ void App::SaveAiSettings() {
     Json ui = Json::Object();
     ui["language"] = uiLanguage;
     j["ui"] = ui;
+    Json hist = Json::Object();  // 0: automatic (from the graphics card and the system memory)
+    hist["gpuMB"] = histGpuMB;
+    hist["gpuMaxMB"] = histGpuMaxMB;
+    hist["ramMB"] = histRamMB;
+    j["history"] = hist;
     std::ofstream(Utf8Path(settingsPath), std::ios::binary) << j.Dump(1);
 }
 

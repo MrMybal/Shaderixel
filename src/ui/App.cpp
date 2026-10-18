@@ -279,6 +279,7 @@ bool App::Init() {
     LoadAiSettings();
     if (const char* forced = getenv("SX_LANG")) uiLanguage = forced;  // tests
     if (!SetLanguage(uiLanguage)) SetLanguage("fr");  // no dictionary found: the built-in French
+    ApplyHistoryLimits();
     InitFunctions();
     LoadActions();
     monitorProfile = color::MonitorPath(hwnd);
@@ -505,14 +506,14 @@ void App::Frame() {
     }
 
     ++frameCounter;
-    if (frameCounter == 2) ImGui::SetWindowFocus("Canevas");  // Canvas is the default center tab
+    if (frameCounter == 2) FocusPanel("Canevas");  // Canvas is the default center tab
     if (demoMode && frameCounter == 3) RunDemo();
     if (aboutAtStart && frameCounter == 3) showAbout = true;
     if (testEffects && capturePath.empty() && frameCounter == 3) autoQuit = true;  // compile test: quit once done
     if (demoMode) DemoTick();
-    if (frameCounter >= 4 && frameCounter - 4 < focusAtStart.size()) ImGui::SetWindowFocus(focusAtStart[frameCounter - 4].c_str());
+    if (frameCounter >= 4 && frameCounter - 4 < focusAtStart.size()) FocusPanel(focusAtStart[frameCounter - 4].c_str());
     if (!focusAfterLayout.empty() && ImGui::FindWindowByName(focusAfterLayout.front().c_str())) {
-        ImGui::SetWindowFocus(focusAfterLayout.front().c_str());
+        FocusPanel(focusAfterLayout.front().c_str());
         focusAfterLayout.erase(focusAfterLayout.begin());
     }
     if (!capturePath.empty() && frameCounter == (u64)captureFrame) captureRb = gpu::Dev().CaptureNextFrame();
@@ -1092,7 +1093,7 @@ void App::DrawMenuBar() {
             if (ImGui::MenuItem("Photomerge (panorama)...")) { photoDlg.open = true; photoDlg.kind = 1; }
             if (ImGui::MenuItem("Fusion HDR...")) { photoDlg.open = true; photoDlg.kind = 4; }
             ImGui::Separator();
-            if (ImGui::MenuItem("Actions")) { panelOpen["Actions"].open = true; ShowSideTab(1); ImGui::SetWindowFocus("Actions"); }
+            if (ImGui::MenuItem("Actions")) { panelOpen["Actions"].open = true; ShowSideTab(1); FocusPanel("Actions"); }
             ImGui::EndMenu();
         }
         if (ImGui::BeginMenu("Exporter en PSD (calques)", v != nullptr)) {
@@ -1162,7 +1163,7 @@ void App::DrawMenuBar() {
             ImGui::EndMenu();
         }
         if (ImGui::MenuItem("Photo RAW...", "Ctrl+Maj+A", false, !layerMode || l)) OpenCameraRaw(*v);
-        if (ImGui::MenuItem("Galerie d'effets...")) ImGui::SetWindowFocus("Effets");
+        if (ImGui::MenuItem("Galerie d'effets...")) FocusPanel("Effets");
         ImGui::EndMenu();
     }
     if (ImGui::BeginMenu("Affichage")) {
@@ -1178,7 +1179,7 @@ void App::DrawMenuBar() {
             ImGui::Separator();
             if (ImGui::MenuItem("Panneau Analyse d'image...")) {
                 panelOpen["Analyse d'image"].open = true;
-                ImGui::SetWindowFocus("Analyse d'image");
+                FocusPanel("Analyse d'image");
             }
             ImGui::EndMenu();
         }
@@ -1294,7 +1295,7 @@ void App::LayerMenuItems() {
             if (auto def = l.effect.Def()) l.effect.params = def->DefaultParams();
             d.SyncGraph();
             e.Commit();
-            ImGui::SetWindowFocus("Propriétés");
+            FocusPanel("Propriétés");
         }
         if (ImGui::MenuItem("Nouveau calque « Effet visuel » (graphe)")) {
             Edit e(d, v->history, "Effet visuel");
@@ -1303,7 +1304,7 @@ void App::LayerMenuItems() {
             l.effect.graph = EffectGraph::Default().Serialize();
             d.SyncGraph();
             e.Commit();
-            ImGui::SetWindowFocus("Éditeur d'effets");
+            FocusPanel("Éditeur d'effets");
         }
         if (ImGui::BeginMenu("Nouveau calque de réglage")) {
             EffectMenu([&](const std::string& id) {
@@ -1744,6 +1745,66 @@ void App::DrawStatusBar() {
     ImGui::End();
 }
 
+// Automatic budgets: from the graphics card's memory and the system memory.
+static void AutoHistoryLimits(u64& gpuTarget, u64& gpuMax, u64& ram) {
+    const u64 vram = gpu::Dev().VideoMemoryTotal();
+    MEMORYSTATUSEX ms = {sizeof(ms)};
+    const u64 sys = GlobalMemoryStatusEx(&ms) ? ms.ullTotalPhys : (16ull << 30);
+    gpuTarget = std::clamp<u64>(vram / 8, 512ull << 20, 8ull << 30);
+    gpuMax = std::clamp<u64>(vram / 3, 1ull << 30, 16ull << 30);
+    ram = std::clamp<u64>(sys / 4, 2ull << 30, 32ull << 30);
+}
+
+void App::ApplyHistoryLimits() {
+    u64 t, m, r;
+    AutoHistoryLimits(t, m, r);
+    HistoryLimits& L = History::Limits();
+    L.gpuTarget = histGpuMB > 0 ? (u64)histGpuMB << 20 : t;
+    L.gpuMax = std::max(L.gpuTarget, histGpuMaxMB > 0 ? (u64)histGpuMaxMB << 20 : m);
+    L.ramMax = histRamMB > 0 ? (u64)histRamMB << 20 : r;
+    Log("History memory: %.2f GB on the GPU (max %.2f GB), %.1f GB in system memory", L.gpuTarget / 1073741824.0, L.gpuMax / 1073741824.0,
+        L.ramMax / 1073741824.0);
+}
+
+void App::DrawHistoryMemorySettings() {
+    // Sliders in GB; "auto" follows the graphics card (and the system memory for the compressed steps).
+    u64 t, m, r;
+    AutoHistoryLimits(t, m, r);
+    const float vramGB = gpu::Dev().VideoMemoryTotal() / 1073741824.0f;
+    bool changed = false;
+    auto row = [&](const char* label, int& mb, u64 autoBytes, float maxGB, const char* tip) {
+        ImGui::PushID(label);
+        bool autoOn = mb <= 0;
+        if (ImGui::Checkbox("Auto", &autoOn)) {
+            mb = autoOn ? 0 : (int)(autoBytes >> 20);
+            changed = true;
+        }
+        ImGui::SameLine();
+        float gb = (mb > 0 ? mb : (int)(autoBytes >> 20)) / 1024.0f;
+        ImGui::BeginDisabled(autoOn);
+        ImGui::SetNextItemWidth(200 * dpi);
+        if (ImGui::SliderFloat(label, &gb, 0.25f, maxGB, "%.2f Go")) {
+            mb = std::max(256, (int)(gb * 1024));
+            changed = true;
+        }
+        ImGui::EndDisabled();
+        ui::HelpTooltip(tip);
+        ImGui::PopID();
+    };
+    ImGui::TextDisabled("Carte graphique : %.0f Go", vramGB);
+    row("VRAM pour l'annulation instantanée", histGpuMB, t, std::max(1.0f, vramGB * 0.75f),
+        "Les retouches récentes restent sur la carte graphique jusqu'à ce volume ;\nau-delà, les plus anciennes passent en mémoire système (compressées).");
+    row("VRAM maximale de l'historique", histGpuMaxMB, m, std::max(1.0f, vramGB * 0.9f),
+        "Au-delà (si la mémoire système ne suit pas), les étapes les plus anciennes sont oubliées.");
+    MEMORYSTATUSEX ms = {sizeof(ms)};
+    const float sysGB = GlobalMemoryStatusEx(&ms) ? ms.ullTotalPhys / 1073741824.0f : 16.0f;
+    row("Mémoire système maximale", histRamMB, r, std::max(2.0f, sysGB * 0.75f), "Retouches anciennes, compressées. Au-delà, les plus anciennes sont oubliées.");
+    if (changed) {
+        ApplyHistoryLimits();
+        SaveAiSettings();
+    }
+}
+
 void App::DrawShaderErrors() {
     if (!showShaderErrors) return;
     ImGui::SetNextWindowSize(ImVec2(700 * dpi, 400 * dpi), ImGuiCond_FirstUseEver);
@@ -1865,10 +1926,21 @@ void App::DrawHistory() {
             ImGui::Separator();
         }
         // Undo memory: recent steps on the GPU, older pixel steps compressed in system memory.
-        ImGui::TextDisabled("Mémoire de l'historique : GPU %.0f Mo, système %.0f Mo", h.MemoryBytes() / 1048576.0, h.SystemBytes() / 1048576.0);
+        const HistoryLimits& HL = History::Limits();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextDisabled("Mémoire : GPU %.0f / %.0f Mo, système %.0f Mo", h.MemoryBytes() / 1048576.0, HL.gpuTarget / 1048576.0, h.SystemBytes() / 1048576.0);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Les dernières retouches restent sur la carte graphique ; les plus anciennes sont compressées\n"
                               "en mémoire système (VRAM libérée) et rechargées quand on les annule.");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Réglages mémoire...") || demoOpenHistMem) ImGui::OpenPopup("##histmem");
+        demoOpenHistMem = false;
+        ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 4), ImGuiCond_Appearing);
+        if (ImGui::BeginPopup("##histmem")) {
+            ImGui::SeparatorText("Mémoire de l'historique");
+            DrawHistoryMemorySettings();
+            ImGui::EndPopup();
+        }
         static std::string histFilter;
         ui::ListFilter(histFilter, "Filtrer l'historique (Ctrl+F)...");
         if (histFilter.empty() && ImGui::Selectable("Ouverture", h.Cursor() == 0)) while (h.CanUndo()) h.Undo(*v->doc, *ctx);

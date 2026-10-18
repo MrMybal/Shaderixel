@@ -492,7 +492,7 @@ void App::DrawEffectBrowser() {
                 ImGui::Separator();
                 if (ImGui::MenuItem(def.graph.empty() ? "Ouvrir le code (copie modifiable)" : "Ouvrir son graphe (copie modifiable)")) {
                     OpenLibraryItem(0, def.id, false);
-                    ImGui::SetWindowFocus("Éditeur d'effets");
+                    FocusPanel("Éditeur d'effets");
                 }
             }
             ImGui::Separator();

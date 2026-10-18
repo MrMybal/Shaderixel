@@ -189,7 +189,7 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             d.AddTextLayer(s);
             e.Commit();
             focusTextEdit = true;
-            ImGui::SetWindowFocus("Propriétés");
+            FocusPanel("Propriétés");
         }
     }
     if (textDragging) {

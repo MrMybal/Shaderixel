@@ -23,6 +23,9 @@ const char* ImGuiTestEngine_FindItemDebugLabel(ImGuiContext*, ImGuiID) { return 
 
 namespace sx {
 
+void FocusPanel(const char* name);  // Workspace.cpp
+
+
 namespace {
 constexpr char kSep = '\x1f';
 
@@ -320,7 +323,7 @@ void GlobalSearch::BeginFrame() {
         if (r != 0) pend.active = false;
     } else if (pend.active && pend.focusIn >= 0) {
         if (pend.focusIn-- == 0) {
-            ImGui::SetWindowFocus(pend.window.c_str());
+            FocusPanel(pend.window.c_str());
             if (pend.kind == 0) pend.active = false;
         }
     } else if (pend.active && pend.kind == 2) {
@@ -369,7 +372,7 @@ void GlobalSearch::BeginFrame() {
             crawl.step = 1;
             crawl.wait = 2;
         } else {
-            ImGui::SetWindowFocus(name.c_str());
+            FocusPanel(name.c_str());
             crawl.step = 0;
             ++crawl.index;
             crawl.wait = 3;
@@ -378,7 +381,7 @@ void GlobalSearch::BeginFrame() {
     }
     for (auto& n : crawl.restore) {
         if (reveal) reveal(n);
-        ImGui::SetWindowFocus(n.c_str());
+        FocusPanel(n.c_str());
     }
     crawl.active = false;
 }

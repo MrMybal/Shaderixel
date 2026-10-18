@@ -258,7 +258,7 @@ void App::DemoTick() {
     if (demoMode == 20 && v) {
         // .sxl round trip with an embedded LUT.
         static gpu::ReadbackPtr a, b;
-        if (frameCounter == 6) ImGui::SetWindowFocus("Propriétés");
+        if (frameCounter == 6) FocusPanel("Propriétés");
         if (frameCounter == 8) a = v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(*v->doc, *ctx));
         if (frameCounter == 10) SaveDocument(*v, "demo_lut.sxl");
         if (frameCounter == 20) LoadSxl("demo_lut.sxl");
@@ -327,7 +327,7 @@ void App::DemoTick() {
         }
         DocView* a = Active();
         if (!a || !a->mesh) return;
-        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 8) FocusPanel("Vue 3D");
         if (frameCounter == 10) {
             Id m = AddProjectedMaterial(*a, img, "Briques");
             Log("[demo] projection: material %u", (unsigned)m);
@@ -349,7 +349,7 @@ void App::DemoTick() {
                     Log("[demo] filter added on %s", l->name.c_str());
                 }
         }
-        if (frameCounter >= 13 && frameCounter <= 16) ImGui::SetWindowFocus("Calques 3D");
+        if (frameCounter >= 13 && frameCounter <= 16) FocusPanel("Calques 3D");
         char exp[512] = "", pre[8] = "1";
         if (frameCounter == 40 && GetEnvironmentVariableA("SX_EXPORTDIR", exp, sizeof(exp)) > 0) {
             // Texture export: preset SX_EXPORTPRESET, 16-bit PNG, padding.
@@ -378,7 +378,7 @@ void App::DemoTick() {
         }
         DocView* a = Active();
         if (!a || !a->mesh) return;
-        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 8) FocusPanel("Vue 3D");
         ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D");
         if (!w) return;
         ImGuiIO& io = ImGui::GetIO();
@@ -422,7 +422,7 @@ void App::DemoTick() {
         }
         DocView* a = Active();
         if (!a || !a->mesh) return;
-        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 8) FocusPanel("Vue 3D");
         static bool started = false, reported = false;
         if (frameCounter == 10) {
             baker.open = true;
@@ -454,6 +454,10 @@ void App::DemoTick() {
         static int step = 0;
         DocView* dv = Active();
         if (frameCounter == 4) {
+            if (char mb[16] = ""; GetEnvironmentVariableA("SX_HISTGPU", mb, sizeof(mb)) > 0) {
+                histGpuMB = atoi(mb);  // as set in History > Memory settings
+                ApplyHistoryLimits();
+            }
             NewDocument(4096, 4096, Precision::Half16, DocMode::Layers, 0, "Historique");
             dv = Active();
             Document& d = *dv->doc;
@@ -488,6 +492,11 @@ void App::DemoTick() {
             while (dv->history.CanRedo()) Redo();
         }
         if (frameCounter == 336) redone = grab();
+        if (frameCounter == 340 && GetEnvironmentVariableA("SX_HISTUI", nullptr, 0) > 0) {
+            ShowSideTab(0);
+            FocusPanel("Historique");
+        }
+        if (frameCounter == 346 && GetEnvironmentVariableA("SX_HISTUI", nullptr, 0) > 0) demoOpenHistMem = true;
         if (frameCounter == 350 && original && undone && final_ && redone) {
             CompareReadbacks("undo all vs original", *original, *undone, 0);
             CompareReadbacks("redo all vs final", *final_, *redone, 0);
@@ -616,7 +625,7 @@ void App::DemoTick() {
             Log("[shapes] svg: %zu subpaths, %zu points, closed %d %d", svg.size(), pts, svg.size() > 0 && svg[0].closed, svg.size() > 1 && svg[1].closed);
         }
         if (frameCounter == 10) ShowSideTab(1);
-        if (frameCounter == 16) ImGui::SetWindowFocus("Options");
+        if (frameCounter == 16) FocusPanel("Options");
         return;
     }
     if (demoMode == 101) {
@@ -636,7 +645,7 @@ void App::DemoTick() {
         }
         if (frameCounter == 34) {
             ShowSideTab(0);
-            ImGui::SetWindowFocus("Analyse d'image");
+            FocusPanel("Analyse d'image");
             if (GetEnvironmentVariableA("SX_ANSEL", nullptr, 0) > 0 && v) {
                 // Selection on the face; two samplers (face, shirt).
                 Document& dd = *v->doc;
@@ -782,7 +791,7 @@ void App::DemoTick() {
                     l->filters.push_back(fx);
                 }
                 d.SyncGraph();
-                ImGui::SetWindowFocus("Propriétés");
+                FocusPanel("Propriétés");
             }
         }
         if (frameCounter == 40 && hasRaw && lensName[0] && Active()) {
@@ -863,7 +872,7 @@ void App::DemoTick() {
             Document& d = *Active()->doc;
             for (auto& n : d.S().graph.nodes)
                 if (n.layer == d.S().activeLayer && n.fx.effectId == "camera_raw") d.S().activeNode = n.id;
-            ImGui::SetWindowFocus("Propriétés");
+            FocusPanel("Propriétés");
             Log("[demo] selected filter node %u", (unsigned)d.S().activeNode);
         }
         if (frameCounter == 30 && Active() && GetEnvironmentVariableA("SX_GEOM", nullptr, 0) > 0) {
@@ -1124,7 +1133,7 @@ void App::DemoTick() {
         if (!a || !a->mesh) return;
         const auto& list = SmartMaterials();
         MeshScene& s = *a->mesh;
-        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 8) FocusPanel("Vue 3D");
         if (frameCounter < 12) return;
         if (idx >= list.size()) {
             if (!autoQuit) { Log("[demo] smartthumbs: %zu previews", list.size()); autoQuit = true; }
@@ -1183,7 +1192,7 @@ void App::DemoTick() {
         }
         DocView* a = Active();
         if (!a || !a->mesh) return;
-        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 8) FocusPanel("Vue 3D");
         if (frameCounter == 10) {
             const auto& list = SmartMaterials();
             const int i = std::clamp(atoi(sm), 0, (int)list.size() - 1);
@@ -1407,7 +1416,7 @@ void App::DemoTick() {
         static double t0 = 0;
         if (frameCounter == 11) t0 = ImGui::GetTime();
         if (frameCounter == 12) ShowSideTab(5);  // 3D tab: Calques 3D (smart mask settings)
-        if (frameCounter >= 13 && frameCounter <= 16) ImGui::SetWindowFocus("Calques 3D");
+        if (frameCounter >= 13 && frameCounter <= 16) FocusPanel("Calques 3D");
         static bool logged = false;
         if (frameCounter > 11 && !logged && a->mesh->maps) {
             logged = true;
@@ -1432,7 +1441,7 @@ void App::DemoTick() {
         }
         DocView* a = Active();
         if (!a || !a->mesh) return;
-        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 8) FocusPanel("Vue 3D");
         ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D");
         if (!w) return;
         const ImVec2 c((w->InnerRect.Min.x + w->InnerRect.Max.x) * 0.5f, (w->InnerRect.Min.y + w->InnerRect.Max.y) * 0.5f + 20);
@@ -1603,7 +1612,7 @@ void App::DemoTick() {
             if (dir[0]) { explorer.dirImages = dir; explorer.dirMeshes = dir; }
         }
         if (frameCounter >= 8 && frameCounter <= 12) {
-            ImGui::SetWindowFocus("Ressources");
+            FocusPanel("Ressources");
             if (ImGuiWindow* w = ImGui::FindWindowByName("Ressources"); w && w->DockNode && w->DockNode->TabBar) w->DockNode->TabBar->NextSelectedTabId = w->TabId;
         }
         if (frameCounter == 10) {
@@ -1797,10 +1806,10 @@ void App::DemoTick() {
                 }
             graphFrameOnly = nodeEd.selection;
             graphFrameRequest = true;
-            ImGui::SetWindowFocus("Graphe");
+            FocusPanel("Graphe");
         }
         if (frameCounter == 9) hideBottom = false;
-        if (frameCounter == 13) ImGui::SetWindowFocus("Graphe");
+        if (frameCounter == 13) FocusPanel("Graphe");
         if (frameCounter == 14) {
             Log("[demo] comments: graph focused %d, nav window %s", (int)graphFocused, GImGui->NavWindow ? GImGui->NavWindow->Name : "-");
             io.AddKeyEvent(ImGuiKey_C, true);
@@ -1861,8 +1870,8 @@ void App::DemoTick() {
             *PanelFlag("Scène de rendu") = true;
         }
         if (frameCounter == 30) {
-            ImGui::SetWindowFocus("Rendu");
-            ImGui::SetWindowFocus("Scène de rendu");
+            FocusPanel("Rendu");
+            FocusPanel("Scène de rendu");
         }
         wchar_t wgather[512] = L"", wimport[512] = L"";
         if (frameCounter == 26 && GetEnvironmentVariableW(L"SX_GATHER", wgather, 512) > 0 && GetEnvironmentVariableW(L"SX_IMPORT", wimport, 512) > 0) {
@@ -2470,7 +2479,7 @@ void App::DemoTick() {
             Active()->doc->ConvertToNodes();
             e.Commit();
         }
-        if (frameCounter == 20) ImGui::SetWindowFocus(win);
+        if (frameCounter == 20) FocusPanel(win);
         static size_t next = 0;
         if (frameCounter >= 30 && frameCounter % 10 == 0) {
             std::vector<std::string> files;
@@ -2604,7 +2613,7 @@ void App::DemoTick() {
                 r.lights.push_back(spot);
             }
         }
-        if (frameCounter == 22) ImGui::SetWindowFocus("Rendu");
+        if (frameCounter == 22) FocusPanel("Rendu");
         if (frameCounter % 30 == 0 && a->render) Log("[demo] render: %d samples (%s)", RenderSamples(*a->render), a->render->settings.device ? "CPU" : "GPU");
         // Export once every sample is done (SX_SIZE=WxH: fixed resolution instead of the view size).
         if (frameCounter == 20 && GetEnvironmentVariableA("SX_SIZE", b, sizeof(b)) > 0) {
@@ -2625,7 +2634,7 @@ void App::DemoTick() {
     if (demoMode == 100) {
         // Side tabs keep their sub-tab: General, Histogramme chosen, Outils, back to General.
         if (frameCounter == 20) ShowSideTab(0);
-        if (frameCounter == 30) ImGui::SetWindowFocus("Histogramme");
+        if (frameCounter == 30) FocusPanel("Histogramme");
         if (frameCounter == 40) ShowSideTab(1);
         if (frameCounter == 60) ShowSideTab(0);
         if (frameCounter == 90)
@@ -2647,7 +2656,7 @@ void App::DemoTick() {
             return name;
         };
         if (frameCounter == 100) ShowSideTab(1);
-        if (frameCounter == 115) ImGui::SetWindowFocus("Tracés");
+        if (frameCounter == 115) FocusPanel("Tracés");
         if (frameCounter == 125) Log("[demo] sidetabs: Outils, chosen: %s", toolsSelected());
         if (frameCounter == 130) ShowSideTab(0);
         if (frameCounter == 150) ShowSideTab(1);
@@ -2664,7 +2673,7 @@ void App::DemoTick() {
         GetEnvironmentVariableA("SX_FILTER", f, sizeof(f));
         GetEnvironmentVariableA("SX_MENUFILTER", mf, sizeof(mf));
         if (frameCounter == 20 && f[0]) {
-            ImGui::SetWindowFocus("Propriétés");
+            FocusPanel("Propriétés");
             ui::SetWindowFilter("Propriétés", f);
         }
         ImGuiIO& io = ImGui::GetIO();
@@ -2693,7 +2702,7 @@ void App::DemoTick() {
                 d.S().activeNode = pick->id;
                 Log("[demo] nodesel: %s (%s)", pick->name.c_str(), which);
             }
-            ImGui::SetWindowFocus("Propriétés");
+            FocusPanel("Propriétés");
         }
         return;
     }
@@ -2710,8 +2719,8 @@ void App::DemoTick() {
         DocView* a = Active();
         if (!a || !a->mesh) return;
         MeshScene& s = *a->mesh;
-        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
-        if (frameCounter == 30 && GetEnvironmentVariableA("SX_CANVAS", nullptr, 0) > 0) ImGui::SetWindowFocus("Canevas");  // image tools back
+        if (frameCounter == 8) FocusPanel("Vue 3D");
+        if (frameCounter == 30 && GetEnvironmentVariableA("SX_CANVAS", nullptr, 0) > 0) FocusPanel("Canevas");  // image tools back
         if (frameCounter == 10) {
             const int k = atoi(vw);
             if (k >= 0) SetView3DPreset(s, k);
@@ -2731,7 +2740,7 @@ void App::DemoTick() {
             if (GetEnvironmentVariableA("SX_SIMTOOL", nullptr, 0) > 0) {
                 tool = Tool::Particles;  // as chosen in the toolbar: its panel brought forward
                 *PanelFlag("Matériau du pinceau") = true;
-                ImGui::SetWindowFocus("Matériau du pinceau");
+                FocusPanel("Matériau du pinceau");
             }
         }
         return;
@@ -2758,7 +2767,7 @@ void App::DemoTick() {
         if (!a || !a->mesh || a->doc->kind != 1) return;
         Document& d = *a->doc;
         MeshScene& s = *a->mesh;
-        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 8) FocusPanel("Vue 3D");
         // World points -> view pixels (the depth buffer is the view).
         auto toScreen = [&](float3 p) {
             float4 c = s.viewProj.Transform({p.x, p.y, p.z, 1});
@@ -2988,7 +2997,7 @@ void App::DemoTick() {
         if (!a || !a->mesh) return;
         Document& d = *a->doc;
         MeshScene& s = *a->mesh;
-        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 8) FocusPanel("Vue 3D");
         if (frameCounter == 12 && s.depth) {
             fg = {0.9f, 0.15f, 0.1f, 1};
             std::vector<float4> colors;
@@ -3033,7 +3042,7 @@ void App::DemoTick() {
         if (!a || !a->mesh) return;
         Document& d = *a->doc;
         MeshScene& s = *a->mesh;
-        if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 8) FocusPanel("Vue 3D");
         if (frameCounter == 14 && s.depth) {
             fg = {1.0f, 0.78f, 0.34f, 1};
             brush3D.use[(int)PbrChannel::Roughness] = brush3D.use[(int)PbrChannel::Metallic] = true;
@@ -3106,7 +3115,7 @@ void App::DemoTick() {
         std::string o = op;
         if (frameCounter == 5) {
             hideBottom = false;
-            ImGui::SetWindowFocus("Éditeur d'effets");
+            FocusPanel("Éditeur d'effets");
             if (o == "browse") {
                 efEd.browse = true;
                 efEd.browseSearch = "flou";
@@ -3119,11 +3128,11 @@ void App::DemoTick() {
                 OpenLibraryItem(2, "cy_bristle", true);
             }
         }
-        if (frameCounter == 9) ImGui::SetWindowFocus("Éditeur d'effets");
+        if (frameCounter == 9) FocusPanel("Éditeur d'effets");
         if (frameCounter == 12 && GetEnvironmentVariableA("SX_PAL", nullptr, 0) > 0) {
             // Node palette: one node in the effect graph (center of the view) and one in the layer graph.
             ShowSideTab(2);
-            ImGui::SetWindowFocus("Palette de nœuds");
+            FocusPanel("Palette de nœuds");
             paletteFocus = 1;
             paletteAdd.pending = true;
             paletteAdd.target = 1;
@@ -4004,7 +4013,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
             std::string err;
             if (!CreateEffectFromHlsl(*v, src, &err)) Log("[demo] hlsl import: %s", err.c_str());
             ShowSideTab(0);
-            ImGui::SetWindowFocus("Propriétés");
+            FocusPanel("Propriétés");
         } else {
             for (auto& l : v->doc->S().layers) if (l.name == "Peinture") v->doc->S().activeLayer = l.id;
         }
@@ -4076,7 +4085,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
         OpenGraphEditor(0);
         efEd.selected = cid;
         ShowSideTab(0);
-        ImGui::SetWindowFocus("Propriétés");
+        FocusPanel("Propriétés");
         return;
     }
     if (demoMode == 45 && frameCounter == 4) {
@@ -4433,7 +4442,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
             if (const char* g = getenv("SX_FXGRAPH")) {
                 fxBrowser.graphOnly = true;
                 ShowSideTab(2);
-                ImGui::SetWindowFocus("Effets");
+                FocusPanel("Effets");
                 if (g[0] == '2') demoGraphOpen = true;
             }
         }
@@ -4570,7 +4579,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
                     ApplyLibraryEffect(*v, def->id, FxApply::Filter);
                     efEd.target = 0;
                     efEd.browse = false;
-                    ImGui::SetWindowFocus("Éditeur d'effets");
+                    FocusPanel("Éditeur d'effets");
                     break;
                 }
         }
@@ -4797,19 +4806,19 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
         }
         return;
     }
-    if (demoMode == 10 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
-    if (demoMode == 10 && v && frameCounter == 6) ImGui::SetWindowFocus("Histogramme");
-    if (demoMode == 11 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
-    if (demoMode == 12 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
-    if (demoMode == 18 && v && frameCounter == 5) ImGui::SetWindowFocus("Propriétés");
-    if (demoMode == 11 && v && frameCounter == 7) ImGui::SetWindowFocus("Éditeur d'effets");
-    if (demoMode == 27 && v && frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
+    if (demoMode == 10 && v && frameCounter == 5) FocusPanel("Propriétés");
+    if (demoMode == 10 && v && frameCounter == 6) FocusPanel("Histogramme");
+    if (demoMode == 11 && v && frameCounter == 5) FocusPanel("Propriétés");
+    if (demoMode == 12 && v && frameCounter == 5) FocusPanel("Propriétés");
+    if (demoMode == 18 && v && frameCounter == 5) FocusPanel("Propriétés");
+    if (demoMode == 11 && v && frameCounter == 7) FocusPanel("Éditeur d'effets");
+    if (demoMode == 27 && v && frameCounter == 5) FocusPanel("Vue 3D");
     if (demoMode == 30 && v) {
         // Generative fill with the local stand-in (SX_AI_MOCK=1): ellipse selection -> masked AI layer.
         Document& d = *v->doc;
         if (frameCounter == 6) {
             v->renderer.SelectShape(d, *ctx, v->history, SelShape::Ellipse, {550, 300, 1050, 700}, SelMode::Replace, true, 0, "Ellipse");
-            ImGui::SetWindowFocus("Génération IA");
+            FocusPanel("Génération IA");
         }
         if (frameCounter == 9) StartGenerativeFill(*v, "un vitrail lumineux");
         if (frameCounter == 40) {
@@ -4821,7 +4830,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
     if (demoMode == 29 && v) {
         // HDRI lighting: glossy metal band on a sphere under a generated environment.
         Document& d = *v->doc;
-        if (frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 5) FocusPanel("Vue 3D");
         if (frameCounter == 6) CreatePbrChannels(*v);
         auto fillChannel = [&](PbrChannel c, float gray, float y0, float y1) {
             Id g = FindChannelGroup(d, c);
@@ -4866,7 +4875,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
     if (demoMode == 28 && v) {
         // PBR channels: glossy band in roughness, metallic patch, then texture + Unreal script export.
         Document& d = *v->doc;
-        if (frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 5) FocusPanel("Vue 3D");
         if (frameCounter == 6) CreatePbrChannels(*v);
         auto paintIn = [&](PbrChannel c, float gray, float y0, float y1) {
             Id g = FindChannelGroup(d, c);
@@ -4897,7 +4906,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
         return;
     }
     if (demoMode == 14 && v && v->mesh) {
-        if (frameCounter == 5) ImGui::SetWindowFocus("Vue 3D");
+        if (frameCounter == 5) FocusPanel("Vue 3D");
         if (frameCounter == 8) {
             // Paint a ring around the sphere as seen from the camera.
             Document& d = *v->doc;
@@ -4917,7 +4926,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
             }
         }
         if (frameCounter == 12) v->mesh->yaw += 0.9f;
-        if (frameCounter == 16 && meshDebugCanvas) ImGui::SetWindowFocus("Canevas");
+        if (frameCounter == 16 && meshDebugCanvas) FocusPanel("Canevas");
     }
     if (demoMode == 9 && v) {
         Document& d = *v->doc;

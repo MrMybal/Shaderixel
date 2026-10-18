@@ -7,9 +7,6 @@ namespace sx {
 
 namespace {
 constexpr size_t kMaxEntries = 300;
-constexpr u64 kMaxGpuBytes = 3ull << 30;   // undo pixels kept on the GPU, at most
-constexpr u64 kGpuTarget = 768ull << 20;   // older paint steps beyond this move to system memory
-constexpr u64 kMaxRamBytes = 6ull << 30;   // compressed undo pixels in system memory, at most
 constexpr size_t kKeepOnGpu = 2;           // the latest steps always stay on the GPU (instant undo)
 
 u64 TextureBytes(const gpu::TexturePtr& t) {
@@ -33,6 +30,11 @@ std::vector<u8> Unshuffle(const std::vector<u8>& in, u32 bpp) {
     return out;
 }
 }  // namespace
+
+HistoryLimits& History::Limits() {
+    static HistoryLimits limits;
+    return limits;
+}
 
 History::CpuPixels History::Pack(const gpu::Readback& rb) {
     CpuPixels c;
@@ -64,7 +66,8 @@ void History::Push(Entry&& e) {
     Account(e, 1);
     entries.push_back(std::move(e));
     // Trim oldest entries (whole groups).
-    while (entries.size() > 1 && (entries.size() > kMaxEntries || gpuBytes > kMaxGpuBytes || ramBytes > kMaxRamBytes)) {
+    const HistoryLimits& lim = Limits();
+    while (entries.size() > 1 && (entries.size() > kMaxEntries || gpuBytes > lim.gpuMax || ramBytes > lim.ramMax)) {
         u32 g = entries.front().group;
         do {
             Account(entries.front(), -1);
@@ -111,6 +114,10 @@ void History::PushPaint(const std::string& label, Id surface, const Rect& r, gpu
 void History::Maintain(gpu::CommandContext& ctx) {
     // Older paint steps beyond the GPU budget: read back, compressed in the background, then their GPU copies freed.
     int started = 0;
+    // GPU bytes that stay once the transfers in flight are done.
+    u64 staying = gpuBytes;
+    for (const Entry& e : entries)
+        if (e.offload == Offload::Reading || e.offload == Offload::Packing) staying -= std::min(staying, e.bytes);
     for (size_t i = 0; i < entries.size(); ++i) {
         Entry& e = entries[i];
         if (!e.paint) continue;
@@ -135,7 +142,8 @@ void History::Maintain(gpu::CommandContext& ctx) {
             e.bytes = 0;
             e.offload = Offload::Cpu;
             Account(e, 1);
-        } else if (e.offload == Offload::Gpu && gpuBytes > kGpuTarget && i + kKeepOnGpu < entries.size() && started < 2) {
+        } else if (e.offload == Offload::Gpu && staying > Limits().gpuTarget && i + kKeepOnGpu < entries.size() && started < 2) {
+            staying -= std::min(staying, e.bytes);
             if (e.pixelsBefore) e.rbBefore = ctx.ReadbackTexture(e.pixelsBefore.get());
             if (e.pixelsAfter) e.rbAfter = ctx.ReadbackTexture(e.pixelsAfter.get());
             e.offload = Offload::Reading;

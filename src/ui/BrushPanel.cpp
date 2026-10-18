@@ -189,7 +189,7 @@ void App::OpenGraphEditor(int target) {
     efEd.target = target;
     efEd.cachedJson.clear();
     hideBottom = false;
-    ImGui::SetWindowFocus("Éditeur d'effets");
+    FocusPanel("Éditeur d'effets");
 }
 
 // Stroke preview of the current tool: white ink on a transparent (checkered) background.

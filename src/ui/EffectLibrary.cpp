@@ -63,7 +63,7 @@ void App::EndEditSession(bool cancel) {
     // Back to the panel the editor was opened from.
     if (!S.prevWindow.empty()) {
         ShowSideTab(S.prevSideTab);
-        ImGui::SetWindowFocus(S.prevWindow.c_str());
+        FocusPanel(S.prevWindow.c_str());
     }
     hideBottom = S.prevHideBottom;
     S = {};

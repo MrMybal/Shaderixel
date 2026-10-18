@@ -401,7 +401,7 @@ void App::DrawLayers() {
             active->passThrough = false;
             d.SyncGraph();
             v->history.PushState("Fusion personnalisée", frameBefore, d.S());
-            ImGui::SetWindowFocus("Propriétés");
+            FocusPanel("Propriétés");
         }
         ImGui::EndCombo();
     }

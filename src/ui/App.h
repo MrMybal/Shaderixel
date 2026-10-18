@@ -323,6 +323,9 @@ struct AssistantState {
 // Rendered content of the active layer (filters included) / of everything below it.
 gpu::Texture* ActiveLayerContent(DocView& v, u64& hash);
 gpu::Texture* LayerBelow(DocView& v, u64& hash);
+// Brings a panel forward (ImGui::SetWindowFocus) and remembers the request: a side tab coming back keeps the
+// panel chosen by the user, except the one asked for here.
+void FocusPanel(const char* name);
 
 // Drag & drop payload: a library effect id (effects browser -> graph, layers, canvas).
 inline constexpr const char* kEffectPayload = "SX_EFFECT";
@@ -1764,6 +1767,11 @@ private:
         bool dragging = false;
     } abCompare;
     void TakeSnapshot(DocView& v);
+    // Undo history memory (MB, 0 = automatic), saved in the settings.
+    int histGpuMB = 0, histGpuMaxMB = 0, histRamMB = 0;
+    bool demoOpenHistMem = false;  // demos: opens the memory settings of the History panel
+    void ApplyHistoryLimits();
+    void DrawHistoryMemorySettings();
     // Custom shapes (ShapeLibrary.cpp).
     std::vector<CustomShape> userShapes;
     bool userShapesLoaded = false;

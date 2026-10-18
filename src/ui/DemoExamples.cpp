@@ -75,7 +75,7 @@ void App::DemoExample3D() {
     if (!a || !a->mesh || a->doc->kind != 1) return;
     Document& d = *a->doc;
     MeshScene& s = *a->mesh;
-    if (frameCounter == 8) ImGui::SetWindowFocus("Vue 3D");
+    if (frameCounter == 8) FocusPanel("Vue 3D");
     if (frameCounter != 12 && frameCounter != 20 && frameCounter != 24) return;
 
     float yMin = 1e9f, yMax = -1e9f;

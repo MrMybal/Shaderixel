@@ -15,6 +15,20 @@
 namespace sx {
 
 namespace {
+std::string gFocusRequest;
+int gFocusRequestFrame = -1000;
+}  // namespace
+
+void FocusPanel(const char* name) {
+    if (name) {
+        gFocusRequest = name;
+        gFocusRequestFrame = ImGui::GetFrameCount();
+    }
+    ImGui::SetWindowFocus(name);
+}
+
+
+namespace {
 const char* kSideTabNames[App::kSideTabs] = {"Général", "Outils", "Effets", "Fusion", "Peinture", "3D", "IA"};
 
 ImGuiID SideTabDock(int i) {
@@ -217,6 +231,9 @@ void App::DrawSidePanel() {
         while (n->ParentNode) n = n->ParentNode;
         return n->ID;
     };
+    // A panel asked for by the program (FocusPanel) wins over the remembered choice.
+    ImGuiWindow* asked = nullptr;
+    if (!gFocusRequest.empty() && ImGui::GetFrameCount() - gFocusRequestFrame < 20) asked = ImGui::FindWindowByName(gFocusRequest.c_str());
     const bool switched = sideTab != sideTabShown;
     sideTabShown = sideTab;
     for (int n = 0; n < gc.DockContext.Nodes.Data.Size; ++n) {
@@ -227,6 +244,7 @@ void App::DrawSidePanel() {
         const int count = tb->Tabs.Size;
         if (switched || count > z.count) z.guard = 12;  // panels coming back
         if (z.guard > 0 && z.guard <= 10 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) z.guard = 0;  // a new click: the user's
+        if (asked && asked->TabId && ImGui::TabBarFindTabByID(tb, asked->TabId)) z.want = asked->TabId;
         if (z.guard > 0) {
             --z.guard;
             if (z.want && tb->SelectedTabId != z.want)
@@ -626,7 +644,7 @@ void App::DrawPanelsMenu() {
                 while (node && node->ParentNode) node = node->ParentNode;
                 for (int i = 0; node && i < kSideTabs; ++i)
                     if (node->ID == SideTabDock(i)) ShowSideTab(i);
-                ImGui::SetWindowFocus(n);
+                FocusPanel(n);
             }
         }
     }

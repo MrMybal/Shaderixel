@@ -13,8 +13,16 @@
 
 namespace sx {
 
+// Memory budgets of the undo history (settings: History panel > Memory settings).
+struct HistoryLimits {
+    u64 gpuTarget = 768ull << 20;  // older paint steps beyond this move to system memory
+    u64 gpuMax = 3ull << 30;       // undo data on the GPU, at most (oldest steps dropped)
+    u64 ramMax = 6ull << 30;       // compressed undo pixels in system memory, at most
+};
+
 class History {
 public:
+    static HistoryLimits& Limits();
     void PushState(const std::string& label, const DocState& before, const DocState& after);
     void PushPaint(const std::string& label, Id surface, const Rect& r, gpu::TexturePtr before, gpu::TexturePtr after);
     void BeginGroup() { if (groupDepth++ == 0) currentGroup = ++groupCounter; }

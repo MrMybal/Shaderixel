@@ -209,7 +209,7 @@ void App::DrawBlendPanel() {
         d->SyncGraph();
         e.Commit();
         ShowSideTab(0);
-        ImGui::SetWindowFocus("Propriétés");
+        FocusPanel("Propriétés");
     }
     ui::HelpTooltip("Fusion écrite en HLSL (A dessous, B calque, masque), éditée dans Propriétés.");
     ImGui::SameLine();

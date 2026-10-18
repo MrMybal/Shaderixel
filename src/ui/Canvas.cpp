@@ -145,7 +145,7 @@ void App::DrawToolbar() {
                 // The 3D tools are set in the brush material panel: brought forward.
                 if (only3D(shown)) {
                     *PanelFlag("Matériau du pinceau") = true;
-                    ImGui::SetWindowFocus("Matériau du pinceau");
+                    FocusPanel("Matériau du pinceau");
                 }
             }
             if (group.size() > 1) {
