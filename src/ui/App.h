@@ -432,6 +432,8 @@ private:
     float ToolbarWidth() const;
     void DrawSidePanel();
     void ShowSideTab(int tab);
+    std::unordered_map<ImGuiID, ImGuiID> sideTabSelection;  // dock node -> selected panel tab, kept while its side tab is hidden
+    int sideTabShown = -1, sideTabRestore = 0;
     void DockNewPanel(int tab, bool lower);
     // Node palette (NodeEditor.cpp): adds nodes to the layer graph (0) or the effect graph (1).
     int paletteFocus = 0;

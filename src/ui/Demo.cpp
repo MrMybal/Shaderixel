@@ -2393,6 +2393,22 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 100) {
+        // Side tabs keep their sub-tab: General, Histogramme chosen, Outils, back to General.
+        if (frameCounter == 20) ShowSideTab(0);
+        if (frameCounter == 30) ImGui::SetWindowFocus("Histogramme");
+        if (frameCounter == 40) ShowSideTab(1);
+        if (frameCounter == 60) ShowSideTab(0);
+        if (frameCounter == 90)
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Histogramme"); w && w->DockNode && w->DockNode->TabBar) {
+                const ImGuiID sel = w->DockNode->TabBar->SelectedTabId;
+                const char* name = "?";
+                for (const char* n : {"Propriétés", "Historique", "Histogramme", "Calques"})
+                    if (ImGuiWindow* x = ImGui::FindWindowByName(n); x && x->TabId == sel) name = n;
+                Log("[demo] sidetabs: selected after coming back: %s", name);
+            }
+        return;
+    }
     if (demoMode == 99) {
         // Text filters: SX_FILTER in Propriétés (layer of the demo scene); SX_MENUFILTER typed in the Fichier menu
         // (opened by a synthetic click, the menu's filter box takes the keyboard when it opens).

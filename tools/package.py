@@ -402,6 +402,8 @@ def main():
     shutil.copytree(os.path.join(ROOT, 'library', 'scenes'), os.path.join(dist, 'scenes'))
     # Smart materials (Paint 3D > Calques 3D > + Intelligent), JSON.
     shutil.copytree(os.path.join(ROOT, 'library', 'smartmaterials'), os.path.join(dist, 'smartmaterials'))
+    if os.path.isdir(os.path.join(ROOT, 'library', 'layouts')):
+        shutil.copytree(os.path.join(ROOT, 'library', 'layouts'), os.path.join(dist, 'layouts', 'default'), dirs_exist_ok=True)  # default workspace
     if os.path.isdir(os.path.join(ROOT, 'library', 'lang')):
         shutil.copytree(os.path.join(ROOT, 'library', 'lang'), os.path.join(dist, 'lang'))  # interface dictionaries
     # Logo used by the reference image of previews (effects browser, function inputs).

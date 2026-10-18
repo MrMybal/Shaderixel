@@ -208,6 +208,32 @@ void App::DrawSidePanel() {
         sideTabRequest = -1;
         ImGui::EndTabBar();
     }
+    // The panels of a side tab are not submitted while it is hidden: when it comes back, they reappear one by one
+    // and the last one would take the selection of its zone. The selected panel of each zone is kept and restored.
+    ImGuiContext& gc = *GImGui;
+    auto rootOf = [](ImGuiDockNode* n) {
+        while (n->ParentNode) n = n->ParentNode;
+        return n->ID;
+    };
+    if (sideTab != sideTabShown) {
+        if (sideTabShown >= 0)
+            for (int n = 0; n < gc.DockContext.Nodes.Data.Size; ++n)
+                if (ImGuiDockNode* node = (ImGuiDockNode*)gc.DockContext.Nodes.Data[n].val_p)
+                    if (rootOf(node) == SideTabDock(sideTabShown) && node->TabBar && node->TabBar->SelectedTabId)
+                        sideTabSelection[node->ID] = node->TabBar->SelectedTabId;
+        sideTabShown = sideTab;
+        sideTabRestore = 4;  // the windows take a few frames to reappear
+    }
+    if (sideTabRestore > 0) {
+        --sideTabRestore;
+        for (int n = 0; n < gc.DockContext.Nodes.Data.Size; ++n)
+            if (ImGuiDockNode* node = (ImGuiDockNode*)gc.DockContext.Nodes.Data[n].val_p)
+                if (rootOf(node) == SideTabDock(sideTab))
+                    if (auto it = sideTabSelection.find(node->ID); it != sideTabSelection.end()) {
+                        node->SelectedTabId = it->second;
+                        if (node->TabBar) node->TabBar->NextSelectedTabId = it->second;
+                    }
+    }
     for (int i = 0; i < kSideTabs; ++i)
         if (i != sideTab) ImGui::DockSpace(SideTabDock(i), ImVec2(0, 0), ImGuiDockNodeFlags_KeepAliveOnly);
     ImGui::DockSpace(SideTabDock(sideTab), ImGui::GetContentRegionAvail(), ImGuiDockNodeFlags_None);
