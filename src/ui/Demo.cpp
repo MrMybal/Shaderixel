@@ -4197,6 +4197,12 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
                     if (const char* c = getenv("SX_FXCODE"); c && std::string(c) == "big") efEd.bigCode = n.id;
                 }
             if (const char* a = getenv("SX_FXADD")) efEd.demoAdd = atoi(a);
+            if (getenv("SX_FXPVNODE")) efPv.node = true;
+            if (const char* lib = getenv("SX_FXLIB")) {
+                efEd.browse = true;
+                efEd.browseKind = std::string(lib).rfind("cy_blend_", 0) == 0 ? 1 : 0;
+                efEd.browseSel = lib;
+            }
         }
         if (frameCounter == 30 && demoGraphOpen) {
             const char* want = getenv("SX_FXID");

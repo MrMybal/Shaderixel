@@ -162,21 +162,9 @@ void App::DropEffectOnLayer(DocView& v, Id layer, const std::string& effectId) {
 
 // ------------------------------------------------------------------ reference image
 
-gpu::Texture* App::ReferenceTexture(DocView& v) {
-    auto& B = fxBrowser;
-    const std::string key = std::to_string(B.refKind) + "|" + (B.refKind == 2 ? B.refPath : std::string());
-    if (B.refTex && key == B.refKey) return B.refTex.get();
-    const gpu::Format fmt = v.doc->GetPrecision() == Precision::Float32 ? gpu::Format::RGBA32F : gpu::Format::RGBA16F;
-    if (B.refKind == 2 && !B.refPath.empty()) {
-        int w = 0, h = 0;
-        if (stbi_uc* px = LoadImagePixels(B.refPath, w, h)) {
-            B.refTex = v.renderer.ImportTexture(*ctx, px, (u32)w, (u32)h, false, fmt);
-            stbi_image_free(px);
-            B.refKey = key;
-            return B.refTex.get();
-        }
-    }
-    const int N = 512;
+// Reference images (N x N, sRGB 8 bits): 0 logo on a background, 1 color chart, 2 gradient (hues over a gray ramp),
+// 3 checker, 4 white, 5 black.
+std::vector<u8> App::ReferencePixels(int kind, int N) {
     std::vector<u8> px((size_t)N * N * 4);
     auto put = [&](int x, int y, float r, float g, float b) {
         u8* o = &px[((size_t)y * N + x) * 4];
@@ -194,7 +182,7 @@ gpu::Texture* App::ReferenceTexture(DocView& v) {
         g = ((g - 1) * s + 1) * val;
         b = ((b - 1) * s + 1) * val;
     };
-    if (B.refKind == 1) {
+    if (kind == 1) {
         // Color chart: hues x brightness, a gray ramp, and swatches (primaries, secondaries, skin, sky).
         static const float sw[8][3] = {{0.85f, 0.1f, 0.1f}, {0.1f, 0.7f, 0.2f}, {0.1f, 0.3f, 0.85f}, {0.95f, 0.85f, 0.1f},
                                        {0.1f, 0.8f, 0.85f}, {0.85f, 0.15f, 0.8f}, {0.87f, 0.64f, 0.5f}, {0.35f, 0.6f, 0.9f}};
@@ -214,6 +202,30 @@ gpu::Texture* App::ReferenceTexture(DocView& v) {
                 }
                 put(x, y, r, g, b);
             }
+    } else if (kind == 2) {
+        // Gradient: hues across, from white (top) through full color to black (bottom), a gray ramp at the bottom.
+        for (int y = 0; y < N; ++y)
+            for (int x = 0; x < N; ++x) {
+                float r, g, b;
+                const float u = (float)x / (N - 1), w = (float)y / (N - 1);
+                if (w > 0.85f) r = g = b = u;
+                else {
+                    const float t = w / 0.85f;
+                    hsv(u, std::min(1.0f, t * 2.0f), t < 0.5f ? 1.0f : 1.0f - (t - 0.5f) * 2.0f, r, g, b);
+                }
+                put(x, y, r, g, b);
+            }
+    } else if (kind == 3) {
+        const int cell = std::max(1, N / 8);
+        for (int y = 0; y < N; ++y)
+            for (int x = 0; x < N; ++x) {
+                const float c = ((x / cell + y / cell) & 1) ? 0.85f : 0.15f;
+                put(x, y, c, c, c);
+            }
+    } else if (kind == 4 || kind == 5) {
+        const float c = kind == 4 ? 1.0f : 0.0f;
+        for (int y = 0; y < N; ++y)
+            for (int x = 0; x < N; ++x) put(x, y, c, c, c);
     } else {
         // Logo on a background: gradient with a soft light, the Shaderixel logo in the middle.
         for (int y = 0; y < N; ++y)
@@ -238,6 +250,25 @@ gpu::Texture* App::ReferenceTexture(DocView& v) {
             stbi_image_free(logo);
         }
     }
+    return px;
+}
+
+gpu::Texture* App::ReferenceTexture(DocView& v) {
+    auto& B = fxBrowser;
+    const std::string key = std::to_string(B.refKind) + "|" + (B.refKind == 2 ? B.refPath : std::string());
+    if (B.refTex && key == B.refKey) return B.refTex.get();
+    const gpu::Format fmt = v.doc->GetPrecision() == Precision::Float32 ? gpu::Format::RGBA32F : gpu::Format::RGBA16F;
+    if (B.refKind == 2 && !B.refPath.empty()) {
+        int w = 0, h = 0;
+        if (stbi_uc* px = LoadImagePixels(B.refPath, w, h)) {
+            B.refTex = v.renderer.ImportTexture(*ctx, px, (u32)w, (u32)h, false, fmt);
+            stbi_image_free(px);
+            B.refKey = key;
+            return B.refTex.get();
+        }
+    }
+    const int N = 512;
+    std::vector<u8> px = ReferencePixels(B.refKind == 1 ? 1 : 0, N);
     B.refTex = v.renderer.ImportTexture(*ctx, px.data(), N, N, false, fmt);
     B.refKey = key;
     return B.refTex.get();

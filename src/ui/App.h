@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <set>
 // Application shell: window, frame loop, documents, panels.
 
@@ -1729,6 +1730,24 @@ private:
     void DrawEffectBrowser();
     // Reference image for previews (effect thumbnails, function inputs with nothing linked).
     gpu::Texture* ReferenceTexture(DocView& v);
+    // Reference images (N x N, RGBA8): 0 logo on a background, 1 color chart, 2 gradient, 3 checker, 4 white, 5 black.
+    std::vector<u8> ReferencePixels(int kind, int N);
+    // Effect previews (effect editor and its library page): simulated inputs run through an effect.
+    struct {
+        int src[4] = {0, 2, 4, 3};  // per input: logo, chart, gradient, checker, white, black, active layer, whole image, file
+        std::string path[4];
+        bool show = true;           // preview column of the effect editor
+        bool node = false;          // the selected node instead of the effect output
+        std::map<std::string, gpu::TexturePtr> refs;
+        struct Live { gpu::TexturePtr tex; u64 hash = 0, frame = 0; } live[4];
+        struct Slot { gpu::TexturePtr out; u64 hash = 0; } slots[3];
+        std::string nodeKey, nodeGraph;  // node preview: graph with the output on the selected node
+    } efPv;
+    gpu::Texture* PreviewSource(DocView& v, int input, u64& hash);
+    // The effect on the simulated inputs (cached per slot); `waiting`: an update is compiling.
+    gpu::Texture* RenderEffectPreview(DocView& v, const EffectInstance& fx, int inputs, int slot, bool* waiting = nullptr);
+    void DrawPreviewSources(DocView& v, int inputs, bool blend);
+    void DrawPreviewImage(DocView& v, gpu::Texture* t, u64 key, u64 hash, float width, float maxHeight = 0);
     // Custom code: declarations (inputs/params) + code + compile + save to library.
     // Returns true when the instance changed. `errorNode`: node whose compile errors to show (0 = find).
     bool CustomCodeUI(DocView& v, EffectInstance& fx, Id errorNode, const char* key);

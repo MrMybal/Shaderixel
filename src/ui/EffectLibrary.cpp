@@ -5,6 +5,7 @@
 #include "ui/CodeEdit.h"
 #include "ui/App.h"
 #include "ui/Theme.h"
+#include "ui/Lang.h"
 #include "doc/Effects.h"
 #include "doc/Brushes.h"
 #include "doc/EffectGraph.h"
@@ -239,7 +240,7 @@ void App::DrawEffectLibraryPage() {
             open = ImGui::TreeNodeEx(cat.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth);
         }
         if (!open) continue;
-        std::string label = it.name + (it.graph ? "  (graphe)" : "") + (it.user ? "  *" : "") + "##" + it.id;
+        std::string label = it.name + (it.graph ? "  (" + Tr("graphe") + ")" : "") + (it.user ? "  *" : "") + "##" + it.id;
         if (ImGui::Selectable(label.c_str(), ed.browseSel == it.id, ImGuiSelectableFlags_AllowDoubleClick)) {
             ed.browseSel = it.id;
             ed.unlock = false;
@@ -297,8 +298,8 @@ void App::DrawEffectLibraryPage() {
         ImGui::TextWrapped("Choisissez un élément : partez d'une copie (modèle) ou ouvrez l'original pour le modifier. Double-clic : nouveau à partir du modèle.");
     } else {
         ImGui::TextUnformatted(sel->name.c_str());
-        ImGui::TextDisabled("%s  -  %s  -  %s", sel->cat.c_str(), sel->graph ? "graphe" : "code HLSL",
-                            sel->locked ? (sel->user ? "verrouillé" : "fourni avec Shaderixel (protégé)") : "modifiable");
+        ImGui::TextDisabled("%s  -  %s  -  %s", Tr(sel->cat).c_str(), TrC(sel->graph ? "graphe" : "code HLSL"),
+                            TrC(sel->locked ? (sel->user ? "verrouillé" : "fourni avec Shaderixel (protégé)") : "modifiable"));
         ImGui::TextDisabled("Fichier : %s.slang", sel->id.c_str());
         ImGui::Spacing();
         if (ImGui::Button("Nouveau à partir de ce modèle", ImVec2(-1, 0))) OpenLibraryItem(ed.browseKind, sel->id, false);
@@ -311,6 +312,37 @@ void App::DrawEffectLibraryPage() {
         ImGui::BeginDisabled(protectedItem && !ed.unlock);
         if (ImGui::Button("Éditer l'original", ImVec2(-1, 0))) OpenLibraryItem(ed.browseKind, sel->id, true);
         ImGui::EndDisabled();
+        // Preview: the simulated inputs and the result with the default settings.
+        EffectDefPtr pdef = ed.browseKind != 2 ? Effects().Find(sel->id) : nullptr;
+        if (DocView* pv = Active(); pv && pdef) {
+            ImGui::SeparatorText("Aperçu");
+            EffectInstance fx;
+            fx.effectId = sel->id;
+            fx.params = pdef->DefaultParams();
+            const int nIn = pdef->blend ? 3 : (int)pdef->inputs.size();
+            DrawPreviewSources(*pv, nIn, pdef->blend);
+            bool waiting = false;
+            gpu::Texture* out = RenderEffectPreview(*pv, fx, nIn, 2, &waiting);
+            const float avail = ImGui::GetContentRegionAvail().x, gap = ImGui::GetStyle().ItemSpacing.x;
+            const float maxH = std::max(120.0f, ImGui::GetContentRegionAvail().y - ImGui::GetTextLineHeightWithSpacing() * 2);
+            if (nIn > 0) {
+                const float w = (avail - gap) * 0.5f;
+                u64 sh = 0;
+                gpu::Texture* src = PreviewSource(*pv, 0, sh);
+                ImGui::BeginGroup();
+                ImGui::TextDisabled("Entrée");
+                DrawPreviewImage(*pv, src, 0x7E5F000000000010ull, sh, w, maxH);
+                ImGui::EndGroup();
+                ImGui::SameLine();
+                ImGui::BeginGroup();
+                ImGui::TextDisabled(waiting ? "Sortie (compilation...)" : "Sortie");
+                DrawPreviewImage(*pv, out, 0x7E5F000000000011ull, efPv.slots[2].hash, w, maxH);
+                ImGui::EndGroup();
+            } else {
+                ImGui::TextDisabled(waiting ? "Sortie (compilation...)" : "Sortie");
+                DrawPreviewImage(*pv, out, 0x7E5F000000000011ull, efPv.slots[2].hash, avail, maxH);
+            }
+        }
     }
     ImGui::EndChild();
     ImGui::EndChild();

@@ -17,6 +17,10 @@ editor (the library file itself runs the code as written).
 
 Brush presets are skipped here (tools/cytexture/convert_brushes.py).
 
+The Custom-node code comes compacted on one line: lay it out afterwards with
+    build/Release/Shaderixel.exe --format-library shaders/effects
+(whitespace only; the test --test-effects compiles every effect and graph).
+
     python tools/cytexture/convert_presets.py
 """
 import json
@@ -194,6 +198,7 @@ def main():
         open(os.path.join(OUT, fname), 'w', encoding='utf-8', newline='\n').write(convert(p))
         written += 1
     print(f'{written} effects written to {OUT}; skipped {len(skipped)} brush presets')
+    print('Lay out the compacted code: Shaderixel.exe --format-library shaders/effects')
 
 
 if __name__ == '__main__':

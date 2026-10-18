@@ -605,6 +605,7 @@ void App::DrawEffectEditor() {
         ImGui::PopStyleColor();
         ImGui::PopFont();
     } else ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1), "OK");
+    if (!brushMode) ImGui::Checkbox("Colonne d'aperçu", &efPv.show);
     if (ImGui::Button("Importer du HLSL...")) hlslImportRequest = true;
     ui::HelpTooltip("Colle ou ouvre du HLSL : un nœud est créé avec ses entrées et sorties\n(annotations //@in //@out, ou signature d'une fonction).");
     DrawHlslImportPopup(&g, ed.ctxPos.x == 0 && ed.ctxPos.y == 0 ? float2{120, 120} : ed.ctxPos, &changed);
@@ -669,6 +670,10 @@ void App::DrawEffectEditor() {
     // ---------------------------------------------------------- graph canvas
     ImVec2 origin = ImGui::GetCursorScreenPos();
     ImVec2 size = ImGui::GetContentRegionAvail();
+    // Preview column on the right (effects and blends; brushes have their pad).
+    const bool showPv = efPv.show && !brushMode;
+    const float pvW = showPv ? std::clamp(size.x * 0.28f, 240 * dpi, 400 * dpi) : 0.0f;
+    size.x -= pvW;
     if (size.x < 20 || size.y < 20) { ImGui::End(); return; }
     ImGui::InvisibleButton("##efcanvas", size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
     bool hovered = ImGui::IsItemHovered();
@@ -1080,6 +1085,64 @@ void App::DrawEffectEditor() {
     }
     dl->AddText(ImVec2(origin.x + 10, origin.y + 8), ui::col::TextDim, "Clic droit : ajouter un nœud  |  glisser une sortie vers une entrée  |  Suppr");
     dl->PopClipRect();
+
+    // ---------------------------------------------------------- preview
+    if (showPv) {
+        ImGui::SameLine(0, 0);
+        ImGui::BeginChild("##efpreview", ImVec2(pvW, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted("Aperçu");
+        ImGui::SameLine();
+        int what = efPv.node ? 1 : 0;
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        if (ImGui::Combo("##pvwhat", &what, "Sortie de l'effet\0Nœud sélectionné\0")) efPv.node = what == 1;
+        // The selected node: the same graph with the output wired to it.
+        EffectInstance pvFx = *fx;
+        const EGNode* psel = g.Find(ed.selected);
+        const bool nodeMode = efPv.node && g.kind == EGKind::Effect && psel && psel->op != "output";
+        if (nodeMode) {
+            const std::string key = ed.cachedJson + "#" + std::to_string(psel->id);
+            if (efPv.nodeKey != key) {
+                EffectGraph g2 = g;
+                if (EGNode* o = g2.Find(g2.OutputNode())) {
+                    for (auto& l : o->inputs) l = {};
+                    if (o->inputs.empty()) o->inputs.resize(1);
+                    o->inputs[0] = {psel->id, 0};
+                }
+                efPv.nodeGraph = g2.Serialize();
+                efPv.nodeKey = key;
+            }
+            pvFx.graph = efPv.nodeGraph;
+            pvFx.effectId.clear();
+            pvFx.customCode.clear();
+            pvFx.SyncParams(fx->Def());
+        }
+        const int nIn = g.kind == EGKind::Blend ? 3 : g.inputs;
+        bool waiting = false;
+        gpu::Texture* out = RenderEffectPreview(*v, pvFx, nIn, nodeMode ? 1 : 0, &waiting);
+        DrawPreviewImage(*v, out, 0x7E5F000000000000ull + (nodeMode ? 1 : 0), efPv.slots[nodeMode ? 1 : 0].hash, ImGui::GetContentRegionAvail().x,
+                         ImGui::GetContentRegionAvail().y * 0.55f);
+        if (efPv.node && !nodeMode) ImGui::TextDisabled("Sélectionnez un nœud (pas la sortie) : son résultat s'affiche ici.");
+        else if (waiting) ImGui::TextDisabled("Compilation...");
+        else if (nodeMode) ImGui::TextDisabled("Résultat du nœud « %s »", psel->op == "custom" && !psel->name.empty() ? psel->name.c_str() : FindOp(psel->op) ? FindOp(psel->op)->label : psel->op.c_str());
+        ImGui::SeparatorText("Entrées simulées");
+        DrawPreviewSources(*v, nIn, g.kind == EGKind::Blend);
+        if (nIn > 0) {
+            const float tw = std::min(96.0f * dpi, (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * 3) / std::min(nIn, 4));
+            for (int i = 0; i < std::min(nIn, 4); ++i) {
+                if (i) ImGui::SameLine();
+                u64 sh = 0;
+                gpu::Texture* src = PreviewSource(*v, i, sh);
+                DrawPreviewImage(*v, src, 0x7E5F000000000020ull + i, sh, tw);
+            }
+        }
+        ImGui::SeparatorText("Réglages");
+        if (fx != &brushProxy && EffectParamsUI(*fx, "efpv")) {
+            if (d.Mode() == DocMode::Layers) d.SyncGraph();
+            d.dirty = true;
+        }
+        ImGui::EndChild();
+    }
     ImGui::End();
 
     // Write back: brush graph -> brush settings (no document change).
