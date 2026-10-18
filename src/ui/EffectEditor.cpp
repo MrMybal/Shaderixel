@@ -84,8 +84,14 @@ EffectInstance* App::EditedEffect(DocView& v, std::string* where) {
         if (where) *where = l->name + " (filtre " + std::to_string(efEd.filterIndex + 1) + ")";
         return &l->filters[efEd.filterIndex];
     }
+    // No filter chosen in Propriétés: the first one made with a graph or code (in the document, then from the library).
     for (auto& f : l->filters)
         if (!f.graph.empty() || !f.customCode.empty()) {
+            if (where) *where = l->name + " (filtre)";
+            return &f;
+        }
+    for (auto& f : l->filters)
+        if (auto def = f.Def(); def && !def->graph.empty()) {
             if (where) *where = l->name + " (filtre)";
             return &f;
         }
@@ -120,6 +126,9 @@ void App::DrawEffectEditor() {
         fx = EditedEffect(*v, &where);
     }
     const bool brushMode = ed.target == 2;
+    // A library effect made with a graph: its graph is shown directly, the first change makes it a copy in the document.
+    EffectDefPtr libDef = fx && fx->graph.empty() && fx->customCode.empty() && !fx->effectId.empty() ? fx->Def() : nullptr;
+    const bool libGraph = libDef && !libDef->graph.empty() && !ed.libCode;
 
     // Library page (templates, originals) or the edit itself.
     ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + 8 * dpi, ImGui::GetCursorPosY() + 6 * dpi));
@@ -150,8 +159,12 @@ void App::DrawEffectEditor() {
         ImGui::End();
         return;
     }
-    if (fx && fx->graph.empty() && (!fx->customCode.empty() || !fx->effectId.empty())) {
+    if (fx && fx->graph.empty() && !libGraph && (!fx->customCode.empty() || !fx->effectId.empty())) {
         ImGui::TextDisabled("  Édition : %s", where.c_str());
+        if (libDef && !libDef->graph.empty()) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Voir le graphe")) ed.libCode = false;
+        }
         ImGui::BeginChild("##fxcode", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding);
         if (!fx->customCode.empty()) DrawEffectCodeEditor(*v, *fx);
         else DrawLibraryItemView(*v, *fx, ed.target == 1);
@@ -160,7 +173,7 @@ void App::DrawEffectEditor() {
         return;
     }
 
-    if (!fx || fx->graph.empty()) {
+    if (!fx || (fx->graph.empty() && !libGraph)) {
         ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX() + 16 * dpi, ImGui::GetCursorPosY() + 12 * dpi));
         ImGui::BeginGroup();
         if (ed.target == 1) {
@@ -246,9 +259,10 @@ void App::DrawEffectEditor() {
     }
 
     // Parse (cached on the JSON text).
-    if (ed.cachedJson != fx->graph) {
-        if (!EffectGraph::Deserialize(fx->graph, ed.graph)) ed.graph = EffectGraph::Default();
-        ed.cachedJson = fx->graph;
+    const std::string& graphJson = libGraph ? libDef->graph : fx->graph;
+    if (ed.cachedJson != graphJson) {
+        if (!EffectGraph::Deserialize(graphJson, ed.graph)) ed.graph = EffectGraph::Default();
+        ed.cachedJson = graphJson;
     }
     EffectGraph& g = ed.graph;
     bool changed = false;     // structural change -> push undo now
@@ -261,6 +275,11 @@ void App::DrawEffectEditor() {
     float panelW = (selNode && selNode->op == "custom" ? 400.0f : 270.0f) * dpi;  // custom nodes: pins + code need room
     ImGui::BeginChild("##efdetails", ImVec2(panelW, 0), ImGuiChildFlags_Borders, 0);
     ImGui::TextDisabled("Édition : %s", where.c_str());
+    if (libGraph) {
+        ImGui::TextColored(ImVec4(0.55f, 0.8f, 1, 1), "Effet de la bibliothèque (%s)", libDef->category.c_str());
+        ImGui::TextWrapped("Protégé : la première modification en crée une copie dans ce document.");
+        if (ImGui::SmallButton("Voir le code")) ed.libCode = true;
+    }
     ImGui::SeparatorText("Effet");
     ImGui::PushItemWidth(-90 * dpi);
     if (ImGui::InputText("Nom", &g.name)) live = true;
@@ -860,6 +879,10 @@ void App::DrawEffectEditor() {
     if (changed || live) {
         auto old = fx->Def();
         fx->graph = g.Serialize();
+        if (libGraph) {  // the library effect becomes a copy kept in the document
+            fx->effectId.clear();
+            fx->customCode.clear();
+        }
         ed.cachedJson = fx->graph;
         fx->SyncParams(old);
         // Parameter defaults edited in the graph also update the instance value.

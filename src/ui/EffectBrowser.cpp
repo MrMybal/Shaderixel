@@ -1,6 +1,7 @@
 // Effects browser (searchable grid with live previews computed on the active
 // layer, favorites, categories) and the active layer preview panel.
 #include "ui/App.h"
+#include "ui/Lang.h"
 #include <stb_image.h>
 #include "ui/Theme.h"
 
@@ -337,6 +338,7 @@ void App::DrawEffectBrowser() {
         if (def->blend) continue;
         if (B.favoritesOnly && !B.favorites.count(def->id)) continue;
         if (B.recentOnly && std::find(B.recent.begin(), B.recent.end(), def->id) == B.recent.end()) continue;
+        if (B.graphOnly && def->graph.empty()) continue;
         if (!B.family.empty() && EffectFamily(*def) != B.family) continue;
         if (B.origin && (B.origin == 2) != (std::string(EffectSource(*def)) == "CyTexture")) continue;
         if (!B.showVariants && EffectIsVariant(*def) && q.empty()) continue;
@@ -369,36 +371,44 @@ void App::DrawEffectBrowser() {
     const bool side = ImGui::GetContentRegionAvail().x > 380 * dpi;
     if (side) {
         std::map<std::string, int> counts;
-        int total = 0;
+        int total = 0, graphs = 0;
         for (auto& def : Effects().All()) {
             if (def->blend || (!B.showVariants && EffectIsVariant(*def))) continue;
             if (B.origin && (B.origin == 2) != (std::string(EffectSource(*def)) == "CyTexture")) continue;
             ++counts[EffectFamily(*def)];
             ++total;
+            if (!def->graph.empty()) ++graphs;
         }
         ImGui::BeginChild("##fxfam", ImVec2(170 * dpi, bottom), ImGuiChildFlags_Borders);
         auto entry = [&](const std::string& label, bool on) { return ImGui::Selectable(label.c_str(), on); };
-        if (entry("Tous (" + std::to_string(total) + ")", B.family.empty() && !B.favoritesOnly && !B.recentOnly)) {
+        if (entry("Tous (" + std::to_string(total) + ")", B.family.empty() && !B.favoritesOnly && !B.recentOnly && !B.graphOnly)) {
             B.family.clear();
-            B.favoritesOnly = B.recentOnly = false;
+            B.favoritesOnly = B.recentOnly = B.graphOnly = false;
         }
         if (entry("\xE2\x98\x85 Favoris (" + std::to_string(B.favorites.size()) + ")", B.favoritesOnly)) {
             B.favoritesOnly = !B.favoritesOnly;
-            B.recentOnly = false;
+            B.recentOnly = B.graphOnly = false;
             B.family.clear();
         }
         if (entry("Récents (" + std::to_string(B.recent.size()) + ")", B.recentOnly)) {
             B.recentOnly = !B.recentOnly;
-            B.favoritesOnly = false;
+            B.favoritesOnly = B.graphOnly = false;
             B.family.clear();
         }
+        if (entry("Effets en graphe (" + std::to_string(graphs) + ")", B.graphOnly)) {
+            B.graphOnly = !B.graphOnly;
+            B.favoritesOnly = B.recentOnly = false;
+            B.family.clear();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Effets construits avec des nœuds (badge violet sur la vignette).\nClic droit sur un effet > Ouvrir son graphe : copie modifiable dans l'Éditeur d'effets.");
         ImGui::Separator();
         for (const std::string& f : EffectFamilies()) {
             auto it = counts.find(f);
             if (it == counts.end()) continue;
-            if (entry(f + " (" + std::to_string(it->second) + ")", B.family == f)) {
+            if (entry(Tr(f) + " (" + std::to_string(it->second) + ")", B.family == f)) {
                 B.family = B.family == f ? "" : f;
-                B.favoritesOnly = B.recentOnly = false;
+                B.favoritesOnly = B.recentOnly = B.graphOnly = false;
             }
         }
         ImGui::EndChild();
@@ -406,12 +416,13 @@ void App::DrawEffectBrowser() {
     } else {
         // Narrow panel: the families in a list.
         ImGui::SetNextItemWidth(-FLT_MIN);
-        if (ImGui::BeginCombo("##fxfamc", B.favoritesOnly ? "Favoris" : B.recentOnly ? "Récents" : B.family.empty() ? "Toutes les familles" : B.family.c_str())) {
-            if (ImGui::Selectable("Toutes les familles", B.family.empty() && !B.favoritesOnly && !B.recentOnly)) { B.family.clear(); B.favoritesOnly = B.recentOnly = false; }
-            if (ImGui::Selectable("Favoris", B.favoritesOnly)) { B.favoritesOnly = true; B.recentOnly = false; B.family.clear(); }
-            if (ImGui::Selectable("Récents", B.recentOnly)) { B.recentOnly = true; B.favoritesOnly = false; B.family.clear(); }
+        if (ImGui::BeginCombo("##fxfamc", B.favoritesOnly ? "Favoris" : B.recentOnly ? "Récents" : B.graphOnly ? "Effets en graphe" : B.family.empty() ? "Toutes les familles" : B.family.c_str())) {
+            if (ImGui::Selectable("Toutes les familles", B.family.empty() && !B.favoritesOnly && !B.recentOnly && !B.graphOnly)) { B.family.clear(); B.favoritesOnly = B.recentOnly = B.graphOnly = false; }
+            if (ImGui::Selectable("Favoris", B.favoritesOnly)) { B.favoritesOnly = true; B.recentOnly = B.graphOnly = false; B.family.clear(); }
+            if (ImGui::Selectable("Récents", B.recentOnly)) { B.recentOnly = true; B.favoritesOnly = B.graphOnly = false; B.family.clear(); }
+            if (ImGui::Selectable("Effets en graphe", B.graphOnly)) { B.graphOnly = true; B.favoritesOnly = B.recentOnly = false; B.family.clear(); }
             for (const std::string& f : EffectFamilies())
-                if (ImGui::Selectable(f.c_str(), B.family == f)) { B.family = f; B.favoritesOnly = B.recentOnly = false; }
+                if (ImGui::Selectable(f.c_str(), B.family == f)) { B.family = f; B.favoritesOnly = B.recentOnly = B.graphOnly = false; }
             ImGui::EndCombo();
         }
     }
@@ -447,6 +458,11 @@ void App::DrawEffectBrowser() {
                     ApplyLibraryEffect(*v, def.id, FxApply::Adjustment);
                 if (!layerMode && ImGui::MenuItem("Nouveau nœud (non relié)")) ApplyLibraryEffect(*v, def.id, FxApply::Node);
                 if (ImGui::MenuItem("Appliquer aux pixels (destructif)", nullptr, false, !def.inputs.empty())) ApplyLibraryEffect(*v, def.id, FxApply::Destructive);
+                ImGui::Separator();
+                if (ImGui::MenuItem(def.graph.empty() ? "Ouvrir le code (copie modifiable)" : "Ouvrir son graphe (copie modifiable)")) {
+                    OpenLibraryItem(0, def.id, false);
+                    ImGui::SetWindowFocus("Éditeur d'effets");
+                }
             }
             ImGui::Separator();
             bool fav = B.favorites.count(def.id) != 0;
@@ -471,6 +487,17 @@ void App::DrawEffectBrowser() {
             dl->AddText(ImVec2(p.x + (cardW - ts.x) * 0.5f, p.y + (cardW - ts.y) * 0.5f), ui::col::TextDim, wait);
         }
         if (selected) dl->AddRect(p, ImVec2(p.x + cardW, p.y + cardH), ui::col::Accent, 6, 0, 2.0f);
+        // Graph effect: two linked nodes (top left).
+        if (!def.graph.empty()) {
+            const float s = fs * 0.17f, bw = fs * 1.7f, bh = fs * 1.05f, m = fs * 0.15f;
+            ImVec2 bp(p.x + 6, p.y + 6);
+            dl->AddRectFilled(bp, ImVec2(bp.x + bw, bp.y + bh), IM_COL32(20, 20, 26, 210), 3);
+            ImVec2 n1(bp.x + m, bp.y + m), n2(bp.x + bw - m - s * 2, bp.y + bh - m - s * 2);
+            dl->AddBezierCubic(ImVec2(n1.x + s * 2, n1.y + s), ImVec2(n1.x + s * 3.2f, n1.y + s), ImVec2(n2.x - s * 1.2f, n2.y + s), ImVec2(n2.x, n2.y + s),
+                               IM_COL32(190, 150, 255, 255), 1.5f);
+            dl->AddRectFilled(n1, ImVec2(n1.x + s * 2, n1.y + s * 2), IM_COL32(170, 120, 255, 255), 1.5f);
+            dl->AddRectFilled(n2, ImVec2(n2.x + s * 2, n2.y + s * 2), IM_COL32(170, 120, 255, 255), 1.5f);
+        }
         // Favorite star (top right).
         bool fav = B.favorites.count(def.id) != 0;
         ImVec2 sc(p.x + cardW - fs * 0.9f, p.y + fs * 0.9f);
@@ -492,9 +519,9 @@ void App::DrawEffectBrowser() {
         const std::string fam = EffectFamily(def);
         const bool cy = std::string(EffectSource(def)) == "CyTexture";
         dl->AddText(nullptr, 0, ImVec2(p.x + 6, p.y + cardW + fs + 3), cy ? IM_COL32(120, 190, 240, 255) : IM_COL32(230, 170, 70, 255),
-                    (B.family.empty() ? fam : def.category).c_str(), nullptr, 0, &clip);
-        if (hovered) ImGui::SetTooltip("%s\n%s  -  %s (%s)\nDouble-clic : %s\nClic droit : autres façons de l'appliquer", def.name.c_str(), fam.c_str(),
-                                       def.category.c_str(), EffectSource(def),
+                    Tr(B.family.empty() ? fam : def.category).c_str(), nullptr, 0, &clip);
+        if (hovered) ImGui::SetTooltip("%s\n%s  -  %s (%s)%s\nDouble-clic : %s\nClic droit : autres façons de l'appliquer", def.name.c_str(), fam.c_str(),
+                                       def.category.c_str(), EffectSource(def), def.graph.empty() ? "" : "\nEffet en graphe (clic droit > Ouvrir son graphe)",
                                        v && v->doc->Mode() == DocMode::Nodes ? "insérer après le nœud actif" : "ajouter comme filtre au calque actif");
         ImGui::PopID();
     }

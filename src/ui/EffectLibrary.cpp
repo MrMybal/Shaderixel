@@ -203,6 +203,9 @@ void App::DrawEffectLibraryPage() {
     ImGui::SameLine(0, 24 * dpi);
     ImGui::SetNextItemWidth(260 * dpi);
     ImGui::InputTextWithHint("##libsearch", "Rechercher...", &ed.browseSearch);
+    ImGui::SameLine();
+    ImGui::Checkbox("Graphes seulement", &ed.browseGraphs);
+    ui::HelpTooltip("Seulement les éléments construits avec des nœuds (marqués « graphe »), toutes catégories ouvertes.");
     if (ed.session.active) {
         ImGui::SameLine();
         if (ImGui::Button("Retour à l'édition")) ed.browse = false;
@@ -227,10 +230,11 @@ void App::DrawEffectLibraryPage() {
     bool open = false;
     for (auto& it : items) {
         if (!q.empty() && LowerStr(it.name + " " + it.cat + " " + it.id).find(q) == std::string::npos) continue;
+        if (ed.browseGraphs && !it.graph) continue;
         if (it.cat != cat) {
             if (open) ImGui::TreePop();
             cat = it.cat;
-            if (!q.empty()) ImGui::SetNextItemOpen(true);
+            if (!q.empty() || ed.browseGraphs) ImGui::SetNextItemOpen(true);
             open = ImGui::TreeNodeEx(cat.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth);
         }
         if (!open) continue;

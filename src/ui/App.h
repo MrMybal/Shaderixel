@@ -253,6 +253,7 @@ struct EffectEditorState {
     int linkFromOut = 0, linkToIn = 0;
     float2 ctxPos;
     char search[64] = {};
+    bool libCode = false;  // library graph effect: its code shown instead of the graph
     std::string cachedJson;
     EffectGraph graph;
     std::optional<DocState> pendingBefore;
@@ -260,6 +261,7 @@ struct EffectEditorState {
     bool browse = false;
     int browseKind = 0;  // 0 effects, 1 blends, 2 brushes
     std::string browseSearch, browseSel;
+    bool browseGraphs = false;  // library page: only the items made with a graph
     bool unlock = false;
     struct Session {
         bool active = false;
@@ -1732,6 +1734,7 @@ private:
         std::string family;        // "" = all
         int origin = 0;            // 0 all, 1 Shaderixel, 2 CyTexture
         bool showVariants = false, recentOnly = false, recentLoaded = false;
+        bool graphOnly = false;    // only the effects made with a node graph
         std::vector<std::string> recent;  // last applied, most recent first
         int source = 0;            // 0 active layer, 1 whole image, 2 reference image
         int refKind = 0;           // reference: 0 logo on a background, 1 color chart, 2 image file

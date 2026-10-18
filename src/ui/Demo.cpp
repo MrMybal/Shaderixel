@@ -4176,10 +4176,29 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
         // node keeps its place when the layer graph is rebuilt.
         Document& d = *v->doc;
         static gpu::ReadbackPtr orig, applied, undone;
+        static bool demoGraphOpen = false;
         auto grab = [&] { return v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx)); };
         if (frameCounter == 4) {
             for (auto& l : d.S().layers) if (l.name == "Peinture") d.S().activeLayer = l.id;
             fxBrowser.selected = "invert";
+            // SX_FXGRAPH=1: the "graph effects" list; 2: then the graph of one opened in the effect editor.
+            if (const char* g = getenv("SX_FXGRAPH")) {
+                fxBrowser.graphOnly = true;
+                ShowSideTab(2);
+                ImGui::SetWindowFocus("Effets");
+                if (g[0] == '2') demoGraphOpen = true;
+            }
+        }
+        if (frameCounter == 30 && demoGraphOpen) {
+            for (auto& def : Effects().All())
+                if (!def->blend && !def->graph.empty()) {
+                    Log("[fxbrowser] open graph of %s", def->id.c_str());
+                    ApplyLibraryEffect(*v, def->id, FxApply::Filter);
+                    efEd.target = 0;
+                    efEd.browse = false;
+                    ImGui::SetWindowFocus("Éditeur d'effets");
+                    break;
+                }
         }
         if (frameCounter == 6) orig = grab();
         if (frameCounter == 8) ApplyLibraryEffect(*v, "invert", FxApply::Destructive);
