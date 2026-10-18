@@ -1,5 +1,6 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Search.h"
 #include "doc/GraphTypes.h"
 #include "doc/DocFile.h"
@@ -2389,6 +2390,26 @@ void App::DemoTick() {
             exported = true;
             captureFrame = std::min(captureFrame, (int)frameCounter + 20);  // done: capture and quit soon after
             Log("[demo] render exported at frame %d", frameCounter);
+        }
+        return;
+    }
+    if (demoMode == 99) {
+        // Text filters: SX_FILTER in Propriétés (layer of the demo scene); SX_MENUFILTER typed in the Fichier menu
+        // (opened by a synthetic click, the menu's filter box takes the keyboard when it opens).
+        char f[64] = "", mf[64] = "";
+        GetEnvironmentVariableA("SX_FILTER", f, sizeof(f));
+        GetEnvironmentVariableA("SX_MENUFILTER", mf, sizeof(mf));
+        if (frameCounter == 20 && f[0]) {
+            ImGui::SetWindowFocus("Propriétés");
+            ui::SetWindowFilter("Propriétés", f);
+        }
+        ImGuiIO& io = ImGui::GetIO();
+        if (mf[0]) {
+            if (frameCounter == 20) io.AddMousePosEvent(72 * dpi, 14 * dpi);
+            if (frameCounter == 22) io.AddMouseButtonEvent(0, true);
+            if (frameCounter == 23) io.AddMouseButtonEvent(0, false);
+            if (frameCounter == 30) io.AddInputCharactersUTF8(mf);
+            if (frameCounter == 31) io.AddMousePosEvent(72 * dpi, 300 * dpi);
         }
         return;
     }

@@ -1,5 +1,6 @@
 // Layers, properties, color and brush panels.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "io/ColorMgmt.h"
 #include "doc/Brushes.h"
 #include "ui/Theme.h"
@@ -289,6 +290,7 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label, const char* only
         changed |= c;
         ImGui::PopID();
     }
+    if (!curveParams.empty() && ui::FilterSkip(("Courbe " + def->params[curveParams[0]].label).c_str())) curveParams.clear();  // filtered out
     if (!curveParams.empty()) {
         ImGuiStorage* st = ImGui::GetStateStorage();
         ImGuiID chanKey = ImGui::GetID("curvechan");
@@ -330,6 +332,7 @@ void App::DrawLayers() {
     DocView* v = Active();
     if (!v) { ImGui::End(); return; }
     Document& d = *v->doc;
+    static std::string layerFilter;
 
     if (d.Mode() == DocMode::Nodes) {
         ImGui::TextWrapped("Ce document est en mode nodal : la composition se fait dans le panneau Graphe.");
@@ -429,9 +432,21 @@ void App::DrawLayers() {
         }
         return false;
     };
+    // Name filter: matching layers (and the groups holding them), collapsed groups opened meanwhile.
+    ui::ListFilter(layerFilter, "Filtrer les calques (Ctrl+F)...");
+    auto shownByFilter = [&](const Layer& l) {
+        if (layerFilter.empty() || ui::FilterMatch(layerFilter, l.name)) return true;
+        if (l.kind != LayerKind::Group) return false;
+        for (auto& c : layers) {
+            if (c.kind == LayerKind::Group || !ui::FilterMatch(layerFilter, c.name)) continue;
+            for (Id p = c.parent; p; p = d.FindLayer(p) ? d.FindLayer(p)->parent : 0)
+                if (p == l.id) return true;
+        }
+        return false;
+    };
     for (int i = (int)layers.size() - 1; i >= 0; --i) {
         Layer& l = layers[i];
-        if (hiddenByCollapse(l)) continue;
+        if (layerFilter.empty() ? hiddenByCollapse(l) : !shownByFilter(l)) continue;
         ImGui::PushID((int)l.id);
         bool selected = l.id == d.S().activeLayer;
         bool group = l.kind == LayerKind::Group;
@@ -647,6 +662,7 @@ void App::DrawLayers() {
 
 void App::DrawProperties() {
     if (!ImGui::Begin("Propriétés", PanelFlag("Propriétés"))) { ImGui::End(); return; }
+    ui::FilterBox();
     DocView* v = Active();
     if (!v) { ImGui::End(); return; }
     Document& d = *v->doc;
@@ -809,7 +825,7 @@ void App::DrawProperties() {
                 }
             }
             if (l->blendIf.Active()) ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-            if (ImGui::CollapsingHeader("Options de fusion (Blend If)")) {
+            if (!ui::FilterSkip("Options de fusion (Blend If) calque sous-jacent") && ImGui::CollapsingHeader("Options de fusion (Blend If)")) {
                 static int bifChannel = 0;
                 static const char* kBifNames[] = {"Gris", "Rouge", "Vert", "Bleu"};
                 static const ImU32 kBifColors[] = {IM_COL32(255, 255, 255, 255), IM_COL32(255, 60, 60, 255), IM_COL32(60, 230, 90, 255),
@@ -981,6 +997,7 @@ void App::PushRecentColor(float4 c) {
 // hue bar sized to the space available, hex field, RGB/HSV sliders, recent colors.
 void App::DrawColor() {
     if (!ImGui::Begin("Couleur", PanelFlag("Couleur"))) { ImGui::End(); return; }
+    ui::FilterBox();
     ColorPickerBody();
     ImGui::End();
 }
@@ -1216,6 +1233,7 @@ void App::ColorPickerBody() {
 
 void App::DrawBrush() {
     if (!ImGui::Begin("Options", PanelFlag("Options"))) { ImGui::End(); return; }
+    ui::FilterBox();
     ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.38f);
     DocView* v = Active();
 

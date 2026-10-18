@@ -6,6 +6,7 @@
 // simulates a lens on any layer.
 
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 
 #include <shellapi.h>
@@ -1003,6 +1004,7 @@ void App::DrawCameraRaw() {
     ImGui::BeginChild("##crpanel", ImVec2(panelW, 0), false);
     {
         ImGui::BeginChild("##crscroll", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 1.4f), false);
+        ui::FilterBox();  // inside the scrolled part: OK / Annuler stay
         // Histogram (RGB overlay).
         if (histo.valid) {
             float w = ImGui::GetContentRegionAvail().x, h = 90 * dpi;

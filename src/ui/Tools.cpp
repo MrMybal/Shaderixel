@@ -1,5 +1,6 @@
 // Selection tools, free transform / move, clipboard and selection-aware layer edits.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 
 #include <imgui_internal.h>
@@ -1041,6 +1042,7 @@ void App::ApplySelectionAsMask(DocView& v, Id layerId) {
 void App::DrawSelectionMenu() {
     DocView* v = Active();
     if (!ImGui::BeginMenu("Sélection", v != nullptr)) return;
+    ui::MenuFilter();
     Document& d = *v->doc;
     bool has = d.S().selection != 0;
     if (ImGui::MenuItem("Tout sélectionner", "Ctrl+A")) {

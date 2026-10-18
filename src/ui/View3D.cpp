@@ -1,5 +1,6 @@
 // 3D viewport: preview the document on a mesh and paint directly on it.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "doc/Brushes.h"
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
@@ -539,6 +540,7 @@ void App::DrawView3D() {
 }
 
 void App::DrawView3DRenderSettings(MeshScene& s) {
+    ui::FilterBox("Filtrer (Ctrl+F)...", 360.0f * dpi);
     ImGui::PushItemWidth(220 * dpi);
     ImGui::SeparatorText("Lumière principale");
     ImGui::Checkbox("Suit la caméra", &s.lightFollow);

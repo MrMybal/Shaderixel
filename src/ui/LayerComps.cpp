@@ -2,6 +2,7 @@
 // applied and exported in one go) and artboards (groups clipped to a rectangle
 // by their mask, laid side by side on the canvas, exported one image each).
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 
 #include <imgui_internal.h>
@@ -52,6 +53,7 @@ void App::ApplyComp(DocView& v, Id compId, bool undoable) {
 
 void App::DrawLayerCompsPanel() {
     if (!ImGui::Begin("Compositions de calques", PanelFlag("Compositions de calques"))) { ImGui::End(); return; }
+    ui::FilterBox();
     DocView* v = Active();
     if (!v || v->doc->Mode() != DocMode::Layers) {
         ImGui::TextDisabled(v ? "Disponible en mode calques" : "Aucun document");

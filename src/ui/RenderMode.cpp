@@ -2,6 +2,7 @@
 // small scene (backdrop, primitives, imported meshes, lights, HDRI) on the GPU (any
 // vendor: plain compute shader) or on the CPU, and the "Scène de rendu" panel.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "render/PathTracer.h"
 #include "io/UAsset.h"
@@ -920,6 +921,7 @@ void App::DrawRenderView() {
 
 void App::DrawRenderScenePanel() {
     if (!ImGui::Begin("Scène de rendu", PanelFlag("Scène de rendu"))) { ImGui::End(); return; }
+    ui::FilterBox();
     DocView* v = Active();
     if (!v || v->doc->kind != 1 || !v->mesh) {
         ImGui::TextWrapped("Scène du rendu (onglet « Rendu ») d'un projet Paint 3D : objets, lumières, HDRI et réglages.");

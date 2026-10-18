@@ -2,6 +2,7 @@
 // extra lights, depth of field with focus picking, camera bookmarks with smooth
 // transitions, and turntable export (the model turns: MP4 video and / or PNG frames).
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
 
@@ -179,6 +180,7 @@ void App::DrawTurntableDialog() {
     if (!v || !v->mesh) { T.open = false; return; }
     ImGui::SetNextWindowSize(ImVec2(460 * dpi, 0), ImGuiCond_Appearing);
     if (!ImGui::Begin("Turntable", &T.open, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) { ImGui::End(); return; }
+    ui::FilterBox("Filtrer (Ctrl+F)...", 320.0f * dpi);
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 420 * dpi);
     ImGui::TextDisabled("Le modèle fait un tour complet devant la caméra, rendu image par image avec les réglages de la vue 3D "
                         "(ray tracing compris : chaque image attend ses échantillons).");

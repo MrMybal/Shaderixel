@@ -4,6 +4,7 @@
 // the C host table below; script plugins add menu commands running a program that drives
 // Shaderixel through the loopback bridge (SHADERIXEL_URL / SHADERIXEL_TOKEN).
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 
 #include <ShlObj.h>
@@ -692,6 +693,7 @@ bool MenuPath(const std::string& path) {
 
 void App::DrawPluginsMenu() {
     if (!ImGui::BeginMenu("Plugins")) return;
+    ui::MenuFilter();
     for (auto& c : pluginCommands)
         if (MenuPath(c.path)) CallPlugin(c.plugin, [&] { c.fn(c.user); });
     for (auto& p : plugins)
@@ -753,6 +755,7 @@ void App::DrawPluginManager() {
     if (!pluginManager) return;
     ImGui::SetNextWindowSize(ImVec2(620 * dpi, 420 * dpi), ImGuiCond_Appearing);
     if (!ImGui::Begin("Plugins", &pluginManager, ImGuiWindowFlags_NoDocking)) { ImGui::End(); return; }
+    ui::FilterBox();
     ImGui::TextDisabled("Dossiers : <Shaderixel>\\plugins et %%LOCALAPPDATA%%\\Shaderixel\\Plugins (un sous-dossier avec plugin.json par plugin).");
     if (ImGui::Button("Rechercher de nouveaux plugins")) {
         const size_t before = plugins.size();

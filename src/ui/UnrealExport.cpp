@@ -4,6 +4,7 @@
 // with the right settings, a material instance and the static mesh with it.
 // The settings travel with the project (.sx3d meta "unreal").
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 
 #include <imgui_stdlib.h>
@@ -109,6 +110,7 @@ void App::DrawUnrealExportDialog() {
     Document& d = *v->doc;
     ImGui::SetNextWindowSize(ImVec2(520 * dpi, 0), ImGuiCond_Appearing);
     if (!ImGui::Begin("Exporter pour Unreal", &unrealDialog, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) { ImGui::End(); return; }
+    ui::FilterBox("Filtrer (Ctrl+F)...", 320.0f * dpi);
     Json u = UnrealSettings(d);
     bool changed = false;
     ImGui::TextWrapped("Le modèle, ses textures (couleur, normale, ORM, émissif) et la description du matériau, "

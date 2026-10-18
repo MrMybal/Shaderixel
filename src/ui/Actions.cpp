@@ -3,6 +3,7 @@
 // document; the batch runs a chain of actions on every image of a folder (or the
 // open documents) and writes the results. The editor is in ActionsEditor.cpp.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "doc/Effects.h"
 #include "io/WicLoad.h"
@@ -945,9 +946,16 @@ void App::DrawActionsPanel() {
         ImGui::TextColored(ImVec4(0.5f, 0.8f, 1, 1), "Exécution : %s (%zu/%zu)", actionRun.name.c_str(), actionRun.next + 1, actionRun.steps.size());
     if (actionRecording) ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "Enregistrement...");
     ImGui::Separator();
+    static std::string actFilter;
+    ui::ListFilter(actFilter, "Filtrer les actions (Ctrl+F)...");
     ImGui::BeginChild("##actions", ImVec2(0, -ImGui::GetFrameHeightWithSpacing() * 1.2f));
     for (int i = 0; i < (int)actions.size(); ++i) {
         Action& a = actions[i];
+        if (!actFilter.empty() && !ui::FilterMatch(actFilter, a.name)) {
+            bool step = false;  // an action whose steps match is kept
+            for (auto& st : a.steps) step |= ui::FilterMatch(actFilter, ActionStepSummary(st));
+            if (!step) continue;
+        }
         ImGui::PushID(i);
         bool sel = i == actionSel;
         ImGuiTreeNodeFlags fl = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth | (sel ? ImGuiTreeNodeFlags_Selected : 0);

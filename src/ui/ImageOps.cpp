@@ -1,5 +1,6 @@
 // Image menu: image size, canvas size, rotate/flip, crop tool and crop to selection.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 
 #include <imgui_internal.h>
@@ -44,6 +45,7 @@ void App::ApplyCrop(DocView& v, Rect r) {
 void App::DrawImageMenu() {
     DocView* v = Active();
     if (!ImGui::BeginMenu("Image", v != nullptr)) return;
+    ui::MenuFilter();
     Document& d = *v->doc;
     DrawColorModeMenu();
     ImGui::Separator();

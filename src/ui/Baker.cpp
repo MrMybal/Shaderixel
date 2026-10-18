@@ -4,6 +4,7 @@
 // into the project's channels (Normal, Occlusion, Height), feed the smart masks and
 // can be written as PNG files.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
 
@@ -197,6 +198,7 @@ void App::DrawBakerWindow() {
     DocView* v = Active();
     ImGui::SetNextWindowSize(ImVec2(520 * dpi, 0), ImGuiCond_Appearing);
     if (!ImGui::Begin("Cuisson des cartes (baker)", &B.open, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) { ImGui::End(); return; }
+    ui::FilterBox("Filtrer (Ctrl+F)...", 320.0f * dpi);
     if (!v || !v->mesh || v->doc->kind != 1) {
         ImGui::TextWrapped("Ouvrez un projet Paint 3D : le modèle du projet est le modèle basse définition (ses UV reçoivent les cartes).");
         ImGui::End();

@@ -6,6 +6,7 @@
 // Projects have their own workspace layout, a reduced tool set, a decal
 // projection tool and texture exports by template (separate maps, ORM...).
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
 #include "doc/Brushes.h"
@@ -256,9 +257,12 @@ void App::DrawLayers3DPanel() {
     ImGui::Separator();
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float hh = ImGui::GetFrameHeight() * 1.5f;
+    static std::string mat3dFilter;
+    ui::ListFilter(mat3dFilter, "Filtrer les calques 3D (Ctrl+F)...");
     for (Id m : mats) {
         Layer* any = AnyMaterialLayer(d, m);
         if (!any) continue;
+        if (!mat3dFilter.empty() && !ui::FilterMatch(mat3dFilter, any->name) && any->kind != LayerKind::Group) continue;
         const bool paint = IsPaintLayer3D(d, m);
         const bool folder = any->kind == LayerKind::Group;
         const int depth = Folder3DDepth(d, m);
@@ -505,6 +509,7 @@ void App::DrawMaterialFilters(DocView& v, Id material) {
 
 void App::DrawBrushMaterialPanel() {
     if (!ImGui::Begin("Matériau du pinceau", PanelFlag("Matériau du pinceau"))) { ImGui::End(); return; }
+    ui::FilterBox();
     // A 3D tool just chosen: its section is scrolled into view (they sit at the bottom of the panel).
     static Tool seenTool = Tool::Brush;
     const bool toolJump = tool != seenTool;

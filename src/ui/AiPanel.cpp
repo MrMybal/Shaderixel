@@ -1,5 +1,6 @@
 // AI panels: MCP bridge / companion control, assistant chat, image generation.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ai/Comfy.h"
 #include "ui/Theme.h"
 
@@ -425,6 +426,7 @@ void App::UpdateImageGeneration() {
 
 void App::DrawImageGenPanel() {
     if (!ImGui::Begin("Génération IA", PanelFlag("Génération IA"))) { ImGui::End(); return; }
+    ui::FilterBox();
     ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.35f);
     int provider = aiSettings.imageProvider == "gemini" ? 1 : aiSettings.imageProvider == "comfyui" ? 2 : 0;
     if (ImGui::Combo("Fournisseur", &provider, "OpenAI (GPT Image)\0Google Gemini\0ComfyUI (local)\0")) {

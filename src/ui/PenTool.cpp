@@ -6,6 +6,7 @@
 // (Alt breaks the handle symmetry). Paths live in the document state, so every
 // edit is undoable and saved in .sxl.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 
 #include <imgui_stdlib.h>
@@ -282,6 +283,7 @@ void App::StrokePath(DocView& v) {
 
 void App::DrawPathsPanel() {
     if (!ImGui::Begin("Tracés", PanelFlag("Tracés"))) { ImGui::End(); return; }
+    ui::FilterBox();
     DocView* v = Active();
     if (!v) { ImGui::End(); return; }
     Document& d = *v->doc;

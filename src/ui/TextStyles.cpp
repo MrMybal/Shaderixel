@@ -2,6 +2,7 @@
 // the document, applied to the selected characters / paragraphs of the active
 // text layer; editing a style updates every text that uses it.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 
 #include <imgui_stdlib.h>
@@ -36,6 +37,7 @@ std::vector<int> ParagraphsOf(const std::string& content, int a, int b) {
 
 void App::DrawTextStylesPanel() {
     if (!ImGui::Begin("Styles de texte", PanelFlag("Styles de texte"))) { ImGui::End(); return; }
+    ui::FilterBox();
     DocView* v = Active();
     if (!v || v->doc->Mode() != DocMode::Layers) {
         ImGui::TextDisabled(v ? "Disponible en mode calques" : "Aucun document");

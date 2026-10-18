@@ -4,6 +4,7 @@
 // (DirectX / OpenGL), padding past the UV islands, file name pattern. The channels
 // are read back from the GPU, then assembled and written on a worker thread.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
 #include "io/WicLoad.h"
@@ -271,6 +272,7 @@ void App::DrawTextureExportDialog() {
     if (!v || v->doc->kind != 1) { E.open = false; return; }
     ImGui::SetNextWindowSize(ImVec2(560 * dpi, 0), ImGuiCond_Appearing);
     if (!ImGui::Begin("Exporter les textures", &E.open, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) { ImGui::End(); return; }
+    ui::FilterBox("Filtrer (Ctrl+F)...", 320.0f * dpi);
     const auto& P = Presets();
     ImGui::PushItemWidth(320 * dpi);
     if (ImGui::BeginCombo("Modèle", P[std::clamp(E.preset, 0, (int)P.size() - 1)].name)) {

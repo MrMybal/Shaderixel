@@ -4,6 +4,7 @@
 // tiling preview, making a trim seamless, an ID layer (one color per trim), a 3D preview mesh and
 // the layout exported as JSON for engines / modeling tools.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "mesh/Mesh.h"
 
@@ -305,6 +306,7 @@ void App::TrimInput(DocView& v, ImVec2 canvasMin, bool hovered) {
 
 void App::DrawTrimPanel() {
     if (!ImGui::Begin("Trim sheet", PanelFlag("Trim sheet"))) { ImGui::End(); return; }
+    ui::FilterBox();
     PopOutCorner("Trim sheet");
     DocView* v = Active();
     if (!v) { ImGui::TextDisabled("Aucun document"); ImGui::End(); return; }

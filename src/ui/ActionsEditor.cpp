@@ -3,6 +3,7 @@
 // settings on the right. Also the batch window (chain of actions, conversion,
 // output names, log).
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "doc/Effects.h"
 
@@ -529,6 +530,7 @@ void App::DrawBatchWindow() {
     if (!B.open) return;
     ImGui::SetNextWindowSize(ImVec2(640 * dpi, 640 * dpi), ImGuiCond_Appearing);
     if (!ImGui::Begin("Traitement par lots", &B.open, ImGuiWindowFlags_NoDocking)) { ImGui::End(); return; }
+    ui::FilterBox();
     const ImVec4 dim(0.62f, 0.64f, 0.70f, 1);
     ImGui::BeginDisabled(B.running);
     auto folderField = [&](const char* label, std::string& s, const char* hint) {

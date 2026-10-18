@@ -5,6 +5,7 @@
 // Several variations can be generated and compared on the layer. "Test local" (or SX_AI_MOCK)
 // replaces the network call by a stand-in to try the whole chain without a server.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "ai/Comfy.h"
 #include "ai/Net.h"
@@ -379,6 +380,7 @@ void App::ShowInpaintVariant(int k) {
 
 void App::DrawInpaintPanel() {
     if (!ImGui::Begin("Inpainting IA", PanelFlag("Inpainting IA"))) { ImGui::End(); return; }
+    ui::FilterBox();
     DocView* v = Active();
     if (!v) { ImGui::TextDisabled("Aucun document"); ImGui::End(); return; }
     Document& d = *v->doc;

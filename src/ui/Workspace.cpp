@@ -2,6 +2,7 @@
 // Peinture), hideable zones (graph area, right column), extra windows that can
 // be moved to other screens (ImGui viewports) and saved layouts.
 #include "ui/App.h"
+#include "ui/Filter.h"
 #include "ui/Theme.h"
 
 #include <imgui_internal.h>
@@ -615,6 +616,7 @@ void App::DrawPopOutMenu() {
 
 void App::DrawWindowMenu() {
     if (!ImGui::BeginMenu("Fenêtre")) return;
+    ui::MenuFilter();
     DrawPanelsMenu();
     DrawPopOutMenu();
     if (ImGui::MenuItem("Nouvelle fenêtre")) NewExtraWindow();
