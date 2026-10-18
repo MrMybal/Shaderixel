@@ -4198,6 +4198,41 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
                 }
             if (const char* a = getenv("SX_FXADD")) efEd.demoAdd = atoi(a);
             if (getenv("SX_FXPVNODE")) efPv.node = true;
+        }
+        if (demoGraphOpen && getenv("SX_FXKEYS")) {
+            // Synthetic keys in the effect editor: select 3 nodes, Ctrl+D, Delete, Ctrl+A, F.
+            ImGuiIO& kio = ImGui::GetIO();
+            auto key = [&](ImGuiKey k, bool down) { kio.AddKeyEvent(k, down); };
+            auto count = [&] { return (int)efEd.graph.nodes.size(); };
+            if (frameCounter == 70) {
+                efEd.multi.clear();
+                for (auto& n : efEd.graph.nodes)
+                    if (efEd.multi.size() < 3 && n.op != "output") efEd.multi.insert(n.id);
+                efEd.selected = *efEd.multi.begin();
+                Log("[fxkeys] nodes %d, selected %zu", count(), efEd.multi.size());
+            }
+            if (frameCounter == 72) { key(ImGuiMod_Ctrl, true); key(ImGuiKey_LeftCtrl, true); key(ImGuiKey_D, true); }
+            if (frameCounter == 73) { key(ImGuiKey_D, false); key(ImGuiKey_LeftCtrl, false); key(ImGuiMod_Ctrl, false); }
+            if (frameCounter == 76) Log("[fxkeys] after Ctrl+D: nodes %d, selected %zu", count(), efEd.multi.size());
+            if (frameCounter == 78) key(ImGuiKey_Delete, true);
+            if (frameCounter == 79) key(ImGuiKey_Delete, false);
+            if (frameCounter == 82) Log("[fxkeys] after Delete: nodes %d, selected %zu", count(), efEd.multi.size());
+            if (frameCounter == 84) { key(ImGuiMod_Ctrl, true); key(ImGuiKey_LeftCtrl, true); key(ImGuiKey_A, true); }
+            if (frameCounter == 85) { key(ImGuiKey_A, false); key(ImGuiKey_LeftCtrl, false); key(ImGuiMod_Ctrl, false); }
+            if (frameCounter == 88) Log("[fxkeys] after Ctrl+A: selected %zu of %d", efEd.multi.size(), count());
+        }
+        if (frameCounter == 60 && demoGraphOpen) {
+            if (const char* z = getenv("SX_FXZOOM")) {
+                // Zoomed view on the first computing nodes.
+                efEd.zoom = (float)atof(z);
+                float2 mn{1e9f, 1e9f};
+                for (auto& n : efEd.graph.nodes)
+                    if (n.op != "param" && n.op != "paramcolor" && n.op != "param2" && n.op != "const" && n.op != "color") {
+                        mn.x = std::min(mn.x, n.pos.x);
+                        mn.y = std::min(mn.y, n.pos.y);
+                    }
+                efEd.pan = {40 - mn.x, 60 - mn.y};
+            }
             if (const char* lib = getenv("SX_FXLIB")) {
                 efEd.browse = true;
                 efEd.browseKind = std::string(lib).rfind("cy_blend_", 0) == 0 ? 1 : 0;

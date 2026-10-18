@@ -98,12 +98,91 @@ std::string OpSubGroup(const std::string& op) {
 
 int Rows(const EGOpDef& d) { return std::max<int>((int)std::max(d.inputs.size(), d.outputs.size()), 1); }
 
+// Result previews in the nodes (effect graphs): the computing nodes, not the plain values.
+constexpr float kPvH = 100.0f;
+bool gNodePreviews = false;
+bool HasNodePreview(const EGNode& n) {
+    static const char* none[] = {"const", "const2", "color", "param", "paramcolor", "param2", "texture", "output", "canvassize", "size",
+                                 "opacity", "blendover", "brush", "brushtex", "roundtip", "random"};
+    if (!gNodePreviews) return false;
+    for (const char* o : none) if (n.op == o) return false;
+    return true;
+}
+
+float NodeH(const EGNode& n, const EGOpDef& d);
+
+// The graph with its output showing one node: RGBA as is; scalars, 2D and RGB values through the RGB input
+// (opaque), a 2D value completed with 0 (blue).
+std::string PreviewGraphFor(const EffectGraph& g, Id node, int outType) {
+    EffectGraph g2 = g;
+    EGNode* o = g2.Find(g2.OutputNode());
+    if (!o) return g2.Serialize();
+    for (auto& l : o->inputs) l = {};
+    if (o->inputs.size() < 3) o->inputs.resize(3);
+    if (outType == 4 || outType == 0) {
+        o->inputs[0] = {node, 0};
+        return g2.Serialize();
+    }
+    // Opaque: the alpha pin gets 1.
+    EGNode one;
+    one.id = g2.nextId++;
+    one.op = "const";
+    one.value = {1, 0, 0, 0};
+    const Id oneId = one.id;
+    g2.nodes.push_back(one);
+    o = g2.Find(g2.OutputNode());
+    o->inputs[2] = {oneId, 0};
+    if (outType == 2) {
+        EGNode zero;
+        zero.id = g2.nextId++;
+        zero.op = "const";
+        zero.value = {0, 0, 0, 0};
+        EGNode app;
+        app.id = g2.nextId++;
+        app.op = "append";
+        app.inputs = {{node, 0}, {zero.id, 0}};
+        const Id appId = app.id;
+        g2.nodes.push_back(zero);
+        g2.nodes.push_back(app);
+        o = g2.Find(g2.OutputNode());
+        o->inputs[1] = {appId, 0};
+    } else {
+        o->inputs[1] = {node, 0};
+    }
+    return g2.Serialize();
+}
+
+// Nodes pushed down where they overlap (each keeps its column): previews make the nodes taller than the
+// layout they were placed with. True when a node moved.
+bool SpreadNodes(EffectGraph& g) {
+    std::vector<EGNode*> ns;
+    for (auto& n : g.nodes) if (FindOp(n.op)) ns.push_back(&n);
+    std::sort(ns.begin(), ns.end(), [](const EGNode* a, const EGNode* b) { return a->pos.y < b->pos.y; });
+    bool moved = false;
+    for (size_t i = 0; i < ns.size(); ++i) {
+        EGNode& n = *ns[i];
+        const float h = NodeH(n, EffectiveOp(n));
+        for (bool again = true; again;) {
+            again = false;
+            for (size_t j = 0; j < i; ++j) {
+                const EGNode& o = *ns[j];
+                const float oh = NodeH(o, EffectiveOp(o));
+                if (std::abs(n.pos.x - o.pos.x) < kW + 8 && n.pos.y < o.pos.y + oh + 12 && o.pos.y < n.pos.y + h + 12) {
+                    n.pos.y = o.pos.y + oh + 14;
+                    moved = again = true;
+                }
+            }
+        }
+    }
+    return moved;
+}
+
 float NodeH(const EGNode& n, const EGOpDef& d) {
     float extra = (n.op == "const" || n.op == "const2" || n.op == "color" || n.op == "param" || n.op == "paramcolor" || n.op == "param2" ||
                    n.op == "input" || n.op == "sample" || n.op == "texture" || n.op == "mask" || n.op == "custom" || n.op == "brushtex")
                       ? kRowH
                       : 0.0f;
-    return kHead + Rows(d) * kRowH + extra + 6;
+    return kHead + Rows(d) * kRowH + extra + 6 + (HasNodePreview(n) ? kPvH + 8 : 0.0f);
 }
 
 std::string ValueText(const EGNode& n) {
@@ -323,10 +402,14 @@ void App::DrawEffectEditor() {
     // Parse (cached on the JSON text).
     const std::string& graphJson = libGraph ? libDef->graph : fx->graph;
     if (ed.cachedJson != graphJson) {
+        // Another graph (not our own edit, which keeps cachedJson up to date): framed, selection cleared.
         if (!EffectGraph::Deserialize(graphJson, ed.graph)) ed.graph = EffectGraph::Default();
         ed.cachedJson = graphJson;
+        ed.frameAll = true;
+        ed.multi.clear();
     }
     EffectGraph& g = ed.graph;
+    gNodePreviews = ed.nodePreviews && !brushMode && ed.graph.kind == EGKind::Effect;
     bool changed = false;     // structural change -> push undo now
     bool live = false;        // continuous change (drag/slider) -> write without undo
     std::string changeLabel = "Modifier le graphe";
@@ -605,7 +688,18 @@ void App::DrawEffectEditor() {
         ImGui::PopStyleColor();
         ImGui::PopFont();
     } else ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1), "OK");
-    if (!brushMode) ImGui::Checkbox("Colonne d'aperçu", &efPv.show);
+    if (!brushMode) {
+        ImGui::Checkbox("Colonne d'aperçu", &efPv.show);
+        ImGui::SameLine();
+        if (ImGui::Checkbox("Aperçus sur les nœuds", &ed.nodePreviews) && ed.nodePreviews && g.kind == EGKind::Effect) {
+            gNodePreviews = true;
+            SpreadNodes(g);
+        }
+    }
+    if (ImGui::Button("Écarter les nœuds")) {
+        if (SpreadNodes(g)) { changed = true; changeLabel = "Écarter les nœuds"; }
+    }
+    ui::HelpTooltip("Pousse vers le bas les nœuds qui se chevauchent (chacun garde sa colonne).");
     if (ImGui::Button("Importer du HLSL...")) hlslImportRequest = true;
     ui::HelpTooltip("Colle ou ouvre du HLSL : un nœud est créé avec ses entrées et sorties\n(annotations //@in //@out, ou signature d'une fonction).");
     DrawHlslImportPopup(&g, ed.ctxPos.x == 0 && ed.ctxPos.y == 0 ? float2{120, 120} : ed.ctxPos, &changed);
@@ -753,16 +847,38 @@ void App::DrawEffectEditor() {
                 ed.linkToIn = hIn;
             }
         } else if (hNode) {
-            ed.selected = hNode;
+            // Ctrl / Maj: add to the selection (Ctrl on a selected node: removes it).
+            if (io.KeyCtrl || io.KeyShift) {
+                if (io.KeyCtrl && ed.multi.count(hNode)) {
+                    ed.multi.erase(hNode);
+                    if (ed.selected == hNode) ed.selected = ed.multi.empty() ? 0 : *ed.multi.begin();
+                } else {
+                    ed.multi.insert(hNode);
+                    ed.selected = hNode;
+                }
+            } else {
+                if (!ed.multi.count(hNode)) ed.multi = {hNode};
+                ed.selected = hNode;
+            }
             ed.dragNode = hNode;
             ed.moved = false;
         } else {
-            ed.selected = 0;
+            // Empty spot: box selection (Ctrl / Maj: added to the selection).
+            if (!io.KeyCtrl && !io.KeyShift) {
+                ed.selected = 0;
+                ed.multi.clear();
+            }
+            ed.boxing = true;
+            ed.boxStart = m;
         }
     }
     if (ed.dragNode && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
         if (EGNode* n = g.Find(ed.dragNode)) {
-            n->pos = n->pos + float2{io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
+            const float2 dmove{io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
+            n->pos = n->pos + dmove;
+            if (ed.multi.count(n->id))  // the whole selection moves
+                for (auto& o : g.nodes)
+                    if (o.id != n->id && ed.multi.count(o.id)) o.pos = o.pos + dmove;
             ed.moved = true;
             live = true;
         }
@@ -787,8 +903,22 @@ void App::DrawEffectEditor() {
             ed.dragLink = false;
         }
         if (ed.dragNode) {
-            if (ed.moved) { changed = true; changeLabel = "Déplacer un nœud"; }
+            if (ed.moved) { changed = true; changeLabel = ed.multi.size() > 1 ? "Déplacer des nœuds" : "Déplacer un nœud"; }
             ed.dragNode = 0;
+        }
+        if (ed.boxing) {
+            ed.boxing = false;
+            const ImVec2 a(std::min(ed.boxStart.x, m.x), std::min(ed.boxStart.y, m.y)), b(std::max(ed.boxStart.x, m.x), std::max(ed.boxStart.y, m.y));
+            if (b.x - a.x > 3 || b.y - a.y > 3)
+                for (auto& n : g.nodes) {
+                    if (!FindOp(n.op)) continue;
+                    const EGOpDef eff = EffectiveOp(n);
+                    const ImVec2 na = toS(n.pos), nb = toS(n.pos + float2{kW, NodeH(n, eff)});
+                    if (nb.x >= a.x && na.x <= b.x && nb.y >= a.y && na.y <= b.y) {
+                        ed.multi.insert(n.id);
+                        if (!ed.selected) ed.selected = n.id;
+                    }
+                }
         }
     }
 
@@ -819,6 +949,27 @@ void App::DrawEffectEditor() {
         else if (const EGNode* t = g.Find(ed.linkTo)) link(m, inPin(*t, ed.linkToIn), ui::col::Accent);
     }
 
+    // Result of a node on the simulated inputs: the graph with the output wired to it (rebuilt after a pause in the edits,
+    // two per frame at most, compiled in the background).
+    int pvBuilds = 2;
+    const bool pvSettled = ImGui::GetTime() - ed.lastEdit > 0.3;
+    auto nodePreview = [&](const EGNode& n) -> gpu::Texture* {
+        auto& ng = efPv.nodeGraphs[n.id];
+        const std::string key = ed.cachedJson + "#" + std::to_string(n.id);
+        if (ng.first != key && pvSettled && pvBuilds > 0) {
+            --pvBuilds;
+            ng = {key, PreviewGraphFor(g, n.id, cr.OutType(n.id, 0))};
+
+        }
+        if (ng.second.empty()) return nullptr;
+        EffectInstance inst = *fx;
+        inst.graph = ng.second;
+        inst.effectId.clear();
+        inst.customCode.clear();
+        inst.SyncParams(fx->Def());
+        return RenderEffectPreview(*v, inst, g.inputs, 0x100000000ull + n.id);
+    };
+
     // Nodes
     ImFont* font = ImGui::GetFont();
     float fs = ImGui::GetFontSize() * ed.zoom;
@@ -834,7 +985,7 @@ void App::DrawEffectEditor() {
         dl->AddRectFilled(ImVec2(a.x + 3, a.y + 4), ImVec2(b.x + 3, b.y + 4), IM_COL32(0, 0, 0, 70), r);
         dl->AddRectFilled(a, b, ui::col::PanelLight, r);
         dl->AddRectFilled(a, ImVec2(b.x, a.y + kHead * ed.zoom), CategoryColor(od->category), r, ImDrawFlags_RoundCornersTop);
-        bool selected = n.id == ed.selected;
+        bool selected = n.id == ed.selected || ed.multi.count(n.id);
         if (selected) dl->AddRect(ImVec2(a.x - 3, a.y - 3), ImVec2(b.x + 3, b.y + 3), IM_COL32(255, 140, 0, 90), r + 3, 0, 4.0f);
         dl->AddRect(a, b, errNodes.count(n.id) ? ui::col::Error : selected ? ui::col::Selection : ui::col::Border, r, 0, selected ? 3.0f : 1.0f);
         if (text) {
@@ -882,6 +1033,17 @@ void App::DrawEffectEditor() {
                 tp.x += 46 * ed.zoom;
             }
             dl->AddText(font, fs * 0.9f, tp, ui::col::Text, vt.c_str());
+        }
+        if (HasNodePreview(n) && cr.OutType(n.id, 0) != kEGTexture) {
+            const float pw = kPvH * ed.zoom;
+            const ImVec2 pa(a.x + (kW * ed.zoom - pw) * 0.5f, b.y - pw - 6 * ed.zoom), pb(pa.x + pw, pa.y + pw);
+            dl->AddRectFilled(pa, pb, IM_COL32(40, 40, 46, 255));
+            if (gpu::Texture* t = nodePreview(n)) {
+                if (gpu::Texture* shown = v->renderer.Thumbnail(*ctx, 0x7E5F100000000000ull + n.id, t, efPv.slots[0x100000000ull + n.id].hash ^ (u64)pw,
+                                                                (u32)std::max(1.0f, pw), (u32)std::max(1.0f, pw)))
+                    dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(shown), pa, pb);
+            }
+            dl->AddRect(pa, pb, ui::col::Border);
         }
     }
 
@@ -1072,18 +1234,127 @@ void App::DrawEffectEditor() {
     } else {
         ed.ctxFrom = ed.ctxTo = 0;
     }
-    if (focused && !io.WantTextInput && (ImGui::IsKeyPressed(ImGuiKey_Delete)) && ed.selected) {
-        EGNode* n = g.Find(ed.selected);
-        if (n && n->op != "output") {
-            Id rid = n->id;
-            g.nodes.erase(std::remove_if(g.nodes.begin(), g.nodes.end(), [&](const EGNode& x) { return x.id == rid; }), g.nodes.end());
-            for (auto& x : g.nodes) for (auto& l : x.inputs) if (l.node == rid) l = {};
+    // Box being drawn.
+    if (ed.boxing) {
+        const ImVec2 a(std::min(ed.boxStart.x, m.x), std::min(ed.boxStart.y, m.y)), b(std::max(ed.boxStart.x, m.x), std::max(ed.boxStart.y, m.y));
+        dl->AddRectFilled(a, b, IM_COL32(120, 140, 255, 30));
+        dl->AddRect(a, b, IM_COL32(120, 140, 255, 180));
+    }
+    if (ed.selected && !ed.multi.count(ed.selected)) ed.multi = {ed.selected};  // selected elsewhere (library, demos)
+    for (auto it = ed.multi.begin(); it != ed.multi.end();) it = g.Find(*it) ? std::next(it) : ed.multi.erase(it);
+    const bool keys = focused && !io.WantTextInput && !ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
+    if (keys && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace)) && !ed.multi.empty()) {
+        std::set<Id> gone;
+        for (Id id : ed.multi)
+            if (const EGNode* n = g.Find(id); n && n->op != "output") gone.insert(id);
+        if (!gone.empty()) {
+            g.nodes.erase(std::remove_if(g.nodes.begin(), g.nodes.end(), [&](const EGNode& x) { return gone.count(x.id) != 0; }), g.nodes.end());
+            for (auto& x : g.nodes) for (auto& l : x.inputs) if (gone.count(l.node)) l = {};
+            ed.multi.clear();
             ed.selected = 0;
             changed = true;
-            changeLabel = "Supprimer un nœud";
+            changeLabel = gone.size() > 1 ? "Supprimer des nœuds" : "Supprimer un nœud";
         }
     }
-    dl->AddText(ImVec2(origin.x + 10, origin.y + 8), ui::col::TextDim, "Clic droit : ajouter un nœud  |  glisser une sortie vers une entrée  |  Suppr");
+    if (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) {
+        for (auto& n : g.nodes) ed.multi.insert(n.id);
+        if (!ed.selected && !g.nodes.empty()) ed.selected = g.nodes.front().id;
+    }
+    // Copy: the selected nodes (not the output) and the links between them, as text in the clipboard.
+    auto copyText = [&]() -> std::string {
+        EffectGraph clip;
+        clip.kind = g.kind;
+        for (auto& n : g.nodes)
+            if (ed.multi.count(n.id) && n.op != "output") {
+                EGNode c = n;
+                for (auto& l : c.inputs) if (!ed.multi.count(l.node)) l = {};
+                clip.nodes.push_back(c);
+            }
+        return clip.nodes.empty() ? std::string() : "SXEG:" + clip.Serialize();
+    };
+    // Paste: new ids, links between the pasted nodes kept, parameters renamed when the name is taken.
+    auto paste = [&](const std::string& text, bool atMouse) {
+        EffectGraph clip;
+        if (text.rfind("SXEG:", 0) != 0 || !EffectGraph::Deserialize(text.substr(5), clip)) return;
+        float2 mn{1e9f, 1e9f};
+        int count = 0;
+        for (auto& n : clip.nodes) {
+            if (n.op == "output" || !FindOp(n.op) || !OpAllowed(*FindOp(n.op), g.kind)) continue;
+            mn.x = std::min(mn.x, n.pos.x);
+            mn.y = std::min(mn.y, n.pos.y);
+            ++count;
+        }
+        if (!count) return;
+        const float2 off = atMouse ? toG(m) - mn : float2{40, 40};
+        std::map<Id, Id> remap;
+        for (auto& n : clip.nodes) remap[n.id] = g.nextId++;
+        auto nameTaken = [&](const std::string& name) {
+            for (auto& o : g.nodes) if ((o.op == "param" || o.op == "paramcolor" || o.op == "param2") && o.name == name) return true;
+            return false;
+        };
+        ed.multi.clear();
+        for (auto& n : clip.nodes) {
+            if (n.op == "output" || !FindOp(n.op) || !OpAllowed(*FindOp(n.op), g.kind)) continue;
+            EGNode c = n;
+            c.id = remap[n.id];
+            c.pos = n.pos + off;
+            for (auto& l : c.inputs) l = remap.count(l.node) ? EGLink{remap[l.node], l.output} : EGLink{};
+            if (c.op == "param" || c.op == "paramcolor" || c.op == "param2") {
+                std::string base = c.name;
+                for (int k = 2; nameTaken(c.name); ++k) c.name = base + " " + std::to_string(k);
+            }
+            g.nodes.push_back(c);
+            ed.multi.insert(c.id);
+        }
+        ed.selected = ed.multi.empty() ? 0 : *ed.multi.begin();
+        changed = true;
+        changeLabel = "Coller des nœuds";
+    };
+    if (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C) && !ed.multi.empty()) {
+        std::string t = copyText();
+        if (!t.empty()) ImGui::SetClipboardText(t.c_str());
+    }
+    if (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_X) && !ed.multi.empty()) {
+        std::string t = copyText();
+        if (!t.empty()) {
+            ImGui::SetClipboardText(t.c_str());
+            std::set<Id> gone;
+            for (Id id : ed.multi) if (const EGNode* n = g.Find(id); n && n->op != "output") gone.insert(id);
+            g.nodes.erase(std::remove_if(g.nodes.begin(), g.nodes.end(), [&](const EGNode& x) { return gone.count(x.id) != 0; }), g.nodes.end());
+            for (auto& x : g.nodes) for (auto& l : x.inputs) if (gone.count(l.node)) l = {};
+            ed.multi.clear();
+            ed.selected = 0;
+            changed = true;
+            changeLabel = "Couper des nœuds";
+        }
+    }
+    if (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_V))
+        if (const char* t = ImGui::GetClipboardText()) paste(t, hovered);
+    if (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D) && !ed.multi.empty()) paste(copyText(), false);
+    // Frame: the selection, or the whole graph (F; also when a graph is opened).
+    auto frame = [&](bool selectionOnly) {
+        float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
+        int count = 0;
+        for (auto& n : g.nodes) {
+            if (!FindOp(n.op) || (selectionOnly && !ed.multi.count(n.id))) continue;
+            const EGOpDef eff = EffectiveOp(n);
+            mn = {std::min(mn.x, n.pos.x), std::min(mn.y, n.pos.y)};
+            mx = {std::max(mx.x, n.pos.x + kW), std::max(mx.y, n.pos.y + NodeH(n, eff))};
+            ++count;
+        }
+        if (!count) return;
+        const float margin = 60;
+        ed.zoom = std::clamp(std::min(size.x / (mx.x - mn.x + margin * 2), (size.y - 30) / (mx.y - mn.y + margin * 2)), 0.25f, 1.25f);
+        ed.pan = {size.x / ed.zoom * 0.5f - (mn.x + mx.x) * 0.5f, (size.y + 30) / ed.zoom * 0.5f - (mn.y + mx.y) * 0.5f};
+    };
+    if (keys && !io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_F)) frame(!ed.multi.empty());
+    if (ed.frameAll) {
+        ed.frameAll = false;
+        if (gNodePreviews) SpreadNodes(g);  // view only: saved with the next change
+        frame(false);
+    }
+    dl->AddText(ImVec2(origin.x + 10, origin.y + 8), ui::col::TextDim,
+                "Clic droit : ajouter  |  sortie vers entrée : relier  |  cadre : sélection  |  Ctrl+C / X / V / D  |  F : cadrer  |  Suppr");
     dl->PopClipRect();
 
     // ---------------------------------------------------------- preview
@@ -1103,13 +1374,7 @@ void App::DrawEffectEditor() {
         if (nodeMode) {
             const std::string key = ed.cachedJson + "#" + std::to_string(psel->id);
             if (efPv.nodeKey != key) {
-                EffectGraph g2 = g;
-                if (EGNode* o = g2.Find(g2.OutputNode())) {
-                    for (auto& l : o->inputs) l = {};
-                    if (o->inputs.empty()) o->inputs.resize(1);
-                    o->inputs[0] = {psel->id, 0};
-                }
-                efPv.nodeGraph = g2.Serialize();
+                efPv.nodeGraph = PreviewGraphFor(g, psel->id, cr.OutType(psel->id, 0));
                 efPv.nodeKey = key;
             }
             pvFx.graph = efPv.nodeGraph;
@@ -1156,6 +1421,7 @@ void App::DrawEffectEditor() {
         if (g.spacing > 0) brushTarget.spacing = g.spacing;
         return;
     }
+    if (changed || live) ed.lastEdit = ImGui::GetTime();
     // Write back to the effect instance.
     if (changed || live) {
         auto old = fx->Def();

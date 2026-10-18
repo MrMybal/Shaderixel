@@ -262,6 +262,12 @@ struct EffectEditorState {
     int ctxFromOut = 0, ctxToIn = 0;
     bool ctxSensitive = true;           // add menu: only the nodes that fit the link
     int demoAdd = 0;                    // demos: opens the add menu (1 plain, 2 from an output, 3 with a search)
+    std::set<Id> multi;                 // selected nodes (the details panel shows `selected`)
+    bool boxing = false;                // box selection from an empty spot
+    ImVec2 boxStart;
+    bool frameAll = false;              // frame the whole graph on the next frame (a graph was opened)
+    bool nodePreviews = true;           // result previews drawn in the nodes (effect graphs)
+    double lastEdit = 0;                // time of the last change (node previews wait for a pause)
     std::string cachedJson;
     EffectGraph graph;
     std::optional<DocState> pendingBefore;
@@ -1740,12 +1746,14 @@ private:
         bool node = false;          // the selected node instead of the effect output
         std::map<std::string, gpu::TexturePtr> refs;
         struct Live { gpu::TexturePtr tex; u64 hash = 0, frame = 0; } live[4];
-        struct Slot { gpu::TexturePtr out; u64 hash = 0; } slots[3];
+        struct Slot { gpu::TexturePtr out; u64 hash = 0; };
+        std::map<u64, Slot> slots;   // 0 effect, 1 node, 2 library page, 0x100000000 + id: previews on the nodes
+        std::map<Id, std::pair<std::string, std::string>> nodeGraphs;  // node -> (key, graph with the output on it)
         std::string nodeKey, nodeGraph;  // node preview: graph with the output on the selected node
     } efPv;
     gpu::Texture* PreviewSource(DocView& v, int input, u64& hash);
     // The effect on the simulated inputs (cached per slot); `waiting`: an update is compiling.
-    gpu::Texture* RenderEffectPreview(DocView& v, const EffectInstance& fx, int inputs, int slot, bool* waiting = nullptr);
+    gpu::Texture* RenderEffectPreview(DocView& v, const EffectInstance& fx, int inputs, u64 slot, bool* waiting = nullptr);
     void DrawPreviewSources(DocView& v, int inputs, bool blend);
     void DrawPreviewImage(DocView& v, gpu::Texture* t, u64 key, u64 hash, float width, float maxHeight = 0);
     // Custom code: declarations (inputs/params) + code + compile + save to library.

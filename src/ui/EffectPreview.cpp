@@ -63,9 +63,9 @@ gpu::Texture* App::PreviewSource(DocView& v, int input, u64& hash) {
     return it->second.get();
 }
 
-gpu::Texture* App::RenderEffectPreview(DocView& v, const EffectInstance& fx, int inputs, int slot, bool* waiting) {
+gpu::Texture* App::RenderEffectPreview(DocView& v, const EffectInstance& fx, int inputs, u64 slot, bool* waiting) {
     auto& P = efPv;
-    auto& S = P.slots[std::clamp(slot, 0, 2)];
+    auto& S = P.slots[slot];
     inputs = std::clamp(inputs, 0, 4);
     std::array<gpu::Texture*, 4> in{};
     u64 h = 1469598103934665603ull;

@@ -144,5 +144,13 @@
  "Image entière": "Whole image",
  "Image (fichier)...": "Image (file)...",
  "Mire de couleurs": "Color chart",
- "Logo sur fond": "Logo on background"
+ "Logo sur fond": "Logo on background",
+ "Aperçus sur les nœuds": "Previews on the nodes",
+ "Écarter les nœuds": "Spread the nodes",
+ "Pousse vers le bas les nœuds qui se chevauchent (chacun garde sa colonne).": "Pushes overlapping nodes down (each keeps its column).",
+ "Déplacer des nœuds": "Move nodes",
+ "Supprimer des nœuds": "Delete nodes",
+ "Coller des nœuds": "Paste nodes",
+ "Couper des nœuds": "Cut nodes",
+ "Clic droit : ajouter  |  sortie vers entrée : relier  |  cadre : sélection  |  Ctrl+C / X / V / D  |  F : cadrer  |  Suppr": "Right-click: add  |  output to input: link  |  box: select  |  Ctrl+C / X / V / D  |  F: frame  |  Del"
 }
