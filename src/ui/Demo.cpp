@@ -2589,6 +2589,25 @@ void App::DemoTick() {
                     if (ImGuiWindow* x = ImGui::FindWindowByName(n); x && x->TabId == sel) name = n;
                 Log("[demo] sidetabs: selected after coming back: %s", name);
             }
+        // The user's case: Outils > Tracés, General, back to Outils (twice).
+        auto toolsSelected = [&] {
+            const char* name = "?";
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Tracés"); w && w->DockNode && w->DockNode->TabBar) {
+                const ImGuiID sel = w->DockNode->TabBar->SelectedTabId;
+                for (const char* n : {"Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Trim sheet"})
+                    if (ImGuiWindow* x = ImGui::FindWindowByName(n); x && x->TabId == sel) name = n;
+            }
+            return name;
+        };
+        if (frameCounter == 100) ShowSideTab(1);
+        if (frameCounter == 115) ImGui::SetWindowFocus("Tracés");
+        if (frameCounter == 125) Log("[demo] sidetabs: Outils, chosen: %s", toolsSelected());
+        if (frameCounter == 130) ShowSideTab(0);
+        if (frameCounter == 150) ShowSideTab(1);
+        if (frameCounter == 185) Log("[demo] sidetabs: Outils after coming back: %s", toolsSelected());
+        if (frameCounter == 190) ShowSideTab(0);
+        if (frameCounter == 200) ShowSideTab(1);
+        if (frameCounter == 240) Log("[demo] sidetabs: Outils after coming back again: %s", toolsSelected());
         return;
     }
     if (demoMode == 99) {

@@ -208,31 +208,37 @@ void App::DrawSidePanel() {
         sideTabRequest = -1;
         ImGui::EndTabBar();
     }
-    // The panels of a side tab are not submitted while it is hidden: when it comes back, they reappear one by one
-    // and the last one would take the selection of its zone. The selected panel of each zone is kept and restored.
+    // The panels of a side tab are not submitted while it is hidden. When it comes back they reappear: ImGui
+    // selects the newly added tabs and focuses the last window that appears (the tab bar follows the focused
+    // window). Each zone remembers the panel the user chose; for a short while after the side tab is shown or
+    // tabs are added, any other selection is reverted and the chosen panel gets the focus back.
     ImGuiContext& gc = *GImGui;
     auto rootOf = [](ImGuiDockNode* n) {
         while (n->ParentNode) n = n->ParentNode;
         return n->ID;
     };
-    if (sideTab != sideTabShown) {
-        if (sideTabShown >= 0)
-            for (int n = 0; n < gc.DockContext.Nodes.Data.Size; ++n)
-                if (ImGuiDockNode* node = (ImGuiDockNode*)gc.DockContext.Nodes.Data[n].val_p)
-                    if (rootOf(node) == SideTabDock(sideTabShown) && node->TabBar && node->TabBar->SelectedTabId)
-                        sideTabSelection[node->ID] = node->TabBar->SelectedTabId;
-        sideTabShown = sideTab;
-        sideTabRestore = 4;  // the windows take a few frames to reappear
-    }
-    if (sideTabRestore > 0) {
-        --sideTabRestore;
-        for (int n = 0; n < gc.DockContext.Nodes.Data.Size; ++n)
-            if (ImGuiDockNode* node = (ImGuiDockNode*)gc.DockContext.Nodes.Data[n].val_p)
-                if (rootOf(node) == SideTabDock(sideTab))
-                    if (auto it = sideTabSelection.find(node->ID); it != sideTabSelection.end()) {
-                        node->SelectedTabId = it->second;
-                        if (node->TabBar) node->TabBar->NextSelectedTabId = it->second;
-                    }
+    const bool switched = sideTab != sideTabShown;
+    sideTabShown = sideTab;
+    for (int n = 0; n < gc.DockContext.Nodes.Data.Size; ++n) {
+        ImGuiDockNode* node = (ImGuiDockNode*)gc.DockContext.Nodes.Data[n].val_p;
+        if (!node || !node->TabBar || rootOf(node) != SideTabDock(sideTab)) continue;
+        ImGuiTabBar* tb = node->TabBar;
+        auto& z = sideTabSelection[node->ID];
+        const int count = tb->Tabs.Size;
+        if (switched || count > z.count) z.guard = 12;  // panels coming back
+        if (z.guard > 0 && z.guard <= 10 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) z.guard = 0;  // a new click: the user's
+        if (z.guard > 0) {
+            --z.guard;
+            if (z.want && tb->SelectedTabId != z.want)
+                if (ImGuiTabItem* t = ImGui::TabBarFindTabByID(tb, z.want); t && t->Window) {
+                    tb->SelectedTabId = tb->NextSelectedTabId = z.want;
+                    node->SelectedTabId = z.want;
+                    if (gc.NavWindow && gc.NavWindow->RootWindow && gc.NavWindow->RootWindow->DockNode == node) ImGui::FocusWindow(t->Window);
+                }
+        } else if (tb->SelectedTabId) {
+            z.want = tb->SelectedTabId;  // the user's choice
+        }
+        z.count = count;
     }
     for (int i = 0; i < kSideTabs; ++i)
         if (i != sideTab) ImGui::DockSpace(SideTabDock(i), ImVec2(0, 0), ImGuiDockNodeFlags_KeepAliveOnly);
