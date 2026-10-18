@@ -1,5 +1,6 @@
 #include "ui/App.h"
 #include "ui/Filter.h"
+#include "ui/Lang.h"
 #include "ui/Search.h"
 #include "io/ColorMgmt.h"
 #include "io/WicLoad.h"
@@ -236,6 +237,8 @@ bool App::Init() {
     eraser.hardness = 0.9f;
     settingsPath = ExeDir() + "/shaderixel_settings.json";
     LoadAiSettings();
+    if (const char* forced = getenv("SX_LANG")) uiLanguage = forced;  // tests
+    if (!SetLanguage(uiLanguage)) SetLanguage("fr");  // no dictionary found: the built-in French
     InitFunctions();
     LoadActions();
     monitorProfile = color::MonitorPath(hwnd);
@@ -1106,6 +1109,16 @@ void App::DrawMenuBar() {
     }
     if (ImGui::BeginMenu("Affichage")) {
         ui::MenuFilter();
+        if (ImGui::BeginMenu("Langue / Language")) {
+            for (auto& lang : AvailableLanguages())
+                if (ImGui::MenuItem((lang.name + "##lang" + lang.code).c_str(), nullptr, CurrentLanguage() == lang.code)) {
+                    uiLanguage = lang.code;
+                    SetLanguage(lang.code);
+                    SaveAiSettings();
+                }
+            ImGui::EndMenu();
+        }
+        ImGui::Separator();
         DrawPanelsMenu();
         ImGui::Separator();
         if (v) {

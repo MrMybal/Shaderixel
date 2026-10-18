@@ -1,6 +1,6 @@
 --- a/imgui_widgets.cpp
 +++ b/imgui_widgets.cpp
-@@ -158,10 +158,26 @@
+@@ -158,10 +158,27 @@
  // - BulletTextV()
  //-------------------------------------------------------------------------
  
@@ -11,6 +11,7 @@
 +//   kind 2: plain text (label = the text, a matching text shows its line) / separator (no label): hide it;
 +//   kind 3: end of a section (tree pop, end of an inline sub-menu).
 +bool (*GSXFilterFn)(ImGuiWindow* window, int kind, const char* label, const char* label_end) = NULL;
++extern bool (*GSXTranslateFn)(const char** text, const char** text_end);  // interface translation (imgui.cpp)
 +static ImVector<ImGuiWindow*> GSXInlineMenus;  // sub-menus drawn inline while filtering (EndMenu skips them)
 +static inline bool SXFiltered(int kind, const char* label, const char* label_end = NULL)
 +{
@@ -27,7 +28,7 @@
          return;
      ImGuiContext& g = *GImGui;
  
-@@ -398,6 +414,8 @@
+@@ -398,6 +415,8 @@
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
          return;
@@ -36,7 +37,7 @@
  
      ImGuiContext& g = *GImGui;
      const ImGuiStyle& style = g.Style;
-@@ -435,6 +453,8 @@
+@@ -435,6 +454,8 @@
  {
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
@@ -45,7 +46,7 @@
          return;
  
      ImGuiContext& g = *GImGui;
-@@ -790,6 +810,8 @@
+@@ -790,6 +811,8 @@
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
          return false;
@@ -54,7 +55,7 @@
  
      ImGuiContext& g = *GImGui;
      const ImGuiStyle& style = g.Style;
-@@ -1253,6 +1275,8 @@
+@@ -1253,6 +1276,8 @@
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
          return false;
@@ -63,7 +64,7 @@
  
      ImGuiContext& g = *GImGui;
      const ImGuiStyle& style = g.Style;
-@@ -1376,6 +1400,8 @@
+@@ -1376,6 +1401,8 @@
  {
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
@@ -72,7 +73,7 @@
          return false;
  
      ImGuiContext& g = *GImGui;
-@@ -1733,6 +1759,8 @@
+@@ -1733,6 +1760,8 @@
      ImGuiWindow* window = g.CurrentWindow;
      if (window->SkipItems)
          return;
@@ -81,7 +82,7 @@
  
      // Those flags should eventually be configurable by the user
      ImGuiSeparatorFlags flags = (window->DC.LayoutType == ImGuiLayoutType_Horizontal) ? ImGuiSeparatorFlags_Vertical : ImGuiSeparatorFlags_Horizontal;
-@@ -1798,6 +1826,8 @@
+@@ -1798,6 +1827,8 @@
  {
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
@@ -90,7 +91,7 @@
          return;
  
      // The SeparatorText() vs SeparatorTextEx() distinction is designed to be considerate that we may want:
-@@ -1952,6 +1982,8 @@
+@@ -1952,6 +1983,8 @@
      ImGuiNextWindowDataFlags backup_next_window_data_flags = g.NextWindowData.HasFlags;
      g.NextWindowData.ClearFlags(); // We behave like Begin() and need to consume those values
      if (window->SkipItems)
@@ -99,7 +100,7 @@
          return false;
  
      const ImGuiStyle& style = g.Style;
-@@ -2774,6 +2806,8 @@
+@@ -2774,6 +2807,8 @@
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
          return false;
@@ -108,7 +109,7 @@
  
      ImGuiContext& g = *GImGui;
      const ImGuiStyle& style = g.Style;
-@@ -2873,6 +2907,8 @@
+@@ -2873,6 +2908,8 @@
  {
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
@@ -117,7 +118,7 @@
          return false;
  
      ImGuiContext& g = *GImGui;
-@@ -3388,6 +3424,8 @@
+@@ -3388,6 +3425,8 @@
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
          return false;
@@ -126,7 +127,7 @@
  
      ImGuiContext& g = *GImGui;
      const ImGuiStyle& style = g.Style;
-@@ -3484,6 +3522,8 @@
+@@ -3484,6 +3523,8 @@
  {
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
@@ -135,7 +136,7 @@
          return false;
  
      ImGuiContext& g = *GImGui;
-@@ -3889,6 +3929,8 @@
+@@ -3889,6 +3930,8 @@
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
          return false;
@@ -144,7 +145,7 @@
  
      ImGuiContext& g = *GImGui;
      ImGuiStyle& style = g.Style;
-@@ -3999,6 +4041,8 @@
+@@ -3999,6 +4042,8 @@
  {
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
@@ -153,16 +154,24 @@
          return false;
  
      ImGuiContext& g = *GImGui;
-@@ -4812,6 +4856,8 @@
- {
+@@ -4813,6 +4858,16 @@
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
-+        return false;
-+    if (SXFiltered(0, label))
          return false;
++    if (SXFiltered(0, label))
++        return false;
++    if (hint && GSXTranslateFn)
++    {
++        // Shaderixel: the hint in the interface language (translations are null-terminated).
++        const char* h = hint;
++        const char* he = hint + ImStrlen(hint);
++        if (GSXTranslateFn(&h, &he))
++            hint = h;
++    }
  
      IM_ASSERT(buf != NULL && buf_size >= 0);
-@@ -5939,6 +5985,8 @@
+     IM_ASSERT(!((flags & ImGuiInputTextFlags_CallbackHistory) && (flags & ImGuiInputTextFlags_Multiline)));        // Can't use both together (they both use up/down keys)
+@@ -5939,6 +5994,8 @@
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
          return false;
@@ -171,7 +180,7 @@
  
      ImGuiContext& g = *GImGui;
      const ImGuiStyle& style = g.Style;
-@@ -7039,6 +7087,12 @@
+@@ -7039,6 +7096,12 @@
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
          return false;
@@ -184,7 +193,7 @@
  
      ImGuiContext& g = *GImGui;
      const ImGuiStyle& style = g.Style;
-@@ -7411,6 +7465,7 @@
+@@ -7411,6 +7474,7 @@
      Unindent();
  
      window->DC.TreeDepth--;
@@ -192,7 +201,7 @@
      ImU32 tree_depth_mask = TREE_NODE_GET_DEPTH_MASK(window->DC.TreeDepth);
      if (window->DC.TreeHasStackDataDepthMask & tree_depth_mask)
      {
-@@ -7525,6 +7580,8 @@
+@@ -7525,6 +7589,8 @@
  {
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
@@ -201,7 +210,7 @@
          return false;
  
      ImGuiContext& g = *GImGui;
-@@ -9528,6 +9585,13 @@
+@@ -9528,6 +9594,13 @@
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)
          return false;
@@ -215,7 +224,7 @@
  
      ImGuiContext& g = *GImGui;
      ImGuiStyle& style = g.Style;
-@@ -9758,6 +9822,12 @@
+@@ -9758,6 +9831,12 @@
      // Nav: When a left move request our menu failed, close ourselves.
      ImGuiContext& g = *GImGui;
      ImGuiWindow* window = g.CurrentWindow;
@@ -228,7 +237,7 @@
      IM_ASSERT_USER_ERROR_RET((window->Flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_ChildMenu)) == (ImGuiWindowFlags_Popup | ImGuiWindowFlags_ChildMenu), "Calling EndMenu() in wrong window!");
  
      ImGuiWindow* parent_window = window->ParentWindow;  // Should always be != NULL is we passed assert.
-@@ -9776,6 +9846,8 @@
+@@ -9776,6 +9855,8 @@
  {
      ImGuiWindow* window = GetCurrentWindow();
      if (window->SkipItems)

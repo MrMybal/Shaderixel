@@ -1,0 +1,80 @@
+--- a/imgui.cpp
++++ b/imgui.cpp
+@@ -3998,6 +3998,19 @@
+ 
+ // Internal ImGui functions to render text
+ // RenderText***() functions calls ImDrawList::AddText() calls ImBitmapFont::RenderText()
++// Shaderixel: interface translation, decided by the application. Called with the visible text (after "##" removed);
++// may point *text / *text_end to the translated text (owned by the application, valid for the frame).
++bool (*GSXTranslateFn)(const char** text, const char** text_end) = NULL;
++static inline void SXTranslate(const char** text, const char** text_end)
++{
++    if (GSXTranslateFn && *text)
++    {
++        if (!*text_end)
++            *text_end = *text + ImStrlen(*text);
++        GSXTranslateFn(text, text_end);
++    }
++}
++
+ void ImGui::RenderText(ImVec2 pos, const char* text, const char* text_end, bool hide_text_after_hash)
+ {
+     ImGuiContext& g = *GImGui;
+@@ -4015,6 +4028,7 @@
+             text_end = text + ImStrlen(text); // FIXME-OPT (not reached by our internal calls)
+         text_display_end = text_end;
+     }
++    SXTranslate(&text, &text_display_end);
+ 
+     if (text != text_display_end)
+     {
+@@ -4031,6 +4045,7 @@
+ 
+     if (!text_end)
+         text_end = text + ImStrlen(text); // FIXME-OPT (not reached by our internal calls)
++    SXTranslate(&text, &text_end);
+ 
+     if (text != text_end)
+     {
+@@ -4048,6 +4063,7 @@
+ void ImGui::RenderTextClippedEx(ImDrawList* draw_list, const ImVec2& pos_min, const ImVec2& pos_max, const char* text, const char* text_display_end, const ImVec2* text_size_if_known, const ImVec2& align, const ImRect* clip_rect)
+ // DOES NOT CALL LogRenderedText(), unlike RenderTextClipped!!!
+ {
++    SXTranslate(&text, &text_display_end);
+     // Perform CPU side clipping for single clipped element to avoid using scissor state
+     ImVec2 pos = pos_min;
+     const ImVec2 text_size = text_size_if_known ? *text_size_if_known : CalcTextSize(text, text_display_end, false, 0.0f);
+@@ -4098,6 +4114,7 @@
+     ImGuiContext& g = *GImGui;
+     if (text_end_full == NULL)
+         text_end_full = FindRenderedTextEnd(text);
++    SXTranslate(&text, &text_end_full);
+     const ImVec2 text_size = text_size_if_known ? *text_size_if_known : CalcTextSize(text, text_end_full, false, 0.0f);
+ 
+     //draw_list->AddLineV(pos_max.x, pos_min.y - 4, pos_max.y + 6, IM_COL32(0, 0, 255, 255));
+@@ -6559,6 +6576,7 @@
+         text_display_end = FindRenderedTextEnd(text, text_end);      // Hide anything after a '##' string
+     else
+         text_display_end = text_end;
++    SXTranslate(&text, &text_display_end);
+ 
+     ImFont* font = g.Font;
+     const float font_size = g.FontSize;
+--- a/imgui_draw.cpp
++++ b/imgui_draw.cpp
+@@ -1766,8 +1766,15 @@
+     font->RenderText(this, font_size, pos, col, clip_rect, text_begin, text_end, wrap_width, (cpu_fine_clip_rect != NULL) ? ImDrawTextFlags_CpuFineClip : ImDrawTextFlags_None);
+ }
+ 
++extern bool (*GSXTranslateFn)(const char** text, const char** text_end);  // Shaderixel (imgui.cpp)
+ void ImDrawList::AddText(const ImVec2& pos, ImU32 col, const char* text_begin, const char* text_end)
+ {
++    if (GSXTranslateFn && text_begin)
++    {
++        if (!text_end)
++            text_end = text_begin + ImStrlen(text_begin);
++        GSXTranslateFn(&text_begin, &text_end);
++    }
+     AddText(_Data->Font, _Data->FontSize, pos, col, text_begin, text_end);
+ }
+ 

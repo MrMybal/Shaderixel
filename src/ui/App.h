@@ -1292,6 +1292,7 @@ private:
         bool applyDist = true, applyTca = true, applyVig = true;
     } lensPick;
     std::string lensfunDir;  // setting ("": automatic)
+    std::string uiLanguage = "en";  // interface language (ui/Lang.h), English by default
     void OpenCameraRaw(DocView& v);
     void DrawCameraRaw();
     void EnsureLensfun(bool reload = false);

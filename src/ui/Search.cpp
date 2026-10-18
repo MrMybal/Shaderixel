@@ -1,4 +1,5 @@
 #include "ui/Search.h"
+#include "ui/Lang.h"
 
 #include <imgui_internal.h>
 
@@ -176,7 +177,7 @@ void GlobalSearch::OnItemInfo(ImGuiContext* ctx, unsigned id, const char* label,
     const bool bbValid = lastAddId == id;
     // Highlights of the query in the visible panels.
     if (highlight && bbValid && query.size() >= 2) {
-        const std::string f = Fold(lab);
+        const std::string f = Fold(lab) + " " + Fold(Tr(lab));  // French label or its translation
         std::istringstream ss(Fold(query));
         bool all = true;
         for (std::string word; ss >> word;) all &= f.find(word) != std::string::npos;
@@ -206,7 +207,11 @@ std::vector<const SearchEntry*> GlobalSearch::Query(const std::string& q, size_t
     std::vector<std::pair<float, const SearchEntry*>> hits;
     const double now = ImGui::GetTime();
     for (auto& [k, e] : entries) {
-        const std::string lab = Fold(e.label), hay = lab + " " + Fold(Join(e.path, "", ' '));
+        // Labels are French in the code: the translation is searched too (interface language).
+        const std::string lab = Fold(e.label) + " " + Fold(Tr(e.label));
+        std::string path = Join(e.path, "", ' ');
+        std::string hay = lab + " " + Fold(path);
+        for (auto& part : e.path) hay += " " + Fold(Tr(part));
         bool all = true;
         for (auto& w : words) all &= hay.find(w) != std::string::npos;
         if (!all) continue;

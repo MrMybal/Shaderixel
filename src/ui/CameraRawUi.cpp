@@ -8,6 +8,7 @@
 #include "ui/App.h"
 #include "ui/Filter.h"
 #include "ui/Theme.h"
+#include "ui/Lang.h"
 
 #include <shellapi.h>
 #include <imgui_internal.h>
@@ -775,7 +776,7 @@ void App::PhotoRawLocalsUI(DocView& v, Layer& l) {
         if (ImGui::Checkbox("##on", &f.enabled)) d.SyncGraph();
         ImGui::SameLine();
         char label[64];
-        snprintf(label, sizeof(label), "%s %d", GetParam(f, "kind") > 0.5f ? "Radial" : "Dégradé", i + 1);
+        snprintf(label, sizeof(label), "%s %d", GetParam(f, "kind") > 0.5f ? "Radial" : TrC("Dégradé"), i + 1);
         if (ImGui::Selectable(label, C.localSel == i, 0, ImVec2(ImGui::GetContentRegionAvail().x - 30 * dpi, 0))) C.localSel = C.localSel == i ? -1 : i;
         ImGui::SameLine();
         if (ui::IconButton("rm", ui::IconTrash, false, 20 * dpi, "Supprimer")) remove = i;

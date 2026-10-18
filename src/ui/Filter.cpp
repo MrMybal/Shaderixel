@@ -1,5 +1,6 @@
 #include "ui/Filter.h"
 #include "ui/Search.h"
+#include "ui/Lang.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -46,9 +47,11 @@ bool MatchWords(const std::vector<std::string>& words, const char* label, const 
     if (!end) end = label + strlen(label);
     const char* hash = strstr(label, "##");
     if (hash && hash < end) end = hash;
-    const std::string folded = GlobalSearch::Fold(std::string(label, end));
+    const std::string src(label, end);
+    // The words may be in the interface language or in French (the labels of the code).
+    const std::string folded = GlobalSearch::Fold(src), shown = GlobalSearch::Fold(Tr(src));
     for (auto& w : words)
-        if (folded.find(w) == std::string::npos) return false;
+        if (folded.find(w) == std::string::npos && shown.find(w) == std::string::npos) return false;
     return true;
 }
 
