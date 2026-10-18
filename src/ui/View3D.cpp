@@ -548,15 +548,20 @@ void App::DrawView3DRenderSettings(MeshScene& s) {
         if (ImGui::SliderFloat("Hauteur", &pitch, 5, 89, "%.0f°")) s.lightPitch = pitch / 57.29578f;
     }
     DrawLightingSettings(s);
-    if (s.quality == 2) {
-        ImGui::SeparatorText("Ray tracing");
+    if (s.quality != 2) {
+        ImGui::SeparatorText("Path tracing");
+        ImGui::TextDisabled("Échantillons, rebonds, débruitage et profondeur de champ :");
+        if (ImGui::SmallButton("Passer en Path tracing")) s.quality = 2;
+    } else {
+        ImGui::SeparatorText("Path tracing");
         ImGui::SliderInt("Échantillons", &s.rtSamples, 16, 4096, "%d", ImGuiSliderFlags_Logarithmic);
         ImGui::SliderInt("Rebonds", &s.rtBounces, 1, 16);
         ImGui::Checkbox("Sol (ombres portées)", &s.rtFloor);
         ImGui::SliderFloat("Débruitage", &s.rtDenoise, 0, 1, s.rtDenoise > 0 ? "%.2f" : "désactivé");
         ImGui::SeparatorText("Profondeur de champ");
         ImGui::SliderFloat("Ouverture", &s.dofAperture, 0, 0.15f, s.dofAperture > 0 ? "%.3f" : "désactivée", ImGuiSliderFlags_Logarithmic);
-        ui::HelpTooltip("Taille de l'objectif : plus elle est grande, plus ce qui est hors de la distance nette est flou.");
+        ui::HelpTooltip("Taille de l'objectif : plus elle est grande, plus ce qui est hors de la distance nette est flou.
+Un grand flou demande plus d'échantillons (et un débruitage plus fort) pour être lisse.");
         if (s.dofAperture > 0) {
             ImGui::SliderFloat("Distance nette", &s.dofFocus, 0.05f, 30, "%.2f", ImGuiSliderFlags_Logarithmic);
             if (ImGui::SmallButton("Choisir sur le modèle")) {

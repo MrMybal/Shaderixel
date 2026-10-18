@@ -565,6 +565,25 @@ float3 Radiance(float3 o, float3 d, inout uint rng)
     return L;
 }
 
+// Low-discrepancy 4D sequence (Roberts' R4): dimensions 0-1 jitter the pixel, 2-3 pick the lens point, so the
+// samples of a pixel cover both evenly and independently; a per-pixel rotation (Cranley-Patterson) keeps
+// neighbors decorrelated.
+float4 R4(uint i, float4 offset)
+{
+    return frac(float4(0.8566748838545029, 0.7338918566271260, 0.6287067210378086, 0.5385972572236101) * float(i % 65536u) + offset);
+}
+
+// Uniform disk by concentric mapping (Shirley): no clumping at the center, even bokeh.
+float2 ConcentricDisk(float2 u)
+{
+    float2 a = u * 2.0 - 1.0;
+    if (a.x == 0 && a.y == 0) return float2(0, 0);
+    float r, phi;
+    if (abs(a.x) > abs(a.y)) { r = a.x; phi = (PI / 4) * (a.y / a.x); }
+    else { r = a.y; phi = (PI / 2) - (PI / 4) * (a.x / a.y); }
+    return r * float2(cos(phi), sin(phi));
+}
+
 [numthreads(8, 8, 1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
@@ -573,7 +592,11 @@ void main(uint3 id : SV_DispatchThreadID)
     uint rng = p.x * 1973u + p.y * 9277u + gSeed * 26699u;
     Pcg(rng);
     Pcg(rng);
-    float px = (p.x + Rnd(rng)) / gSize.x * 2.0 - 1.0, py = 1.0 - (p.y + Rnd(rng)) / gSize.y * 2.0;
+    uint ph0 = p.x * 73856093u ^ p.y * 19349663u;
+    Pcg(ph0);
+    const float4 qs = R4(gPass, float4(Rnd(ph0), Rnd(ph0), Rnd(ph0), Rnd(ph0)));
+    const float2 jit = qs.xy;
+    float px = (p.x + jit.x) / gSize.x * 2.0 - 1.0, py = 1.0 - (p.y + jit.y) / gSize.y * 2.0;
     float3 fwd = gCamFwd.xyz;
     float3 dir = normalize(fwd + gCamRight.xyz * px + gCamUp.xyz * py);
     float3 org = gCamPos.xyz;
@@ -587,8 +610,8 @@ void main(uint3 id : SV_DispatchThreadID)
     {
         // Thin lens: sharp plane at the focus distance, aperture disc of radius w.
         float3 focus = org + dir * (gCamRight.w / max(dot(dir, fwd), 1e-4));
-        float r = sqrt(Rnd(rng)) * gCamPos.w, ph = 2 * PI * Rnd(rng);
-        org += normalize(gCamRight.xyz) * (r * cos(ph)) + normalize(gCamUp.xyz) * (r * sin(ph));
+        const float2 d = ConcentricDisk(qs.zw) * gCamPos.w;
+        org += normalize(gCamRight.xyz) * d.x + normalize(gCamUp.xyz) * d.y;
         dir = normalize(focus - org);
     }
     sHitAlbedo = float3(1, 1, 1);

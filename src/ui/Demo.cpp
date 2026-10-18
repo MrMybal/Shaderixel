@@ -2434,6 +2434,14 @@ void App::DemoTick() {
             s.ortho = GetEnvironmentVariableA("SX_ORTHO", nullptr, 0) > 0 || k >= 0;
             s.quality = atoi(q);
             s.distance = 3.2f;
+            char ap[16] = "", dn[16] = "", sm[16] = "";
+            if (GetEnvironmentVariableA("SX_DOF", ap, sizeof(ap)) > 0) {
+                s.dofAperture = (float)atof(ap);
+                s.dofFocus = 2.4f;
+                s.rtFloor = true;
+            }
+            if (GetEnvironmentVariableA("SX_DENOISE", dn, sizeof(dn)) > 0) s.rtDenoise = (float)atof(dn);
+            if (GetEnvironmentVariableA("SX_SAMPLES", sm, sizeof(sm)) > 0) s.rtSamples = atoi(sm);
             Log("[demo] view3d: view %d ortho %d quality %d", k, (int)s.ortho, s.quality);
             if (GetEnvironmentVariableA("SX_SIMTOOL", nullptr, 0) > 0) {
                 tool = Tool::Particles;  // as chosen in the toolbar: its panel brought forward
