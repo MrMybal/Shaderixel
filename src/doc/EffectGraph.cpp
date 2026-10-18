@@ -19,9 +19,13 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"canvassize", "Taille du canevas (float4)", "Entrées", {}, {""}, 4},
         {"pixel", "Position du pixel", "Entrées", {}, {""}, 2},
         {"size", "Taille de l'image", "Entrées", {}, {""}, 2},
+        {"sampleoffset", "Échantillonner décalé (pixels)", "Entrées", {{"Décalage", 0}}, {"RGBA", "RGB", "R", "G", "B", "A"}, 4},
+        {"blur", "Flou de l'entrée", "Entrées", {{"Rayon (px)", 4}}, {"RGBA", "RGB", "R", "G", "B", "A"}, 4},
+        {"edges", "Contours de l'entrée (Sobel)", "Entrées", {{"Épaisseur (px)", 1}}, {""}, 1},
         {"const", "Constante", "Constantes", {}, {""}, 1, true},
         {"const2", "Constante 2D", "Constantes", {}, {""}, 2, true},
         {"color", "Couleur", "Constantes", {}, {""}, 4, true},
+        {"pi", "Pi", "Constantes", {}, {""}, 1},
         {"param", "Paramètre (réel)", "Paramètres", {}, {""}, 1, true},
         {"paramcolor", "Paramètre (couleur)", "Paramètres", {}, {""}, 4, true},
         {"param2", "Paramètre (2D)", "Paramètres", {}, {""}, 2, true},
@@ -50,11 +54,19 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"exp2", "Exp2", "Maths", {{"x", 0}}, {""}},
         {"log2", "Log2", "Maths", {{"x", 1}}, {""}},
         {"if", "Si (A > B)", "Maths", {{"A", 0}, {"B", 0}, {"A > B", 1}, {"A <= B", 0}}, {""}},
+        {"tan", "Tangente", "Maths", {{"x", 0}}, {""}},
+        {"atan2", "Arc tangente (Y, X)", "Maths", {{"Y", 0}, {"X", 1}}, {""}},
+        {"fmod", "Modulo", "Maths", {{"A", 0}, {"B", 1}}, {""}},
+        {"round", "Arrondi", "Maths", {{"x", 0}}, {""}},
+        {"sign", "Signe", "Maths", {{"x", 0}}, {""}},
+        {"remap", "Remapper", "Maths", {{"x", 0}, {"De min", 0}, {"De max", 1}, {"Vers min", 0}, {"Vers max", 1}}, {""}},
+        {"posterize", "Postériser", "Maths", {{"x", 0}, {"Niveaux", 4}}, {""}},
         // Vectors
         {"dot", "Produit scalaire", "Vecteurs", {{"A", 0}, {"B", 0}}, {""}, 1},
         {"length", "Longueur", "Vecteurs", {{"x", 0}}, {""}, 1},
         {"distance", "Distance", "Vecteurs", {{"A", 0}, {"B", 0}}, {""}, 1},
         {"normalize", "Normaliser", "Vecteurs", {{"x", 0}}, {""}},
+        {"cross", "Produit vectoriel", "Vecteurs", {{"A", 0}, {"B", 0}}, {""}, 3},
         {"split", "Séparer (R G B A)", "Vecteurs", {{"Entrée", 0}}, {"R", "G", "B", "A"}, 1},
         {"append", "Concaténer", "Vecteurs", {{"A", 0}, {"B", 0}}, {""}},
         {"make4", "Composer RGBA", "Vecteurs", {{"R", 0}, {"G", 0}, {"B", 0}, {"A", 1}}, {""}, 4},
@@ -68,10 +80,21 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"hsv2rgb", "TSV vers RVB", "Couleur", {{"TSV", 0}}, {""}, 3},
         {"tosrgb", "Linéaire vers sRGB", "Couleur", {{"Couleur", 0}}, {""}, 3},
         {"tolinear", "sRGB vers linéaire", "Couleur", {{"Couleur", 0}}, {""}, 3},
+        {"contrast", "Contraste", "Couleur", {{"Couleur", 0}, {"Contraste", 1}, {"Pivot", 0.5f}}, {""}, 3},
+        {"hueshift", "Décaler la teinte", "Couleur", {{"Couleur", 0}, {"Décalage (tours)", 0}}, {""}, 3},
+        {"invert", "Inverser les couleurs", "Couleur", {{"Couleur", 0}}, {""}, 4},
         // Procedural
         {"noise", "Bruit", "Procédural", {{"UV", -1}, {"Échelle", 8}}, {""}, 1},
         {"checker", "Damier", "Procédural", {{"UV", -1}, {"Cases", 8}}, {""}, 1},
         {"rotateuv", "Rotation UV", "Procédural", {{"UV", -1}, {"Angle", 0}, {"Centre", 0.5f}}, {""}, 2},
+        {"voronoi", "Voronoï (cellules)", "Procédural", {{"UV", -1}, {"Échelle", 8}}, {"Distance", "Cellule"}, 1},
+        {"fbm", "Bruit fractal", "Procédural", {{"UV", -1}, {"Échelle", 4}, {"Octaves", 5}, {"Rugosité", 0.5f}}, {""}, 1},
+        {"radial", "Dégradé radial", "Procédural", {{"UV", -1}, {"Centre", 0.5f}, {"Rayon", 0.5f}}, {""}, 1},
+        {"lineargrad", "Dégradé linéaire", "Procédural", {{"UV", -1}, {"Angle", 0}}, {""}, 1},
+        {"polar", "Coordonnées polaires", "Procédural", {{"UV", -1}, {"Centre", 0.5f}}, {""}, 2},
+        {"tiling", "Répéter les UV", "Procédural", {{"UV", -1}, {"Répétitions", 2}, {"Décalage", 0}}, {""}, 2},
+        {"circle", "Cercle", "Procédural", {{"UV", -1}, {"Centre", 0.5f}, {"Rayon", 0.3f}, {"Douceur", 0.01f}}, {""}, 1},
+        {"rect", "Rectangle", "Procédural", {{"UV", -1}, {"Centre", 0.5f}, {"Taille", 0.5f}, {"Douceur", 0.01f}}, {""}, 1},
         // Blends (A below, B layer)
         {"opacity", "Opacité du calque", "Fusion", {}, {""}, 1},
         {"blendover", "Composer la fusion", "Fusion", {{"A (dessous)", 0}, {"B (calque)", 0}, {"Mélange RGB", 0}, {"Masque", 1}, {"Opacité", -2}}, {""}, 4},
@@ -95,7 +118,7 @@ bool OpAllowed(const EGOpDef& op, EGKind kind) {
     std::string c = op.category, o = op.op;
     if (c == "Fusion") return kind == EGKind::Blend;
     if (c == "Pinceau") return kind == EGKind::Brush;
-    if (kind == EGKind::Brush && (o == "input" || o == "sample" || o == "texture")) return false;
+    if (kind == EGKind::Brush && (o == "input" || o == "sample" || o == "texture" || o == "sampleoffset" || o == "blur" || o == "edges")) return false;
     return true;
 }
 
@@ -445,6 +468,15 @@ const char* kHelperStruct =
     "    float4 Over(float4 A, float4 B, float3 m, float k) { float ab = saturate(B.a * k); float a = ab + A.a * (1.0 - ab);\n"
     "        float3 rgb = ab * (1.0 - A.a) * B.rgb + ab * A.a * m + (1.0 - ab) * A.a * A.rgb; return float4(a > 0.0 ? rgb / a : (float3)0.0, a); }\n"
     "    float4 F4(float4 v) { return v; }\n"
+    "    float2 Voronoi(float2 p) { float2 i = floor(p); float2 f = frac(p); float d = 8.0; float c = 0.0;\n"
+    "        for (int y = -1; y <= 1; ++y) for (int x = -1; x <= 1; ++x) { float2 g = float2(x, y);\n"
+    "            float2 r = g + float2(Hash(i + g), Hash(i + g + 17.31)) - f; float e = dot(r, r);\n"
+    "            if (e < d) { d = e; c = Hash(i + g + 41.73); } }\n"
+    "        return float2(sqrt(d), c); }\n"
+    "    float Fbm(float2 p, float octaves, float rough) { float s = 0.0, a = 0.5, n = 0.0;\n"
+    "        for (int k = 0; k < 10; ++k) { if (k >= (int)octaves) break; s += a * Noise(p); n += a; a *= rough; p = p * 2.03 + 17.7; }\n"
+    "        return s / max(n, 1e-5); }\n"
+    "    float3 HueShift(float3 c, float t) { float3 h = RGBToHSV(c); h.x = frac(h.x + t); return HSVToRGB(h); }\n"
     "};\n";
 
 struct Gen {
@@ -527,7 +559,7 @@ struct Gen {
             one(v + ".rgb", 3);
             for (const char* c : {".r", ".g", ".b", ".a"}) one(v + c, 1);
         };
-        if ((op == "input" || op == "sample") && brush()) {
+        if ((op == "input" || (op == "sample" || op == "sampleoffset" || op == "blur" || op == "edges")) && brush()) {
             Fail(id, "un pinceau n'a pas d'image d'entrée");
             one("float4(0.0, 0.0, 0.0, 0.0)", 4);
         } else if (op == "brush") {
@@ -632,10 +664,39 @@ struct Gen {
         } else if (op == "sample") {
             usedInputs.insert(std::clamp(n->index, 0, 3));
             channels(SampleAt(std::clamp(n->index, 0, 3), Conv(a[0], 2)));
+        } else if (op == "sampleoffset") {
+            const int ii = std::clamp(n->index, 0, 3);
+            usedInputs.insert(ii);
+            channels(SampleAt(ii, UV() + " + " + Conv(a[0], 2) + " / " + Size()));
+        } else if (op == "blur") {
+            // 13 taps on two rings, weighted towards the center.
+            const int ii = std::clamp(n->index, 0, 3);
+            usedInputs.insert(ii);
+            const std::string r = "(" + S(0) + " / " + Size() + ")";
+            std::string sum = "(" + SampleAt(ii, UV()) + " * 2.0";
+            float wsum = 2.0f;
+            for (int k = 0; k < 12; ++k) {
+                const float ang = 6.2831853f * k / 12.0f + (k % 2 ? 0.26f : 0.0f), rad = k % 2 ? 1.0f : 0.5f;
+                sum += " + " + SampleAt(ii, UV() + " + float2(" + F(std::cos(ang) * rad) + ", " + F(std::sin(ang) * rad) + ") * " + r);
+                wsum += 1.0f;
+            }
+            channels(sum + ") / " + F(wsum));
+        } else if (op == "edges") {
+            // Sobel on the luminance.
+            const int ii = std::clamp(n->index, 0, 3);
+            usedInputs.insert(ii);
+            const std::string t = "(" + S(0) + " / " + Size() + ")";
+            auto lum = [&](int dx, int dy) {
+                return "dot(" + SampleAt(ii, UV() + " + float2(" + F((float)dx) + ", " + F((float)dy) + ") * " + t) + ".rgb, float3(0.2126, 0.7152, 0.0722))";
+            };
+            const std::string gx = "(" + lum(1, -1) + " + 2.0 * " + lum(1, 0) + " + " + lum(1, 1) + " - " + lum(-1, -1) + " - 2.0 * " + lum(-1, 0) + " - " + lum(-1, 1) + ")";
+            const std::string gy = "(" + lum(-1, 1) + " + 2.0 * " + lum(0, 1) + " + " + lum(1, 1) + " - " + lum(-1, -1) + " - 2.0 * " + lum(0, -1) + " - " + lum(1, -1) + ")";
+            one("saturate(length(float2(" + gx + ", " + gy + ")))", 1);
         } else if (op == "uv") one(UV(), 2);
         else if (op == "pixel") one(Pixel(), 2);
         else if (op == "size") one(Size(), 2);
         else if (op == "const") one(F(n->value.x), 1);
+        else if (op == "pi") one("3.14159265", 1);
         else if (op == "const2") one("float2(" + F(n->value.x) + ", " + F(n->value.y) + ")", 2);
         else if (op == "color") one("float4(" + F(n->value.x) + ", " + F(n->value.y) + ", " + F(n->value.z) + ", " + F(n->value.w) + ")", 4);
         else if (op == "param") one(paramNames[id], 1);
@@ -660,10 +721,19 @@ struct Gen {
         else if (op == "negate") one("(-" + a[0].expr + ")", a[0].n);
         else if (op == "reroute") one(a[0].expr, a[0].n);
         else if (op == "sqrt") one("sqrt(max(" + a[0].expr + ", 0.0))", a[0].n);
+        else if (op == "tan" || op == "round" || op == "sign") one(op + "(" + a[0].expr + ")", a[0].n);
+        else if (op == "atan2") one("atan2(" + W(0) + ", " + W(1) + ")", widest);
+        else if (op == "fmod") one("(" + W(0) + " - " + W(1) + " * floor(" + W(0) + " / " + W(1) + "))", widest);  // positive like Unreal's Fmod of wrap
+        else if (op == "remap") one("lerp(" + W(3) + ", " + W(4) + ", (" + W(0) + " - " + W(1) + ") / max(" + W(2) + " - " + W(1) + ", 1e-6))", widest);
+        else if (op == "posterize") {
+            const std::string lv = "max(" + S(1) + " - 1.0, 1.0)";
+            one("(floor(" + a[0].expr + " * " + lv + " + 0.5) / " + lv + ")", a[0].n);
+        }
         else if (op == "log2") one("log2(max(" + a[0].expr + ", 1e-6))", a[0].n);
         else if (op == "if") one("((" + S(0) + " > " + S(1) + ") ? " + Conv(a[2], std::max(a[2].n, a[3].n)) + " : " + Conv(a[3], std::max(a[2].n, a[3].n)) + ")", std::max(a[2].n, a[3].n));
         else if (op == "dot") { int k = std::max(a[0].n, a[1].n); one("dot(" + Conv(a[0], k) + ", " + Conv(a[1], k) + ")", 1); }
         else if (op == "length") one("length(" + a[0].expr + ")", 1);
+        else if (op == "cross") one("cross(" + Conv(a[0], 3) + ", " + Conv(a[1], 3) + ")", 3);
         else if (op == "distance") { int k = std::max(a[0].n, a[1].n); one("distance(" + Conv(a[0], k) + ", " + Conv(a[1], k) + ")", 1); }
         else if (op == "split") {
             std::string v = Conv(a[0], 4);
@@ -691,10 +761,34 @@ struct Gen {
         else if (op == "hsv2rgb") one("sxh.HSVToRGB(" + Conv(a[0], 3) + ")", 3);
         else if (op == "tosrgb") one("sxh.ToSrgb(" + Conv(a[0], 3) + ")", 3);
         else if (op == "tolinear") one("sxh.ToLinear(" + Conv(a[0], 3) + ")", 3);
+        else if (op == "contrast") one("((" + Conv(a[0], 3) + " - " + S(2) + ") * " + S(1) + " + " + S(2) + ")", 3);
+        else if (op == "hueshift") one("sxh.HueShift(" + Conv(a[0], 3) + ", " + S(1) + ")", 3);
+        else if (op == "invert") {
+            const std::string c = Conv(a[0], 4);
+            one("float4(1.0 - (" + c + ").rgb, (" + c + ").a)", 4);
+        }
         else if (op == "noise") one("sxh.Noise(" + Conv(a[0], 2) + " * " + S(1) + ")", 1);
         else if (op == "checker") {
             std::string c = "floor(" + Conv(a[0], 2) + " * " + S(1) + ")";
             one("frac((" + c + ").x * 0.5 + (" + c + ").y * 0.5) * 2.0", 1);
+        } else if (op == "voronoi") {
+            const std::string v = "n" + std::to_string(id) + "_vor";
+            lines.push_back("    float2 " + v + " = sxh.Voronoi(" + Conv(a[0], 2) + " * " + S(1) + ");");
+            out.push_back({v + ".x", 1});
+            out.push_back({v + ".y", 1});
+        } else if (op == "fbm") one("sxh.Fbm(" + Conv(a[0], 2) + " * " + S(1) + ", " + S(2) + ", " + S(3) + ")", 1);
+        else if (op == "radial") one("saturate(1.0 - distance(" + Conv(a[0], 2) + ", " + Conv(a[1], 2) + ") / max(" + S(2) + ", 1e-5))", 1);
+        else if (op == "lineargrad") one("saturate(dot(" + Conv(a[0], 2) + " - 0.5, float2(cos(" + S(1) + "), sin(" + S(1) + "))) + 0.5)", 1);
+        else if (op == "polar") {
+            const std::string dd = "(" + Conv(a[0], 2) + " - " + Conv(a[1], 2) + ")";
+            one("float2(length(" + dd + "), atan2(" + dd + ".y, " + dd + ".x) / 6.2831853 + 0.5)", 2);
+        } else if (op == "tiling") one("frac(" + Conv(a[0], 2) + " * " + Conv(a[1], 2) + " + " + Conv(a[2], 2) + ")", 2);
+        else if (op == "circle") {
+            const std::string r = S(2), s = "max(" + S(3) + ", 1e-5)";
+            one("(1.0 - smoothstep(" + r + " - " + s + ", " + r + " + " + s + ", distance(" + Conv(a[0], 2) + ", " + Conv(a[1], 2) + ")))", 1);
+        } else if (op == "rect") {
+            const std::string dd = "(abs(" + Conv(a[0], 2) + " - " + Conv(a[1], 2) + ") - " + Conv(a[2], 2) + " * 0.5)", s = "max(" + S(3) + ", 1e-5)";
+            one("(1.0 - smoothstep(-" + s + ", " + s + ", max(" + dd + ".x, " + dd + ".y)))", 1);
         } else if (op == "rotateuv") {
             std::string c = Conv(a[2], 2), uv = Conv(a[0], 2), ang = S(1);
             std::string dd = "(" + uv + " - " + c + ")";
@@ -803,7 +897,8 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
     if (g.premultiplied && !brush) s += "//@premultiplied\n";
     if (!brush) {
         bool global = false;
-        for (auto& n : g.nodes) if (n.op == "sample" || n.op == "custom") global = true;
+        for (auto& n : g.nodes)
+            if (n.op == "sample" || n.op == "custom" || n.op == "sampleoffset" || n.op == "blur" || n.op == "edges") global = true;
         s += global ? "//@halo full\n" : "//@halo 0\n";
     }
     if (blend && !ownOpacity) s += "//@param opacity float 1 0 1 \"Opacité\"\n";  // driven by the layer opacity

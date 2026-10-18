@@ -175,6 +175,39 @@ bool App::Init() {
             if (!why.empty()) Log("[test-graphs] %-24s FAILED: %s", e->id.c_str(), why.c_str());
         }
         Log("[test-graphs] %d / %d effect graphs compiled", okg, ng);
+        // Every node of the effect graphs, alone on the output (its pins with their defaults).
+        int oko = 0, no = 0;
+        for (auto& od : EffectGraphOps()) {
+            if (onlyHlsl) break;
+            const std::string op = od.op;
+            if (op == "output" || op == "custom" || op == "texture" || !OpAllowed(od, EGKind::Effect)) continue;  // a texture only feeds HLSL nodes
+            ++no;
+            EffectGraph g = EffectGraph::Default();
+            EGNode n;
+            n.id = g.nextId++;
+            n.op = op;
+            n.inputs.resize(od.inputs.size());
+            g.nodes.push_back(n);
+            if (EGNode* o = g.Find(g.OutputNode())) {
+                for (auto& l : o->inputs) l = {};
+                o->inputs.resize(3);
+                o->inputs[1] = {n.id, 0};
+            }
+            EGCompileResult r = CompileEffectGraph(g);
+            std::string why = r.error;
+            if (why.empty()) {
+                auto def = ParseEffect("", r.code);
+                auto p = gpu::Shaders().CompileNow("op " + op, BuildEffectSource(*def));
+                if (p->state.load() != gpu::Program::State::Ready) why = p->errors;
+            }
+            if (why.empty()) {
+                EGUnrealExport ue = ExportEffectGraphToUnreal(g, "M_Test", "/Game/Test");
+                if (!ue.error.empty()) why = "Unreal : " + ue.error;
+            }
+            oko += why.empty();
+            if (!why.empty()) Log("[test-ops] %-14s FAILED: %s", op.c_str(), why.c_str());
+        }
+        Log("[test-ops] %d / %d graph nodes compiled", oko, no);
         // HLSL import: function with annotations, out parameters, body only, blend.
         const char* samples[] = {
             "//@name Vignette\n//@in Amount float 0.6 0 1 \"Intensité\" \"Réglages\"\n//@in Tint color 0 0 0 1 \"Couleur\" \"Couleur\"\n"

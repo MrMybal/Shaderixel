@@ -79,6 +79,23 @@ const char* OpDescription(const std::string& op) {
         {"brush", "Données de la touche du pinceau : position, pression, graine, temps..."}, {"brushtex", "Une texture du pinceau."},
         {"roundtip", "Pointe ronde avec dureté."}, {"random", "Nombre aléatoire propre à chaque touche."},
         {"custom", "Votre code HLSL, avec ses entrées et sorties déclarées."},
+        {"reroute", "Point de passage pour ranger un lien (double-clic sur un lien)."},
+        {"sampleoffset", "L'image d'entrée décalée de quelques pixels (ombres portées, décalages)."},
+        {"blur", "L'image d'entrée floutée (rayon en pixels)."},
+        {"edges", "Contours de l'image d'entrée (filtre de Sobel sur la luminance)."},
+        {"pi", "3,14159..."},
+        {"tan", "Tangente."}, {"atan2", "Angle du vecteur (X, Y), de -Pi à Pi."},
+        {"fmod", "Reste de A / B, toujours positif (répétitions)."}, {"round", "Arrondi à l'entier le plus proche."},
+        {"sign", "-1, 0 ou 1 selon le signe."}, {"remap", "Ramène une valeur d'un intervalle vers un autre."},
+        {"posterize", "Réduit une valeur à quelques niveaux (aplats)."}, {"cross", "Produit vectoriel de deux vecteurs 3D."},
+        {"contrast", "Écarte les couleurs du pivot (1 : inchangé)."}, {"hueshift", "Tourne la teinte (1 : un tour complet)."},
+        {"invert", "Négatif des couleurs (l'alpha est gardé)."},
+        {"voronoi", "Cellules de Voronoï : distance au centre de la cellule et valeur aléatoire de la cellule."},
+        {"fbm", "Bruit fractal : plusieurs octaves de bruit (nuages, terrains)."},
+        {"radial", "1 au centre, 0 au rayon."}, {"lineargrad", "Dégradé de 0 à 1 dans une direction (angle en radians)."},
+        {"polar", "Coordonnées polaires : distance au centre et angle (0 à 1)."},
+        {"tiling", "Répète les coordonnées (motifs en mosaïque)."},
+        {"circle", "Disque aux bords adoucis."}, {"rect", "Rectangle aux bords adoucis."},
     };
     auto it = d.find(op);
     return it == d.end() ? "" : it->second;
@@ -94,7 +111,13 @@ std::string OpSubGroup(const std::string& op) {
         {"ceil", "Limites et arrondis"},
         {"lerp", "Interpolation"}, {"smoothstep", "Interpolation"},
         {"pow", "Puissances"}, {"sqrt", "Puissances"}, {"exp2", "Puissances"}, {"log2", "Puissances"},
-        {"sin", "Trigonométrie"}, {"cos", "Trigonométrie"},
+        {"sin", "Trigonométrie"}, {"cos", "Trigonométrie"}, {"tan", "Trigonométrie"}, {"atan2", "Trigonométrie"},
+        {"fmod", "Limites et arrondis"}, {"round", "Limites et arrondis"}, {"sign", "Arithmétique"},
+        {"remap", "Interpolation"}, {"posterize", "Limites et arrondis"},
+        {"voronoi", "Bruits"}, {"fbm", "Bruits"}, {"noise", "Bruits"},
+        {"radial", "Formes et dégradés"}, {"lineargrad", "Formes et dégradés"}, {"circle", "Formes et dégradés"}, {"rect", "Formes et dégradés"},
+        {"checker", "Formes et dégradés"},
+        {"polar", "Coordonnées"}, {"tiling", "Coordonnées"}, {"rotateuv", "Coordonnées"},
     };
     auto it = g.find(op);
     return it == g.end() ? "" : it->second;
@@ -187,7 +210,8 @@ float NodeW(const EGNode& n) { return n.op == "reroute" ? kRerouteW : kW; }
 float NodeH(const EGNode& n, const EGOpDef& d) {
     if (n.op == "reroute") return 20.0f;
     float extra = (n.op == "const" || n.op == "const2" || n.op == "color" || n.op == "param" || n.op == "paramcolor" || n.op == "param2" ||
-                   n.op == "input" || n.op == "sample" || n.op == "texture" || n.op == "mask" || n.op == "custom" || n.op == "brushtex")
+                   n.op == "input" || n.op == "sample" || n.op == "texture" || n.op == "mask" || n.op == "custom" || n.op == "brushtex" ||
+                   n.op == "sampleoffset" || n.op == "blur" || n.op == "edges")
                       ? kRowH
                       : 0.0f;
     return kHead + Rows(d) * kRowH + extra + 6 + (HasNodePreview(n) ? kPvH + 8 : 0.0f);
@@ -200,7 +224,8 @@ std::string ValueText(const EGNode& n) {
     else if (n.op == "param" || n.op == "paramcolor" || n.op == "param2") snprintf(b, sizeof(b), "« %s »", (n.text.empty() ? n.name : n.text).c_str());
     else if (n.op == "texture" && !n.name.empty()) snprintf(b, sizeof(b), "Entrée %d (%s)", n.index + 1, n.name.c_str());
     else if (n.op == "brushtex") snprintf(b, sizeof(b), "Texture %d%s%s", n.index + 1, n.text.empty() ? "" : " : ", n.text.c_str());
-    else if (n.op == "input" || n.op == "sample" || n.op == "texture") snprintf(b, sizeof(b), "Entrée %d", n.index + 1);
+    else if (n.op == "input" || n.op == "sample" || n.op == "texture" || n.op == "sampleoffset" || n.op == "blur" || n.op == "edges")
+        snprintf(b, sizeof(b), "Entrée %d", n.index + 1);
     else if (n.op == "mask") {
         std::string s;
         const char* c = "RGBA";
@@ -511,7 +536,7 @@ void App::DrawEffectEditor() {
                 }
                 ImGui::EndPopup();
             }
-        } else if (op == "input" || op == "sample" || op == "texture") {
+        } else if (op == "input" || op == "sample" || op == "texture" || op == "sampleoffset" || op == "blur" || op == "edges") {
             int idx = sel->index + 1;
             if (ImGui::SliderInt("Entrée", &idx, 1, std::max(g.kind == EGKind::Blend ? 3 : g.inputs, 1))) { sel->index = idx - 1; changed = true; }
         } else if (op == "mask") {
