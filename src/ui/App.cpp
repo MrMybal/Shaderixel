@@ -9,6 +9,7 @@
 #include "ui/Theme.h"
 #include "gpu/ShaderSystem.h"
 #include "io/PsdImport.h"
+#include "core/SysStats.h"
 
 #include <shellapi.h>
 #include <imgui_internal.h>
@@ -1534,6 +1535,33 @@ void App::HandleShortcuts() {
 
 // ------------------------------------------------------------------ small panels
 
+// Status bar gauge: label, small bar and value. `fill` is the filled share, `load` sets the colour
+// (green, orange from 60 %, red from 85 %); a negative load draws an empty bar. True when hovered.
+static bool StatusGauge(const char* label, float fill, float load, const char* value) {
+    ImGui::BeginGroup();
+    ImGui::TextDisabled("%s", label);
+    const float mid = (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) * 0.5f;  // centred on the text
+    ImGui::SameLine(0, 4);
+    ImGui::Dummy(ImVec2(ImGui::GetFontSize() * 3.0f, ImGui::GetTextLineHeight()));
+    ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
+    float bh = std::max(4.0f, ImGui::GetFontSize() * 0.5f), y = mid - bh * 0.5f;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddRectFilled(ImVec2(a.x, y), ImVec2(b.x, y + bh), ImGui::GetColorU32(ImGuiCol_FrameBg), 2.0f);
+    if (load >= 0) {
+        const ImVec4 green(0.30f, 0.78f, 0.40f, 1), orange(1.0f, 0.65f, 0.18f, 1), red(1.0f, 0.30f, 0.30f, 1);
+        ImVec4 c = load < 0.6f ? green
+                   : load < 0.85f ? ImLerp(green, orange, (load - 0.6f) / 0.25f)
+                                  : ImLerp(orange, red, std::min(1.0f, (load - 0.85f) / 0.1f));
+        float x = a.x + (b.x - a.x) * std::clamp(fill, 0.0f, 1.0f);
+        if (x > a.x + 0.5f) dl->AddRectFilled(ImVec2(a.x, y), ImVec2(x, y + bh), ImGui::GetColorU32(c), 2.0f);
+    }
+    dl->AddRect(ImVec2(a.x, y), ImVec2(b.x, y + bh), ImGui::GetColorU32(ImGuiCol_Border), 2.0f);
+    ImGui::SameLine(0, 4);
+    ImGui::TextUnformatted(value);
+    ImGui::EndGroup();
+    return ImGui::IsItemHovered();
+}
+
 void App::DrawStatusBar() {
     ImGuiViewport* vp = ImGui::GetMainViewport();
     float h = ImGui::GetFrameHeight();
@@ -1595,19 +1623,60 @@ void App::DrawStatusBar() {
                 if (ImGui::SmallButton((std::to_string(failedCount) + " erreur(s) de shader").c_str())) showShaderErrors = true;
                 ImGui::PopStyleColor();
             }
-            char right[200], sparse[48] = "";
-            if (u64 sb = gpu::Dev().SparseBytes()) snprintf(sparse, sizeof(sparse), " (creux %.0f Mo)", sb / (1024.0 * 1024.0));
-            snprintf(right, sizeof(right), "%s   VRAM %.0f Mo%s   %.0f i/s", gpu::Dev().AdapterName().c_str(),
-                     gpu::Dev().VideoMemoryUsage() / (1024.0 * 1024.0), sparse, ImGui::GetIO().Framerate);
-            // Zone toggles (Tab / Maj+Tab), left of the GPU info.
+            // Machine load (Windows counters, sampled once a second): graphics card, processor, video memory.
+            gpu::Device& gd = gpu::Dev();
+            sys::WatchAdapter(gd.AdapterLuid());
+            const sys::Load load = sys::CurrentLoad();
+            const double MB = 1024.0 * 1024.0, GB = MB * 1024.0;
+            const u64 vTotal = gd.VideoMemoryTotal(), vMine = gd.VideoMemoryUsage(), vBudget = gd.VideoMemoryBudget();
+            u64 vUsed = load.vramKnown ? load.vramUsedAll : vMine;
+            if (vTotal) vUsed = std::min(vUsed, vTotal);
+            const u64 vFree = vTotal > vUsed ? vTotal - vUsed : 0;
+            const float vFrac = vTotal ? (float)((double)vUsed / (double)vTotal) : -1.0f;
+            char right[160];
+            snprintf(right, sizeof(right), "%s   %.0f i/s", gd.AdapterName().c_str(), ImGui::GetIO().Framerate);
+            // Zone toggles (Tab / Maj+Tab), left of the gauges and the GPU name.
+            static float gaugesW = 0;  // measured on the previous frame
             const char* tb = hideBottom ? "Afficher le graphe" : "Masquer le graphe";
             const char* tr = hideRight ? "Afficher les panneaux" : "Masquer les panneaux";
             float bw = ImGui::CalcTextSize(tb).x + ImGui::CalcTextSize(tr).x + ImGui::GetStyle().FramePadding.x * 4 + ImGui::GetStyle().ItemSpacing.x * 2;
-            ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(right).x - 32 - bw);
+            ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(right).x - 48 - bw - gaugesW);
             if (ImGui::SmallButton(tb)) hideBottom = !hideBottom;
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Zone du bas (graphe, éditeur d'effets) - Tab");
             if (ImGui::SmallButton(tr)) hideRight = !hideRight;
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Colonne de droite (onglets, calques) - Maj+Tab");
+            ImGui::Dummy(ImVec2(8, 0));
+            const float gx = ImGui::GetCursorScreenPos().x;
+            char val[64];
+            if (load.gpu >= 0) snprintf(val, sizeof(val), "%d %%", (int)(load.gpu * 100 + 0.5f));
+            else snprintf(val, sizeof(val), "-");
+            if (StatusGauge("GPU", load.gpu, load.gpu, val))
+                ImGui::SetTooltip("Utilisation du GPU : moteur le plus chargé de la carte, toutes applications confondues");
+            ImGui::Dummy(ImVec2(6, 0));
+            if (load.cpu >= 0) snprintf(val, sizeof(val), "%d %%", (int)(load.cpu * 100 + 0.5f));
+            else snprintf(val, sizeof(val), "-");
+            if (StatusGauge("CPU", load.cpu, load.cpu, val))
+                ImGui::SetTooltip("Utilisation du processeur : tous les cœurs, toutes applications confondues");
+            ImGui::Dummy(ImVec2(6, 0));
+            if (vTotal) snprintf(val, sizeof(val), "%.1f / %.0f Go", vUsed / GB, vTotal / GB);
+            else snprintf(val, sizeof(val), "%.0f Mo", vMine / MB);
+            if (StatusGauge("VRAM", vFrac, vFrac, val)) {
+                ImGui::BeginTooltip();
+                ImGui::Text("Mémoire vidéo utilisée (toutes les applications) : %.0f / %.0f Mo", vUsed / MB, vTotal / MB);
+                ImGui::Text("Shaderixel : %.0f Mo", vMine / MB);
+                if (u64 sb = gd.SparseBytes()) ImGui::Text("Textures creuses (grandes images) : %.0f Mo", sb / MB);
+                if (vBudget) ImGui::Text("Budget accordé par le système : %.0f Mo", vBudget / MB);
+                ImGui::EndTooltip();
+            }
+            ImGui::Dummy(ImVec2(6, 0));
+            snprintf(val, sizeof(val), "%.1f Go", vFree / GB);
+            if (StatusGauge("Libre", vTotal ? 1.0f - vFrac : 0.0f, vFrac, val)) {
+                ImGui::BeginTooltip();
+                ImGui::Text("Mémoire vidéo disponible sur la carte : %.0f Mo", vFree / MB);
+                ImGui::TextDisabled("Quand la carte est pleine, les données passent en mémoire système et tout ralentit.");
+                ImGui::EndTooltip();
+            }
+            gaugesW = ImGui::GetItemRectMax().x - gx;
             ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(right).x - 16);
             ImGui::TextDisabled("%s", right);
             ImGui::EndMenuBar();

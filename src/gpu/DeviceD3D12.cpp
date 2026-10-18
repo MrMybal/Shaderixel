@@ -772,6 +772,26 @@ u64 Device::VideoMemoryUsage() const {
     return info.CurrentUsage;
 }
 
+u64 Device::VideoMemoryBudget() const {
+    ComPtr<IDXGIAdapter3> a3;
+    if (FAILED(adapter.As(&a3))) return 0;
+    DXGI_QUERY_VIDEO_MEMORY_INFO info = {};
+    a3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &info);
+    return info.Budget;
+}
+
+u64 Device::VideoMemoryTotal() const {
+    DXGI_ADAPTER_DESC1 desc = {};
+    if (!adapter || FAILED(adapter->GetDesc1(&desc))) return 0;
+    return desc.DedicatedVideoMemory;
+}
+
+u64 Device::AdapterLuid() const {
+    DXGI_ADAPTER_DESC1 desc = {};
+    if (!adapter || FAILED(adapter->GetDesc1(&desc))) return 0;
+    return ((u64)(u32)desc.AdapterLuid.HighPart << 32) | desc.AdapterLuid.LowPart;
+}
+
 // ------------------------------------------------------------------ command context
 
 void CommandContext::Transition(Texture* t, D3D12_RESOURCE_STATES s) {

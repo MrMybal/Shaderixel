@@ -681,6 +681,37 @@ u64 Device::VideoMemoryUsage() const {
     return used;
 }
 
+u64 Device::VideoMemoryBudget() const {
+    if (!memoryBudget) return 0;
+    VkPhysicalDeviceMemoryBudgetPropertiesEXT budget = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT};
+    VkPhysicalDeviceMemoryProperties2 p2 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2};
+    p2.pNext = &budget;
+    vkGetPhysicalDeviceMemoryProperties2(physical, &p2);
+    u64 total = 0;
+    for (u32 i = 0; i < p2.memoryProperties.memoryHeapCount; ++i)
+        if (p2.memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) total += budget.heapBudget[i];
+    return total;
+}
+
+u64 Device::VideoMemoryTotal() const {
+    // The largest device-local heap: the card's memory (the small BAR heap is a window into it).
+    u64 best = 0;
+    for (u32 i = 0; i < memProps.memoryHeapCount; ++i)
+        if (memProps.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) best = std::max<u64>(best, memProps.memoryHeaps[i].size);
+    return best;
+}
+
+u64 Device::AdapterLuid() const {
+    VkPhysicalDeviceIDProperties id = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES};
+    VkPhysicalDeviceProperties2 p2 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+    p2.pNext = &id;
+    vkGetPhysicalDeviceProperties2(physical, &p2);
+    if (!id.deviceLUIDValid) return 0;
+    u64 luid = 0;
+    memcpy(&luid, id.deviceLUID, sizeof(luid));  // LowPart, then HighPart
+    return luid;
+}
+
 // ------------------------------------------------------------------ sparse textures
 
 int Device::AllocTile() {

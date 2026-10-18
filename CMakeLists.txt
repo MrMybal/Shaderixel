@@ -112,7 +112,7 @@ endforeach()
 function(sx_app target)
     add_executable(${target} WIN32 ${SX_SOURCES} ${ARGN} ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc)
     target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/sdk/include ${EXT}/stb)
-    target_link_libraries(${target} PRIVATE imgui slang xatlas ufbx comdlg32 shell32 ole32 d3d11 windowscodecs advapi32)
+    target_link_libraries(${target} PRIVATE imgui slang xatlas ufbx comdlg32 shell32 ole32 d3d11 windowscodecs advapi32 pdh)
     target_compile_definitions(${target} PRIVATE
         NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE
         SX_SHADER_DIR="${CMAKE_SOURCE_DIR}/shaders")

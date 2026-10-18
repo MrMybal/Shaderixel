@@ -7,5 +7,17 @@
  "32 bits flottant": "32-bit float",
  "Rayons": "Radii",
  "Choisir...": "Choose...",
- "Dégradé": "Gradient"
+ "Dégradé": "Gradient",
+ "Libre": "Free",
+ "{n} / {n} Go": "{n} / {n} GB",
+ "{n} Go": "{n} GB",
+ "%s   {n} i/s": "%s   {n} fps",
+ "Utilisation du GPU : moteur le plus chargé de la carte, toutes applications confondues": "GPU usage: busiest engine of the card, all applications",
+ "Utilisation du processeur : tous les cœurs, toutes applications confondues": "CPU usage: all cores, all applications",
+ "Mémoire vidéo utilisée (toutes les applications) : {n} / {n} Mo": "Video memory used (all applications): {n} / {n} MB",
+ "Shaderixel : {n} Mo": "Shaderixel: {n} MB",
+ "Textures creuses (grandes images) : {n} Mo": "Sparse textures (large images): {n} MB",
+ "Budget accordé par le système : {n} Mo": "Budget given by the system: {n} MB",
+ "Mémoire vidéo disponible sur la carte : {n} Mo": "Video memory available on the card: {n} MB",
+ "Quand la carte est pleine, les données passent en mémoire système et tout ralentit.": "When the card is full, data spills into system memory and everything slows down."
 }

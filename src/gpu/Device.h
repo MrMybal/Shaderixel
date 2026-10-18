@@ -234,6 +234,10 @@ public:
     u64 FrameNumber() const { return frameNumber; }
     std::string AdapterName() const { return adapterName; }
     u64 VideoMemoryUsage() const;
+    // Dedicated memory of the adapter, the share the system gives this process, and the adapter LUID (system counters).
+    u64 VideoMemoryTotal() const;
+    u64 VideoMemoryBudget() const;
+    u64 AdapterLuid() const;
     // Textures of at least this many pixels (no RT/depth usage) are created sparse.
     void SetSparseThreshold(u64 pixels) { sparseThreshold = pixels; }
     bool SparseSupported() const { return sparseSupported; }
