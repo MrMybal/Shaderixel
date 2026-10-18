@@ -890,4 +890,57 @@ void App::DrawAnalysis() {
     ImGui::End();
 }
 
+// ------------------------------------------------------------------ before / after
+
+void App::TakeSnapshot(DocView& v) {
+    if (!v.lastImage) return;
+    auto& ab = abCompare;
+    ab.snap = gpu::Dev().CreateTexture(v.lastImage->Width(), v.lastImage->Height(), v.lastImage->GetFormat(), "Snapshot");
+    ctx->CopyTexture(ab.snap.get(), v.lastImage);
+    ab.reduced.reset();
+    ab.reducedFactor = 0;
+    ab.view = &v;
+    ab.on = true;
+    Status("Instantané pris : comparez avant / après (Affichage > Avant / après)");
+}
+
+bool App::CompareSplitInput(DocView& v, ImVec2 canvasMin, ImVec2 size, bool hovered) {
+    // Dragging the split line (its whole height): the tools do not get the click.
+    auto& ab = abCompare;
+    if (!(ab.on && ab.snap && ab.view == &v && ab.mode == 1)) { ab.dragging = false; return false; }
+    const ImVec2 m = ImGui::GetMousePos();
+    const float x = canvasMin.x + ab.split * size.x;
+    const bool nearLine = hovered && std::abs(m.x - x) <= 7.0f;
+    if (nearLine && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) ab.dragging = true;
+    if (ab.dragging) {
+        if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) ab.split = std::clamp((m.x - canvasMin.x) / std::max(1.0f, size.x), 0.0f, 1.0f);
+        else ab.dragging = false;
+    }
+    if (nearLine || ab.dragging) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+    return nearLine || ab.dragging;
+}
+
+void App::DrawCompareMenu() {
+    // View > Before / after.
+    auto& ab = abCompare;
+    DocView* v = Active();
+    if (ImGui::MenuItem("Prendre un instantané (avant)", nullptr, false, v && v->lastImage)) TakeSnapshot(*v);
+    const bool has = ab.snap && v && ab.view == v;
+    ImGui::BeginDisabled(!has);
+    if (ImGui::MenuItem("Comparer", nullptr, ab.on)) ab.on = !ab.on;
+    ImGui::Separator();
+    if (ImGui::MenuItem("Partage glissant", nullptr, ab.mode == 1)) { ab.mode = 1; ab.on = true; }
+    if (ImGui::MenuItem("Avant seulement", nullptr, ab.mode == 2)) { ab.mode = 2; ab.on = true; }
+    if (ImGui::MenuItem("Différence", nullptr, ab.mode == 3)) { ab.mode = 3; ab.on = true; }
+    ImGui::Separator();
+    if (ImGui::MenuItem("Supprimer l'instantané")) {
+        ab.snap.reset();
+        ab.reduced.reset();
+        ab.on = false;
+    }
+    ImGui::EndDisabled();
+    if (has && v->lastImage && (ab.snap->Width() != v->lastImage->Width() || ab.snap->Height() != v->lastImage->Height()))
+        ImGui::TextDisabled("Taille du document changée : reprenez un instantané.");
+}
+
 }  // namespace sx

@@ -1166,6 +1166,10 @@ void App::DrawMenuBar() {
     }
     if (ImGui::BeginMenu("Affichage")) {
         ui::MenuFilter();
+        if (ImGui::BeginMenu("Avant / après")) {
+            DrawCompareMenu();
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("Analyse sur le canevas")) {
             static const char* modes[] = {"Normal", "Zébras", "Écrêtage", "Fausses couleurs", "Focus peaking", "Luminance"};
             for (int i = 0; i < 6; ++i)

@@ -322,5 +322,17 @@
  "Points de mesure": "Color samplers",
  "Pipette + Maj+clic sur le canevas : un point de mesure (4 au plus), lu en continu.": "Eyedropper + Shift+click on the canvas: a color sampler (4 at most), read continuously.",
  "Retirer tous les points": "Remove all samplers",
- "Point de mesure {n} : Analyse d'image > Pixel": "Color sampler {n}: Image analysis > Pixel"
+ "Point de mesure {n} : Analyse d'image > Pixel": "Color sampler {n}: Image analysis > Pixel",
+ "Avant": "Before",
+ "Après": "After",
+ "Avant (instantané)": "Before (snapshot)",
+ "Différence avant / après": "Before / after difference",
+ "Avant / après": "Before / after",
+ "Prendre un instantané (avant)": "Take a snapshot (before)",
+ "Partage glissant": "Sliding split",
+ "Avant seulement": "Before only",
+ "Différence": "Difference",
+ "Supprimer l'instantané": "Delete the snapshot",
+ "Taille du document changée : reprenez un instantané.": "Document size changed: take a new snapshot.",
+ "Instantané pris : comparez avant / après (Affichage > Avant / après)": "Snapshot taken: compare before / after (View > Before / after)"
 }

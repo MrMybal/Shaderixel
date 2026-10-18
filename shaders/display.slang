@@ -22,7 +22,8 @@ cbuffer View : register(b1)
     float4 gOv2;
     uint gOvFlags;      // 1 = show the layer contents outside the document
     uint gInpaint;      // 1 = AI inpainting mask tint
-    uint2 gOvPad;
+    uint gCompare;      // before / after: 1 split (snapshot left of gSplit), 2 snapshot only, 3 difference
+    float gSplit;       // split position (view pixels)
 };
 
 Texture2D<float4> gImage : register(t0);
@@ -30,6 +31,7 @@ Texture2D<float> gSel : register(t1);
 Texture2D<float4> gLut : register(t2);  // n*n x n: x = b * n + r, y = g; alpha 1 = in gamut
 Texture2D<float4> gOverflow : register(t3);  // contents of the layer being transformed (premultiplied linear)
 Texture2D<float4> gInpaintMask : register(t4);  // AI inpainting mask (r: 1 = to regenerate)
+Texture2D<float4> gSnap : register(t5);  // snapshot of the image (before / after), possibly reduced
 
 float4 LutAt(float3 s)
 {
@@ -157,6 +159,17 @@ void main(uint3 id : SV_DispatchThreadID)
                 for (int x = 0; x < n; ++x)
                     c += gImage.SampleLevel(sLinearClamp, (start + float2(x, y) * step) / float2(gDocSize), 0);
             c /= float(n * n);
+        }
+    }
+    if (gCompare != 0)
+    {
+        float4 s = gSnap.SampleLevel(sLinearClamp, d / float2(gDocSize), 0);
+        if ((gCompare == 1 && v.x < gSplit) || gCompare == 2) c = s;
+        else if (gCompare == 3)
+        {
+            // Difference of the displayed colors, amplified.
+            float3 a = LinearToSrgb(saturate(c.rgb + (1.0 - saturate(c.a)))), b = LinearToSrgb(saturate(s.rgb + (1.0 - saturate(s.a))));
+            c = float4(SrgbToLinear(saturate(abs(a - b) * 4.0)), 1.0);
         }
     }
     c.rgb *= exp2(gExposure);

@@ -481,6 +481,16 @@ void App::DemoTick() {
                     if (l.id != v->doc->S().activeLayer && l.name != "Arrière-plan") { analysis.compareLayer = l.id; break; }
             analysis.demoTab = atoi(tab);
         }
+        if (char ab[8] = ""; GetEnvironmentVariableA("SX_AB", ab, sizeof(ab)) > 0 && v) {
+            // Before / after: snapshot, then an effect on the layer, compared (1 split, 2 before, 3 difference).
+            if (frameCounter == 40) TakeSnapshot(*v);
+            if (frameCounter == 44) ApplyLibraryEffect(*v, Effects().Find("sepia") ? "sepia" : "invert", FxApply::Filter);
+            if (frameCounter == 46) {
+                abCompare.mode = atoi(ab);
+                abCompare.split = 0.45f;
+                abCompare.on = true;
+            }
+        }
         if (frameCounter == 80) {
             Log("[analysis] valid %d, %u x %u, luma mean %.3f sd %.3f, palette %zu", (int)analysis.valid, analysis.w, analysis.h,
                 analysis.stats[3].mean, analysis.stats[3].sd, analysis.palette.size());

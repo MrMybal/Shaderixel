@@ -34,6 +34,9 @@ struct ViewParams {
     u32 lutSize = 0;
     bool gamutWarning = false;
     int scope = 0;           // analysis overlay: 1 zebras, 2 clipping, 3 false color, 4 focus peaking, 5 luminance
+    gpu::Texture* snapshot = nullptr;  // before / after
+    int compare = 0;         // 1 split, 2 snapshot only, 3 difference
+    float split = 0;         // view pixels
     float scopeLevel = 0.95f;
     gpu::Texture* overflow = nullptr;  // layer contents shown outside the document (transform tool)
     float overflowInv[9] = {};         // document pixel -> contents UV (homography, row-major)

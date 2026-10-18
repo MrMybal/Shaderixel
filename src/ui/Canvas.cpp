@@ -289,7 +289,7 @@ void App::DrawCanvas() {
     if (xf.active && xf.view != v) TransformCancel(*xf.view);
     UpdateWand(*v);
     UpdateQuickSelect(*v);
-    if (!GuideInput(*v, canvasMin, avail, hovered)) CanvasInput(*v, canvasMin, avail, hovered);
+    if (!CompareSplitInput(*v, canvasMin, avail, hovered) && !GuideInput(*v, canvasMin, avail, hovered)) CanvasInput(*v, canvasMin, avail, hovered);
     TransformApply(*v);
 
     {
@@ -323,6 +323,23 @@ void App::DrawCanvas() {
     if (Surface* im = (doc.S().showInpaint || doc.S().editInpaint) ? doc.GetSurface(doc.S().inpaintMask) : nullptr) vp.inpaint = im->tex.get();
     vp.time = (float)ImGui::GetTime();
     DisplayColorLut(*v, vp);
+    // Before / after: the snapshot, reduced like the image when zoomed out.
+    auto& ab = abCompare;
+    if (ab.on && ab.snap && ab.view == v && ab.snap->Width() == doc.Width() && ab.snap->Height() == doc.Height()) {
+        u32 factor = 1;
+        while (vp.invZoom / factor > 2.0f && factor < 64) factor *= 2;
+        gpu::Texture* snap = ab.snap.get();
+        if (factor > 1) {
+            if (!ab.reduced || ab.reducedFactor != factor) {
+                ab.reduced = v->renderer.PreviewCopy(*ctx, ab.snap.get(), std::max(1u, doc.Width() / factor), std::max(1u, doc.Height() / factor));
+                ab.reducedFactor = factor;
+            }
+            if (ab.reduced) snap = ab.reduced.get();
+        }
+        vp.snapshot = snap;
+        vp.compare = ab.mode;
+        vp.split = ab.split * vw;
+    }
     if (tool == Tool::LayerTransform && lxf.overflow) {
         gpu::Texture* content = nullptr;
         if (LayerTransformOverflow(*v, content, vp.overflowInv)) vp.overflow = content;
@@ -351,6 +368,22 @@ void App::DrawCanvas() {
         snprintf(nb, sizeof(nb), "%d", (int)i + 1);
         dl->AddText(ImVec2(c.x + 9, c.y + 4), IM_COL32(0, 0, 0, 255), nb);
         dl->AddText(ImVec2(c.x + 8, c.y + 3), IM_COL32(255, 255, 255, 255), nb);
+    }
+
+    // Before / after split line.
+    if (ab.on && ab.snap && ab.view == v && ab.mode == 1) {
+        const float x = canvasMin.x + ab.split * avail.x;
+        dl->AddLine(ImVec2(x, canvasMin.y), ImVec2(x, canvasMin.y + avail.y), IM_COL32(0, 0, 0, 160), 3.0f);
+        dl->AddLine(ImVec2(x, canvasMin.y), ImVec2(x, canvasMin.y + avail.y), IM_COL32(255, 255, 255, 230), 1.0f);
+        const float cy = canvasMin.y + avail.y * 0.5f;
+        dl->AddRectFilled(ImVec2(x - 9, cy - 22), ImVec2(x + 9, cy + 22), IM_COL32(30, 30, 36, 230), 4);
+        dl->AddRect(ImVec2(x - 9, cy - 22), ImVec2(x + 9, cy + 22), IM_COL32(255, 255, 255, 200), 4);
+        dl->AddTriangleFilled(ImVec2(x - 6, cy), ImVec2(x - 2, cy - 5), ImVec2(x - 2, cy + 5), IM_COL32_WHITE);
+        dl->AddTriangleFilled(ImVec2(x + 6, cy), ImVec2(x + 2, cy - 5), ImVec2(x + 2, cy + 5), IM_COL32_WHITE);
+        dl->AddText(ImVec2(x - 8 - ImGui::CalcTextSize("Avant").x, canvasMin.y + 8), IM_COL32_WHITE, "Avant");
+        dl->AddText(ImVec2(x + 8, canvasMin.y + 8), IM_COL32_WHITE, "Après");
+    } else if (ab.on && ab.snap && ab.view == v) {
+        dl->AddText(ImVec2(canvasMin.x + 10, canvasMin.y + 8), IM_COL32_WHITE, ab.mode == 2 ? "Avant (instantané)" : "Différence avant / après");
     }
 
     // Overlays

@@ -1747,6 +1747,19 @@ private:
     // Reference images (N x N, RGBA8): 0 logo on a background, 1 color chart, 2 gradient, 3 checker, 4 white, 5 black.
     std::vector<u8> ReferencePixels(int kind, int N);
     // Image analysis panel (Analysis.cpp): scopes from a reduced sRGB copy of the image or of the active layer / node.
+    // Before / after: a snapshot of the image compared on the canvas (split, alone, difference).
+    struct {
+        gpu::TexturePtr snap, reduced;
+        u32 reducedFactor = 0;
+        DocView* view = nullptr;
+        int mode = 1;            // 1 split, 2 snapshot only, 3 difference (shown when a snapshot exists and `on`)
+        bool on = false;
+        float split = 0.5f;      // fraction of the view width
+        bool dragging = false;
+    } abCompare;
+    void TakeSnapshot(DocView& v);
+    bool CompareSplitInput(DocView& v, ImVec2 canvasMin, ImVec2 size, bool hovered);
+    void DrawCompareMenu();
     struct AnalysisSampler {
         float2 pos;
         gpu::ReadbackPtr rb;
