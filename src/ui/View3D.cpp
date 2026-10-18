@@ -560,8 +560,7 @@ void App::DrawView3DRenderSettings(MeshScene& s) {
         ImGui::SliderFloat("Débruitage", &s.rtDenoise, 0, 1, s.rtDenoise > 0 ? "%.2f" : "désactivé");
         ImGui::SeparatorText("Profondeur de champ");
         ImGui::SliderFloat("Ouverture", &s.dofAperture, 0, 0.15f, s.dofAperture > 0 ? "%.3f" : "désactivée", ImGuiSliderFlags_Logarithmic);
-        ui::HelpTooltip("Taille de l'objectif : plus elle est grande, plus ce qui est hors de la distance nette est flou.
-Un grand flou demande plus d'échantillons (et un débruitage plus fort) pour être lisse.");
+        ui::HelpTooltip("Taille de l'objectif : plus elle est grande, plus ce qui est hors de la distance nette est flou.\nUn grand flou demande plus d'échantillons (et un débruitage plus fort) pour être lisse.");
         if (s.dofAperture > 0) {
             ImGui::SliderFloat("Distance nette", &s.dofFocus, 0.05f, 30, "%.2f", ImGuiSliderFlags_Logarithmic);
             if (ImGui::SmallButton("Choisir sur le modèle")) {
