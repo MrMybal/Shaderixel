@@ -33,6 +33,8 @@ struct ViewParams {
     gpu::Texture* lut = nullptr;  // display / proof 3D LUT (n*n x n, alpha = in gamut)
     u32 lutSize = 0;
     bool gamutWarning = false;
+    int scope = 0;           // analysis overlay: 1 zebras, 2 clipping, 3 false color, 4 focus peaking, 5 luminance
+    float scopeLevel = 0.95f;
     gpu::Texture* overflow = nullptr;  // layer contents shown outside the document (transform tool)
     float overflowInv[9] = {};         // document pixel -> contents UV (homography, row-major)
 };

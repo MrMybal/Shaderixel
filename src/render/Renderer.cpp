@@ -26,7 +26,8 @@ struct DisplayCB {
     float4 outside;
     float checker, exposure, time;
     u32 selFlags;
-    u32 lutSize, gamut, pad0, pad1;
+    u32 lutSize, gamut, scope;
+    float scopeLevel;
     float4 ov0, ov1, ov2;  // overflow: document pixel -> contents UV
     u32 ovFlags, inpaint, ovPad1, ovPad2;
 };
@@ -453,6 +454,8 @@ bool Renderer::Display(gpu::CommandContext& ctx, gpu::Texture* image, u32 docW, 
     cb.selFlags = v.selection ? (1u | (v.quickMask ? 2u : 0u)) : 0u;
     cb.lutSize = v.lut ? v.lutSize : 0u;
     cb.gamut = v.gamutWarning ? 1u : 0u;
+    cb.scope = (u32)v.scope;
+    cb.scopeLevel = v.scopeLevel;
     if (v.overflow) {
         cb.ov0 = {v.overflowInv[0], v.overflowInv[1], v.overflowInv[2], 0};
         cb.ov1 = {v.overflowInv[3], v.overflowInv[4], v.overflowInv[5], 0};

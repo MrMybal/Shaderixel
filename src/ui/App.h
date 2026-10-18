@@ -1769,14 +1769,27 @@ private:
         std::vector<u32> vs;
         std::vector<float> vsColor, spectrum;
         std::vector<std::pair<float4, float>> palette;  // dominant colors and their share
-        gpu::TexturePtr tex[4];  // waveform, vectorscope, spectrum, false color
-        u64 texKey[4] = {};
+        gpu::TexturePtr tex[6];  // waveform, vectorscope, spectrum, false color, sharpness map, difference
+        u64 texKey[6] = {};
+        // Sharpness (local variance of the Laplacian) and noise (Immerkaer) of the analysed copy.
+        std::vector<float> sharpMap;
+        u32 sharpW = 0, sharpH = 0;
+        float sharpness = 0, noise = 0;
+        // Comparison with another layer (same reduced size).
+        Id compareLayer = 0;
+        bool compareWanted = false;
+        gpu::ReadbackPtr rbB;
+        u64 hashB = 0, hashBFor = 0, frameB = 0, versionB = 0;
+        std::vector<float> pxB;
+        float diffMean = 0, diffMax = 0, psnr = 0, changedShare = 0;
         gpu::ReadbackPtr probe;
         float4 probeValue;
         bool probeValid = false, wantProbe = false;
         float2 probePos{-1, -1};
         u64 probeFrame = 0;
         int demoTab = -1;        // demos: tab to select
+        int overlay = 0;         // on the canvas: 1 zebras, 2 clipping, 3 false color, 4 focus peaking, 5 luminance
+        float zebra = 0.95f, peaking = 0.12f;
     } analysis;
     void UpdateAnalysis();
     void ComputeAnalysis();

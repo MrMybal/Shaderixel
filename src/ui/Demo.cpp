@@ -456,15 +456,23 @@ void App::DemoTick() {
             analysis.quad = GetEnvironmentVariableA("SX_ANQUAD", nullptr, 0) > 0;
             analysis.waveMode = GetEnvironmentVariableA("SX_ANWAVE", nullptr, 0) > 0 ? 2 : 0;
             analysis.source = GetEnvironmentVariableA("SX_ANSRC", nullptr, 0) > 0 ? 1 : 0;
+            char ov[8] = "0";
+            GetEnvironmentVariableA("SX_ANOV", ov, sizeof(ov));
+            analysis.overlay = atoi(ov);
         }
         if (frameCounter == 34) {
             ShowSideTab(0);
             ImGui::SetWindowFocus("Analyse d'image");
+            if (GetEnvironmentVariableA("SX_ANCMP", nullptr, 0) > 0 && v)
+                for (auto& l : v->doc->S().layers)
+                    if (l.id != v->doc->S().activeLayer && l.name != "Arrière-plan") { analysis.compareLayer = l.id; break; }
             analysis.demoTab = atoi(tab);
         }
         if (frameCounter == 80) {
             Log("[analysis] valid %d, %u x %u, luma mean %.3f sd %.3f, palette %zu", (int)analysis.valid, analysis.w, analysis.h,
                 analysis.stats[3].mean, analysis.stats[3].sd, analysis.palette.size());
+            Log("[analysis] sharpness %.2f noise %.2f; compare %u: mean %.2f max %.1f psnr %.1f changed %.3f", analysis.sharpness, analysis.noise,
+                analysis.compareLayer, analysis.diffMean, analysis.diffMax, analysis.psnr, analysis.changedShare);
         }
         return;
     }

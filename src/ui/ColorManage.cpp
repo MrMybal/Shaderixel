@@ -21,6 +21,9 @@ std::string App::CmykProfileFor(DocView* v) const {
 }
 
 void App::DisplayColorLut(DocView& v, ViewParams& vp) {
+    // Analysis overlay (Analyse d'image panel, Affichage menu).
+    vp.scope = analysis.overlay;
+    vp.scopeLevel = analysis.overlay == 4 ? analysis.peaking : analysis.zebra;
     Document& d = *v.doc;
     // Chain: document RGB -> proofing space (CMYK mode or Proof Colors) -> monitor.
     std::vector<std::string> chain = {d.iccProfile};

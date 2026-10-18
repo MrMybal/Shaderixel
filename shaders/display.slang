@@ -15,7 +15,8 @@ cbuffer View : register(b1)
     uint gSelFlags;     // 1 = selection, 2 = quick mask overlay
     uint gLutSize;      // color management / soft proofing LUT (0 = none)
     uint gGamut;        // 1 = gray out colors outside the proofing gamut
-    uint2 gPad;
+    uint gScope;        // analysis overlay: 1 zebras, 2 clipping, 3 false color, 4 focus peaking, 5 luminance
+    float gScopeLevel;  // zebras: luminance threshold; focus peaking: edge threshold
     float4 gOv0;        // overflow (transform tool): document pixel -> layer contents UV
     float4 gOv1;
     float4 gOv2;
@@ -41,6 +42,65 @@ float4 LutAt(float3 s)
     return lerp(gLut.SampleLevel(sLinearClamp, uv0, 0), gLut.SampleLevel(sLinearClamp, uv1, 0), fb);
 }
 RWTexture2D<float4> gOut : register(u0);
+
+float LumaS(float3 s) { return dot(s, float3(0.2126, 0.7152, 0.0722)); }
+
+// Displayed (sRGB) luminance of a document pixel, for focus peaking.
+float LumaAt(float2 d)
+{
+    float4 c = gImage.Load(int3(clamp(int2(floor(d)), int2(0, 0), int2(gDocSize) - 1), 0));
+    return LumaS(LinearToSrgb(saturate(c.rgb)));
+}
+
+// Analysis overlays on the displayed image (document values, before the monitor profile).
+float3 ScopeOverlay(float3 s, float3 shown, float alpha, float2 d, float2 v)
+{
+    float l = LumaS(s);
+    if (gScope == 1)
+    {
+        // Zebras: diagonal stripes over the luminances above the threshold.
+        if (l >= gScopeLevel && alpha > 0.01)
+            return frac((v.x + v.y - gTime * 24.0) / 10.0) < 0.5 ? float3(0.05, 0.05, 0.05) : float3(0.95, 0.95, 0.95);
+        return shown;
+    }
+    if (gScope == 2)
+    {
+        // Clipping: a channel at 0 (blue) or at 1 (red), both (magenta).
+        bool low = alpha > 0.01 && any(s <= 0.5 / 255.0);
+        bool high = alpha > 0.01 && any(s >= 254.5 / 255.0);
+        if (low && high) return float3(1.0, 0.2, 1.0);
+        if (high) return float3(1.0, 0.15, 0.1);
+        if (low) return float3(0.1, 0.35, 1.0);
+        return lerp(float3(l, l, l), shown, 0.35);
+    }
+    if (gScope == 3)
+    {
+        // False color (exposure bands); the rest in gray.
+        if (alpha <= 0.01) return shown;
+        if (l < 0.02) return float3(0.47, 0.12, 0.63);
+        if (l < 0.10) return float3(0.12, 0.31, 0.9);
+        if (l < 0.20) return float3(0.16, 0.63, 0.75);
+        if (l >= 0.38 && l < 0.45) return float3(0.24, 0.75, 0.27);
+        if (l >= 0.52 && l < 0.58) return float3(0.92, 0.55, 0.67);
+        if (l >= 0.97) return float3(0.9, 0.16, 0.16);
+        if (l >= 0.90) return float3(0.94, 0.86, 0.16);
+        float g = l * 0.78 + 0.08;
+        return float3(g, g, g);
+    }
+    if (gScope == 4)
+    {
+        // Focus peaking: strong luminance gradients (Sobel at the document resolution) in red over a dimmed image.
+        float a = LumaAt(d + float2(-1, -1)), b = LumaAt(d + float2(0, -1)), c = LumaAt(d + float2(1, -1));
+        float e = LumaAt(d + float2(-1, 0)), f = LumaAt(d + float2(1, 0));
+        float g = LumaAt(d + float2(-1, 1)), h = LumaAt(d + float2(0, 1)), i = LumaAt(d + float2(1, 1));
+        float gx = (c + 2.0 * f + i) - (a + 2.0 * e + g), gy = (g + 2.0 * h + i) - (a + 2.0 * b + c);
+        float m = length(float2(gx, gy));
+        float3 dim = lerp(float3(l, l, l), shown, 0.5) * 0.75;
+        return m > gScopeLevel ? float3(1.0, 0.1, 0.1) : dim;
+    }
+    if (gScope == 5) return float3(l, l, l);
+    return shown;
+}
 
 float SelAt(float2 d)
 {
@@ -106,6 +166,7 @@ void main(uint3 id : SV_DispatchThreadID)
     float3 back = SrgbToLinear(float3(checker, checker, checker));
     float3 rgb = c.rgb + back * (1.0 - saturate(c.a));
     float3 srgb = LinearToSrgb(rgb);
+    const float3 docSrgb = srgb;
     if (gLutSize >= 2)
     {
         // Document profile -> (proofing profile) -> monitor.
@@ -133,5 +194,6 @@ void main(uint3 id : SV_DispatchThreadID)
             srgb = phase < 0.5 ? float3(0, 0, 0) : float3(1, 1, 1);
         }
     }
+    if (gScope != 0) srgb = ScopeOverlay(saturate(docSrgb), srgb, c.a, d, v);
     gOut[id.xy] = float4(srgb, 1.0);
 }

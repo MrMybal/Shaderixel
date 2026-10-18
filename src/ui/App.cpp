@@ -1166,6 +1166,17 @@ void App::DrawMenuBar() {
     }
     if (ImGui::BeginMenu("Affichage")) {
         ui::MenuFilter();
+        if (ImGui::BeginMenu("Analyse sur le canevas")) {
+            static const char* modes[] = {"Normal", "Zébras", "Écrêtage", "Fausses couleurs", "Focus peaking", "Luminance"};
+            for (int i = 0; i < 6; ++i)
+                if (ImGui::MenuItem(modes[i], i == 0 ? nullptr : nullptr, analysis.overlay == i)) analysis.overlay = i;
+            ImGui::Separator();
+            if (ImGui::MenuItem("Panneau Analyse d'image...")) {
+                panelOpen["Analyse d'image"].open = true;
+                ImGui::SetWindowFocus("Analyse d'image");
+            }
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("Langue / Language")) {
             for (auto& lang : AvailableLanguages())
                 if (ImGui::MenuItem((lang.name + "##lang" + lang.code).c_str(), nullptr, CurrentLanguage() == lang.code)) {

@@ -111,6 +111,58 @@ void App::UpdateAnalysis() {
             A.srcH = src->Height();
         }
     }
+    // Comparison: the other layer, reduced to the same size, and the difference metrics.
+    if (A.rbB && A.rbB->ready) {
+        const u16* p = (const u16*)A.rbB->data.data();
+        A.pxB.resize((size_t)A.rbB->width * A.rbB->height * 4);
+        for (size_t i = 0; i < A.pxB.size(); ++i) A.pxB[i] = p[i] / 65535.0f;
+        A.rbB.reset();
+        if (A.pxB.size() == A.px.size()) {
+            double sum = 0, sq = 0;
+            float mx = 0;
+            size_t changed = 0;
+            const size_t np = A.px.size() / 4;
+            for (size_t i = 0; i < np; ++i) {
+                float dm = 0;
+                for (int k = 0; k < 3; ++k) {
+                    const float d = A.px[i * 4 + k] - A.pxB[i * 4 + k];
+                    sum += std::abs(d);
+                    sq += (double)d * d;
+                    dm = std::max(dm, std::abs(d));
+                }
+                dm = std::max(dm, std::abs(A.px[i * 4 + 3] - A.pxB[i * 4 + 3]));
+                mx = std::max(mx, dm);
+                if (dm > 1.5f / 255.0f) ++changed;
+            }
+            A.diffMean = (float)(sum / std::max<size_t>(1, np * 3)) * 255.0f;
+            A.diffMax = mx * 255.0f;
+            const double mse = sq / std::max<size_t>(1, np * 3);
+            A.psnr = mse > 0 ? (float)(10.0 * std::log10(1.0 / mse)) : 999.0f;
+            A.changedShare = np ? (float)changed / np : 0.0f;
+        }
+        ++A.versionB;
+    }
+    if (A.compareWanted && A.compareLayer && A.valid && !A.rbB) {
+        // Content of that layer (filters included): input B of its blend node, else its pixels.
+        Document& d = *v->doc;
+        gpu::Texture* t = nullptr;
+        u64 h2 = 0;
+        for (auto& n : d.S().graph.nodes)
+            if (n.kind == NodeKind::Blend && n.layer == A.compareLayer && n.inputs.size() > 1 && n.inputs[1])
+                if ((t = v->renderer.NodeOutput(n.inputs[1])) != nullptr) h2 = v->renderer.NodeHash(n.inputs[1]);
+        if (!t)
+            if (const Layer* l = d.FindLayer(A.compareLayer))
+                if (Surface* s = d.GetSurface(l->surface)) { t = s->tex.get(); h2 = s->version; }
+        h2 ^= A.compareLayer * 0x9E3779B97F4A7C15ull;
+        if (t && (h2 != A.hashB || A.hashBFor != A.version) && frame - A.frameB >= 12)
+            if (auto copy = v->renderer.PreviewCopy(*ctx, t, A.w, A.h)) {
+                A.rbB = v->renderer.ExportRGBA16(*ctx, copy.get(), true);
+                A.hashB = h2;
+                A.hashBFor = A.version;
+                A.frameB = frame;
+            }
+    }
+    A.compareWanted = false;
     // Pixel inspector: the exact value under the cursor (composited image).
     if (A.probe && A.probe->ready) {
         auto& d = A.probe->data;
@@ -296,6 +348,39 @@ void App::ComputeAnalysis() {
         for (size_t c = 0; c < centers.size(); ++c)
             if (counts[c]) centers[c] = {acc[c].x / counts[c], acc[c].y / counts[c], acc[c].z / counts[c]};
     }
+    // Sharpness: variance of the Laplacian of the luminance per 16 x 16 block; noise: Immerkaer's estimator.
+    {
+        std::vector<float> L(n);
+        for (size_t i = 0; i < n; ++i) L[i] = Luma(px[i * 4], px[i * 4 + 1], px[i * 4 + 2]);
+        const u32 bs = 16;
+        A.sharpW = std::max<u32>(1, w / bs);
+        A.sharpH = std::max<u32>(1, h / bs);
+        std::vector<double> s1((size_t)A.sharpW * A.sharpH, 0.0), s2(s1.size(), 0.0), cnt(s1.size(), 0.0);
+        double noiseSum = 0, varSum = 0;
+        for (u32 y = 1; y + 1 < h; ++y)
+            for (u32 x = 1; x + 1 < w; ++x) {
+                auto at = [&](int dx, int dy) { return L[(size_t)(y + dy) * w + (x + dx)]; };
+                const float lap = 4 * at(0, 0) - at(-1, 0) - at(1, 0) - at(0, -1) - at(0, 1);
+                const float im = at(-1, -1) - 2 * at(0, -1) + at(1, -1) - 2 * at(-1, 0) + 4 * at(0, 0) - 2 * at(1, 0) + at(-1, 1) - 2 * at(0, 1) + at(1, 1);
+                noiseSum += std::abs(im);
+                const size_t b = (size_t)std::min(A.sharpH - 1, y / bs) * A.sharpW + std::min(A.sharpW - 1, x / bs);
+                s1[b] += lap;
+                s2[b] += (double)lap * lap;
+                cnt[b] += 1;
+            }
+        A.sharpMap.assign(s1.size(), 0.0f);
+        float peak = 1e-9f;
+        for (size_t b = 0; b < s1.size(); ++b) {
+            if (!cnt[b]) continue;
+            const double m = s1[b] / cnt[b], var = std::max(0.0, s2[b] / cnt[b] - m * m);
+            A.sharpMap[b] = (float)std::sqrt(var);
+            peak = std::max(peak, A.sharpMap[b]);
+            varSum += var;
+        }
+        for (float& s : A.sharpMap) s /= peak;
+        A.sharpness = (float)std::sqrt(varSum / std::max<size_t>(1, s1.size())) * 255.0f;
+        A.noise = w > 2 && h > 2 ? (float)(std::sqrt(3.14159265 * 0.5) / (6.0 * (w - 2) * (h - 2)) * noiseSum) * 255.0f : 0.0f;
+    }
     A.palette.clear();
     for (size_t c = 0; c < centers.size(); ++c)
         if (counts[c]) A.palette.push_back({float4(centers[c].x, centers[c].y, centers[c].z, 1), (float)counts[c] / (float)sample.size()});
@@ -305,7 +390,7 @@ void App::ComputeAnalysis() {
 // The scope images, rebuilt when the analysis or the display settings change.
 gpu::Texture* App::AnalysisImage(DocView& v, int kind) {
     auto& A = analysis;
-    const u64 key = A.version * 1000003ull ^ (u64)kind * 7919ull ^ (u64)(A.gain * 1000) ^ ((u64)A.waveMode << 40);
+    const u64 key = A.version * 1000003ull ^ (u64)kind * 7919ull ^ (u64)(A.gain * 1000) ^ ((u64)A.waveMode << 40) ^ (A.versionB << 52);
     if (A.tex[kind] && A.texKey[kind] == key) return A.tex[kind].get();
     std::vector<u8> img;
     u32 w = 0, h = 0;
@@ -368,6 +453,22 @@ gpu::Texture* App::AnalysisImage(DocView& v, int kind) {
         w = h = kFft;
         img.assign((size_t)w * h * 4, 0);
         for (size_t i = 0; i < (size_t)w * h; ++i) put(i, Inferno(std::pow(A.spectrum[i], 1.0f / std::max(0.2f, A.gain))));
+    } else if (kind == 4) {
+        w = A.sharpW;
+        h = A.sharpH;
+        img.assign((size_t)w * h * 4, 0);
+        for (size_t i = 0; i < (size_t)w * h; ++i) put(i, Inferno(std::pow(A.sharpMap[i], 1.0f / std::max(0.2f, A.gain))));
+    } else if (kind == 5) {
+        // Difference with the compared layer, amplified.
+        if (A.pxB.size() != A.px.size()) return nullptr;
+        w = A.w;
+        h = A.h;
+        img.assign((size_t)w * h * 4, 0);
+        for (size_t i = 0; i < (size_t)w * h; ++i) {
+            float d = 0;
+            for (int k = 0; k < 4; ++k) d = std::max(d, std::abs(A.px[i * 4 + k] - A.pxB[i * 4 + k]));
+            put(i, d < 0.5f / 255.0f ? IM_COL32(16, 16, 20, 255) : Inferno(std::min(1.0f, 0.15f + d * 4.0f * A.gain)));
+        }
     } else {
         // False color.
         w = A.w;
@@ -407,6 +508,23 @@ void App::DrawAnalysis() {
     ImGui::SameLine();
     ImGui::Checkbox("4 vues", &A.quad);
     ui::HelpTooltip("Histogramme, waveform, vectorscope et spectre ensemble.");
+    // Overlay on the canvas (full resolution, in the display shader).
+    ImGui::SetNextItemWidth(170 * dpi);
+    ImGui::Combo("##anov", &A.overlay, "Canevas : normal\0Canevas : zébras\0Canevas : écrêtage\0Canevas : fausses couleurs\0Canevas : focus peaking\0Canevas : luminance\0");
+    ui::HelpTooltip("Superposition sur le canevas, en pleine résolution :\n"
+                    "zébras au-dessus d'un seuil de luminance, écrêtage (bleu : canal à 0, rouge : canal à 1),\n"
+                    "fausses couleurs (bandes d'exposition), focus peaking (zones nettes en rouge), luminance seule.");
+    if (A.overlay == 1) {
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(130 * dpi);
+        float pct = A.zebra * 100.0f;
+        if (ImGui::SliderFloat("##anzebra", &pct, 50.0f, 100.0f, "Seuil %.0f %%")) A.zebra = pct / 100.0f;
+    } else if (A.overlay == 4) {
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(130 * dpi);
+        ImGui::SliderFloat("##anpeak", &A.peaking, 0.03f, 0.5f, "Sensibilité %.2f");
+        ui::HelpTooltip("Seuil de contraste local : plus bas, plus de zones marquées.");
+    }
     if (!v || !A.valid) {
         ImGui::TextDisabled(v ? "Analyse en cours..." : "Aucune image");
         ImGui::End();
@@ -638,6 +756,41 @@ void App::DrawAnalysis() {
                 ImGui::AlignTextToFramePadding();
                 ImGui::Text("#%02X%02X%02X   %.0f %%", (int)(c.x * 255 + 0.5f), (int)(c.y * 255 + 0.5f), (int)(c.z * 255 + 0.5f), share * 100);
                 ImGui::PopID();
+            }
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Netteté et bruit", nullptr, A.demoTab == 8 ? ImGuiTabItemFlags_SetSelected : 0)) {
+            scopeImage(AnalysisImage(*v, 4), 0x7E5FA00000000004ull, avail, bh - ImGui::GetTextLineHeightWithSpacing() * 4, true);
+            ImGui::Text("Netteté (contraste local) : %.1f", A.sharpness);
+            ImGui::Text("Bruit estimé : %.2f niveaux (sur 255)", A.noise);
+            ImGui::TextDisabled("Carte : zones nettes en clair, floues en sombre (par blocs de 16 px de la copie analysée).\n"
+                                "Mesures sur la copie réduite : le bruit réel en pleine résolution est plus fort.");
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Comparer", nullptr, A.demoTab == 9 ? ImGuiTabItemFlags_SetSelected : 0)) {
+            A.compareWanted = true;
+            Document& d = *v->doc;
+            const Layer* cur = d.FindLayer(A.compareLayer);
+            ImGui::SetNextItemWidth(220 * dpi);
+            if (ImGui::BeginCombo("Comparer avec", cur ? cur->name.c_str() : "Choisir un calque...")) {
+                for (auto& l : d.S().layers)
+                    if (ImGui::Selectable((l.name + "##cmp" + std::to_string(l.id)).c_str(), l.id == A.compareLayer)) {
+                        A.compareLayer = l.id;
+                        A.hashB = 0;
+                        A.pxB.clear();
+                    }
+                ImGui::EndCombo();
+            }
+            ui::HelpTooltip("La source choisie en haut (image entière ou calque actif) comparée à ce calque.");
+            if (!cur) ImGui::TextDisabled("Choisissez un calque à comparer à la source.");
+            else if (A.pxB.size() != A.px.size()) ImGui::TextDisabled("Analyse en cours...");
+            else {
+                scopeImage(AnalysisImage(*v, 5), 0x7E5FA00000000005ull, avail, bh - ImGui::GetTextLineHeightWithSpacing() * 6, true);
+                ImGui::Text("Écart moyen : %.2f   Écart max : %.0f   (sur 255)", A.diffMean, A.diffMax);
+                if (A.psnr > 900) ImGui::Text("Identiques (PSNR infini)");
+                else ImGui::Text("PSNR : %.1f dB", A.psnr);
+                ImGui::Text("Pixels différents : %.1f %%", A.changedShare * 100);
+                ImGui::TextDisabled("Carte : différences amplifiées (sombre : identique).");
             }
             ImGui::EndTabItem();
         }
