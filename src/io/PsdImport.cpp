@@ -228,6 +228,33 @@ bool ConvertAdjustment(const PsdLayer& s, Layer& l) {
         i16 mh = r.S16(), ms = r.S16(), ml = r.S16();
         if (colorize) { l.effect.params[0].x = ch - 180.0f; l.effect.params[1].x = cs; l.effect.params[2].x = cl; l.effect.params[3].x = 1; }
         else { l.effect.params[0].x = mh; l.effect.params[1].x = ms; l.effect.params[2].x = ml; }
+    } else if (k == "curv") {
+        // Map flag, version, channel bitmap (0 composite, 1 R, 2 G, 3 B), point lists (output, input).
+        setEffect("curves");
+        const u8 isMap = r.U8();
+        r.U16();
+        const u32 bits = r.U32();
+        l.effect.curves.resize(std::max<size_t>(l.effect.curves.size(), 4));
+        for (int ch = 0; ch < 32 && r.ok; ++ch) {
+            if (!(bits & (1u << ch))) continue;
+            CurvePoints c;
+            if (isMap) {
+                // 256 output values: kept as 17 points.
+                u8 m[256];
+                for (auto& x : m) x = r.U8();
+                for (int i = 0; i <= 256; i += 16) {
+                    const int k2 = std::min(i, 255);
+                    c.push_back({k2 / 255.0f, m[k2] / 255.0f});
+                }
+            } else {
+                const int n = r.U16();
+                for (int i = 0; i < n && i < 64 && r.ok; ++i) {
+                    const float out = r.U16() / 255.0f, in = r.U16() / 255.0f;
+                    c.push_back({in, out});
+                }
+            }
+            if (ch < 4) l.effect.curves[ch] = c;
+        }
     } else if (k == "nvrt") {
         setEffect("invert");
     } else if (k == "post") {

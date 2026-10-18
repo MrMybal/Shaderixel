@@ -463,11 +463,18 @@ void App::DemoTick() {
             {"posterize", {6}},
             {"threshold", {100 / 255.0f, 0}},
             {"exposure", {0.75f, 0.05f, 1.2f}},
+            {"curves", {}},
         };
         if (frameCounter == 6) {
             for (const Case& c : cases) {
                 Layer& l = d.AddEffectLayer(LayerKind::Adjustment, c.id);
                 for (size_t k = 0; k < c.params.size() && k < l.effect.params.size(); ++k) l.effect.params[k].x = c.params[k];
+                if (std::string(c.id) == "curves") {
+                    // An S curve on the composite, a lift on the red.
+                    l.effect.curves.resize(4);
+                    l.effect.curves[0] = {{0, 0}, {64 / 255.0f, 40 / 255.0f}, {192 / 255.0f, 215 / 255.0f}, {1, 1}};
+                    l.effect.curves[1] = {{0, 30 / 255.0f}, {1, 1}};
+                }
                 l.name = std::string("Réglage ") + c.id;
                 l.visible = false;  // the export stays readable
             }
@@ -493,6 +500,21 @@ void App::DemoTick() {
                                 ok = false;
                                 Log("[psdadj] %s param %zu: %.4f -> %.4f", c.id, k, c.params[k], l.effect.params[k].x);
                             }
+                        if (std::string(c.id) == "curves") {
+                            // Same points on the composite and red curves.
+                            for (int ch : {0, 1}) {
+                                const CurvePoints& want = ch == 0 ? CurvePoints{{0, 0}, {64 / 255.0f, 40 / 255.0f}, {192 / 255.0f, 215 / 255.0f}, {1, 1}}
+                                                                 : CurvePoints{{0, 30 / 255.0f}, {1, 1}};
+                                const CurvePoints got = ch < (int)l.effect.curves.size() ? l.effect.curves[ch] : CurvePoints{};
+                                bool eq = got.size() == want.size();
+                                for (size_t q = 0; eq && q < got.size(); ++q)
+                                    eq = std::abs(got[q].x - want[q].x) < 0.003f && std::abs(got[q].y - want[q].y) < 0.003f;
+                                if (!eq) {
+                                    ok = false;
+                                    Log("[psdadj] curves channel %d: %zu points read back", ch, got.size());
+                                }
+                            }
+                        }
                         same += ok;
                         break;
                     }

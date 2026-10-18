@@ -228,6 +228,35 @@ bool PsdAdjustmentFor(const EffectInstance& fx, std::string& key, std::vector<u8
             for (i16 v : rg) w.U16((u16)v);
             for (int k = 0; k < 3; ++k) w.U16(0);
         }
+    } else if (id == "curves") {
+        // Map flag (0: points), version 1, bitmap of the channels with a curve (0 composite, 1 R, 2 G, 3 B),
+        // then per channel: point count (2..19) and (output, input) pairs in 0..255.
+        key = "curv";
+        auto identity = [](const CurvePoints& c) {
+            if (c.empty()) return true;
+            for (auto& q : c)
+                if (std::abs(q.x - q.y) > 0.5f / 255.0f) return false;
+            return true;
+        };
+        u32 bits = 0;
+        for (int ch = 0; ch < 4; ++ch)
+            if (ch < (int)fx.curves.size() && !identity(fx.curves[ch])) bits |= 1u << ch;
+        if (!bits) bits = 1;  // an identity composite curve
+        w.U8(0);
+        w.U16(1);
+        w.U32(bits);
+        for (int ch = 0; ch < 4; ++ch) {
+            if (!(bits & (1u << ch))) continue;
+            CurvePoints c = ch < (int)fx.curves.size() ? fx.curves[ch] : CurvePoints{};
+            if (c.size() < 2) c = {{0, 0}, {1, 1}};
+            std::sort(c.begin(), c.end(), [](const float2& a, const float2& b) { return a.x < b.x; });
+            if (c.size() > 19) c.resize(19);
+            w.U16((u16)c.size());
+            for (auto& q : c) {
+                w.U16((u16)std::clamp((int)std::lround(q.y * 255.0f), 0, 255));
+                w.U16((u16)std::clamp((int)std::lround(q.x * 255.0f), 0, 255));
+            }
+        }
     } else if (id == "invert") {
         key = "nvrt";
     } else if (id == "posterize") {
