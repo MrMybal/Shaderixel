@@ -12,6 +12,7 @@
 #include "doc/EffectGraph.h"
 #include "doc/Brushes.h"
 #include <imgui_internal.h>
+#include <limits>
 
 #include <fstream>
 #include <stb_image_write.h>
@@ -4234,7 +4235,47 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
                 }
                 EffectGraph tg;
                 auto fdef = f.Def();
-                if (f.customCode.empty() && EffectGraph::Deserialize(f.graph.empty() && fdef ? fdef->graph : f.graph, tg)) {
+                if (std::string(getenv("SX_FXBREAK")) == "organize" && EffectGraph::Deserialize(f.graph.empty() && fdef ? fdef->graph : f.graph, tg)) {
+                    // A reroute on the link into the output, a comment around the first nodes, a value on an input.
+                    if (EGNode* o = tg.Find(tg.OutputNode()); o && !o->inputs.empty() && o->inputs[0].node) {
+                        EGNode r;
+                        r.id = tg.nextId++;
+                        r.op = "reroute";
+                        r.pos = o->pos - float2{80, -40};
+                        r.inputs = {o->inputs[0]};
+                        o->inputs[0] = {r.id, 0};
+                        tg.nodes.push_back(r);
+                    }
+                    EGComment c;
+                    c.id = tg.nextId++;
+                    c.text = "Vague";
+                    float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
+                    int k = 0;
+                    for (auto& n : tg.nodes)
+                        if ((n.op == "mul" || n.op == "sin" || n.op == "cos") && k++ < 3) {
+                            mn = {std::min(mn.x, n.pos.x), std::min(mn.y, n.pos.y)};
+                            mx = {std::max(mx.x, n.pos.x + 168), std::max(mx.y, n.pos.y + 230)};
+                        }
+                    if (mn.x < mx.x) {
+                        c.pos = mn - float2{30, 54};
+                        c.size = (mx - mn) + float2{60, 84};
+                        tg.comments.push_back(c);
+                    }
+                    for (auto& n : tg.nodes)
+                        if (n.op == "max") {
+                            n.inputs.resize(2);
+                            n.inputs[1] = {};
+                            n.pinValues = {std::numeric_limits<float>::quiet_NaN(), 2.5f};
+                            break;
+                        }
+                    EGCompileResult cr2 = CompileEffectGraph(tg);
+                    Log("[fxorg] compile: %s, comments %zu", cr2.error.empty() ? "ok" : cr2.error.c_str(), tg.comments.size());
+                    f.graph = tg.Serialize();
+                    f.effectId.clear();
+                    f.SyncParams(fdef);
+                    d.SyncGraph();
+                }
+                else if (f.customCode.empty() && EffectGraph::Deserialize(f.graph.empty() && fdef ? fdef->graph : f.graph, tg)) {
                     for (auto& n : tg.nodes)
                         if (n.op == "custom") {
                             size_t at = n.text.find("sin(");

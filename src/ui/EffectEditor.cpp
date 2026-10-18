@@ -12,6 +12,7 @@
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <set>
 
@@ -21,6 +22,8 @@ namespace {
 constexpr float kW = 168.0f;
 constexpr float kHead = 24.0f;
 constexpr float kRowH = 20.0f;
+constexpr float kCommentTitle = 24.0f;
+constexpr float kRerouteW = 30.0f;
 
 ImU32 CategoryColor(const char* cat) {
     std::string c = cat;
@@ -34,6 +37,7 @@ ImU32 CategoryColor(const char* cat) {
     if (c == "Personnalisé") return IM_COL32(200, 92, 150, 255);
     if (c == "Fusion") return IM_COL32(190, 70, 110, 255);
     if (c == "Pinceau") return IM_COL32(60, 130, 200, 255);
+    if (c == "Organisation") return IM_COL32(110, 112, 125, 255);
     return IM_COL32(52, 160, 110, 255);  // output
 }
 
@@ -102,7 +106,7 @@ int Rows(const EGOpDef& d) { return std::max<int>((int)std::max(d.inputs.size(),
 constexpr float kPvH = 100.0f;
 bool gNodePreviews = false;
 bool HasNodePreview(const EGNode& n) {
-    static const char* none[] = {"const", "const2", "color", "param", "paramcolor", "param2", "texture", "output", "canvassize", "size",
+    static const char* none[] = {"reroute", "const", "const2", "color", "param", "paramcolor", "param2", "texture", "output", "canvassize", "size",
                                  "opacity", "blendover", "brush", "brushtex", "roundtip", "random"};
     if (!gNodePreviews) return false;
     for (const char* o : none) if (n.op == o) return false;
@@ -110,6 +114,7 @@ bool HasNodePreview(const EGNode& n) {
 }
 
 float NodeH(const EGNode& n, const EGOpDef& d);
+float NodeW(const EGNode& n);
 
 // The graph with its output showing one node: RGBA as is; scalars, 2D and RGB values through the RGB input
 // (opaque), a 2D value completed with 0 (blue).
@@ -167,7 +172,7 @@ bool SpreadNodes(EffectGraph& g) {
             for (size_t j = 0; j < i; ++j) {
                 const EGNode& o = *ns[j];
                 const float oh = NodeH(o, EffectiveOp(o));
-                if (std::abs(n.pos.x - o.pos.x) < kW + 8 && n.pos.y < o.pos.y + oh + 12 && o.pos.y < n.pos.y + h + 12) {
+                if (std::abs(n.pos.x - o.pos.x) < std::max(NodeW(n), NodeW(o)) + 8 && n.pos.y < o.pos.y + oh + 12 && o.pos.y < n.pos.y + h + 12) {
                     n.pos.y = o.pos.y + oh + 14;
                     moved = again = true;
                 }
@@ -177,7 +182,10 @@ bool SpreadNodes(EffectGraph& g) {
     return moved;
 }
 
+float NodeW(const EGNode& n) { return n.op == "reroute" ? kRerouteW : kW; }
+
 float NodeH(const EGNode& n, const EGOpDef& d) {
+    if (n.op == "reroute") return 20.0f;
     float extra = (n.op == "const" || n.op == "const2" || n.op == "color" || n.op == "param" || n.op == "paramcolor" || n.op == "param2" ||
                    n.op == "input" || n.op == "sample" || n.op == "texture" || n.op == "mask" || n.op == "custom" || n.op == "brushtex")
                       ? kRowH
@@ -660,6 +668,40 @@ void App::DrawEffectEditor() {
                 if (!openBig) ed.bigCode = 0;
             }
         }
+        // Unconnected inputs: their value on this node (constants on the pins, like Unreal).
+        if (op != "custom" && op != "output") {
+            const EGOpDef eff = EffectiveOp(*sel);
+            bool any = false;
+            for (size_t i = 0; i < eff.inputs.size(); ++i) {
+                if (eff.inputs[i].defValue < 0) continue;  // implicit sources (UV, opacity...)
+                if (!any) {
+                    ImGui::SeparatorText("Entrées non reliées");
+                    any = true;
+                }
+                const bool linked = i < sel->inputs.size() && sel->inputs[i].node;
+                ImGui::PushID((int)i + 500);
+                float val = sel->PinValue(i, eff.inputs[i].defValue);
+                ImGui::BeginDisabled(linked);
+                if (ImGui::DragFloat(eff.inputs[i].name[0] ? eff.inputs[i].name : "Entrée", &val, 0.01f)) {
+                    if (sel->pinValues.size() <= i) sel->pinValues.resize(i + 1, std::numeric_limits<float>::quiet_NaN());
+                    sel->pinValues[i] = val;
+                    live = true;
+                }
+                if (ImGui::IsItemDeactivatedAfterEdit()) { changed = true; changeLabel = "Valeur d'entrée"; }
+                ImGui::EndDisabled();
+                if (linked) ImGui::SetItemTooltip("Reliée : la valeur vient du lien.");
+                if (sel->PinValueSet(i)) {
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton("Défaut")) {
+                        sel->pinValues[i] = std::numeric_limits<float>::quiet_NaN();
+                        changed = true;
+                        changeLabel = "Valeur d'entrée";
+                    }
+                }
+                ImGui::PopID();
+            }
+            if (any) ImGui::TextDisabled("Double-clic sur une entrée du nœud : la modifier sur place.");
+        }
         if (op != "output" && ImGui::Button("Supprimer le nœud")) {
             Id rid = sel->id;
             g.nodes.erase(std::remove_if(g.nodes.begin(), g.nodes.end(), [&](const EGNode& n) { return n.id == rid; }), g.nodes.end());
@@ -815,8 +857,10 @@ void App::DrawEffectEditor() {
         for (float y = oy; y < size.y; y += step) dl->AddLine(ImVec2(origin.x, origin.y + y), ImVec2(origin.x + size.x, origin.y + y), ui::col::Grid);
     }
 
-    auto inPin = [&](const EGNode& n, int i) { return toS(n.pos + float2{0, kHead + kRowH * (i + 0.5f)}); };
-    auto outPin = [&](const EGNode& n, int k) { return toS(n.pos + float2{kW, kHead + kRowH * (k + 0.5f)}); };
+    auto inPin = [&](const EGNode& n, int i) { return toS(n.op == "reroute" ? n.pos + float2{0, 10} : n.pos + float2{0, kHead + kRowH * (i + 0.5f)}); };
+    auto outPin = [&](const EGNode& n, int k) {
+        return toS(n.op == "reroute" ? n.pos + float2{kRerouteW, 10} : n.pos + float2{kW, kHead + kRowH * (k + 0.5f)});
+    };
     float pr = 5.5f * ed.zoom;
     ImVec2 m = io.MousePos;
     auto hit = [&](ImVec2 a, float r) { float dx = a.x - m.x, dy = a.y - m.y; return dx * dx + dy * dy <= r * r; };
@@ -838,12 +882,24 @@ void App::DrawEffectEditor() {
             if (!FindOp(n.op)) continue;
             const EGOpDef eff = EffectiveOp(n);
             const EGOpDef* od = &eff;
-            for (int o = 0; o < (int)od->outputs.size(); ++o) if (hit(outPin(n, o), pr * 2.2f)) { hOutNode = n.id; hOut = o; }
-            for (int i = 0; i < (int)od->inputs.size() && !hOutNode; ++i) if (hit(inPin(n, i), pr * 2.2f)) { hInNode = n.id; hIn = i; }
-            ImVec2 a = toS(n.pos), b = toS(n.pos + float2{kW, NodeH(n, *od)});
+            const float pinR = n.op == "reroute" ? 7.0f * ed.zoom : pr * 2.2f;  // the middle of a reroute drags it
+            for (int o = 0; o < (int)od->outputs.size(); ++o) if (hit(outPin(n, o), pinR)) { hOutNode = n.id; hOut = o; }
+            for (int i = 0; i < (int)od->inputs.size() && !hOutNode; ++i) if (hit(inPin(n, i), pinR)) { hInNode = n.id; hIn = i; }
+            ImVec2 a = toS(n.pos), b = toS(n.pos + float2{NodeW(n), NodeH(n, *od)});
             if (!hOutNode && !hInNode && m.x >= a.x && m.x <= b.x && m.y >= a.y && m.y <= b.y) hNode = n.id;
         }
     }
+    // Comments: the title bar drags (with the nodes inside), the corner resizes; the body lets clicks through.
+    Id hComment = 0;
+    int hCommentPart = 0;  // 1 title, 2 resize corner
+    if (hovered && !hNode && !hInNode && !hOutNode)
+        for (int k = (int)g.comments.size() - 1; k >= 0 && !hComment; --k) {
+            const EGComment& c = g.comments[k];
+            const ImVec2 a = toS(c.pos), b = toS(c.pos + c.size);
+            if (m.x >= b.x - 14 && m.x <= b.x + 2 && m.y >= b.y - 14 && m.y <= b.y + 2) hCommentPart = 2;
+            else if (m.x >= a.x && m.x <= b.x && m.y >= a.y && m.y <= a.y + kCommentTitle * ed.zoom) hCommentPart = 1;
+            if (hCommentPart) hComment = c.id;
+        }
 
     if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt && !spaceHeld) {
         if (hOutNode) {
@@ -882,8 +938,27 @@ void App::DrawEffectEditor() {
             }
             ed.dragNode = hNode;
             ed.moved = false;
+        } else if (hComment) {
+            ed.selComment = hComment;
+            ed.selected = 0;
+            ed.multi.clear();
+            ed.moved = false;
+            if (hCommentPart == 2) {
+                ed.sizeComment = hComment;
+            } else {
+                // The nodes lying inside move with it.
+                ed.dragComment = hComment;
+                ed.commentNodes.clear();
+                for (auto& c : g.comments)
+                    if (c.id == hComment)
+                        for (auto& n : g.nodes) {
+                            const float2 e = n.pos + float2{NodeW(n), NodeH(n, EffectiveOp(n))};
+                            if (n.pos.x >= c.pos.x && n.pos.y >= c.pos.y && e.x <= c.pos.x + c.size.x && e.y <= c.pos.y + c.size.y) ed.commentNodes.push_back(n.id);
+                        }
+            }
         } else {
             // Empty spot: box selection (Ctrl / Maj: added to the selection).
+            ed.selComment = 0;
             if (!io.KeyCtrl && !io.KeyShift) {
                 ed.selected = 0;
                 ed.multi.clear();
@@ -891,6 +966,19 @@ void App::DrawEffectEditor() {
             ed.boxing = true;
             ed.boxStart = m;
         }
+    }
+    if ((ed.dragComment || ed.sizeComment) && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
+        const float2 dmove{io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
+        for (auto& c : g.comments) {
+            if (c.id == ed.dragComment) {
+                c.pos = c.pos + dmove;
+                for (Id id : ed.commentNodes) if (EGNode* n = g.Find(id)) n->pos = n->pos + dmove;
+            } else if (c.id == ed.sizeComment) {
+                c.size = {std::max(80.0f, c.size.x + dmove.x), std::max(60.0f, c.size.y + dmove.y)};
+            }
+        }
+        ed.moved = true;
+        live = true;
     }
     if (ed.dragNode && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0)) {
         if (EGNode* n = g.Find(ed.dragNode)) {
@@ -926,6 +1014,10 @@ void App::DrawEffectEditor() {
             if (ed.moved) { changed = true; changeLabel = ed.multi.size() > 1 ? "Déplacer des nœuds" : "Déplacer un nœud"; }
             ed.dragNode = 0;
         }
+        if (ed.dragComment || ed.sizeComment) {
+            if (ed.moved) { changed = true; changeLabel = ed.sizeComment ? "Redimensionner un commentaire" : "Déplacer un commentaire"; }
+            ed.dragComment = ed.sizeComment = 0;
+        }
         if (ed.boxing) {
             ed.boxing = false;
             const ImVec2 a(std::min(ed.boxStart.x, m.x), std::min(ed.boxStart.y, m.y)), b(std::max(ed.boxStart.x, m.x), std::max(ed.boxStart.y, m.y));
@@ -933,7 +1025,7 @@ void App::DrawEffectEditor() {
                 for (auto& n : g.nodes) {
                     if (!FindOp(n.op)) continue;
                     const EGOpDef eff = EffectiveOp(n);
-                    const ImVec2 na = toS(n.pos), nb = toS(n.pos + float2{kW, NodeH(n, eff)});
+                    const ImVec2 na = toS(n.pos), nb = toS(n.pos + float2{NodeW(n), NodeH(n, eff)});
                     if (nb.x >= a.x && na.x <= b.x && nb.y >= a.y && na.y <= b.y) {
                         ed.multi.insert(n.id);
                         if (!ed.selected) ed.selected = n.id;
@@ -954,6 +1046,24 @@ void App::DrawEffectEditor() {
         }
     };
     static const char* kTypeNames[] = {"", "x", "xy", "RGB", "RGBA"};
+    // Comment frames, behind the links and the nodes.
+    for (auto& c : g.comments) {
+        const ImVec2 a = toS(c.pos), b = toS(c.pos + c.size);
+        auto col = [&](float alpha) { return ImGui::GetColorU32(ImVec4(c.color.x, c.color.y, c.color.z, alpha)); };
+        const float rr = 6 * ed.zoom, th = kCommentTitle * ed.zoom;
+        dl->AddRectFilled(a, b, col(0.14f), rr);
+        dl->AddRectFilled(a, ImVec2(b.x, a.y + th), col(0.7f), rr, ImDrawFlags_RoundCornersTop);
+        const bool csel = c.id == ed.selComment;
+        dl->AddRect(a, b, csel ? ui::col::Selection : col(0.8f), rr, 0, csel ? 2.5f : 1.0f);
+        dl->AddTriangleFilled(ImVec2(b.x - 12, b.y - 2), ImVec2(b.x - 2, b.y - 2), ImVec2(b.x - 2, b.y - 12), col(0.9f));
+        if (ed.zoom > 0.3f) {
+            const float cfs = ImGui::GetFontSize() * std::max(0.8f, ed.zoom * 1.05f);
+            dl->PushClipRect(a, ImVec2(b.x - 4, a.y + th), true);
+            dl->AddText(ImGui::GetFont(), cfs, ImVec2(a.x + 8 * ed.zoom, a.y + (th - cfs) * 0.5f), IM_COL32_WHITE, c.text.c_str());
+            dl->PopClipRect();
+        }
+    }
+
     // Links
     auto link = [&](ImVec2 a, ImVec2 b, ImU32 col) {
         float dx = std::max(std::abs(b.x - a.x) * 0.5f, 30.0f * ed.zoom);
@@ -1002,7 +1112,16 @@ void App::DrawEffectEditor() {
         const EGOpDef eff = EffectiveOp(n);
         const EGOpDef* od = &eff;
         float h = NodeH(n, *od);
-        ImVec2 a = toS(n.pos), b = toS(n.pos + float2{kW, h});
+        ImVec2 a = toS(n.pos), b = toS(n.pos + float2{NodeW(n), h});
+        if (n.op == "reroute") {
+            // A dot on the link.
+            const int t = cr.OutType(n.id, 0);
+            const ImVec2 c((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
+            dl->AddLine(inPin(n, 0), outPin(n, 0), typeColor(t, 220), 2.0f * ed.zoom);
+            dl->AddCircleFilled(c, 6.5f * ed.zoom, typeColor(t));
+            if (n.id == ed.selected || ed.multi.count(n.id)) dl->AddCircle(c, 10.0f * ed.zoom, ui::col::Selection, 0, 2.0f);
+            continue;
+        }
         float r = 5 * ed.zoom;
         dl->AddRectFilled(ImVec2(a.x + 3, a.y + 4), ImVec2(b.x + 3, b.y + 4), IM_COL32(0, 0, 0, 70), r);
         dl->AddRectFilled(a, b, ui::col::PanelLight, r);
@@ -1027,12 +1146,13 @@ void App::DrawEffectEditor() {
             else dl->AddCircle(p, pr, declared ? typeColor(declared) : IM_COL32(120, 122, 140, 255), 0, 1.5f * ed.zoom);
             if (text) {
                 std::string lbl = od->inputs[i].name;
+                const bool setHere = !conn && od->inputs[i].defValue >= 0 && n.PinValueSet(i);
                 if (!conn && od->inputs[i].defValue >= 0) {  // negative: implicit source (UV, opacity...)
                     char b2[32];
-                    snprintf(b2, sizeof(b2), " (%.3g)", od->inputs[i].defValue);
+                    snprintf(b2, sizeof(b2), " (%.3g)", n.PinValue(i, od->inputs[i].defValue));
                     lbl += b2;
                 }
-                dl->AddText(font, fs * 0.88f, ImVec2(p.x + 9 * ed.zoom, p.y - fs * 0.45f), ui::col::TextDim, lbl.c_str());
+                dl->AddText(font, fs * 0.88f, ImVec2(p.x + 9 * ed.zoom, p.y - fs * 0.45f), setHere ? IM_COL32(150, 200, 255, 255) : ui::col::TextDim, lbl.c_str());
             }
         }
         for (int o = 0; o < (int)od->outputs.size(); ++o) {
@@ -1058,7 +1178,7 @@ void App::DrawEffectEditor() {
         }
         if (HasNodePreview(n) && cr.OutType(n.id, 0) != kEGTexture) {
             const float pw = kPvH * ed.zoom;
-            const ImVec2 pa(a.x + (kW * ed.zoom - pw) * 0.5f, b.y - pw - 6 * ed.zoom), pb(pa.x + pw, pa.y + pw);
+            const ImVec2 pa(a.x + (NodeW(n) * ed.zoom - pw) * 0.5f, b.y - pw - 6 * ed.zoom), pb(pa.x + pw, pa.y + pw);
             dl->AddRectFilled(pa, pb, IM_COL32(40, 40, 46, 255));
             if (gpu::Texture* t = nodePreview(n)) {
                 if (gpu::Texture* shown = v->renderer.Thumbnail(*ctx, 0x7E5F100000000000ull + n.id, t, efPv.slots[0x100000000ull + n.id].hash ^ (u64)pw,
@@ -1110,11 +1230,150 @@ void App::DrawEffectEditor() {
                 break;
             }
     }
+    if (hovered && !hNode && !hInNode && !hOutNode && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+        if (hComment && hCommentPart == 1) {
+            for (auto& c : g.comments)
+                if (c.id == hComment) {
+                    ed.renameComment = c.id;
+                    ed.commentText = c.text;
+                    ImGui::OpenPopup("##cmtname");
+                }
+        } else {
+            // On a link: a reroute node inserted there.
+            Id target = 0;
+            int targetIn = 0;
+            for (auto& n : g.nodes) {
+                for (int i = 0; i < (int)n.inputs.size() && !target; ++i) {
+                    const EGNode* s = n.inputs[i].node ? g.Find(n.inputs[i].node) : nullptr;
+                    if (!s) continue;
+                    const ImVec2 la = outPin(*s, n.inputs[i].output), lb = inPin(n, i);
+                    const float dx = std::max(std::abs(lb.x - la.x) * 0.5f, 30.0f * ed.zoom);
+                    for (int k = 0; k <= 32; ++k) {
+                        const ImVec2 q = ImBezierCubicCalc(la, ImVec2(la.x + dx, la.y), ImVec2(lb.x - dx, lb.y), lb, k / 32.0f);
+                        if ((q.x - m.x) * (q.x - m.x) + (q.y - m.y) * (q.y - m.y) < 49.0f) { target = n.id; targetIn = i; break; }
+                    }
+                }
+                if (target) break;
+            }
+            if (EGNode* t = target ? g.Find(target) : nullptr) {
+                EGNode r;
+                r.id = g.nextId++;
+                r.op = "reroute";
+                r.pos = toG(m) - float2{kRerouteW * 0.5f, 10};
+                r.inputs = {t->inputs[targetIn]};
+                t->inputs[targetIn] = {r.id, 0};
+                g.nodes.push_back(r);
+                ed.selected = r.id;
+                ed.multi = {r.id};
+                ed.boxing = false;
+                changed = true;
+                changeLabel = "Reroutage";
+            }
+        }
+    }
+    if (ImGui::BeginPopup("##cmtname")) {
+        if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+        ImGui::SetNextItemWidth(260 * dpi);
+        if (ImGui::InputText("##t", &ed.commentText, ImGuiInputTextFlags_EnterReturnsTrue)) {
+            for (auto& c : g.comments)
+                if (c.id == ed.renameComment) c.text = ed.commentText;
+            changed = true;
+            changeLabel = "Renommer un commentaire";
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+    if (ImGui::BeginPopup("##cmtctx")) {
+        for (auto it = g.comments.begin(); it != g.comments.end(); ++it) {
+            if (it->id != ed.selComment) continue;
+            if (ImGui::MenuItem("Renommer")) {
+                ed.renameComment = it->id;
+                ed.commentText = it->text;
+                ImGui::CloseCurrentPopup();
+                ed.demoAdd = -1;  // opens the rename popup below (outside this popup)
+            }
+            float col[3] = {it->color.x, it->color.y, it->color.z};
+            if (ImGui::ColorEdit3("Couleur", col, ImGuiColorEditFlags_NoInputs)) {
+                it->color = {col[0], col[1], col[2], 1};
+                live = true;
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit()) { changed = true; changeLabel = "Couleur d'un commentaire"; }
+            static const float4 presets[] = {{0.30f, 0.42f, 0.70f, 1}, {0.25f, 0.55f, 0.35f, 1}, {0.70f, 0.45f, 0.20f, 1},
+                                             {0.65f, 0.25f, 0.30f, 1}, {0.50f, 0.32f, 0.65f, 1}, {0.40f, 0.40f, 0.45f, 1}};
+            for (int k = 0; k < 6; ++k) {
+                if (k) ImGui::SameLine();
+                ImGui::PushID(k);
+                if (ImGui::ColorButton("##p", ImVec4(presets[k].x, presets[k].y, presets[k].z, 1), ImGuiColorEditFlags_NoTooltip, ImVec2(18 * dpi, 18 * dpi))) {
+                    it->color = presets[k];
+                    changed = true;
+                    changeLabel = "Couleur d'un commentaire";
+                }
+                ImGui::PopID();
+            }
+            if (ImGui::MenuItem("Supprimer le commentaire")) {
+                g.comments.erase(it);
+                ed.selComment = 0;
+                changed = true;
+                changeLabel = "Supprimer un commentaire";
+            }
+            break;
+        }
+        ImGui::EndPopup();
+    }
+    if (ed.demoAdd == -1) {
+        ed.demoAdd = 0;
+        ImGui::OpenPopup("##cmtname");
+    }
+
+    // Double click on the label of an unconnected input: its value, edited in place.
+    if (hovered && hNode && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+        if (const EGNode* dn = g.Find(hNode); dn && dn->op != "custom" && FindOp(dn->op)) {
+            const EGOpDef de = EffectiveOp(*dn);
+            for (int i = 0; i < (int)de.inputs.size(); ++i) {
+                const ImVec2 pp = inPin(*dn, i);
+                const bool linked = i < (int)dn->inputs.size() && dn->inputs[i].node;
+                if (!linked && de.inputs[i].defValue >= 0 && m.x > pp.x && m.x < pp.x + kW * 0.6f * ed.zoom && std::abs(m.y - pp.y) < kRowH * 0.5f * ed.zoom) {
+                    ed.pinEditNode = dn->id;
+                    ed.pinEditIn = i;
+                    ed.dragNode = 0;
+                    ImGui::OpenPopup("##pinval");
+                }
+            }
+        }
+    if (ImGui::BeginPopup("##pinval")) {
+        EGNode* pn = g.Find(ed.pinEditNode);
+        const EGOpDef* pod = pn ? FindOp(pn->op) : nullptr;
+        if (!pn || !pod || ed.pinEditIn >= (int)EffectiveOp(*pn).inputs.size()) {
+            ImGui::CloseCurrentPopup();
+        } else {
+            const EGOpDef pe = EffectiveOp(*pn);
+            const size_t i = (size_t)ed.pinEditIn;
+            ImGui::TextDisabled("%s", pe.inputs[i].name[0] ? pe.inputs[i].name : "Entrée");
+            float val = pn->PinValue(i, pe.inputs[i].defValue);
+            if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+            ImGui::SetNextItemWidth(140 * dpi);
+            if (ImGui::DragFloat("##v", &val, 0.01f)) {
+                if (pn->pinValues.size() <= i) pn->pinValues.resize(i + 1, std::numeric_limits<float>::quiet_NaN());
+                pn->pinValues[i] = val;
+                live = true;
+            }
+            if (ImGui::IsItemDeactivatedAfterEdit()) { changed = true; changeLabel = "Valeur d'entrée"; }
+            if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
     // Add-node menu (right click, or a link dropped on the empty canvas). Categories as a tree like Unreal,
     // a flat list while searching (Enter: the first one). From a link: only the nodes that can take it,
     // linked on creation.
-    if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Right] < 16.0f)
-        openAdd(0, 0, 0, 0);
+    if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Right] < 16.0f) {
+        if (hComment) {
+            ed.selComment = hComment;
+            ImGui::OpenPopup("##cmtctx");
+        } else {
+            openAdd(0, 0, 0, 0);
+        }
+    }
     if (ed.demoAdd) {
         Id src = 0;
         for (auto& n : g.nodes) if (n.op == "uv" && !src) src = n.id;
@@ -1189,6 +1448,16 @@ void App::DrawEffectEditor() {
             }
             ImGui::PopID();
         };
+        if (!fromOut && !toIn && q.empty() && ImGui::Selectable("Ajouter un commentaire (C)")) {
+            EGComment c;
+            c.id = g.nextId++;
+            c.pos = ed.ctxPos;
+            g.comments.push_back(c);
+            ed.selComment = c.id;
+            changed = true;
+            changeLabel = "Ajouter un commentaire";
+            ImGui::CloseCurrentPopup();
+        }
         ImGui::BeginChild("##addlist", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders);
         if (!q.empty()) {
             // Flat list: the first one is taken by Enter.
@@ -1278,6 +1547,32 @@ void App::DrawEffectEditor() {
             changeLabel = gone.size() > 1 ? "Supprimer des nœuds" : "Supprimer un nœud";
         }
     }
+    if (keys && !io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_C)) {
+        EGComment c;
+        c.id = g.nextId++;
+        float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
+        for (auto& n : g.nodes)
+            if (ed.multi.count(n.id)) {
+                mn = {std::min(mn.x, n.pos.x), std::min(mn.y, n.pos.y)};
+                mx = {std::max(mx.x, n.pos.x + NodeW(n)), std::max(mx.y, n.pos.y + NodeH(n, EffectiveOp(n)))};
+            }
+        if (mn.x < mx.x) {
+            c.pos = mn - float2{30, 30 + kCommentTitle};
+            c.size = (mx - mn) + float2{60, 60 + kCommentTitle};
+        } else {
+            c.pos = hovered ? toG(m) : toG(ImVec2(origin.x + size.x * 0.4f, origin.y + size.y * 0.4f));
+        }
+        g.comments.push_back(c);
+        ed.selComment = c.id;
+        changed = true;
+        changeLabel = "Ajouter un commentaire";
+    }
+    if (keys && ed.selComment && ed.multi.empty() && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))) {
+        g.comments.erase(std::remove_if(g.comments.begin(), g.comments.end(), [&](const EGComment& c) { return c.id == ed.selComment; }), g.comments.end());
+        ed.selComment = 0;
+        changed = true;
+        changeLabel = "Supprimer un commentaire";
+    }
     if (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) {
         for (auto& n : g.nodes) ed.multi.insert(n.id);
         if (!ed.selected && !g.nodes.empty()) ed.selected = g.nodes.front().id;
@@ -1361,7 +1656,7 @@ void App::DrawEffectEditor() {
             if (!FindOp(n.op) || (selectionOnly && !ed.multi.count(n.id))) continue;
             const EGOpDef eff = EffectiveOp(n);
             mn = {std::min(mn.x, n.pos.x), std::min(mn.y, n.pos.y)};
-            mx = {std::max(mx.x, n.pos.x + kW), std::max(mx.y, n.pos.y + NodeH(n, eff))};
+            mx = {std::max(mx.x, n.pos.x + NodeW(n)), std::max(mx.y, n.pos.y + NodeH(n, eff))};
             ++count;
         }
         if (!count) return;
@@ -1376,7 +1671,7 @@ void App::DrawEffectEditor() {
         frame(false);
     }
     dl->AddText(ImVec2(origin.x + 10, origin.y + 8), ui::col::TextDim,
-                "Clic droit : ajouter  |  sortie vers entrée : relier  |  cadre : sélection  |  Ctrl+C / X / V / D  |  F : cadrer  |  Suppr");
+                "Clic droit : ajouter  |  sortie vers entrée : relier  |  cadre : sélection  |  Ctrl+C / X / V / D  |  F : cadrer  |  C : commentaire  |  double-clic sur un lien : reroutage  |  Suppr");
     dl->PopClipRect();
 
     // ---------------------------------------------------------- preview

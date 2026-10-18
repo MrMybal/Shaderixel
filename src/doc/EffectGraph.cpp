@@ -1,6 +1,7 @@
 #include "doc/EffectGraph.h"
 
 #include <cstdio>
+#include <limits>
 #include <set>
 #include <unordered_map>
 
@@ -83,6 +84,7 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"random", "Aléatoire par touche", "Pinceau", {{"Canal", 0}}, {""}, 1},
         // Custom
         {"custom", "HLSL personnalisé", "Personnalisé", {{"A", 0}, {"B", 0}, {"C", 0}, {"D", 0}}, {""}, 4, true},
+        {"reroute", "Reroutage", "Organisation", {{"", 0}}, {""}, 0},
         // Output
         {"output", "Sortie", "Sortie", {{"RGBA", 0}, {"RGB", 0}, {"Alpha", 1}}, {}, 0},
     };
@@ -215,9 +217,32 @@ Json EffectGraph::ToJson() const {
         if (!n.pins.empty()) o["pins"] = pinsJson(n.pins);
         if (!n.outs.empty()) o["outs"] = pinsJson(n.outs);
         if (!n.decl.empty()) o["decl"] = n.decl;
+        // Values set on unconnected inputs: [[input, value], ...].
+        Json pv = Json::Array();
+        for (size_t i = 0; i < n.pinValues.size(); ++i)
+            if (n.PinValueSet(i)) {
+                Json e = Json::Array();
+                e.Push((int)i);
+                e.Push(n.pinValues[i]);
+                pv.Push(e);
+            }
+        if (pv.Size()) o["pv"] = pv;
         arr.Push(o);
     }
     j["nodes"] = arr;
+    if (!comments.empty()) {
+        Json ca = Json::Array();
+        for (auto& c : comments) {
+            Json o = Json::Object();
+            o["id"] = c.id;
+            o["pos"] = sx::ToJson(c.pos);
+            o["size"] = sx::ToJson(c.size);
+            o["text"] = c.text;
+            o["color"] = sx::ToJson(c.color);
+            ca.Push(o);
+        }
+        j["comments"] = ca;
+    }
     return j;
 }
 
@@ -253,6 +278,12 @@ bool EffectGraph::FromJson(const Json& j, EffectGraph& g) {
         n.name = o["name"].S("");
         n.text = o["text"].S("");
         n.index = o["index"].I(0);
+        for (auto& e : o["pv"].Elements()) {
+            const int i = e.Size() > 0 ? e.At(0).I(-1) : -1;
+            if (i < 0 || i > 64) continue;
+            if ((int)n.pinValues.size() <= i) n.pinValues.resize(i + 1, std::numeric_limits<float>::quiet_NaN());
+            n.pinValues[i] = e.Size() > 1 ? e.At(1).F(0) : 0.0f;
+        }
         auto readPins = [](const Json& arr, std::vector<EGPinDecl>& out) {
             for (auto& p : arr.Elements()) {
                 EGPinDecl d;
@@ -273,6 +304,18 @@ bool EffectGraph::FromJson(const Json& j, EffectGraph& g) {
         n.inputs.resize(EffectiveOp(n).inputs.size());
         g.nextId = std::max(g.nextId, n.id + 1);
         g.nodes.push_back(n);
+    }
+    for (auto& o : j["comments"].Elements()) {
+        EGComment c;
+        c.id = o["id"].U();
+        c.pos = Float2FromJson(o["pos"]);
+        c.size = Float2FromJson(o["size"]);
+        c.text = o["text"].S("");
+        c.color = Float4FromJson(o["color"]);
+        if (c.size.x < 40) c.size.x = 40;
+        if (c.size.y < 40) c.size.y = 40;
+        g.comments.push_back(c);
+        g.nextId = std::max(g.nextId, c.id + 1);
     }
     return true;
 }
@@ -437,6 +480,7 @@ struct Gen {
             int k = n.inputs[i].output;
             if (k >= 0 && k < (int)outs.size()) return outs[k];
         }
+        if (def >= 0 && n.PinValueSet(i)) return {F(n.pinValues[i]), 1};  // value set on the node
         if (def == -1) return {UV(), 2};  // pins defaulting to the image UV
         if (def == -2) return {opacityVar, 1};  // layer opacity (blends)
         if (def == -5) return {"31u", kEGTexture};  // unconnected texture: reads white
@@ -459,7 +503,7 @@ struct Gen {
         for (size_t i = 0; i < d->inputs.size(); ++i) a.push_back(Arg(*n, i, d->inputs[i].defValue));
         visiting.erase(id);
         const bool pinned = n->op == "custom" && n->HasPins();
-        for (size_t i = 0; i < a.size(); ++i) {
+        for (size_t i = 0; i < a.size() && n->op != "reroute"; ++i) {  // a reroute passes textures too
             bool wantTex = pinned && n->pins[i].type == kEGTexture;
             if ((a[i].n == kEGTexture) != wantTex) {
                 Fail(id, wantTex ? "une broche texture attend une « Texture d'entrée »" : "une texture ne se branche que sur une broche texture d'un nœud HLSL");
@@ -614,6 +658,7 @@ struct Gen {
         else if (op == "abs" || op == "frac" || op == "floor" || op == "ceil" || op == "sin" || op == "cos" || op == "exp2" || op == "saturate" || op == "normalize")
             one(op + "(" + a[0].expr + ")", a[0].n);
         else if (op == "negate") one("(-" + a[0].expr + ")", a[0].n);
+        else if (op == "reroute") one(a[0].expr, a[0].n);
         else if (op == "sqrt") one("sqrt(max(" + a[0].expr + ", 0.0))", a[0].n);
         else if (op == "log2") one("log2(max(" + a[0].expr + ", 1e-6))", a[0].n);
         else if (op == "if") one("((" + S(0) + " > " + S(1) + ") ? " + Conv(a[2], std::max(a[2].n, a[3].n)) + " : " + Conv(a[3], std::max(a[2].n, a[3].n)) + ")", std::max(a[2].n, a[3].n));
@@ -674,7 +719,7 @@ struct Gen {
         }
         // Materialize every output into a local so shared subexpressions are computed once.
         const bool multiOut = pinned && n->outs.size() > 1;
-        if (op != "output" && op != "param" && op != "paramcolor" && op != "param2" && op != "uv" && op != "const" && op != "brush" && op != "opacity" &&
+        if (op != "output" && op != "reroute" && op != "param" && op != "paramcolor" && op != "param2" && op != "uv" && op != "const" && op != "brush" && op != "opacity" &&
             op != "texture" && !multiOut) {
             for (size_t k = 0; k < out.size(); ++k) {
                 std::string var = "n" + std::to_string(id) + "_" + std::to_string(k);

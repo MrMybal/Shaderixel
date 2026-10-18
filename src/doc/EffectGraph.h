@@ -52,10 +52,22 @@ struct EGNode {
     // Custom HLSL with declared pins (empty = legacy A, B, C, D float4 -> float4).
     std::vector<EGPinDecl> pins, outs;
     std::string decl;            // declarations placed before the node (helper functions, constants)
+    // Values of the unconnected inputs set on this node (NaN: the default of the operation).
+    std::vector<float> pinValues;
     bool HasPins() const { return !pins.empty() || !outs.empty(); }
+    float PinValue(size_t i, float opDefault) const { return i < pinValues.size() && pinValues[i] == pinValues[i] ? pinValues[i] : opDefault; }
+    bool PinValueSet(size_t i) const { return i < pinValues.size() && pinValues[i] == pinValues[i]; }
 };
 
 enum class EGKind : int { Effect = 0, Blend = 1, Brush = 2 };
+
+// Comment frame drawn behind the nodes (title, color); moving it moves the nodes inside.
+struct EGComment {
+    Id id = 0;
+    float2 pos, size = {320, 200};
+    std::string text = "Commentaire";
+    float4 color = {0.30f, 0.42f, 0.70f, 1};
+};
 
 struct EffectGraph {
     std::string name = "Effet visuel";
@@ -68,6 +80,7 @@ struct EffectGraph {
     // Brushes: reaction to the pen (tablet): tilt direction -> angle, tilt -> size, barrel rotation -> angle, speed -> size.
     float tiltAngle = 0, tiltSize = 0, twistAngle = 0, speedSize = 0;
     std::vector<EGNode> nodes;
+    std::vector<EGComment> comments;
     Id nextId = 1;
 
     EGNode* Find(Id id);

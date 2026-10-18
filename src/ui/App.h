@@ -269,6 +269,11 @@ struct EffectEditorState {
     bool frameAll = false;              // frame the whole graph on the next frame (a graph was opened)
     std::string marksKey;               // shader errors mapped to the HLSL nodes (code lines marked red)
     std::map<Id, std::vector<ui::CodeMark>> codeMarks, declMarks;
+    Id pinEditNode = 0;                 // unconnected input edited in place (double click on its label)
+    Id selComment = 0, dragComment = 0, sizeComment = 0, renameComment = 0;  // comment frames
+    std::vector<Id> commentNodes;       // nodes moved with the dragged comment
+    std::string commentText;
+    int pinEditIn = 0;
     bool nodePreviews = true;           // result previews drawn in the nodes (effect graphs)
     double lastEdit = 0;                // time of the last change (node previews wait for a pause)
     std::string cachedJson;
