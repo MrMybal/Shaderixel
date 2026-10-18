@@ -24,7 +24,14 @@ struct PsdExportLayer {
     BlendIf blendIf;
     gpu::ReadbackPtr pixels;  // RGBA8 straight sRGB, document size
     gpu::ReadbackPtr mask;    // RGBA8, R = mask value
+    // Native adjustment layer (Photoshop additional layer information, no pixels): key and data.
+    std::string adjKey;
+    std::vector<u8> adjData;
 };
+
+// Photoshop adjustment record for a Shaderixel adjustment effect (brightness / contrast, levels,
+// hue / saturation, invert, posterize, threshold, exposure). False: not expressible natively.
+bool PsdAdjustmentFor(const EffectInstance& fx, std::string& key, std::vector<u8>& data);
 
 struct PsdExportJob {
     std::string path;

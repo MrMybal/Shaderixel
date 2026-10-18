@@ -1,4 +1,5 @@
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
+#include "io/PsdImport.h"
 #include "doc/ShapePaths.h"
 #include "ui/App.h"
 #include "ui/Filter.h"
@@ -443,6 +444,61 @@ void App::DemoTick() {
             Log("[demo] bake: %s", statusMsg.c_str());
             a->mesh->viewChannel = atoi(view);
             baker.open = false;
+        }
+        return;
+    }
+    if (demoMode == 103 && v) {
+        // Native PSD adjustment layers: 7 adjustments with known settings, exported, imported back, compared.
+        Document& d = *v->doc;
+        static std::string psdPath;
+        struct Case {
+            const char* id;
+            std::vector<float> params;
+        };
+        static const Case cases[] = {
+            {"brightness_contrast", {0.2f, 0.3f}},
+            {"levels", {20 / 255.0f, 230 / 255.0f, 1.4f, 10 / 255.0f, 245 / 255.0f}},
+            {"hue_saturation", {30, -20, 10, 0}},
+            {"invert", {}},
+            {"posterize", {6}},
+            {"threshold", {100 / 255.0f, 0}},
+            {"exposure", {0.75f, 0.05f, 1.2f}},
+        };
+        if (frameCounter == 6) {
+            for (const Case& c : cases) {
+                Layer& l = d.AddEffectLayer(LayerKind::Adjustment, c.id);
+                for (size_t k = 0; k < c.params.size() && k < l.effect.params.size(); ++k) l.effect.params[k].x = c.params[k];
+                l.name = std::string("Réglage ") + c.id;
+                l.visible = false;  // the export stays readable
+            }
+            d.SyncGraph();
+            char dir[512] = "";
+            GetEnvironmentVariableA("SX_OUTDIR", dir, sizeof(dir));
+            psdPath = std::string(dir[0] ? dir : ".") + "\\adjustments.psd";
+            ExportPsd(psdPath, 8);
+        }
+        if (frameCounter > 8 && !psdExport && !psdPath.empty()) {
+            PsdImportReport rep;
+            std::string err;
+            auto back = ImportPsd(psdPath, v->renderer, *ctx, rep, &err);
+            int same = 0, total = 0;
+            if (back)
+                for (const Case& c : cases) {
+                    ++total;
+                    for (auto& l : back->S().layers) {
+                        if (l.kind != LayerKind::Adjustment || l.effect.effectId != c.id) continue;
+                        bool ok = true;
+                        for (size_t k = 0; k < c.params.size() && k < l.effect.params.size(); ++k)
+                            if (std::abs(l.effect.params[k].x - c.params[k]) > 0.01f) {
+                                ok = false;
+                                Log("[psdadj] %s param %zu: %.4f -> %.4f", c.id, k, c.params[k], l.effect.params[k].x);
+                            }
+                        same += ok;
+                        break;
+                    }
+                }
+            Log("[psdadj] %s: %d adjustments read back, %d / %d identical %s", psdPath.c_str(), rep.adjustments, same, total, err.c_str());
+            psdPath.clear();
         }
         return;
     }

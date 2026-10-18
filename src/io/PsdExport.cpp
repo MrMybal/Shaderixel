@@ -169,6 +169,91 @@ void Luni(Writer& w, const std::string& utf8) {
 }
 }  // namespace
 
+bool PsdAdjustmentFor(const EffectInstance& fx, std::string& key, std::vector<u8>& data) {
+    Writer w;
+    auto p = [&](size_t i, float def) { return i < fx.params.size() ? fx.params[i].x : def; };
+    auto s16 = [&](float v, int lo, int hi) { w.U16((u16)(i16)std::clamp((int)std::lround(v), lo, hi)); };
+    const std::string& id = fx.effectId;
+    if (!fx.customCode.empty() || !fx.graph.empty()) return false;
+    if (id == "brightness_contrast") {
+        // Legacy record: brightness, contrast, mean, Lab flag (+ padding).
+        key = "brit";
+        s16(p(0, 0) * 250.0f, -150, 150);
+        s16(p(1, 0) * 100.0f, -50, 100);
+        w.U16(127);
+        w.U8(0);
+        w.U8(0);
+    } else if (id == "levels") {
+        // Version 2, 29 records (composite first): input floor / ceiling, output floor / ceiling, gamma x 100.
+        key = "levl";
+        w.U16(2);
+        for (int k = 0; k < 29; ++k) {
+            if (k == 0) {
+                s16(p(0, 0) * 255.0f, 0, 253);
+                s16(p(1, 1) * 255.0f, 2, 255);
+                s16(p(3, 0) * 255.0f, 0, 255);
+                s16(p(4, 1) * 255.0f, 0, 255);
+                s16(p(2, 1) * 100.0f, 10, 999);
+            } else {
+                w.U16(0);
+                w.U16(255);
+                w.U16(0);
+                w.U16(255);
+                w.U16(100);
+            }
+        }
+    } else if (id == "hue_saturation") {
+        // Version 2, colorize flag, colorize hue / saturation / lightness, master, then the 6 color ranges.
+        key = "hue2";
+        const bool colorize = p(3, 0) > 0.5f;
+        w.U16(2);
+        w.U8(colorize ? 1 : 0);
+        w.U8(0);
+        if (colorize) {
+            s16(p(0, 0) + 180.0f, 0, 360);
+            s16(p(1, 0), 0, 100);
+            s16(p(2, 0), -100, 100);
+            for (int k = 0; k < 3; ++k) w.U16(0);
+        } else {
+            w.U16(0);
+            w.U16(25);
+            w.U16(0);
+            s16(p(0, 0), -180, 180);
+            s16(p(1, 0), -100, 100);
+            s16(p(2, 0), -100, 100);
+        }
+        static const i16 ranges[6][4] = {{315, 345, 15, 45}, {15, 45, 75, 105}, {75, 105, 135, 165},
+                                         {135, 165, 195, 225}, {195, 225, 255, 285}, {255, 285, 315, 345}};
+        for (auto& rg : ranges) {
+            for (i16 v : rg) w.U16((u16)v);
+            for (int k = 0; k < 3; ++k) w.U16(0);
+        }
+    } else if (id == "invert") {
+        key = "nvrt";
+    } else if (id == "posterize") {
+        key = "post";
+        s16(p(0, 4), 2, 255);
+        w.U16(0);
+    } else if (id == "threshold") {
+        key = "thrs";
+        s16(p(0, 0.5f) * 255.0f, 1, 255);
+        w.U16(0);
+    } else if (id == "exposure") {
+        // Version 1, exposure, offset, gamma (big-endian floats).
+        key = "expA";
+        w.U16(1);
+        for (float f : {p(0, 0), p(1, 0), p(2, 1)}) {
+            u32 bits;
+            memcpy(&bits, &f, 4);
+            w.U32(bits);
+        }
+    } else {
+        return false;
+    }
+    data = std::move(w.b);
+    return true;
+}
+
 bool StartPsdExport(Document& doc, Renderer& r, gpu::CommandContext& ctx, PsdExportJob& job) {
     job.width = doc.Width();
     job.height = doc.Height();
@@ -213,6 +298,11 @@ bool StartPsdExport(Document& doc, Renderer& r, gpu::CommandContext& ctx, PsdExp
                 emit(l.id);
                 e.kind = PsdExportLayer::GroupBegin;
                 e.passThrough = l.passThrough;
+                job.layers.push_back(e);
+                continue;
+            }
+            // Adjustment layers: a native Photoshop adjustment when it has an equivalent (no pixels).
+            if (l.kind == LayerKind::Adjustment && l.filters.empty() && PsdAdjustmentFor(l.effect, e.adjKey, e.adjData)) {
                 job.layers.push_back(e);
                 continue;
             }
@@ -356,6 +446,14 @@ bool WritePsd(const PsdExportJob& job, std::string* error) {
         }
         PascalName(w, l.name);
         Luni(w, l.name);
+        if (!l.adjKey.empty()) {
+            // Native adjustment (additional layer information, even length).
+            w.Tag("8BIM");
+            w.Tag(l.adjKey.c_str());
+            w.U32((u32)((l.adjData.size() + 1) & ~(size_t)1));
+            w.Bytes(l.adjData.data(), l.adjData.size());
+            if (l.adjData.size() & 1) w.U8(0);
+        }
         if (l.kind != PsdExportLayer::Pixels) {
             w.Tag("8BIM");
             w.Tag("lsct");
