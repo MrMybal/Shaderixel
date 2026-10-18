@@ -2,6 +2,7 @@
 #include "ui/App.h"
 #include "ui/Theme.h"
 #include "ui/CodeEdit.h"
+#include "ui/Filter.h"
 #include "doc/Brushes.h"
 #include "doc/HlslImport.h"
 
@@ -11,6 +12,7 @@
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <fstream>
+#include <map>
 #include <set>
 
 namespace sx {
@@ -33,6 +35,65 @@ ImU32 CategoryColor(const char* cat) {
     if (c == "Fusion") return IM_COL32(190, 70, 110, 255);
     if (c == "Pinceau") return IM_COL32(60, 130, 200, 255);
     return IM_COL32(52, 160, 110, 255);  // output
+}
+
+// Short description of a node (add menu tooltips, search).
+const char* OpDescription(const std::string& op) {
+    static const std::map<std::string, const char*> d = {
+        {"input", "Couleur de l'image d'entrée au pixel courant."},
+        {"sample", "Lit l'image d'entrée à d'autres coordonnées (déformations, flous, décalages)."},
+        {"uv", "Coordonnées du pixel de 0 à 1 (x à droite, y vers le bas)."},
+        {"texture", "Une image d'entrée vue comme texture : lue à n'importe quelle coordonnée dans un nœud HLSL."},
+        {"canvassize", "Largeur, hauteur du canevas et taille d'un pixel (1 / largeur, 1 / hauteur)."},
+        {"pixel", "Position du pixel en pixels."},
+        {"size", "Taille de l'image en pixels."},
+        {"const", "Un nombre fixe."},
+        {"const2", "Deux nombres fixes (vecteur 2D)."},
+        {"color", "Une couleur fixe (RGBA)."},
+        {"param", "Un nombre réglable dans Propriétés (curseur)."},
+        {"paramcolor", "Une couleur réglable dans Propriétés."},
+        {"param2", "Une position ou un vecteur 2D réglable dans Propriétés."},
+        {"add", "A + B"}, {"sub", "A - B"}, {"mul", "A × B"}, {"div", "A / B"},
+        {"min", "Le plus petit de A et B."}, {"max", "Le plus grand de A et B."},
+        {"pow", "A à la puissance B."}, {"lerp", "Mélange de A vers B selon T (0 : A, 1 : B)."},
+        {"clamp", "Limite la valeur entre Min et Max."}, {"smoothstep", "Transition douce de 0 à 1 entre deux bornes."},
+        {"step", "0 sous le seuil, 1 au-dessus."}, {"oneminus", "1 - x : inverse une valeur de 0 à 1."},
+        {"abs", "Valeur absolue."}, {"negate", "Change le signe."}, {"saturate", "Limite entre 0 et 1."},
+        {"frac", "Partie après la virgule (répétitions, motifs)."}, {"floor", "Arrondi vers le bas."}, {"ceil", "Arrondi vers le haut."},
+        {"sqrt", "Racine carrée."}, {"sin", "Sinus (ondulations)."}, {"cos", "Cosinus (ondulations)."},
+        {"exp2", "2 à la puissance x."}, {"log2", "Logarithme en base 2."}, {"if", "Choisit une valeur selon que A est plus grand que B ou non."},
+        {"dot", "Produit scalaire de deux vecteurs."}, {"length", "Longueur d'un vecteur."}, {"distance", "Distance entre deux points."},
+        {"normalize", "Vecteur de longueur 1 dans la même direction."}, {"split", "Sépare les composantes (x, y, z, w)."},
+        {"append", "Colle deux valeurs en un vecteur plus grand."}, {"make4", "Construit un RGBA à partir de 4 valeurs."},
+        {"make3", "Construit un RGB à partir de 3 valeurs."}, {"make2", "Construit un vecteur 2D à partir de 2 valeurs."},
+        {"mask", "Garde certaines composantes (R, G, B, A)."},
+        {"luma", "Luminosité perçue d'une couleur."}, {"desaturate", "Retire de la couleur (vers le gris)."},
+        {"rgb2hsv", "Couleur RGB vers teinte, saturation, valeur."}, {"hsv2rgb", "Teinte, saturation, valeur vers RGB."},
+        {"tosrgb", "Linéaire vers sRGB (affichage)."}, {"tolinear", "sRGB vers linéaire (calculs)."},
+        {"noise", "Bruit procédural (nuages, grain)."}, {"checker", "Damier."}, {"rotateuv", "Tourne des coordonnées autour d'un centre."},
+        {"opacity", "Opacité du calque (fusions)."}, {"blendover", "Compose le résultat de la fusion sur le dessous."},
+        {"brush", "Données de la touche du pinceau : position, pression, graine, temps..."}, {"brushtex", "Une texture du pinceau."},
+        {"roundtip", "Pointe ronde avec dureté."}, {"random", "Nombre aléatoire propre à chaque touche."},
+        {"custom", "Votre code HLSL, avec ses entrées et sorties déclarées."},
+    };
+    auto it = d.find(op);
+    return it == d.end() ? "" : it->second;
+}
+
+// Sub-group in the add menu (Maths is long).
+std::string OpSubGroup(const std::string& op) {
+    static const std::map<std::string, const char*> g = {
+        {"add", "Arithmétique"}, {"sub", "Arithmétique"}, {"mul", "Arithmétique"}, {"div", "Arithmétique"}, {"negate", "Arithmétique"},
+        {"abs", "Arithmétique"}, {"oneminus", "Arithmétique"},
+        {"min", "Comparaison"}, {"max", "Comparaison"}, {"if", "Comparaison"}, {"step", "Comparaison"},
+        {"clamp", "Limites et arrondis"}, {"saturate", "Limites et arrondis"}, {"frac", "Limites et arrondis"}, {"floor", "Limites et arrondis"},
+        {"ceil", "Limites et arrondis"},
+        {"lerp", "Interpolation"}, {"smoothstep", "Interpolation"},
+        {"pow", "Puissances"}, {"sqrt", "Puissances"}, {"exp2", "Puissances"}, {"log2", "Puissances"},
+        {"sin", "Trigonométrie"}, {"cos", "Trigonométrie"},
+    };
+    auto it = g.find(op);
+    return it == g.end() ? "" : it->second;
 }
 
 int Rows(const EGOpDef& d) { return std::max<int>((int)std::max(d.inputs.size(), d.outputs.size()), 1); }
@@ -640,6 +701,15 @@ void App::DrawEffectEditor() {
     float pr = 5.5f * ed.zoom;
     ImVec2 m = io.MousePos;
     auto hit = [&](ImVec2 a, float r) { float dx = a.x - m.x, dy = a.y - m.y; return dx * dx + dy * dy <= r * r; };
+    auto openAdd = [&](Id fromNode, int fromOut, Id toNode, int toIn) {
+        ed.ctxPos = toG(m);
+        ed.search[0] = 0;
+        ed.ctxFrom = fromNode;
+        ed.ctxFromOut = fromOut;
+        ed.ctxTo = toNode;
+        ed.ctxToIn = toIn;
+        ImGui::OpenPopup("##efadd");
+    };
 
     Id hNode = 0, hOutNode = 0, hInNode = 0;
     int hOut = -1, hIn = -1;
@@ -705,6 +775,9 @@ void App::DrawEffectEditor() {
                     changed = true;
                     changeLabel = "Relier";
                 }
+            } else if (!from && !to && hovered && !hNode && !hInNode && !hOutNode) {
+                // Dropped on the empty canvas: the add menu, for this link.
+                openAdd(ed.linkFrom, ed.linkFromOut, ed.linkFrom ? 0 : ed.linkTo, ed.linkToIn);
             }
             ed.dragLink = false;
         }
@@ -848,35 +921,151 @@ void App::DrawEffectEditor() {
                 break;
             }
     }
-    // Context menu: add node
-    if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Right] < 16.0f) {
-        ed.ctxPos = toG(m);
-        ed.search[0] = 0;
-        ImGui::OpenPopup("##efadd");
+    // Add-node menu (right click, or a link dropped on the empty canvas). Categories as a tree like Unreal,
+    // a flat list while searching (Enter: the first one). From a link: only the nodes that can take it,
+    // linked on creation.
+    if (hovered && ImGui::IsMouseReleased(ImGuiMouseButton_Right) && ImGui::GetIO().MouseDragMaxDistanceSqr[ImGuiMouseButton_Right] < 16.0f)
+        openAdd(0, 0, 0, 0);
+    if (ed.demoAdd) {
+        Id src = 0;
+        for (auto& n : g.nodes) if (n.op == "uv" && !src) src = n.id;
+        m = ImVec2(origin.x + size.x * 0.45f, origin.y + size.y * 0.3f);
+        openAdd(ed.demoAdd == 2 ? src : 0, 0, 0, 0);
+        if (ed.demoAdd == 3) snprintf(ed.search, sizeof(ed.search), "%s", "inter");
+        ed.demoAdd = 0;
     }
+    if (ImGui::IsPopupOpen("##efadd") && (ed.ctxFrom || ed.ctxTo)) {
+        const ImVec2 to = toS(ed.ctxPos);
+        if (ed.ctxFrom) { if (const EGNode* s = g.Find(ed.ctxFrom)) link(outPin(*s, ed.ctxFromOut), to, ui::col::Accent); }
+        else if (const EGNode* t = g.Find(ed.ctxTo)) link(to, inPin(*t, ed.ctxToIn), ui::col::Accent);
+    }
+    ImGui::SetNextWindowSizeConstraints(ImVec2(320 * dpi, 0), ImVec2(460 * dpi, 620 * dpi));
+    ImGui::SetNextWindowPos(toS(ed.ctxPos), ImGuiCond_Appearing);
     if (ImGui::BeginPopup("##efadd")) {
+        const bool fromOut = ed.ctxFrom != 0, toIn = !fromOut && ed.ctxTo != 0;
+        int linkType = 0;  // components of the dragged output (5 = texture)
+        if (fromOut || toIn) {
+            const EGNode* cn = g.Find(fromOut ? ed.ctxFrom : ed.ctxTo);
+            std::string pinName, nodeName;
+            if (cn && FindOp(cn->op)) {
+                const EGOpDef ce = EffectiveOp(*cn);
+                nodeName = cn->op == "custom" && !cn->name.empty() ? cn->name : ce.label;
+                if (fromOut && ed.ctxFromOut < (int)ce.outputs.size()) pinName = ce.outputs[ed.ctxFromOut];
+                if (toIn && ed.ctxToIn < (int)ce.inputs.size()) pinName = ce.inputs[ed.ctxToIn].name;
+            }
+            if (fromOut) linkType = cr.OutType(ed.ctxFrom, ed.ctxFromOut);
+            if (pinName.empty() && fromOut) pinName = linkType >= 1 && linkType <= 4 ? kTypeNames[linkType] : linkType == kEGTexture ? "Texture" : "";
+            ImGui::TextColored(ImVec4(0.55f, 0.8f, 1, 1), fromOut ? "Depuis la sortie %s de « %s »" : "Vers l'entrée %s de « %s »", pinName.c_str(), nodeName.c_str());
+            ImGui::Checkbox("Contextuel", &ed.ctxSensitive);
+            ui::HelpTooltip("Seulement les nœuds qui peuvent être reliés à ce lien ; le nouveau nœud est relié.");
+        }
         if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
-        ImGui::InputTextWithHint("##s", "Rechercher...", ed.search, sizeof(ed.search));
-        std::string q = ed.search;
-        for (auto& c : q) c = (char)tolower((unsigned char)c);
-        std::string lastCat;
-        for (auto& od : EffectGraphOps()) {
-            if (std::string(od.op) == "output" || !OpAllowed(od, g.kind)) continue;
-            if (!q.empty()) {
-                std::string l = od.label;
-                for (auto& c : l) c = (char)tolower((unsigned char)c);
-                if (l.find(q) == std::string::npos && std::string(od.op).find(q) == std::string::npos) continue;
-                if (ImGui::MenuItem(od.label)) { addAt(od, ed.ctxPos); ImGui::CloseCurrentPopup(); }
-                continue;
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        const bool enter = ImGui::InputTextWithHint("##s", "Rechercher un nœud...", ed.search, sizeof(ed.search), ImGuiInputTextFlags_EnterReturnsTrue);
+        const std::string q = ed.search;
+        auto fits = [&](const EGOpDef& od) {
+            const std::string op = od.op;
+            if (op == "output" || !OpAllowed(od, g.kind)) return false;
+            if (!ed.ctxSensitive) return true;
+            if (fromOut) {
+                if (od.inputs.empty() && op != "custom") return false;
+                // A texture goes into a custom node (texture pin); the other nodes take values.
+                if (linkType == kEGTexture) return op == "custom";
             }
-            if (od.category != lastCat) {
-                if (!lastCat.empty()) ImGui::Separator();
+            if (toIn && od.outputs.empty()) return false;
+            return true;
+        };
+        auto matches = [&](const EGOpDef& od) {
+            return q.empty() || ui::FilterMatch(q, od.label) || ui::FilterMatch(q, od.op) || ui::FilterMatch(q, od.category) ||
+                   ui::FilterMatch(q, OpDescription(od.op));
+        };
+        const EGOpDef* chosen = nullptr;
+        auto item = [&](const EGOpDef& od, bool highlight) {
+            ImGui::PushID(od.op);
+            if (ImGui::Selectable(od.label, highlight)) chosen = &od;
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) {
+                ImGui::BeginTooltip();
+                ImGui::TextUnformatted(od.label);
+                if (const char* desc = OpDescription(od.op); desc[0]) {
+                    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 24);
+                    ImGui::TextDisabled("%s", desc);
+                    ImGui::PopTextWrapPos();
+                }
+                std::string ins, outs;
+                for (auto& p : od.inputs) ins += (ins.empty() ? "" : ", ") + std::string(p.name);
+                for (auto* o : od.outputs) outs += (outs.empty() ? "" : ", ") + std::string(o[0] ? o : "valeur");
+                if (!ins.empty()) ImGui::Text("Entrées : %s", ins.c_str());
+                if (!outs.empty()) ImGui::Text("Sorties : %s", outs.c_str());
+                ImGui::EndTooltip();
+            }
+            ImGui::PopID();
+        };
+        ImGui::BeginChild("##addlist", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders);
+        if (!q.empty()) {
+            // Flat list: the first one is taken by Enter.
+            bool first = true;
+            for (auto& od : EffectGraphOps()) {
+                if (!fits(od) || !matches(od)) continue;
+                if (first && enter) chosen = &od;
+                item(od, first);
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize(od.category).x);
                 ImGui::TextDisabled("%s", od.category);
-                lastCat = od.category;
+                first = false;
             }
-            if (ImGui::MenuItem(od.label)) { addAt(od, ed.ctxPos); ImGui::CloseCurrentPopup(); }
+            if (first) ImGui::TextDisabled("Aucun nœud ne correspond.");
+        } else {
+            // Tree: category, then sub-group (Maths), then the nodes. Opened by default from a link (short lists).
+            std::vector<std::string> cats;
+            for (auto& od : EffectGraphOps())
+                if (fits(od) && std::find(cats.begin(), cats.end(), od.category) == cats.end()) cats.push_back(od.category);
+            for (const std::string& cat : cats) {
+                ImVec4 cc = ImGui::ColorConvertU32ToFloat4(CategoryColor(cat.c_str()));
+                ImGui::PushStyleColor(ImGuiCol_Text, ImLerp(cc, ImVec4(1, 1, 1, 1), 0.35f));
+                bool open = ImGui::TreeNodeEx(cat.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ((fromOut || toIn) ? ImGuiTreeNodeFlags_DefaultOpen : 0));
+                ImGui::PopStyleColor();
+                if (!open) continue;
+                std::vector<std::string> subs;
+                for (auto& od : EffectGraphOps())
+                    if (fits(od) && od.category == cat && std::find(subs.begin(), subs.end(), OpSubGroup(od.op)) == subs.end()) subs.push_back(OpSubGroup(od.op));
+                for (const std::string& sub : subs) {
+                    bool subOpen = true;
+                    if (!sub.empty()) subOpen = ImGui::TreeNodeEx(sub.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_DefaultOpen);
+                    if (!subOpen) continue;
+                    for (auto& od : EffectGraphOps())
+                        if (fits(od) && od.category == cat && OpSubGroup(od.op) == sub) {
+                            ImGui::Indent(ImGui::GetStyle().IndentSpacing * 0.4f);
+                            item(od, false);
+                            ImGui::Unindent(ImGui::GetStyle().IndentSpacing * 0.4f);
+                        }
+                    if (!sub.empty()) ImGui::TreePop();
+                }
+                ImGui::TreePop();
+            }
+        }
+        ImGui::EndChild();
+        if (chosen) {
+            addAt(*chosen, ed.ctxPos);
+            const Id nid = g.nodes.back().id;
+            // Linked to the dragged pin.
+            if (fromOut && g.Find(ed.ctxFrom)) {
+                EGNode& nn = g.nodes.back();
+                const EGOpDef ne = EffectiveOp(nn);
+                if (!ne.inputs.empty()) {
+                    if (nn.inputs.size() < ne.inputs.size()) nn.inputs.resize(ne.inputs.size());
+                    nn.inputs[0] = {ed.ctxFrom, ed.ctxFromOut};
+                }
+            } else if (toIn) {
+                if (EGNode* t = g.Find(ed.ctxTo)) {
+                    if ((int)t->inputs.size() <= ed.ctxToIn) t->inputs.resize(ed.ctxToIn + 1);
+                    t->inputs[ed.ctxToIn] = {nid, 0};
+                }
+            }
+            ed.ctxFrom = ed.ctxTo = 0;
+            ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();
+    } else {
+        ed.ctxFrom = ed.ctxTo = 0;
     }
     if (focused && !io.WantTextInput && (ImGui::IsKeyPressed(ImGuiKey_Delete)) && ed.selected) {
         EGNode* n = g.Find(ed.selected);

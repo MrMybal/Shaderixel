@@ -4196,6 +4196,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
                     efEd.selected = n.id;
                     if (const char* c = getenv("SX_FXCODE"); c && std::string(c) == "big") efEd.bigCode = n.id;
                 }
+            if (const char* a = getenv("SX_FXADD")) efEd.demoAdd = atoi(a);
         }
         if (frameCounter == 30 && demoGraphOpen) {
             const char* want = getenv("SX_FXID");

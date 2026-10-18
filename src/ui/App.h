@@ -257,6 +257,10 @@ struct EffectEditorState {
     char search[64] = {};
     bool libCode = false;  // library graph effect: its code shown instead of the graph
     Id bigCode = 0;        // custom node whose code is open in the large editor window
+    Id ctxFrom = 0, ctxTo = 0;          // add menu opened from a dropped link: its output, or its input
+    int ctxFromOut = 0, ctxToIn = 0;
+    bool ctxSensitive = true;           // add menu: only the nodes that fit the link
+    int demoAdd = 0;                    // demos: opens the add menu (1 plain, 2 from an output, 3 with a search)
     std::string cachedJson;
     EffectGraph graph;
     std::optional<DocState> pendingBefore;
