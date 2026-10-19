@@ -306,6 +306,43 @@ public:
     void MeshDecalMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, gpu::Texture* image, float2 center, float2 halfSize, float rotation,
                         float opacity, const std::vector<float4>& colorsLinear, bool firstUsesImageColor);
     void EndStrokeMulti(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label);
+    // Liquid paint (FluidPaint.cpp): a film of paint simulated in texture space that carries a whole material
+    // (color, roughness, metal, emissive; its thickness is the relief) and runs with gravity, composited live
+    // into the stroke layers (one per channel: kinds 0 base color, 1 roughness, 2 metal, 3 height, 4 emissive).
+    struct FluidParams {
+        float4 gravity = {0, -1, 0, 0};  // model: world direction; image: texel direction * slope (xy), facing down (z)
+        float strength = 1;
+        float speed = 300;            // texels / s on a vertical slope
+        float retention = 0.35f;      // film that stays (does not run)
+        float spread = 0.3f;          // the paint levels itself (sideways)
+        float cohesion = 0.15f;       // the moving paint gathers into rivulets
+        float coat = 0.4f;            // thickness laid by the brush (the flow adds on top)
+        float setTime = 6;            // s: the paint stops running
+        float noise = 0.5f, noiseScale = 6;  // irregular runs
+        float absorb = 0.05f;         // stain left in the support
+        float damping = 6;            // inertia (1 / s)
+        float density = 2.5f;         // coverage per thickness
+        float relief = 1, heightBase = 0.5f, wetGloss = 0.7f;
+        float bed = 0;                // the existing relief diverts the paint
+        float dripOff = 0.5f;         // drops falling from overhangs
+        float hardness = 0.4f;
+        float seed = 0;
+        float4 color = {1, 0, 0, 0};  // linear color, emissive part
+        float rough = 0.4f, metal = 0;
+        float4 emissive = {0, 0, 0, 1};
+        bool offEdges = true;         // runs off the image / UV island borders
+    };
+    bool FluidBegin(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces, const std::vector<int>& kinds, MeshScene* mesh,
+                    u32 simW, u32 simH, gpu::Texture* selection, gpu::Texture* bed);
+    void FluidGravity(gpu::CommandContext& ctx, const FluidParams& p);
+    // Dabs: image (x, y px, radius px, -) or world (x, y, z, radius); extras: amount, normal of the painted side.
+    void FluidDeposit(gpu::CommandContext& ctx, const std::vector<float4>& dabs, const std::vector<float4>& ex, bool world, bool erase, const FluidParams& p);
+    int FluidStep(gpu::CommandContext& ctx, float dt, const FluidParams& p);  // returns the substeps
+    void FluidComposite(Document& doc, gpu::CommandContext& ctx, const FluidParams& p);
+    void FluidEnd(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label, bool keep);
+    bool FluidActive() const { return fluid.active; }
+    u32 FluidWidth() const { return fluid.w; }
+    float FluidTime() const { return fluid.time; }
     void RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, const ShapeStyle& s);
     // Warp: `src` drawn as the bicubic Bezier patch `grid` (4x4 control points,
     // row-major, document pixels) over what stays (unselected pixels). `mask`:
@@ -332,6 +369,17 @@ private:
         gpu::TexturePtr pre;
     };
     std::vector<StrokeSlot> strokeSlots;  // multi-channel strokes: layers after the first
+    struct FluidState {
+        bool active = false;
+        u32 w = 0, h = 0, docW = 0, docH = 0;
+        gpu::TexturePtr f0[2], f1[2], d0[2], d1[2], flux[2], grav, selection, bed;
+        int cur = 0, fluxCur = 0;
+        MeshScene* mesh = nullptr;
+        std::vector<int> kinds;
+        float texelWorld = 1, time = 0;
+    } fluid;
+    void FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float dt, const FluidParams& p, const std::vector<float4>* dabs,
+                       const std::vector<float4>* ex, u32 extraFlags);
     struct NodeCache {
         gpu::TexturePtr tex, tmp;
         u64 hash = 0;

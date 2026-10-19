@@ -46,7 +46,7 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Plugin, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Fluid, Plugin, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
@@ -1383,6 +1383,56 @@ private:
         u32 rng = 777;
         double last = 0;
     } sim;
+    // Liquid paint tool (FluidPaintUi.cpp): a film of paint (the brush material: color, roughness, metal,
+    // relief, emissive) simulated on the GPU that runs with gravity, on the model or on a tilted image.
+    struct FluidSettings {
+        int preset = 0;
+        float flow = 2.0f;          // extra paint per second (pools when the brush stays)
+        float viscosity = 1.0f;     // slower runs
+        float gravity = 1.0f;
+        float retention = 0.3f;     // film that stays: longer runs when low
+        float spread = 0.25f;       // the paint levels itself sideways
+        float cohesion = 0.15f;     // runs gather into rivulets
+        float coat = 1.3f;          // coat laid by the brush, relative to the retained film (above 1: runs everywhere)
+        float setTime = 8;          // s: the paint stops running
+        float noise = 0.5f, noiseScale = 6;
+        float absorb = 0.03f;       // stain left in the support
+        float density = 3.0f, relief = 1.0f, wetGloss = 0.8f, bed = 0.5f, dripOff = 0.5f;
+        float hardness = 0.5f;
+        float timeScale = 1;
+        int gravMode = 0;           // 0 world (down), 1 bottom of the view, 2 custom
+        float azimuth = 0, tilt = 0;    // custom (degrees): around the vertical, away from straight down
+        float dir2D = 0, tilt2D = 90;   // image: direction of the slope (0: toward the bottom), tilt of the support (0 flat, 90 wall, 180 ceiling)
+        int simRes = 0;             // 0 auto (2048 at most), 1 document, 2 half, 3 quarter
+        bool offEdges = true;
+        bool paused = false;
+    } fluidSet;
+    struct {
+        DocView* view = nullptr;
+        bool active = false, painting = false, erase = false;
+        float idle = 0;             // s of simulation since the last paint
+        float2 lastDoc;
+        bool haveDoc = false;
+        float3 lastHit;
+        bool haveHit = false;
+        std::vector<float4> dabs, ex;
+        bool world = false;
+        u64 gravKey = 0;
+        int substeps = 0;
+        float seed = 1;
+        float4 overrideColor;
+        bool useOverride = false;
+        bool mesh = false;
+        u32 simW = 0, simH = 0;
+    } fluidRun;
+    Renderer::FluidParams FluidParamsNow(DocView& v);
+    bool FluidStart(DocView& v);
+    void FluidFinish(bool keep);
+    void FluidInput2D(DocView& v, float2 dp, float2 canvasMin, bool hovered);
+    void FluidInput3D(DocView& v, float2 local, u32 w, u32 h, bool hovered, bool orbit, ImVec2 origin);
+    void FluidTick();
+    void DrawFluidOptions(bool in3D);
+    void ApplyFluidPreset(int i);
     bool CameraRay(MeshScene& s, float2 local, u32 w, u32 h, float3& o, float3& d);
     float Rand01();
     void SimEmit(DocView& v, float2 local, u32 w, u32 h, float dt);

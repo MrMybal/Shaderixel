@@ -100,3 +100,7 @@
 
 ### Import CyTexture
 - 182 presets de CyTexture importés (Dessin 31, Effets 92, Fusions 47, Masques 12) depuis les définitions de `CyTextureMaterialPresetGenerator.cpp` (lu, jamais modifié) : `tools/cytexture/extract_presets.py` puis `convert_presets.py` ; chaque texture devient une entrée de nœud, les 221 effets compilent. Fusions utilisables comme mode de fusion de calque (« Fusions d'effets »). « Advanced » : 93 sur 94 importés via `tools/unreal` (export depuis l’éditeur Unreal, graphes de matériau et de fonctions traduits) ; pinceaux : 33 sur 34 importés en pinceaux programmables (`tools/cytexture/convert_brushes.py`, reste TextureBrush qui lit une texture)
+
+## Peinture liquide (fait)
+
+Film de peinture simulé sur GPU (shaders/fluid_paint.slang, render/FluidPaint.cpp, ui/FluidPaintUi.cpp) : tous les canaux PBR à la fois, gravité du modèle 3D ou d'un plan incliné, prise, absorption, relief, brillance humide ; une étape d'historique. Reste : passage des coutures UV (la peinture quitte l'île ou s'y accumule), gouttes détachées qui retombent plus bas sur le modèle, mélange avec la peinture déjà sèche du calque.

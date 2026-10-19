@@ -632,6 +632,13 @@ void App::DrawBrushMaterialPanel() {
     if (B.simPreset == 3) ImGui::SliderFloat("Dispersion", &B.simSpread, 0, 2, "%.2f");
     if (ImGui::Button("Outil Simulation")) tool = Tool::Particles;
     ui::HelpTooltip("Maintenez le clic sur le modèle : les particules partent du pinceau (sa taille fixe la zone)\net peignent le matériau du pinceau là où elles passent, même hors de la vue.");
+    section("Peinture liquide", Tool::Fluid);
+    if (tool == Tool::Fluid) {
+        DrawFluidOptions(true);
+    } else {
+        ImGui::TextDisabled("Coulures simulées : tous les canaux du matériau à la fois, avec la gravité.");
+        if (ImGui::Button("Outil Peinture liquide")) tool = Tool::Fluid;
+    }
     section("Projection (décalque)", Tool::Projection);
     std::string dn = decal.path.empty() ? "(aucune image)" : Narrow(Utf8Path(decal.path).filename().wstring());
     ImGui::TextUnformatted(dn.c_str());

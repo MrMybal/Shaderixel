@@ -50,6 +50,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Projection, ui::IconStamp, "Projection (décalque 3D)", "P"},
     {Tool::PolyFill, ui::IconPolyFill, "Remplissage par polygone (3D)", "-"},
     {Tool::Particles, ui::IconParticles, "Simulation de peinture (particules 3D : coulures, poussière, éclaboussures...)", "-"},
+    {Tool::Fluid, ui::IconFluid, "Peinture liquide (coulures PBR : couleur, rugosité, métal, relief ; gravité)", "-"},
     {Tool::Plugin, ui::IconWand, "Outil de plugin", "-"},
 };
 
@@ -65,6 +66,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Projection},
     {Tool::PolyFill},
     {Tool::Particles},
+    {Tool::Fluid},
     {Tool::Eraser, Tool::BackgroundEraser, Tool::MagicEraser},
     {Tool::Clone, Tool::PatternStamp},
     {Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye},
@@ -105,7 +107,7 @@ void App::DrawToolbar() {
         const bool p3d = Use3DTools();
         auto only3D = [](Tool t) { return t == Tool::Projection || t == Tool::PolyFill || t == Tool::Particles; };
         auto allowed3D = [](Tool t) {
-            return t == Tool::Brush || t == Tool::Eraser || t == Tool::Projection || t == Tool::PolyFill || t == Tool::Particles || t == Tool::Clone || t == Tool::Blur || t == Tool::Picker ||
+            return t == Tool::Brush || t == Tool::Eraser || t == Tool::Projection || t == Tool::PolyFill || t == Tool::Particles || t == Tool::Fluid || t == Tool::Clone || t == Tool::Blur || t == Tool::Picker ||
                    t == Tool::Hand || t == Tool::Zoom || t == Tool::Lasso || t == Tool::RectSelect || t == Tool::Plugin;
         };
         {
@@ -123,7 +125,7 @@ void App::DrawToolbar() {
         for (size_t g = 0; g < kGroups.size(); ++g) {
             const auto& group = kGroups[g];
             if (p3d ? !allowed3D(group[0]) : only3D(group[0])) continue;
-            if (g == 1 || g == 5 || g == 16) {  // separators before transform, brushes, gradients
+            if (g == 1 || g == 5 || g == 17) {  // separators before transform, brushes, gradients
                 ImVec2 c = ImGui::GetCursorScreenPos();
                 ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);
                 ImGui::Dummy(ImVec2(size, 3 * dpi));
@@ -544,6 +546,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (tool == Tool::Plugin) {
         PluginToolInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::Fluid) {
+        FluidInput2D(v, dp, {canvasMin.x, canvasMin.y}, hovered);
         return;
     }
 

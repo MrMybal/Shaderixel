@@ -447,6 +447,89 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 105) {
+        // Liquid paint: SX_FLUID = 2d (a tilted image), 3d (a sphere), plane (a flat plane, gravity tilted), cube.
+        // SX_FLPRESET preset, SX_TILT support tilt (image), SX_FLSTILL frames the brush stays still (a pool).
+        char mode[16] = "2d", pre[8] = "0", tilt[16] = "90", still[8] = "12", view[8] = "";
+        GetEnvironmentVariableA("SX_FLUID", mode, sizeof(mode));
+        GetEnvironmentVariableA("SX_FLPRESET", pre, sizeof(pre));
+        GetEnvironmentVariableA("SX_TILT", tilt, sizeof(tilt));
+        GetEnvironmentVariableA("SX_FLSTILL", still, sizeof(still));
+        GetEnvironmentVariableA("SX_VIEWCH", view, sizeof(view));
+        const std::string m = mode;
+        const bool is3D = m != "2d";
+        ImGuiIO& io = ImGui::GetIO();
+        if (frameCounter == 4) {
+            if (is3D) {
+                p3dNew = {};
+                p3dNew.basePreset = m == "cube" ? 7 : 1;
+                p3dNew.mesh = m == "plane" ? 2 : m == "cube" ? 1 : 0;
+                NewPaint3DProject();
+            } else {
+                NewDocument(1024, 1024, Precision::Half16, DocMode::Layers, 0, "Liquide");
+                DocView* dv = Active();
+                Document& d = *dv->doc;
+                Layer& l = d.AddPixelLayer("Peinture");
+                d.S().activeLayer = l.id;
+                d.SyncGraph();
+            }
+        }
+        DocView* a = Active();
+        if (!a) return;
+        if (frameCounter == 8 && is3D) FocusPanel("Vue 3D");
+        if (frameCounter == 12) FocusPanel(is3D ? "Matériau du pinceau" : "Options");
+        if (frameCounter >= 10 && frameCounter <= 15) {
+            tool = Tool::Fluid;  // each view keeps its tool: set it once the 3D view is the one worked in
+            viewTool[0] = viewTool[1] = Tool::Fluid;
+        }
+        if (frameCounter == 10) {
+            ApplyFluidPreset(atoi(pre));
+            fluidSet.tilt2D = (float)atof(tilt);
+            brush.size = is3D ? 70.0f : 46.0f;
+            if (m == "plane") {
+                fluidSet.gravMode = 2;  // the plane tilted up as a wall
+                fluidSet.tilt = 90;
+                fluidSet.azimuth = -90;
+                a->mesh->yaw = 0.0f;
+                a->mesh->pitch = 1.2f;
+            } else if (is3D) {
+                a->mesh->yaw = 0.35f;
+                a->mesh->pitch = 0.2f;
+            }
+            if (is3D && view[0]) a->mesh->viewChannel = atoi(view);
+        }
+        ImVec2 p0, p1;
+        bool have = false;
+        if (is3D) {
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D")) {
+                const ImVec2 c((w->InnerRect.Min.x + w->InnerRect.Max.x) * 0.5f, (w->InnerRect.Min.y + w->InnerRect.Max.y) * 0.5f);
+                const float span = std::min(w->InnerRect.Max.x - w->InnerRect.Min.x, w->InnerRect.Max.y - w->InnerRect.Min.y) * 0.22f;
+                p0 = ImVec2(c.x - span, c.y - span * (m == "plane" ? 0.3f : 0.85f));
+                p1 = ImVec2(c.x + span, p0.y);
+                have = true;
+            }
+        } else if (ImGui::FindWindowByName("Canevas")) {
+            auto screen = [&](float2 p) { return ImVec2(lxf.canvasMin.x + a->pan.x + p.x * a->zoom, lxf.canvasMin.y + a->pan.y + p.y * a->zoom); };
+            p0 = screen({160, 230});
+            p1 = screen({860, 230});
+            have = true;
+        }
+        // A stroke across, the brush held still halfway (a pool that runs further).
+        const int hold = atoi(still);
+        if (have && frameCounter >= 16 && frameCounter <= 70 + hold) {
+            const int f = frameCounter - 16;
+            float t = f < 27 ? f / 54.0f : f < 27 + hold ? 0.5f : (f - hold) / 54.0f;
+            t = std::min(t, 1.0f);
+            io.AddMousePosEvent(p0.x + (p1.x - p0.x) * t, p0.y + (p1.y - p0.y) * t + 6 * std::sin(t * 9.0f));
+            if (frameCounter == 17) io.AddMouseButtonEvent(0, true);
+        }
+        if (frameCounter == 71 + hold) io.AddMouseButtonEvent(0, false);
+        if (frameCounter == 72 + hold && have) io.AddMousePosEvent(p1.x + 300, p1.y + 300);
+        if (frameCounter % 60 == 0 && frameCounter >= 60)
+            Log("[fluid] frame %d: active %d, wet %.2f s, %d substeps, sim %ux%u, history %zu, status %s", frameCounter, fluidRun.active ? 1 : 0,
+                a->renderer.FluidTime(), fluidRun.substeps, fluidRun.simW, fluidRun.simH, a->history.Count(), statusMsg.c_str());
+        return;
+    }
     if (demoMode == 104) {
         // Undo pixels in system memory: a 4096 x 4096 document, 12 destructive steps (256 MB of undo data each),
         // the older ones moved off the GPU; everything undone then redone, compared with the original / final image.

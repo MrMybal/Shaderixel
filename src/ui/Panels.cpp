@@ -1369,6 +1369,9 @@ void App::DrawBrush() {
         ImGui::SeparatorText("Gomme magique");
         ImGui::SliderFloat("Tolérance", &wandTolerance, 0, 255, "%.0f");
         ImGui::TextDisabled("Clic : efface les pixels voisins de couleur proche.");
+    } else if (tool == Tool::Fluid) {
+        ImGui::SeparatorText("Peinture liquide");
+        DrawFluidOptions(false);
     } else if (tool == Tool::Gradient) {
         ImGui::SeparatorText("Dégradé");
         ImGui::Combo("Style", &gradientShape, "Linéaire\0" "Radial\0" "Angle\0" "Réfléchi\0" "Losange\0");

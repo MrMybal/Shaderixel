@@ -235,6 +235,17 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             }
             break;
         }
+        case IconFluid: {
+            // A stroke of paint at the top, its runs dripping down (different lengths).
+            const float k = P(1, 0).x - P(0, 0).x;
+            dl->AddRectFilled(P(-0.8f, -0.85f), P(0.8f, -0.45f), col, 0.18f * k);
+            const float xs[3] = {-0.5f, 0.0f, 0.48f}, ys[3] = {0.35f, 0.7f, 0.05f};
+            for (int i = 0; i < 3; ++i) {
+                dl->AddLine(P(xs[i], -0.5f), P(xs[i], ys[i]), col, t * 2.2f);
+                dl->AddCircleFilled(P(xs[i], ys[i]), 0.17f * k, col);
+            }
+            break;
+        }
         case IconPolyFill: {
             // Mesh triangles, one of them filled.
             dl->AddTriangleFilled(P(-0.7f, 0.6f), P(0.0f, -0.6f), P(0.7f, 0.6f), (col & 0x00FFFFFF) | 0x50000000);
