@@ -51,10 +51,15 @@ bool LoadFbx(const std::string& path, MeshData& out, std::string* error) {
     }
     bool hasUv = false;
     std::vector<uint32_t> tri;
+    // The root carries the axis conversion (and its winding is already handled by ufbx): only
+    // a node whose own transform mirrors relative to it needs its triangles reversed.
+    const ufbx_real rootDet = scene->root_node ? ufbx_matrix_determinant(&scene->root_node->node_to_world) : 1.0;
     for (size_t ni = 0; ni < scene->nodes.count; ++ni) {
         const ufbx_node* node = scene->nodes.data[ni];
         const ufbx_mesh* mesh = node->mesh;
         if (!mesh) continue;
+        const bool mirrored = ufbx_matrix_determinant(&node->geometry_to_world) * rootDet < 0;
+        const ufbx_matrix normalMatrix = ufbx_matrix_for_normals(&node->geometry_to_world);  // inverse-transpose
         tri.resize(mesh->max_face_triangles * 3);
         hasUv |= mesh->vertex_uv.exists;
         for (size_t fi = 0; fi < mesh->faces.count; ++fi) {
@@ -73,7 +78,7 @@ bool LoadFbx(const std::string& path, MeshData& out, std::string* error) {
                     ufbx_vec3 p = ufbx_transform_position(&node->geometry_to_world, ufbx_get_vertex_vec3(&mesh->vertex_position, idx));
                     v.pos = {(float)p.x, (float)p.y, (float)p.z};
                     if (mesh->vertex_normal.exists) {
-                        ufbx_vec3 nn = ufbx_transform_direction(&node->geometry_to_world, ufbx_get_vertex_vec3(&mesh->vertex_normal, idx));
+                        ufbx_vec3 nn = ufbx_transform_direction(&normalMatrix, ufbx_get_vertex_vec3(&mesh->vertex_normal, idx));
                         v.normal = Normalize({(float)nn.x, (float)nn.y, (float)nn.z});
                     }
                     if (mesh->vertex_uv.exists) {
@@ -82,7 +87,8 @@ bool LoadFbx(const std::string& path, MeshData& out, std::string* error) {
                     }
                     out.vertices.push_back(v);
                 }
-                out.indices.insert(out.indices.end(), {base, base + 1, base + 2});
+                if (mirrored) out.indices.insert(out.indices.end(), {base, base + 2, base + 1});
+                else out.indices.insert(out.indices.end(), {base, base + 1, base + 2});
                 out.triMaterial.push_back((u16)std::max(mat, 0));
             }
         }

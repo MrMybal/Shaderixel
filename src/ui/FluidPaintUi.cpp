@@ -370,6 +370,18 @@ void App::FluidInput3D(DocView& v, float2 local, u32 w, u32 h, bool hovered, boo
     fluidRun.idle = 0;
 }
 
+bool App::FluidRunLayer(DocView& v) {
+    if (!FluidStart(v)) return false;
+    Renderer::FluidParams p = FluidParamsNow(v);
+    v.renderer.FluidGravity(*ctx, p);  // the islands / selection the paint may stay in
+    // Opaque paint: a coat above the retained film (it runs, leaving its trail).
+    v.renderer.FluidLoadLayers(*ctx, p, std::max(fluidSet.coat, 1.2f) * fluidSet.retention * 1.4f);
+    fluidRun.painting = false;
+    fluidRun.idle = 0;
+    Status("Peinture liquide : le calque coule (Entrée : figer, Échap : annuler)");
+    return true;
+}
+
 void App::FluidTick() {
     if (!fluidRun.active) return;
     DocView* v = fluidRun.view;
@@ -513,6 +525,9 @@ void App::DrawFluidOptions(bool in3D) {
         if (ImGui::Button("Annuler (Échap)")) FluidFinish(false);
     } else {
         ImGui::TextDisabled(project ? "Peignez sur le modèle (ou sur ses UV) : la peinture coule." : "Peignez : la peinture coule selon l'inclinaison du support.");
+        if (v && ImGui::Button("Faire couler le calque actif")) FluidRunLayer(*v);
+        ui::HelpTooltip("La peinture déjà présente dans le calque (tous ses canaux dans un projet 3D) devient liquide\n"
+                        "et coule avec les réglages ci-dessous ; une seule étape d'historique.");
     }
     ImGui::SeparatorText("Pinceau");
     ImGui::SliderFloat("Taille##fl", &brush.size, 1, 600, "%.0f px", ImGuiSliderFlags_Logarithmic);

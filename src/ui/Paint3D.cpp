@@ -72,6 +72,9 @@ bool App::MeshFromJson(const Json& j, MeshData& m) {
     memcpy(m.vertices.data(), v.data(), v.size());
     m.indices.resize(i.size() / sizeof(u32));
     memcpy(m.indices.data(), i.data(), i.size());
+    if (m.indices.size() % 3) return false;
+    for (u32 ix : m.indices)
+        if (ix >= m.vertices.size()) return false;  // corrupt or hand-edited file: would read out of bounds
     if (j["srcCenter"].Size() == 3) m.srcCenter = {j["srcCenter"].At(0).F(), j["srcCenter"].At(1).F(), j["srcCenter"].At(2).F()};
     m.srcScale = j["srcScale"].F(1.0f);
     if (j.Has("materials")) {
@@ -170,7 +173,7 @@ Id App::AddPaintLayer3D(DocView& v, const std::string& name) {
     Document& d = *v.doc;
     Edit e(d, v.history, "Calque de peinture 3D");
     Id material = d.NewId();
-    Layer* first = nullptr;
+    Id first = 0;  // by id: the next insert reallocates the layer vector
     for (PbrChannel c : kPaintChannels) {
         Id g = FindChannelGroup(d, c);
         if (!g) continue;
@@ -184,10 +187,10 @@ Id App::AddPaintLayer3D(DocView& v, const std::string& name) {
         auto& L = d.S().layers;
         int gi = d.LayerIndex(g);
         L.insert(L.begin() + gi, p);
-        if (c == PbrChannel::BaseColor || !first) first = &L[gi];
+        if (c == PbrChannel::BaseColor || !first) first = p.id;
     }
     if (first) {
-        d.S().activeLayer = first->id;
+        d.S().activeLayer = first;
         d.S().editMask = false;
     }
     d.SyncGraph();

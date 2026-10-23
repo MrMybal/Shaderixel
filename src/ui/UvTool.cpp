@@ -8,6 +8,7 @@
 #include "render/MeshPaint.h"
 
 #include <imgui_internal.h>
+#include <cstring>
 #include <future>
 
 namespace sx {
@@ -44,6 +45,27 @@ void DrawLayout(ImDrawList* dl, ImVec2 a, float size, const MeshData& m, const s
     dl->AddRect(a, ImVec2(a.x + size, a.y + size), ui::col::Border);
 }
 
+// The UV job and the "previous UVs" are shared by the app: they only apply to the mesh they were made from
+// (another document may be active by then). Cheap test for every frame, exact one before replacing a mesh.
+bool SameMeshSize(const MeshData& a, const MeshData& b) {
+    return a.vertices.size() == b.vertices.size() && a.indices.size() == b.indices.size();
+}
+bool SameMesh(const MeshData& a, const MeshData& b) {
+    return SameMeshSize(a, b) && (a.vertices.empty() || memcmp(a.vertices.data(), b.vertices.data(), a.vertices.size() * sizeof(MeshVertex)) == 0) &&
+           (a.indices.empty() || memcmp(a.indices.data(), b.indices.data(), a.indices.size() * sizeof(u32)) == 0);
+}
+// `unwrapped` was made from `prev` by the UV tool: same triangles (xatlas keeps their order) at the same positions.
+bool UnwrappedFrom(const MeshData& unwrapped, const MeshData& prev) {
+    if (unwrapped.indices.size() != prev.indices.size()) return false;
+    for (size_t k = 0; k < prev.indices.size(); ++k) {
+        const u32 a = unwrapped.indices[k], b = prev.indices[k];
+        if (a >= unwrapped.vertices.size() || b >= prev.vertices.size()) return false;
+        const float3 &p = unwrapped.vertices[a].pos, &q = prev.vertices[b].pos;
+        if (p.x != q.x || p.y != q.y || p.z != q.z) return false;
+    }
+    return true;
+}
+
 }  // namespace
 
 void App::StartUvUnwrap(DocView& v) {
@@ -59,6 +81,10 @@ void App::StartUvUnwrap(DocView& v) {
 
 void App::ApplyUvUnwrap(DocView& v) {
     if (!uvJob || !uvTool.hasResult || !v.mesh) return;
+    if (!SameMesh(uvJob->input, v.mesh->data)) {
+        Status("UV automatiques : l'aperçu a été calculé pour un autre maillage (recalculez-le pour ce document)");
+        return;
+    }
     Document& d = *v.doc;
     const UnwrapResult& r = uvJob->result;
     const MeshData& old = v.mesh->data;
@@ -177,6 +203,8 @@ void App::DrawUvToolWindow() {
     ImGui::BeginChild("##uvprev", ImVec2(0, 0));
     const MeshData& cur = v->mesh->data;
     bool have = T.hasResult && uvJob;
+    const bool otherMesh = have && !SameMeshSize(uvJob->input, cur);  // computed for another document
+    if (otherMesh) have = false;
     float avail = ImGui::GetContentRegionAvail().x;
     float side = std::min((avail - 12 * dpi) * 0.5f, ImGui::GetContentRegionAvail().y - 140 * dpi);
     side = std::max(side, 120 * dpi);
@@ -190,6 +218,7 @@ void App::DrawUvToolWindow() {
     else dl->AddRect(ImVec2(p.x + side + 12 * dpi, p.y), ImVec2(p.x + 2 * side + 12 * dpi, p.y + side), ui::col::Border);
     ImGui::Dummy(ImVec2(2 * side + 12 * dpi, side));
     ImGui::Text("Actuel : %zu sommets, %zu triangles", cur.vertices.size(), cur.indices.size() / 3);
+    if (otherMesh) ImGui::TextDisabled("L'aperçu calculé concerne un autre maillage : recalculez-le pour ce document.");
     if (have) {
         const UnwrapResult& r = uvJob->result;
         ImGui::Text("Nouveau : %u îlots, %zu sommets (coutures), occupation %.0f %%, atlas %u x %u", r.charts, r.mesh.vertices.size(),
@@ -206,9 +235,13 @@ void App::DrawUvToolWindow() {
     }
     if (T.previousMesh) {
         if (ImGui::SmallButton("Revenir aux UV précédentes")) {
-            AttachMesh(*v, MeshData(*T.previousMesh));
-            T.previousMesh.reset();
-            Status("UV précédentes rétablies (annulez aussi le report de peinture avec Ctrl+Z)");
+            if (!UnwrappedFrom(cur, *T.previousMesh)) {
+                Status("Les UV précédentes appartiennent à un autre maillage : rien n'est changé");
+            } else {
+                AttachMesh(*v, MeshData(*T.previousMesh));
+                T.previousMesh.reset();
+                Status("UV précédentes rétablies (annulez aussi le report de peinture avec Ctrl+Z)");
+            }
         }
     }
     ImGui::EndChild();
@@ -219,6 +252,7 @@ void App::DrawUvToolWindow() {
 gpu::Texture* App::UvPreviewRender(DocView& v, u32 w, u32 h) {
     auto& T = uvTool;
     if (!T.open || !T.preview || !T.hasResult || !uvJob || !v.mesh) return nullptr;
+    if (!SameMeshSize(uvJob->input, v.mesh->data)) return nullptr;  // computed for another document
     if (!T.scene || T.sceneFor != uvJob.get()) {
         T.scene = std::make_unique<MeshScene>();
         T.scene->data = uvJob->result.mesh;

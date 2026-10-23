@@ -106,6 +106,7 @@ bool Renderer::FluidBegin(Document& doc, gpu::CommandContext& ctx, const std::ve
     F.docW = doc.Width();
     F.docH = doc.Height();
     F.active = true;
+    F.replace = false;
     F.time = 0;
     return true;
 }
@@ -320,6 +321,40 @@ void Renderer::FluidPortals(gpu::CommandContext& ctx) {
     F.rbNrm.reset();
 }
 
+void Renderer::FluidLoadLayers(gpu::CommandContext& ctx, const FluidParams& p, float thickness) {
+    FluidState& F = fluid;
+    auto* k = Kernel("fluid_paint.slang");
+    if (!F.active || !k) return;
+    auto preOf = [&](int kind) -> gpu::Texture* {
+        for (size_t i = 0; i < F.kinds.size(); ++i)
+            if (F.kinds[i] == kind) return i == 0 ? strokePre.get() : i - 1 < strokeSlots.size() ? strokeSlots[i - 1].pre.get() : nullptr;
+        return nullptr;
+    };
+    gpu::Texture* color = preOf(0);
+    if (!color) return;
+    static FluidCB cb;
+    FillCB(cb, p);
+    cb.mat.w = thickness;
+    u32 flags = 0;
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[5] = F.grav.get();
+    d.srv[9] = color;
+    if (gpu::Texture* r = preOf(1)) { d.srv[10] = r; flags |= 1024; }
+    if (gpu::Texture* m = preOf(2)) { d.srv[11] = m; flags |= 2048; }
+    const int o = 1 - F.cur;
+    d.uav[0] = F.f0[o].get();
+    d.uav[1] = F.f1[o].get();
+    d.uav[2] = F.d0[o].get();
+    d.uav[3] = F.d1[o].get();
+    SetConstants(d, FluidRoot{F.w, F.h, F.docW, F.docH, 8, 0, flags, 0, p.seed, {0, 0, 0}});
+    d.cbData = &cb;
+    d.cbSize = offsetof(FluidCB, dabs);
+    Dispatch2D(ctx, d, F.w, F.h);
+    F.cur = o;
+    F.replace = true;
+}
+
 bool Renderer::FluidCollectDrops(gpu::CommandContext& ctx) {
     FluidState& F = fluid;
     if (!F.active || !F.mesh || F.rbDropA) return false;
@@ -385,7 +420,7 @@ void Renderer::FluidComposite(Document& doc, gpu::CommandContext& ctx, const Flu
         d.srv[5] = F.grav.get();
         d.srv[9] = pre;
         d.uav[0] = s->tex.get();
-        SetConstants(d, FluidRoot{F.w, F.h, s->tex->Width(), s->tex->Height(), 4, (u32)kind, F.mesh ? 1u : 0u, 0, p.seed, {0, 0, 0}});
+        SetConstants(d, FluidRoot{F.w, F.h, s->tex->Width(), s->tex->Height(), 4, (u32)kind, (F.mesh ? 1u : 0u) | (F.replace ? 512u : 0u), 0, p.seed, {0, 0, 0}});
         d.cbData = &cb;
         d.cbSize = offsetof(FluidCB, dabs);
         Dispatch2D(ctx, d, s->tex->Width(), s->tex->Height());
@@ -426,6 +461,7 @@ void Renderer::FluidEnd(Document& doc, gpu::CommandContext& ctx, History& hist, 
     F.rbDropA.reset();
     F.rbDropB.reset();
     F.resetDrops = false;
+    F.replace = false;
     F.mesh = nullptr;
     F.selection.reset();
     F.bed.reset();

@@ -314,6 +314,8 @@ void App::Shutdown() {
     ShutdownPlugins();
     ShutdownLink();
     comfy::CancelAll();  // ComfyUI jobs waiting for a result stop (their futures are waited for on exit)
+    if (baker.running && baker.cancel) baker.cancel->store(true);  // a long bake / unwrap stops instead of holding the exit
+    if (uvJob) uvJob->cancel = true;
     bridge.Shutdown();
     for (auto& j : aiJobs) j.wait();
     gpu::Dev().WaitIdle();

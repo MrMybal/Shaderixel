@@ -20,7 +20,9 @@ cbuffer Root : register(b0)
     uint gKind;       // composite: 0 base color, 1 roughness, 2 metal, 3 height, 4 emissive; deposit: dab count
     uint gFlags;      // 1 mesh maps, 2 world dabs, 4 selection, 8 flows off the borders, 16 relief bed, 32 erase (deposit removes),
                       // 64 UV seams crossed (portal maps), 128 the fallen drops were collected (counted again from 0),
-                      // 256 the base color layer before the paint is bound (t9: color picked up)
+                      // 256 the base color layer before the paint is bound (t9: color picked up),
+                      // 512 the layers' paint became the liquid (composite: the layer before is not kept under it),
+                      // 1024 / 2048 load (pass 8): roughness (t10) / metal (t11) layers bound
     float gDt;
     float gSeed;
     float3 _pad;
@@ -391,6 +393,7 @@ void Composite(int2 p)
     }
     float4 f0 = gF0.SampleLevel(sLinearClamp, uv, 0), f1 = gF1.SampleLevel(sLinearClamp, uv, 0);
     float4 d0 = gD0.SampleLevel(sLinearClamp, uv, 0), d1 = gD1.SampleLevel(sLinearClamp, uv, 0);
+    if (gFlags & 512) pre = 0;  // "make the layer run": its paint is now the liquid
     float T = f0.x + d0.x;
     if (T < 1e-4)
     {
@@ -420,6 +423,26 @@ void main(uint3 id : SV_DispatchThreadID)
     {
         if (any(id.xy >= gDocSize)) return;
         Composite(p);
+        return;
+    }
+    if (gPass == 8)
+    {
+        // The paint of the layers becomes the liquid (Make the layer run): thickness from the coverage.
+        if (any(id.xy >= gSize)) return;
+        const float2 uv = (float2(p) + 0.5) / float2(gSize);
+        const float4 G = gGrav.Load(int3(p, 0));
+        const float4 c = gAux.SampleLevel(sLinearClamp, uv, 0);
+        float4 f0 = 0, f1 = float4(gMat.x, gMat.y, 0, 0);
+        if (G.w > 0 && c.a > 0.004)
+        {
+            f0 = float4(c.a * gMat.w, c.rgb / c.a);
+            if (gFlags & 1024) { const float4 r = gPortalOut.SampleLevel(sLinearClamp, uv, 0); f1.x = r.a > 0.004 ? LinearToSrgb1(r.r / r.a) : gMat.x; }
+            if (gFlags & 2048) { const float4 m = gPortalIn.SampleLevel(sLinearClamp, uv, 0); f1.y = m.a > 0.004 ? LinearToSrgb1(m.r / m.a) : gMat.y; }
+        }
+        gOut0[p] = f0;
+        gOut1[p] = f1;
+        gOut2[p] = 0;
+        gOut3[p] = float4(f1.x, f1.y, 0, 0);
         return;
     }
     if (gPass == 7)

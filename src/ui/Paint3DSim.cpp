@@ -79,14 +79,15 @@ void App::SimEmit(DocView& v, float2 local, u32 w, u32 h, float dt) {
     bool onModel = sim.rc.Ray(o, d, 100.0f, &hit, &n, &t);
     if (!onModel && P.emit == 1) {
         // Falling dust: also from beside the model, at the camera's target depth.
-        t = s.distance;
+        t = s.distance + (s.ortho ? 100.0f : 0.0f);  // orthographic rays start 100 units in front of the camera
         hit = o + d * t;
         n = {0, 1, 0};
     } else if (P.emit != 2 && !onModel) {
         return;
     }
     // Brush radius in model units at the hit depth.
-    const float pixel = 2.0f * std::tan(s.fov * 0.5f) * (onModel ? t : s.distance) / std::max(h, 1u);
+    const float pixel = s.ortho ? 2.0f * s.OrthoHalfHeight() / std::max(h, 1u)  // no perspective: same size at any depth
+                                : 2.0f * std::tan(s.fov * 0.5f) * (onModel ? t : s.distance) / std::max(h, 1u);
     const float radius = std::max(brush.size * 0.5f * pixel, 1e-4f);
     sim.emitAcc += B.simRate * dt;
     int count = (int)sim.emitAcc;
@@ -206,10 +207,18 @@ void App::UpdateSimulation(DocView& v, bool emitting, float2 local, u32 w, u32 h
     const double now = ImGui::GetTime();
     const float dt = std::clamp((float)(now - sim.last), 1.0f / 240, 1.0f / 20);
     sim.last = now;
-    if (emitting) {
-        if (sim.view != &v) { sim.parts.clear(); sim.view = &v; }
-        SimEmit(v, local, w, h, dt);
+    if (sim.view != &v) {
+        // Another document since the particles were emitted: they belong to the old model. Its stroke ends
+        // on its own renderer and history (only if that view still exists), the particles are dropped.
+        if (sim.stroking && sim.view && ViewAlive(sim.view)) {
+            DocView& old = *sim.view;
+            old.renderer.EndStrokeMulti(*old.doc, *ctx, old.history, "Simulation de peinture");
+        }
+        sim.stroking = false;
+        sim.parts.clear();
+        sim.view = &v;
     }
+    if (emitting) SimEmit(v, local, w, h, dt);
     if (sim.parts.empty()) {
         if (sim.stroking && !emitting) {
             v.renderer.EndStrokeMulti(*v.doc, *ctx, v.history, "Simulation de peinture");

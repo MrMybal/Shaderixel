@@ -29,6 +29,20 @@ struct M4 {
     }
     float3 Point(float3 p) const { return {m[0] * p.x + m[4] * p.y + m[8] * p.z + m[12], m[1] * p.x + m[5] * p.y + m[9] * p.z + m[13], m[2] * p.x + m[6] * p.y + m[10] * p.z + m[14]}; }
     float3 Dir(float3 p) const { return {m[0] * p.x + m[4] * p.y + m[8] * p.z, m[1] * p.x + m[5] * p.y + m[9] * p.z, m[2] * p.x + m[6] * p.y + m[10] * p.z}; }
+    // Determinant of the upper 3x3 (negative: mirrored transform, triangle winding flips).
+    float Det3() const {
+        return m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]);
+    }
+    // Normal transformed by the inverse-transpose of the upper 3x3 (cofactor matrix, sign of the
+    // determinant restored), normalized: right under non-uniform scale and mirroring.
+    float3 Normal(float3 n) const {
+        const float a = m[0], b = m[4], c = m[8], d = m[1], e = m[5], f = m[9], g = m[2], h = m[6], k = m[10];  // rows
+        float3 r = {(e * k - f * h) * n.x + (f * g - d * k) * n.y + (d * h - e * g) * n.z,
+                    (c * h - b * k) * n.x + (a * k - c * g) * n.y + (b * g - a * h) * n.z,
+                    (b * f - c * e) * n.x + (c * d - a * f) * n.y + (a * e - b * d) * n.z};
+        if (Det3() < 0) r = {-r.x, -r.y, -r.z};
+        return Normalize(r);
+    }
 };
 
 M4 NodeMatrix(const Json& n) {
@@ -171,9 +185,11 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
         out.materials.push_back(info);
     }
     bool hasUv = false;
-    std::function<void(int, const M4&)> visit = [&](int ni, const M4& parent) {
+    std::function<void(int, const M4&, int)> visit = [&](int ni, const M4& parent, int depth) {
+        if (depth > 64) return;  // malformed file with a cycle in the node hierarchy
         const Json& node = g.doc["nodes"].At(ni);
         M4 world = parent * NodeMatrix(node);
+        const bool mirrored = world.Det3() < 0;  // the transform already reverses the winding
         if (node.Has("mesh")) {
             const Json& mesh = g.doc["meshes"].At(node["mesh"].I());
             for (auto& prim : mesh["primitives"].Elements()) {
@@ -186,6 +202,8 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
                 if (at.Has("NORMAL") && !g.Read(at["NORMAL"].I(), 3, &N, nullptr)) return;
                 if (at.Has("TEXCOORD_0")) { if (!g.Read(at["TEXCOORD_0"].I(), 2, &T, nullptr)) return; hasUv = true; }
                 size_t nv = P.size() / 3;
+                if (N.size() / 3 < nv) N.clear();  // attributes shorter than POSITION: ignored
+                if (T.size() / 2 < nv) T.clear();
                 if (prim.Has("indices")) { if (!g.Read(prim["indices"].I(), 1, nullptr, &I)) return; }
                 else for (u32 i = 0; i < nv; ++i) I.push_back(i);
                 u32 base = (u32)out.vertices.size();
@@ -194,23 +212,26 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
                     float3 p = world.Point({P[i * 3], P[i * 3 + 1], P[i * 3 + 2]});
                     v.pos = {p.x, p.y, -p.z};
                     if (!N.empty()) {
-                        float3 n = Normalize(world.Dir({N[i * 3], N[i * 3 + 1], N[i * 3 + 2]}));
+                        float3 n = world.Normal({N[i * 3], N[i * 3 + 1], N[i * 3 + 2]});
                         v.normal = {n.x, n.y, -n.z};
                     }
                     if (!T.empty()) v.uv = {T[i * 2], T[i * 2 + 1]};
                     out.vertices.push_back(v);
                 }
                 const int mat = std::clamp(prim["material"].I(0), 0, std::max((int)out.materials.size() - 1, 0));
+                // Reversed with the z flip, unless a mirrored node transform reversed it already.
+                const size_t o1 = mirrored ? 1 : 2, o2 = mirrored ? 2 : 1;
                 for (size_t i = 0; i + 2 < I.size(); i += 3) {
                     if (I[i] >= nv || I[i + 1] >= nv || I[i + 2] >= nv) continue;
                     out.indices.push_back(base + I[i]);
-                    out.indices.push_back(base + I[i + 2]);  // reversed with the z flip
-                    out.indices.push_back(base + I[i + 1]);
+                    out.indices.push_back(base + I[i + o1]);
+                    out.indices.push_back(base + I[i + o2]);
                     out.triMaterial.push_back((u16)mat);
                 }
                 if (N.empty()) {  // flat-ish normals from faces
                     for (size_t i = 0; i + 2 < I.size(); i += 3) {
-                        MeshVertex &a = out.vertices[base + I[i]], &b = out.vertices[base + I[i + 2]], &c = out.vertices[base + I[i + 1]];
+                        if (I[i] >= nv || I[i + 1] >= nv || I[i + 2] >= nv) continue;
+                        MeshVertex &a = out.vertices[base + I[i]], &b = out.vertices[base + I[i + o1]], &c = out.vertices[base + I[i + o2]];
                         float3 n = Cross(b.pos - a.pos, c.pos - a.pos);
                         a.normal = a.normal + n; b.normal = b.normal + n; c.normal = c.normal + n;
                     }
@@ -218,13 +239,13 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
                 }
             }
         }
-        for (auto& c : node["children"].Elements()) visit(c.I(), world);
+        for (auto& c : node["children"].Elements()) visit(c.I(), world, depth + 1);
     };
     int scene = g.doc["scene"].I(0);
     if (g.doc["scenes"].Size() > (size_t)scene) {
-        for (auto& n : g.doc["scenes"].At(scene)["nodes"].Elements()) visit(n.I(), M4::Identity());
+        for (auto& n : g.doc["scenes"].At(scene)["nodes"].Elements()) visit(n.I(), M4::Identity(), 0);
     } else {
-        for (size_t i = 0; i < g.doc["nodes"].Size(); ++i) visit((int)i, M4::Identity());
+        for (size_t i = 0; i < g.doc["nodes"].Size(); ++i) visit((int)i, M4::Identity(), 0);
     }
     if (!g.error.empty()) return fail(g.error);
     if (out.indices.empty()) return fail("aucun triangle");

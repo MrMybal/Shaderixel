@@ -502,5 +502,14 @@
  "fichier incomplet ou endommagé (pixels manquants)": "incomplete or damaged file (missing pixels)",
  "nom de plugin invalide": "invalid plugin name",
  "Reprise de couleur": "Color pickup",
- "Frais sur frais : en coulant sur la peinture déjà présente dans le calque, le liquide prend de sa couleur.": "Wet on wet: running over the paint already in the layer, the liquid takes some of its color."
+ "Frais sur frais : en coulant sur la peinture déjà présente dans le calque, le liquide prend de sa couleur.": "Wet on wet: running over the paint already in the layer, the liquid takes some of its color.",
+ "Cuisson abandonnée : le modèle a changé pendant la cuisson (relancez-la)": "Bake dropped: the model changed during the bake (start it again)",
+ "Les UV précédentes appartiennent à un autre maillage : rien n'est changé": "The previous UVs belong to another mesh: nothing changed",
+ "Peinture liquide : le calque coule (Entrée : figer, Échap : annuler)": "Liquid paint: the layer runs (Enter: set, Esc: cancel)",
+ "UV automatiques : l'aperçu a été calculé pour un autre maillage (recalculez-le pour ce document)": "Automatic UVs: the preview was computed for another mesh (compute it again for this document)",
+ "L'aperçu calculé concerne un autre maillage : recalculez-le pour ce document.": "The computed preview is for another mesh: compute it again for this document.",
+ "Faire couler le calque actif": "Make the active layer run",
+ "La peinture déjà présente dans le calque (tous ses canaux dans un projet 3D) devient liquide": "The paint already in the layer (all its channels in a 3D project) becomes liquid",
+ "et coule avec les réglages ci-dessous ; une seule étape d'historique.": "and runs with the settings below; a single history step.",
+ "Échec de l'export CMJN (lecture de l'image impossible)": "CMYK export failed (the image could not be read)"
 }

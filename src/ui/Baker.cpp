@@ -127,6 +127,11 @@ void App::PollBake() {
     for (auto& d : docs) alive |= d.get() == B.view;
     if (!alive || !B.view->mesh) return;
     if (!r.ok) { Status("Cuisson : " + r.error); return; }
+    if (B.view->mesh->revision != B.revision) {
+        // The model changed during the bake (new UVs, another mesh): the maps no longer match its UVs.
+        Status("Cuisson abandonnée : le modèle a changé pendant la cuisson (relancez-la)");
+        return;
+    }
     DocView& v = *B.view;
     MeshScene& s = *v.mesh;
     const double secs = ImGui::GetTime() - B.startTime;

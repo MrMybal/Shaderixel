@@ -109,6 +109,10 @@ const MaterialPreset kPresets[] = {
     {"Bois verni", {0.35f, 0.18f, 0.08f}, 0.6f, 0, 0, 1.45f, 0, 0.8f},     {"Émissif", {1, 1, 1}, 0.5f, 0, 0, 1.45f, 8, 0},
 };
 
+// Model files that failed to load are remembered in the render state's hidden project map (null entry)
+// under this key ('|' cannot start a file path): released with the object, like the .sx3d failures.
+std::string FailedMeshKey(const std::string& path) { return "|mesh|" + path; }
+
 }  // namespace
 
 std::shared_ptr<MeshData> App::RenderObjectMesh(DocView& v, PtObject& o) {
@@ -140,8 +144,13 @@ std::shared_ptr<MeshData> App::RenderObjectMesh(DocView& v, PtObject& o) {
                 }
             }
             const bool fromUnreal = file != o.path;
+            // A file that failed to load is not read again every frame (until the object's path changes).
+            if (v.render && v.render->hiddenProjects.count(FailedMeshKey(o.path))) return nullptr;
             if (!LoadMesh(file, m, &err)) {
-                if (v.render) v.render->message = "Maillage " + o.path + " : " + err;
+                if (v.render) {
+                    v.render->message = "Maillage " + o.path + " : " + err;
+                    v.render->hiddenProjects[FailedMeshKey(o.path)] = nullptr;
+                }
                 return nullptr;
             }
             if (fromUnreal) ApplyUAssetMaterials(file, m);
@@ -621,7 +630,8 @@ gpu::Texture* App::UpdateRenderState(DocView& v, PtRenderState& r, u32 w, u32 h)
         // Imported projects no longer in the scene are released.
         for (auto it = r.hiddenProjects.begin(); it != r.hiddenProjects.end();) {
             bool used = false;
-            for (auto& o : r.objects) used |= o.type == PtObjectType::Sx3d && o.path == it->first;
+            for (auto& o : r.objects)
+                used |= (o.type == PtObjectType::Sx3d && o.path == it->first) || (o.type == PtObjectType::File && FailedMeshKey(o.path) == it->first);
             it = used ? std::next(it) : r.hiddenProjects.erase(it);
         }
         r.atlasKey = ak;
@@ -976,14 +986,15 @@ void App::DrawRenderScenePanel() {
         }
         ImGui::EndChild();
         if (r.selLight < 0 && r.selObject >= 0 && r.selObject < (int)r.objects.size()) {
-            PtObject& o = r.objects[r.selObject];
             if (ImGui::SmallButton("Dupliquer")) {
-                PtObject c = o;
+                PtObject c = r.objects[r.selObject];
                 c.name += " (copie)";
                 c.position.x += 0.5f;
                 r.objects.push_back(c);
                 r.selObject = (int)r.objects.size() - 1;
             }
+            // Taken after the duplicate: push_back may have moved the objects (the copy is edited from now on).
+            PtObject& o = r.objects[r.selObject];
             ImGui::SameLine();
             if (ImGui::SmallButton("Supprimer")) {
                 r.objects.erase(r.objects.begin() + r.selObject);

@@ -57,7 +57,8 @@ int App::PickMeshTriangle(MeshScene& s, float2 sp, u32 w, u32 h) {
 }
 
 bool App::PickMeshUv(MeshScene& s, float2 sp, u32 w, u32 h, float2& uv) {
-    // UV under a view point: the nearest triangle there, its UVs interpolated (screen barycentrics).
+    // UV under a view point: the nearest triangle there, its UVs interpolated (perspective-correct:
+    // screen barycentrics weighted by 1/w, like the rasterizer).
     const auto& V = s.data.vertices;
     const auto& I = s.data.indices;
     const int t = PickMeshTriangle(s, sp, w, h);
@@ -70,7 +71,13 @@ bool App::PickMeshUv(MeshScene& s, float2 sp, u32 w, u32 h, float2& uv) {
     const float w0 = ((b.x - sp.x) * (c.y - sp.y) - (b.y - sp.y) * (c.x - sp.x)) / area;
     const float w1 = ((c.x - sp.x) * (a.y - sp.y) - (c.y - sp.y) * (a.x - sp.x)) / area;
     const float w2 = 1 - w0 - w1;
-    uv = A.uv * w0 + B.uv * w1 + C.uv * w2;
+    // 1/w of each corner (clip w: the view depth in perspective, 1 in orthographic views).
+    const float q0 = 1.0f / std::max(s.viewProj.Transform({A.pos.x, A.pos.y, A.pos.z, 1}).w, 1e-5f);
+    const float q1 = 1.0f / std::max(s.viewProj.Transform({B.pos.x, B.pos.y, B.pos.z, 1}).w, 1e-5f);
+    const float q2 = 1.0f / std::max(s.viewProj.Transform({C.pos.x, C.pos.y, C.pos.z, 1}).w, 1e-5f);
+    const float qs = w0 * q0 + w1 * q1 + w2 * q2;
+    if (std::fabs(qs) < 1e-12f) return false;
+    uv = (A.uv * (w0 * q0) + B.uv * (w1 * q1) + C.uv * (w2 * q2)) * (1.0f / qs);
     return true;
 }
 

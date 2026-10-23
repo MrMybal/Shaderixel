@@ -11,7 +11,9 @@ namespace sx {
 namespace {
 
 constexpr u32 kGeoWidth = 4096;
-constexpr int kMaxMaterials = 32, kMaxLights = 16;
+// Same sizes as the Scene cbuffer of pathtrace.slang. 192 materials keep the buffer at ~13 KB: under the
+// 16 KB uniform buffer range every Vulkan device guarantees (D3D12 allows 64 KB).
+constexpr int kMaxMaterials = 192, kMaxLights = 16;
 
 struct SceneCB {
     float4 camPos, camRight, camUp, camFwd;
@@ -21,6 +23,7 @@ struct SceneCB {
     float4 mat[kMaxMaterials * 4];
     float4 light[kMaxLights * 4];
 };
+static_assert(sizeof(SceneCB) <= 16384, "Scene constant buffer over the Vulkan minimum uniform range");
 
 float AsFloat(u32 v) {
     float f;

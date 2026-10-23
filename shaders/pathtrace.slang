@@ -30,7 +30,7 @@ cbuffer Scene : register(b1)
     uint gPad0;
     float4 gBackground;  // rgb, HDRI intensity
     float4 gEnvInfo;     // luminance total, indirect clamp
-    float4 gMat[128];    // 32 materials: (base, roughness) (emission, metallic) (transmission, ior, project, 0) (coat, coat roughness, 0, 0)
+    float4 gMat[768];    // 192 materials (kMaxMaterials in PathTracerGpu.cpp): (base, roughness) (emission, metallic) (transmission, ior, project, 0) (coat, coat roughness, 0, 0)
     float4 gLight[64];   // 16 lights: (pos, type) (dir, size) (radiance, cos outer) (cos inner, 0, 0, 0)
 };
 
@@ -371,7 +371,7 @@ float3 Radiance(float3 o, float3 d, inout uint rng)
         float b0 = 1 - h.b1 - h.b2;
         float2 uv0 = float2(T1.w, T2.w), uv1 = float2(T3.w, T4.w), uv2 = float2(T5.w, T6.x);
         float2 uv = uv0 * b0 + uv1 * h.b1 + uv2 * h.b2;
-        uint mi = min((uint)T0.w, 31u);
+        uint mi = min((uint)T0.w, max(gNumMaterials, 1u) - 1u);
         float4 m0 = gMat[mi * 4], m1 = gMat[mi * 4 + 1], m2 = gMat[mi * 4 + 2], m3 = gMat[mi * 4 + 3];
         Surf su;
         su.p = o + d * h.t;

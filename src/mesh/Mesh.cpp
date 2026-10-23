@@ -110,17 +110,32 @@ bool SaveObj(const std::string& path, const MeshData& m, bool original, std::str
     return (bool)f;
 }
 
+namespace {
+// OBJ corner (position / uv / normal indices): full key, no packing that collides on large files.
+struct ObjCorner {
+    int v, t, n;
+    bool operator==(const ObjCorner& o) const { return v == o.v && t == o.t && n == o.n; }
+};
+struct ObjCornerHash {
+    size_t operator()(const ObjCorner& c) const {
+        u64 h = (u64)(u32)c.v * 0x9E3779B97F4A7C15ull;
+        h ^= (u64)(u32)c.t + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2);
+        h ^= (u64)(u32)c.n + 0x9E3779B97F4A7C15ull + (h << 6) + (h >> 2);
+        return (size_t)h;
+    }
+};
+}  // namespace
+
 bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
     std::ifstream f(Utf8Path(path));
     if (!f) { if (error) *error = "fichier introuvable"; return false; }
     std::vector<float3> pos, nrm;
     std::vector<float2> uvs;
-    std::unordered_map<u64, u32> dedup;
+    std::unordered_map<ObjCorner, u32, ObjCornerHash> dedup;
     out = MeshData{};
     out.name = Narrow(Utf8Path(path).stem().wstring());
     bool hasNormals = false;
     std::string line;
-    auto key = [](int a, int b, int c) { return ((u64)(u32)a << 42) ^ ((u64)(u32)b << 21) ^ (u64)(u32)c; };
     std::unordered_map<std::string, int> matByName;
     int curMat = -1;
     auto loadMtl = [&](const std::string& file) {
@@ -184,7 +199,7 @@ bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
                 if (vi < 0) vi = (int)pos.size() + vi + 1;
                 if (ti < 0) ti = (int)uvs.size() + ti + 1;
                 if (ni < 0) ni = (int)nrm.size() + ni + 1;
-                u64 k = key(vi, ti, ni);
+                const ObjCorner k = {vi, ti, ni};
                 auto it = dedup.find(k);
                 if (it == dedup.end()) {
                     MeshVertex v;

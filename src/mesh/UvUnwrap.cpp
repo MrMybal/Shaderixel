@@ -90,6 +90,12 @@ bool UnwrapMesh(const MeshData& in, const UnwrapOptions& o, UnwrapResult& out, s
         out.chartOfVertex[i] = xv.chartIndex < 0 ? 0u : (u32)xv.chartIndex;
     }
     out.mesh.indices.assign(m.indexArray, m.indexArray + m.indexCount);
+    // Materials kept: xatlas keeps the face order, so the per-triangle material carries over.
+    // The material tiles do not (new UVs over the whole texture), and the mesh has UVs now.
+    out.mesh.materials = in.materials;
+    if (m.indexCount == in.indices.size()) out.mesh.triMaterial = in.triMaterial;
+    out.mesh.uvTiles.clear();
+    out.mesh.hasUvs = true;
     out.charts = atlas->chartCount;
     out.width = atlas->width;
     out.height = atlas->height;

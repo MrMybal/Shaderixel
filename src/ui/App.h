@@ -1447,6 +1447,7 @@ private:
     void FluidInput2D(DocView& v, float2 dp, float2 canvasMin, bool hovered);
     void FluidInput3D(DocView& v, float2 local, u32 w, u32 h, bool hovered, bool orbit, ImVec2 origin);
     void FluidTick();
+    bool FluidRunLayer(DocView& v);  // the paint of the active layer becomes liquid and runs
     void DrawFluidOptions(bool in3D);
     void ApplyFluidPreset(int i);
     bool CameraRay(MeshScene& s, float2 local, u32 w, u32 h, float3& o, float3& d);

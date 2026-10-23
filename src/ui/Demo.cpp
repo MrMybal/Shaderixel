@@ -386,6 +386,7 @@ void App::DemoTick() {
         const float span = (w->InnerRect.Max.x - w->InnerRect.Min.x) * 0.1f;
         if (frameCounter == 10) {
             tool = Tool::Particles;
+            viewTool[0] = viewTool[1] = Tool::Particles;  // each view keeps its tool
             brush3D.simPreset = atoi(preset);
             brush3D.simRate = 120;
             brush.size = 120;
@@ -596,6 +597,22 @@ void App::DemoTick() {
         }
         // A stroke across, the brush held still halfway (a pool that runs further).
         const int hold = atoi(still);
+        // SX_RUNLAYER: no stroke; the blue layer (SX_PICKUP) or a painted band becomes liquid and runs.
+        if (GetEnvironmentVariableA("SX_RUNLAYER", nullptr, 0) > 0) {
+            if (frameCounter == 16 && !is3D) {
+                Document& d = *a->doc;
+                d.S().selection = 0;
+                // A band of paint (rectangle selection filled), then the selection dropped.
+                Id target = d.PaintTarget();
+                a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, {200, 180, 824, 260}, SelMode::Replace, false, 0, "Bande");
+                a->renderer.FillSelection(d, *ctx, nullptr, target, 0, {0.75f, 0.1f, 0.05f, 1}, 1.0f, "Bande", nullptr, nullptr, true);
+                a->renderer.Deselect(d, a->history);
+            }
+            if (frameCounter == 20) FluidRunLayer(*a);
+            if (frameCounter % 60 == 0 && frameCounter >= 60)
+                Log("[fluid] frame %d: run layer, active %d, wet %.2f s, history %zu", frameCounter, fluidRun.active ? 1 : 0, a->renderer.FluidTime(), a->history.Count());
+            return;
+        }
         if (have && frameCounter >= 16 && frameCounter <= 70 + hold) {
             const int f = frameCounter - 16;
             float t = f < 27 ? f / 54.0f : f < 27 + hold ? 0.5f : (f - hold) / 54.0f;
