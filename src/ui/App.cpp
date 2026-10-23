@@ -1,4 +1,5 @@
 #include "ui/App.h"
+#include "ai/Comfy.h"
 #include "ui/Filter.h"
 #include "ui/Lang.h"
 #include "ui/Search.h"
@@ -312,6 +313,7 @@ void App::Shutdown() {
     SaveSearch();
     ShutdownPlugins();
     ShutdownLink();
+    comfy::CancelAll();  // ComfyUI jobs waiting for a result stop (their futures are waited for on exit)
     bridge.Shutdown();
     for (auto& j : aiJobs) j.wait();
     gpu::Dev().WaitIdle();

@@ -115,6 +115,9 @@ void AiBridge::Shutdown() {
     std::lock_guard lock(mutex);
     for (auto& c : queue) c.promise->set_value(ErrorJson("EditorClosed", "Shaderixel s'est fermé").Dump(0));
     queue.clear();
+    // Calls still working (render...): answered too (a promise destroyed unanswered ends the process).
+    for (auto& p : pending) p.call.promise->set_value(ErrorJson("EditorClosed", "Shaderixel s'est fermé").Dump(0));
+    pending.clear();
 }
 
 std::string AiBridge::Describe() const {

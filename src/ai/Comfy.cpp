@@ -1,12 +1,16 @@
 #include "ai/Comfy.h"
 #include "ai/Net.h"
 
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <random>
 #include <thread>
 
 namespace sx::comfy {
+
+static std::atomic<bool> gCancel{false};
+void CancelAll() { gCancel = true; }
 
 namespace {
 std::string UrlEncode(const std::string& s) {
@@ -198,6 +202,7 @@ bool Run(const Job& job, std::vector<u8>& png, std::string& error, const std::fu
     Json outputs;
     for (;;) {
         if (std::chrono::steady_clock::now() - start > std::chrono::minutes(15)) { error = "délai dépassé (15 min)"; return false; }
+        if (gCancel) { error = "annulé"; return false; }
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
         auto h = net::Http("GET", ep + "/history/" + UrlEncode(id), {}, "", 15000);
         Json hj;

@@ -41,6 +41,10 @@ struct PsdLayer {
     i32 top = 0, left = 0, bottom = 0, right = 0;
     i32 mtop = 0, mleft = 0, mbottom = 0, mright = 0;
     u8 maskDefault = 255, maskFlags = 0;
+    // Pixel mask of a layer that also has a vector mask (channel -3): its own rectangle and default.
+    i32 rtop = 0, rleft = 0, rbottom = 0, rright = 0;
+    u8 realDefault = 255, realFlags = 0;
+    bool real = false;
     std::string name;
     std::string blend = "norm";
     u8 opacity = 255, clipping = 0, flags = 0;
@@ -395,6 +399,14 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
         if (maskLen >= 18 && maskEnd <= extraEnd) {
             L.mtop = r.S32(); L.mleft = r.S32(); L.mbottom = r.S32(); L.mright = r.S32();
             L.maskDefault = r.U8(); L.maskFlags = r.U8();
+            if (maskLen >= 36) {
+                // Real flags, real background, real rectangle: the last 18 bytes (after optional mask parameters).
+                r.Seek(maskEnd - 18);
+                L.realFlags = r.U8();
+                L.realDefault = r.U8();
+                L.rtop = r.S32(); L.rleft = r.S32(); L.rbottom = r.S32(); L.rright = r.S32();
+                L.real = r.ok && L.rright > L.rleft && L.rbottom > L.rtop;
+            }
         }
         r.Seek(std::min(maskEnd, extraEnd));
         {
@@ -443,6 +455,7 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
             bool isMask = c.id == -2 || c.id == -3;
             int cw = isMask && L.mright > L.mleft ? L.mright - L.mleft : L.W();
             int chh = isMask && L.mbottom > L.mtop ? L.mbottom - L.mtop : L.H();
+            if (c.id == -3 && L.real) { cw = L.rright - L.rleft; chh = L.rbottom - L.rtop; }
             if (!DecodePlane(r, c, cw, chh, depth, psb)) report.warnings.push_back("canal non décodé : " + L.name);
         }
     if (!r.ok) return fail("données de canaux invalides");
@@ -541,15 +554,18 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
     }
     for (auto& job : maskJobs) {
         const PsdLayer& s = *job.src;
-        int w = s.mright - s.mleft, h = s.mbottom - s.mtop;
-        const auto* p = Plane(s, -2) ? Plane(s, -2) : Plane(s, -3);
+        // With a vector mask too, the pixel mask is channel -3 with its own rectangle.
+        const bool useReal = Plane(s, -3) && s.real;
+        int w = useReal ? s.rright - s.rleft : s.mright - s.mleft, h = useReal ? s.rbottom - s.rtop : s.mbottom - s.mtop;
+        const int ox = useReal ? s.rleft : s.mleft, oy = useReal ? s.rtop : s.mtop;
+        const auto* p = useReal ? Plane(s, -3) : Plane(s, -2) ? Plane(s, -2) : Plane(s, -3);
         std::vector<float> px((size_t)w * h * 4);
         for (size_t i = 0; i < (size_t)w * h; ++i) {
             float v = std::clamp(Sample(p, i, depth, 1.0f), 0.0f, 1.0f);
             px[i * 4] = px[i * 4 + 1] = px[i * 4 + 2] = v;
             px[i * 4 + 3] = 1;
         }
-        renderer.Import(*doc, ctx, job.surface, px.data(), (u32)w, (u32)h, true, {s.mleft, s.mtop});
+        renderer.Import(*doc, ctx, job.surface, px.data(), (u32)w, (u32)h, true, {ox, oy});
     }
     for (auto& p : paths) {
         p.id = doc->NewId();

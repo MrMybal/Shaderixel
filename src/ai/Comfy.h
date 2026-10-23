@@ -35,5 +35,7 @@ std::string ApplyJob(Json& workflow, const Job& job, const std::string& uploaded
 
 // Blocking (call from a worker thread). `progress` receives status lines.
 bool Run(const Job& job, std::vector<u8>& png, std::string& error, const std::function<void(const std::string&)>& progress = {});
+// Every running job stops waiting (the application closes).
+void CancelAll();
 
 }  // namespace sx::comfy
