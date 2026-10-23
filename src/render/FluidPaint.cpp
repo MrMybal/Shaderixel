@@ -33,7 +33,7 @@ void FillCB(FluidCB& cb, const Renderer::FluidParams& p) {
     cb.look2 = {p.bed, 1.0f, p.dripOff, p.hardness};
     cb.color = p.color;
     cb.mat = {p.rough, p.metal, p.cohesion, p.coat};
-    cb.emissive = p.emissive;
+    cb.emissive = {p.emissive.x, p.emissive.y, p.emissive.z, p.pickup};
 }
 
 }  // namespace
@@ -150,6 +150,17 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
     d.srv[7] = F.mesh ? F.mesh->posMap.get() : nullptr;
     d.srv[8] = F.mesh ? F.mesh->nrmMap.get() : nullptr;
     d.srv[9] = pass == 0 ? F.selection.get() : nullptr;
+    if (pass == 3 && p.pickup > 0) {
+        // The base color layer as it was before the paint (color picked up).
+        gpu::Texture* under = nullptr;
+        for (size_t i = 0; i < F.kinds.size() && !under; ++i)
+            if (F.kinds[i] == 0) under = i == 0 ? strokePre.get() : i - 1 < strokeSlots.size() ? strokeSlots[i - 1].pre.get() : nullptr;
+        if (under) {
+            d.srv[9] = under;
+            flags |= 256;
+            SetConstants(d, FluidRoot{F.w, F.h, F.docW, F.docH, pass, kind, flags, dt, p.seed, {0, 0, 0}});
+        }
+    }
     if (flags & 64) {
         d.srv[10] = F.portalOut.get();
         d.srv[11] = F.portalIn.get();

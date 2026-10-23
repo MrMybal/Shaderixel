@@ -108,6 +108,7 @@ Renderer::FluidParams App::FluidParamsNow(DocView& v) {
     p.retention = F.retention;
     p.spread = F.spread;
     p.cohesion = F.cohesion;
+    p.pickup = F.pickup;
     p.coat = F.coat * F.retention;
     p.setTime = F.setTime;
     p.noise = F.noise;
@@ -599,6 +600,8 @@ void App::DrawFluidOptions(bool in3D) {
     ImGui::SliderFloat("Échelle des irrégularités", &F.noiseScale, 1, 40, "%.1f", ImGuiSliderFlags_Logarithmic);
     ImGui::SliderFloat("Tache le support", &F.absorb, 0, 1, "%.2f");
     ui::HelpTooltip("Part de la peinture absorbée (encre, rouille) : les traînées restent même quand le liquide est passé.");
+    ImGui::SliderFloat("Reprise de couleur", &F.pickup, 0, 2, "%.2f");
+    ui::HelpTooltip("Frais sur frais : en coulant sur la peinture déjà présente dans le calque, le liquide prend de sa couleur.");
     if (project) {
         ImGui::SliderFloat("Suit le relief", &F.bed, 0, 2, "%.2f");
         ui::HelpTooltip("Le relief existant (canal Hauteur) détourne la peinture : elle contourne les bosses et remplit les creux.");

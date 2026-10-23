@@ -538,6 +538,11 @@ void App::DemoTick() {
                 Layer& l = d.AddPixelLayer("Peinture");
                 d.S().activeLayer = l.id;
                 d.SyncGraph();
+                // SX_PICKUP: the layer already holds a blue paint (the red liquid runs over it and takes some of its color).
+                if (GetEnvironmentVariableA("SX_PICKUP", nullptr, 0) > 0) {
+                    dv->renderer.Prepare(d, *ctx);
+                    dv->renderer.FillSelection(d, *ctx, nullptr, l.surface, 0, {0.05f, 0.15f, 0.8f, 1}, 1.0f, "Bleu", nullptr, nullptr, false);
+                }
             }
         }
         DocView* a = Active();

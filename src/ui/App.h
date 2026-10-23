@@ -1397,6 +1397,7 @@ private:
         float retention = 0.3f;     // film that stays: longer runs when low
         float spread = 0.25f;       // the paint levels itself sideways
         float cohesion = 0.15f;     // runs gather into rivulets
+        float pickup = 0.15f;       // the liquid takes the color of the paint already there
         float coat = 1.3f;          // coat laid by the brush, relative to the retained film (above 1: runs everywhere)
         float setTime = 8;          // s: the paint stops running
         float noise = 0.5f, noiseScale = 6;

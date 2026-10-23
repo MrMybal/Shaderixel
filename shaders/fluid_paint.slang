@@ -19,7 +19,8 @@ cbuffer Root : register(b0)
     uint gPass;
     uint gKind;       // composite: 0 base color, 1 roughness, 2 metal, 3 height, 4 emissive; deposit: dab count
     uint gFlags;      // 1 mesh maps, 2 world dabs, 4 selection, 8 flows off the borders, 16 relief bed, 32 erase (deposit removes),
-                      // 64 UV seams crossed (portal maps), 128 the fallen drops were collected (counted again from 0)
+                      // 64 UV seams crossed (portal maps), 128 the fallen drops were collected (counted again from 0),
+                      // 256 the base color layer before the paint is bound (t9: color picked up)
     float gDt;
     float gSeed;
     float3 _pad;
@@ -34,7 +35,7 @@ cbuffer Params : register(b1)
     float4 gLook2;    // relief bed strength, world size of a texel (mesh), drips falling from overhangs, hardness
     float4 gColor;    // paint color (linear), emissive part
     float4 gMat;      // roughness, metal, cohesion, coat thickness
-    float4 gEmissive; // emissive color (linear)
+    float4 gEmissive; // emissive color (linear), color picked up from the paint already in the layer (w)
     float4 gDabs[512];   // image: x, y (document px), radius; world: x, y, z, radius
     float4 gDabsEx[512]; // amount, normal (world dabs: the side painted)
 };
@@ -329,6 +330,16 @@ void Transport(int2 p)
         pr = f1;
     }
     pr.z += gDt;  // the paint ages (sets)
+    // Wet on wet: running over the paint already in the layer, the liquid takes some of its color.
+    if ((gFlags & 256) && gEmissive.w > 0 && h > 1e-5)
+    {
+        const float4 under = gAux.SampleLevel(sLinearClamp, (float2(p) + 0.5) / float2(gSize), 0);
+        if (under.a > 0.01)
+        {
+            const float k = saturate(gEmissive.w * gDt * (inV > 0 ? 1.0 : 0.2)) * under.a;
+            col = lerp(col, under.rgb / under.a, k);
+        }
+    }
     // Moving paint stains what it crosses (absorbent support: ink, watercolor).
     float stain = min(inV * gPhys2.z * saturate(gDt * 4.0), h);  // per second, whatever the substeps
     // Overhangs: the thick paint falls in drops.

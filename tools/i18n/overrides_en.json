@@ -500,5 +500,7 @@
  "sur lequel il commence, même s'il déborde sur une pièce voisine.": "it starts on, even when it runs over a neighboring part.",
  "Enregistrement déjà en cours : {s}": "Already saving: {s}",
  "fichier incomplet ou endommagé (pixels manquants)": "incomplete or damaged file (missing pixels)",
- "nom de plugin invalide": "invalid plugin name"
+ "nom de plugin invalide": "invalid plugin name",
+ "Reprise de couleur": "Color pickup",
+ "Frais sur frais : en coulant sur la peinture déjà présente dans le calque, le liquide prend de sa couleur.": "Wet on wet: running over the paint already in the layer, the liquid takes some of its color."
 }
