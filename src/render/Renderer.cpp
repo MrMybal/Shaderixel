@@ -630,7 +630,12 @@ gpu::Texture* Renderer::DisplaySource(gpu::CommandContext& ctx, gpu::Texture* im
 
 gpu::Texture* Renderer::Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Texture* src, u64 hash, u32 w, u32 h) {
     ThumbCache& t = thumbs[key];
+    const gpu::Texture* was = t.tex.get();
     Ensure(t.tex, w, h, gpu::Format::RGBA8, "Thumb");
+    if (t.tex.get() != was) {
+        t.hash = hash ^ 1;  // a new (empty) texture: drawn now, whatever the content hash (0 included)
+        t.frame = 0;
+    }
     u64 frame = gpu::Dev().FrameNumber();
     bool stale = t.hash != hash;
     // Throttle refreshes while content changes every frame (painting).
@@ -740,6 +745,7 @@ void Renderer::StrokeApplySlots(Document& doc, gpu::CommandContext& ctx, const B
         d.srv[1] = sel ? sel->tex.get() : nullptr;
         d.uav[0] = s->tex.get();
         d.uav[1] = strokeMask.get();
+        d.uavRect[0] = d.uavRect[1] = r;  // sparse layers: only the stroke's tiles get memory
         BrushRoot root = {r.x0, r.y0, (u32)r.Width(), (u32)r.Height(), (u32)W, (u32)H, 1u, b.hardness, b.opacity, erase ? 1u : 0u, sel ? 1u : 0u, 0.0f, color};
         SetConstants(d, root);
         d.cbData = &none;

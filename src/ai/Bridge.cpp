@@ -137,6 +137,7 @@ std::string AiBridge::Describe() const {
     conc["maxWorkers"] = 4;
     j["concurrency"] = conc;
     Json arr = Json::Array();
+    std::lock_guard opsLock(opsMutex);  // plugins may register operations meanwhile (main thread)
     for (auto& op : ops) {
         Json o = Json::Object();
         o["id"] = op.id;

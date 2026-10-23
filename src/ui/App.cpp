@@ -930,8 +930,8 @@ void App::OpenImage(const std::string& path, bool asLayer) {
     Status("Ouvert : " + path);
 }
 
-void App::ExportPsd(const std::string& path, int depth) {
-    DocView* v = Active();
+void App::ExportPsd(const std::string& path, int depth, DocView* target) {
+    DocView* v = target ? target : Active();
     if (!v || path.empty()) return;
     if (psdExport) { Status("Un export PSD est déjà en cours"); return; }
     auto st = std::make_shared<PsdExportState>();
@@ -968,8 +968,8 @@ void App::PollPsdExport() {
     }
 }
 
-void App::ExportImage(const std::string& path) {
-    DocView* v = Active();
+void App::ExportImage(const std::string& path, DocView* target) {
+    DocView* v = target ? target : Active();
     if (!v || path.empty()) return;
     gpu::Texture* img = v->renderer.EvaluateComplete(*v->doc, *ctx);
     if (!img) return;
@@ -2011,6 +2011,9 @@ void App::SaveCurrent(bool saveAs) {
 
 void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
     Document& d = *v.doc;
+    // One write at a time per file (two would share its temporary file).
+    for (auto& s : saves)
+        if (s->path == path) { Status("Enregistrement déjà en cours : " + path); return; }
     if (!demoMode && !asCopy) AddRecent(path);
     auto job = std::make_unique<PendingSave>();
     job->path = path;
@@ -2138,6 +2141,7 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
         d.path = path;
         if (!v.link) d.SetName(Narrow(Utf8Path(path).filename().wstring()));  // linked: keeps the Unreal asset name
         d.dirty = false;
+        job->doc = &d;
     }
     saves.push_back(std::move(job));
     Status("Enregistrement de " + path + "...");
@@ -2171,6 +2175,9 @@ void App::UpdateSaves() {
         if (s.writing.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             std::string err = s.writing.get();
             Status(err.empty() ? "Enregistré : " + s.path : "Échec de l'enregistrement : " + err);
+            if (!err.empty() && s.doc)
+                for (auto& dv : docs)
+                    if (dv->doc.get() == s.doc) dv->doc->dirty = true;  // not saved: closing still asks
             saves.erase(saves.begin() + i);
         } else {
             ++i;

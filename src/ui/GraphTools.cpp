@@ -138,6 +138,7 @@ bool App::ToolBakeNow(DocView& v, Id nodeId, int tries) {
             const int f = std::clamp((int)n->PropF("factor", 2), 2, 8);
             const u32 uw = std::min<u32>(W * f, 16384), uh = std::min<u32>(H * f, 16384);
             auto content = gpu::Dev().CreateTexture(uw, uh, ContentFormat(d), "Upscale");
+            if (!content) { Status(name + " : image agrandie trop grande pour la carte graphique"); return true; }  // done (no retry)
             const float2 c[4] = {{0, 0}, {(float)uw, 0}, {(float)uw, (float)uh}, {0, (float)uh}};
             v.renderer.PlaceTexture(*ctx, content.get(), in, c, 2);
             SmartObject* so = NewSmartObject(d, name, content);

@@ -926,6 +926,17 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
     for (auto& [id, sf] : s.surfaces) maxId = std::max(maxId, id + 1);
     for (auto& n : s.graph.nodes) if (n.id < 0x40000000u) maxId = std::max(maxId, n.id + 1);
     s.nextId = std::max(s.nextId, maxId);
+    // Parents that loop (a damaged file) would hang the layer tree: such layers go to the top level.
+    for (auto& l : s.layers) {
+        Id p = l.parent;
+        for (size_t steps = 0; p && steps <= s.layers.size(); ++steps) {
+            if (p == l.id) { p = 0; l.parent = 0; break; }
+            const Layer* pl = nullptr;
+            for (auto& o : s.layers) if (o.id == p) { pl = &o; break; }
+            p = pl ? pl->parent : 0;
+            if (steps == s.layers.size()) l.parent = 0;
+        }
+    }
     doc->SyncGraph();
     doc->dirty = false;
     return doc;
@@ -960,8 +971,9 @@ bool WriteSxl(const std::string& path, const Json& meta, const std::vector<Surfa
             put(&pk, 8);
             put(packed[i].data(), packed[i].size());
         }
-        if (!f) {
-            f.close();
+        f.flush();
+        f.close();  // the last buffered bytes are written here: checked too
+        if (f.fail()) {
             std::error_code ec;
             std::filesystem::remove(tmp, ec);
             if (error) *error = "échec de l'écriture";
@@ -1009,11 +1021,18 @@ bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surf
         return false;
     }
     std::vector<std::vector<u8>> packed;
+    bool truncated = false;
     for (;;) {
         u32 hdr[4];
-        if (!get(hdr, sizeof(hdr))) break;
+        if (!get(hdr, sizeof(hdr))) {
+            truncated = f.gcount() != 0;  // a clean end of file: no byte of a next header
+            break;
+        }
         u64 raw = 0, pk = 0;
-        if (!get(&raw, 8) || !get(&pk, 8) || pk > (8ull << 30) || raw > (16ull << 30)) break;
+        if (!get(&raw, 8) || !get(&pk, 8) || pk > (8ull << 30) || raw > (16ull << 30) || hdr[3] > (u32)gpu::Format::RGBA16) {
+            truncated = true;
+            break;
+        }
         SurfaceBlob b;
         b.id = hdr[0];
         b.width = hdr[1];
@@ -1021,11 +1040,19 @@ bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surf
         b.format = (gpu::Format)hdr[3];
         b.data.resize((size_t)raw);  // placeholder for size
         std::vector<u8> p((size_t)pk);
-        if (!get(p.data(), p.size())) break;
+        if (!get(p.data(), p.size())) {
+            truncated = true;
+            break;
+        }
         surfaces.push_back(std::move(b));
         packed.push_back(std::move(p));
     }
     f.close();
+    if (truncated) {
+        // Opening it anyway would replace the missing pixels by empty layers (lost at the next save).
+        if (error) *error = "fichier incomplet ou endommagé (pixels manquants)";
+        return false;
+    }
     bool ok = true;
     for (size_t i = 0; i < surfaces.size() && ok; ++i) {
         std::vector<u8> tmp;

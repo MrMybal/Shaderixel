@@ -51,8 +51,9 @@ struct PsdLayer {
     std::string adjKey;
     std::vector<u8> adjData;
     bool styles = false;
-    int W() const { return std::max(right - left, 0); }
-    int H() const { return std::max(bottom - top, 0); }
+    // Damaged rectangles (overflowing or huge) count as empty.
+    int W() const { const i64 v = (i64)right - left; return v > 0 && v <= 300000 ? (int)v : 0; }
+    int H() const { const i64 v = (i64)bottom - top; return v > 0 && v <= 300000 ? (int)v : 0; }
 };
 
 std::string Utf16ToUtf8(const std::u16string& s) {
@@ -112,12 +113,16 @@ bool DecodeRle(Reader& r, size_t rowEnd, size_t expected, std::vector<u8>& out) 
 }
 
 bool DecodePlane(Reader& r, Channel& c, int w, int h, int depth, bool psb) {
-    size_t start = r.pos, end = start + c.length;
-    if (c.length < 2 || end > r.b.size()) { r.Seek(std::min(end, r.b.size())); return w <= 0 || h <= 0; }
+    size_t start = r.pos;
+    if (start > r.b.size() || c.length > r.b.size() - start) { r.Seek(r.b.size()); return w <= 0 || h <= 0; }
+    size_t end = start + (size_t)c.length;
+    if (c.length < 2) { r.Seek(end); return w <= 0 || h <= 0; }
     if (w <= 0 || h <= 0) { r.Seek(end); return true; }
     u16 comp = r.U16();
     size_t rowBytes = (size_t)w * (depth / 8);
     size_t expected = rowBytes * h;
+    // RLE row lengths must fit in the channel data before anything is allocated.
+    if (comp == 1 && (size_t)h * (psb ? 4 : 2) > end - r.pos) { r.Seek(end); return false; }
     c.plane.clear();
     c.plane.reserve(expected);
     bool ok = true;
@@ -341,11 +346,11 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
         r.Seek(resEnd);
     }
     u64 lmLen = psb ? r.U64() : r.U32();
+    if (!r.ok || lmLen < 4 || lmLen > data.size() - r.pos) return fail("aucun calque");  // (no wrap-around)
     size_t lmEnd = r.pos + (size_t)lmLen;
-    if (!r.ok || lmLen < 4 || lmEnd > data.size()) return fail("aucun calque");
     u64 liLen = psb ? r.U64() : r.U32();
+    if (!r.ok || liLen < 2 || liLen > lmEnd - r.pos) return fail("aucun calque");
     size_t liEnd = r.pos + (size_t)liLen;
-    if (liLen < 2 || liEnd > lmEnd) return fail("aucun calque");
     int count = std::abs((int)r.S16());
     if (count <= 0 || count > 32768) return fail("aucun calque");
 
@@ -387,8 +392,9 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
             bool longLen = sig == "8B64";
             if (psb) for (auto* k : longKeys) if (key == k) longLen = true;
             u64 len = longLen ? r.U64() : r.U32();
+            if (!r.ok || r.pos > extraEnd || len > extraEnd - r.pos) { r.ok = false; break; }  // (no wrap-around)
             size_t ds = r.pos, de = ds + (size_t)len;
-            if ((sig != "8BIM" && sig != "8B64") || de > extraEnd) { r.ok = false; break; }
+            if (sig != "8BIM" && sig != "8B64") { r.ok = false; break; }
             if (key == "luni") {
                 u32 n = r.U32();
                 std::u16string s;

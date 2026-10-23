@@ -472,10 +472,10 @@ bool App::StartAction(DocView& v, int index, std::function<void(bool)> done) {
 void App::WriteImageAs(DocView& v, const std::string& out, const std::string& fmt, int quality) {
     std::filesystem::create_directories(Utf8Path(out).parent_path());
     if (fmt == "sxl") SaveDocument(v, out, true);
-    else if (fmt == "psd") ExportPsd(out, 8);
+    else if (fmt == "psd") ExportPsd(out, 8, &v);
     else {
         exportQuality = std::clamp(quality, 1, 100);
-        ExportImage(out);
+        ExportImage(out, &v);
         exportQuality = 92;
     }
 }
@@ -633,10 +633,22 @@ int App::ExecActionStep(DocView& v, const ActionStep& s) {
     }
     if (s.cmd == "photo_raw") return PhotoRawStep(v, p, R.error, R.retries);
     if (s.cmd == "op") {
+        if (R.pendingOp) {
+            // Asynchronous operation (render...): the step waits until it is finished.
+            if (!R.pendingOp->poll(*R.pendingOp)) return 1;
+            AiResult r = std::move(*R.pendingOp);
+            R.pendingOp.reset();
+            if (!r.errorCode.empty()) { R.error = r.errorMessage; return 2; }
+            return 0;
+        }
         const AiOperation* op = bridge.Find(p["name"].S());
         if (!op) { R.error = "opération inconnue : " + p["name"].S(); return 2; }
         AiResult r = op->run(p["args"], DirOf(settingsPath));
         if (!r.errorCode.empty()) { R.error = r.errorMessage; return 2; }
+        if (!r.done && r.poll) {
+            R.pendingOp = std::make_shared<AiResult>(std::move(r));
+            return 1;
+        }
         return 0;
     }
     R.error = "commande inconnue : " + s.cmd;

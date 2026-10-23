@@ -14,7 +14,7 @@ Device g_device;
 
 constexpr u32 kCpuHeapSize = 65536;
 constexpr u32 kPersistentSize = 16384;
-constexpr u32 kRingPerFrame = 32768;
+constexpr u32 kRingPerFrame = 262144;  // 16 per dispatch: ~16000 dispatches in a frame (tiled exports of huge images)
 constexpr size_t kUploadPerFrame = 64ull << 20;
 
 #define SX_CHECK(x) do { HRESULT hr_ = (x); if (FAILED(hr_)) { Log("D3D12 failure 0x%08X at %s:%d: %s", (unsigned)hr_, __FILE__, __LINE__, #x); } } while (0)
@@ -1055,7 +1055,14 @@ ReadbackPtr CommandContext::ReadbackTexture(Texture* src, const Rect* region) {
     rb->rowPitch = (rb->width * BytesPerPixel(src->format) + 255) & ~255u;
     auto hp = HeapProps(D3D12_HEAP_TYPE_READBACK);
     auto bd = BufferDesc((size_t)rb->rowPitch * rb->height);
-    SX_CHECK(dev->device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&rb->buffer)));
+    if (FAILED(dev->device->CreateCommittedResource(&hp, D3D12_HEAP_FLAG_NONE, &bd, D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&rb->buffer)))) {
+        // Too large for the system memory: an empty result (callers see no pixels) instead of a device error.
+        Log("Readback of %ux%u failed (out of memory)", rb->width, rb->height);
+        rb->buffer.Reset();
+        rb->width = rb->height = 0;
+        rb->ready = true;
+        return rb;
+    }
     Transition(src, D3D12_RESOURCE_STATE_COPY_SOURCE);
     D3D12_TEXTURE_COPY_LOCATION d = {};
     d.pResource = rb->buffer.Get();

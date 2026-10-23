@@ -606,6 +606,7 @@ void App::UpdateExec() {
             if (!ai) {
                 const u32 uw = std::min<u32>(tex->Width() * factor, 16384), uh = std::min<u32>(tex->Height() * factor, 16384);
                 auto full = gpu::Dev().CreateTexture(uw, uh, ExecContentFormat(d), "Upscale");
+                if (!full) { Status(n->name + " : image agrandie trop grande pour la carte graphique"); follow(0); continue; }
                 const float2 c[4] = {{0, 0}, {(float)uw, 0}, {(float)uw, (float)uh}, {0, (float)uh}};
                 rd.PlaceTexture(*ctx, full.get(), tex, c, 2);
                 ExecStoreResult(r, id, tex, full);
@@ -693,7 +694,8 @@ void App::UpdateExec() {
                 Document& d = *run->view->doc;
                 auto full = run->view->renderer.ImportTexture(*ctx, px, (u32)w, (u32)h, false, ExecContentFormat(d));
                 stbi_image_free(px);
-                if (full) run->owner = run->pendingOwner;
+                if (!full) { FinishExec(run->label + " : image ComfyUI trop grande pour la carte graphique"); return; }
+                run->owner = run->pendingOwner;
                 ExecStoreResult(*run, run->pendingNode, full.get(), (u32)w != d.Width() || (u32)h != d.Height() ? full : nullptr);
                 run->waiting = false;
                 run->pendingSent = false;

@@ -133,6 +133,8 @@ gpu::Texture* Renderer::BrushPreview(gpu::CommandContext& ctx, const BrushDef& b
     hh.Pod(s.flow);
     hh.Pod(s.spacing);
     hh.Pod(s.opacity);
+    hh.Pod(s.pressureSize);
+    hh.Pod(s.pressureOpacity);
     hh.Pod(color);
     hh.Pod(w);
     hh.Pod(h);

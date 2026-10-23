@@ -295,7 +295,13 @@ void App::DrawActionEditor() {
         if (actionRecording && actionRecordInto == i) label = "\xE2\x97\x8F " + label;
         if (ImGui::Selectable(label.c_str(), !isBuiltin && i == actionSel)) { actionSel = i; builtinSel = -1; actionStepSel = -1; }
         if (ImGui::BeginPopupContextItem()) {
-            if (ImGui::MenuItem("Dupliquer")) { Action a = actions[i]; a.name += " copie"; actions.insert(actions.begin() + i + 1, a); SaveActions(); }
+            if (ImGui::MenuItem("Dupliquer")) {
+                Action a = actions[i];
+                a.name += " copie";
+                actions.insert(actions.begin() + i + 1, a);
+                if (actionRecording && actionRecordInto > i) ++actionRecordInto;  // still recording into the same action
+                SaveActions();
+            }
             if (ImGui::MenuItem("Exporter...")) ExportActions(i);
             if (ImGui::MenuItem("Supprimer", nullptr, false, !actionRecording)) {
                 actions.erase(actions.begin() + i);
@@ -345,6 +351,10 @@ void App::DrawActionEditor() {
     }
     ImGui::EndChild();
     ImGui::SameLine();
+    // The list may have changed (duplicate, delete, new): the selected action is found again.
+    actionSel = std::clamp(actionSel, 0, std::max(0, (int)actions.size() - 1));
+    cur = isBuiltin ? nullptr : actions.empty() ? nullptr : &actions[actionSel];
+    shown = isBuiltin ? &builtins[builtinSel] : cur;
 
     // ---- middle: the steps
     const float midW = std::max(200 * dpi, ImGui::GetContentRegionAvail().x - rightW - ImGui::GetStyle().ItemSpacing.x);

@@ -40,8 +40,12 @@ std::vector<u8> ReadFile(const std::string& path) {
 
 // PackBits rows (row byte counts first) or raw, `bytes` per sample (high byte kept).
 bool ReadChannel(Reader& r, int w, int h, int depth, bool rle, std::vector<u8>& out) {
+    if (w <= 0 || h <= 0 || w > 30000 || h > 30000 || (depth != 1 && depth != 8 && depth != 16 && depth != 32)) return false;
     const int bps = std::max(1, depth / 8);
     const size_t rowBytes = (size_t)w * bps;
+    // Damaged sizes: the data must be there before anything is allocated (raw size, or the row counts).
+    if (!rle && !r.Has(rowBytes * h)) return false;
+    if (rle && !r.Has((size_t)h * 2)) return false;
     std::vector<u8> raw(rowBytes * h);
     if (!rle) {
         if (!r.Has(raw.size())) return false;
@@ -284,12 +288,12 @@ bool ReadSwatches(const std::string& path, std::vector<Swatch>& out, std::string
             } else if (space == 2) s.srgb = cmyk(1 - w / 65535.0f, 1 - x / 65535.0f, 1 - y / 65535.0f, 1 - z / 65535.0f);
             else if (space == 7) s.srgb = color::LabToSrgb({w / 100.0f, (int16_t)x / 100.0f, (int16_t)y / 100.0f, 1});
             else if (space == 8) { float g = 1 - w / 10000.0f; s.srgb = {g, g, g, 1}; }
-            else continue;
-            if (ver == 2) {
+            const bool known = space == 0 || space == 1 || space == 2 || space == 7 || space == 8;
+            if (ver == 2) {  // the name is read even for the skipped spaces (Pantone, HKS...): the next swatch follows it
                 u32 len = r.U32();
                 s.name = r.Utf16(len);
             }
-            list.push_back(s);
+            if (known) list.push_back(s);
         }
         if (r.fail) break;
         if (ver == 2) { out = list; return !out.empty() || err("aucune couleur"); }

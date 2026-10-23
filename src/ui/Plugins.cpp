@@ -694,8 +694,11 @@ bool MenuPath(const std::string& path) {
 void App::DrawPluginsMenu() {
     if (!ImGui::BeginMenu("Plugins")) return;
     ui::MenuFilter();
-    for (auto& c : pluginCommands)
-        if (MenuPath(c.path)) CallPlugin(c.plugin, [&] { c.fn(c.user); });
+    for (size_t i = 0; i < pluginCommands.size(); ++i)  // (a command may add commands: no reference kept)
+        if (MenuPath(pluginCommands[i].path)) {
+            const auto c = pluginCommands[i];
+            CallPlugin(c.plugin, [&] { c.fn(c.user); });
+        }
     for (auto& p : plugins)
         if (p.loaded)
             for (auto& s : p.scripts)
@@ -898,13 +901,21 @@ bool App::InstallPluginZip(const std::string& zip, std::string* error) {
     Json m;
     if (!ReadTextFile(Narrow((found / "plugin.json").wstring()), text) || !Json::Parse(text, m)) { if (error) *error = "plugin.json invalide"; return false; }
     std::string folder = m["name"].S(Narrow(Utf8Path(zip).stem().wstring()));
-    for (auto& c : folder) if (strchr("\\/:*?\"<>|", c)) c = '_';
+    for (auto& c : folder) if (strchr("\\/:*?\"<>|", c) || (unsigned char)c < 32) c = '_';
+    // No empty, "." or ".." folder (it would replace the plugins folder itself or its parent).
+    while (!folder.empty() && (folder.back() == '.' || folder.back() == ' ')) folder.pop_back();
+    while (!folder.empty() && (folder.front() == '.' || folder.front() == ' ')) folder.erase(folder.begin());
+    if (folder.empty()) folder = "plugin";
     const std::string id = m["id"].S(folder);
     // Same plugin already installed: unloaded, replaced.
     for (auto& p : plugins)
         if (p.id == id) UnloadPlugin(p);
     plugins.erase(std::remove_if(plugins.begin(), plugins.end(), [&](const PluginEntry& p) { return p.id == id; }), plugins.end());
     const fs::path dst = Utf8Path(user) / Utf8Path(folder);
+    if (fs::weakly_canonical(dst, ec).parent_path() != fs::weakly_canonical(Utf8Path(user), ec)) {
+        if (error) *error = "nom de plugin invalide";
+        return false;
+    }
     fs::remove_all(dst, ec);
     fs::create_directories(dst, ec);
     fs::copy(found, dst, fs::copy_options::recursive | fs::copy_options::overwrite_existing, ec);
@@ -1126,7 +1137,13 @@ struct ScriptPanelIo {
     std::atomic<bool> ended{false};
     std::thread reader;
     void* stdoutRead = nullptr;
+    void* job = nullptr;  // the program and its children (closed: all of them end)
     ~ScriptPanelIo() {
+        if (job) CloseHandle(job);
+        for (int i = 0; i < 100 && reader.joinable() && !ended; ++i) {
+            CancelSynchronousIo((HANDLE)reader.native_handle());  // a ReadFile still waiting
+            Sleep(5);
+        }
         if (reader.joinable()) reader.join();
         if (stdoutRead) CloseHandle(stdoutRead);
     }
@@ -1181,8 +1198,19 @@ void App::StartScriptPanel(ScriptPanel& sp) {
     CloseHandle(pi.hThread);
     sp.process = pi.hProcess;
     sp.stdinWrite = inW;
+    // Messages to the program never block the interface (a full pipe drops them).
+    DWORD mode = PIPE_NOWAIT;
+    SetNamedPipeHandleState(inW, &mode, nullptr, nullptr);
     auto io = std::make_shared<ScriptPanelIo>();
     io->stdoutRead = outR;
+    // A job holds the program and what it starts (cmd -> python): stopping the panel ends them all.
+    if (HANDLE job = CreateJobObjectW(nullptr, nullptr)) {
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION li = {};
+        li.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        SetInformationJobObject(job, JobObjectExtendedLimitInformation, &li, sizeof(li));
+        if (AssignProcessToJobObject(job, pi.hProcess)) io->job = job;
+        else CloseHandle(job);
+    }
     ScriptPanelIo* raw = io.get();
     io->reader = std::thread([raw] {
         char buf[4096];

@@ -524,8 +524,9 @@ private:
     DocView* Active();
     void NewDocument(u32 w, u32 h, Precision p, DocMode mode, int background, const std::string& name);
     void OpenImage(const std::string& path, bool asLayer);
-    void ExportImage(const std::string& path);
-    void ExportPsd(const std::string& path, int depth = 8);
+    // target: the document written (the active one when null; actions pass theirs: the user may switch tabs).
+    void ExportImage(const std::string& path, DocView* target = nullptr);
+    void ExportPsd(const std::string& path, int depth = 8, DocView* target = nullptr);
     void MergeDown(DocView& v);
     // PBR material channels (Material.cpp)
     Id FindChannelGroup(Document& d, PbrChannel c);
@@ -1170,6 +1171,7 @@ private:
         bool exporting = false;
         gpu::ReadbackPtr wait;
         std::function<void(bool)> done;
+        std::shared_ptr<AiResult> pendingOp;  // an "op" step still working (render...)
     } actionRun;
     std::string actionLastExport;  // last file written by an Exporter step
     int exportQuality = 92;        // JPG quality of ExportImage
@@ -1788,6 +1790,7 @@ private:
         std::vector<gpu::ReadbackPtr> readbacks;
         std::future<std::string> writing;  // error message ("" = ok)
         bool started = false;
+        Document* doc = nullptr;  // marked modified again if the write fails (unless a copy)
     };
     std::vector<std::unique_ptr<PendingSave>> saves;
     int closePrompt = -1;        // document index awaiting save/discard, -2 = quitting

@@ -1111,6 +1111,7 @@ void CommandContext::Prepare(Texture* t) {
         VkClearColorValue v = {};
         vkCmdClearColorImage(cmd, t->image, VK_IMAGE_LAYOUT_GENERAL, &v, 1, &range);
     }
+    Barrier();  // the clear lands before the first use (an upload, a copy or a shader write right after)
 }
 
 void CommandContext::Barrier() {
@@ -1374,7 +1375,17 @@ ReadbackPtr CommandContext::ReadbackTexture(Texture* src, const Rect* region) {
     VkBufferCreateInfo bci = {VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bci.size = (VkDeviceSize)rb->rowPitch * rb->height;
     bci.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    VK_CHECK(vkCreateBuffer(dev->device, &bci, nullptr, &rb->buffer));
+    auto failed = [&] {
+        // Too large for the system memory: an empty result (callers see no pixels) instead of a device error.
+        Log("Readback of %ux%u failed (out of memory)", rb->width, rb->height);
+        if (rb->buffer) vkDestroyBuffer(dev->device, rb->buffer, nullptr);
+        rb->buffer = VK_NULL_HANDLE;
+        rb->memory = VK_NULL_HANDLE;
+        rb->width = rb->height = 0;
+        rb->ready = true;
+        return rb;
+    };
+    if (vkCreateBuffer(dev->device, &bci, nullptr, &rb->buffer) != VK_SUCCESS) return failed();
     VkMemoryRequirements req;
     vkGetBufferMemoryRequirements(dev->device, rb->buffer, &req);
     VkMemoryAllocateInfo mai = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
@@ -1382,7 +1393,7 @@ ReadbackPtr CommandContext::ReadbackTexture(Texture* src, const Rect* region) {
     u32 type = dev->FindMemory(req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
     if (type == ~0u) type = dev->FindMemory(req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     mai.memoryTypeIndex = type;
-    VK_CHECK(vkAllocateMemory(dev->device, &mai, nullptr, &rb->memory));
+    if (type == ~0u || vkAllocateMemory(dev->device, &mai, nullptr, &rb->memory) != VK_SUCCESS) return failed();
     VK_CHECK(vkBindBufferMemory(dev->device, rb->buffer, rb->memory, 0));
     Barrier();
     Prepare(src);

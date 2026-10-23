@@ -63,8 +63,13 @@ struct AiSettings {
 class AiBridge {
 public:
     ~AiBridge() { Shutdown(); }
-    void Register(AiOperation op) { ops.push_back(std::move(op)); }
+    // Main thread only; the network thread lists them under opsMutex (Describe).
+    void Register(AiOperation op) {
+        std::lock_guard lock(opsMutex);
+        ops.push_back(std::move(op));
+    }
     void Unregister(const std::string& id) {
+        std::lock_guard lock(opsMutex);
         for (size_t i = 0; i < ops.size(); ++i)
             if (ops[i].id == id) { ops.erase(ops.begin() + i); return; }
     }
@@ -113,6 +118,7 @@ private:
     std::string token, pluginToken, connectionFile, serviceFile, project;
     std::vector<AiOperation> ops;
     std::mutex mutex;
+    mutable std::mutex opsMutex;
     std::deque<Call> queue;
     std::vector<Pending> pending;
     std::unordered_map<std::string, std::shared_future<std::string>> calls;  // callId -> response
