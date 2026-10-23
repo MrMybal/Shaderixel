@@ -429,9 +429,10 @@ bool App::TransformBegin(DocView& v, bool moveOnly) {
         xf.w = Length(ex);
         xf.h = Length(ey);
         xf.angle = std::atan2(ex.y, ex.x);
+        if (ex.x * ey.y - ex.y * ey.x < 0) xf.h = -xf.h;  // mirrored: kept when the corners are rebuilt
         // Not a rotated rectangle (skew / perspective): free corners.
         float2 rebuilt = c[0] + ex + ey;
-        xf.freeCorners = Length(rebuilt - c[2]) > 0.5f || std::abs(ex.x * ey.x + ex.y * ey.y) > 1e-3f * xf.w * xf.h;
+        xf.freeCorners = Length(rebuilt - c[2]) > 0.5f || std::abs(ex.x * ey.x + ex.y * ey.y) > 1e-3f * xf.w * std::abs(xf.h);
         if (!xf.freeCorners) TransformUpdateCorners();
         xf.pivot = xf.center;
         return true;
