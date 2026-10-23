@@ -122,6 +122,15 @@ void History::PushState(const std::string& label, const DocState& before, const 
     Push(std::move(e));
 }
 
+void History::PushColorSettings(const std::string& label, const ColorSettings& before, const ColorSettings& after) {
+    Entry e;
+    e.label = label;
+    e.color = true;
+    e.colorBefore = before;
+    e.colorAfter = after;
+    Push(std::move(e));
+}
+
 void History::PushPaint(const std::string& label, Id surface, const Rect& r, gpu::TexturePtr before, gpu::TexturePtr after) {
     Entry e;
     e.label = label;
@@ -191,7 +200,11 @@ static gpu::TexturePtr StepPixels(const gpu::TexturePtr& gpuCopy, const History:
 
 void History::UndoOne(Document& doc, gpu::CommandContext& ctx) {
     Entry& e = entries[--cursor];
-    if (e.paint) {
+    if (e.color) {
+        doc.iccProfile = e.colorBefore.icc;
+        doc.cmykProfile = e.colorBefore.cmyk;
+        doc.colorMode = e.colorBefore.mode;
+    } else if (e.paint) {
         gpu::TexturePtr t = StepPixels(e.pixelsBefore, e.cpuBefore, ctx);
         ApplyPaint(doc, ctx, e.surface, e.rect, t.get());
     } else {
@@ -203,7 +216,11 @@ void History::UndoOne(Document& doc, gpu::CommandContext& ctx) {
 
 void History::RedoOne(Document& doc, gpu::CommandContext& ctx) {
     Entry& e = entries[cursor++];
-    if (e.paint) {
+    if (e.color) {
+        doc.iccProfile = e.colorAfter.icc;
+        doc.cmykProfile = e.colorAfter.cmyk;
+        doc.colorMode = e.colorAfter.mode;
+    } else if (e.paint) {
         gpu::TexturePtr t = StepPixels(e.pixelsAfter, e.cpuAfter, ctx);
         ApplyPaint(doc, ctx, e.surface, e.rect, t.get());
     } else {

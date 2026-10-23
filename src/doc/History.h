@@ -22,8 +22,14 @@ struct HistoryLimits {
 
 class History {
 public:
+    struct ColorSettings {
+        std::string icc, cmyk;
+        int mode = 0;
+    };
     static HistoryLimits& Limits();
     void PushState(const std::string& label, const DocState& before, const DocState& after);
+    // Profile / CMYK profile / color mode of the document (kept outside DocState).
+    void PushColorSettings(const std::string& label, const ColorSettings& before, const ColorSettings& after);
     void PushPaint(const std::string& label, Id surface, const Rect& r, gpu::TexturePtr before, gpu::TexturePtr after);
     void BeginGroup() { if (groupDepth++ == 0) currentGroup = ++groupCounter; }
     void EndGroup() { if (--groupDepth == 0) currentGroup = 0; }
@@ -63,6 +69,8 @@ private:
     struct Entry {
         std::string label;
         bool paint = false;
+        bool color = false;  // document color settings (profile, CMYK profile, mode): not part of DocState
+        ColorSettings colorBefore, colorAfter;
         DocState before, after;
         Id surface = 0;
         Rect rect;

@@ -97,6 +97,9 @@ bool App::ApplyColorLutToDocument(DocView& v, const std::vector<std::string>& ch
 void App::SetColorMode(DocView& v, int mode) {
     Document& d = *v.doc;
     if (mode == d.colorMode) return;
+    const History::ColorSettings before = {d.iccProfile, d.cmykProfile, d.colorMode};
+    v.history.BeginGroup();  // the pixels and the mode: one undo step
+    struct GroupEnd { History& h; ~GroupEnd() { h.EndGroup(); } } groupEnd{v.history};
     if (mode == 1) {
         // RGB -> CMYK: colors brought into the CMYK gamut, display through the profile from now on.
         std::string cmyk = CmykProfileFor(&v);
@@ -111,6 +114,7 @@ void App::SetColorMode(DocView& v, int mode) {
     }
     d.colorMode = mode;
     d.dirty = true;
+    v.history.PushColorSettings("Mode colorimétrique", before, {d.iccProfile, d.cmykProfile, d.colorMode});
 }
 
 void App::OpenedImageProfile(DocView& v, const std::string& path) {
@@ -246,12 +250,18 @@ void App::DrawColorDialogs() {
             ImGui::TextDisabled("Les valeurs des pixels sont conservées, l'apparence change.");
         }
         if (ImGui::Button("OK", ImVec2(100 * dpi, 0))) {
+            // The profile goes into the history with the pixels (one undo step).
+            const History::ColorSettings before = {d.iccProfile, d.cmykProfile, d.colorMode};
+            v->history.BeginGroup();
             if (colorDialog == 2) {
                 if (colorDialogProfile != d.iccProfile && ApplyColorLutToDocument(*v, {d.iccProfile, colorDialogProfile}, proof.intent, "Convertir en profil"))
                     d.iccProfile = colorDialogProfile;
             } else {
                 d.iccProfile = colorDialogProfile;
             }
+            if (d.iccProfile != before.icc)
+                v->history.PushColorSettings(colorDialog == 2 ? "Convertir en profil" : "Attribuer un profil", before, {d.iccProfile, d.cmykProfile, d.colorMode});
+            v->history.EndGroup();
             d.dirty = true;
             colorDialog = 0;
             ImGui::CloseCurrentPopup();
