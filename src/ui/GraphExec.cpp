@@ -411,6 +411,8 @@ void App::StartExec(DocView& v, Id owner, Id event) {
     const Graph* g = ExecGraph(*r);
     const Node* e = g ? g->Find(event) : nullptr;
     r->label = e ? e->name : "Exécuter";
+    static u64 runSerial = 0;
+    r->serial = ++runSerial;
     execRun = std::move(r);
     Status("Exécution : " + execRun->label);
 }
@@ -642,6 +644,13 @@ void App::UpdateExec() {
             job.width = (int)tex->Width();
             job.height = (int)tex->Height();
             r.waiting = true;
+            // The user may edit while ComfyUI works (minutes): the steps done so far become their own undo step,
+            // and the result will be recorded from the state it lands on (undoing it keeps those edits).
+            {
+                Document& dd = *r.view->doc;
+                r.view->history.PushState("Exécution : " + r.label, r.before, dd.S());
+                r.before = dd.S();
+            }
             r.pendingNode = id;
             r.pendingOwner = r.owner;
             r.pendingJob = job;
@@ -681,13 +690,15 @@ void App::UpdateExec() {
         comfy::Job job = r.pendingJob;
         job.inputPng.assign(png.begin(), png.end());
         ExecRun* run = &r;
-        AiAsync([this, job, run]() -> std::function<void()> {
+        const u64 serial = r.serial;
+        AiAsync([this, job, run, serial]() -> std::function<void()> {
             std::vector<u8> out;
             std::string err;
             bool ok = comfy::Run(job, out, err);
-            return [this, ok, out = std::move(out), err, run]() {
-                if (!execRun || execRun.get() != run || !ViewAlive(run->view)) return;
+            return [this, ok, out = std::move(out), err, run, serial]() {
+                if (!execRun || execRun.get() != run || execRun->serial != serial || !ViewAlive(run->view)) return;
                 if (!ok || out.empty()) { FinishExec(run->label + " : " + (err.empty() ? std::string("ComfyUI n'a renvoyé aucune image") : err)); return; }
+                run->before = run->view->doc->S();  // edits made meanwhile stay out of this step
                 int w = 0, h = 0, comp = 0;
                 stbi_uc* px = stbi_load_from_memory(out.data(), (int)out.size(), &w, &h, &comp, 4);
                 if (!px) { FinishExec(run->label + " : image ComfyUI illisible"); return; }

@@ -183,6 +183,7 @@ struct ExecItem {
     Id owner;  // function whose graph the node is in (0 = the document's graph)
 };
 struct ExecRun {
+    u64 serial = 0;  // unique per run: an async result checks it (a new run may reuse the same address)
     DocView* view = nullptr;
     Id owner = 0;     // function node whose graph runs (0 = the document's graph)
     Id event = 0;
