@@ -111,8 +111,10 @@ void Renderer::Prepare(Document& doc, gpu::CommandContext& ctx) {
     for (auto& [dst, src] : doc.pendingCopies) {
         Surface* a = doc.GetSurface(dst);
         Surface* b = doc.GetSurface(src);
-        if (a && b && a->tex && b->tex) {
-            ctx.CopyTexture(a->tex.get(), b->tex.get());
+        if (a && b && a->tex && b->tex && a->tex->GetFormat() == b->tex->GetFormat()) {
+            // Same size: whole copy; else the overlapping part (D3D12 copies whole resources of the same size only).
+            if (a->tex->Width() == b->tex->Width() && a->tex->Height() == b->tex->Height()) ctx.CopyTexture(a->tex.get(), b->tex.get());
+            else ctx.CopyRegion(a->tex.get(), 0, 0, b->tex.get(), {0, 0, (int)std::min(a->tex->Width(), b->tex->Width()), (int)std::min(a->tex->Height(), b->tex->Height())});
             doc.TouchSurface(dst);
         }
     }
