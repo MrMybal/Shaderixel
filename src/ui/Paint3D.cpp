@@ -613,6 +613,11 @@ void App::DrawBrushMaterialPanel() {
     row(PbrChannel::Metallic, "Métal");
     row(PbrChannel::Height, "Hauteur");
     row(PbrChannel::Emissive, "Émissif");
+    if (DocView* av = Active(); av && av->mesh && !av->mesh->data.uvTiles.empty()) {
+        ImGui::Checkbox("Limiter au matériau sous le pinceau", &B.limitMaterial);
+        ui::HelpTooltip("Modèle à plusieurs matériaux (une tuile de texture chacun) : un trait ne peint que le matériau\n"
+                        "sur lequel il commence, même s'il déborde sur une pièce voisine.");
+    }
 
     // The brush on the model: tip, dynamics, stroke helpers.
     ImGui::SeparatorText("Pinceau 3D");

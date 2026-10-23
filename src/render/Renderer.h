@@ -267,6 +267,7 @@ public:
                              const std::vector<float4>& colorsLinear, bool erase, const std::vector<float4>* dabEx = nullptr);  // dabEx: cos, sin, tip variant
     int meshSymmetry = 0;        // 3D strokes mirrored across the model's axis: 0 none, 1 X, 2 Y, 3 Z
     float meshFacingMin = 0.05f; // texels seen more edge-on than this are not painted (dot(n, view))
+    Rect meshClip;               // 3D strokes only paint inside this rectangle (empty: anywhere)
     // Brush tip in 3D: a few variants of the programmable tip rendered side by side (BuildMeshTip).
     gpu::TexturePtr meshTipAtlas, meshTipLayer, meshTipColor;
     u64 meshTipHash = 0;

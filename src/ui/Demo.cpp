@@ -481,7 +481,28 @@ void App::DemoTick() {
             fg = {1, 0, 0, 1};
             PolygonFill(*a, 0, false);  // first triangle: material 1
         }
-        if (frameCounter == 20 && outDir[0]) {
+        // SX_LIMIT: a green stroke started on the first material, across onto the second, limited to the first.
+        const bool limit = GetEnvironmentVariableA("SX_LIMIT", nullptr, 0) > 0;
+        if (limit) {
+            ImGuiIO& io = ImGui::GetIO();
+            if (frameCounter == 14) {
+                tool = Tool::Brush;
+                viewTool[1] = Tool::Brush;
+                brush3D.limitMaterial = true;
+                fg = {0, 1, 0, 1};
+                brush.size = 60;
+                a->mesh->yaw = 0;
+                a->mesh->pitch = 0;
+            }
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D"); w && frameCounter >= 30 && frameCounter <= 60) {
+                const float t = (frameCounter - 30) / 30.0f;
+                const float x = w->InnerRect.Min.x + (w->InnerRect.Max.x - w->InnerRect.Min.x) * (0.3f + 0.4f * t);
+                io.AddMousePosEvent(x, (w->InnerRect.Min.y + w->InnerRect.Max.y) * 0.5f);
+                if (frameCounter == 31) io.AddMouseButtonEvent(0, true);
+            }
+            if (frameCounter == 61) io.AddMouseButtonEvent(0, false);
+        }
+        if (frameCounter == (limit ? 80 : 20) && outDir[0]) {
             a->doc->exportTemplate = 0;
             ExportProjectTextures(*a, std::string(outDir) + "\\sep.png");
             a->doc->exportTemplate = 1;

@@ -1358,6 +1358,7 @@ private:
         bool follow = false;  // dab angle follows the stroke
         float lazy = 0;       // lazy mouse distance (screen px)
         int polyMode = 1;     // polygon fill: 0 triangle, 1 flat face, 2 UV island, 3 mesh part, 4 whole model
+        bool limitMaterial = false;  // models with a tile per material: a stroke stays on the material it starts on
         // Paint simulation (Paint3DSim.cpp): particles per second, size (model units), gravity, adhesion, life (s), spread.
         int simPreset = 0;
         float simRate = 60, simSize = 0.015f, simGravity = 1, simAdhesion = 0.5f, simLife = 2.5f, simSpread = 0.5f;

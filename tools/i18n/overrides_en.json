@@ -494,5 +494,11 @@
  "Projet Paint 3D : {n} px, {n} matériaux, une tuile de texture chacun (export : un jeu de textures par matériau).": "Paint 3D project: {n} px, {n} materials, a texture tile each (export: a texture set per material).",
  "Textures PBR exportées : {n} matériaux (un jeu chacun)": "PBR textures exported: {n} materials (a set each)",
  "Peinture liquide : pas sur les très grands documents (tuilés)": "Liquid paint: not on very large (tiled) documents",
- "Peinture liquide : figée (calque modifié)": "Liquid paint: set (layer changed)"
+ "Peinture liquide : figée (calque modifié)": "Liquid paint: set (layer changed)",
+ "Limiter au matériau sous le pinceau": "Limit to the material under the brush",
+ "Modèle à plusieurs matériaux (une tuile de texture chacun) : un trait ne peint que le matériau": "Model with several materials (a texture tile each): a stroke only paints the material",
+ "sur lequel il commence, même s'il déborde sur une pièce voisine.": "it starts on, even when it runs over a neighboring part.",
+ "Enregistrement déjà en cours : {s}": "Already saving: {s}",
+ "fichier incomplet ou endommagé (pixels manquants)": "incomplete or damaged file (missing pixels)",
+ "nom de plugin invalide": "invalid plugin name"
 }

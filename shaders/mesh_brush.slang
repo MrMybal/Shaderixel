@@ -32,6 +32,7 @@ cbuffer Paint : register(b1)
     float4 gStencil;    // stencil (flag 512): screen center, half size
     float4 gStencil2;   // cos, sin of its rotation, invert, use the luminance
     float4 gStencil3;   // luminance threshold, contrast
+    float4 gClip;       // flag 1024: only the texels in this rectangle (x0, y0, x1, y1: a material's UV tile)
     float4 gDabs[1024]; // screen x, y, radius px, alpha
     float4 gDabsEx[1024]; // cos, sin of the dab angle, variant
 };
@@ -105,6 +106,7 @@ void main(uint3 id : SV_DispatchThreadID)
     int2 px = int2(id.xy);
     float4 pos = gPosMap.Load(int3(px, 0));
     if (pos.a <= 0.0) return;
+    if ((gFlags & 1024) && (px.x < gClip.x || px.y < gClip.y || px.x >= gClip.z || px.y >= gClip.w)) return;  // another material
     if (gFlags & 256)
     {
         // World dabs: spheres on the model, on the side the surface faces (no camera, no occlusion test).

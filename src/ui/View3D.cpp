@@ -364,6 +364,19 @@ void App::DrawView3D() {
             const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
             setupTip(b);
             float2 p = local(io.MousePos.x, io.MousePos.y);
+            // Limited to the material under the brush: its UV tile.
+            v->renderer.meshClip = {};
+            if (brush3D.limitMaterial && !s.data.uvTiles.empty() && s.data.triMaterial.size() * 3 == s.data.indices.size()) {
+                const int tri = PickMeshTriangle(s, p, w, h);
+                if (tri >= 0) {
+                    const u16 mi = s.data.triMaterial[tri];
+                    if (mi < s.data.uvTiles.size()) {
+                        const float4 t = s.data.uvTiles[mi];
+                        v->renderer.meshClip = {(int)std::floor(t.x * doc.Width()), (int)std::floor(t.y * doc.Height()), (int)std::ceil(t.z * doc.Width()),
+                                                (int)std::ceil(t.w * doc.Height())};
+                    }
+                }
+            }
             float pr = platform::PenActive() ? PenPressure(platform::LastPressure()) : 1.0f;
             std::vector<Dab> first;
             if (io.KeyShift && meshLineValid) {
@@ -431,6 +444,7 @@ void App::DrawView3D() {
         dabEx.clear();
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || io.KeyShift) {
             v->renderer.EndStrokeMulti(doc, *ctx, v->history, "Peinture 3D");
+            v->renderer.meshClip = {};
             meshStroking = false;
             meshLineEnd = meshLastDab;
             meshLineValid = true;
