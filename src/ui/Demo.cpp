@@ -506,7 +506,7 @@ void App::DemoTick() {
             if (is3D) {
                 p3dNew = {};
                 p3dNew.basePreset = m == "cube" ? 7 : 1;
-                p3dNew.mesh = m == "plane" ? 2 : m == "cube" ? 1 : 0;
+                p3dNew.mesh = m == "plane" ? 2 : (m == "cube" || m == "cubetop") ? 1 : 0;
                 NewPaint3DProject();
             } else {
                 NewDocument(1024, 1024, Precision::Half16, DocMode::Layers, 0, "Liquide");
@@ -535,6 +535,10 @@ void App::DemoTick() {
                 fluidSet.azimuth = -90;
                 a->mesh->yaw = 0.0f;
                 a->mesh->pitch = 1.2f;
+            } else if (m == "cubetop") {
+                fluidSet.gravMode = 1;  // the bottom of the view: the top face's paint runs over the front edge
+                a->mesh->yaw = 0.0f;
+                a->mesh->pitch = 0.75f;
             } else if (is3D) {
                 a->mesh->yaw = 0.35f;
                 a->mesh->pitch = 0.2f;
@@ -547,7 +551,7 @@ void App::DemoTick() {
             if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D")) {
                 const ImVec2 c((w->InnerRect.Min.x + w->InnerRect.Max.x) * 0.5f, (w->InnerRect.Min.y + w->InnerRect.Max.y) * 0.5f);
                 const float span = std::min(w->InnerRect.Max.x - w->InnerRect.Min.x, w->InnerRect.Max.y - w->InnerRect.Min.y) * 0.22f;
-                p0 = ImVec2(c.x - span, c.y - span * (m == "plane" ? 0.3f : 0.85f));
+                p0 = ImVec2(c.x - span, c.y - span * (m == "plane" ? 0.3f : m == "cubetop" ? 0.35f : 0.85f));
                 p1 = ImVec2(c.x + span, p0.y);
                 have = true;
             }
@@ -569,8 +573,8 @@ void App::DemoTick() {
         if (frameCounter == 71 + hold) io.AddMouseButtonEvent(0, false);
         if (frameCounter == 72 + hold && have) io.AddMousePosEvent(p1.x + 300, p1.y + 300);
         if (frameCounter % 60 == 0 && frameCounter >= 60)
-            Log("[fluid] frame %d: active %d, wet %.2f s, %d substeps, sim %ux%u, history %zu, status %s", frameCounter, fluidRun.active ? 1 : 0,
-                a->renderer.FluidTime(), fluidRun.substeps, fluidRun.simW, fluidRun.simH, a->history.Count(), statusMsg.c_str());
+            Log("[fluid] frame %d: active %d, wet %.2f s, %d substeps, sim %ux%u, portals %d, history %zu, status %s", frameCounter, fluidRun.active ? 1 : 0,
+                a->renderer.FluidTime(), fluidRun.substeps, fluidRun.simW, fluidRun.simH, a->renderer.FluidPortalCount(), a->history.Count(), statusMsg.c_str());
         return;
     }
     if (demoMode == 104) {

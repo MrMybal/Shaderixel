@@ -6,6 +6,8 @@
 #include "render/MeshPaint.h"
 #include "doc/History.h"
 
+#include <unordered_map>
+
 namespace sx {
 
 namespace {
@@ -130,6 +132,7 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
     if (!F.mesh && F.selection) flags |= 4;
     if (p.offEdges) flags |= 8;
     if (F.bed && p.bed > 0) flags |= 16;
+    if (F.mesh && F.portalOut && F.portalKey && F.portalKey == F.portalPending) flags |= 64;
     const int c = F.cur, o = 1 - F.cur;
     gpu::DispatchDesc d;
     d.pipeline = k;
@@ -143,6 +146,10 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
     d.srv[7] = F.mesh ? F.mesh->posMap.get() : nullptr;
     d.srv[8] = F.mesh ? F.mesh->nrmMap.get() : nullptr;
     d.srv[9] = pass == 0 ? F.selection.get() : nullptr;
+    if (flags & 64) {
+        d.srv[10] = F.portalOut.get();
+        d.srv[11] = F.portalIn.get();
+    }
     if (pass == 0) {
         d.srv[5] = nullptr;
         d.uav[0] = F.grav.get();
@@ -185,8 +192,115 @@ void Renderer::FluidDeposit(gpu::CommandContext& ctx, const std::vector<float4>&
     }
 }
 
+void Renderer::FluidPortals(gpu::CommandContext& ctx) {
+    FluidState& F = fluid;
+    if (!F.mesh || !F.mesh->posMap || !F.mesh->nrmMap) return;
+    const u64 key = ((u64)F.mesh->revision * 1000003ull) ^ ((u64)F.w << 40) ^ ((u64)F.h << 20) ^ (u64)F.docW * 7919ull ^ 0x51ED;
+    if (F.portalKey == key && F.portalPending == key) return;  // built
+    if (F.portalPending != key) {
+        // Position and normal maps to the CPU (once per model and size).
+        F.rbPos = ctx.ReadbackTexture(F.mesh->posMap.get());
+        F.rbNrm = ctx.ReadbackTexture(F.mesh->nrmMap.get());
+        F.portalPending = key;
+        F.portalKey = 0;
+        return;
+    }
+    if (!F.rbPos || !F.rbNrm || !F.rbPos->ready || !F.rbNrm->ready) return;
+    const u32 W = F.w, H = F.h, DW = F.rbPos->width, DH = F.rbPos->height;
+    const float* pos = (const float*)F.rbPos->data.data();
+    const float* nrm = (const float*)F.rbNrm->data.data();
+    if (F.rbPos->data.size() < (size_t)DW * DH * 16 || F.rbNrm->data.size() < (size_t)DW * DH * 16) return;
+    // Simulation texel -> document pixel, as the shader (DocPixel).
+    auto docIndex = [&](int x, int y) {
+        const int dx = std::clamp((int)((x + 0.5f) / W * DW), 0, (int)DW - 1), dy = std::clamp((int)((y + 0.5f) / H * DH), 0, (int)DH - 1);
+        return (size_t)dy * DW + dx;
+    };
+    const size_t N = (size_t)W * H;
+    std::vector<u8> valid(N, 0);
+    for (u32 y = 0; y < H; ++y)
+        for (u32 x = 0; x < W; ++x) valid[(size_t)y * W + x] = pos[docIndex(x, y) * 4 + 3] > 0.75f ? 1 : 0;  // not the padding
+    auto P = [&](size_t i) { const float* q = pos + docIndex((int)(i % W), (int)(i / W)) * 4; return float3{q[0], q[1], q[2]}; };
+    auto Nn = [&](size_t i) { const float* q = nrm + docIndex((int)(i % W), (int)(i / W)) * 4; return Normalize(float3{q[0], q[1], q[2]}); };
+    const int dx[4] = {1, -1, 0, 0}, dy[4] = {0, 0, 1, -1};
+    auto isBorder = [&](size_t i) {
+        if (!valid[i]) return false;
+        const int x = (int)(i % W), y = (int)(i / W);
+        for (int k = 0; k < 4; ++k) {
+            const int nx = x + dx[k], ny = y + dy[k];
+            if (nx < 0 || ny < 0 || nx >= (int)W || ny >= (int)H || !valid[(size_t)ny * W + nx]) return true;
+        }
+        return false;
+    };
+    // Island border texels in a hash grid of their world positions (cell: about two texels).
+    std::vector<size_t> border;
+    for (size_t i = 0; i < N; ++i) if (isBorder(i)) border.push_back(i);
+    const float cell = std::max(F.texelWorld * 2.0f, 1e-6f);
+    auto cellKey = [&](float3 p) {
+        const long long cx = (long long)std::floor(p.x / cell), cy = (long long)std::floor(p.y / cell), cz = (long long)std::floor(p.z / cell);
+        return (u64)((cx * 73856093ll) ^ (cy * 19349663ll) ^ (cz * 83492791ll));
+    };
+    std::unordered_map<u64, std::vector<u32>> grid;
+    grid.reserve(border.size());
+    for (size_t b = 0; b < border.size(); ++b) grid[cellKey(P(border[b]))].push_back((u32)b);
+    std::vector<float> out(N * 4, -1.0f), in(N * 4, -1.0f);
+    int made = 0;
+    for (size_t i : border) {
+        const int x = (int)(i % W), y = (int)(i / W);
+        const float3 pi = P(i), ni = Nn(i);
+        for (int k = 0; k < 4; ++k) {
+            const int nx = x + dx[k], ny = y + dy[k];
+            if (nx >= 0 && ny >= 0 && nx < (int)W && ny < (int)H && valid[(size_t)ny * W + nx]) continue;
+            // Where the step would land on the model: one texel further along the surface.
+            const int bx = x - dx[k], by = y - dy[k];
+            float3 step = {0, 0, 0};
+            if (bx >= 0 && by >= 0 && bx < (int)W && by < (int)H && valid[(size_t)by * W + bx]) step = pi - P((size_t)by * W + bx);
+            if (Length(step) < 1e-9f) continue;
+            const float3 target = pi + step;
+            const float reach = std::max(Length(step) * 1.6f, F.texelWorld * 1.5f);
+            float best = reach;
+            long long bestT = -1;
+            const long long cx = (long long)std::floor(target.x / cell), cy = (long long)std::floor(target.y / cell), cz = (long long)std::floor(target.z / cell);
+            const int rr = (int)std::ceil(reach / cell);
+            for (int ox = -rr; ox <= rr; ++ox)
+                for (int oy = -rr; oy <= rr; ++oy)
+                    for (int oz = -rr; oz <= rr; ++oz) {
+                        const u64 key2 = (u64)(((cx + ox) * 73856093ll) ^ ((cy + oy) * 19349663ll) ^ ((cz + oz) * 83492791ll));
+                        auto it = grid.find(key2);
+                        if (it == grid.end()) continue;
+                        for (u32 b : it->second) {
+                            const size_t t = border[b];
+                            const int tx = (int)(t % W), ty = (int)(t / W);
+                            if (std::abs(tx - x) <= 3 && std::abs(ty - y) <= 3) continue;  // same side of the seam
+                            if (Dot(Nn(t), ni) < -0.2f) continue;                         // a thin shell's back
+                            const float dd = Length(P(t) - target);
+                            if (dd < best) { best = dd; bestT = (long long)t; }
+                        }
+                    }
+            if (bestT < 0) continue;
+            // The target lists its senders (two at most): the paint is gathered there.
+            float* slot = &in[(size_t)bestT * 4];
+            const int s = slot[0] < 0 ? 0 : slot[2] < 0 ? 1 : -1;
+            if (s < 0) continue;
+            slot[s * 2] = (float)i;
+            slot[s * 2 + 1] = (float)k;
+            out[i * 4 + k] = (float)bestT;
+            ++made;
+        }
+    }
+    Ensure(F.portalOut, W, H, gpu::Format::RGBA32F, "FluidPortalOut");
+    Ensure(F.portalIn, W, H, gpu::Format::RGBA32F, "FluidPortalIn");
+    ctx.Upload(F.portalOut.get(), out.data(), W * 16);
+    ctx.Upload(F.portalIn.get(), in.data(), W * 16);
+    F.portals = made;
+    Log("[fluid] seams: %zu island border texels, %d crossings, texel %.5f, maps %ux%u (%zu bytes)", border.size(), made, F.texelWorld, DW, DH, F.rbPos->data.size());
+    F.portalKey = key;
+    F.rbPos.reset();
+    F.rbNrm.reset();
+}
+
 int Renderer::FluidStep(gpu::CommandContext& ctx, float dt, const FluidParams& p) {
     if (!fluid.active || dt <= 0) return 0;
+    if (fluid.mesh) FluidPortals(ctx);
     // At most one texel per substep: enough substeps for the fastest paint.
     const float fastest = p.speed * std::max(p.strength, 0.05f) * 1.6f;
     const int n = std::clamp((int)std::ceil(fastest * dt) + 1, 2, 32);
@@ -214,9 +328,10 @@ void Renderer::FluidComposite(Document& doc, gpu::CommandContext& ctx, const Flu
         d.srv[1] = F.f1[F.cur].get();
         d.srv[2] = F.d0[F.cur].get();
         d.srv[3] = F.d1[F.cur].get();
+        d.srv[5] = F.grav.get();
         d.srv[9] = pre;
         d.uav[0] = s->tex.get();
-        SetConstants(d, FluidRoot{F.w, F.h, s->tex->Width(), s->tex->Height(), 4, (u32)kind, 0, 0, p.seed, {0, 0, 0}});
+        SetConstants(d, FluidRoot{F.w, F.h, s->tex->Width(), s->tex->Height(), 4, (u32)kind, F.mesh ? 1u : 0u, 0, p.seed, {0, 0, 0}});
         d.cbData = &cb;
         d.cbSize = offsetof(FluidCB, dabs);
         Dispatch2D(ctx, d, s->tex->Width(), s->tex->Height());

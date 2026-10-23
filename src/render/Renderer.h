@@ -348,6 +348,7 @@ public:
     std::function<void()> fluidInterrupt;
     u32 FluidWidth() const { return fluid.w; }
     float FluidTime() const { return fluid.time; }
+    int FluidPortalCount() const { return fluid.portalKey ? fluid.portals : -1; }  // -1: not built yet
     void RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, const ShapeStyle& s);
     // Warp: `src` drawn as the bicubic Bezier patch `grid` (4x4 control points,
     // row-major, document pixels) over what stays (unselected pixels). `mask`:
@@ -383,7 +384,14 @@ private:
         std::vector<int> kinds;
         float texelWorld = 1, time = 0;
         bool beginning = false;
+        // UV seams (kept between sessions while the model and the size stay): portal maps built on the CPU
+        // from the position / normal maps read back once.
+        gpu::TexturePtr portalOut, portalIn;
+        u64 portalKey = 0, portalPending = 0;
+        gpu::ReadbackPtr rbPos, rbNrm;
+        int portals = 0;
     } fluid;
+    void FluidPortals(gpu::CommandContext& ctx);
     void FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float dt, const FluidParams& p, const std::vector<float4>* dabs,
                        const std::vector<float4>* ex, u32 extraFlags);
     struct NodeCache {

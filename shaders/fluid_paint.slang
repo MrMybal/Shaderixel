@@ -18,7 +18,8 @@ cbuffer Root : register(b0)
     uint2 gDocSize;   // document size
     uint gPass;
     uint gKind;       // composite: 0 base color, 1 roughness, 2 metal, 3 height, 4 emissive; deposit: dab count
-    uint gFlags;      // 1 mesh maps, 2 world dabs, 4 selection, 8 flows off the borders, 16 relief bed, 32 erase (deposit removes)
+    uint gFlags;      // 1 mesh maps, 2 world dabs, 4 selection, 8 flows off the borders, 16 relief bed, 32 erase (deposit removes),
+                      // 64 UV seams crossed (portal maps)
     float gDt;
     float gSeed;
     float3 _pad;
@@ -48,6 +49,10 @@ Texture2D<float4> gBed : register(t6);     // height channel (relief the paint f
 Texture2D<float4> gPosMap : register(t7);  // document size
 Texture2D<float4> gNrmMap : register(t8);
 Texture2D<float4> gAux : register(t9);     // gravity: selection; composite: the layer before the paint
+// UV seams: the texel across the seam (simulation texel index, -1 none) for each direction leaving the island,
+// and, on the other side, the (at most two) texels that send through it: index, direction, index, direction.
+Texture2D<float4> gPortalOut : register(t10);
+Texture2D<float4> gPortalIn : register(t11);
 
 RWTexture2D<float4> gOut0 : register(u0);
 RWTexture2D<float4> gOut1 : register(u1);
@@ -85,14 +90,14 @@ float4 GravityAt(int2 p)
         return float4(gGravity.xy * gGravity.w, gGravity.z, valid);
     }
     float4 P = gPosMap.Load(int3(DocPixel(uv), 0));
-    if (P.a <= 0.0) return 0;
+    if (P.a < 0.75) return 0;  // outside the islands, or their padding (dilated texels: a = 0.5)
     float3 n = normalize(gNrmMap.Load(int3(DocPixel(uv), 0)).xyz);
     // World offset of one simulation texel along x and y (one-sided at the chart borders).
     float2 st = 1.0 / float2(gSize);
     float4 xp = gPosMap.Load(int3(DocPixel(uv + float2(st.x, 0)), 0)), xm = gPosMap.Load(int3(DocPixel(uv - float2(st.x, 0)), 0));
     float4 yp = gPosMap.Load(int3(DocPixel(uv + float2(0, st.y)), 0)), ym = gPosMap.Load(int3(DocPixel(uv - float2(0, st.y)), 0));
-    float3 px = xp.a > 0 && xm.a > 0 ? (xp.xyz - xm.xyz) * 0.5 : xp.a > 0 ? xp.xyz - P.xyz : xm.a > 0 ? P.xyz - xm.xyz : 0;
-    float3 py = yp.a > 0 && ym.a > 0 ? (yp.xyz - ym.xyz) * 0.5 : yp.a > 0 ? yp.xyz - P.xyz : ym.a > 0 ? P.xyz - ym.xyz : 0;
+    float3 px = xp.a > 0.75 && xm.a > 0.75 ? (xp.xyz - xm.xyz) * 0.5 : xp.a > 0.75 ? xp.xyz - P.xyz : xm.a > 0.75 ? P.xyz - xm.xyz : 0;
+    float3 py = yp.a > 0.75 && ym.a > 0.75 ? (yp.xyz - ym.xyz) * 0.5 : yp.a > 0.75 ? yp.xyz - P.xyz : ym.a > 0.75 ? P.xyz - ym.xyz : 0;
     float3 g = gGravity.xyz;
     float3 gt = g - n * dot(g, n);  // along the surface
     // Least squares: a * px + b * py = gt (texels to cover the slope's world vector).
@@ -234,20 +239,25 @@ void Outflow(int2 p)
     {
         int2 q = p + kDir[k];
         float en;
-        if (!Inside(q))
+        const bool open = Inside(q) && gGrav.Load(int3(q, 0)).w > 0;
+        if (open)
         {
-            if ((gFlags & 8) == 0) { out4[k] = 0; continue; }
-            en = -1e3;  // runs off the image
+            en = Elevation(q, gF0.Load(int3(q, 0)).x);
         }
         else
         {
-            float4 Gq = gGrav.Load(int3(q, 0));
-            if (Gq.w <= 0)
+            // Across a UV seam: the island on the other side of the edge, else off the image / chart / selection.
+            const int t = (gFlags & 64) ? (int)gPortalOut.Load(int3(p, 0))[k] : -1;
+            if (t >= 0)
+            {
+                const int2 tq = int2(t % (int)gSize.x, t / (int)gSize.x);
+                en = Elevation(tq, gF0.Load(int3(tq, 0)).x);
+            }
+            else
             {
                 if ((gFlags & 8) == 0) { out4[k] = 0; continue; }
-                en = -1e3;  // off the chart / selection
+                en = -1e3;
             }
-            else en = Elevation(q, gF0.Load(int3(q, 0)).x);
         }
         float drive = max(0.0, dot(g, float2(kDir[k]))) * m + gPhys.z * max(0.0, e - max(en, e - h)) * mob;
         // Cohesion: the moving paint gathers where there is more of it (runs become rivulets, not sheets).
@@ -287,6 +297,24 @@ void Transport(int2 p)
         col += q0.yzw * v;
         pr += q1 * v;
         inV += v;
+    }
+    if (gFlags & 64)
+    {
+        // Paint arriving across a UV seam.
+        const float4 pin = gPortalIn.Load(int3(p, 0));
+        [unroll] for (int s = 0; s < 2; ++s)
+        {
+            const int src = (int)pin[s * 2];
+            if (src < 0) continue;
+            const int2 sq = int2(src % (int)gSize.x, src / (int)gSize.x);
+            const float v = gFlux.Load(int3(sq, 0))[(int)pin[s * 2 + 1]] * gDt;
+            if (v <= 0) continue;
+            const float4 q0 = gF0.Load(int3(sq, 0)), q1 = gF1.Load(int3(sq, 0));
+            h += v;
+            col += q0.yzw * v;
+            pr += q1 * v;
+            inV += v;
+        }
     }
     if (G.w <= 0) h = 0;
     if (h > 1e-6)
@@ -328,6 +356,26 @@ void Composite(int2 p)
 {
     float2 uv = (float2(p) + 0.5) / float2(gDocSize);
     float4 pre = gAux.Load(int3(p, 0));
+    // Outside the simulated texels (UV island padding, seams): the paint of the nearest simulated texel,
+    // so the seams show no line.
+    if (gFlags & 1)
+    {
+        const int2 sp = int2(uv * float2(gSize));
+        if (gGrav.Load(int3(sp, 0)).w <= 0)
+        {
+            float best = 1e9;
+            float2 buv = uv;
+            for (int oy = -2; oy <= 2; ++oy)
+                for (int ox = -2; ox <= 2; ++ox)
+                {
+                    const int2 q = sp + int2(ox, oy);
+                    if (!Inside(q) || gGrav.Load(int3(q, 0)).w <= 0) continue;
+                    const float dd = ox * ox + oy * oy;
+                    if (dd < best) { best = dd; buv = (float2(q) + 0.5) / float2(gSize); }
+                }
+            uv = buv;
+        }
+    }
     float4 f0 = gF0.SampleLevel(sLinearClamp, uv, 0), f1 = gF1.SampleLevel(sLinearClamp, uv, 0);
     float4 d0 = gD0.SampleLevel(sLinearClamp, uv, 0), d1 = gD1.SampleLevel(sLinearClamp, uv, 0);
     float T = f0.x + d0.x;
