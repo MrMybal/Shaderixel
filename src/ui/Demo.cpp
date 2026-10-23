@@ -4903,6 +4903,26 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
             CompareReadbacks("original vs PSB", *orig, *back[1], 3);
             stage = 4;
         }
+        // SX_PSDFILE: another PSD (Photoshop's 16-bit layout: layers in a Lr16 block), opened and compared too.
+        static gpu::ReadbackPtr extra;
+        char pf[512] = "";
+        if (stage == 4 && GetEnvironmentVariableA("SX_PSDFILE", pf, sizeof(pf)) > 0) {
+            OpenImage(pf, false);
+            stage = 5;
+            at = frameCounter;
+        }
+        if (stage == 5 && frameCounter == at + 10) {
+            DocView& dv = *docs.back();
+            size_t pixel = 0;
+            for (auto& l : dv.doc->S().layers) pixel += l.kind == LayerKind::Pixel;
+            Log("[psd16] %s: %zu layers (%zu pixel layers), precision %d", pf, dv.doc->S().layers.size(), pixel, (int)dv.doc->GetPrecision());
+            extra = dv.renderer.ExportRGBA8(*ctx, dv.renderer.EvaluateComplete(*dv.doc, *ctx));
+            stage = 6;
+        }
+        if (stage == 6 && extra && extra->ready && orig && orig->ready) {
+            CompareReadbacks("original vs PSD (Lr16 layout)", *orig, *extra, 3);
+            stage = 7;
+        }
         return;
     }
     if (demoMode == 17) {

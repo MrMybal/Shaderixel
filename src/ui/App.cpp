@@ -2068,6 +2068,25 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
                 job->blobs.push_back(std::move(b));
                 job->readbacks.push_back(ctx->ReadbackTexture(cs->tex.get()));
             }
+            // Smart objects inside it: their contents are kept (an inner smart layer still shows),
+            // their own layered documents are not (two levels down).
+            Json inner = Json::Array();
+            for (auto& [isid, iso] : child->smartObjects) {
+                if (!iso || !iso->content || isid >= (1u << 22)) continue;
+                Json io = Json::Object();
+                io["id"] = isid;
+                io["name"] = iso->name;
+                if (!iso->linkedPath.empty()) io["linked"] = iso->linkedPath;
+                inner.Push(io);
+                SurfaceBlob b;
+                b.id = base | isid;
+                b.width = iso->content->Width();
+                b.height = iso->content->Height();
+                b.format = iso->content->GetFormat();
+                job->blobs.push_back(std::move(b));
+                job->readbacks.push_back(ctx->ReadbackTexture(iso->content.get()));
+            }
+            if (inner.Size()) cj["smartObjects"] = inner;
             o["child"] = cj;
             ++smartIndex;
         }
@@ -2239,6 +2258,21 @@ bool App::LoadSxl(const std::string& path) {
             std::string cerr;
             if (auto child = DeserializeDocument(o["child"], childBlobs, &cerr)) {
                 upload(*child, childBlobs);
+                // Its own smart objects (contents only).
+                for (auto& io : o["child"]["smartObjects"].Elements()) {
+                    auto iso = std::make_shared<SmartObject>();
+                    iso->id = io["id"].U();
+                    iso->name = io["name"].S("Objet dynamique");
+                    iso->linkedPath = io["linked"].S("");
+                    for (auto& b : childBlobs)
+                        if (b.id == iso->id && b.data.size() >= (size_t)b.width * b.height * gpu::BytesPerPixel(b.format)) {
+                            iso->content = gpu::Dev().CreateTexture(b.width, b.height, b.format, "SmartContent");
+                            ctx->Upload(iso->content.get(), b.data.data(), b.width * gpu::BytesPerPixel(b.format));
+                            iso->width = b.width;
+                            iso->height = b.height;
+                        }
+                    if (iso->content) child->smartObjects[iso->id] = iso;
+                }
                 child->dirty = false;
                 so->child = std::move(child);
             }

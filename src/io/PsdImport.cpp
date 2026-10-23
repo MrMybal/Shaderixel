@@ -349,9 +349,32 @@ std::unique_ptr<Document> ImportPsd(const std::string& path, Renderer& renderer,
     if (!r.ok || lmLen < 4 || lmLen > data.size() - r.pos) return fail("aucun calque");  // (no wrap-around)
     size_t lmEnd = r.pos + (size_t)lmLen;
     u64 liLen = psb ? r.U64() : r.U32();
-    if (!r.ok || liLen < 2 || liLen > lmEnd - r.pos) return fail("aucun calque");
+    if (!r.ok || liLen > lmEnd - r.pos) return fail("aucun calque");
     size_t liEnd = r.pos + (size_t)liLen;
-    int count = std::abs((int)r.S16());
+    int count = liLen >= 2 ? std::abs((int)r.S16()) : 0;
+    if (count == 0 && (depth == 16 || depth == 32)) {
+        // 16 / 32-bit documents: an empty layer info, the layers are in a top-level Lr16 / Lr32 block after the global mask.
+        r.Seek(liEnd);
+        const u32 gmLen = r.U32();
+        if (r.ok && gmLen <= lmEnd - r.pos) r.Seek(r.pos + gmLen);
+        bool found = false;
+        while (r.ok && !found && r.pos + 12 <= lmEnd) {
+            while (r.pos + 4 <= lmEnd && memcmp(&data[r.pos], "8BIM", 4) != 0 && memcmp(&data[r.pos], "8B64", 4) != 0 && r.pos % 4 != 0) r.Seek(r.pos + 1);  // padding
+            const std::string sig = r.Tag(), key = r.Tag();
+            if (sig != "8BIM" && sig != "8B64") break;
+            const bool longLen = psb && (key == "Lr16" || key == "Lr32" || key == "Layr" || key == "LMsk" || key == "Mt16" || key == "Mt32" || key == "Mtrn" || key == "Alph" || key == "FMsk" || key == "lnk2" || key == "FEid" || key == "FXid" || key == "PxSD");
+            const u64 len = longLen ? r.U64() : r.U32();
+            if (!r.ok || len > lmEnd - r.pos) break;
+            const size_t ds = r.pos;
+            if (key == "Lr16" || key == "Lr32" || key == "Layr") {
+                liEnd = ds + (size_t)len;
+                count = len >= 2 ? std::abs((int)r.S16()) : 0;
+                found = true;
+            } else {
+                r.Seek(ds + (size_t)len);
+            }
+        }
+    }
     if (count <= 0 || count > 32768) return fail("aucun calque");
 
     std::vector<PsdLayer> layers(count);
