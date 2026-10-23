@@ -378,11 +378,13 @@ void App::UpdatePhotoJob() {
                         float2 s = align::Apply(inv, {x + 0.5f, y + 0.5f});
                         float fx = s.x - 0.5f, fy = s.y - 0.5f;
                         int x0 = (int)std::floor(fx), y0 = (int)std::floor(fy);
-                        if (x0 < 0 || y0 < 0 || x0 + 1 >= W || y0 + 1 >= H) continue;
+                        if (x0 < 0 || y0 < 0 || x0 >= W || y0 >= H) continue;
+                        // Second tap clamped to the edge (last column / row stay sampled).
+                        int x1 = std::min(x0 + 1, W - 1), y1 = std::min(y0 + 1, H - 1);
                         float ax = fx - x0, ay = fy - y0;
                         for (int c = 0; c < 3; ++c) {
                             auto P = [&](int xx, int yy) { return (float)im.rgba[((size_t)yy * W + xx) * 4 + c]; };
-                            float v = (P(x0, y0) * (1 - ax) + P(x0 + 1, y0) * ax) * (1 - ay) + (P(x0, y0 + 1) * (1 - ax) + P(x0 + 1, y0 + 1) * ax) * ay;
+                            float v = (P(x0, y0) * (1 - ax) + P(x1, y0) * ax) * (1 - ay) + (P(x0, y1) * (1 - ax) + P(x1, y1) * ax) * ay;
                             lin[k][((size_t)y * W + x) * 4 + c] = v;  // 0..255 encoded for now
                         }
                     }
@@ -422,6 +424,7 @@ void App::UpdatePhotoJob() {
                         // Clipped everywhere: darkest image for highlights, brightest for shadows.
                         float zr = lin[ref][p * 4 + c];
                         int k = zr > 127 ? 0 : (int)J.imgs.size() - 1;
+                        if (lin[k][p * 4 + c] < 0) k = ref;  // outside that image: the reference covers every pixel
                         float z = std::max(lin[k][p * 4 + c], 0.0f);
                         num = lut[std::clamp((int)std::lround(z), 0, 255)] / J.exposures[k];
                         den = 1;
@@ -623,7 +626,8 @@ bool App::OpenWithWic(const std::string& path, bool asLayer) {
     std::string name = Narrow(Utf8Path(path).filename().wstring());
     DocView* v = Active();
     Id layerId = 0;
-    if (!asLayer || !v) {
+    const bool newDoc = !asLayer || !v;
+    if (newDoc) {
         NewDocument((u32)w, (u32)h, Precision::Float32, DocMode::Layers, 3, name);
         v = Active();
         Layer& l = v->doc->AddPixelLayer(raw ? "Développement RAW" : "Arrière-plan");
@@ -652,7 +656,7 @@ bool App::OpenWithWic(const std::string& path, bool asLayer) {
             if (Layer* l = v->doc->FindLayer(layerId)) l->filters.push_back(fx);
             v->doc->SyncGraph();
         }
-        v->doc->dirty = false;
+        if (newDoc) v->doc->dirty = false;  // a RAW imported as a layer keeps the document's edits pending
         if (!asLayer) {
             Document::Shot& s = v->doc->shot;
             s.make = info.make;

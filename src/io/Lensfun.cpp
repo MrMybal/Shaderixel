@@ -129,21 +129,25 @@ bool LensfunDb::Load(const std::string& folder, std::string* error) {
         const XmlNode* db = root.Child("lensdatabase");
         if (!db) continue;
         ++files;
+        // Crop factor: 1 (full frame) when missing or invalid (empty, 0, NaN, absurd).
+        auto cropOf = [](const std::string& s) {
+            const float v = s.empty() ? 0.0f : (float)std::atof(s.c_str());
+            return v > 0.0f && v < 100.0f ? std::max(0.1f, v) : 1.0f;
+        };
         for (const XmlNode& n : db->children) {
             if (n.name == "camera") {
                 LensfunCamera c;
                 c.maker = n.ChildText("maker");
                 c.model = n.ChildText("model");
                 c.mount = n.ChildText("mount");
-                c.crop = std::max(0.1f, (float)std::atof(n.ChildText("cropfactor").c_str()));
+                c.crop = cropOf(n.ChildText("cropfactor"));
                 cameras.push_back(c);
             } else if (n.name == "lens") {
                 LensfunLens l;
                 l.maker = n.ChildText("maker");
                 l.model = n.ChildText("model");
                 for (auto& c : n.children) if (c.name == "mount") l.mounts += (l.mounts.empty() ? "" : ", ") + c.text;
-                const std::string crop = n.ChildText("cropfactor");
-                l.crop = crop.empty() ? 1.0f : std::max(0.1f, (float)std::atof(crop.c_str()));
+                l.crop = cropOf(n.ChildText("cropfactor"));
                 if (const XmlNode* cal = n.Child("calibration")) {
                     for (const XmlNode& e : cal->children) {
                         auto modelOf = [&](const char* key) { auto it = e.attr.find(key); return it == e.attr.end() ? std::string() : it->second; };

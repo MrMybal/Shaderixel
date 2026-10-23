@@ -382,17 +382,20 @@ void App::PhotoRawPoll(DocView& v, Layer& l) {
                 }
                 if (g > 0) SetWhiteBalance(*fx, (float)r, (float)g, (float)b);
             }
-            if (C.statsWant & 2) {
+            if ((C.statsWant & 2) && !px.empty()) {
                 std::vector<float> L;
                 L.reserve(px.size());
                 double logSum = 0;
                 for (auto& p : px) {
+                    // Negative (out of gamut) or NaN values would make the log NaN: clamp to >= 0.
                     float y = 0.2126f * p.x + 0.7152f * p.y + 0.0722f * p.z;
+                    y = std::isfinite(y) ? std::max(y, 0.0f) : 0.0f;
                     L.push_back(y);
                     logSum += std::log(y + 1e-4);
                 }
-                const float avg = (float)std::exp(logSum / L.size());
-                const float ev = std::clamp(std::log2(0.18f / std::max(avg, 1e-4f)), -3.0f, 4.0f);
+                const float avg = L.empty() ? 0.18f : (float)std::exp(logSum / L.size());
+                float ev = std::log2(0.18f / std::max(avg, 1e-4f));
+                ev = std::isfinite(ev) ? std::clamp(ev, -3.0f, 4.0f) : 0.0f;
                 std::sort(L.begin(), L.end());
                 auto pct = [&](float q) { return L[std::min(L.size() - 1, (size_t)(q * (L.size() - 1)))] * std::exp2(ev); };
                 const float hi = pct(0.995f), lo = pct(0.05f), black = pct(0.005f);
@@ -747,7 +750,15 @@ bool App::PhotoRawLocalHandles(Layer& l, ImVec2 p0, ImVec2 size, bool activated,
 void App::PhotoRawLocalsUI(DocView& v, Layer& l) {
     auto& C = camRaw;
     Document& d = *v.doc;
+    // Leave the "Avant" comparison before the filter list changes (its saved states would be misplaced).
+    auto endCompare = [&]() {
+        if (!C.compare) return;
+        C.compare = false;
+        PhotoRawCompare(&l, false);
+        d.SyncGraph();
+    };
     auto add = [&](int kind) {
+        endCompare();
         DocState before = d.S();
         EffectInstance fx;
         fx.effectId = "photo_raw_local";
@@ -773,7 +784,12 @@ void App::PhotoRawLocalsUI(DocView& v, Layer& l) {
     for (int i = 0; i < (int)locals.size(); ++i) {
         EffectInstance& f = *locals[i];
         ImGui::PushID(i);
-        if (ImGui::Checkbox("##on", &f.enabled)) d.SyncGraph();
+        if (ImGui::Checkbox("##on", &f.enabled)) {
+            const bool on = f.enabled;
+            endCompare();  // restores the saved states: apply the click on top
+            f.enabled = on;
+            d.SyncGraph();
+        }
         ImGui::SameLine();
         char label[64];
         snprintf(label, sizeof(label), "%s %d", GetParam(f, "kind") > 0.5f ? "Radial" : TrC("Dégradé"), i + 1);
@@ -783,6 +799,7 @@ void App::PhotoRawLocalsUI(DocView& v, Layer& l) {
         ImGui::PopID();
     }
     if (remove >= 0) {
+        endCompare();
         DocState before = d.S();
         EffectInstance* target = locals[remove];
         for (size_t k = 0; k < l.filters.size(); ++k)
@@ -817,6 +834,36 @@ void App::OpenCameraRaw(DocView& v) {
         return;
     }
     auto& C = camRaw;
+    if (C.open) {
+        // A session is already open (other photo or layer): keep its edits as one history step first,
+        // as OK does, before this one takes over the session state.
+        DocView* pv = nullptr;
+        for (auto& dv : docs)
+            if (dv.get() == C.view) pv = dv.get();
+        if (pv) {
+            Document& pd = *pv->doc;
+            if (C.compare) {
+                C.compare = false;
+                PhotoRawCompare(pd.FindLayer(C.layer), false);
+            }
+            pv->history.TruncateTo(C.histStart);
+            if (C.before) {
+                pv->history.PushState("Photo RAW", *C.before, pd.S());
+                pd.dirty = true;
+            }
+            pd.SyncGraph();
+        }
+        C.open = false;
+        C.tex.reset();
+        C.pickWB = false;
+        l = d.ActiveLayer();  // unchanged by the merge, read again for safety
+        if (!l) return;
+    }
+    // Readbacks still pending from an earlier session must not apply to this photo.
+    C.wbRb.reset();
+    C.statsRb.reset();
+    C.statsTex.reset();
+    C.statsWant = 0;
     C.before = d.S();
     C.histStart = v.history.Cursor();
     if (!FindFilter(l, "camera_raw")) {
@@ -838,23 +885,38 @@ void App::OpenCameraRaw(DocView& v) {
 }
 
 void App::PhotoRawCompare(Layer* l, bool on) {
-    // "Avant": every Photo RAW filter of the layer off, their states restored afterwards (same order).
+    // "Avant": every Photo RAW filter of the layer off, their states restored afterwards.
+    // Saved as (kind, enabled) pairs and restored by identity (kind + occurrence of that kind), so a filter
+    // inserted before the others or removed meanwhile does not shift the states onto the wrong filters.
     if (!l) return;
-    auto ours = [](const EffectInstance& f) {
-        return f.effectId == "camera_raw" || f.effectId == "lens_profile" || f.effectId == "photo_raw_geometry" || f.effectId == "photo_raw_local";
+    auto kindOf = [](const EffectInstance& f) -> int {
+        if (f.effectId == "camera_raw") return 1;
+        if (f.effectId == "lens_profile") return 2;
+        if (f.effectId == "photo_raw_geometry") return 3;
+        if (f.effectId == "photo_raw_local") return 4;
+        return 0;
     };
-    if (on) camRaw.savedEnabled.clear();
-    size_t k = 0;
+    auto& saved = camRaw.savedEnabled;
+    if (on) saved.clear();
+    int seen[5] = {0, 0, 0, 0, 0};
     for (auto& f : l->filters) {
-        if (!ours(f)) continue;
+        const int kind = kindOf(f);
+        if (!kind) continue;
         if (on) {
-            camRaw.savedEnabled.push_back(f.enabled);
+            saved.push_back((char)kind);
+            saved.push_back(f.enabled ? 1 : 0);
             f.enabled = false;
         } else {
-            f.enabled = k < camRaw.savedEnabled.size() ? camRaw.savedEnabled[k] != 0 : true;
-            ++k;
+            // n-th saved entry of this kind; a filter added since keeps its current state.
+            int n = seen[kind]++;
+            for (size_t k = 0; k + 1 < saved.size(); k += 2)
+                if (saved[k] == kind && n-- == 0) {
+                    f.enabled = saved[k + 1] != 0;
+                    break;
+                }
         }
     }
+    if (!on) saved.clear();
 }
 
 void App::DrawCameraRaw() {
@@ -871,6 +933,13 @@ void App::DrawCameraRaw() {
     }
     Document& d = *v->doc;
     PhotoRawPoll(*v, *l);
+    // Leave the "Avant" comparison (real filter states back) before a structural change of the filters.
+    auto endCompare = [&]() {
+        if (!C.compare) return;
+        C.compare = false;
+        PhotoRawCompare(l, false);
+        d.SyncGraph();
+    };
     auto finish = [&](bool ok) {
         // Restore the comparison and merge the session's edits into one history step (or revert them).
         if (C.compare) {
@@ -891,6 +960,11 @@ void App::DrawCameraRaw() {
         C.open = false;
         C.tex.reset();
         C.pickWB = false;
+        // Pending Auto / white balance readbacks belong to this session, not to the next photo.
+        C.wbRb.reset();
+        C.statsRb.reset();
+        C.statsTex.reset();
+        C.statsWant = 0;
     };
 
     ImGuiViewport* vp0 = ImGui::GetMainViewport();
@@ -1077,6 +1151,7 @@ void App::DrawCameraRaw() {
             EffectInstance* lens = FindFilter(l, "lens_profile");
             bool on = lens && lens->enabled && !C.compare;
             if (ImGui::Checkbox("Activer les corrections de profil (lensfun)", &on)) {
+                endCompare();  // the filter list changes: restore the real states first
                 DocState before = d.S();
                 if (on && !lens) {
                     EffectInstance fx;
@@ -1109,6 +1184,7 @@ void App::DrawCameraRaw() {
             EffectInstance* geo = FindFilter(l, "photo_raw_geometry");
             bool geoOn = geo && geo->enabled && !C.compare;
             if (ImGui::Checkbox("Redresser / corriger la perspective", &geoOn)) {
+                endCompare();
                 DocState before = d.S();
                 if (geoOn && !geo) {
                     EffectInstance fx;

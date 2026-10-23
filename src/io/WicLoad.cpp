@@ -50,8 +50,17 @@ bool LoadWicFloat(const std::string& path, std::vector<float>& rgba, int& w, int
     conv->GetSize(&uw, &uh);
     if (!uw || !uh || uw > 32768 || uh > 32768) return fail("taille non prise en charge", E_FAIL);
     rgba.resize((size_t)uw * uh * 4);
-    hr = conv->CopyPixels(nullptr, uw * 16, (UINT)(rgba.size() * sizeof(float)), (BYTE*)rgba.data());
-    if (FAILED(hr)) return fail("lecture des pixels impossible", hr);
+    // The buffer size is a UINT: one copy when the image fits (some decoders decode again per call),
+    // row strips otherwise (4 GB or more).
+    const UINT stride = uw * 16;  // <= 512 KB (width capped above)
+    const u64 total = (u64)stride * uh;
+    const UINT stripRows = total <= 0xFFFFFFFFull ? uh : std::max<UINT>(1, (UINT)((1u << 30) / stride));
+    for (UINT y = 0; y < uh; y += stripRows) {
+        const UINT rows = std::min(stripRows, uh - y);
+        const WICRect r = {0, (INT)y, (INT)uw, (INT)rows};
+        hr = conv->CopyPixels(&r, stride, stride * rows, (BYTE*)(rgba.data() + (size_t)y * uw * 4));
+        if (FAILED(hr)) return fail("lecture des pixels impossible", hr);
+    }
     w = (int)uw;
     h = (int)uh;
     return true;

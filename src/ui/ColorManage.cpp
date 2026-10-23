@@ -132,13 +132,24 @@ void App::ExportCmykTiff(DocView& v, const std::string& path) {
     if (cmyk.empty()) { Status("Aucun profil CMJN installé"); return; }
     gpu::Texture* img = v.renderer.EvaluateComplete(*v.doc, *ctx);
     if (!img) return;
-    cmykExports.push_back({path, v.renderer.ExportRGBA8(*ctx, img), v.doc->iccProfile, cmyk, proof.intent});
+    auto rb = v.renderer.ExportRGBA8(*ctx, img);
+    if (!rb) {
+        // No readback: the job would never complete.
+        Status("Échec de l'export CMJN (lecture de l'image impossible) : " + path);
+        return;
+    }
+    cmykExports.push_back({path, std::move(rb), v.doc->iccProfile, cmyk, proof.intent});
 }
 
 void App::UpdateColorJobs() {
     for (size_t i = 0; i < cmykExports.size();) {
         auto& e = cmykExports[i];
-        if (!e.rb || !e.rb->ready) { ++i; continue; }
+        if (!e.rb) {
+            Status("Échec de l'export CMJN : " + e.path);
+            cmykExports.erase(cmykExports.begin() + i);
+            continue;
+        }
+        if (!e.rb->ready) { ++i; continue; }
         const u32 W = e.rb->width, H = e.rb->height;
         std::vector<u8> rgb((size_t)W * H * 3), cmyk((size_t)W * H * 4);
         for (size_t p = 0; p < (size_t)W * H; ++p) {

@@ -35,8 +35,23 @@ LoadedFont* GetFont(const std::string& path) {
     std::ifstream in(Utf8Path(path), std::ios::binary);
     if (in) {
         f->data.assign((std::istreambuf_iterator<char>(in)), {});
-        int offset = stbtt_GetFontOffsetForIndex(f->data.data(), 0);
-        f->ok = offset >= 0 && stbtt_InitFont(&f->info, f->data.data(), offset);
+        // stb_truetype does no bounds checks: reject empty / truncated files before it reads them
+        // (header and collection index, then the offset table and its records inside the data).
+        const auto& d = f->data;
+        const size_t n = d.size();
+        auto be16 = [&](size_t o) { return (u32)(d[o] << 8 | d[o + 1]); };
+        auto be32 = [&](size_t o) { return (u32)d[o] << 24 | (u32)d[o + 1] << 16 | (u32)d[o + 2] << 8 | (u32)d[o + 3]; };
+        int offset = n >= 16 ? stbtt_GetFontOffsetForIndex(d.data(), 0) : -1;
+        bool valid = offset >= 0 && (size_t)offset + 12 <= n;
+        if (valid) {
+            const size_t tables = be16((size_t)offset + 4);
+            valid = tables > 0 && (size_t)offset + 12 + 16 * tables <= n;
+            for (size_t k = 0; valid && k < tables; ++k) {
+                const size_t rec = (size_t)offset + 12 + 16 * k;
+                valid = (u64)be32(rec + 8) + be32(rec + 12) <= n;
+            }
+        }
+        f->ok = valid && stbtt_InitFont(&f->info, f->data.data(), offset);
     }
     LoadedFont* p = f->ok ? f.get() : nullptr;
     g_fonts[path] = std::move(f);
@@ -222,6 +237,7 @@ struct PathSampler {
 
 bool RasterizeText(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles) {
     LoadedFont* baseFont = GetFont(t.font.empty() ? DefaultFontPath() : t.font);
+    if (!baseFont && !t.font.empty()) baseFont = GetFont(DefaultFontPath());  // font file missing / unreadable
     if (!baseFont) return false;
     TextStyleTable empty;
     const TextStyleTable& tab = styles ? *styles : empty;

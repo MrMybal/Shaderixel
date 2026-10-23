@@ -4,6 +4,7 @@
 
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
+#include <algorithm>
 
 namespace sx {
 
@@ -259,8 +260,26 @@ void App::TextPropertiesUI(DocView& v, Layer& l) {
             if (r.end > preCp) r.end = std::max(preCp, r.end + delta);
         }
         std::erase_if(t.runs, [](const TextRun& r) { return r.end <= r.start; });
+        // Paragraph styles (one per paragraph) follow too: paragraphs added or removed by the edit
+        // are inserted / erased after the paragraph where it starts (new ones inherit its style).
+        {
+            const auto nl = [](const std::string& s, size_t from, size_t to) { return (int)std::count(s.begin() + from, s.begin() + to, '\n'); };
+            const int dn = nl(t.content, 0, t.content.size()) - nl(oldContent, 0, oldContent.size());
+            const size_t para = (size_t)nl(oldContent, 0, pre);
+            auto& ps = t.paraStyles;
+            if (dn > 0 && para < ps.size()) {
+                const Id inherit = ps[para];
+                ps.insert(ps.begin() + para + 1, (size_t)dn, inherit);
+            } else if (dn < 0 && para + 1 < ps.size()) {
+                ps.erase(ps.begin() + para + 1, ps.begin() + std::min(ps.size(), para + 1 + (size_t)-dn));
+            }
+        }
         changed = true;
-        std::string first = t.content.substr(0, std::min<size_t>(t.content.find('\n'), 32));
+        // Layer name: first line, at most 32 bytes cut on a UTF-8 character boundary.
+        size_t cut = std::min<size_t>(t.content.find('\n'), 32);
+        if (cut < t.content.size())
+            while (cut > 0 && ((unsigned char)t.content[cut] & 0xC0) == 0x80) --cut;
+        std::string first = t.content.substr(0, cut);
         if (!first.empty()) l.name = first;
     }
     TrackUndo("Modifier le texte");

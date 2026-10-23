@@ -28,7 +28,8 @@ std::vector<int> ParagraphsOf(const std::string& content, int a, int b) {
     spans.back().second = idx;
     for (int p = 0; p < (int)spans.size(); ++p) {
         bool all = a >= b;
-        if (all || (spans[p].second >= a && spans[p].first <= b)) out.push_back(p);
+        // b is exclusive: a selection ending right after a newline does not reach the next paragraph.
+        if (all || (spans[p].second >= a && spans[p].first < b)) out.push_back(p);
     }
     return out;
 }
