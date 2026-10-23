@@ -126,10 +126,11 @@ bool App::LayerXfResolve(DocView& v, bool create, LayerXfTarget& t) {
             t.fx = &n->fx;
         } else if (create && n && n->kind != NodeKind::Output) {
             // A Transform node after the active node (its consumers rewired), as for effects.
+            const Id source = n->id;  // (the node list may move when the Transform node is added)
             ApplyLibraryEffect(v, "transform_2d", FxApply::Filter);
             t.created = true;
             for (auto& m : d.S().graph.nodes)
-                if (m.kind == NodeKind::Effect && m.fx.effectId == "transform_2d" && !m.inputs.empty() && m.inputs[0] == n->id) {
+                if (m.kind == NodeKind::Effect && m.fx.effectId == "transform_2d" && !m.inputs.empty() && m.inputs[0] == source) {
                     d.S().activeNode = m.id;
                     t.fx = &m.fx;
                 }
@@ -206,6 +207,9 @@ void App::LayerTransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
                                               : l && l->locked ? "Calque verrouillé" : "Transformation : choisissez un calque d'image, de remplissage, de texte ou de forme");
             return;
         }
+        // A conversion to a smart object / an added Transform node is its own undo step (it pushed it):
+        // the drag is recorded from the state after it.
+        if (t.created) lxf.before = d.S();
         const float W = t.W, H = t.H;
         XfP p = t.layer ? FromCorners(t.layer->smartCorners, W, H, t.layer->smartPivot) : FxGet(*t.fx, W, H);
         // Hit test (screen space).
@@ -247,7 +251,7 @@ void App::LayerTransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
         lxf.sScale = p.scale;
         lxf.sRot = p.rot;
         lxf.sPivot = p.pivot;
-        lxf.changed = t.created;
+        lxf.changed = false;  // a click without movement records nothing more
         return;
     }
     // Dragging.

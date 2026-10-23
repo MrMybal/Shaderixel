@@ -1088,6 +1088,10 @@ private:
         gpu::Texture* preview = nullptr;
         u64 hash = 0;
     } selectMask;
+    // Tool sessions tied to the document worked on (lasso points, pen subpath, select-and-mask previews...):
+    // dropped when another document becomes active or this one closes.
+    void ResetToolSessions();
+    const DocView* toolSessionsView = nullptr;
     bool SelectToolsCanvasInput(DocView& v, float2 dp, bool click);
     void DrawSelectToolsOverlay(DocView& v, ImVec2 d0, ImVec2 d1, ImDrawList* dl);
     void DrawColorRangeWindow();

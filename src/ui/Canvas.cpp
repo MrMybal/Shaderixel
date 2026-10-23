@@ -601,6 +601,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         wand.y = y;
         wand.view = &v;
         wand.fill = true;
+        wand.erase = false;  // (the magic eraser sets it)
         wand.surface = target;
         return;
     }
@@ -636,6 +637,11 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
 
     if (click && target && !stroking) {
         // History brush source: the layer as it was before its first edit (or the last snapshot).
+        // (a snapshot of another size: the layer was cropped / resized since; taken again)
+        if (auto it = v.snapshots.find(target); it != v.snapshots.end()) {
+            const Surface* ts = doc.GetSurface(target);
+            if (!it->second || !ts || it->second->Width() != ts->tex->Width() || it->second->Height() != ts->tex->Height()) v.snapshots.erase(it);
+        }
         if (!v.snapshots.count(target)) TakeHistorySnapshot(v, target);
         // 3D project paint layer: the brush paints every checked channel (shared coverage).
         strokeTargets.clear();

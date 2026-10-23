@@ -186,8 +186,9 @@ void App::DrawSelectMaskWindow() {
             v->history.BeginGroup();
             if (M.output == 2) {
                 Edit e(d, v->history, "Nouveau calque avec masque");
+                const std::string name = l->name;  // (the layer list may move when the copy is inserted)
                 Layer& dup = d.DuplicateLayer(l->id);
-                dup.name = l->name + " (masqué)";
+                dup.name = name + " (masqué)";
                 d.S().activeLayer = dup.id;
                 l = &dup;
                 e.Commit();

@@ -145,6 +145,7 @@ void App::QuickSelectInput(DocView& v, ImVec2 canvasMin, bool hovered, const std
 }
 
 void App::UpdateQuickSelect(DocView& v) {
+    if (qsel.pending && qsel.view == &v && !qsel.rb) qsel.pending = false;  // nothing to analyze: the tool stays usable
     if (!qsel.pending || qsel.view != &v || !qsel.rb || !qsel.rb->ready) return;
     qsel.pending = false;
     Document& doc = *v.doc;

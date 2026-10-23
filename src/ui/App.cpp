@@ -700,6 +700,7 @@ void App::Frame() {
     PollPsdExport();
     for (auto& d : docs) d->history.Maintain(*ctx);  // older undo steps to system memory
     FluidTick();  // liquid paint running
+    if (Active() != toolSessionsView) ResetToolSessions();
     // Finished async readbacks.
     for (size_t i = 0; i < exports.size();) {
         auto& e = exports[i];
@@ -804,6 +805,7 @@ void App::CloseDocument(int index, bool force) {
     }
     if (xf.active && xf.view == docs[index].get()) xf = TransformState{};
     if (wand.view == docs[index].get()) wand = WandRequest{};
+    if (toolSessionsView == docs[index].get()) ResetToolSessions();  // previews owned by its renderer
     if (abCompare.view == docs[index].get()) {  // its before / after snapshot goes with it
         abCompare.snap.reset();
         abCompare.reduced.reset();
@@ -988,9 +990,30 @@ void App::Status(const std::string& msg) {
     Log("%s", msg.c_str());
 }
 
+void App::ResetToolSessions() {
+    polyActive = false;
+    lassoPts.clear();
+    magLasso.rb.reset();
+    magLasso.cost.clear();
+    magLasso.live.clear();
+    magLasso.anchors.clear();
+    pen.drawing = pen.dragging = false;
+    pen.before.reset();
+    selectMask.mask = selectMask.preview = nullptr;  // textures of the other renderer
+    selectMask.hash = 0;
+    colorRange.mask = nullptr;
+    colorRange.hash = 0;
+    qsel.rb.reset();
+    qsel.view = nullptr;
+    qsel.pending = qsel.painting = false;
+    qsel.pts.clear();
+    toolSessionsView = Active();
+}
+
 void App::Undo() {
     DocView* v = Active();
     if (!v || stroking) return;
+    pen.drawing = false;  // the subpath being drawn may be the step undone
     if (fluidRun.active) FluidFinish(true);  // the wet paint becomes the last step (undone here)
     if (xf.active) { TransformCancel(*v); return; }
     u32 w = v->doc->Width(), h = v->doc->Height();
@@ -1001,6 +1024,7 @@ void App::Undo() {
 void App::Redo() {
     DocView* v = Active();
     if (!v || stroking || xf.active) return;
+    pen.drawing = false;
     if (fluidRun.active) FluidFinish(true);
     u32 w = v->doc->Width(), h = v->doc->Height();
     v->history.Redo(*v->doc, *ctx);
