@@ -67,7 +67,7 @@ bool Renderer::FluidBegin(Document& doc, gpu::CommandContext& ctx, const std::ve
         Ensure(F.f0[k], F.w, F.h, gpu::Format::RGBA32F, names[0][k]);
         Ensure(F.f1[k], F.w, F.h, gpu::Format::RGBA32F, names[1][k]);  // age: half floats stop counting after a few seconds
         Ensure(F.d0[k], F.w, F.h, gpu::Format::RGBA16F, names[2][k]);
-        Ensure(F.d1[k], F.w, F.h, gpu::Format::RGBA16F, names[3][k]);
+        Ensure(F.d1[k], F.w, F.h, gpu::Format::RGBA32F, names[3][k]);  // z: fallen paint, summed
         Ensure(F.flux[k], F.w, F.h, gpu::Format::RGBA32F, k ? "FluidFluxB" : "FluidFluxA");
     }
     Ensure(F.grav, F.w, F.h, gpu::Format::RGBA16F, "FluidGravity");
@@ -133,6 +133,10 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
     if (p.offEdges) flags |= 8;
     if (F.bed && p.bed > 0) flags |= 16;
     if (F.mesh && F.portalOut && F.portalKey && F.portalKey == F.portalPending) flags |= 64;
+    if (pass == 3 && F.resetDrops) {
+        flags |= 128;
+        F.resetDrops = false;
+    }
     const int c = F.cur, o = 1 - F.cur;
     gpu::DispatchDesc d;
     d.pipeline = k;
@@ -153,6 +157,9 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
     if (pass == 0) {
         d.srv[5] = nullptr;
         d.uav[0] = F.grav.get();
+    } else if (pass == 7) {
+        d.uav[0] = F.dropA.get();
+        d.uav[1] = F.dropB.get();
     } else if (pass == 2) {
         d.uav[0] = F.flux[1 - F.fluxCur].get();
     } else {
@@ -164,6 +171,10 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
     SetConstants(d, FluidRoot{F.w, F.h, F.docW, F.docH, pass, kind, flags, dt, p.seed, {0, 0, 0}});
     d.cbData = &cb;
     d.cbSize = n ? sizeof(FluidCB) : offsetof(FluidCB, dabs);  // the extras follow the full dab array
+    if (pass == 7) {
+        Dispatch2D(ctx, d, (F.w + 15) / 16, (F.h + 15) / 16);
+        return;
+    }
     Dispatch2D(ctx, d, F.w, F.h);
     if (pass == 2) F.fluxCur = 1 - F.fluxCur;
     else if (pass != 0) F.cur = o;
@@ -298,6 +309,38 @@ void Renderer::FluidPortals(gpu::CommandContext& ctx) {
     F.rbNrm.reset();
 }
 
+bool Renderer::FluidCollectDrops(gpu::CommandContext& ctx) {
+    FluidState& F = fluid;
+    if (!F.active || !F.mesh || F.rbDropA) return false;
+    const u32 gw = (F.w + 15) / 16, gh = (F.h + 15) / 16;
+    Ensure(F.dropA, gw, gh, gpu::Format::RGBA32F, "FluidDropA");
+    Ensure(F.dropB, gw, gh, gpu::Format::RGBA32F, "FluidDropB");
+    FluidParams none;
+    FluidDispatch(ctx, 7, 0, 0, none, nullptr, nullptr, 0);
+    F.rbDropA = ctx.ReadbackTexture(F.dropA.get());
+    F.rbDropB = ctx.ReadbackTexture(F.dropB.get());
+    F.resetDrops = true;  // the next transport counts from 0
+    return true;
+}
+
+bool Renderer::FluidDrops(std::vector<float4>& volColor, std::vector<float4>& posCount) {
+    FluidState& F = fluid;
+    if (!F.rbDropA || !F.rbDropB || !F.rbDropA->ready || !F.rbDropB->ready) return false;
+    const size_t n = (size_t)F.rbDropA->width * F.rbDropA->height;
+    volColor.resize(n);
+    posCount.resize(n);
+    if (F.rbDropA->data.size() >= n * 16 && F.rbDropB->data.size() >= n * 16) {
+        memcpy(volColor.data(), F.rbDropA->data.data(), n * 16);
+        memcpy(posCount.data(), F.rbDropB->data.data(), n * 16);
+    } else {
+        volColor.clear();
+        posCount.clear();
+    }
+    F.rbDropA.reset();
+    F.rbDropB.reset();
+    return true;
+}
+
 int Renderer::FluidStep(gpu::CommandContext& ctx, float dt, const FluidParams& p) {
     if (!fluid.active || dt <= 0) return 0;
     if (fluid.mesh) FluidPortals(ctx);
@@ -367,6 +410,11 @@ void Renderer::FluidEnd(Document& doc, gpu::CommandContext& ctx, History& hist, 
         F.flux[k].reset();
     }
     F.grav.reset();
+    F.dropA.reset();
+    F.dropB.reset();
+    F.rbDropA.reset();
+    F.rbDropB.reset();
+    F.resetDrops = false;
     F.mesh = nullptr;
     F.selection.reset();
     F.bed.reset();

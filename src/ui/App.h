@@ -1428,6 +1428,11 @@ private:
         bool mesh = false;
         u32 simW = 0, simH = 0;
         std::vector<u64> versions;  // painted layers as the last composite left them
+        // Drops fallen from overhangs, landing lower on the model (times in simulation seconds).
+        struct Drop { float3 from, to, n; float t0, t1, volume; float3 color; };
+        std::vector<Drop> drops;
+        int collectFrame = 0;
+        int landed = 0;
     } fluidRun;
     Renderer::FluidParams FluidParamsNow(DocView& v);
     bool FluidStart(DocView& v);

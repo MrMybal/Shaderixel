@@ -215,6 +215,9 @@ bool App::FluidStart(DocView& v) {
     fluidRun.seed = (float)(Rand01() * 997.0);
     fluidRun.dabs.clear();
     fluidRun.ex.clear();
+    fluidRun.drops.clear();
+    fluidRun.landed = 0;
+    fluidRun.collectFrame = 0;
     return true;
 }
 
@@ -307,6 +310,21 @@ void App::FluidInput3D(DocView& v, float2 local, u32 w, u32 h, bool hovered, boo
         dl->AddLine(c, e, IM_COL32(120, 200, 255, 255), 3);
         dl->AddCircleFilled(e, 4.5f, IM_COL32(120, 200, 255, 255));
         dl->AddText(ImVec2(c.x - 24, c.y + 32), IM_COL32(200, 200, 200, 200), "Gravité");
+    }
+    // Drops in flight (falling from an overhang to the surface below).
+    if (fluidRun.active && fluidRun.view == &v && !fluidRun.drops.empty()) {
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        const float now = v.renderer.FluidTime();
+        for (const auto& dr : fluidRun.drops) {
+            const float k = std::clamp((now - dr.t0) / std::max(dr.t1 - dr.t0, 1e-4f), 0.0f, 1.0f);
+            const float3 q = dr.from + (dr.to - dr.from) * (k * k);  // accelerating
+            const float4 c = s.viewProj.Transform({q.x, q.y, q.z, 1});
+            if (c.w <= 1e-5f) continue;
+            const ImVec2 sp(origin.x + (c.x / c.w * 0.5f + 0.5f) * w, origin.y + (0.5f - c.y / c.w * 0.5f) * h);
+            const float3 lc = {LinearToSrgb(dr.color.x), LinearToSrgb(dr.color.y), LinearToSrgb(dr.color.z)};
+            const float r = std::clamp(2.0f + std::sqrt(dr.volume) * 0.6f, 2.0f, 9.0f);
+            dl->AddCircleFilled(sp, r, IM_COL32((int)(lc.x * 255), (int)(lc.y * 255), (int)(lc.z * 255), 230));
+        }
     }
     const bool down = hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left) && !io.KeyAlt && !orbit;
     if (hovered && ImGui::IsKeyPressed(ImGuiKey_Escape) && fluidRun.active) { FluidFinish(false); return; }
@@ -405,6 +423,58 @@ void App::FluidTick() {
         fluidRun.ex.clear();
     }
     const float dt = (demoMode ? 1.0f / 60 : std::clamp(ImGui::GetIO().DeltaTime, 1.0f / 240, 1.0f / 20)) * fluidSet.timeScale;
+    // Drops fallen from overhangs: collected every few frames, sent along gravity, landing lower on the model.
+    if (fluidRun.mesh && v->mesh && fluidSet.dripOff > 0 && !fluidSet.paused) {
+        MeshScene& s = *v->mesh;
+        if (++fluidRun.collectFrame >= 8) {
+            if (v->renderer.FluidCollectDrops(*ctx)) fluidRun.collectFrame = 0;
+        }
+        std::vector<float4> vc, pc;
+        if (v->renderer.FluidDrops(vc, pc) && !vc.empty()) {
+            if (sim.rc.Empty() || sim.scene != &s || sim.rev != s.revision) {
+                sim.rc.Build(s.data);
+                sim.scene = &s;
+                sim.rev = s.revision;
+            }
+            const float tw = v->renderer.FluidTexelWorld();
+            const float3 g = Normalize(float3{p.gravity.x, p.gravity.y, p.gravity.z});
+            for (size_t i = 0; i < vc.size() && fluidRun.drops.size() < 512; ++i) {
+                const float vol = vc[i].x;
+                if (vol < 0.5f) continue;  // a few texels of a thin film: not a drop
+                const float3 at = float3{pc[i].x, pc[i].y, pc[i].z} * (1.0f / vol);
+                const float3 start = at + g * (tw * 3.0f);
+                float3 hit, n;
+                float t = 0;
+                if (!sim.rc.Ray(start, g, 100.0f, &hit, &n, &t)) continue;  // falls off the model
+                fluidRun.drops.push_back({at, hit, n, v->renderer.FluidTime(), v->renderer.FluidTime() + std::sqrt(2.0f * std::max(t, 1e-4f) / 9.81f), vol,
+                                               float3{vc[i].y, vc[i].z, vc[i].w} * (1.0f / vol)});
+            }
+        }
+        // Landed: one splash per drop, the paint mixed with its color.
+        std::vector<float4> dabs, ex;
+        float3 color = {0, 0, 0};
+        float total = 0;
+        const float now = v->renderer.FluidTime(), tw = v->renderer.FluidTexelWorld();
+        for (size_t i = 0; i < fluidRun.drops.size();) {
+            const auto& dr = fluidRun.drops[i];
+            if (dr.t1 > now) { ++i; continue; }
+            const float rt = std::clamp(std::sqrt(dr.volume / (3.14159f * 0.8f)), 1.5f, 30.0f);  // radius in texels
+            dabs.push_back({dr.to.x, dr.to.y, dr.to.z, rt * tw * 1.6f});
+            ex.push_back({dr.volume / (0.6f * 3.14159f * rt * rt), dr.n.x, dr.n.y, dr.n.z});
+            color = color + dr.color * dr.volume;
+            total += dr.volume;
+            ++fluidRun.landed;
+            fluidRun.drops.erase(fluidRun.drops.begin() + i);
+        }
+        if (!dabs.empty()) {
+            Renderer::FluidParams q = p;
+            q.color = {color.x / total, color.y / total, color.z / total, p.color.w};
+            q.coat = 0;  // only the drop's own paint
+            q.hardness = 0.3f;
+            v->renderer.FluidDeposit(*ctx, dabs, ex, true, false, q);
+            (void)tw;
+        }
+    }
     if (!fluidSet.paused) {
         fluidRun.substeps = v->renderer.FluidStep(*ctx, dt, p);
         if (!fluidRun.painting) fluidRun.idle += dt;
@@ -414,7 +484,7 @@ void App::FluidTick() {
     for (Id id : v->renderer.FluidSurfaces())
         if (const Surface* s = v->doc->GetSurface(id)) fluidRun.versions.push_back(s->version);
     // Set: nothing runs any more.
-    if (!fluidRun.painting && !fluidSet.paused && fluidRun.idle > fluidSet.setTime * 1.5f + 0.5f) FluidFinish(true);
+    if (!fluidRun.painting && !fluidSet.paused && fluidRun.idle > fluidSet.setTime * 1.5f + 0.5f && fluidRun.drops.empty()) FluidFinish(true);
 }
 
 void App::DrawFluidOptions(bool in3D) {

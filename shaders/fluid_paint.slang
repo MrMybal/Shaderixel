@@ -6,7 +6,7 @@
 // above a retained film moves (so runs leave a trail and stop when they thin out), and
 // the paint sets with time. State (ping-pong, simulation size):
 //   F0 wet: thickness, color (linear)      F1 wet: roughness, metal, age (s), emissive part
-//   D0 stain: thickness, color             D1 stain: roughness, metal, -, emissive part
+//   D0 stain: thickness, color             D1 stain: roughness, metal, paint fallen from here (drops), emissive part
 //   Flux: outflow toward +x, -x, +y, -y    Grav: gravity in texels (xy), facing down, valid
 // Passes (gPass): 0 gravity map, 1 brush deposit, 2 outflows, 3 transport, 4 composite
 // into a layer (document size), 5 clear.
@@ -19,7 +19,7 @@ cbuffer Root : register(b0)
     uint gPass;
     uint gKind;       // composite: 0 base color, 1 roughness, 2 metal, 3 height, 4 emissive; deposit: dab count
     uint gFlags;      // 1 mesh maps, 2 world dabs, 4 selection, 8 flows off the borders, 16 relief bed, 32 erase (deposit removes),
-                      // 64 UV seams crossed (portal maps)
+                      // 64 UV seams crossed (portal maps), 128 the fallen drops were collected (counted again from 0)
     float gDt;
     float gSeed;
     float3 _pad;
@@ -178,7 +178,7 @@ void Deposit(int2 p)
         float hd = d0.x + dryAdd;
         float da = dryAdd / max(hd, 1e-6), dO = 1.0 - da;
         d0 = float4(hd, d0.yzw * dO + gColor.rgb * da);
-        d1 = float4(d1.x * dO + gMat.x * da, d1.y * dO + gMat.y * da, 0, d1.w * dO + gColor.w * da);
+        d1 = float4(d1.x * dO + gMat.x * da, d1.y * dO + gMat.y * da, d1.z, d1.w * dO + gColor.w * da);
     }
     gOut0[p] = f0;
     gOut1[p] = f1;
@@ -341,8 +341,10 @@ void Transport(int2 p)
         float hd = d0.x + stain;
         float a = stain / hd, o = 1.0 - a;
         d0 = float4(hd, d0.yzw * o + col * a);
-        d1 = float4(d1.x * o + pr.x * a, d1.y * o + pr.y * a, 0, d1.w * o + pr.w * a);
+        d1 = float4(d1.x * o + pr.x * a, d1.y * o + pr.y * a, d1.z, d1.w * o + pr.w * a);
     }
+    // The fallen paint is counted here; the app collects it (pass 7) and lets it land lower on the model.
+    d1.z = ((gFlags & 128) ? 0.0 : d1.z) + drop;
     if (h < 1e-5) h = 0;
     gOut0[p] = float4(h, col);
     gOut1[p] = pr;
@@ -407,6 +409,25 @@ void main(uint3 id : SV_DispatchThreadID)
     {
         if (any(id.xy >= gDocSize)) return;
         Composite(p);
+        return;
+    }
+    if (gPass == 7)
+    {
+        // Fallen drops of a 16 x 16 block: volume, volume * color; volume * world position, texels.
+        float4 a = 0, b = 0;
+        for (int y = 0; y < 16; ++y)
+            for (int x = 0; x < 16; ++x)
+            {
+                const int2 q = p * 16 + int2(x, y);
+                if (!Inside(q)) continue;
+                const float dv = gD1.Load(int3(q, 0)).z;
+                if (dv <= 1e-6) continue;
+                a += float4(dv, gF0.Load(int3(q, 0)).yzw * dv);
+                const float3 P = gPosMap.Load(int3(DocPixel((float2(q) + 0.5) / float2(gSize)), 0)).xyz;
+                b += float4(P * dv, 1);
+            }
+        gOut0[p] = a;
+        gOut1[p] = b;
         return;
     }
     if (any(id.xy >= gSize)) return;

@@ -349,6 +349,11 @@ public:
     u32 FluidWidth() const { return fluid.w; }
     float FluidTime() const { return fluid.time; }
     int FluidPortalCount() const { return fluid.portalKey ? fluid.portals : -1; }  // -1: not built yet
+    // Fallen drops: start collecting them (false while the last collection is not read yet), then read them:
+    // per block (volume, volume * color linear) and (volume * world position, texels); the counts restart from 0.
+    bool FluidCollectDrops(gpu::CommandContext& ctx);
+    bool FluidDrops(std::vector<float4>& volColor, std::vector<float4>& posCount);
+    float FluidTexelWorld() const { return fluid.texelWorld; }
     void RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, const ShapeStyle& s);
     // Warp: `src` drawn as the bicubic Bezier patch `grid` (4x4 control points,
     // row-major, document pixels) over what stays (unselected pixels). `mask`:
@@ -390,6 +395,10 @@ private:
         u64 portalKey = 0, portalPending = 0;
         gpu::ReadbackPtr rbPos, rbNrm;
         int portals = 0;
+        // Fallen drops: collected per 16 x 16 block and read back (the app makes them land lower).
+        gpu::TexturePtr dropA, dropB;
+        gpu::ReadbackPtr rbDropA, rbDropB;
+        bool resetDrops = false;
     } fluid;
     void FluidPortals(gpu::CommandContext& ctx);
     void FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float dt, const FluidParams& p, const std::vector<float4>* dabs,
