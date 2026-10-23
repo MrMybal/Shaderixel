@@ -447,6 +447,49 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 106) {
+        // Several materials over the same UVs: SX_MESHFILE (two materials), a UV tile each, the first material's triangle
+        // filled red, then the textures exported (SX_OUT folder) as separate maps and packed (Unreal), and the mesh
+        // saved / read back (tiles and materials kept).
+        char mf[512] = "", outDir[512] = "";
+        GetEnvironmentVariableA("SX_MESHFILE", mf, sizeof(mf));
+        GetEnvironmentVariableA("SX_OUT", outDir, sizeof(outDir));
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.basePreset = 1;
+            p3dNew.mesh = 3;
+            p3dNew.meshPath = mf;
+            p3dNew.resolution = 0;
+            NewPaint3DProject();
+        }
+        DocView* a = Active();
+        if (!a || !a->mesh) return;
+        const MeshData& m = a->mesh->data;
+        if (frameCounter == 8) {
+            FocusPanel("Vue 3D");
+            Log("[multimat] %zu materials, %zu tiles, %zu vertices", m.materials.size(), m.uvTiles.size(), m.vertices.size());
+            for (size_t i = 0; i < m.uvTiles.size(); ++i)
+                Log("[multimat] %s tile %.3f %.3f %.3f %.3f", m.materials[i].name.c_str(), m.uvTiles[i].x, m.uvTiles[i].y, m.uvTiles[i].z, m.uvTiles[i].w);
+            for (size_t i = 0; i < m.vertices.size(); ++i) Log("[multimat] v%zu uv %.3f %.3f", i, m.vertices[i].uv.x, m.vertices[i].uv.y);
+            MeshData back;
+            const bool ok = MeshFromJson(MeshToJson(m), back);
+            bool same = ok && back.uvTiles.size() == m.uvTiles.size() && back.materials.size() == m.materials.size() && back.triMaterial == m.triMaterial;
+            for (size_t i = 0; same && i < m.uvTiles.size(); ++i) same = std::fabs(back.uvTiles[i].x - m.uvTiles[i].x) < 1e-6f && back.materials[i].name == m.materials[i].name;
+            Log("[multimat] mesh saved / read back: %s", same ? "same tiles and materials" : "DIFFERENT");
+        }
+        if (frameCounter == 12) {
+            fg = {1, 0, 0, 1};
+            PolygonFill(*a, 0, false);  // first triangle: material 1
+        }
+        if (frameCounter == 20 && outDir[0]) {
+            a->doc->exportTemplate = 0;
+            ExportProjectTextures(*a, std::string(outDir) + "\\sep.png");
+            a->doc->exportTemplate = 1;
+            ExportProjectTextures(*a, std::string(outDir) + "\\ue.png");
+            Log("[multimat] export: %s", statusMsg.c_str());
+        }
+        return;
+    }
     if (demoMode == 105) {
         // Liquid paint: SX_FLUID = 2d (a tilted image), 3d (a sphere), plane (a flat plane, gravity tilted), cube.
         // SX_FLPRESET preset, SX_TILT support tilt (image), SX_FLSTILL frames the brush stays still (a pool).
@@ -692,6 +735,18 @@ void App::DemoTick() {
             auto svg = ParseSvgFile("<svg><path fill='red' d='m10 10 h80 v30 q0 10 -10 10 a5 5 0 0 1 -5 5 H10 z'/><polygon points='0,0 50,0 25,40'/></svg>");
             size_t pts = 0;
             for (auto& sp : svg) pts += sp.pts.size();
+            {
+                // Arcs with compact flags (svgo output): a circle of radius 10 around (10, 10) from two half arcs.
+                auto circle = ParseSvgFile("<svg><path d='M0 10a10 10 0 1120 0a10 10 0 11-20 0z'/></svg>");
+                float worst = 0;
+                size_t n = 0;
+                for (auto& sp : circle)
+                    for (auto& q : sp.pts) {
+                        ++n;
+                        worst = std::max(worst, std::abs(Length(q.p - float2{10, 10}) - 10.0f));
+                    }
+                Log("[shapes] svg arc circle: %zu subpaths, %zu points, worst radius error %.4f", circle.size(), n, worst);
+            }
             {
                 // The custom outlines through the document format.
                 Json j = SerializeDocument(d);

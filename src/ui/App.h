@@ -1343,6 +1343,7 @@ private:
         std::string meshPath;
         bool channels[7] = {true, true, true, true, false, true, true};
         bool autoUv = false;  // xatlas UVs at creation (meshes without usable UVs)
+        int tileMode = 0;     // several materials: 0 a UV tile each when they overlap, 1 always, 2 keep the UVs
         bool skipPaintLayer = false;  // no "Peinture 1" (the caller adds its layers first)
     } p3dNew;
     struct {
@@ -1424,6 +1425,7 @@ private:
         bool useOverride = false;
         bool mesh = false;
         u32 simW = 0, simH = 0;
+        std::vector<u64> versions;  // painted layers as the last composite left them
     } fluidRun;
     Renderer::FluidParams FluidParamsNow(DocView& v);
     bool FluidStart(DocView& v);
@@ -1458,7 +1460,11 @@ private:
         std::string path;
         bool unity = false;
         gpu::ReadbackPtr ao, rough, metal;
+        Rect crop;  // one material's tile (empty: the whole texture)
     };
+    // Parts of a texture export: the whole texture, or one per material tile (file suffix, pixel rect).
+    std::vector<std::pair<std::string, Rect>> ExportParts(DocView& v);
+    void ExportPbrTexturesPart(DocView& v, const std::string& pngBasePath, Rect crop);
     std::vector<PackJob> packJobs;
     std::string layoutSlot[2];        // saved workspace of each kind
     Json MeshToJson(const MeshData& m);
@@ -1835,6 +1841,7 @@ private:
     void DrawCompareMenu();
     struct AnalysisSampler {
         float2 pos;
+        const void* doc = nullptr;  // document the point was pinned on
         gpu::ReadbackPtr rb;
         float4 value;
         bool valid = false;
@@ -1902,7 +1909,7 @@ private:
         bool node = false;          // the selected node instead of the effect output
         std::map<std::string, gpu::TexturePtr> refs;
         struct Live { gpu::TexturePtr tex; u64 hash = 0, frame = 0; } live[4];
-        struct Slot { gpu::TexturePtr out; u64 hash = 0; };
+        struct Slot { gpu::TexturePtr out; u64 hash = 0; int frame = 0; };
         std::map<u64, Slot> slots;   // 0 effect, 1 node, 2 library page, 0x100000000 + id: previews on the nodes
         std::map<Id, std::pair<std::string, std::string>> nodeGraphs;  // node -> (key, graph with the output on it)
         std::string nodeKey, nodeGraph;  // node preview: graph with the output on the selected node

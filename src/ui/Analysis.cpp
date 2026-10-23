@@ -141,7 +141,10 @@ void App::UpdateAnalysis() {
             float mx = 0;
             size_t changed = 0;
             const size_t np = A.px.size() / 4;
+            size_t counted = 0;
             for (size_t i = 0; i < np; ++i) {
+                if (!A.sel.empty() && i < A.sel.size() && A.sel[i] < 0.5f) continue;  // selection only: the selected pixels
+                ++counted;
                 float dm = 0;
                 for (int k = 0; k < 3; ++k) {
                     const float d = A.px[i * 4 + k] - A.pxB[i * 4 + k];
@@ -153,11 +156,11 @@ void App::UpdateAnalysis() {
                 mx = std::max(mx, dm);
                 if (dm > 1.5f / 255.0f) ++changed;
             }
-            A.diffMean = (float)(sum / std::max<size_t>(1, np * 3)) * 255.0f;
+            A.diffMean = (float)(sum / std::max<size_t>(1, counted * 3)) * 255.0f;
             A.diffMax = mx * 255.0f;
-            const double mse = sq / std::max<size_t>(1, np * 3);
+            const double mse = sq / std::max<size_t>(1, counted * 3);
             A.psnr = mse > 0 ? (float)(10.0 * std::log10(1.0 / mse)) : 999.0f;
-            A.changedShare = np ? (float)changed / np : 0.0f;
+            A.changedShare = counted ? (float)changed / counted : 0.0f;
         }
         ++A.versionB;
     }
@@ -195,6 +198,7 @@ void App::UpdateAnalysis() {
             sp.valid = true;
             sp.rb.reset();
         }
+        if (sp.doc && sp.doc != v->doc.get()) { sp.valid = false; continue; }  // pinned on another document
         if (!sp.rb && v->lastImage && frame - sp.frame >= 10 && sp.pos.x < v->lastImage->Width() && sp.pos.y < v->lastImage->Height()) {
             sp.rb = v->renderer.ReadPixel(*ctx, v->lastImage, (int)sp.pos.x, (int)sp.pos.y);
             sp.frame = frame;
@@ -592,7 +596,7 @@ void App::DrawAnalysis() {
         // Stretched scopes (waveform): the display copy at the texture's own size, stretched on the box.
         const u32 tw = keepAspect || !t ? (u32)std::max(1.0f, w) : t->Width(), th = keepAspect || !t ? (u32)std::max(1.0f, h) : t->Height();
         if (t)
-            if (gpu::Texture* shown = v->renderer.Thumbnail(*ctx, tkey, t, A.version ^ ((u64)tw << 16) ^ (u64)th ^ (u64)(A.gain * 997) ^ ((u64)A.waveMode << 50), tw, th))
+            if (gpu::Texture* shown = v->renderer.Thumbnail(*ctx, tkey, t, A.version ^ ((u64)tw << 16) ^ (u64)th ^ (u64)(A.gain * 997) ^ ((u64)A.waveMode << 50) ^ (A.versionB * 0x9E3779B97F4A7C15ull), tw, th))
                 dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(shown), a, b);
         ImGui::Dummy(ImVec2(bw, h));
         return ImRect(a, b);

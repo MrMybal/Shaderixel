@@ -39,6 +39,28 @@ Json App::MeshToJson(const MeshData& m) {
     c.Push(m.srcCenter.x); c.Push(m.srcCenter.y); c.Push(m.srcCenter.z);
     j["srcCenter"] = c;
     j["srcScale"] = m.srcScale;
+    // Materials of the parts (names, colors) with their triangles, and their UV tiles.
+    if (!m.materials.empty() && m.triMaterial.size() * 3 == m.indices.size()) {
+        Json mats = Json::Array();
+        for (size_t i = 0; i < m.materials.size(); ++i) {
+            const auto& mi = m.materials[i];
+            Json o = Json::Object();
+            o["name"] = mi.name;
+            Json c = Json::Array();
+            c.Push(mi.baseColor.x); c.Push(mi.baseColor.y); c.Push(mi.baseColor.z); c.Push(mi.baseColor.w);
+            o["color"] = c;
+            o["roughness"] = mi.roughness;
+            o["metallic"] = mi.metallic;
+            if (i < m.uvTiles.size()) {
+                Json t = Json::Array();
+                t.Push(m.uvTiles[i].x); t.Push(m.uvTiles[i].y); t.Push(m.uvTiles[i].z); t.Push(m.uvTiles[i].w);
+                o["tile"] = t;
+            }
+            mats.Push(o);
+        }
+        j["materials"] = mats;
+        j["triMaterial"] = net::Base64Encode(m.triMaterial.data(), m.triMaterial.size() * sizeof(u16));
+    }
     return j;
 }
 
@@ -52,6 +74,27 @@ bool App::MeshFromJson(const Json& j, MeshData& m) {
     memcpy(m.indices.data(), i.data(), i.size());
     if (j["srcCenter"].Size() == 3) m.srcCenter = {j["srcCenter"].At(0).F(), j["srcCenter"].At(1).F(), j["srcCenter"].At(2).F()};
     m.srcScale = j["srcScale"].F(1.0f);
+    if (j.Has("materials")) {
+        std::vector<u8> tm = net::Base64Decode(j["triMaterial"].S());
+        if (tm.size() == m.indices.size() / 3 * sizeof(u16)) {
+            m.triMaterial.resize(tm.size() / sizeof(u16));
+            memcpy(m.triMaterial.data(), tm.data(), tm.size());
+            bool tiles = false;
+            for (size_t i = 0; i < j["materials"].Size(); ++i) {
+                const Json& o = j["materials"].At(i);
+                MeshMaterialInfo mi;
+                mi.name = o["name"].S("");
+                if (o["color"].Size() == 4) mi.baseColor = {o["color"].At(0).F(), o["color"].At(1).F(), o["color"].At(2).F(), o["color"].At(3).F()};
+                mi.roughness = o["roughness"].F(0.5f);
+                mi.metallic = o["metallic"].F(0.0f);
+                m.materials.push_back(mi);
+                float4 t = {0, 0, 0, 0};
+                if (o["tile"].Size() == 4) { t = {o["tile"].At(0).F(), o["tile"].At(1).F(), o["tile"].At(2).F(), o["tile"].At(3).F()}; tiles = true; }
+                m.uvTiles.push_back(t);
+            }
+            if (!tiles) m.uvTiles.clear();
+        }
+    }
     m.boundsMin = {1e30f, 1e30f, 1e30f};
     m.boundsMax = {-1e30f, -1e30f, -1e30f};
     for (auto& p : m.vertices) {
@@ -85,6 +128,8 @@ void App::NewPaint3DProject() {
     } else {
         mesh = P.mesh == 1 ? MakeCube() : P.mesh == 2 ? MakePlane() : MakeSphere();
     }
+    // Several materials over the same UVs: one tile of the texture each (before an unwrap, which replaces them).
+    const bool tiled = !(P.autoUv || !mesh.hasUvs) && P.tileMode != 2 && TileMaterialUvs(mesh, res, P.tileMode);
     if (P.autoUv || !mesh.hasUvs) {
         // New UVs before anything is painted (models without UVs, or overlapping ones).
         UnwrapOptions o;
@@ -114,7 +159,11 @@ void App::NewPaint3DProject() {
     if (!P.skipPaintLayer) AddPaintLayer3D(*v, "Peinture 1");
     v->history.Clear();
     d.dirty = false;
-    Status("Projet Paint 3D : " + std::to_string(res) + " px. Peignez sur le modèle (canaux du pinceau : panneau Matériau du pinceau).");
+    if (tiled)
+        Status("Projet Paint 3D : " + std::to_string(res) + " px, " + std::to_string(v->mesh->data.materials.size()) +
+               " matériaux, une tuile de texture chacun (export : un jeu de textures par matériau).");
+    else
+        Status("Projet Paint 3D : " + std::to_string(res) + " px. Peignez sur le modèle (canaux du pinceau : panneau Matériau du pinceau).");
 }
 
 Id App::AddPaintLayer3D(DocView& v, const std::string& name) {
@@ -687,10 +736,31 @@ bool App::LoadDecal(const std::string& path) {
 
 // ------------------------------------------------------------------ exports by template
 
+std::vector<std::pair<std::string, Rect>> App::ExportParts(DocView& v) {
+    std::vector<std::pair<std::string, Rect>> parts;
+    const Document& d = *v.doc;
+    if (v.mesh && !v.mesh->data.uvTiles.empty()) {
+        const auto& m = v.mesh->data;
+        for (size_t i = 0; i < m.uvTiles.size() && i < m.materials.size(); ++i) {
+            const float4 t = m.uvTiles[i];
+            if (t.z <= t.x || t.w <= t.y) continue;  // material without triangles
+            // File-safe name of the material.
+            std::string name = m.materials[i].name.empty() ? "Materiau" + std::to_string(i + 1) : m.materials[i].name;
+            for (auto& c : name)
+                if (!(isalnum((unsigned char)c) || c == '-' || c == '_' || (unsigned char)c >= 0x80)) c = '_';
+            Rect r = {(int)std::lround(t.x * d.Width()), (int)std::lround(t.y * d.Height()), (int)std::lround(t.z * d.Width()), (int)std::lround(t.w * d.Height())};
+            parts.push_back({"_" + name, r});
+        }
+    }
+    if (parts.empty()) parts.push_back({"", Rect{}});
+    return parts;
+}
+
 void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
     Document& d = *v.doc;
     if (basePath.empty()) return;
     if (d.exportTemplate == 0) { ExportPbrTextures(v, basePath); return; }
+    const auto parts = ExportParts(v);
     // Packed maps: ORM (Unreal: R occlusion, G roughness, B metal) or Unity mask map (R metal, G occlusion, A smoothness).
     auto p = std::filesystem::absolute(Utf8Path(basePath));
     std::string stem = Narrow((p.parent_path() / p.stem()).wstring());
@@ -699,35 +769,43 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
         gpu::Texture* t = ChannelTexture(v, c);
         return t ? v.renderer.ExportRGBA8(*ctx, t) : nullptr;
     };
-    PackJob job;
-    job.unity = d.exportTemplate == 2;
-    job.path = stem + (job.unity ? "_MaskMap.png" : "_ORM.png");
-    job.ao = rb(PbrChannel::Occlusion);
-    job.rough = rb(PbrChannel::Roughness);
-    job.metal = rb(PbrChannel::Metallic);
-    packJobs.push_back(job);
+    const bool unity = d.exportTemplate == 2;
+    const gpu::ReadbackPtr ao = rb(PbrChannel::Occlusion), rough = rb(PbrChannel::Roughness), metal = rb(PbrChannel::Metallic);
     // Base color, normal (height baked in) and emissive as separate maps.
     gpu::Texture* n = ChannelTexture(v, PbrChannel::Normal);
     gpu::Texture* h = ChannelTexture(v, PbrChannel::Height);
     gpu::TexturePtr baked = h ? v.renderer.BakeNormal(*ctx, n, h, d.Width(), d.Height()) : nullptr;
-    auto put = [&](gpu::Texture* t, const char* suffix) {
-        if (t) if (auto r = v.renderer.ExportRGBA8(*ctx, t)) exports.push_back({stem + suffix, r, {}});
-    };
-    put(ChannelTexture(v, PbrChannel::BaseColor), job.unity ? "_BaseMap.png" : "_BaseColor.png");
-    put(baked ? baked.get() : n, "_Normal.png");
-    if (d.pbrChannels & (1u << (int)PbrChannel::Emissive)) put(ChannelTexture(v, PbrChannel::Emissive), "_Emissive.png");
+    auto grab = [&](gpu::Texture* t) { return t ? v.renderer.ExportRGBA8(*ctx, t) : nullptr; };
+    const gpu::ReadbackPtr base = grab(ChannelTexture(v, PbrChannel::BaseColor)), normal = grab(baked ? baked.get() : n);
+    const gpu::ReadbackPtr emis = (d.pbrChannels & (1u << (int)PbrChannel::Emissive)) ? grab(ChannelTexture(v, PbrChannel::Emissive)) : nullptr;
     v.renderer.DropNodeCaches(d);
+    const std::string stemAll = stem;
+    const std::string nameAll = Narrow(p.stem().wstring());
+    // One texture set per part: the whole texture, or each material's tile (the readbacks are shared).
+    for (const auto& [suffix, crop] : parts) {
+    const std::string stem = stemAll + suffix;
+    PackJob job;
+    job.unity = unity;
+    job.path = stem + (job.unity ? "_MaskMap.png" : "_ORM.png");
+    job.ao = ao;
+    job.rough = rough;
+    job.metal = metal;
+    job.crop = crop;
+    packJobs.push_back(job);
+    if (base) exports.push_back({stem + (unity ? "_BaseMap.png" : "_BaseColor.png"), base, crop});
+    if (normal) exports.push_back({stem + "_Normal.png", normal, crop});
+    if (emis) exports.push_back({stem + "_Emissive.png", emis, crop});
     if (!job.unity) {
         // Manifest read by the Unreal plugin (Tools > Shaderixel > Importer un export Shaderixel...).
         Json m = Json::Object();
         m["format"] = "shaderixel-textures";
         m["version"] = 1;
-        m["name"] = Narrow(p.stem().wstring());
+        m["name"] = nameAll + suffix;
         Json texs = Json::Array();
-        auto add = [&](const char* role, const char* suffix) {
+        auto add = [&](const char* role, const char* fileSuffix) {
             Json t = Json::Object();
             t["role"] = role;
-            t["file"] = Narrow(p.stem().wstring()) + suffix;
+            t["file"] = nameAll + suffix + fileSuffix;
             texs.Push(t);
         };
         add("BaseColor", "_BaseColor.png");
@@ -737,7 +815,11 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
         m["textures"] = texs;
         std::ofstream(Utf8Path(stem + ".sxue.json"), std::ios::binary) << m.Dump(1);
     }
-    Status("Export des textures : " + stem + "_*.png" + (job.unity ? "" : " (+ .sxue.json pour le plugin Unreal)"));
+    }
+    if (parts.size() > 1)
+        Status("Export des textures : " + std::to_string(parts.size()) + " matériaux, " + stemAll + "_<matériau>_*.png" + (unity ? "" : " (+ .sxue.json)"));
+    else
+        Status("Export des textures : " + stemAll + "_*.png" + (unity ? "" : " (+ .sxue.json pour le plugin Unreal)"));
 }
 
 void App::UpdatePaint3D() {
@@ -753,11 +835,17 @@ void App::UpdatePaint3D() {
         if (!ready(j.ao) || !ready(j.rough) || !ready(j.metal)) { ++i; continue; }
         const gpu::Readback* ref = j.rough ? j.rough.get() : j.ao ? j.ao.get() : j.metal.get();
         if (ref) {
-            const u32 W = ref->width, H = ref->height;
+            const u32 FW = ref->width;
+            // A material's tile, or the whole texture.
+            Rect c = j.crop.Empty() ? Rect{0, 0, (int)ref->width, (int)ref->height} : j.crop;
+            c.x0 = std::clamp(c.x0, 0, (int)ref->width); c.x1 = std::clamp(c.x1, c.x0, (int)ref->width);
+            c.y0 = std::clamp(c.y0, 0, (int)ref->height); c.y1 = std::clamp(c.y1, c.y0, (int)ref->height);
+            const u32 W = (u32)c.Width(), H = (u32)c.Height();
             std::vector<u8> px((size_t)W * H * 4, 255);
-            auto ch = [&](const gpu::ReadbackPtr& r, size_t p, u8 def) { return r && r->width == W ? r->data[p * 4] : def; };
+            auto ch = [&](const gpu::ReadbackPtr& r, size_t p, u8 def) { return r && r->width == FW ? r->data[p * 4] : def; };
             for (size_t p = 0; p < (size_t)W * H; ++p) {
-                u8 ao = ch(j.ao, p, 255), ro = ch(j.rough, p, 128), me = ch(j.metal, p, 0);
+                const size_t src = (size_t)(c.y0 + p / W) * FW + (c.x0 + p % W);
+                u8 ao = ch(j.ao, src, 255), ro = ch(j.rough, src, 128), me = ch(j.metal, src, 0);
                 if (j.unity) { px[p * 4] = me; px[p * 4 + 1] = ao; px[p * 4 + 2] = 0; px[p * 4 + 3] = (u8)(255 - ro); }
                 else { px[p * 4] = ao; px[p * 4 + 1] = ro; px[p * 4 + 2] = me; px[p * 4 + 3] = 255; }
             }
@@ -791,6 +879,12 @@ void App::DrawPaint3DNewDialog() {
         }
         ImGui::Checkbox("Générer des UV automatiques (xatlas)", &P.autoUv);
         ui::HelpTooltip("Pour les modèles sans UV ou aux UV superposées. Réglages fins ensuite : Vue 3D > UV automatiques.");
+        ImGui::BeginDisabled(P.autoUv);
+        ImGui::SetNextItemWidth(300 * dpi);
+        ImGui::Combo("Matériaux multiples", &P.tileMode, "Auto : une tuile par matériau si leurs UV se chevauchent\0Une tuile par matériau\0Garder les UV du modèle\0");
+        ui::HelpTooltip("Un modèle à plusieurs matériaux (chacun avec ses UV de 0 à 1) : chaque matériau reçoit sa propre\n"
+                        "zone de la texture, et l'export écrit un jeu de textures par matériau (Modèle_Matériau_BaseColor.png...).");
+        ImGui::EndDisabled();
     }
     ImGui::SeparatorText("Texture");
     ImGui::Combo("Résolution", &P.resolution, "1024 x 1024\0" "2048 x 2048\0" "4096 x 4096\0");

@@ -49,6 +49,43 @@ std::vector<SubPath> ParseSvgPath(const std::string& d) {
         cubicTo(pos + (q - pos) * (2.0f / 3.0f), p + (q - p) * (2.0f / 3.0f), p);
         lastQuad = q;
     };
+    // Elliptical arc (SVG endpoint form) as cubic Beziers of at most 90 degrees each.
+    auto arcTo = [&](float rx, float ry, float rotDeg, bool large, bool sweep, float2 p) {
+        const float2 p0 = pos;
+        rx = std::abs(rx);
+        ry = std::abs(ry);
+        if (rx < 1e-6f || ry < 1e-6f || (std::abs(p.x - p0.x) < 1e-6f && std::abs(p.y - p0.y) < 1e-6f)) { lineTo(p); return; }
+        const float phi = rotDeg * 0.0174532925f, cp = std::cos(phi), sp = std::sin(phi);
+        const float dx = (p0.x - p.x) * 0.5f, dy = (p0.y - p.y) * 0.5f;
+        const float x1 = cp * dx + sp * dy, y1 = -sp * dx + cp * dy;
+        // Radii too small for the chord: scaled up.
+        const float lam = (x1 * x1) / (rx * rx) + (y1 * y1) / (ry * ry);
+        if (lam > 1) { const float k = std::sqrt(lam); rx *= k; ry *= k; }
+        const float num = rx * rx * ry * ry - rx * rx * y1 * y1 - ry * ry * x1 * x1, den = rx * rx * y1 * y1 + ry * ry * x1 * x1;
+        float co = den > 0 ? std::sqrt(std::max(0.0f, num / den)) : 0.0f;
+        if (large == sweep) co = -co;
+        const float cxp = co * rx * y1 / ry, cyp = -co * ry * x1 / rx;
+        const float cx = cp * cxp - sp * cyp + (p0.x + p.x) * 0.5f, cy = sp * cxp + cp * cyp + (p0.y + p.y) * 0.5f;
+        auto ang = [](float ux, float uy, float vx, float vy) {
+            return std::atan2(ux * vy - uy * vx, ux * vx + uy * vy);
+        };
+        const float t1 = ang(1, 0, (x1 - cxp) / rx, (y1 - cyp) / ry);
+        float dt = ang((x1 - cxp) / rx, (y1 - cyp) / ry, (-x1 - cxp) / rx, (-y1 - cyp) / ry);
+        if (!sweep && dt > 0) dt -= 6.2831853f;
+        if (sweep && dt < 0) dt += 6.2831853f;
+        const int segs = std::max(1, (int)std::ceil(std::abs(dt) / 1.5707964f - 1e-4f));
+        const float step = dt / segs, kk = 4.0f / 3.0f * std::tan(step / 4.0f);
+        auto pt = [&](float t) { return float2{cx + rx * std::cos(t) * cp - ry * std::sin(t) * sp, cy + rx * std::cos(t) * sp + ry * std::sin(t) * cp}; };
+        auto der = [&](float t) { return float2{-rx * std::sin(t) * cp - ry * std::cos(t) * sp, -rx * std::sin(t) * sp + ry * std::cos(t) * cp}; };
+        float t = t1;
+        for (int s = 0; s < segs; ++s) {
+            const float tn = t + step;
+            const float2 a0 = pt(t), b0 = pt(tn);
+            const float2 c1 = a0 + der(t) * kk, c2 = b0 - der(tn) * kk;
+            cubicTo(c1, c2, s + 1 == segs ? p : b0);
+            t = tn;
+        }
+    };
     while (true) {
         skip();
         if (i >= d.size()) break;
@@ -97,9 +134,18 @@ std::vector<SubPath> ParseSvgPath(const std::string& d) {
             case 'T':
                 if ((ok = read(2))) quadTo((prev == 'Q' || prev == 'T') ? pos * 2.0f - lastQuad : pos, base + float2{a[0], a[1]});
                 break;
-            case 'A':
-                if ((ok = read(7))) lineTo(base + float2{a[5], a[6]});  // arcs: straight segments
+            case 'A': {
+                // rx ry rotation large-arc sweep x y; the two flags may be written without separators ("011").
+                auto flag = [&](float& f) {
+                    skip();
+                    if (i >= d.size() || (d[i] != '0' && d[i] != '1')) return false;
+                    f = d[i++] == '1' ? 1.0f : 0.0f;
+                    return true;
+                };
+                ok = number(a[0]) && number(a[1]) && number(a[2]) && flag(a[3]) && flag(a[4]) && number(a[5]) && number(a[6]);
+                if (ok) arcTo(a[0], a[1], a[2], a[3] > 0.5f, a[4] > 0.5f, base + float2{a[5], a[6]});
                 break;
+            }
             case 'Z':
                 if (cur.pts.size() >= 2) {
                     // The closing point lands on the first one: merged.

@@ -91,7 +91,9 @@ void Renderer::RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, 
         // Custom outline: signed distance field computed on the CPU (cached per surface).
         const float bw = std::max(1.0f, std::abs(s.rect.z - s.rect.x)), bh = std::max(1.0f, std::abs(s.rect.w - s.rect.y));
         const float margin = s.strokeWidth + 4;
-        const u64 key = s.CustomHash() ^ ((u64)(bw * 16) << 20) ^ ((u64)(bh * 16) << 42) ^ (u64)(margin * 64);
+        u64 key = s.CustomHash();
+        for (u64 part : {(u64)(bw * 16), (u64)(bh * 16), (u64)(margin * 64)}) key = (key ^ part) * 1099511628211ull;
+        for (auto it = shapeSdf.begin(); it != shapeSdf.end();) it = doc.GetSurface(it->first) ? std::next(it) : shapeSdf.erase(it);
         auto& cache = shapeSdf[surface];
         if (cache.key != key || !cache.tex) {
             std::vector<float> field;

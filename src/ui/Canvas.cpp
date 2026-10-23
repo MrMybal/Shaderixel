@@ -570,6 +570,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
             if (analysis.samplers.size() >= 4) analysis.samplers.erase(analysis.samplers.begin());
             App::AnalysisSampler sp;
             sp.pos = {std::floor(dp.x), std::floor(dp.y)};
+            sp.doc = v.doc.get();
             analysis.samplers.push_back(sp);
             Status("Point de mesure " + std::to_string(analysis.samplers.size()) + " : Analyse d'image > Pixel");
             return;

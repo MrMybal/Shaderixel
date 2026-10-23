@@ -333,8 +333,7 @@ void App::ShapePropertiesUI(DocView& v, Layer& l) {
     ShapeStyle& s = l.shape;
     ImGui::SeparatorText("Forme");
     if (ImGui::Combo("Type", &s.type, "Rectangle\0Ellipse\0Ligne\0Polygone\0Étoile\0Personnalisée\0")) {
-        if (s.type == 5) ShapePicker(s, &v);  // a custom outline right away
-        v.history.PushState("Type de forme", frameBefore, d.S());
+        v.history.PushState("Type de forme", frameBefore, d.S());  // custom: the picker below gives an outline right away
     }
     if (s.type == 5) {
         ImGui::TextDisabled("Forme : %s", s.customName.empty() ? "?" : s.customName.c_str());

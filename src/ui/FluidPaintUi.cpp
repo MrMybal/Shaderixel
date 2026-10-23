@@ -9,6 +9,8 @@
 #include "render/MeshPaint.h"
 #include "platform/Platform.h"
 
+#include <imgui_internal.h>
+
 namespace sx {
 
 namespace {
@@ -153,6 +155,13 @@ Renderer::FluidParams App::FluidParamsNow(DocView& v) {
 bool App::FluidStart(DocView& v) {
     if (fluidRun.active) FluidFinish(true);
     Document& d = *v.doc;
+    if (d.tiled) { Status("Peinture liquide : pas sur les très grands documents (tuilés)"); return false; }
+    // Particles still running hold the stroke: they end here.
+    if (sim.stroking && sim.view == &v) {
+        v.renderer.EndStrokeMulti(d, *ctx, v.history, "Simulation de peinture");
+        sim.stroking = false;
+        sim.parts.clear();
+    }
     std::vector<Id> targets;
     std::vector<int> kinds;
     fluidRun.useOverride = false;
@@ -196,6 +205,8 @@ bool App::FluidStart(DocView& v) {
     }
     fluidRun.view = &v;
     fluidRun.active = true;
+    v.renderer.fluidInterrupt = [this] { FluidFinish(true); };
+    fluidRun.versions.clear();
     fluidRun.mesh = project;
     fluidRun.simW = sw;
     fluidRun.simH = sh;
@@ -351,6 +362,32 @@ void App::FluidTick() {
     }
     // Another tool or another document: the paint sets where it is.
     if (tool != Tool::Fluid || Active() != v) { FluidFinish(true); return; }
+    // Another edit of the painted layers (a filter, a fill...): the paint was set before it, as it was.
+    {
+        const auto ids = v->renderer.FluidSurfaces();
+        bool changed = ids.size() != fluidRun.versions.size() && !fluidRun.versions.empty();
+        for (size_t i = 0; i < ids.size() && i < fluidRun.versions.size() && !changed; ++i) {
+            const Surface* s = v->doc->GetSurface(ids[i]);
+            changed = !s || s->version != fluidRun.versions[i];
+        }
+        if (changed) {
+            fluidRun.active = false;
+            v->renderer.FluidEnd(*v->doc, *ctx, v->history, "Peinture liquide", true);
+            Status("Peinture liquide : figée (calque modifié)");
+            return;
+        }
+    }
+    // A control of another panel is used (a menu, a filter, a button): the paint sets before its action runs.
+    {
+        ImGuiContext& g = *GImGui;
+        if (g.ActiveId && g.ActiveIdWindow) {
+            const char* root = g.ActiveIdWindow->RootWindow ? g.ActiveIdWindow->RootWindow->Name : g.ActiveIdWindow->Name;
+            const std::string r = root ? root : "";
+            const bool ours = r == "Canevas" || r == "Vue 3D" || r == "Options" || r == "Matériau du pinceau" || r == "Outils" ||
+                              r.find("DockSpace") != std::string::npos || r.find("WindowOverViewport") != std::string::npos;
+            if (!ours) { FluidFinish(true); return; }
+        }
+    }
     Renderer::FluidParams p = FluidParamsNow(*v);
     u64 key = 1469598103934665603ull;
     for (float f : {p.gravity.x, p.gravity.y, p.gravity.z, p.strength}) {
@@ -373,6 +410,9 @@ void App::FluidTick() {
         if (!fluidRun.painting) fluidRun.idle += dt;
     }
     v->renderer.FluidComposite(*v->doc, *ctx, p);
+    fluidRun.versions.clear();
+    for (Id id : v->renderer.FluidSurfaces())
+        if (const Surface* s = v->doc->GetSurface(id)) fluidRun.versions.push_back(s->version);
     // Set: nothing runs any more.
     if (!fluidRun.painting && !fluidSet.paused && fluidRun.idle > fluidSet.setTime * 1.5f + 0.5f) FluidFinish(true);
 }

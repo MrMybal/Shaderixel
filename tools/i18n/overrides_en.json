@@ -484,5 +484,15 @@
  "Peinture liquide : sélectionnez un calque de pixels": "Liquid paint: select a pixel layer",
  "Peinture liquide : impossible de démarrer la simulation": "Liquid paint: the simulation could not start",
  "Peinture liquide : figée": "Liquid paint: set",
- "Peinture liquide : annulée": "Liquid paint: canceled"
+ "Peinture liquide : annulée": "Liquid paint: canceled",
+ "Matériaux multiples": "Multiple materials",
+ "Auto : une tuile par matériau si leurs UV se chevauchent": "Auto: a tile per material when their UVs overlap",
+ "Une tuile par matériau": "A tile per material",
+ "Garder les UV du modèle": "Keep the model's UVs",
+ "Un modèle à plusieurs matériaux (chacun avec ses UV de 0 à 1) : chaque matériau reçoit sa propre": "A model with several materials (each with its UVs from 0 to 1): each material gets its own",
+ "zone de la texture, et l'export écrit un jeu de textures par matériau (Modèle_Matériau_BaseColor.png...).": "area of the texture, and the export writes a texture set per material (Model_Material_BaseColor.png...).",
+ "Projet Paint 3D : {n} px, {n} matériaux, une tuile de texture chacun (export : un jeu de textures par matériau).": "Paint 3D project: {n} px, {n} materials, a texture tile each (export: a texture set per material).",
+ "Textures PBR exportées : {n} matériaux (un jeu chacun)": "PBR textures exported: {n} materials (a set each)",
+ "Peinture liquide : pas sur les très grands documents (tuilés)": "Liquid paint: not on very large (tiled) documents",
+ "Peinture liquide : figée (calque modifié)": "Liquid paint: set (layer changed)"
 }

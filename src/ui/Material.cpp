@@ -119,6 +119,20 @@ void App::CreatePbrChannels(DocView& v, bool project) {
 
 void App::ExportPbrTextures(DocView& v, const std::string& pngBasePath) {
     if (pngBasePath.empty()) return;
+    const auto parts = ExportParts(v);
+    if (parts.size() > 1) {
+        // One texture set (and Unreal script) per material tile.
+        auto p = Utf8Path(pngBasePath);
+        const std::string ext = Narrow(p.extension().wstring());
+        for (const auto& [suffix, crop] : parts)
+            ExportPbrTexturesPart(v, Narrow((p.parent_path() / p.stem()).wstring()) + suffix + ext, crop);
+        Status("Textures PBR exportées : " + std::to_string(parts.size()) + " matériaux (un jeu chacun)");
+        return;
+    }
+    ExportPbrTexturesPart(v, pngBasePath, Rect{});
+}
+
+void App::ExportPbrTexturesPart(DocView& v, const std::string& pngBasePath, Rect crop) {
     Document& d = *v.doc;
     auto p = std::filesystem::absolute(Utf8Path(pngBasePath));  // the Unreal script needs absolute paths
     std::string stem = Narrow(p.stem().wstring());
@@ -136,7 +150,7 @@ void App::ExportPbrTextures(DocView& v, const std::string& pngBasePath) {
         if (!t) continue;
         std::string file = Narrow((p.parent_path() / Utf8Path(stem + "_" + PbrChannelSuffix((PbrChannel)c) + ".png")).wstring());
         if (auto rb = v.renderer.ExportRGBA8(*ctx, t)) {
-            exports.push_back({file, rb});
+            exports.push_back({file, rb, crop});
             written.push_back({(PbrChannel)c, file});
         }
     }

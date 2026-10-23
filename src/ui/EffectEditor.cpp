@@ -745,7 +745,7 @@ void App::DrawEffectEditor() {
     std::string shaderErr;
     Id renderNode = 0;
     for (auto& n : d.S().graph.nodes)
-        if (n.kind == NodeKind::Effect && n.fx.graph == fx->graph) renderNode = n.id;
+        if (n.kind == NodeKind::Effect && (&n.fx == fx || (!fx->graph.empty() && n.fx.graph == fx->graph))) renderNode = n.id;
     bool failed = renderNode && v->renderer.NodeFailed(renderNode, &shaderErr);
     if (brushMode)
         if (auto td = TipDef(brushTarget)) failed = !v->renderer.BrushPipeline(*td, &shaderErr) && !shaderErr.empty();
@@ -1559,6 +1559,7 @@ void App::DrawEffectEditor() {
     if (ed.selected && !ed.multi.count(ed.selected)) ed.multi = {ed.selected};  // selected elsewhere (library, demos)
     for (auto it = ed.multi.begin(); it != ed.multi.end();) it = g.Find(*it) ? std::next(it) : ed.multi.erase(it);
     const bool keys = focused && !io.WantTextInput && !ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId);
+    const bool nodesSelected = !ed.multi.empty();
     if (keys && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace)) && !ed.multi.empty()) {
         std::set<Id> gone;
         for (Id id : ed.multi)
@@ -1592,13 +1593,14 @@ void App::DrawEffectEditor() {
         changed = true;
         changeLabel = "Ajouter un commentaire";
     }
-    if (keys && ed.selComment && ed.multi.empty() && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))) {
+    if (keys && ed.selComment && !nodesSelected && (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))) {
         g.comments.erase(std::remove_if(g.comments.begin(), g.comments.end(), [&](const EGComment& c) { return c.id == ed.selComment; }), g.comments.end());
         ed.selComment = 0;
         changed = true;
         changeLabel = "Supprimer un commentaire";
     }
     if (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) {
+        ed.selComment = 0;
         for (auto& n : g.nodes) ed.multi.insert(n.id);
         if (!ed.selected && !g.nodes.empty()) ed.selected = g.nodes.front().id;
     }
@@ -1629,7 +1631,8 @@ void App::DrawEffectEditor() {
         if (!count) return;
         const float2 off = atMouse ? toG(m) - mn : float2{40, 40};
         std::map<Id, Id> remap;
-        for (auto& n : clip.nodes) remap[n.id] = g.nextId++;
+        for (auto& n : clip.nodes)
+            if (n.op != "output" && FindOp(n.op) && OpAllowed(*FindOp(n.op), g.kind)) remap[n.id] = g.nextId++;
         auto nameTaken = [&](const std::string& name) {
             for (auto& o : g.nodes) if ((o.op == "param" || o.op == "paramcolor" || o.op == "param2") && o.name == name) return true;
             return false;
@@ -1775,10 +1778,11 @@ void App::DrawEffectEditor() {
         ed.cachedJson = fx->graph;
         fx->SyncParams(old);
         // Parameter defaults edited in the graph also update the instance value.
-        if (sel && (sel->op == "param" || sel->op == "paramcolor")) {
+        // (found again: nodes may have been added or removed since the start of the frame)
+        if (const EGNode* selNow = g.Find(ed.selected); selNow && (selNow->op == "param" || selNow->op == "paramcolor")) {
             auto nd = fx->Def();
             for (size_t i = 0; nd && i < nd->params.size() && i < fx->params.size(); ++i)
-                if (nd->params[i].label == sel->name || nd->params[i].id.find(sel->name) != std::string::npos) fx->params[i] = nd->params[i].def;
+                if (nd->params[i].label == selNow->name || nd->params[i].id.find(selNow->name) != std::string::npos) fx->params[i] = nd->params[i].def;
         }
         if (d.Mode() == DocMode::Layers) d.SyncGraph();
         else if (Node* n = d.S().graph.Find(d.S().activeNode)) n->inputs.resize(NodeInputCount(*n), 0);

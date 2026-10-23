@@ -40,7 +40,10 @@ bool Renderer::FluidBegin(Document& doc, gpu::CommandContext& ctx, const std::ve
                           u32 simW, u32 simH, gpu::Texture* selection, gpu::Texture* bed) {
     if (!Kernel("fluid_paint.slang")) return false;
     if (mesh && (!MeshPrepare(doc, ctx, *mesh) || !mesh->posMap)) return false;
-    if (!BeginStrokeMulti(doc, ctx, surfaces)) return false;
+    fluid.beginning = true;
+    const bool begun = BeginStrokeMulti(doc, ctx, surfaces);
+    fluid.beginning = false;
+    if (!begun) return false;
     FluidState& F = fluid;
     F.kinds = kinds;
     F.mesh = mesh;
@@ -60,7 +63,7 @@ bool Renderer::FluidBegin(Document& doc, gpu::CommandContext& ctx, const std::ve
     const char* names[4][2] = {{"FluidF0a", "FluidF0b"}, {"FluidF1a", "FluidF1b"}, {"FluidD0a", "FluidD0b"}, {"FluidD1a", "FluidD1b"}};
     for (int k = 0; k < 2; ++k) {
         Ensure(F.f0[k], F.w, F.h, gpu::Format::RGBA32F, names[0][k]);
-        Ensure(F.f1[k], F.w, F.h, gpu::Format::RGBA16F, names[1][k]);
+        Ensure(F.f1[k], F.w, F.h, gpu::Format::RGBA32F, names[1][k]);  // age: half floats stop counting after a few seconds
         Ensure(F.d0[k], F.w, F.h, gpu::Format::RGBA16F, names[2][k]);
         Ensure(F.d1[k], F.w, F.h, gpu::Format::RGBA16F, names[3][k]);
         Ensure(F.flux[k], F.w, F.h, gpu::Format::RGBA32F, k ? "FluidFluxB" : "FluidFluxA");
@@ -157,6 +160,14 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
     Dispatch2D(ctx, d, F.w, F.h);
     if (pass == 2) F.fluxCur = 1 - F.fluxCur;
     else if (pass != 0) F.cur = o;
+}
+
+std::vector<Id> Renderer::FluidSurfaces() const {
+    std::vector<Id> out;
+    if (!fluid.active || !strokeSurface) return out;
+    out.push_back(strokeSurface);
+    for (auto& s : strokeSlots) out.push_back(s.surface);
+    return out;
 }
 
 void Renderer::FluidGravity(gpu::CommandContext& ctx, const FluidParams& p) {

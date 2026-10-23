@@ -48,9 +48,12 @@ RWTexture2D<float4> gOut : register(u0);
 float LumaS(float3 s) { return dot(s, float3(0.2126, 0.7152, 0.0722)); }
 
 // Displayed (sRGB) luminance of a document pixel, for focus peaking.
-float LumaAt(float2 d)
+// t: texel of the displayed image (reduced when zoomed out, so not always document pixels).
+float LumaAt(float2 t)
 {
-    float4 c = gImage.Load(int3(clamp(int2(floor(d)), int2(0, 0), int2(gDocSize) - 1), 0));
+    uint w, h;
+    gImage.GetDimensions(w, h);
+    float4 c = gImage.Load(int3(clamp(int2(floor(t)), int2(0, 0), int2(w, h) - 1), 0));
     return LumaS(LinearToSrgb(saturate(c.rgb)));
 }
 
@@ -92,9 +95,12 @@ float3 ScopeOverlay(float3 s, float3 shown, float alpha, float2 d, float2 v)
     if (gScope == 4)
     {
         // Focus peaking: strong luminance gradients (Sobel at the document resolution) in red over a dimmed image.
-        float a = LumaAt(d + float2(-1, -1)), b = LumaAt(d + float2(0, -1)), c = LumaAt(d + float2(1, -1));
-        float e = LumaAt(d + float2(-1, 0)), f = LumaAt(d + float2(1, 0));
-        float g = LumaAt(d + float2(-1, 1)), h = LumaAt(d + float2(0, 1)), i = LumaAt(d + float2(1, 1));
+        uint iw, ih;
+        gImage.GetDimensions(iw, ih);
+        const float2 t = d * float2(iw, ih) / float2(gDocSize);  // the image may be reduced (zoomed out)
+        float a = LumaAt(t + float2(-1, -1)), b = LumaAt(t + float2(0, -1)), c = LumaAt(t + float2(1, -1));
+        float e = LumaAt(t + float2(-1, 0)), f = LumaAt(t + float2(1, 0));
+        float g = LumaAt(t + float2(-1, 1)), h = LumaAt(t + float2(0, 1)), i = LumaAt(t + float2(1, 1));
         float gx = (c + 2.0 * f + i) - (a + 2.0 * e + g), gy = (g + 2.0 * h + i) - (a + 2.0 * b + c);
         float m = length(float2(gx, gy));
         float3 dim = lerp(float3(l, l, l), shown, 0.5) * 0.75;

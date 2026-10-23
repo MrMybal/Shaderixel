@@ -211,7 +211,7 @@ bool PsdAdjustmentFor(const EffectInstance& fx, std::string& key, std::vector<u8
         w.U8(0);
         if (colorize) {
             s16(p(0, 0) + 180.0f, 0, 360);
-            s16(p(1, 0), 0, 100);
+            s16(25.0f + p(1, 0), 0, 100);  // Photoshop: absolute saturation (25 by default); ours: an offset from 25
             s16(p(2, 0), -100, 100);
             for (int k = 0; k < 3; ++k) w.U16(0);
         } else {
@@ -250,11 +250,23 @@ bool PsdAdjustmentFor(const EffectInstance& fx, std::string& key, std::vector<u8
             CurvePoints c = ch < (int)fx.curves.size() ? fx.curves[ch] : CurvePoints{};
             if (c.size() < 2) c = {{0, 0}, {1, 1}};
             std::sort(c.begin(), c.end(), [](const float2& a, const float2& b) { return a.x < b.x; });
-            if (c.size() > 19) c.resize(19);
-            w.U16((u16)c.size());
+            // Inputs on 0..255, strictly increasing (Photoshop rejects equal inputs), 19 points at most (ends kept).
+            std::vector<std::pair<int, int>> pts;
             for (auto& q : c) {
-                w.U16((u16)std::clamp((int)std::lround(q.y * 255.0f), 0, 255));
-                w.U16((u16)std::clamp((int)std::lround(q.x * 255.0f), 0, 255));
+                const int in = std::clamp((int)std::lround(q.x * 255.0f), 0, 255), out = std::clamp((int)std::lround(q.y * 255.0f), 0, 255);
+                if (!pts.empty() && pts.back().first >= in) continue;
+                pts.push_back({in, out});
+            }
+            if (pts.size() > 19) {
+                std::vector<std::pair<int, int>> keep;
+                for (int k = 0; k < 19; ++k) keep.push_back(pts[(size_t)std::lround(k * (pts.size() - 1) / 18.0)]);
+                pts = keep;
+            }
+            if (pts.size() < 2) pts = {{0, 0}, {255, 255}};
+            w.U16((u16)pts.size());
+            for (auto& [in, out] : pts) {
+                w.U16((u16)out);
+                w.U16((u16)in);
             }
         }
     } else if (id == "invert") {

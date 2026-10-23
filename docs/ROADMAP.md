@@ -104,3 +104,7 @@
 ## Peinture liquide (fait)
 
 Film de peinture simulé sur GPU (shaders/fluid_paint.slang, render/FluidPaint.cpp, ui/FluidPaintUi.cpp) : tous les canaux PBR à la fois, gravité du modèle 3D ou d'un plan incliné, prise, absorption, relief, brillance humide ; une étape d'historique. Reste : passage des coutures UV (la peinture quitte l'île ou s'y accumule), gouttes détachées qui retombent plus bas sur le modèle, mélange avec la peinture déjà sèche du calque.
+
+## Paint 3D : matériaux multiples (fait)
+
+Une tuile de texture par matériau (UV remappées, grille carrée en puissance de deux), export d'un jeu de textures par matériau, enregistré dans le projet. Reste : peindre en limitant au matériau survolé, réorganiser les tuiles après coup.

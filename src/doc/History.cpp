@@ -42,14 +42,36 @@ History::CpuPixels History::Pack(const gpu::Readback& rb) {
     c.h = rb.height;
     c.format = rb.format;
     c.rawSize = rb.data.size();
-    c.z = deflate::ZlibCompress(Shuffle(rb.data, gpu::BytesPerPixel(rb.format)).data(), rb.data.size(), 1);
+    // Compressed in chunks (each: raw size, compressed size, zlib stream): the decoder takes int sizes.
+    const std::vector<u8> sh = Shuffle(rb.data, gpu::BytesPerPixel(rb.format));
+    constexpr size_t kChunk = 256u << 20;
+    for (size_t off = 0; off < sh.size(); off += kChunk) {
+        const u32 raw = (u32)std::min(kChunk, sh.size() - off);
+        const std::vector<u8> z = deflate::ZlibCompress(sh.data() + off, raw, 1);
+        const u32 zs = (u32)z.size();
+        const size_t at = c.z.size();
+        c.z.resize(at + 8 + z.size());
+        memcpy(&c.z[at], &raw, 4);
+        memcpy(&c.z[at + 4], &zs, 4);
+        memcpy(&c.z[at + 8], z.data(), z.size());
+    }
     return c;
 }
 
 gpu::TexturePtr History::Unpack(const CpuPixels& c, gpu::CommandContext& ctx) {
     std::vector<u8> raw(c.rawSize);
-    const int got = stbi_zlib_decode_buffer((char*)raw.data(), (int)raw.size(), (const char*)c.z.data(), (int)c.z.size());
-    if (got != (int)raw.size()) return nullptr;
+    size_t in = 0, out = 0;
+    while (in + 8 <= c.z.size() && out < raw.size()) {
+        u32 rs, zs;
+        memcpy(&rs, &c.z[in], 4);
+        memcpy(&zs, &c.z[in + 4], 4);
+        if (in + 8 + zs > c.z.size() || out + rs > raw.size()) return nullptr;
+        const int got = stbi_zlib_decode_buffer((char*)raw.data() + out, (int)rs, (const char*)c.z.data() + in + 8, (int)zs);
+        if (got != (int)rs) return nullptr;
+        in += 8 + zs;
+        out += rs;
+    }
+    if (out != raw.size()) return nullptr;
     raw = Unshuffle(raw, gpu::BytesPerPixel(c.format));
     auto t = gpu::Dev().CreateTexture(c.w, c.h, c.format, "UndoPixels");
     ctx.Upload(t.get(), raw.data(), c.w * gpu::BytesPerPixel(c.format));
@@ -69,6 +91,7 @@ void History::Push(Entry&& e) {
     const HistoryLimits& lim = Limits();
     while (entries.size() > 1 && (entries.size() > kMaxEntries || gpuBytes > lim.gpuMax || ramBytes > lim.ramMax)) {
         u32 g = entries.front().group;
+        if (g && g == currentGroup) break;  // never the start of the group being recorded (one step for every layer)
         do {
             Account(entries.front(), -1);
             entries.erase(entries.begin());

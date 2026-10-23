@@ -10,6 +10,8 @@
 #include "doc/History.h"
 #include "gpu/ShaderSystem.h"
 
+#include <functional>
+
 #include <array>
 #include <unordered_map>
 
@@ -341,6 +343,9 @@ public:
     void FluidComposite(Document& doc, gpu::CommandContext& ctx, const FluidParams& p);
     void FluidEnd(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label, bool keep);
     bool FluidActive() const { return fluid.active; }
+    std::vector<Id> FluidSurfaces() const;
+    // Called when another stroke starts on this renderer while the paint is wet (the app sets the paint first).
+    std::function<void()> fluidInterrupt;
     u32 FluidWidth() const { return fluid.w; }
     float FluidTime() const { return fluid.time; }
     void RenderShape(Document& doc, gpu::CommandContext& ctx, Id surface, const ShapeStyle& s);
@@ -377,6 +382,7 @@ private:
         MeshScene* mesh = nullptr;
         std::vector<int> kinds;
         float texelWorld = 1, time = 0;
+        bool beginning = false;
     } fluid;
     void FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float dt, const FluidParams& p, const std::vector<float4>* dabs,
                        const std::vector<float4>* ex, u32 extraFlags);

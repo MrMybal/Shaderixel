@@ -3,6 +3,8 @@
 #include <fstream>
 #include <sstream>
 #include <unordered_map>
+#include <map>
+#include <cmath>
 
 namespace sx {
 
@@ -237,6 +239,92 @@ MeshData MakeSphere(int seg, int rings) {
         }
     NormalizeMesh(m);
     return m;
+}
+
+bool TileMaterialUvs(MeshData& m, u32 resolution, int mode) {
+    const size_t nm = m.materials.size(), nt = m.indices.size() / 3;
+    if (nm < 2 || m.triMaterial.size() != nt) return false;
+    // UV bounds of each material.
+    std::vector<float4> box(nm, float4{1e30f, 1e30f, -1e30f, -1e30f});
+    std::vector<bool> used(nm, false);
+    for (size_t t = 0; t < nt; ++t) {
+        const u16 mi = std::min<u16>(m.triMaterial[t], (u16)(nm - 1));
+        used[mi] = true;
+        for (int k = 0; k < 3; ++k) {
+            const float2 uv = m.vertices[m.indices[t * 3 + k]].uv;
+            float4& b = box[mi];
+            b = {std::min(b.x, uv.x), std::min(b.y, uv.y), std::max(b.z, uv.x), std::max(b.w, uv.y)};
+        }
+    }
+    std::vector<int> mats;
+    for (size_t i = 0; i < nm; ++i) if (used[i]) mats.push_back((int)i);
+    if (mats.size() < 2) return false;
+    if (mode == 0) {
+        bool need = false;
+        for (int i : mats) {
+            const float4& a = box[i];
+            if (a.x < -0.02f || a.y < -0.02f || a.z > 1.02f || a.w > 1.02f) need = true;  // tiling UVs
+            for (int j : mats) {
+                if (j <= i) continue;
+                const float4& b = box[j];
+                const float ix = std::min(a.z, b.z) - std::max(a.x, b.x), iy = std::min(a.w, b.w) - std::max(a.y, b.y);
+                const float inter = std::max(ix, 0.0f) * std::max(iy, 0.0f);
+                const float sa = (a.z - a.x) * (a.w - a.y), sb = (b.z - b.x) * (b.w - b.y);
+                if (inter > 0.1f * std::max(std::min(sa, sb), 1e-6f)) need = true;  // overlapping layouts
+            }
+        }
+        if (!need) return false;
+    }
+    // Vertices shared by several materials are split: each copy moves into its own tile.
+    std::vector<MeshVertex> verts = m.vertices;
+    std::vector<int> vmat(m.vertices.size(), -1);
+    std::map<std::pair<u32, int>, u32> copies;
+    for (size_t t = 0; t < nt; ++t) {
+        const int mi = std::min<int>(m.triMaterial[t], (int)nm - 1);
+        for (int k = 0; k < 3; ++k) {
+            u32& idx = m.indices[t * 3 + k];
+            if (vmat[idx] < 0) { vmat[idx] = mi; continue; }
+            if (vmat[idx] == mi) continue;
+            auto it = copies.find({idx, mi});
+            if (it == copies.end()) {
+                const u32 n = (u32)verts.size();
+                verts.push_back(m.vertices[idx]);
+                vmat.push_back(mi);
+                it = copies.emplace(std::make_pair(idx, mi), n).first;
+            }
+            idx = it->second;
+        }
+    }
+    m.vertices = std::move(verts);
+    // Grid of tiles (row-major), each material's bounds fitted inside its tile with its proportions.
+    const int count = (int)mats.size();
+    // Square tiles, a power of two per side: each material exports a square power-of-two texture.
+    int cols = 1;
+    while (cols * cols < count) cols *= 2;
+    const int rows = cols;
+    const float tw = 1.0f / cols, th = 1.0f / rows;
+    const float pad = std::max(4.0f / std::max(resolution, 64u), 0.01f * std::min(tw, th));
+    m.uvTiles.assign(nm, float4{0, 0, 0, 0});
+    std::vector<float4> xf(nm, float4{0, 0, 1, 1});  // offset x, y, scale, unused
+    for (int k = 0; k < count; ++k) {
+        const int mi = mats[k];
+        const float x0 = (k % cols) * tw, y0 = (k / cols) * th;
+        m.uvTiles[mi] = {x0, y0, x0 + tw, y0 + th};
+        const float4 b = box[mi];
+        const float bw = std::max(b.z - b.x, 1e-6f), bh = std::max(b.w - b.y, 1e-6f);
+        const float iw = tw - 2 * pad, ih = th - 2 * pad;
+        const float s = std::min(iw / bw, ih / bh);
+        // Centered in the tile.
+        const float ox = x0 + pad + (iw - bw * s) * 0.5f - b.x * s, oy = y0 + pad + (ih - bh * s) * 0.5f - b.y * s;
+        xf[mi] = {ox, oy, s, 0};
+    }
+    for (size_t i = 0; i < m.vertices.size(); ++i) {
+        const int mi = vmat[i];
+        if (mi < 0) continue;
+        float2& uv = m.vertices[i].uv;
+        uv = {xf[mi].x + uv.x * xf[mi].z, xf[mi].y + uv.y * xf[mi].z};
+    }
+    return true;
 }
 
 MeshData MakeCube() {

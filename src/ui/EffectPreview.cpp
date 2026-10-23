@@ -65,7 +65,13 @@ gpu::Texture* App::PreviewSource(DocView& v, int input, u64& hash) {
 
 gpu::Texture* App::RenderEffectPreview(DocView& v, const EffectInstance& fx, int inputs, u64 slot, bool* waiting) {
     auto& P = efPv;
+    // Node previews not drawn for a while (nodes deleted, other graphs) give their textures back.
+    const int frame = ImGui::GetFrameCount();
+    if (P.slots.size() > 48)
+        for (auto it = P.slots.begin(); it != P.slots.end();)
+            it = it->first >= 0x100000000ull && frame - it->second.frame > 600 ? P.slots.erase(it) : std::next(it);
     auto& S = P.slots[slot];
+    S.frame = frame;
     inputs = std::clamp(inputs, 0, 4);
     std::array<gpu::Texture*, 4> in{};
     u64 h = 1469598103934665603ull;

@@ -226,7 +226,7 @@ bool ConvertAdjustment(const PsdLayer& s, Layer& l) {
         r.U8();
         i16 ch = r.S16(), cs = r.S16(), cl = r.S16();
         i16 mh = r.S16(), ms = r.S16(), ml = r.S16();
-        if (colorize) { l.effect.params[0].x = ch - 180.0f; l.effect.params[1].x = cs; l.effect.params[2].x = cl; l.effect.params[3].x = 1; }
+        if (colorize) { l.effect.params[0].x = ch - 180.0f; l.effect.params[1].x = cs - 25.0f; l.effect.params[2].x = cl; l.effect.params[3].x = 1; }
         else { l.effect.params[0].x = mh; l.effect.params[1].x = ms; l.effect.params[2].x = ml; }
     } else if (k == "curv") {
         // Map flag, version, channel bitmap (0 composite, 1 R, 2 G, 3 B), point lists (output, input).
@@ -248,11 +248,12 @@ bool ConvertAdjustment(const PsdLayer& s, Layer& l) {
                 }
             } else {
                 const int n = r.U16();
-                for (int i = 0; i < n && i < 64 && r.ok; ++i) {
+                for (int i = 0; i < n && r.ok; ++i) {  // every pair read (the next channel follows), 64 kept
                     const float out = r.U16() / 255.0f, in = r.U16() / 255.0f;
-                    c.push_back({in, out});
+                    if (i < 64) c.push_back({in, out});
                 }
             }
+            if (!r.ok) break;  // truncated: the partial list is not kept
             if (ch < 4) l.effect.curves[ch] = c;
         }
     } else if (k == "nvrt") {

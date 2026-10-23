@@ -656,6 +656,8 @@ gpu::Texture* Renderer::Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Textur
 // ------------------------------------------------------------------ painting
 
 bool Renderer::BeginStroke(Document& doc, gpu::CommandContext& ctx, Id surface) {
+    // The stroke state is shared: wet liquid paint is set (recorded) before another stroke takes it over.
+    if (fluid.active && !fluid.beginning && fluidInterrupt) fluidInterrupt();
     // A layer created this frame still has its initial clear pending: run it first (it would wipe the stroke).
     if (!doc.pendingClears.empty() || !doc.pendingCopies.empty()) Prepare(doc, ctx);
     Surface* s = doc.GetSurface(surface);

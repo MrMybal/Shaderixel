@@ -242,7 +242,12 @@ void App::DrawSidePanel() {
         ImGuiTabBar* tb = node->TabBar;
         auto& z = sideTabSelection[node->ID];
         const int count = tb->Tabs.Size;
-        if (switched || count > z.count) z.guard = 12;  // panels coming back
+        // Panels coming back (not one the user just docked here with the mouse: that one stays selected).
+        static int lastMoving = -100;  // a window dragged by its title (docking) a moment ago
+        if (gc.MovingWindow) lastMoving = ImGui::GetFrameCount();
+        const bool userDock = ImGui::GetFrameCount() - lastMoving < 3;
+        if (switched || (count > z.count && !userDock)) z.guard = 12;
+        if (count > z.count && userDock && !switched) { z.guard = 0; z.want = tb->SelectedTabId; }
         if (z.guard > 0 && z.guard <= 10 && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) z.guard = 0;  // a new click: the user's
         if (asked && asked->TabId && ImGui::TabBarFindTabByID(tb, asked->TabId)) z.want = asked->TabId;
         if (z.guard > 0) {
