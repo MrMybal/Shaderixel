@@ -57,7 +57,7 @@
 - Fusionner vers le bas / les calques visibles / aplatir : **fait**
 
 ### 3D
-- Import glTF 2.0 (.gltf / .glb) et FBX : **fait** ; plusieurs matériaux (une tuile chacun, export par matériau) : **fait** ; reste : UDIM
+- Import glTF 2.0 (.gltf / .glb) et FBX : **fait** ; plusieurs matériaux (une tuile chacun, export par matériau) : **fait** ; UDIM (tuiles rangées dans la texture, export nom_Canal.1001.png, OBJ en espace UDIM) : **fait**
 - Canaux PBR (couleur, rugosité, métal, normale, émissif, occlusion) en groupes de calques, rendu PBR GGX, export textures + script de matériau Unreal : **fait** , canal Hauteur (relief en vue 3D, cuit dans la normale à l'export) : **fait** , éclairage HDRI (préfiltré par rugosité, intensité/rotation) : **fait** , affichage d'un canal seul : **fait**, fond HDRI visible (flou réglable) : **fait**
 - Pinceau en espace UV / triplanar, masquage par ID de matériau
 

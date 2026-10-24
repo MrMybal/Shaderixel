@@ -61,6 +61,12 @@ Json App::MeshToJson(const MeshData& m) {
         j["materials"] = mats;
         j["triMaterial"] = net::Base64Encode(m.triMaterial.data(), m.triMaterial.size() * sizeof(u16));
     }
+    if (!m.udims.empty()) {
+        Json u = Json::Array();
+        for (u16 t : m.udims) u.Push((int)t);
+        j["udims"] = u;
+        j["udimCols"] = m.udimCols;
+    }
     return j;
 }
 
@@ -98,6 +104,9 @@ bool App::MeshFromJson(const Json& j, MeshData& m) {
             if (!tiles) m.uvTiles.clear();
         }
     }
+    for (auto& u : j["udims"].Elements()) m.udims.push_back((u16)std::clamp(u.I(1001), 1001, 2000));
+    m.udimCols = m.udims.empty() ? 0 : std::max(1, j["udimCols"].I(1));
+    if (!m.udims.empty() && (size_t)m.udimCols * m.udimCols < m.udims.size()) m.udims.clear(), m.udimCols = 0;  // inconsistent
     m.boundsMin = {1e30f, 1e30f, 1e30f};
     m.boundsMax = {-1e30f, -1e30f, -1e30f};
     for (auto& p : m.vertices) {
@@ -132,7 +141,9 @@ void App::NewPaint3DProject() {
         mesh = P.mesh == 1 ? MakeCube() : P.mesh == 2 ? MakePlane() : MakeSphere();
     }
     // Several materials over the same UVs: one tile of the texture each (before an unwrap, which replaces them).
-    const bool tiled = !(P.autoUv || !mesh.hasUvs) && P.tileMode != 2 && TileMaterialUvs(mesh, res, P.tileMode);
+    // UDIM layouts (UVs over several 0..1 tiles): each tile becomes a cell of the texture.
+    const bool udim = !(P.autoUv || !mesh.hasUvs) && PackUdims(mesh);
+    const bool tiled = !udim && !(P.autoUv || !mesh.hasUvs) && P.tileMode != 2 && TileMaterialUvs(mesh, res, P.tileMode);
     if (P.autoUv || !mesh.hasUvs) {
         // New UVs before anything is painted (models without UVs, or overlapping ones).
         UnwrapOptions o;
@@ -616,7 +627,10 @@ void App::DrawBrushMaterialPanel() {
     row(PbrChannel::Metallic, "Métal");
     row(PbrChannel::Height, "Hauteur");
     row(PbrChannel::Emissive, "Émissif");
-    if (DocView* av = Active(); av && av->mesh && !av->mesh->data.uvTiles.empty()) {
+    if (DocView* av = Active(); av && av->mesh && !av->mesh->data.udims.empty()) {
+        ImGui::Checkbox("Limiter à la tuile UDIM sous le pinceau", &B.limitMaterial);
+        ui::HelpTooltip("Modèle UDIM : un trait ne peint que la tuile (1001, 1002...) sur laquelle il commence.");
+    } else if (DocView* av = Active(); av && av->mesh && !av->mesh->data.uvTiles.empty()) {
         ImGui::Checkbox("Limiter au matériau sous le pinceau", &B.limitMaterial);
         ui::HelpTooltip("Modèle à plusieurs matériaux (une tuile de texture chacun) : un trait ne peint que le matériau\n"
                         "sur lequel il commence, même s'il déborde sur une pièce voisine.");
@@ -798,6 +812,17 @@ void App::RetileMaterials(DocView& v) {
 std::vector<std::pair<std::string, Rect>> App::ExportParts(DocView& v) {
     std::vector<std::pair<std::string, Rect>> parts;
     const Document& d = *v.doc;
+    if (v.mesh && !v.mesh->data.udims.empty()) {
+        // UDIM: one texture set per tile, named like the tile (.1001, .1002...).
+        const auto& m = v.mesh->data;
+        const int cols = std::max(1, m.udimCols);
+        for (size_t k = 0; k < m.udims.size(); ++k) {
+            const int cx = (int)k % cols, cy = (int)k / cols;
+            parts.push_back({"." + std::to_string(m.udims[k]), Rect{(int)std::lround((double)cx * d.Width() / cols), (int)std::lround((double)cy * d.Height() / cols),
+                                                                   (int)std::lround((double)(cx + 1) * d.Width() / cols), (int)std::lround((double)(cy + 1) * d.Height() / cols)}});
+        }
+        return parts;
+    }
     if (v.mesh && !v.mesh->data.uvTiles.empty()) {
         const auto& m = v.mesh->data;
         for (size_t i = 0; i < m.uvTiles.size() && i < m.materials.size(); ++i) {
@@ -843,18 +868,21 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
     // One texture set per part: the whole texture, or each material's tile (the readbacks are shared).
     for (const auto& [suffix, crop] : parts) {
     const std::string stem = stemAll + suffix;
+    // UDIM tiles: name_Channel.1001.png (the tile number last, as the 3D tools expect).
+    const bool udimPart = !suffix.empty() && suffix[0] == '.';
+    auto named = [&](const char* channel) { return udimPart ? stemAll + channel + suffix + ".png" : stem + channel + ".png"; };
     PackJob job;
     job.unity = unity;
-    job.path = stem + (job.unity ? "_MaskMap.png" : "_ORM.png");
+    job.path = named(job.unity ? "_MaskMap" : "_ORM");
     job.ao = ao;
     job.rough = rough;
     job.metal = metal;
     job.crop = crop;
     packJobs.push_back(job);
-    if (base) exports.push_back({stem + (unity ? "_BaseMap.png" : "_BaseColor.png"), base, crop});
-    if (normal) exports.push_back({stem + "_Normal.png", normal, crop});
-    if (emis) exports.push_back({stem + "_Emissive.png", emis, crop});
-    if (!job.unity) {
+    if (base) exports.push_back({named(unity ? "_BaseMap" : "_BaseColor"), base, crop});
+    if (normal) exports.push_back({named("_Normal"), normal, crop});
+    if (emis) exports.push_back({named("_Emissive"), emis, crop});
+    if (!job.unity && !udimPart) {
         // Manifest read by the Unreal plugin (Tools > Shaderixel > Importer un export Shaderixel...).
         Json m = Json::Object();
         m["format"] = "shaderixel-textures";
@@ -875,7 +903,9 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
         std::ofstream(Utf8Path(stem + ".sxue.json"), std::ios::binary) << m.Dump(1);
     }
     }
-    if (parts.size() > 1)
+    if (parts.size() > 1 && parts[0].first[0] == '.')
+        Status("Export des textures : " + std::to_string(parts.size()) + " tuiles UDIM, " + stemAll + "_*.<tuile>.png");
+    else if (parts.size() > 1)
         Status("Export des textures : " + std::to_string(parts.size()) + " matériaux, " + stemAll + "_<matériau>_*.png" + (unity ? "" : " (+ .sxue.json)"));
     else
         Status("Export des textures : " + stemAll + "_*.png" + (unity ? "" : " (+ .sxue.json pour le plugin Unreal)"));

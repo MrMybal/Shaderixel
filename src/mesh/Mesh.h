@@ -56,6 +56,11 @@ struct MeshData {
     // Paint 3D: each material's UVs moved into its own tile of the texture (UV rect x0, y0, x1, y1 per material;
     // empty: the UVs as loaded). Exports cut one texture set per material from these tiles.
     std::vector<float4> uvTiles;
+    // UDIM: the model's UV tiles (1001, 1002...) packed into a grid of cells of the texture, cell k at column
+    // k % udimCols, row k / udimCols (cells of 1 / udimCols); empty: no UDIM layout. Exports write one texture
+    // set per tile (name_BaseColor.1001.png) and the OBJ export puts the UVs back in UDIM space.
+    std::vector<u16> udims;
+    int udimCols = 0;
     float3 boundsMin, boundsMax;
     // NormalizeMesh: original position = pos / srcScale + srcCenter (exports in the file's own units).
     float3 srcCenter;
@@ -78,6 +83,13 @@ void NormalizeMesh(MeshData& m);
 // UVs overlap or leave 0..1, 1: always (2 materials or more). Returns true when the UVs were moved.
 // sourceVertex (optional): for each vertex of the result, the vertex it comes from (paint transfer).
 bool TileMaterialUvs(MeshData& m, u32 resolution, int mode, std::vector<u32>* sourceVertex = nullptr);
+// UDIM layouts (UVs over several 0..1 tiles, U in 0..10, every triangle inside one tile): the tiles are
+// packed into cells of the texture (vertices shared by two tiles split). Returns true when the UVs were moved.
+bool PackUdims(MeshData& m, std::vector<u32>* sourceVertex = nullptr);
+// UVs of the vertices back in UDIM space (the packed UVs when the mesh has no UDIM layout).
+std::vector<float2> UdimUvs(const MeshData& m);
+// Cell of the UDIM layout holding a UV of the packed texture (-1: none).
+int UdimCellAt(const MeshData& m, float2 uv);
 // Wavefront OBJ (positions back in the original units when `original`), Y up, UV v flipped like LoadObj reads it.
 bool SaveObj(const std::string& path, const MeshData& m, bool original, std::string* error = nullptr);
 

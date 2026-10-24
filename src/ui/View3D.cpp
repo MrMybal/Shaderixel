@@ -89,7 +89,8 @@ void App::DrawView3D() {
     if (v->mesh) {
         if (button("UV automatiques...")) uvTool.open = true;
         ui::HelpTooltip("Dépliage UV automatique (xatlas) avec options et aperçu avant d'appliquer.");
-        if (v->mesh->data.materials.size() > 1 && v->mesh->data.uvTiles.empty() && v->mesh->data.triMaterial.size() * 3 == v->mesh->data.indices.size()) {
+        if (v->mesh->data.materials.size() > 1 && v->mesh->data.uvTiles.empty() && v->mesh->data.udims.empty() &&
+            v->mesh->data.triMaterial.size() * 3 == v->mesh->data.indices.size()) {
             if (button("Une tuile par matériau")) RetileMaterials(*v);
             ui::HelpTooltip("Chaque matériau du modèle reçoit sa propre zone de la texture (la peinture déjà faite suit) ;\n"
                             "les exports écrivent ensuite un jeu de textures par matériau.");
@@ -371,7 +372,18 @@ void App::DrawView3D() {
             float2 p = local(io.MousePos.x, io.MousePos.y);
             // Limited to the material under the brush: its UV tile.
             v->renderer.meshClip = {};
-            if (brush3D.limitMaterial && !s.data.uvTiles.empty() && s.data.triMaterial.size() * 3 == s.data.indices.size()) {
+            if (brush3D.limitMaterial && !s.data.udims.empty()) {
+                // UDIM: the tile under the brush (its cell of the texture).
+                const int tri = PickMeshTriangle(s, p, w, h);
+                if (tri >= 0) {
+                    float2 c = {0, 0};
+                    for (int k = 0; k < 3; ++k) c = c + s.data.vertices[s.data.indices[tri * 3 + k]].uv;
+                    const int cell = UdimCellAt(s.data, c * (1.0f / 3.0f)), cols = std::max(1, s.data.udimCols);
+                    if (cell >= 0)
+                        v->renderer.meshClip = {(int)std::floor((double)(cell % cols) * doc.Width() / cols), (int)std::floor((double)(cell / cols) * doc.Height() / cols),
+                                                (int)std::ceil((double)(cell % cols + 1) * doc.Width() / cols), (int)std::ceil((double)(cell / cols + 1) * doc.Height() / cols)};
+                }
+            } else if (brush3D.limitMaterial && !s.data.uvTiles.empty() && s.data.triMaterial.size() * 3 == s.data.indices.size()) {
                 const int tri = PickMeshTriangle(s, p, w, h);
                 if (tri >= 0) {
                     const u16 mi = s.data.triMaterial[tri];

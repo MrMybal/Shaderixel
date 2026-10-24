@@ -1519,7 +1519,8 @@ private:
     std::vector<std::pair<std::string, Rect>> ExportParts(DocView& v);
     // An existing project: each material gets its own UV tile, the paint follows (one undo step for the pixels).
     void RetileMaterials(DocView& v);
-    void ExportPbrTexturesPart(DocView& v, const std::string& pngBasePath, Rect crop);
+    // udim: a UDIM tile ("1001": files name_Channel.1001.png, no Unreal script); empty otherwise.
+    void ExportPbrTexturesPart(DocView& v, const std::string& pngBasePath, Rect crop, const std::string& udim = "");
     std::vector<PackJob> packJobs;
     std::string layoutSlot[2];        // saved workspace of each kind
     Json MeshToJson(const MeshData& m);

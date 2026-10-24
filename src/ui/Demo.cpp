@@ -615,6 +615,23 @@ void App::DemoTick() {
             bool same = ok && back.uvTiles.size() == m.uvTiles.size() && back.materials.size() == m.materials.size() && back.triMaterial == m.triMaterial;
             for (size_t i = 0; same && i < m.uvTiles.size(); ++i) same = std::fabs(back.uvTiles[i].x - m.uvTiles[i].x) < 1e-6f && back.materials[i].name == m.materials[i].name;
             Log("[multimat] mesh saved / read back: %s", same ? "same tiles and materials" : "DIFFERENT");
+            if (!m.udims.empty()) {
+                // UDIM: tiles, cells, the project's copy and the OBJ export (UVs back in UDIM space, read back).
+                std::string tiles;
+                for (u16 t : m.udims) tiles += std::to_string(t) + " ";
+                Log("[udim] tiles %s(grid %d x %d), project copy %s", tiles.c_str(), m.udimCols, m.udimCols,
+                    ok && back.udims == m.udims && back.udimCols == m.udimCols ? "same" : "DIFFERENT");
+                const std::string obj = std::string(outDir[0] ? outDir : ".") + "\\udim_back.obj";
+                MeshData re;
+                std::string err;
+                if (SaveObj(obj, m, true, &err) && LoadMesh(obj, re, &err)) {
+                    float lo = 1e9f, hi = -1e9f;
+                    for (auto& vx : re.vertices) { lo = std::min(lo, vx.uv.x); hi = std::max(hi, vx.uv.x); }
+                    MeshData packed = re;
+                    const bool again = PackUdims(packed);
+                    Log("[udim] OBJ export read back: u %.2f..%.2f, packs again %s (%zu tiles)", lo, hi, again ? "yes" : "NO", packed.udims.size());
+                } else Log("[udim] OBJ export: %s", err.c_str());
+            }
         }
         if (frameCounter == 12) {
             fg = {1, 0, 0, 1};

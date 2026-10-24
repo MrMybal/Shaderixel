@@ -95,6 +95,8 @@ bool UnwrapMesh(const MeshData& in, const UnwrapOptions& o, UnwrapResult& out, s
     out.mesh.materials = in.materials;
     if (m.indexCount == in.indices.size()) out.mesh.triMaterial = in.triMaterial;
     out.mesh.uvTiles.clear();
+    out.mesh.udims.clear();
+    out.mesh.udimCols = 0;
     out.mesh.hasUvs = true;
     out.charts = atlas->chartCount;
     out.width = atlas->width;

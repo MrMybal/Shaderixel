@@ -94,8 +94,8 @@ bool SaveObj(const std::string& path, const MeshData& m, bool original, std::str
         snprintf(b, sizeof(b), "v %.6f %.6f %.6f\n", p.x, p.y, -p.z);  // back to right-handed, like LoadObj reads it
         f << b;
     }
-    for (auto& v : m.vertices) {
-        snprintf(b, sizeof(b), "vt %.6f %.6f\n", v.uv.x, 1.0f - v.uv.y);
+    for (const float2& uv : UdimUvs(m)) {  // (UDIM: the tiles' own UV space)
+        snprintf(b, sizeof(b), "vt %.6f %.6f\n", uv.x, 1.0f - uv.y);
         f << b;
     }
     for (auto& v : m.vertices) {
@@ -344,6 +344,100 @@ bool TileMaterialUvs(MeshData& m, u32 resolution, int mode, std::vector<u32>* so
         uv = {xf[mi].x + uv.x * xf[mi].z, xf[mi].y + uv.y * xf[mi].z};
     }
     return true;
+}
+
+bool PackUdims(MeshData& m, std::vector<u32>* sourceVertex) {
+    const size_t nt = m.indices.size() / 3;
+    if (!nt || m.vertices.empty()) return false;
+    // Tile of each triangle (its center), in the file's V-up convention (the UVs are stored with V down).
+    std::vector<int> triTile(nt);
+    std::map<int, int> cellOf;
+    for (size_t t = 0; t < nt; ++t) {
+        float2 c = {0, 0};
+        for (int k = 0; k < 3; ++k) c = c + m.vertices[m.indices[t * 3 + k]].uv;
+        c = c * (1.0f / 3.0f);
+        const int tu = (int)std::floor(c.x), tv = (int)std::floor(1.0f - c.y);
+        if (tu < 0 || tu > 9 || tv < 0 || tv > 99) return false;  // negative or wrapping UVs: not a UDIM layout
+        for (int k = 0; k < 3; ++k) {
+            const float2 uv = m.vertices[m.indices[t * 3 + k]].uv;
+            const float lu = uv.x - tu, lv = (1.0f - uv.y) - tv;
+            if (lu < -0.01f || lu > 1.01f || lv < -0.01f || lv > 1.01f) return false;  // straddles tiles: a tiling texture
+        }
+        triTile[t] = 1001 + tu + 10 * tv;
+        cellOf[triTile[t]] = 0;
+    }
+    if (cellOf.size() < 2) return false;
+    int cols = 1;
+    while (cols * cols < (int)cellOf.size()) cols *= 2;
+    m.udims.clear();
+    for (auto& [udim, cell] : cellOf) {
+        cell = (int)m.udims.size();
+        m.udims.push_back((u16)udim);
+    }
+    m.udimCols = cols;
+    // Vertices shared by two tiles are split: each copy moves into its own cell.
+    std::vector<MeshVertex> verts = m.vertices;
+    std::vector<u32> source(m.vertices.size());
+    for (size_t i = 0; i < source.size(); ++i) source[i] = (u32)i;
+    std::vector<int> vtile(m.vertices.size(), -1);
+    std::map<std::pair<u32, int>, u32> copies;
+    for (size_t t = 0; t < nt; ++t)
+        for (int k = 0; k < 3; ++k) {
+            u32& idx = m.indices[t * 3 + k];
+            if (vtile[idx] < 0) { vtile[idx] = triTile[t]; continue; }
+            if (vtile[idx] == triTile[t]) continue;
+            auto it = copies.find({idx, triTile[t]});
+            if (it == copies.end()) {
+                const u32 n = (u32)verts.size();
+                verts.push_back(m.vertices[idx]);
+                source.push_back(idx);
+                vtile.push_back(triTile[t]);
+                it = copies.emplace(std::make_pair(idx, triTile[t]), n).first;
+            }
+            idx = it->second;
+        }
+    m.vertices = std::move(verts);
+    if (sourceVertex) *sourceVertex = std::move(source);
+    const float inv = 1.0f / cols;
+    for (size_t i = 0; i < m.vertices.size(); ++i) {
+        if (vtile[i] < 0) continue;
+        const int udim = vtile[i] - 1001, tu = udim % 10, tv = udim / 10, cell = cellOf[vtile[i]];
+        float2& uv = m.vertices[i].uv;
+        const float lu = uv.x - tu, lvDown = 1.0f - ((1.0f - uv.y) - tv);  // local, V down like the texture
+        uv = {((cell % cols) + lu) * inv, ((cell / cols) + lvDown) * inv};
+    }
+    return true;
+}
+
+std::vector<float2> UdimUvs(const MeshData& m) {
+    std::vector<float2> out(m.vertices.size());
+    for (size_t i = 0; i < out.size(); ++i) out[i] = m.vertices[i].uv;
+    if (m.udims.empty() || m.udimCols <= 0) return out;
+    // Cell of each vertex: the one of its triangles' centers (a vertex on a cell's edge would be ambiguous).
+    std::vector<int> cellOfVertex(m.vertices.size(), -1);
+    for (size_t t = 0; t + 2 < m.indices.size(); t += 3) {
+        float2 c = {0, 0};
+        for (int k = 0; k < 3; ++k) c = c + m.vertices[m.indices[t + k]].uv;
+        const int cell = UdimCellAt(m, c * (1.0f / 3.0f));
+        for (int k = 0; k < 3; ++k) if (cellOfVertex[m.indices[t + k]] < 0) cellOfVertex[m.indices[t + k]] = cell;
+    }
+    const int cols = m.udimCols;
+    for (size_t i = 0; i < out.size(); ++i) {
+        const int cell = cellOfVertex[i];
+        if (cell < 0 || cell >= (int)m.udims.size()) continue;
+        const int udim = m.udims[cell] - 1001, tu = udim % 10, tv = udim / 10;
+        const float lu = m.vertices[i].uv.x * cols - (cell % cols), lvDown = m.vertices[i].uv.y * cols - (cell / cols);
+        out[i] = {tu + lu, 1.0f - (tv + (1.0f - lvDown))};
+    }
+    return out;
+}
+
+int UdimCellAt(const MeshData& m, float2 uv) {
+    if (m.udims.empty() || m.udimCols <= 0) return -1;
+    const int cx = (int)std::floor(uv.x * m.udimCols), cy = (int)std::floor(uv.y * m.udimCols);
+    if (cx < 0 || cy < 0 || cx >= m.udimCols || cy >= m.udimCols) return -1;
+    const int cell = cy * m.udimCols + cx;
+    return cell < (int)m.udims.size() ? cell : -1;
 }
 
 MeshData MakeCube() {
