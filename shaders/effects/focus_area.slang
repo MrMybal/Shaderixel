@@ -11,7 +11,7 @@
 // disc. Blurred backgrounds stay black; flat areas enclosed by sharp edges (a plain wall of a sharp house) are filled
 // by a closing (dilate then erode by `fill`, separable). Used by Selection > Focus Area.
 
-float Lum(int2 p) { return LinearToSrgb1(Luma(Unpremultiply(Input(0, p)).rgb)); }
+float Lum(int2 p) { return LinearToSrgb1(Luma(Input(0, p).rgb)); }  // (straight colors: no //@premultiplied)
 
 float Detail(int2 p)
 {

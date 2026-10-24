@@ -901,7 +901,7 @@ private:
         float tileSize = 0.25f;   // tiles: size of one repetition across the plane (fraction)
         float opacity = 1;
         bool dirty = true;
-        std::optional<DocState> before;
+        size_t histCursor = 0;    // history position right after the step that added the layer
     } persp;
     void StartPerspectivePaste(DocView& v);
     void FinishPerspectivePaste(bool keep);
@@ -1191,8 +1191,9 @@ private:
         DocView* view = nullptr;
         float radius = 6, threshold = 0.05f, softness = 0.02f, fill = 12;
         bool invert = false;
-        size_t histCount = 0;
-        std::optional<DocState> before;
+        bool applied = false;     // our selection step is in the history
+        size_t appliedCursor = 0; // history position right after it
+        bool closeWhenDone = false;
     } focusArea;
     void DrawFocusAreaWindow();
     void FocusAreaApply();

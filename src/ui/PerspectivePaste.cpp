@@ -70,16 +70,19 @@ void App::StartPerspectivePaste(DocView& v) {
     persp = {};
     persp.active = true;
     persp.view = &v;
-    persp.before = d.S();
     // The source: a copy of the layer's pixels, its content's bounds read back.
     persp.src = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "PerspSource");
     ctx->CopyTexture(persp.src.get(), s->tex.get());
     persp.boundsRb = v.renderer.ComputeBounds(*ctx, persp.src.get(), nullptr, false);
     const std::string name = l->name;
+    // The new layer is an ordinary step (edits and undo meanwhile stay consistent); its pixels follow the plane.
+    Edit e(d, v.history, "Coller en perspective");
     Layer& nl = d.AddPixelLayer("Perspective - " + name);
     persp.layer = nl.id;
     d.S().activeLayer = nl.id;
     d.SyncGraph();
+    e.Commit();
+    persp.histCursor = v.history.Cursor();
     persp.srcRect = {0, 0, (float)s->tex->Width(), (float)s->tex->Height()};
     Status("Coller en perspective : glissez les coins sur le plan (mur, sol, écran), Entrée pour appliquer, Échap pour annuler");
 }
@@ -88,16 +91,22 @@ void App::FinishPerspectivePaste(bool keep) {
     if (!persp.active) return;
     bool alive = false;
     for (auto& dv : docs) alive |= dv.get() == persp.view;
-    if (alive && persp.before) {
-        Document& d = *persp.view->doc;
+    if (alive) {
+        DocView& v = *persp.view;
+        Document& d = *v.doc;
         if (keep) {
-            persp.view->history.PushState("Coller en perspective", *persp.before, d.S());
             d.dirty = true;
             Status("Coller en perspective : appliqué");
-        } else {
-            d.S() = *persp.before;
-            d.InvalidateSurfaces();
-            d.SyncGraph();
+        } else if (d.FindLayer(persp.layer)) {
+            if (v.history.Cursor() == persp.histCursor && v.history.Count() == persp.histCursor) {
+                // Nothing done since: the step that added the layer is taken back entirely.
+                v.history.Undo(d, *ctx);
+                v.history.TruncateTo(v.history.Cursor());
+            } else {
+                Edit e(d, v.history, "Annuler le collage en perspective");
+                d.RemoveLayer(persp.layer);
+                e.Commit();
+            }
             Status("Coller en perspective : annulé");
         }
     }
@@ -151,7 +160,7 @@ void App::PerspectivePasteTick() {
     ImGui::End();
     if (!persp.dirty) return;
     Layer* l = d.FindLayer(persp.layer);
-    if (!l) { FinishPerspectivePaste(false); return; }
+    if (!l) { persp = {}; return; }  // (undone or deleted meanwhile: the session ends)
     Prepare(v);  // (the new layer's surface allocated)
     Surface* s = d.GetSurface(l->surface);
     float m[9], inv[9];
@@ -171,9 +180,11 @@ void App::PerspectivePasteTick() {
 
 bool App::PerspectivePasteInput(DocView& v, float2 dp, bool hovered) {
     if (!persp.active || persp.view != &v) return false;
-    if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) { FinishPerspectivePaste(true); return true; }
-    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { FinishPerspectivePaste(false); return true; }
     if (persp.boundsRb) return true;  // (the plane appears once the source's bounds are known)
+    if (!ImGui::GetIO().WantTextInput) {  // (Enter in a text field belongs to it)
+        if (ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter)) { FinishPerspectivePaste(true); return true; }
+        if (ImGui::IsKeyPressed(ImGuiKey_Escape)) { FinishPerspectivePaste(false); return true; }
+    }
     if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         const float grab = 10.0f / std::max(v.zoom, 1e-3f);
         persp.drag = -1;

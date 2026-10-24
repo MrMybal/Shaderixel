@@ -1552,7 +1552,7 @@ void App::HandleShortcuts() {
     };
 
     // Sessions placing something on the image own Enter / Escape (nothing else reacts to them meanwhile).
-    if (persp.active) {
+    if (persp.active && !io.WantTextInput && !persp.boundsRb) {
         if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) { FinishPerspectivePaste(true); return; }
         if (pressed(ImGuiKey_Escape)) { FinishPerspectivePaste(false); return; }
     }

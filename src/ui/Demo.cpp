@@ -559,7 +559,7 @@ void App::DemoTick() {
                 Log("[vpaste] source rect %.0f %.0f %.0f %.0f", persp.srcRect.x, persp.srcRect.y, persp.srcRect.z, persp.srcRect.w);
             }
             if (frameCounter == 26) {
-                FinishPerspectivePaste(true);
+                FinishPerspectivePaste(GetEnvironmentVariableA("SX_VCANCEL", nullptr, 0) == 0);
                 Log("[vpaste] %s, layers %zu, history %zu (%s)", statusMsg.c_str(), d.S().layers.size(), a->history.Count(), a->history.Label(a->history.Count() - 1).c_str());
             }
             if (frameCounter == 28) { Undo(); Log("[vpaste] undo: layers %zu", d.S().layers.size()); }
@@ -575,10 +575,9 @@ void App::DemoTick() {
         char focus[16] = "";
         if (GetEnvironmentVariableA("SX_FOCUS", focus, sizeof(focus)) > 0) {
             if (frameCounter == 10) {
+                focusArea = {};
                 focusArea.open = true;
                 focusArea.view = a;
-                focusArea.before = d.S();
-                focusArea.histCount = a->history.Count();
                 focusArea.threshold = (float)atof(focus);
                 char fill[16] = "";
                 if (GetEnvironmentVariableA("SX_FILL", fill, sizeof(fill)) > 0) focusArea.fill = (float)atof(fill);

@@ -38,6 +38,7 @@ void App::RotateCanvas(DocView& v, int op) {
 void App::ApplyCrop(DocView& v, Rect r) {
     if (r.Empty()) return;
     float m[6] = {1, 0, (float)r.x0, 0, 1, (float)r.y0};
+    if (xf.active && xf.view) TransformCommit(*xf.view);  // (its own step, before the crop's)
     v.history.BeginGroup();
     if (v.doc->S().selection) v.renderer.Deselect(*v.doc, v.history);  // (undone with the crop)
     ApplyCanvasOp(v, (u32)r.Width(), (u32)r.Height(), m, 0, "Recadrage");
@@ -77,6 +78,7 @@ void App::ApplyPerspectiveCrop(DocView& v) {
         d = y1 - y0 + g * y1; e = y3 - y0 + hh * y3; f = y0;
     }
     const float m[9] = {a / w, b / h, c, d / w, e / h, f, g / w, hh / h, 1};
+    if (w > 16384 || h > 16384) { Status("Recadrage en perspective impossible (taille max 16384 px)"); return; }
     v.history.BeginGroup();
     if (v.doc->S().selection) v.renderer.Deselect(*v.doc, v.history);  // (undone with the crop)
     const bool ok = v.renderer.ResampleCanvasPerspective(*v.doc, *ctx, v.history, w, h, m, 2, "Recadrage en perspective");
@@ -119,6 +121,7 @@ void App::TrimTick() {
     Rect r = {trimSides[2] ? x0 : 0, trimSides[0] ? y0 : 0, trimSides[3] ? x1 + 1 : W, trimSides[1] ? y1 + 1 : H};
     if (r.x0 == 0 && r.y0 == 0 && r.x1 == W && r.y1 == H) { Status("Rogner : rien à retirer"); return; }
     float m[6] = {1, 0, (float)r.x0, 0, 1, (float)r.y0};
+    if (xf.active && xf.view) TransformCommit(*xf.view);
     trimView->history.BeginGroup();
     if (trimView->doc->S().selection) trimView->renderer.Deselect(*trimView->doc, trimView->history);
     ApplyCanvasOp(*trimView, (u32)r.Width(), (u32)r.Height(), m, 0, "Rogner");

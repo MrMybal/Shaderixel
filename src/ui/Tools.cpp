@@ -1074,10 +1074,9 @@ void App::DrawSelectionMenu() {
         if (colorRange.samples.empty()) colorRange.samples.push_back({SrgbToLinear(fg.x), SrgbToLinear(fg.y), SrgbToLinear(fg.z), 1});
     }
     if (ImGui::MenuItem("Zone de netteté...", nullptr, false, !focusArea.open)) {
+        focusArea = {};
         focusArea.open = true;
         focusArea.view = v;
-        focusArea.before = d.S();
-        focusArea.histCount = v->history.Count();
         focusArea.live = true;  // first result right away
     }
     ui::HelpTooltip("Sélectionne les parties nettes de la photo (le sujet mis au point), d'après le détail local.");
@@ -1105,12 +1104,9 @@ void App::FocusAreaApply() {
     FocusArea& F = focusArea;
     bool alive = false;
     for (auto& dv : docs) alive |= dv.get() == F.view;
-    if (!alive || !F.before) { F = {}; return; }
+    if (!alive) { F = {}; return; }
     DocView& v = *F.view;
     Document& d = *v.doc;
-    // From the state before the dialog: one selection step, replaced at every change.
-    d.S() = *F.before;
-    v.history.TruncateTo(F.histCount);
     EffectInstance fx;
     fx.effectId = "focus_area";
     auto def = Effects().Find("focus_area");
@@ -1128,7 +1124,15 @@ void App::FocusAreaApply() {
     if (!img) return;
     gpu::TexturePtr mask = v.renderer.ApplyEffect(d, *ctx, fx, img);
     if (!mask) return;  // (still compiling: tried again next frame)
+    // One selection step for the dialog: the previous result is taken back when it is still the last step
+    // (an edit or an undo meanwhile keeps it, the new result comes on top).
+    if (F.applied && v.history.Cursor() == F.appliedCursor && v.history.Count() == F.appliedCursor) {
+        v.history.Undo(d, *ctx);
+        v.history.TruncateTo(v.history.Cursor());
+    }
     v.renderer.SelectFrom(d, *ctx, v.history, mask.get(), SelSource::Mask, SelMode::Replace, {}, 0, "Zone de netteté");
+    F.applied = true;
+    F.appliedCursor = v.history.Cursor();
     F.live = false;
 }
 
@@ -1149,24 +1153,24 @@ void App::DrawFocusAreaWindow() {
         F.live |= ImGui::SliderFloat("Combler les zones unies (px)", &F.fill, 0, 96, "%.0f");
         ui::HelpTooltip("Remplit les surfaces sans détail entourées de contours nets (un mur uni du sujet).");
         F.live |= ImGui::Checkbox("Inverser (sélectionner le flou)", &F.invert);
-        if (ImGui::Button("OK", ImVec2(100 * dpi, 0))) {
-            if (F.live) FocusAreaApply();
-            F = {};
-            ImGui::End();
-            return;
-        }
+        if (F.closeWhenDone) ImGui::TextDisabled("Calcul en cours...");
+        if (ImGui::Button("OK", ImVec2(100 * dpi, 0))) F.closeWhenDone = true;  // (closed once the last change is applied)
         ImGui::SameLine();
         if (ImGui::Button("Annuler", ImVec2(100 * dpi, 0))) open = false;
     }
     ImGui::End();
     if (!open) {
-        // Back to the state before the dialog.
-        F.view->doc->S() = *F.before;
-        F.view->history.TruncateTo(F.histCount);
+        // Cancel: the dialog's selection step taken back if it is still the last one.
+        DocView& v = *F.view;
+        if (F.applied && v.history.Cursor() == F.appliedCursor && v.history.Count() == F.appliedCursor) {
+            v.history.Undo(*v.doc, *ctx);
+            v.history.TruncateTo(v.history.Cursor());
+        }
         F = {};
         return;
     }
     if (F.live && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) FocusAreaApply();  // (on release while dragging a slider)
+    if (F.closeWhenDone && !F.live) F = {};
 }
 
 void App::DrawSelectionDialog() {

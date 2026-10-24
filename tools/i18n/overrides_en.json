@@ -688,5 +688,7 @@
  "Combler les zones unies (px)": "Fill plain areas (px)",
  "Remplit les surfaces sans détail entourées de contours nets (un mur uni du sujet).": "Fills detail-free surfaces enclosed by sharp edges (a plain wall of the subject).",
  "Inverser (sélectionner le flou)": "Invert (select the blur)",
- "Inverser (zones floues)": "Invert (blurred areas)"
+ "Inverser (zones floues)": "Invert (blurred areas)",
+ "Calcul en cours...": "Computing...",
+ "Annuler le collage en perspective": "Cancel the paste in perspective"
 }

@@ -34,7 +34,8 @@ float4 Fetch(float2 p)
     float2 uv = Plane(p);
     if (any(uv < 0.0) || any(uv > 1.0)) return 0;  // outside the plane
     if (gTiles.x > 0) uv = frac(uv * gTiles);
-    const float2 q = gSrcRect.xy + uv * gSrcRect.zw;
+    // Inside the source rectangle (its outside is transparent: no seams between the tiles).
+    const float2 q = clamp(gSrcRect.xy + uv * gSrcRect.zw, gSrcRect.xy + 0.5, gSrcRect.xy + gSrcRect.zw - 0.5);
     return gSrc.SampleLevel(sLinearClamp, q / float2(gSrcSize), 0);
 }
 
