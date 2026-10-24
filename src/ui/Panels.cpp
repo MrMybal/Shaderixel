@@ -248,12 +248,13 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label, const char* only
             case ParamType::Float2:
                 if (p.min == 0 && p.max == 1) {
                     // A position in the image (0..1): also placed on the canvas.
-                    ImGui::SetNextItemWidth(ImGui::CalcItemWidth() - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemInnerSpacing.x);
-                    c = ImGui::SliderFloat2("##v", &val.x, p.min, p.max, "%.3f");
-                    ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
+                    // (the button first: the slider stays the last item, for the undo tracking and the reset below)
+                    const float pickW = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x;
+                    const float sliderW = ImGui::CalcItemWidth() - pickW;
                     ParamPickButton(fx, i);
                     ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
-                    ImGui::TextUnformatted(p.label.c_str());
+                    ImGui::SetNextItemWidth(sliderW);
+                    c = ImGui::SliderFloat2(p.label.c_str(), &val.x, p.min, p.max, "%.3f");
                 } else {
                     c = ImGui::SliderFloat2(p.label.c_str(), &val.x, p.min, p.max, "%.3f");
                 }

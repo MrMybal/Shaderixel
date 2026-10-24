@@ -38,14 +38,27 @@ void App::RotateCanvas(DocView& v, int op) {
 void App::ApplyCrop(DocView& v, Rect r) {
     if (r.Empty()) return;
     float m[6] = {1, 0, (float)r.x0, 0, 1, (float)r.y0};
-    v.doc->S().selection = 0;
+    v.history.BeginGroup();
+    if (v.doc->S().selection) v.renderer.Deselect(*v.doc, v.history);  // (undone with the crop)
     ApplyCanvasOp(v, (u32)r.Width(), (u32)r.Height(), m, 0, "Recadrage");
+    v.history.EndGroup();
 }
 
 void App::ApplyPerspectiveCrop(DocView& v) {
     if (!cropQuadSet) return;
     if (xf.active && xf.view) TransformCommit(*xf.view);
     const float2* q = cropQuad;  // TL, TR, BR, BL
+    {
+        // A convex frame only (corners dragged across each other would fold the plane).
+        int sign = 0;
+        for (int k = 0; k < 4; ++k) {
+            const float2 a = q[(k + 1) % 4] - q[k], b = q[(k + 2) % 4] - q[(k + 1) % 4];
+            const float c = a.x * b.y - a.y * b.x;
+            const int sg = c > 1e-3f ? 1 : c < -1e-3f ? -1 : 0;
+            if (!sg || (sign && sg != sign)) { Status("Recadrage en perspective : le cadre doit rester convexe (coins dans l'ordre)"); return; }
+            sign = sg;
+        }
+    }
     const float W = 0.5f * (Length(q[1] - q[0]) + Length(q[2] - q[3])), H = 0.5f * (Length(q[3] - q[0]) + Length(q[2] - q[1]));
     const u32 w = (u32)std::max(1L, std::lround(W)), h = (u32)std::max(1L, std::lround(H));
     // Unit square -> quad (Heckbert), then destination pixels -> unit square.
@@ -64,8 +77,11 @@ void App::ApplyPerspectiveCrop(DocView& v) {
         d = y1 - y0 + g * y1; e = y3 - y0 + hh * y3; f = y0;
     }
     const float m[9] = {a / w, b / h, c, d / w, e / h, f, g / w, hh / h, 1};
-    v.doc->S().selection = 0;
-    if (!v.renderer.ResampleCanvasPerspective(*v.doc, *ctx, v.history, w, h, m, 2, "Recadrage en perspective")) {
+    v.history.BeginGroup();
+    if (v.doc->S().selection) v.renderer.Deselect(*v.doc, v.history);  // (undone with the crop)
+    const bool ok = v.renderer.ResampleCanvasPerspective(*v.doc, *ctx, v.history, w, h, m, 2, "Recadrage en perspective");
+    v.history.EndGroup();
+    if (!ok) {
         Status("Recadrage en perspective impossible (taille max 16384 px)");
         return;
     }
@@ -83,6 +99,7 @@ void App::TrimTick() {
     bool alive = false;
     for (auto& dv : docs) alive |= dv.get() == trimView;
     if (!alive || rb->data.size() < (size_t)rb->width * rb->height * 4) return;
+    if (rb->width != trimView->doc->Width() || rb->height != trimView->doc->Height()) { Status("Rogner : l'image a changé de taille entre-temps"); return; }
     const int W = (int)rb->width, H = (int)rb->height;
     const u8* px = rb->data.data();
     const u8* ref = trimMode == 1 ? px : trimMode == 2 ? px + ((size_t)(H - 1) * W + (W - 1)) * 4 : nullptr;
@@ -102,8 +119,10 @@ void App::TrimTick() {
     Rect r = {trimSides[2] ? x0 : 0, trimSides[0] ? y0 : 0, trimSides[3] ? x1 + 1 : W, trimSides[1] ? y1 + 1 : H};
     if (r.x0 == 0 && r.y0 == 0 && r.x1 == W && r.y1 == H) { Status("Rogner : rien à retirer"); return; }
     float m[6] = {1, 0, (float)r.x0, 0, 1, (float)r.y0};
-    trimView->doc->S().selection = 0;
+    trimView->history.BeginGroup();
+    if (trimView->doc->S().selection) trimView->renderer.Deselect(*trimView->doc, trimView->history);
     ApplyCanvasOp(*trimView, (u32)r.Width(), (u32)r.Height(), m, 0, "Rogner");
+    trimView->history.EndGroup();
 }
 
 void App::DrawImageMenu() {
@@ -296,39 +315,44 @@ void App::CropInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     if (cropPersp) {
         // Perspective: a frame drawn like the rectangle, then its corners dragged one by one onto the plane's edges.
         if (cropCorner >= 0) {
-            cropQuad[cropCorner] = dp;
-            if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) cropCorner = -1;
+            if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) cropCorner = -1;  // (also a drag left over by another tool)
+            else cropQuad[cropCorner] = dp;
             return;
         }
         if (cropActive && cropQuadSet && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                cropDragging = false;
+                ApplyPerspectiveCrop(v);
+                return;
+            }
             const float grab = 10.0f / std::max(v.zoom, 1e-3f);
             for (int k = 0; k < 4; ++k)
                 if (Length(cropQuad[k] - dp) < grab) {
                     cropCorner = k;
                     return;
                 }
-            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
-                ApplyPerspectiveCrop(v);
-                return;
-            }
         }
         if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
             cropDragging = true;
-            cropActive = true;
-            cropQuadSet = false;
             cropStart = cropEnd = dp;
         }
         if (cropDragging) {
             cropEnd = dp;
+            // A new frame only once dragged (a click elsewhere keeps the frame being adjusted).
+            if (Length(cropEnd - cropStart) >= 2) {
+                cropActive = true;
+                cropQuadSet = false;
+            }
             if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
                 cropDragging = false;
-                if (Length(cropEnd - cropStart) < 2) cropActive = false;
-                const Rect r = CropRect();
-                cropQuad[0] = {(float)r.x0, (float)r.y0};
-                cropQuad[1] = {(float)r.x1, (float)r.y0};
-                cropQuad[2] = {(float)r.x1, (float)r.y1};
-                cropQuad[3] = {(float)r.x0, (float)r.y1};
-                cropQuadSet = cropActive;
+                if (!cropQuadSet && Length(cropEnd - cropStart) >= 2) {
+                    const Rect r = CropRect();
+                    cropQuad[0] = {(float)r.x0, (float)r.y0};
+                    cropQuad[1] = {(float)r.x1, (float)r.y0};
+                    cropQuad[2] = {(float)r.x1, (float)r.y1};
+                    cropQuad[3] = {(float)r.x0, (float)r.y1};
+                    cropQuadSet = true;
+                }
             }
         }
         return;

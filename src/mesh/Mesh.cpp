@@ -82,7 +82,7 @@ void NormalizeMesh(MeshData& m) {
     ComputeBounds(m);
 }
 
-bool SaveObj(const std::string& path, const MeshData& m, bool original, std::string* error) {
+bool SaveObj(const std::string& path, const MeshData& m, bool original, std::string* error, bool udimSpace) {
     std::ofstream f(Utf8Path(path), std::ios::binary);
     if (!f) { if (error) *error = "écriture impossible : " + path; return false; }
     f << "# Shaderixel: " << m.name << " (Y up" << (original ? ", original units" : ", normalized") << ")\n";
@@ -94,7 +94,10 @@ bool SaveObj(const std::string& path, const MeshData& m, bool original, std::str
         snprintf(b, sizeof(b), "v %.6f %.6f %.6f\n", p.x, p.y, -p.z);  // back to right-handed, like LoadObj reads it
         f << b;
     }
-    for (const float2& uv : UdimUvs(m)) {  // (UDIM: the tiles' own UV space)
+    std::vector<float2> uvs;
+    if (udimSpace) uvs = UdimUvs(m);  // (UDIM: the tiles' own UV space)
+    else for (auto& v : m.vertices) uvs.push_back(v.uv);
+    for (const float2& uv : uvs) {
         snprintf(b, sizeof(b), "vt %.6f %.6f\n", uv.x, 1.0f - uv.y);
         f << b;
     }

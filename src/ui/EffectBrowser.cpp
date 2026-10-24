@@ -152,13 +152,18 @@ void App::FrequencySeparation(DocView& v, float radius) {
     v.history.BeginGroup();
     Edit e(d, v.history, "Séparation de fréquences");
     // Above the layer: the low frequencies, then the high ones in Linear Light (the pair rebuilds the image).
+    const bool styled = src->blend != BlendMode::Normal || src->opacity < 1 || !src->filters.empty();
     Layer& lo = d.DuplicateLayer(srcId);
     lo.name = name + " - basses fréquences";
+    lo.blend = BlendMode::Normal;  // (the pair rebuilds the layer's own pixels: no inherited mode, opacity or filters)
+    lo.opacity = 1;
+    lo.filters.clear();
     const Id loId = lo.id, loSurf = lo.surface;
     Layer& hi = d.DuplicateLayer(loId);
     hi.name = name + " - hautes fréquences";
     hi.blend = BlendMode::LinearLight;
     hi.opacity = 1;
+    hi.filters.clear();
     const Id hiId = hi.id, hiSurf = hi.surface;
     if (Layer* s = d.FindLayer(srcId)) s->visible = false;  // (kept below, hidden: the pair shows the image)
     d.SyncGraph();
@@ -172,7 +177,8 @@ void App::FrequencySeparation(DocView& v, float radius) {
     v.history.EndGroup();
     d.S().activeLayer = hiId;
     (void)loId;
-    Status(ok ? "Séparation de fréquences : retouchez les couleurs sur le calque des basses fréquences, la texture sur celui des hautes"
+    if (ok && styled) Status("Séparation de fréquences : faite sur les pixels du calque (son mode, son opacité et ses filtres ne sont pas repris)");
+    else Status(ok ? "Séparation de fréquences : retouchez les couleurs sur le calque des basses fréquences, la texture sur celui des hautes"
               : "Séparation de fréquences : effets en cours de compilation, annulez puis réessayez");
 }
 

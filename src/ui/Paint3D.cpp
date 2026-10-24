@@ -812,6 +812,10 @@ void App::RetileMaterials(DocView& v) {
 std::vector<std::pair<std::string, Rect>> App::ExportParts(DocView& v) {
     std::vector<std::pair<std::string, Rect>> parts;
     const Document& d = *v.doc;
+    if (exportWholeTexture) {
+        parts.push_back({"", Rect{}});
+        return parts;
+    }
     if (v.mesh && !v.mesh->data.udims.empty()) {
         // UDIM: one texture set per tile, named like the tile (.1001, .1002...).
         const auto& m = v.mesh->data;

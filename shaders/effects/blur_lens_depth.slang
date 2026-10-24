@@ -46,8 +46,10 @@ float4 Effect(EffectContext ctx)
     const float reach = maxBlur;
     if (reach < 0.5) return Input(0, ctx.px);
     const int n = max(samples, 16);
-    float4 sum = 0;
-    float wsum = 0;
+    // The pixel itself (the aperture samples never land on it).
+    const float4 c0 = Input(0, ctx.px);
+    float wsum = 1.0 / max(coc * coc, 1.0);
+    float4 sum = c0 * wsum;
     for (int i = 0; i < n; ++i)
     {
         const float2 o = Aperture(i, n) * reach;

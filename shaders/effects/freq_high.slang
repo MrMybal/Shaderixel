@@ -2,6 +2,7 @@
 //@category Flou
 //@halo radius 3 2
 //@passes 2
+//@premultiplied
 //@param radius float 4 0.3 250 "Rayon (px)"
 //@param gamma bool 1 "Calcul en sRGB (fusions gamma)"
 // Frequency separation, high layer: (image - gaussian blur) / 2 + 0.5, the same blur as the Gaussian Blur effect,
@@ -22,8 +23,10 @@ float4 Effect(EffectContext ctx)
     }
     const float4 blurred = sum / wsum;
     if (ctx.pass == 0) return blurred;
+    // The same premultiplied blur as the low layer's Gaussian Blur, compared in straight colors.
     const float4 src = Input(0, ctx.px);
+    const float3 s = Unpremultiply(src).rgb, b = Unpremultiply(blurred).rgb;
     // In the space the layers blend in (the document's gamma blending: sRGB), so Linear Light rebuilds the image.
-    if (gamma) return float4(SrgbToLinear((LinearToSrgb(saturate(src.rgb)) - LinearToSrgb(saturate(blurred.rgb))) * 0.5 + 0.5), src.a);
-    return float4((src.rgb - blurred.rgb) * 0.5 + 0.5, src.a);
+    const float3 h = gamma ? SrgbToLinear((LinearToSrgb(saturate(s)) - LinearToSrgb(saturate(b))) * 0.5 + 0.5) : (s - b) * 0.5 + 0.5;
+    return float4(h * src.a, src.a);
 }

@@ -1548,6 +1548,7 @@ private:
     };
     // Parts of a texture export: the whole texture, or one per material tile (file suffix, pixel rect).
     std::vector<std::pair<std::string, Rect>> ExportParts(DocView& v);
+    bool exportWholeTexture = false;  // ExportParts: the whole texture only (the Unreal export: one set, packed UVs)
     // An existing project: each material gets its own UV tile, the paint follows (one undo step for the pixels).
     void RetileMaterials(DocView& v);
     // udim: a UDIM tile ("1001": files name_Channel.1001.png, no Unreal script); empty otherwise.

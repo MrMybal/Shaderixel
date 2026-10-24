@@ -91,6 +91,7 @@ std::vector<float2> UdimUvs(const MeshData& m);
 // Cell of the UDIM layout holding a UV of the packed texture (-1: none).
 int UdimCellAt(const MeshData& m, float2 uv);
 // Wavefront OBJ (positions back in the original units when `original`), Y up, UV v flipped like LoadObj reads it.
-bool SaveObj(const std::string& path, const MeshData& m, bool original, std::string* error = nullptr);
+// udimSpace: UDIM layouts written in the tiles' own UV space (false: the packed UVs of the single texture).
+bool SaveObj(const std::string& path, const MeshData& m, bool original, std::string* error = nullptr, bool udimSpace = true);
 
 }  // namespace sx

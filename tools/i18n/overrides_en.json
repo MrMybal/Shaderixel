@@ -663,5 +663,8 @@
  "Hautes fréquences": "High frequencies",
  "Position sur l'image": "Position on the image",
  "Placement actif : cliquez ou glissez sur l'image (Échap ou ce bouton pour finir)": "Placing: click or drag on the image (Esc or this button to finish)",
- "Placer sur l'image (cliquer / glisser sur le canevas)": "Place on the image (click / drag on the canvas)"
+ "Placer sur l'image (cliquer / glisser sur le canevas)": "Place on the image (click / drag on the canvas)",
+ "Recadrage en perspective : le cadre doit rester convexe (coins dans l'ordre)": "Perspective crop: the frame must stay convex (corners in order)",
+ "Rogner : l'image a changé de taille entre-temps": "Trim: the image changed size in the meantime",
+ "Séparation de fréquences : faite sur les pixels du calque (son mode, son opacité et ses filtres ne sont pas repris)": "Frequency separation: made from the layer's pixels (its blend mode, opacity and filters are not carried over)"
 }

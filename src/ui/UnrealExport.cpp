@@ -44,11 +44,15 @@ std::string App::ExportForUnreal(DocView& v, const std::string& folder) {
     std::filesystem::create_directories(Utf8Path(folder), ec);
     std::string err;
     const std::string obj = name + ".obj";
-    if (!SaveObj(folder + "/" + obj, v.mesh->data, true, &err)) { Status("Export Unreal : " + err); return ""; }
+    // One texture set (the whole texture) with the UVs as packed in it: material tiles and UDIM cells included, the
+    // mesh and the textures listed below always match.
+    if (!SaveObj(folder + "/" + obj, v.mesh->data, true, &err, false)) { Status("Export Unreal : " + err); return ""; }
     // Textures: the Unreal template (ORM packed), whatever the project's own export choice.
     const int keep = d.exportTemplate;
     d.exportTemplate = 1;
+    exportWholeTexture = true;
     ExportProjectTextures(v, folder + "/T_" + name + ".png");
+    exportWholeTexture = false;
     d.exportTemplate = keep;
     const bool emissive = (d.pbrChannels & (1u << (int)PbrChannel::Emissive)) != 0;
     // The description read by the plugin.
