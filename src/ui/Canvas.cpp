@@ -853,9 +853,9 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
         Renderer::MixerParams mp;
         mp.wet = mixerSet.wet;
         mp.load = mixerSet.load;
-        mp.flow = mixerSet.flow;
+        mp.flow = mixerSet.flow * retouch.opacity;
         mp.clean = mixerSet.clean;
-        mp.color = LinearColor(fg);
+        mp.color = PaintColor(doc);  // (gray / white on masks, like the brush)
         v.renderer.MixerDabs(doc, *ctx, dabs, retouch, mp);
         return;
     }

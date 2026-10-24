@@ -14,7 +14,7 @@ cbuffer Root : register(b0)
     float gFlow;
     float gWet;         // pickup of the canvas into the reservoir, per dab
     float gLoad;        // reload with the brush color, per dab
-    uint gPass;
+    uint gPass;         // 0 lay down, 1 pick up / reload, 2 reset to the brush color
     uint gFlags;        // 1 = has selection
 };
 
@@ -33,13 +33,19 @@ void main(uint3 id : SV_DispatchThreadID)
 {
     if (any(id.xy >= gRectSize)) return;
     const float r = max(gRadius, 0.5);
+    if (gPass == 2)
+    {
+        gOut[id.xy] = gColor;
+        return;
+    }
     if (gPass == 1)
     {
         // Reservoir texel -> canvas point under it.
         const float2 uv = (float2(id.xy) + 0.5) / float2(gRectSize);
         const float2 p = gCenter + (uv * 2.0 - 1.0) * r;
-        const float4 under = gSnap.SampleLevel(sLinearClamp, p / float2(gDocSize), 0);
+        float4 under = gSnap.SampleLevel(sLinearClamp, p / float2(gDocSize), 0);
         float4 res = gRes.Load(int3(id.xy, 0));
+        if (any(isnan(under)) || any(isinf(under))) under = res;  // (never poisons the reservoir)
         res = lerp(res, under, saturate(gWet));
         res = lerp(res, gColor, saturate(gLoad));
         gOut[id.xy] = res;

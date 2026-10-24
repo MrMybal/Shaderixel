@@ -131,10 +131,9 @@ void Renderer::MixerDabs(Document& doc, gpu::CommandContext& ctx, const std::vec
                 gpu::DispatchDesc d;
                 d.pipeline = k;
                 d.srv[0] = s->tex.get();
-                d.srv[2] = mixRes[i ^ 1].get();  // (read, fully replaced: never the texture written)
+                d.srv[2] = mixRes[i ^ 1].get();  // (bound, not read by the reset pass)
                 d.uav[0] = mixRes[i].get();
-                // Pass 1 with full load and no pickup: every texel becomes the color.
-                SetConstants(d, MixerRoot{0, 0, kRes, kRes, (u32)W, (u32)H, {0, 0}, 1, 1, 1, 0, 1, 1u, 0u});
+                SetConstants(d, MixerRoot{0, 0, kRes, kRes, (u32)W, (u32)H, {0, 0}, 1, 1, 1, 0, 1, 2u, 0u});  // pass 2: the color
                 d.cbData = &c;
                 d.cbSize = sizeof(c);
                 Dispatch2D(ctx, d, kRes, kRes);

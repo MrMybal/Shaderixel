@@ -921,6 +921,7 @@ private:
         float opacity = 1;
         bool dirty = true;
         size_t histCursor = 0;    // history position right after the step that added the layer
+        u64 warpedVersion = 0;    // the layer's surface version after our last warp (another change ends the session)
     } persp;
     void StartPerspectivePaste(DocView& v);
     void FinishPerspectivePaste(bool keep);

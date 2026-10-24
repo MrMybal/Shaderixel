@@ -100,6 +100,7 @@ void App::FinishPerspectivePaste(bool keep) {
         } else if (d.FindLayer(persp.layer)) {
             if (v.history.Cursor() == persp.histCursor && v.history.Count() == persp.histCursor) {
                 // Nothing done since: the step that added the layer is taken back entirely.
+                if (xf.active && xf.view == &v) TransformCancel(v);
                 v.history.Undo(d, *ctx);
                 v.history.TruncateTo(v.history.Cursor());
             } else {
@@ -158,9 +159,15 @@ void App::PerspectivePasteTick() {
         }
     }
     ImGui::End();
-    if (!persp.dirty) return;
     Layer* l = d.FindLayer(persp.layer);
     if (!l) { persp = {}; return; }  // (undone or deleted meanwhile: the session ends)
+    if (Surface* cur = d.GetSurface(l->surface); cur && persp.warpedVersion && cur->version != persp.warpedVersion) {
+        // The layer was painted / changed by something else: the plane is fixed as it is (no rewarp over the edit).
+        persp = {};
+        Status("Coller en perspective : appliqué (le calque a été modifié)");
+        return;
+    }
+    if (!persp.dirty) return;
     Prepare(v);  // (the new layer's surface allocated)
     Surface* s = d.GetSurface(l->surface);
     float m[9], inv[9];
@@ -175,6 +182,7 @@ void App::PerspectivePasteTick() {
     }
     v.renderer.WarpPerspective(*ctx, persp.src.get(), s->tex.get(), inv, persp.srcRect, tiles, persp.opacity);
     d.TouchSurface(l->surface);
+    persp.warpedVersion = s->version;
     persp.dirty = false;
 }
 

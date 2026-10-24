@@ -243,6 +243,7 @@ void App::DrawImageDialogs() {
         ImGui::Checkbox("Droite", &trimSides[3]);
         ImGui::Spacing();
         if (ImGui::Button("OK", ImVec2(100 * dpi, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+            if (xf.active && xf.view) TransformCommit(*xf.view);  // (the bounds of what the trim will cut)
             trimRb = v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx), false);
             trimView = v;
             imageDialog = 0;

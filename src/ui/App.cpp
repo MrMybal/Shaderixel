@@ -1690,7 +1690,7 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_C) && !graphFocused) setTool(Tool::Crop);  // in the graph, C frames the selection in a comment
     if (pressed(ImGuiKey_T)) setTool(Tool::Text);
     if (pressed(ImGuiKey_U)) setTool(Tool::Shape);
-    if (pressed(ImGuiKey_B)) setTool(Tool::Brush);
+    if (pressed(ImGuiKey_B)) setTool(shift && tool == Tool::Brush ? Tool::Mixer : shift && tool == Tool::Mixer ? Tool::Brush : tool == Tool::Mixer ? Tool::Mixer : Tool::Brush);
     if (pressed(ImGuiKey_S)) setTool(Tool::Clone);
     if (pressed(ImGuiKey_J)) {
         // J cycles (Maj+J): correcteur localisé -> correcteur -> pièce -> déplacement basé sur le contenu -> yeux rouges.
@@ -1706,7 +1706,7 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_O)) setTool(shift ? (tool == Tool::Dodge ? Tool::Burn : tool == Tool::Burn ? Tool::Sponge : Tool::Dodge) : Tool::Dodge);
     if (pressed(ImGuiKey_R)) setTool(shift ? (tool == Tool::Blur ? Tool::Sharpen : tool == Tool::Sharpen ? Tool::Smudge : Tool::Blur) : Tool::Blur);
     if (pressed(ImGuiKey_E)) setTool(shift ? (tool == Tool::Eraser ? Tool::BackgroundEraser : tool == Tool::BackgroundEraser ? Tool::MagicEraser : Tool::Eraser) : Tool::Eraser);
-    if (pressed(ImGuiKey_I)) setTool(Tool::Picker);
+    if (pressed(ImGuiKey_I)) setTool(shift && tool == Tool::Picker ? Tool::Ruler : shift && tool == Tool::Ruler ? Tool::Picker : tool == Tool::Ruler ? Tool::Ruler : Tool::Picker);
     if (pressed(ImGuiKey_G)) setTool(shift && tool == Tool::Gradient ? Tool::Bucket : Tool::Gradient);
     if (pressed(ImGuiKey_K)) setTool(Tool::Bucket);
     if (pressed(ImGuiKey_P)) setTool(Tool::Pen);

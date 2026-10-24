@@ -1110,7 +1110,7 @@ void App::FocusAreaApply() {
     EffectInstance fx;
     fx.effectId = "focus_area";
     auto def = Effects().Find("focus_area");
-    if (!def) return;
+    if (!def) { F.live = false; Status("Zone de netteté : effet introuvable"); return; }
     fx.params = def->DefaultParams();
     for (size_t i = 0; i < def->params.size(); ++i) {
         const std::string& id = def->params[i].id;
@@ -1121,12 +1121,13 @@ void App::FocusAreaApply() {
         else if (id == "fill") fx.params[i].x = F.fill;
     }
     gpu::Texture* img = v.renderer.EvaluateComplete(d, *ctx);
-    if (!img) return;
+    if (!img) { F.live = false; return; }
     gpu::TexturePtr mask = v.renderer.ApplyEffect(d, *ctx, fx, img);
     if (!mask) return;  // (still compiling: tried again next frame)
     // One selection step for the dialog: the previous result is taken back when it is still the last step
     // (an edit or an undo meanwhile keeps it, the new result comes on top).
     if (F.applied && v.history.Cursor() == F.appliedCursor && v.history.Count() == F.appliedCursor) {
+        if (xf.active && xf.view == &v) TransformCancel(v);
         v.history.Undo(d, *ctx);
         v.history.TruncateTo(v.history.Cursor());
     }
@@ -1163,6 +1164,7 @@ void App::DrawFocusAreaWindow() {
         // Cancel: the dialog's selection step taken back if it is still the last one.
         DocView& v = *F.view;
         if (F.applied && v.history.Cursor() == F.appliedCursor && v.history.Count() == F.appliedCursor) {
+            if (xf.active && xf.view == &v) TransformCancel(v);
             v.history.Undo(*v.doc, *ctx);
             v.history.TruncateTo(v.history.Cursor());
         }

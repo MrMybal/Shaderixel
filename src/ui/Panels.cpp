@@ -1427,7 +1427,9 @@ void App::DrawBrush() {
                                        "Goutte", "Netteté", "Doigt", "Densité -", "Densité +", "Éponge", "Fluidité"};
         ImGui::SeparatorText(tool == Tool::HistoryBrush ? "Forme d'historique" : tool == Tool::BackgroundEraser ? "Gomme d'arrière-plan"
                              : tool == Tool::PatternStamp ? "Tampon de motif"
-                                                          : titles[(int)tool]);
+                             : tool == Tool::Mixer        ? "Pinceau mélangeur"
+                             : (int)tool < (int)std::size(titles) ? titles[(int)tool]
+                                                          : "Pinceau");
         if (tool == Tool::PatternStamp) {
             if (!patternsScanned) ScanPatterns();
             const char* pn = patternSel < (int)patterns.size() ? patterns[patternSel].name.c_str() : "(aucun)";
