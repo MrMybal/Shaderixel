@@ -238,8 +238,8 @@ void App::FluidFinish(bool keep) {
     bool alive = false;
     for (auto& d : docs) alive |= d.get() == v;
     if (!alive || !v) return;
-    // The last state of the paint, then one undo step for every layer.
-    v->renderer.FluidComposite(*v->doc, *ctx, FluidParamsNow(*v));
+    // The last state of the paint (over everything it touched), then one undo step for every layer.
+    v->renderer.FluidComposite(*v->doc, *ctx, FluidParamsNow(*v), true);
     v->renderer.FluidEnd(*v->doc, *ctx, v->history, "Peinture liquide", keep);
     Status(keep ? "Peinture liquide : figée" : "Peinture liquide : annulée");
 }

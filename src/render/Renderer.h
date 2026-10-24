@@ -18,6 +18,7 @@
 namespace sx {
 
 struct MeshScene;
+struct SeamCarveResult;
 struct MeshMaterial;
 
 struct ViewParams {
@@ -255,6 +256,8 @@ public:
     void CopySelected(Document& doc, gpu::CommandContext& ctx, gpu::Texture* src, gpu::Texture* dst);
     gpu::ReadbackPtr ComputeBounds(gpu::CommandContext& ctx, gpu::Texture* image, gpu::Texture* selection, bool imageIsMask, bool useRed = false);
     // Rebuild every surface at a new size: dst pixel -> src pixel = (m0 x + m1 y + m2, m3 x + m4 y + m5).
+    // Content-aware resize: every surface read through the seam carving maps (SeamCarve.h), new canvas size.
+    bool CarveCanvas(Document& doc, gpu::CommandContext& ctx, History& hist, u32 newW, u32 newH, const SeamCarveResult& r, const std::string& label);
     bool ResampleCanvas(Document& doc, gpu::CommandContext& ctx, History& hist, u32 newW, u32 newH, const float m[6], int interp,
                         const std::string& label);
     // 3D painting (MeshPaint.cpp)
@@ -346,7 +349,7 @@ public:
     // Dabs: image (x, y px, radius px, -) or world (x, y, z, radius); extras: amount, normal of the painted side.
     void FluidDeposit(gpu::CommandContext& ctx, const std::vector<float4>& dabs, const std::vector<float4>& ex, bool world, bool erase, const FluidParams& p);
     int FluidStep(gpu::CommandContext& ctx, float dt, const FluidParams& p);  // returns the substeps
-    void FluidComposite(Document& doc, gpu::CommandContext& ctx, const FluidParams& p);
+    void FluidComposite(Document& doc, gpu::CommandContext& ctx, const FluidParams& p, bool final = false);  // final: over the whole painted area
     void FluidEnd(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label, bool keep);
     bool FluidActive() const { return fluid.active; }
     std::vector<Id> FluidSurfaces() const;

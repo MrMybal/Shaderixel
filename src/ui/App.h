@@ -593,6 +593,13 @@ private:
     void TextPropertiesUI(DocView& v, Layer& l);
     void ShapePropertiesUI(DocView& v, Layer& l);
     void DrawImageDialogs();
+    // Image > Content-aware scale (ContentScale.cpp): seam carving in a worker thread, then one GPU pass per layer.
+    struct CarveJob;
+    std::shared_ptr<CarveJob> carveJob;
+    int dlgCarveMode = 1;  // 0 ignore the selection, 1 protect it, 2 remove it
+    void StartContentScale(DocView& v, u32 w, u32 h, int mode);
+    void ContentScaleTick();
+    void DrawContentScaleProgress();
     void ApplyCanvasOp(DocView& v, u32 w, u32 h, const float m[6], int interp, const char* label);
     void RotateCanvas(DocView& v, int op);
     void ApplyCrop(DocView& v, Rect r);
@@ -842,7 +849,7 @@ private:
     Id textSelLayer = 0;
     Id charStyleSel = 0, paraStyleSel = 0;
     void DrawTextStylesPanel();
-    int imageDialog = 0;            // 1 image size, 2 canvas size
+    int imageDialog = 0;            // 1 image size, 2 canvas size, 3 content-aware scale
     int dlgW = 0, dlgH = 0, dlgAnchor = 4, dlgInterp = 2;
     bool dlgKeepRatio = true;
     bool cropActive = false, cropDragging = false;

@@ -137,6 +137,9 @@ std::string FormatRamp(const std::vector<RampStop>& stops);
 // generation every function is expanded in place (nested ones too), so the generated code is the same as if
 // the nodes were in the graph.
 void SyncFunctionInterface(EGNode& fn, const EffectGraph& inner);
+// Same, after an edit of the inner graph: the caller's links and pin values follow their function input
+// (by node, not by position), and the parent's links to the outputs follow their function output.
+void SyncFunctionInterface(EGNode& fn, const EffectGraph& inner, const EffectGraph& oldInner, EffectGraph& parent);
 // Expanded copy of the graph (functions inlined); `error` set when a function graph can't be read.
 EffectGraph FlattenFunctions(const EffectGraph& g, std::string* error = nullptr);
 // The selected nodes (not the output) become a function node: links coming in become its inputs, links going out

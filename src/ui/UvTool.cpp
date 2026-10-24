@@ -117,14 +117,20 @@ void App::ApplyUvUnwrap(DocView& v) {
             ctx->CopyTexture(after.get(), s->tex.get());
             v.history.PushPaint("UV automatiques", id, {0, 0, (int)W, (int)H}, before, after);
         }
-        v.history.EndGroup();
     }
+    {
+        // The new UVs are part of the step (with the paint moved to them): undo puts the old model back.
+        auto oldMesh = std::make_shared<const MeshData>(old), newMesh = std::make_shared<const MeshData>(r.mesh);
+        DocView* vp = &v;  // (the history belongs to the view: it never outlives it)
+        v.history.PushCustom("UV automatiques", [this, vp, oldMesh, newMesh](bool undo) { AttachMesh(*vp, MeshData(undo ? *oldMesh : *newMesh)); });
+    }
+    if (uvTool.transfer) v.history.EndGroup();
     uvTool.previousMesh = std::make_shared<MeshData>(old);
     AttachMesh(v, MeshData(r.mesh));
     uvTool.preview = false;
     uvTool.hasResult = false;
     d.dirty = true;
-    Status("UV automatiques appliquées : " + std::to_string(r.charts) + " îlots" + (uvTool.transfer ? ", peinture reportée (Ctrl+Z annule le report)" : ""));
+    Status("UV automatiques appliquées : " + std::to_string(r.charts) + " îlots" + (uvTool.transfer ? ", peinture reportée (Ctrl+Z annule tout)" : ""));
 }
 
 void App::DrawUvToolWindow() {
@@ -240,7 +246,7 @@ void App::DrawUvToolWindow() {
             } else {
                 AttachMesh(*v, MeshData(*T.previousMesh));
                 T.previousMesh.reset();
-                Status("UV précédentes rétablies (annulez aussi le report de peinture avec Ctrl+Z)");
+                Status("UV précédentes rétablies (Ctrl+Z rétablit aussi la peinture d'avant)");
             }
         }
     }

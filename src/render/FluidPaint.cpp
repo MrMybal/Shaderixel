@@ -17,8 +17,10 @@ struct FluidRoot {
     u32 pass, kind, flags;
     float dt, seed;
     i32 ox = 0, oy = 0;  // first texel of the dispatch (active area)
-    float pad = 0;
+    u32 area = 0;        // its size, width | height << 16 (0: everything)
 };
+
+u32 PackArea(const Rect& r) { return (u32)r.Width() | ((u32)r.Height() << 16); }
 
 Rect GrowRect(const Rect& r, int k, int W, int H) {
     if (r.Empty()) return r;
@@ -195,7 +197,7 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
     // Passes 1-3 on the active area only (image documents: where the paint is, grown while it may move).
     Rect area = {0, 0, (int)F.w, (int)F.h};
     if (pass >= 1 && pass <= 3 && !F.simRect.Empty()) area = F.simRect;
-    FluidRoot root{F.w, F.h, F.docW, F.docH, pass, kind, flags, dt, p.seed, area.x0, area.y0};
+    FluidRoot root{F.w, F.h, F.docW, F.docH, pass, kind, flags, dt, p.seed, area.x0, area.y0, PackArea(area)};
     SetConstants(d, root);
     d.cbData = &cb;
     d.cbSize = n ? sizeof(FluidCB) : offsetof(FluidCB, dabs);  // the extras follow the full dab array
@@ -437,9 +439,10 @@ int Renderer::FluidStep(gpu::CommandContext& ctx, float dt, const FluidParams& p
             if (F.rbBounds->data.size() >= 16) {
                 Rect r = b[2] > b[0] && b[3] > b[1] ? Rect{(int)b[0], (int)b[1], (int)b[2], (int)b[3]} : Rect{};
                 r = GrowRect(r, F.boundsGrowth + 2, (int)F.w, (int)F.h);
-                // Dabs laid since the request are in the current area: kept (union with the new dabs' area).
-                F.simRect = r.Empty() ? F.dabsSince : (F.dabsSince.Empty() ? r : (Rect{std::min(r.x0, F.dabsSince.x0), std::min(r.y0, F.dabsSince.y0),
-                                                                                       std::max(r.x1, F.dabsSince.x1), std::max(r.y1, F.dabsSince.y1)}));
+                // Dabs laid since the request: their area, grown as far as their paint may have run since.
+                const Rect since = GrowRect(F.dabsSince, F.boundsGrowth, (int)F.w, (int)F.h);
+                F.simRect = r.Empty() ? since : (since.Empty() ? r : (Rect{std::min(r.x0, since.x0), std::min(r.y0, since.y0),
+                                                                             std::max(r.x1, since.x1), std::max(r.y1, since.y1)}));
             }
             F.rbBounds.reset();
         }
@@ -481,7 +484,8 @@ int Renderer::FluidStep(gpu::CommandContext& ctx, float dt, const FluidParams& p
     return n;
 }
 
-void Renderer::FluidComposite(Document& doc, gpu::CommandContext& ctx, const FluidParams& p) {
+void Renderer::FluidComposite(Document& doc, gpu::CommandContext& ctx, const FluidParams& p, bool final) {
+    fluid.finalComposite = final;
     FluidState& F = fluid;
     auto* k = Kernel("fluid_paint.slang");
     if (!F.active || !strokeSurface || !k) return;
@@ -510,7 +514,7 @@ void Renderer::FluidComposite(Document& doc, gpu::CommandContext& ctx, const Flu
         } else if (F.windowed) {
             return;  // nothing painted yet
         }
-        SetConstants(d, FluidRoot{F.w, F.h, SW, SH, 4, (u32)kind, (F.mesh ? 1u : 0u) | (F.replace ? 512u : 0u), 0, p.seed, area.x0, area.y0});
+        SetConstants(d, FluidRoot{F.w, F.h, SW, SH, 4, (u32)kind, (F.mesh ? 1u : 0u) | (F.replace ? 512u : 0u), 0, p.seed, area.x0, area.y0, PackArea(area)});
         d.cbData = &cb;
         d.cbSize = offsetof(FluidCB, dabs);
         d.uavRect[0] = area;

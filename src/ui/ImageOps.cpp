@@ -54,6 +54,11 @@ void App::DrawImageMenu() {
         dlgW = (int)d.Width();
         dlgH = (int)d.Height();
     }
+    if (ImGui::MenuItem("Mise à l'échelle selon le contenu...", nullptr, false, !carveJob)) {
+        imageDialog = 3;
+        dlgW = (int)d.Width();
+        dlgH = (int)d.Height();
+    }
     if (ImGui::MenuItem("Taille de la zone de travail...", "Ctrl+Alt+C")) {
         imageDialog = 2;
         dlgW = (int)d.Width();
@@ -83,6 +88,8 @@ void App::DrawImageMenu() {
 
 void App::DrawImageDialogs() {
     DocView* v = Active();
+    ContentScaleTick();
+    DrawContentScaleProgress();
     if (cropBoundsRb && cropBoundsRb->ready) {
         auto rb = cropBoundsRb;
         cropBoundsRb.reset();
@@ -101,7 +108,7 @@ void App::DrawImageDialogs() {
     }
     Document& d = *v->doc;
     const int W = (int)d.Width(), H = (int)d.Height();
-    ImGui::TextUnformatted(imageDialog == 1 ? "Taille de l'image" : "Taille de la zone de travail");
+    ImGui::TextUnformatted(imageDialog == 1 ? "Taille de l'image" : imageDialog == 3 ? "Mise à l'échelle selon le contenu" : "Taille de la zone de travail");
     ImGui::Separator();
     ImGui::TextDisabled("Actuelle : %d x %d px", W, H);
     ImGui::SetNextItemWidth(160 * dpi);
@@ -110,7 +117,21 @@ void App::DrawImageDialogs() {
     if (ImGui::InputInt("Hauteur (px)", &dlgH) && dlgKeepRatio && imageDialog == 1) dlgW = (int)std::lround(dlgH * (double)W / H);
     dlgW = std::clamp(dlgW, 1, 16384);
     dlgH = std::clamp(dlgH, 1, 16384);
-    if (imageDialog == 1) {
+    if (imageDialog == 3) {
+        // Seams: the least visible paths of pixels are removed (or doubled), the subjects keep their shape.
+        dlgW = std::clamp(dlgW, std::min(W, 8), std::min(W * 2, 16384));
+        dlgH = std::clamp(dlgH, std::min(H, 8), std::min(H * 2, 16384));
+        float pw = dlgW * 100.0f / W, ph = dlgH * 100.0f / H;
+        ImGui::SetNextItemWidth(160 * dpi);
+        if (ImGui::SliderFloat("Largeur %", &pw, 10, 200, "%.0f")) dlgW = std::max(8, (int)std::lround(W * pw / 100.0f));
+        ImGui::SetNextItemWidth(160 * dpi);
+        if (ImGui::SliderFloat("Hauteur %", &ph, 10, 200, "%.0f")) dlgH = std::max(8, (int)std::lround(H * ph / 100.0f));
+        ImGui::BeginDisabled(d.S().selection == 0);
+        ImGui::SetNextItemWidth(160 * dpi);
+        ImGui::Combo("Sélection", &dlgCarveMode, "Ignorer\0Protéger\0Supprimer\0");
+        ImGui::EndDisabled();
+        ImGui::TextDisabled("Sans sélection, les zones détaillées sont gardées.\nRéduction jusqu'à 10 %%, agrandissement jusqu'au double.");
+    } else if (imageDialog == 1) {
         ImGui::Checkbox("Conserver les proportions", &dlgKeepRatio);
         float pct = dlgW * 100.0f / W;
         ImGui::SetNextItemWidth(160 * dpi);
@@ -137,7 +158,9 @@ void App::DrawImageDialogs() {
     ImGui::TextDisabled("%.0f Mo par calque", mb);
     ImGui::Spacing();
     if (ImGui::Button("OK", ImVec2(100 * dpi, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
-        if (imageDialog == 1) {
+        if (imageDialog == 3) {
+            StartContentScale(*v, (u32)dlgW, (u32)dlgH, d.S().selection ? dlgCarveMode : 0);
+        } else if (imageDialog == 1) {
             Json p = Json::Object();
             p["mode"] = "pixels"; p["w"] = dlgW; p["h"] = dlgH; p["interp"] = dlgInterp; p["pct"] = dlgW * 100.0f / W;
             RecordAction("image_size", p);

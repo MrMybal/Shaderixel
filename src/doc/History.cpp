@@ -131,6 +131,13 @@ void History::PushColorSettings(const std::string& label, const ColorSettings& b
     Push(std::move(e));
 }
 
+void History::PushCustom(const std::string& label, std::function<void(bool undo)> apply) {
+    Entry e;
+    e.label = label;
+    e.custom = std::move(apply);
+    Push(std::move(e));
+}
+
 void History::PushPaint(const std::string& label, Id surface, const Rect& r, gpu::TexturePtr before, gpu::TexturePtr after) {
     Entry e;
     e.label = label;
@@ -200,7 +207,9 @@ static gpu::TexturePtr StepPixels(const gpu::TexturePtr& gpuCopy, const History:
 
 void History::UndoOne(Document& doc, gpu::CommandContext& ctx) {
     Entry& e = entries[--cursor];
-    if (e.color) {
+    if (e.custom) {
+        e.custom(true);
+    } else if (e.color) {
         doc.iccProfile = e.colorBefore.icc;
         doc.cmykProfile = e.colorBefore.cmyk;
         doc.colorMode = e.colorBefore.mode;
@@ -216,7 +225,9 @@ void History::UndoOne(Document& doc, gpu::CommandContext& ctx) {
 
 void History::RedoOne(Document& doc, gpu::CommandContext& ctx) {
     Entry& e = entries[cursor++];
-    if (e.color) {
+    if (e.custom) {
+        e.custom(false);
+    } else if (e.color) {
         doc.iccProfile = e.colorAfter.icc;
         doc.cmykProfile = e.colorAfter.cmyk;
         doc.colorMode = e.colorAfter.mode;

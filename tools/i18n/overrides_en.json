@@ -565,5 +565,18 @@
  "Clic sur la barre : ajouter un arrêt. Glisser un repère : le déplacer. Clic droit : le supprimer.": "Click on the bar: add a stop. Drag a marker: move it. Right click: remove it.",
  "Couleur de l'arrêt": "Stop color",
  "Inverser la rampe": "Reverse the ramp",
- "Activer": "Enable"
+ "Activer": "Enable",
+ "Mise à l'échelle selon le contenu...": "Content-aware scale...",
+ "Mise à l'échelle selon le contenu": "Content-aware scale",
+ "Mise à l'échelle selon le contenu impossible": "Content-aware scale failed",
+ "Largeur %": "Width %",
+ "Hauteur %": "Height %",
+ "Ignorer": "Ignore",
+ "Protéger": "Protect",
+ "Sans sélection, les zones détaillées sont gardées.\nRéduction jusqu'à 10 %%, agrandissement jusqu'au double.": "Without a selection, the detailed areas are kept.\nShrinks down to 10 %%, enlarges up to twice the size.",
+ "image trop petite": "image too small",
+ "agrandissement limité au double": "enlarging is limited to twice the size",
+ "annulé": "canceled",
+ "UV précédentes rétablies (Ctrl+Z rétablit aussi la peinture d'avant)": "Previous UVs restored (Ctrl+Z also restores the paint from before)",
+ "Supprimer": "Remove"
 }

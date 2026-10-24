@@ -809,7 +809,8 @@ struct Gen {
             const std::string dd = "(abs(" + Conv(a[0], 2) + " - " + Conv(a[1], 2) + ") - " + Conv(a[2], 2) + " * 0.5)", s = "max(" + S(3) + ", 1e-5)";
             one("(1.0 - smoothstep(-" + s + ", " + s + ", max(" + dd + ".x, " + dd + ".y)))", 1);
         } else if (op == "paramswitch") {
-            one("(" + paramNames[id] + " > 0.5 ? " + W(0) + " : " + W(1) + ")", widest);
+            // One test for all the components (the parameter may arrive as a vector, e.g. in Unreal).
+            one("(((float4)" + paramNames[id] + ").x > 0.5 ? " + W(0) + " : " + W(1) + ")", widest);
         } else if (op == "colorramp") {
             // Stops blended one after the other: below a stop's position its weight is 0, above it 1.
             const auto stops = ParseRamp(n->text);
@@ -927,6 +928,56 @@ std::string FormatRamp(const std::vector<RampStop>& stops) {
 
 // ------------------------------------------------------------------ functions
 
+namespace {
+// The function's interface: funcin / funcout node ids in pin order.
+void InterfaceIds(const EffectGraph& g, std::vector<Id>& ins, std::vector<Id>& outs) {
+    std::vector<const EGNode*> a, b;
+    for (auto& n : g.nodes) {
+        if (n.op == "funcin") a.push_back(&n);
+        if (n.op == "funcout") b.push_back(&n);
+    }
+    auto byIndex = [](const EGNode* x, const EGNode* y) { return x->index != y->index ? x->index < y->index : x->id < y->id; };
+    std::sort(a.begin(), a.end(), byIndex);
+    std::sort(b.begin(), b.end(), byIndex);
+    ins.clear();
+    outs.clear();
+    for (auto* n : a) ins.push_back(n->id);
+    for (auto* n : b) outs.push_back(n->id);
+}
+}  // namespace
+
+void SyncFunctionInterface(EGNode& fn, const EffectGraph& inner, const EffectGraph& oldInner, EffectGraph& parent) {
+    std::vector<Id> oi, oo, ni, no;
+    InterfaceIds(oldInner, oi, oo);
+    InterfaceIds(inner, ni, no);
+    if (oi != ni) {
+        std::vector<EGLink> inputs(ni.size());
+        std::vector<float> values(ni.size(), std::numeric_limits<float>::quiet_NaN());
+        bool anyValue = false;
+        for (size_t k = 0; k < ni.size(); ++k) {
+            const size_t old = (size_t)(std::find(oi.begin(), oi.end(), ni[k]) - oi.begin());
+            if (old >= oi.size()) continue;
+            if (old < fn.inputs.size()) inputs[k] = fn.inputs[old];
+            if (fn.PinValueSet(old)) {
+                values[k] = fn.pinValues[old];
+                anyValue = true;
+            }
+        }
+        fn.inputs = std::move(inputs);
+        if (anyValue) fn.pinValues = std::move(values);
+        else fn.pinValues.clear();
+    }
+    if (oo != no)
+        for (auto& n : parent.nodes)
+            for (auto& l : n.inputs)
+                if (l.node == fn.id && l.output >= 0) {
+                    const Id was = l.output < (int)oo.size() ? oo[l.output] : 0;
+                    const size_t now = (size_t)(std::find(no.begin(), no.end(), was) - no.begin());
+                    l = was && now < no.size() ? EGLink{fn.id, (int)now} : EGLink{};
+                }
+    SyncFunctionInterface(fn, inner);
+}
+
 void SyncFunctionInterface(EGNode& fn, const EffectGraph& inner) {
     std::vector<const EGNode*> ins, outs;
     for (auto& n : inner.nodes) {
@@ -971,19 +1022,9 @@ bool ExpandAll(EffectGraph& g, int depth, std::string* error, bool recursive = t
         }
         if (recursive && !ExpandAll(inner, depth + 1, error)) return false;
         // Inputs in pin order (the interface), outputs likewise.
+        // (nested functions were expanded above: their interface nodes are reroutes / constants by now)
         std::vector<Id> ins, outs;
-        {
-            std::vector<const EGNode*> a, b;
-            for (auto& n : inner.nodes) {
-                if (n.op == "funcin") a.push_back(&n);
-                if (n.op == "funcout") b.push_back(&n);
-            }
-            auto byIndex = [](const EGNode* x, const EGNode* y) { return x->index != y->index ? x->index < y->index : x->id < y->id; };
-            std::sort(a.begin(), a.end(), byIndex);
-            std::sort(b.begin(), b.end(), byIndex);
-            for (auto* n : a) ins.push_back(n->id);
-            for (auto* n : b) outs.push_back(n->id);
-        }
+        InterfaceIds(inner, ins, outs);
         // New ids for the inner nodes.
         std::map<Id, Id> remap;
         for (auto& n : inner.nodes) remap[n.id] = g.nextId++;
@@ -995,15 +1036,22 @@ bool ExpandAll(EffectGraph& g, int depth, std::string* error, bool recursive = t
             c.pos = c.pos + fn.pos;
             for (auto& l : c.inputs) l = l.node && remap.count(l.node) ? EGLink{remap[l.node], l.output} : EGLink{};
             if (c.op == "funcin") {
-                // The caller's link replaces the input; unconnected: the value set on the node, else the default.
+                // The caller's link replaces the input; unconnected: the value set on the node, else the default
+                // (a constant: once expanded, it is no longer part of any function's interface).
                 const size_t slot = (size_t)(std::find(ins.begin(), ins.end(), n.id) - ins.begin());
                 if (slot < fn.inputs.size() && fn.inputs[slot].node) {
                     c.op = "reroute";
                     c.inputs = {fn.inputs[slot]};
-                } else if (slot < fn.pinValues.size() && fn.PinValueSet(slot)) {
-                    const float v = fn.pinValues[slot];
-                    c.value = {v, v, v, v};
+                } else {
+                    if (slot < fn.pinValues.size() && fn.PinValueSet(slot)) {
+                        const float v = fn.pinValues[slot];
+                        c.value = {v, v, v, v};
+                    }
+                    c.op = "color";
+                    c.inputs.clear();
                 }
+            } else if (c.op == "funcout") {
+                c.op = "reroute";
             }
             added.push_back(std::move(c));
         }
@@ -1376,9 +1424,10 @@ EGUnrealExport ExportEffectGraphToUnreal(const EffectGraph& g0, const std::strin
         std::string v = "p" + std::to_string(n.id);
         std::string label = !n.text.empty() ? n.text : n.name.empty() ? it->second : n.name;  // text: display label (imported)
         for (auto& c : label) if (c == '\'') c = ' ';
-        if (n.op == "param") {
+        if (n.op == "param" || n.op == "paramswitch") {  // (a switch: 0 / 1 scalar)
+            const float def = n.op == "paramswitch" ? (n.value.x > 0.5f ? 1.0f : 0.0f) : n.value.x;
             py += v + " = mel.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -900, " + std::to_string(y) + ")\n";
-            py += v + ".set_editor_property('default_value', " + F(n.value.x) + ")\n";
+            py += v + ".set_editor_property('default_value', " + F(def) + ")\n";
         } else {
             py += v + " = mel.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -900, " + std::to_string(y) + ")\n";
             py += v + ".set_editor_property('default_value', unreal.LinearColor(" + F(n.value.x) + ", " + F(n.value.y) + ", " + F(n.value.z) + ", " + F(n.value.w) + "))\n";

@@ -783,12 +783,16 @@ void App::RetileMaterials(DocView& v) {
         ctx->CopyTexture(after.get(), s->tex.get());
         v.history.PushPaint("Une tuile par matériau", id, {0, 0, (int)W, (int)H}, before, after);
     }
+    // The new UVs belong to the same step: undoing it puts the old model back with the old paint layout.
+    auto oldMesh = std::make_shared<const MeshData>(old), newMesh = std::make_shared<const MeshData>(tiled);
+    DocView* vp = &v;  // (the history belongs to the view: it never outlives it)
+    v.history.PushCustom("Une tuile par matériau", [this, vp, oldMesh, newMesh](bool undo) { AttachMesh(*vp, MeshData(undo ? *oldMesh : *newMesh)); });
     v.history.EndGroup();
     uvTool.previousMesh = std::make_shared<MeshData>(old);  // UV tool: "Revenir aux UV précédentes"
     const size_t n = tiled.materials.size();
     AttachMesh(v, std::move(tiled));
     d.dirty = true;
-    Status("Une tuile par matériau : " + std::to_string(n) + " matériaux, peinture reportée (Ctrl+Z annule le report ; les exports écrivent un jeu par matériau)");
+    Status("Une tuile par matériau : " + std::to_string(n) + " matériaux, peinture reportée (Ctrl+Z annule tout ; les exports écrivent un jeu par matériau)");
 }
 
 std::vector<std::pair<std::string, Rect>> App::ExportParts(DocView& v) {

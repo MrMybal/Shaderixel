@@ -2,6 +2,7 @@
 #include "doc/ShapePaths.h"
 #include "render/Renderer.h"
 #include "render/Dispatch.h"
+#include "render/SeamCarve.h"
 
 #include <set>
 
@@ -37,6 +38,47 @@ bool Renderer::ResampleCanvas(Document& doc, gpu::CommandContext& ctx, History& 
         d.uav[0] = tex.get();
         float4 outside = masks.count(id) ? float4{1, 1, 1, 1} : float4{0, 0, 0, 0};
         SetConstants(d, ResampleRoot{newW, newH, surf.tex->Width(), surf.tex->Height(), {m[0], m[1], m[3], m[4]}, {m[2], m[5]}, (u32)interp, 0u, outside});
+        Dispatch2D(ctx, d, newW, newH);
+        surf.tex = tex;
+    }
+    s.width = newW;
+    s.height = newH;
+    doc.InvalidateSurfaces();
+    doc.SyncGraph();
+    hist.PushState(label, before, doc.S());
+    return true;
+}
+
+bool Renderer::CarveCanvas(Document& doc, gpu::CommandContext& ctx, History& hist, u32 newW, u32 newH, const SeamCarveResult& r,
+                           const std::string& label) {
+    if (newW == 0 || newH == 0 || newW > 16384 || newH > 16384 || r.newW == 0 || r.newH == 0) return false;
+    if (r.mapX.size() < (size_t)r.newW * r.h || r.mapY.size() < (size_t)r.newW * r.newH) return false;
+    auto* k = Kernel("carve.slang");
+    if (!k) return false;
+    auto mapX = gpu::Dev().CreateTexture(r.newW, r.h, gpu::Format::R32F, "CarveMapX");
+    auto mapY = gpu::Dev().CreateTexture(r.newW, r.newH, gpu::Format::R32F, "CarveMapY");
+    if (!mapX || !mapY) return false;
+    ctx.Upload(mapX.get(), r.mapX.data(), r.newW * sizeof(float));
+    ctx.Upload(mapY.get(), r.mapY.data(), r.newW * sizeof(float));
+    struct CarveRoot {
+        u32 dw, dh, sw, sh;
+        u32 mxw, mxh, myw, myh;
+        float2 red;
+        u32 pad[2];
+    };
+    DocState before = doc.S();
+    DocState& s = doc.S();
+    for (auto& [id, surf] : s.surfaces) {
+        if (!surf.tex) continue;
+        auto tex = gpu::Dev().CreateTexture(newW, newH, surf.tex->GetFormat(), "Surface");
+        if (!tex) return false;
+        gpu::DispatchDesc d;
+        d.pipeline = k;
+        d.srv[0] = surf.tex.get();
+        d.srv[1] = mapX.get();
+        d.srv[2] = mapY.get();
+        d.uav[0] = tex.get();
+        SetConstants(d, CarveRoot{newW, newH, surf.tex->Width(), surf.tex->Height(), r.newW, r.h, r.newW, r.newH, {(float)r.w, (float)r.h}, {0, 0}});
         Dispatch2D(ctx, d, newW, newH);
         surf.tex = tex;
     }

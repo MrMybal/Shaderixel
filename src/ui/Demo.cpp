@@ -448,6 +448,49 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 107) {
+        // Content-aware scale: SX_IMAGE opened, then scaled to SX_CARVE (width %, default 60; "h" suffix: height),
+        // SX_CARVESEL=x0,y0,x1,y1 protects (or with SX_CARVEMODE=2 removes) a rectangle; result exported to SX_OUT.
+        char img[512] = "", pct[32] = "60", selR[64] = "", mode[8] = "1", out[512] = "";
+        GetEnvironmentVariableA("SX_IMAGE", img, sizeof(img));
+        GetEnvironmentVariableA("SX_CARVE", pct, sizeof(pct));
+        GetEnvironmentVariableA("SX_CARVESEL", selR, sizeof(selR));
+        GetEnvironmentVariableA("SX_CARVEMODE", mode, sizeof(mode));
+        GetEnvironmentVariableA("SX_OUT", out, sizeof(out));
+        static bool started = false, reported = false;
+        static double t0 = 0;
+        static gpu::ReadbackPtr outRb;
+        if (frameCounter == 4) OpenImage(img, false);
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        if (frameCounter == 10 && selR[0]) {
+            float r[4] = {};
+            sscanf(selR, "%f,%f,%f,%f", &r[0], &r[1], &r[2], &r[3]);
+            a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, float4{r[0], r[1], r[2], r[3]}, SelMode::Replace, false, 0, "Sélection");
+        }
+        if (frameCounter == 14) {
+            const bool vert = strchr(pct, 'h') != nullptr;
+            const float f = (float)atof(pct) / 100.0f;
+            const u32 w = vert ? d.Width() : (u32)std::lround(d.Width() * f), h = vert ? (u32)std::lround(d.Height() * f) : d.Height();
+            Log("[carve] %u x %u -> %u x %u, selection %s mode %s", d.Width(), d.Height(), w, h, selR[0] ? selR : "-", mode);
+            t0 = ImGui::GetTime();
+            StartContentScale(*a, w, h, selR[0] ? atoi(mode) : 0);
+            started = true;
+        }
+        if (started && !reported && !carveJob) {
+            reported = true;
+            Log("[carve] done in %.2f s: %u x %u, history %s; %s", ImGui::GetTime() - t0, d.Width(), d.Height(),
+                a->history.CanUndo() ? "undoable" : "none", statusMsg.c_str());
+            if (out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+        }
+        if (outRb && outRb->ready) {
+            stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+            Log("[carve] exported %s", out);
+            outRb.reset();
+        }
+        return;
+    }
     if (demoMode == 106) {
         // Several materials over the same UVs: SX_MESHFILE (two materials), a UV tile each, the first material's triangle
         // filled red, then the textures exported (SX_OUT folder) as separate maps and packed (Unreal), and the mesh

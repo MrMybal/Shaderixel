@@ -26,7 +26,7 @@ cbuffer Root : register(b0)
     float gDt;
     float gSeed;
     int2 gOffset;     // passes 1-4: the dispatch covers the active area only (its first texel)
-    float _pad;
+    uint gArea;       // its size (width | height << 16); 0: the whole grid
 };
 
 cbuffer Params : register(b1)
@@ -231,6 +231,9 @@ float Elevation(int2 p, float h)
 }
 
 bool Inside(int2 q) { return all(q >= 0) && all(q < int2(gSize)); }
+// Active area (passes 1-4): outside it the state is frozen, so it acts as a wall (no flux in or out).
+uint2 AreaSize() { return gArea ? uint2(gArea & 0xffff, gArea >> 16) : (gPass == 4 ? gDocSize : gSize); }
+bool InArea(int2 q) { return all(q >= gOffset) && all(q < gOffset + int2(AreaSize())); }
 
 void Outflow(int2 p)
 {
@@ -264,6 +267,7 @@ void Outflow(int2 p)
     {
         int2 q = p + kDir[k];
         float en;
+        if (Inside(q) && !InArea(q)) { out4[k] = 0; continue; }
         const bool open = Inside(q) && gGrav.Load(int3(q, 0)).w > 0;
         if (open)
         {
@@ -314,7 +318,7 @@ void Transport(int2 p)
     [unroll] for (int k = 0; k < 4; ++k)
     {
         int2 q = p + kDir[k];
-        if (!Inside(q)) continue;
+        if (!Inside(q) || !InArea(q)) continue;  // (outside the area: a stale flux)
         float v = gFlux.Load(int3(q, 0))[back[k]] * gDt;
         if (v <= 0) continue;
         float4 q0 = gF0.Load(int3(q, 0)), q1 = gF1.Load(int3(q, 0));
@@ -441,6 +445,7 @@ void Composite(int2 p)
 void main(uint3 id : SV_DispatchThreadID)
 {
     int2 p = int2(id.xy) + ((gPass >= 1 && gPass <= 4) ? gOffset : int2(0, 0));
+    if (gPass >= 1 && gPass <= 4 && any(id.xy >= AreaSize())) return;  // (threads past the area's edge)
     if (gPass == 4)
     {
         if (any(id.xy >= gDocSize)) return;

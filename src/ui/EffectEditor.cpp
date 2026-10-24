@@ -517,8 +517,11 @@ void App::DrawEffectEditor() {
         EffectGraph parent = ed.funcLevels.back();
         const Id fnId = ed.funcPath.back();
         if (EGNode* fn = parent.Find(fnId)) {
+            EffectGraph old;
+            const bool hadOld = EffectGraph::Deserialize(fn->text, old);
             fn->text = ed.graph.Serialize();
-            SyncFunctionInterface(*fn, ed.graph);
+            if (hadOld) SyncFunctionInterface(*fn, ed.graph, old, parent);
+            else SyncFunctionInterface(*fn, ed.graph);
         }
         ed.graph = std::move(parent);
         ed.funcLevels.pop_back();
@@ -549,9 +552,16 @@ void App::DrawEffectEditor() {
         for (int i = (int)ed.funcLevels.size() - 1; i >= 0; --i) {
             EffectGraph& parent = ed.funcLevels[i];
             if (EGNode* fn = parent.Find(ed.funcPath[i])) {
-                fn->text = child;
-                EffectGraph inner;
-                if (EffectGraph::Deserialize(child, inner)) SyncFunctionInterface(*fn, inner);
+                if (fn->text != child) {
+                    // The pins follow their function input / output (an input deleted or reordered inside).
+                    EffectGraph old, inner;
+                    const bool hadOld = EffectGraph::Deserialize(fn->text, old);
+                    fn->text = child;
+                    if (EffectGraph::Deserialize(child, inner)) {
+                        if (hadOld) SyncFunctionInterface(*fn, inner, old, parent);
+                        else SyncFunctionInterface(*fn, inner);
+                    }
+                }
             }
             child = parent.Serialize();
         }
@@ -1384,7 +1394,15 @@ void App::DrawEffectEditor() {
     ImFont* font = ImGui::GetFont();
     float fs = ImGui::GetFontSize() * ed.zoom;
     bool text = ed.zoom > 0.45f;
-    std::set<Id> errNodes(cr.errorNodes.begin(), cr.errorNodes.end());
+    // cr compiles the flattened root graph: its ids are the root's own nodes, the rest come from expanded
+    // functions (new ids), so an error there marks the function nodes. Inside a function: the level's own compile.
+    std::set<Id> errNodes;
+    if (inFunc) errNodes.insert(crLevel.errorNodes.begin(), crLevel.errorNodes.end());
+    else
+        for (Id id : cr.errorNodes) {
+            if (g.Find(id)) errNodes.insert(id);
+            else for (auto& n : g.nodes) if (n.op == "function") errNodes.insert(n.id);
+        }
     for (auto& [id, mk] : ed.codeMarks) errNodes.insert(id);
     for (auto& [id, mk] : ed.declMarks) errNodes.insert(id);
     for (auto& n : g.nodes) {
@@ -2065,7 +2083,8 @@ void App::DrawEffectEditor() {
         fx->SyncParams(old);
         brushTarget.tipGraph = fx->graph;
         brushTarget.tipParams = fx->params;
-        if (g.spacing > 0) brushTarget.spacing = g.spacing;
+        const EffectGraph& brushRoot = ed.funcLevels.empty() ? g : ed.funcLevels[0];  // (inside a function: the brush's own graph)
+        if (brushRoot.spacing > 0) brushTarget.spacing = brushRoot.spacing;
         return;
     }
     if (changed || live) ed.lastEdit = ImGui::GetTime();
