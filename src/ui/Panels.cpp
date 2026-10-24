@@ -486,9 +486,18 @@ void App::DrawLayers() {
             ImGui::EndDragDropTarget();
         }
         if (ImGui::BeginPopupContextItem("##ctx")) {
+            // The menu can add, remove or reorder layers (or restore a state): `l` may then dangle,
+            // so the rest of the list is skipped this frame.
+            Id rowId = l.id;
+            size_t count = layers.size();
+            const Layer* data = layers.data();
             d.S().activeLayer = l.id;
             LayerMenuItems();
             ImGui::EndPopup();
+            if (layers.size() != count || layers.data() != data || layers[i].id != rowId) {
+                ImGui::PopID();
+                break;
+            }
         }
         ImDrawList* dl = ImGui::GetWindowDrawList();
         // Visibility toggle
@@ -597,7 +606,8 @@ void App::DrawLayers() {
         e.Commit();
     }
 
-    // Bottom toolbar
+    // Bottom toolbar (the row menus or the drop above may have changed the layer list).
+    active = d.ActiveLayer();
     float bs = ImGui::GetFrameHeight();
     if (ui::IconButton("new", ui::IconPlus, false, bs, "Nouveau calque (Ctrl+Maj+N)")) {
         Edit e(d, v->history, "Nouveau calque");
@@ -688,7 +698,7 @@ void App::DrawProperties() {
             u32 selRole = 0;  // generated node of this layer: 16 fill / adjustment, 17 blend, 18 mask
             if (const Node* gn = d.S().graph.Find(d.S().activeNode); gn && gn->layer == l->id && (gn->id & 0x40000000u)) {
                 const u32 role = gn->id & 31u;
-                if (role >= 1 && role <= 15 && role - 1 < l->filters.size() && l->filters[role - 1].effectId == gn->fx.effectId) selFilter = (int)role - 1;
+                if (const int f = LayerFilterOfRole(role); f >= 0 && f < (int)l->filters.size() && l->filters[f].effectId == gn->fx.effectId) selFilter = f;
                 if (role >= 16 && role <= 18) selRole = role;
                 if (gn->kind == NodeKind::Blend) selRole = 17;
             }
@@ -769,7 +779,12 @@ void App::DrawProperties() {
             TrackUndo("Verrouillage");
             if (l->kind == LayerKind::Text) TextPropertiesUI(*v, *l);
             if (l->kind == LayerKind::Shape) ShapePropertiesUI(*v, *l);
-            if (l->kind == LayerKind::Smart) SmartPropertiesUI(*v, *l);
+            if (l->kind == LayerKind::Smart) {
+                // "Nouvel objet par copie" inserts a layer (the vector may reallocate): re-fetch this one by id.
+                const Id lid = l->id;
+                SmartPropertiesUI(*v, *l);
+                l = d.FindLayer(lid);  // a duplicate never removes the source layer
+            }
             if (l->kind == LayerKind::Smart || l->kind == LayerKind::Pixel || l->kind == LayerKind::Fill || l->kind == LayerKind::Text ||
                 l->kind == LayerKind::Shape)
                 LayerImagePropertiesUI(*v, *l);
@@ -886,6 +901,7 @@ void App::DrawProperties() {
                     EffectInstance fx;
                     fx.customCode = kCustomEffectTemplate;
                     if (auto def = fx.Def()) fx.params = def->DefaultParams();
+                    if ((int)l->filters.size() >= kMaxLayerFilters) { Status("Ce calque a déjà " + std::to_string(kMaxLayerFilters) + " filtres (le maximum)"); return; }
                     l->filters.push_back(fx);
                     d.SyncGraph();
                     v->history.PushState("Ajouter un filtre", before, d.S());
@@ -896,6 +912,7 @@ void App::DrawProperties() {
                     EffectInstance fx;
                     fx.effectId = id;
                     if (auto def = Effects().Find(id)) fx.params = def->DefaultParams();
+                    if ((int)l->filters.size() >= kMaxLayerFilters) { Status("Ce calque a déjà " + std::to_string(kMaxLayerFilters) + " filtres (le maximum)"); return; }
                     l->filters.push_back(fx);
                     d.SyncGraph();
                     v->history.PushState("Ajouter un filtre", before, d.S());

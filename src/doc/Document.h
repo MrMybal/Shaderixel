@@ -52,12 +52,18 @@ struct EffectInstance {
     std::vector<Lut3DPtr> luts;       // per param index (lut params only)
     bool enabled = true;
     std::string note;  // free text shown with the parameters (lens profile of "Correction d'objectif"...)
-    EffectDefPtr Def() const;  // resolves library / parses custom code (cached)
+    // Resolves library / parses custom code (cached). A library effect whose definition was
+    // replaced or hot-reloaded since the parameters were aligned realigns them first (by id).
+    EffectDefPtr Def() const;
     // Keep parameter values aligned with a (new) definition, matching by id.
     void SyncParams(const EffectDefPtr& oldDef);
 private:
+    void Realign(const EffectDefPtr& oldDef, const EffectDefPtr& nd);
     mutable EffectDefPtr cachedDef;
     mutable std::string cachedCode;
+    // Library effects: the definition params / curves / luts are laid out for, and its effect id.
+    mutable EffectDefPtr libDef;
+    mutable std::string libId;
 };
 
 enum class LayerKind : u8 { Pixel, Fill, Adjustment, Group, Text, Shape, Smart };
@@ -146,6 +152,12 @@ struct BlendIf {
         }
     }
 };
+
+// Filters a layer can have: each one is a generated graph node whose id has 5 role bits (the
+// ones past this limit would not be rendered, so adding one must be refused).
+constexpr int kMaxLayerFilters = 28;
+// Generated node of a layer (id & 31): index of the filter it renders, -1 for another role.
+int LayerFilterOfRole(u32 role);
 
 struct Layer {
     Id id = 0;
@@ -291,7 +303,8 @@ struct Node {
     Value value;
     std::string op;                    // Math: operation, Action: action, VarGet / VarSet: variable name
     std::vector<Value> pinValues;      // value of unlinked value inputs (Math, Action, Function)
-    std::vector<int> paramPins;        // Effect: parameters shown as input pins (after the image inputs)
+    std::vector<int> paramPins;        // Effect: parameters shown as input pins (after the image inputs), by index
+    EffectDefPtr pinsDef;              // Effect: definition paramPins indices refer to (see AlignParamPins)
     // Execution inputs fed by several flows: the sources after the one in `inputs` (pin, node, channel).
     struct ExecLink { int pin = 0; Id src = 0; u8 channel = 0; };
     std::vector<ExecLink> execLinks;
@@ -333,6 +346,12 @@ PinType NodeOutputType(const Node& n, int k);
 u8 NodeOutputChannel(const Node& n, int k);  // channel a link from output k carries
 std::string NodeOutputName(const Node& n, int k);
 std::string NodeInputName(const Node& n, int i);
+// Effect node: keeps paramPins (and the links of those pins) aligned with the effect's current
+// definition. When it changed (library replaced / reloaded, code edited) each pin follows its
+// parameter by id; pins of a vanished, out of range or repeated parameter are dropped with their
+// link. Afterwards input pin (image inputs + j) is parameter paramPins[j] for every j.
+// Called by NodeSignature and the pin readers (a const node is updated in place, like Def()).
+void AlignParamPins(const Node& n);
 
 struct Graph {
     std::vector<Node> nodes;

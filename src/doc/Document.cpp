@@ -18,8 +18,17 @@ const char* kBlendNames[] = {
 constexpr Id kOutputId = 1;
 constexpr Id kGenBase = 0x40000000u;
 Id GenId(Id layer, u32 role) { return kGenBase | (layer << 5) | role; }
-enum Role : u32 { RoleSource = 0, RoleFilter = 1, RoleAdjust = 16, RoleBlend = 17, RoleMask = 18 };
+enum Role : u32 { RoleSource = 0, RoleFilter = 1, RoleAdjust = 16, RoleBlend = 17, RoleMask = 18, RoleFilterMore = 19 };
+static_assert(RoleFilterMore + (kMaxLayerFilters - 15) <= 32, "generated node roles use 5 bits");
+// Filter k of a layer: roles 1-15, then 19-31.
+u32 FilterRole(u32 k) { return k < 15 ? RoleFilter + k : RoleFilterMore + (k - 15); }
 }  // namespace
+
+int LayerFilterOfRole(u32 role) {
+    if (role >= RoleFilter && role < RoleFilter + 15) return (int)(role - RoleFilter);
+    if (role >= RoleFilterMore && role < RoleFilterMore + (u32)(kMaxLayerFilters - 15)) return (int)(role - RoleFilterMore) + 15;
+    return -1;
+}
 
 const int kBlendMenuOrder[] = {0, 13, -1, 6, 1, 10, 14, 25, -1, 7, 2, 9, 4, 26, -1, 3, 12, 11, 15, 16, 17, 18, -1, 8, 19, 5, 20, -1, 21, 22, 23, 24};
 const int kBlendMenuCount = (int)(sizeof(kBlendMenuOrder) / sizeof(int));
@@ -58,12 +67,34 @@ EffectDefPtr EffectInstance::Def() const {
         }
         return cachedDef;
     }
-    return Effects().Find(effectId);
+    EffectDefPtr d = Effects().Find(effectId);
+    if (d && d != libDef) {
+        // The library definition changed under the same effect (replaced, hot-reloaded): the
+        // values were laid out for the previous one, realign them by parameter id. A new
+        // instance, or one whose effect was just switched, only records the definition.
+        if (libDef && libId == effectId) const_cast<EffectInstance*>(this)->Realign(libDef, d);
+        libDef = d;
+        libId = effectId;
+    }
+    return d;
 }
 
 void EffectInstance::SyncParams(const EffectDefPtr& oldDef) {
+    const bool lib = graph.empty() && customCode.empty();
+    const EffectDefPtr prevLib = libDef;
+    const bool prevSame = libId == effectId;
     EffectDefPtr nd = Def();
     if (!nd) return;
+    // Def() already realigned the values from the definition they were laid out for.
+    if (lib && prevLib && prevSame && prevLib != nd) return;
+    Realign(oldDef, nd);
+    if (lib) {
+        libDef = nd;
+        libId = effectId;
+    }
+}
+
+void EffectInstance::Realign(const EffectDefPtr& oldDef, const EffectDefPtr& nd) {
     std::vector<float4> np = nd->DefaultParams();
     std::vector<CurvePoints> nc(nd->params.size());
     std::vector<Lut3DPtr> nl(nd->params.size());
@@ -388,7 +419,10 @@ Layer& Document::AddTextLayer(const TextStyle& style) {
     l.id = NewId();
     l.kind = LayerKind::Text;
     l.text = style;
-    l.name = style.content.substr(0, std::min<size_t>(style.content.find('\n'), 32));
+    size_t cut = std::min<size_t>(style.content.find('\n'), 32);
+    if (cut < style.content.size())
+        while (cut > 0 && ((unsigned char)style.content[cut] & 0xC0) == 0x80) --cut;  // not inside a UTF-8 character
+    l.name = style.content.substr(0, cut);
     if (l.name.empty()) l.name = "Texte";
     l.surface = CreateSurface({0, 0, 0, 0});
     int at = InsertIndex(*this, -1, &l.parent);
@@ -530,9 +564,17 @@ Layer& Document::DuplicateLayer(Id id) {
     std::vector<Layer> block(state.layers.begin() + s, state.layers.begin() + i + 1);
     std::unordered_map<Id, Id> remap;
     for (auto& l : block) remap[l.id] = NewId();
+    // The copy is an independent material: material layers (and 3D folders) of the block get a new
+    // material id, shared by the copied layers that shared one, as are their copied masks.
+    std::unordered_map<Id, Id> materials, masks, edits;
     for (auto& l : block) {
         l.id = remap[l.id];
         if (remap.count(l.parent)) l.parent = remap[l.parent];
+        if (l.material) {
+            auto [it, fresh] = materials.try_emplace(l.material, 0);
+            if (fresh) it->second = NewId();
+            l.material = it->second;
+        }
         if (l.surface) {
             Id src = l.surface;
             l.surface = CreateSurface({0, 0, 0, 0});
@@ -540,13 +582,21 @@ Layer& Document::DuplicateLayer(Id id) {
         }
         if (l.mask) {
             Id src = l.mask;
-            l.mask = CreateSurface({1, 1, 1, 1});
-            pendingCopies.push_back({l.mask, src});
+            auto [it, fresh] = masks.try_emplace(src, 0);
+            if (fresh) {
+                it->second = CreateSurface({1, 1, 1, 1});
+                pendingCopies.push_back({it->second, src});
+            }
+            l.mask = it->second;
         }
         if (l.maskEdit) {
             Id src = l.maskEdit;
-            l.maskEdit = CreateSurface({0, 0, 0, 0});
-            pendingCopies.push_back({l.maskEdit, src});
+            auto [it, fresh] = edits.try_emplace(src, 0);
+            if (fresh) {
+                it->second = CreateSurface({0, 0, 0, 0});
+                pendingCopies.push_back({it->second, src});
+            }
+            l.maskEdit = it->second;
         }
     }
     block.back().name += " copie";
@@ -656,10 +706,10 @@ struct GraphBuilder {
         }
         u32 fi = 0;
         for (const auto& f : l.filters) {
-            if (fi >= 15) break;
+            if (fi >= (u32)kMaxLayerFilters) break;  // no node id left (see kMaxLayerFilters)
             y += 280.0f;
             Node n;
-            n.id = GenId(l.id, RoleFilter + fi++);
+            n.id = GenId(l.id, FilterRole(fi++));
             n.kind = NodeKind::Effect;
             auto def = f.Def();
             n.name = def ? def->name : "Filtre";
@@ -751,7 +801,8 @@ void Document::ConvertToNodes() {
 }
 
 // Try to read the graph back as a linear layer stack.
-static bool ExtractLayers(const Graph& g, std::vector<Layer>& out, std::string* why) {
+// `prev`: the layers the graph was generated from (what the nodes do not carry comes from them).
+static bool ExtractLayers(const Graph& g, const std::vector<Layer>* prev, std::vector<Layer>& out, std::string* why) {
     for (auto& n : g.nodes) {
         if (n.kind == NodeKind::Split) { if (why) *why = "nœuds Séparer RGBA"; return false; }
         for (u8 c : n.inputChannel)
@@ -786,6 +837,10 @@ static bool ExtractLayers(const Graph& g, std::vector<Layer>& out, std::string* 
         l.blend = b->blend;
         l.opacity = b->opacity;
         l.visible = !b->bypass;
+        l.blendIf = b->blendIf;
+        l.channelOff = b->channelOff;
+        // A layer clips to the layer below it, not to the whole stack: no layer equivalent.
+        if (b->clip) return fail("une fusion conserve l'alpha du fond (écrêtage sur toute la pile)");
         used.insert(b->id);
         // Mask
         if (b->inputs.size() > 2 && b->inputs[2]) {
@@ -823,12 +878,41 @@ static bool ExtractLayers(const Graph& g, std::vector<Layer>& out, std::string* 
             l.effect = src->fx;
         }
         l.name = src->name;
+        if (chain.size() - 1 > (size_t)kMaxLayerFilters) return fail("plus de " + std::to_string(kMaxLayerFilters) + " filtres sur un calque");
         for (size_t i = 1; i < chain.size(); ++i) {
             EffectInstance f = chain[i]->fx;
             f.enabled = !chain[i]->bypass;
             l.filters.push_back(f);
         }
         for (auto* n : chain) used.insert(n->id);
+        // What the nodes do not carry, from the layer they were generated from: a disabled mask
+        // (no mask node), the lock, material settings, and the text / shape / smart object
+        // contents while the source is still that layer's own surface.
+        if (prev && b->layer)
+            for (const Layer& o : *prev) {
+                if (o.id != b->layer || o.kind == LayerKind::Group) continue;
+                l.locked = o.locked;
+                l.material = o.material;
+                l.generator = o.generator;
+                l.projection = o.projection;
+                if (!l.mask && o.mask && !o.maskEnabled) {
+                    l.mask = o.mask;
+                    l.maskEnabled = false;
+                }
+                if (l.mask && l.mask == o.mask) l.maskEdit = o.maskEdit;
+                if (l.kind == LayerKind::Pixel && l.surface && l.surface == o.surface &&
+                    (o.kind == LayerKind::Text || o.kind == LayerKind::Shape || o.kind == LayerKind::Smart)) {
+                    l.kind = o.kind;
+                    l.text = o.text;
+                    l.shape = o.shape;
+                    l.smart = o.smart;
+                    for (int k = 0; k < 4; ++k) l.smartCorners[k] = o.smartCorners[k];
+                    l.smartPivot = o.smartPivot;
+                    l.smartInterp = o.smartInterp;
+                    l.name = o.name;
+                }
+                break;
+            }
         out.push_back(l);
         prevBlend = b->id;
     }
@@ -841,12 +925,12 @@ static bool ExtractLayers(const Graph& g, std::vector<Layer>& out, std::string* 
 bool Document::CanConvertToLayers(std::string* why) const {
     if (state.mode == DocMode::Layers) return false;
     std::vector<Layer> tmp;
-    return ExtractLayers(state.graph, tmp, why);
+    return ExtractLayers(state.graph, &state.layers, tmp, why);
 }
 
 bool Document::ConvertToLayers() {
     std::vector<Layer> layers;
-    if (!ExtractLayers(state.graph, layers, nullptr)) return false;
+    if (!ExtractLayers(state.graph, &state.layers, layers, nullptr)) return false;
     // Layer ids must be unique: re-id any collisions.
     std::set<Id> ids;
     for (auto& l : layers) if (!ids.insert(l.id).second || l.id >= kGenBase) l.id = NewId();

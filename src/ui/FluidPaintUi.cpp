@@ -60,6 +60,8 @@ const FluidPreset kFluidPresets[] = {
 constexpr int kFluidPresetCount = (int)(sizeof(kFluidPresets) / sizeof(kFluidPresets[0]));
 // Load of the brush (coat / retained film) of each preset: above 1 the excess runs.
 const float kFluidPresetCoat[kFluidPresetCount] = {1.9f, 1.1f, 2.2f, 1.5f, 1.8f, 2.0f, 1.5f, 1.25f, 1.9f, 1.3f};
+// Bristle marks of each preset (thick pastes keep the grooves of the brush).
+const float kFluidPresetBristle[kFluidPresetCount] = {0.0f, 0.85f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.3f, 0.0f, 0.4f};
 
 constexpr float kDeg = 0.0174532925f;
 
@@ -74,6 +76,7 @@ void App::ApplyFluidPreset(int i) {
     F.preset = i;
     F.flow = P.flow * 0.5f;
     F.coat = kFluidPresetCoat[std::clamp(i, 0, kFluidPresetCount - 1)];
+    F.bristle = kFluidPresetBristle[std::clamp(i, 0, kFluidPresetCount - 1)];
     F.viscosity = P.viscosity;
     F.retention = P.retention;
     F.spread = P.spread;
@@ -109,6 +112,8 @@ Renderer::FluidParams App::FluidParamsNow(DocView& v) {
     p.spread = F.spread;
     p.cohesion = F.cohesion;
     p.pickup = F.pickup;
+    p.bristle = F.bristle;
+    p.bristleCount = F.bristleCount;
     p.coat = F.coat * F.retention;
     p.setTime = F.setTime;
     p.noise = F.noise;
@@ -536,6 +541,10 @@ void App::DrawFluidOptions(bool in3D) {
     ImGui::SliderFloat("Débit", &F.flow, 0, 20, "%.1f");
     ui::HelpTooltip("Peinture ajoutée par seconde en plus de la couche : un pinceau immobile fait une flaque\nqui coule en grosse goutte. Ctrl : enlève la peinture humide.");
     ImGui::SliderFloat("Dureté##fl", &F.hardness, 0, 1, "%.2f");
+    ImGui::SliderFloat("Traces de poils", &F.bristle, 0, 1, "%.2f");
+    ui::HelpTooltip("Sillons laissés par les poils du pinceau le long du trait : avec une peinture épaisse\n"
+                    "(viscosité et film retenu élevés), ils restent en relief.");
+    if (F.bristle > 0) ImGui::SliderFloat("Nombre de poils", &F.bristleCount, 2, 30, "%.0f");
     if (project && !in3D) {
         ImGui::SeparatorText("Matériau de la peinture");
         auto& B = brush3D;

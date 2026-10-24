@@ -99,6 +99,7 @@ std::vector<u8> RenderMeshThumb(const MeshData& m, int N) {
     const float3 L = Normalize(float3{-0.4f, 0.7f, -0.6f});
     const float s = N * 0.78f;
     for (size_t t = 0; t + 2 < m.indices.size(); t += 3) {
+        if (m.indices[t] >= vp.size() || m.indices[t + 1] >= vp.size() || m.indices[t + 2] >= vp.size()) continue;
         const float3 a = vp[m.indices[t]], b = vp[m.indices[t + 1]], d = vp[m.indices[t + 2]];
         float3 n = Cross(b - a, d - a);
         const float len = std::sqrt(Dot(n, n));
@@ -167,12 +168,16 @@ ThumbResult MakeThumb(const std::string& path, bool mesh) {
             if (ok) {
                 // Same layout as App::MeshToJson: vertices and indices in base64.
                 std::vector<u8> vb = net::Base64Decode(meta["mesh"]["vertices"].S("")), ib = net::Base64Decode(meta["mesh"]["indices"].S(""));
-                ok = !vb.empty() && !ib.empty() && vb.size() % sizeof(MeshVertex) == 0 && ib.size() % sizeof(u32) == 0;
+                ok = !vb.empty() && !ib.empty() && vb.size() % sizeof(MeshVertex) == 0 && ib.size() % sizeof(u32) == 0 &&
+                     ib.size() / sizeof(u32) % 3 == 0;
                 if (ok) {
                     m.vertices.resize(vb.size() / sizeof(MeshVertex));
                     memcpy(m.vertices.data(), vb.data(), vb.size());
                     m.indices.resize(ib.size() / sizeof(u32));
                     memcpy(m.indices.data(), ib.data(), ib.size());
+                    // A damaged file must not make the render read outside the vertices.
+                    for (u32 i : m.indices)
+                        if (i >= m.vertices.size()) { ok = false; break; }
                 }
             }
         } else {
@@ -256,19 +261,9 @@ void App::SaveExplorerSettings() {
 
 gpu::Texture* App::ExplorerThumb(const std::string& path, bool mesh, std::string* info) {
     auto& E = explorer;
-    auto it = E.thumbs.find(path);
-    if (it == E.thumbs.end()) {
-        if (E.running >= 4) return nullptr;  // a few at a time, the others next frames
-        auto& t = E.thumbs[path];
-        t.job = std::make_shared<std::future<ExplorerThumbData>>(std::async(std::launch::async, [path, mesh]() {
-            ThumbResult r = MakeThumb(path, mesh);
-            return ExplorerThumbData{std::move(r.rgba), r.w, r.h, r.info};
-        }));
-        ++E.running;
-        return nullptr;
-    }
-    auto& t = it->second;
-    if (t.job && t.job->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+    // A finished job becomes the entry's texture (whether or not its path is still listed).
+    auto finish = [&](ExplorerThumbEntry& t) {
+        if (!t.job || t.job->wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
         ExplorerThumbData d = t.job->get();
         t.job.reset();
         --E.running;
@@ -278,7 +273,25 @@ gpu::Texture* App::ExplorerThumb(const std::string& path, bool mesh, std::string
             ctx->Upload(t.tex.get(), d.rgba.data(), (u32)d.w * 4);
         }
         t.done = true;
+    };
+    auto it = E.thumbs.find(path);
+    if (it == E.thumbs.end()) {
+        if (E.running >= 4) {
+            // Jobs of paths no longer shown (other folder, filter or tab) are only collected here:
+            // poll them all so the slots they hold are freed.
+            for (auto& [p, t] : E.thumbs) finish(t);
+            if (E.running >= 4) return nullptr;  // a few at a time, the others next frames
+        }
+        auto& t = E.thumbs[path];
+        t.job = std::make_shared<std::future<ExplorerThumbData>>(std::async(std::launch::async, [path, mesh]() {
+            ThumbResult r = MakeThumb(path, mesh);
+            return ExplorerThumbData{std::move(r.rgba), r.w, r.h, r.info};
+        }));
+        ++E.running;
+        return nullptr;
     }
+    auto& t = it->second;
+    finish(t);
     if (info) *info = t.info;
     return t.tex.get();
 }

@@ -363,6 +363,7 @@ void App::EffectPinsUI(DocView& v, Node& n) {
     Document& d = *v.doc;
     auto def = n.fx.Def();
     if (!def || def->params.empty()) return;
+    AlignParamPins(n);  // pins follow their parameters if the definition changed
     if (!ImGui::CollapsingHeader("Paramètres en broches")) return;
     ui::HelpTooltip("Cochez un paramètre pour le relier à une valeur du graphe (Float, Couleur, variable, entrée de fonction...).");
     for (int k = 0; k < (int)def->params.size(); ++k) {

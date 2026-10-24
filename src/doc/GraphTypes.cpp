@@ -312,6 +312,48 @@ const ExecActionDef* FindExecAction(const std::string& id) {
 
 // ------------------------------------------------------------------ node signatures
 
+void AlignParamPins(const Node& cn) {
+    if (cn.kind != NodeKind::Effect) return;
+    EffectDefPtr def = cn.fx.Def();
+    if (!def || def == cn.pinsDef) return;
+    Node& n = const_cast<Node&>(cn);
+    const EffectDefPtr old = n.pinsDef;
+    n.pinsDef = def;
+    if (n.paramPins.empty()) return;
+    const int nimg = (int)def->inputs.size();
+    const int oldImg = old ? (int)old->inputs.size() : nimg;
+    // Image inputs first (kept in place), then one link per kept parameter pin.
+    std::vector<Id> ins(n.inputs.begin(), n.inputs.begin() + std::min((int)n.inputs.size(), oldImg));
+    ins.resize(nimg, 0);
+    std::vector<u8> chs(ins.size(), 0);
+    for (int i = 0; i < std::min(oldImg, nimg); ++i) chs[i] = InputChannel(n, i);
+    std::vector<int> pins;
+    for (size_t j = 0; j < n.paramPins.size(); ++j) {
+        int k = n.paramPins[j];
+        if (old) {
+            // Same parameter (id and type) in the new definition.
+            int nk = -1;
+            if (k >= 0 && k < (int)old->params.size())
+                for (size_t i = 0; i < def->params.size(); ++i)
+                    if (def->params[i].id == old->params[k].id && def->params[i].type == old->params[k].type) { nk = (int)i; break; }
+            k = nk;
+        }
+        if (k < 0 || k >= (int)def->params.size() || std::find(pins.begin(), pins.end(), k) != pins.end()) continue;
+        const size_t pin = (size_t)oldImg + j;
+        pins.push_back(k);
+        ins.push_back(pin < n.inputs.size() ? n.inputs[pin] : 0);
+        chs.push_back(InputChannel(n, pin));
+    }
+    if (pins == n.paramPins && oldImg == nimg) return;  // nothing moved
+    // assign (not move): keeps the buffers of callers iterating the node when they suffice.
+    n.paramPins.assign(pins.begin(), pins.end());
+    n.inputs.assign(ins.begin(), ins.end());
+    bool anyChannel = false;
+    for (u8 c : chs) anyChannel |= c != 0;
+    if (anyChannel) n.inputChannel.assign(chs.begin(), chs.end());
+    else n.inputChannel.clear();
+}
+
 void NodeSignature(const Node& n, std::vector<PinDesc>* ins, std::vector<PinDesc>* outs) {
     std::vector<PinDesc> i, o;
     switch (n.kind) {
@@ -330,6 +372,7 @@ void NodeSignature(const Node& n, std::vector<PinDesc>* ins, std::vector<PinDesc
             o = {P("RGBA", PinType::RGBA)};
             break;
         case NodeKind::Effect: {
+            AlignParamPins(n);
             auto d = n.fx.Def();
             if (d) {
                 for (auto& name : d->inputs) {
@@ -466,12 +509,16 @@ namespace {
 // Effect parameter behind input pin i (-1: an image input or no parameter).
 int EffectParamOfPin(const Node& n, int i) {
     if (n.kind != NodeKind::Effect) return -1;
+    AlignParamPins(n);
     auto def = n.fx.Def();
     if (!def) return -1;
-    const int j = i - (int)def->inputs.size();
-    if (j < 0 || j >= (int)n.paramPins.size()) return -1;
-    const int k = n.paramPins[j];
-    return k >= 0 && k < (int)def->params.size() ? k : -1;
+    // Same filtering as NodeSignature: entries out of range have no pin.
+    int pin = (int)def->inputs.size();
+    for (int k : n.paramPins) {
+        if (k < 0 || k >= (int)def->params.size()) continue;
+        if (pin++ == i) return k;
+    }
+    return -1;
 }
 }  // namespace
 

@@ -430,6 +430,7 @@ void App::RegisterAiOps() {
                          fx.effectId = def->id;
                          fx.params = def->DefaultParams();
                          std::string unknown = ApplyParams(fx, p["params"]);
+                         if ((int)l->filters.size() >= kMaxLayerFilters) return AiResult::Fail("InvalidArgument", "Ce calque a déjà le maximum de filtres");
                          l->filters.push_back(fx);
                          d.SyncGraph();
                          edit.Commit();

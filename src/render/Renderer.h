@@ -320,6 +320,7 @@ public:
         float spread = 0.3f;          // the paint levels itself (sideways)
         float cohesion = 0.15f;       // the moving paint gathers into rivulets
         float pickup = 0;             // the liquid takes the color of the paint already in the layer
+        float bristle = 0, bristleCount = 7, bristleNoise = 0.6f;  // grooves of the bristles along the stroke
         float coat = 0.4f;            // thickness laid by the brush (the flow adds on top)
         float setTime = 6;            // s: the paint stops running
         float noise = 0.5f, noiseScale = 6;  // irregular runs

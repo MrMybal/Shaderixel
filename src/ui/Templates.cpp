@@ -91,11 +91,23 @@ void App::SaveAsTemplate(DocView& v, const std::string& name, const std::string&
     const std::string dir = dirOverride.empty() ? UserTemplateDir() : dirOverride;
     std::error_code ec;
     fs::create_directories(Utf8Path(dir), ec);
-    const std::string base = dir + "\\" + SafeName(name);
+    std::string base = dir + "\\" + SafeName(name), shownName = name;
+    if (dirOverride.empty()) {
+        // The user's templates are never overwritten: an existing name gets a number ("Nom 2", "Nom 3"...).
+        auto used = [&](const std::string& b) {
+            for (const char* ext : {".sxl", ".sx3d", ".json", ".png"})
+                if (fs::exists(Utf8Path(b + ext), ec)) return true;
+            return false;
+        };
+        for (int k = 2; used(base) && k < 100000; ++k) {
+            base = dir + "\\" + SafeName(name) + " " + std::to_string(k);
+            shownName = name + " " + std::to_string(k);
+        }
+    }
     Document& d = *v.doc;
     SaveDocument(v, base + (d.kind == 1 ? ".sx3d" : ".sxl"), true);
     Json j = Json::Object();
-    j["name"] = name;
+    j["name"] = shownName;
     j["category"] = category.empty() ? "Mes modèles" : category;
     j["description"] = desc;
     j["width"] = d.Width();
@@ -107,7 +119,7 @@ void App::SaveAsTemplate(DocView& v, const std::string& name, const std::string&
         thumbJobs.push_back(std::move(job));
     }
     templateThumbs.erase(base + ".png");
-    Status("Modèle enregistré : " + name + " (" + base + ")");
+    Status("Modèle enregistré : " + shownName + " (" + base + ")");
 }
 
 void App::UpdateTemplateJobs() {
@@ -268,9 +280,14 @@ void App::DrawNewDocDialog() {
             if (!tplUi.confirmDelete) {
                 if (ImGui::Button("Supprimer le modèle")) tplUi.confirmDelete = true;
             } else if (ImGui::Button("Confirmer la suppression")) {
-                // The user's own template: its document, description and thumbnail.
+                // The user's own template: its document, and its description and thumbnail unless another
+                // document of the same base name (.sxl beside a .sx3d) still uses them.
                 std::error_code ec;
-                for (const wchar_t* ext : {L".sxl", L".sx3d", L".json", L".png"}) fs::remove(fs::path(Utf8Path(sel->path)).replace_extension(ext), ec);
+                const fs::path doc = Utf8Path(sel->path);
+                fs::remove(doc, ec);
+                const bool sibling = fs::exists(fs::path(doc).replace_extension(doc.extension() == L".sxl" ? L".sx3d" : L".sxl"), ec);
+                if (!sibling)
+                    for (const wchar_t* ext : {L".json", L".png"}) fs::remove(fs::path(doc).replace_extension(ext), ec);
                 templateThumbs.erase(sel->thumb);
                 tplUi.selected = -1;
                 tplUi.confirmDelete = false;

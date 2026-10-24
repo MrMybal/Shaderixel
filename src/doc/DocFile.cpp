@@ -236,6 +236,7 @@ std::vector<Id> ReferencedSurfaces(const Document& doc) {
 Json GraphToJson(const Graph& g) {
     Json nodes = Json::Array();
     for (auto& n : g.nodes) {
+        AlignParamPins(n);  // before the links and the pins are written
         Json o = Json::Object();
         o["id"] = n.id;
         o["kind"] = kNodeKinds[(int)n.kind];
@@ -285,9 +286,17 @@ Json GraphToJson(const Graph& g) {
             o["execLinks"] = el;
         }
         if (!n.paramPins.empty()) {
+            // By parameter id (survives parameters added / reordered in the effect), else by index.
+            auto def = n.kind == NodeKind::Effect ? n.fx.Def() : nullptr;
             Json pp = Json::Array();
-            for (int k : n.paramPins) pp.Push(k);
-            o["paramPins"] = pp;
+            if (def) {
+                for (int k : n.paramPins)
+                    if (k >= 0 && k < (int)def->params.size()) pp.Push(def->params[k].id);
+                o["paramPinNames"] = pp;
+            } else {
+                for (int k : n.paramPins) pp.Push(k);
+                o["paramPins"] = pp;
+            }
         }
         if (!n.execResults.empty()) {
             Json er = Json::Array();
@@ -655,14 +664,29 @@ void GraphFromJson(const Json& jg, Graph& g) {
                             if (val.IsArray()) n.fx.params[k] = Float4FromJson(val);
                             else n.fx.params[k] = {val.F(), 0, 0, 0};
                         }
-                for (auto& pid : o["paramPinNames"].Elements())
+                // Pins by parameter id: a parameter no longer in the effect loses its pin and link.
+                const size_t nimg = def->inputs.size();
+                std::vector<size_t> dropped;
+                size_t j = 0;
+                for (auto& pid : o["paramPinNames"].Elements()) {
+                    int found = -1;
                     for (size_t k = 0; k < def->params.size(); ++k)
-                        if (def->params[k].id == pid.S("")) n.paramPins.push_back((int)k);
+                        if (def->params[k].id == pid.S("")) { found = (int)k; break; }
+                    if (found >= 0) n.paramPins.push_back(found);
+                    else dropped.push_back(nimg + j);
+                    ++j;
+                }
+                for (size_t q = dropped.size(); q-- > 0;) {
+                    if (dropped[q] < n.inputs.size()) n.inputs.erase(n.inputs.begin() + dropped[q]);
+                    if (dropped[q] < n.inputChannel.size()) n.inputChannel.erase(n.inputChannel.begin() + dropped[q]);
+                }
                 if (n.name.empty()) n.name = def->name;
             }
         }
         for (auto& v : o["pinValues"].Elements()) n.pinValues.push_back(ValueFromJson(v));
-        for (auto& k : o["paramPins"].Elements()) n.paramPins.push_back(k.I(0));
+        // Older documents: pins by parameter index (validated against the effect by AlignParamPins).
+        if (!o.Has("paramPinNames"))
+            for (auto& k : o["paramPins"].Elements()) n.paramPins.push_back(k.I(0));
         for (auto& x : o["execLinks"].Elements())
             if (x.Size() >= 3) n.execLinks.push_back({x.At(0).I(0), x.At(1).U(), (u8)std::clamp(x.At(2).I(0), 0, 255)});
         for (auto& e : o["execResults"].Elements()) if (e.Size() >= 2) n.execResults[e.At(0).U()] = e.At(1).U();

@@ -20,7 +20,7 @@ struct FluidRoot {
 };
 
 struct FluidCB {
-    float4 gravity, phys, phys2, look, look2, color, mat, emissive;
+    float4 gravity, phys, phys2, look, look2, color, mat, emissive, bristle;
     float4 dabs[512];
     float4 dabsEx[512];
 };
@@ -34,6 +34,7 @@ void FillCB(FluidCB& cb, const Renderer::FluidParams& p) {
     cb.color = p.color;
     cb.mat = {p.rough, p.metal, p.cohesion, p.coat};
     cb.emissive = {p.emissive.x, p.emissive.y, p.emissive.z, p.pickup};
+    cb.bristle = {p.bristle, p.bristleCount, p.bristleNoise, 0};
 }
 
 }  // namespace

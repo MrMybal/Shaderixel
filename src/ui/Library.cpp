@@ -76,7 +76,22 @@ void App::SetLibraryLock(LibKind k, const std::string& id, bool lock) {
     for (std::string line; std::getline(in, line);)
         if (line.rfind("//@locked", 0) != 0) out += line + "\n";
     if (lock) out = "//@locked\n" + out;
-    std::ofstream(Utf8Path(path), std::ios::binary) << out;
+    // Written beside it then swapped in: a failed write never truncates the user's item.
+    const std::string tmp = path + ".tmp";
+    bool ok;
+    {
+        std::ofstream f(Utf8Path(tmp), std::ios::binary);
+        f << out;
+        f.close();
+        ok = !f.fail();
+    }
+    std::error_code ec;
+    if (ok) std::filesystem::rename(Utf8Path(tmp), Utf8Path(path), ec);
+    if (!ok || ec) {
+        std::filesystem::remove(Utf8Path(tmp), ec);
+        Status("Impossible d'écrire " + path);
+        return;
+    }
     if (k == LibKind::Brush) Brushes().Reload();
     else Effects().Reload();
 }

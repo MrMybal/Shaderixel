@@ -58,14 +58,17 @@ Value Renderer::EvalValue(Document& doc, Id id, int port, int depth) {
 }
 
 std::vector<float4> Renderer::EffectParams(Document& doc, const Node& n) {
+    AlignParamPins(n);
     std::vector<float4> p = n.fx.params;
     auto def = n.fx.Def();
     if (!def || n.paramPins.empty()) return p;
-    const int nimg = (int)def->inputs.size();
+    // Pins numbered as NodeSignature does: entries out of range have no pin.
+    int pin = (int)def->inputs.size() - 1;
     for (size_t j = 0; j < n.paramPins.size(); ++j) {
         const int k = n.paramPins[j];
-        const int pin = nimg + (int)j;
-        if (k < 0 || k >= (int)def->params.size() || pin >= (int)n.inputs.size() || !n.inputs[pin]) continue;
+        if (k < 0 || k >= (int)def->params.size()) continue;
+        ++pin;
+        if (pin >= (int)n.inputs.size() || !n.inputs[pin]) continue;
         if ((int)p.size() <= k) p.resize(k + 1, def->params[k].def);
         Value v = InputValue(doc, n, pin, 0);
         p[k] = v.f;

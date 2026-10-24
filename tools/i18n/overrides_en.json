@@ -515,5 +515,10 @@
  "Chaque matériau du modèle reçoit sa propre zone de la texture (la peinture déjà faite suit) ;": "Each material of the model gets its own area of the texture (the paint already done follows);",
  "les exports écrivent ensuite un jeu de textures par matériau.": "exports then write a texture set per material.",
  "Une tuile par matériau : il faut un modèle à plusieurs matériaux": "One tile per material: needs a model with several materials",
- "Une tuile par matériau : {n} matériaux, peinture reportée (Ctrl+Z annule le report ; les exports écrivent un jeu par matériau)": "One tile per material: {n} materials, paint transferred (Ctrl+Z undoes the transfer; exports write a set per material)"
+ "Une tuile par matériau : {n} matériaux, peinture reportée (Ctrl+Z annule le report ; les exports écrivent un jeu par matériau)": "One tile per material: {n} materials, paint transferred (Ctrl+Z undoes the transfer; exports write a set per material)",
+ "Traces de poils": "Bristle marks",
+ "Nombre de poils": "Bristles",
+ "Sillons laissés par les poils du pinceau le long du trait : avec une peinture épaisse": "Grooves left by the bristles along the stroke: with a thick paint",
+ "(viscosité et film retenu élevés), ils restent en relief.": "(high viscosity and retained film), they stay in relief.",
+ "Ce calque a déjà {n} filtres (le maximum)": "This layer already has {n} filters (the maximum)"
 }

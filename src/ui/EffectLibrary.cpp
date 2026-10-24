@@ -172,7 +172,9 @@ void App::OpenLibraryItem(int kind, const std::string& id, bool original) {
         efEd.target = 1;
     } else if (d.Mode() == DocMode::Layers) {
         Layer* l = d.ActiveLayer();
-        if (l && (l->kind == LayerKind::Pixel || l->kind == LayerKind::Smart || l->kind == LayerKind::Text || l->kind == LayerKind::Shape)) {
+        if (l && (int)l->filters.size() >= kMaxLayerFilters) {
+            Status("Ce calque a déjà " + std::to_string(kMaxLayerFilters) + " filtres (le maximum)");
+        } else if (l && (l->kind == LayerKind::Pixel || l->kind == LayerKind::Smart || l->kind == LayerKind::Text || l->kind == LayerKind::Shape)) {
             l->filters.push_back(fx);
             efEd.filterIndex = (int)l->filters.size() - 1;
         } else {

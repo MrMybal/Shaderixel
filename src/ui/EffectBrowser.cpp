@@ -109,6 +109,7 @@ void App::ApplyLibraryEffect(DocView& v, const std::string& id, FxApply how) {
     if (layerMode) {
         Layer* l = d.ActiveLayer();
         if (!l) { Status("Aucun calque actif"); return; }
+        if ((int)l->filters.size() >= kMaxLayerFilters) { Status("Ce calque a déjà " + std::to_string(kMaxLayerFilters) + " filtres (le maximum)"); return; }
         l->filters.push_back(fx);
         d.SyncGraph();
     } else {
@@ -153,6 +154,7 @@ void App::DropEffectOnLayer(DocView& v, Id layer, const std::string& effectId) {
     EffectInstance fx;
     fx.effectId = effectId;
     fx.params = def->DefaultParams();
+    if ((int)l->filters.size() >= kMaxLayerFilters) { Status("Ce calque a déjà " + std::to_string(kMaxLayerFilters) + " filtres (le maximum)"); return; }
     l->filters.push_back(fx);
     d.S().activeLayer = layer;
     d.SyncGraph();

@@ -324,11 +324,24 @@ void App::DrawTrimPanel() {
             if (ImGui::Selectable(presets[i].name, i == trimUi.preset)) trimUi.preset = i;
         ImGui::EndCombo();
     }
+    // Fields edited continuously: one history step from activation to the end of the edit
+    // (trimUi.before is free outside an edge drag).
+    auto undoable = [&](const char* label) {
+        if (trimUi.dragging) return;
+        // Deactivation first: tabbing between the parts of a multi-field ends one edit and starts the next.
+        if (ImGui::IsItemDeactivatedAfterEdit()) {
+            v->history.PushState(label, trimUi.before, d.S());
+            d.dirty = true;
+        }
+        if (ImGui::IsItemActivated()) trimUi.before = d.S();
+    };
     ImGui::InputInt("Marge (px)", &ts.padding);
     ts.padding = std::clamp(ts.padding, 0, 64);
+    undoable("Marge des trims");
     if (ImGui::Button("Appliquer le modèle")) {
         std::vector<int> hs;
-        for (float f : presets[trimUi.preset].fractions) hs.push_back(std::max(1, (int)std::lround(f * H)) - ts.padding);
+        // At least 1 px once the margin is taken (TrimStrips reads 0 and less as "the rest").
+        for (float f : presets[trimUi.preset].fractions) hs.push_back(std::max(1, (int)std::lround(f * H) - ts.padding));
         auto trims = TrimStrips(W, H, hs, ts.padding);
         if (std::string(presets[trimUi.preset].name).find("tuiles") != std::string::npos && !trims.empty()) {
             TrimSheet tmp;
@@ -383,12 +396,24 @@ void App::DrawTrimPanel() {
             ImGui::TableNextColumn();
             ImGui::SetNextItemWidth(-1);
             ImGui::InputText("##n", &t.name);
+            undoable("Renommer le trim");
             ImGui::TableNextColumn();
             ImGui::Text("%d x %d", t.r.Width(), t.r.Height());
             ImGui::TableNextColumn();
-            ImGui::Checkbox("H##tx", &t.tileX);
+            bool tx = t.tileX, ty = t.tileY;
+            if (ImGui::Checkbox("H##tx", &tx)) {
+                DocState before = d.S();
+                ts.trims[i].tileX = tx;
+                v->history.PushState("Raccord du trim", before, d.S());
+                d.dirty = true;
+            }
             ImGui::SameLine();
-            ImGui::Checkbox("V##ty", &t.tileY);
+            if (ImGui::Checkbox("V##ty", &ty)) {
+                DocState before = d.S();
+                ts.trims[i].tileY = ty;
+                v->history.PushState("Raccord du trim", before, d.S());
+                d.dirty = true;
+            }
             ImGui::TableNextColumn();
             if (ImGui::SmallButton("x")) remove = i;
             ImGui::PopID();
@@ -424,6 +449,7 @@ void App::DrawTrimPanel() {
             t.r = Rect{r4[0], r4[1], r4[0] + std::max(r4[2], 1), r4[1] + std::max(r4[3], 1)}.Clipped((int)W, (int)H);
             d.dirty = true;
         }
+        undoable("Rectangle du trim");
         if (ImGui::Button("Sélectionner ses pixels")) TrimSelectPixels(*v, a);
         ImGui::SameLine();
         ImGui::SetNextItemWidth(60);

@@ -156,7 +156,10 @@ void App::ExportComps(DocView& v, const std::string& basePath) {
         for (auto& ch : name) if (strchr("\\/:*?\"<>|", ch)) ch = '_';
         DocView* act = Active();
         if (act != &v) continue;
-        ExportImage(stem + "_" + name + ext);
+        // The comp may move smart objects: place them again before this comp's image is rendered.
+        Prepare(v);
+        SyncSmartLayers(v);
+        ExportImage(stem + "_" + name + ext, &v);
         ++n;
     }
     // Restore visibility / appearance without an undo entry.
@@ -170,10 +173,31 @@ void App::ExportComps(DocView& v, const std::string& basePath) {
         }
     d.S().activeComp = keep.activeComp;
     d.SyncGraph();
+    Prepare(v);
+    SyncSmartLayers(v);
     Status(std::to_string(n) + " composition(s) exportée(s)");
 }
 
 // ------------------------------------------------------------------ artboards
+
+namespace {
+// Pixels of an existing mask rewritten by `write` (in place), recorded as a paint step of the whole surface.
+template <class F>
+void RecordMaskWrite(gpu::CommandContext& ctx, History& h, Document& d, Id surface, F&& write) {
+    Surface* s = d.GetSurface(surface);
+    if (!s) return;
+    const u32 W = s->tex->Width(), H = s->tex->Height();
+    const auto fmt = s->tex->GetFormat();
+    auto before = gpu::Dev().CreateTexture(W, H, fmt, "UndoBefore");
+    ctx.CopyTexture(before.get(), s->tex.get());
+    write();
+    s = d.GetSurface(surface);
+    if (!s || s->tex->Width() != W || s->tex->Height() != H || s->tex->GetFormat() != fmt) return;
+    auto after = gpu::Dev().CreateTexture(W, H, fmt, "UndoAfter");
+    ctx.CopyTexture(after.get(), s->tex.get());
+    h.PushPaint("Masque du plan de travail", surface, {0, 0, (int)W, (int)H}, before, after);
+}
+}  // namespace
 
 void App::WriteRectMask(Document& d, Id surface, const Rect& r) {
     Surface* s = d.GetSurface(surface);
@@ -232,7 +256,8 @@ void App::NewArtboard(DocView& v) {
         // Next one on the right, same size, with a white background; the canvas grows.
         const int gap = std::max(40, last.Width() / 10);
         Rect b = {last.x1 + gap, last.y0, last.x1 + gap + last.Width(), last.y1};
-        if (b.x1 > (int)d.Width() || b.y1 > (int)d.Height()) {
+        const bool grow = b.x1 > (int)d.Width() || b.y1 > (int)d.Height();
+        if (grow) {
             u32 nw = (u32)std::max<int>((int)d.Width(), b.x1), nh = (u32)std::max<int>((int)d.Height(), b.y1);
             float m[6] = {1, 0, 0, 0, 1, 0};
             ApplyCanvasOp(v, nw, nh, m, 0, "Taille de la zone de travail");
@@ -267,10 +292,17 @@ void App::NewArtboard(DocView& v) {
         }
         d.SyncGraph();
         e.Commit();
+        // Existing artboards: the larger canvas padded their masks with transparency, rewrite them
+        // (in the same undo step, pixels recorded).
+        if (grow)
+            for (auto& l : d.S().layers)
+                if (l.artboard && l.mask && l.id != g.id) {
+                    const Id m = l.mask;
+                    const Rect rb = l.board;
+                    RecordMaskWrite(*ctx, v.history, d, m, [&] { WriteRectMask(d, m, rb); });
+                }
     }
     v.history.EndGroup();
-    // Existing artboards: their masks were padded with transparency, rewrite them all (cheap, exact).
-    for (auto& l : d.S().layers) if (l.artboard && l.mask) WriteRectMask(d, l.mask, l.board);
     v.fitPending = true;
 }
 
@@ -309,32 +341,73 @@ void App::ExportArtboards(DocView& v, const std::string& basePath) {
 
 void App::ArtboardPropertiesUI(DocView& v, Layer& l) {
     Document& d = *v.doc;
+    // A drag moves the board outline live; the undo step, the mask pixels and a larger canvas
+    // come at the release (one step per gesture).
+    static std::optional<DocState> gestureBefore;
+    static Id gestureLayer = 0;
     ImGui::SeparatorText("Plan de travail");
     int r[4] = {l.board.x0, l.board.y0, l.board.Width(), l.board.Height()};
-    bool changed = ImGui::DragInt2("Position", r, 1, -100000, 100000);
+    bool changed = false, release = false;
+    auto gesture = [&]() {
+        if (ImGui::IsItemActivated()) { gestureBefore = d.S(); gestureLayer = l.id; }
+        if (ImGui::IsItemDeactivated() && gestureLayer == l.id) release = true;
+    };
+    changed |= ImGui::DragInt2("Position", r, 1, -100000, 100000);
+    gesture();
     changed |= ImGui::DragInt2("Taille", r + 2, 1, 1, 16384);
+    gesture();
     static const struct { const char* name; int w, h; } presets[] = {
         {"Full HD 1920 x 1080", 1920, 1080}, {"Téléphone 1080 x 1920", 1080, 1920}, {"Carré 1080 x 1080", 1080, 1080},
         {"A4 300 ppp 2480 x 3508", 2480, 3508}, {"Icône 512 x 512", 512, 512}};
+    bool preset = false;
     if (ImGui::BeginCombo("Préréglage", "Choisir...")) {
         for (auto& p : presets)
-            if (ImGui::Selectable(p.name)) { r[2] = p.w; r[3] = p.h; changed = true; }
+            if (ImGui::Selectable(p.name)) { r[2] = p.w; r[3] = p.h; preset = true; }
         ImGui::EndCombo();
     }
-    if (changed) {
-        Edit e(d, v.history, "Plan de travail");
-        l.board = {r[0], r[1], r[0] + std::max(1, r[2]), r[1] + std::max(1, r[3])};
-        e.Commit();
-        Layer* lp = d.FindLayer(l.id);
-        if (lp && (lp->board.x1 > (int)d.Width() || lp->board.y1 > (int)d.Height())) {
+    auto sameBoard = [](const Rect& a, const Rect& b) { return a.x0 == b.x0 && a.y0 == b.y0 && a.x1 == b.x1 && a.y1 == b.y1; };
+    // Board change + canvas growth + mask pixels, undone together.
+    auto commit = [&](const DocState& before) {
+        const Id id = l.id;
+        v.history.BeginGroup();
+        v.history.PushState("Plan de travail", before, d.S());
+        d.dirty = true;
+        Layer* lp = d.FindLayer(id);
+        const bool grow = lp && (lp->board.x1 > (int)d.Width() || lp->board.y1 > (int)d.Height());
+        if (grow) {
             float m[6] = {1, 0, 0, 0, 1, 0};
             ApplyCanvasOp(v, (u32)std::max<int>((int)d.Width(), lp->board.x1), (u32)std::max<int>((int)d.Height(), lp->board.y1), m, 0,
                           "Taille de la zone de travail");
-            for (auto& x : d.S().layers) if (x.artboard && x.mask) WriteRectMask(d, x.mask, x.board);
-        } else if (lp && lp->mask) {
-            WriteRectMask(d, lp->mask, lp->board);
         }
+        Prepare(v);
+        for (auto& x : d.S().layers)
+            if (x.artboard && x.mask && (grow || x.id == id)) {
+                const Id m = x.mask;
+                const Rect rb = x.board;
+                RecordMaskWrite(*ctx, v.history, d, m, [&] { WriteRectMask(d, m, rb); });
+            }
+        v.history.EndGroup();
         d.SyncGraph();
+    };
+    const Rect nb = {r[0], r[1], r[0] + std::max(1, r[2]), r[1] + std::max(1, r[3])};
+    if (preset || (changed && !gestureBefore)) {
+        // Immediate change (preset, edit outside a gesture): one step now.
+        if (!sameBoard(nb, l.board)) {
+            DocState before = d.S();
+            l.board = nb;
+            commit(before);
+        }
+    } else {
+        if (changed) l.board = nb;  // live outline while dragging
+        if (release) {
+            if (gestureBefore) {
+                const Layer* old = nullptr;
+                for (auto& x : gestureBefore->layers) if (x.id == l.id) old = &x;
+                if (!old || !sameBoard(old->board, l.board)) commit(*gestureBefore);
+            }
+            gestureBefore.reset();
+            gestureLayer = 0;
+        }
     }
     ImGui::TextDisabled("Le masque du groupe délimite le plan de travail.");
 }

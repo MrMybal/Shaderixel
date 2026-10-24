@@ -34,6 +34,13 @@ void FitCorners(const Document& d, u32 w, u32 h, float2 out[4]) {
 }  // namespace
 
 gpu::TexturePtr App::LoadImageTexture(DocView& v, const std::string& path, u32& w, u32& h) {
+    if (loadedSubDoc) {
+        // A document from an earlier load this frame that nobody took: this frame's commands may still read
+        // its surfaces, so it is released later (like UpdateUAssetJobs does), and never taken for this load.
+        auto keep = std::make_shared<DocView>();
+        keep->doc = std::move(loadedSubDoc);
+        deferredViews.push_back({frameCounter, keep});
+    }
     {
         std::string ext = Narrow(Utf8Path(path).extension().wstring());
         for (auto& c : ext) c = (char)tolower((unsigned char)c);

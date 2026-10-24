@@ -30,6 +30,14 @@ std::string Slugify(const std::string& s) {
 
 std::string DirOfFile(const std::string& p) { return Narrow(Utf8Path(p).parent_path().wstring()); }
 
+// <dir>/<stem><ext>, or <dir>/<stem> 2<ext>, 3... : the first name no file uses.
+std::string UniqueFilePath(const std::string& dir, const std::string& stem, const std::string& ext) {
+    std::error_code ec;
+    std::string p = dir + "/" + stem + ext;
+    for (int i = 2; std::filesystem::exists(Utf8Path(p), ec) && i < 100000; ++i) p = dir + "/" + stem + " " + std::to_string(i) + ext;
+    return p;
+}
+
 }  // namespace
 
 // ------------------------------------------------------------------ patterns
@@ -187,9 +195,18 @@ void App::UpdateResources() {
     for (int y = 0; y < r.Height(); ++y)
         memcpy(&px[(size_t)y * r.Width() * 4], &P.image->data[((size_t)(y + r.y0) * P.image->width + r.x0) * 4], (size_t)r.Width() * 4);
     std::filesystem::create_directories(Utf8Path(PatternDir()));
-    std::string name = "Motif " + std::to_string(patterns.size() + 1);
-    std::string path = PatternDir() + "/" + name + ".png";
-    stbi_write_png(path.c_str(), r.Width(), r.Height(), 4, px.data(), r.Width() * 4);
+    // First "Motif N" no file uses (deleted patterns leave gaps: never overwrite one).
+    std::string name, path;
+    std::error_code ec;
+    for (size_t k = patterns.size() + 1;; ++k) {
+        name = "Motif " + std::to_string(k);
+        path = PatternDir() + "/" + name + ".png";
+        if (!std::filesystem::exists(Utf8Path(path), ec)) break;
+    }
+    if (!stbi_write_png(path.c_str(), r.Width(), r.Height(), 4, px.data(), r.Width() * 4)) {
+        Status("Définir un motif : écriture impossible (" + path + ")");
+        return;
+    }
     ScanPatterns();
     for (int i = 0; i < (int)patterns.size(); ++i) if (patterns[i].name == name) patternSel = i;
     Status("Motif défini : " + name + " (" + std::to_string(r.Width()) + " x " + std::to_string(r.Height()) + ")");
@@ -266,11 +283,16 @@ void App::LoadSwatchLibrary(const std::string& path) {
 }
 
 void App::SaveSwatches() {
-    if (swatchPath.empty() || Utf8Path(swatchPath).extension() != ".aco") swatchPath = SwatchDir() + "/Mon nuancier.aco";
-    std::filesystem::create_directories(Utf8Path(SwatchDir()));
+    std::error_code ec;
+    std::filesystem::create_directories(Utf8Path(SwatchDir()), ec);
+    if (swatchPath.empty() || Utf8Path(swatchPath).extension() != ".aco") {
+        // Edited .ase / .gpl library (written as .aco only): a new file named after it, never an existing one.
+        std::string stem = swatchPath.empty() ? "Mon nuancier" : Narrow(Utf8Path(swatchPath).stem().wstring());
+        swatchPath = UniqueFilePath(SwatchDir(), stem, ".aco");
+    }
     std::vector<Swatch> s;
     for (auto& x : swatches) s.push_back({x.name, x.srgb});
-    WriteAco(swatchPath, s);
+    if (!WriteAco(swatchPath, s)) Status("Nuancier : écriture impossible (" + swatchPath + ")");
 }
 
 void App::EnsureSwatches() {
@@ -369,10 +391,30 @@ void App::ImportAbrFile(const std::string& path) {
     std::vector<AbrTip> tips;
     std::string err;
     if (!ReadAbr(path, tips, &err)) { Status("Pinceaux .abr : " + err); return; }
-    std::string set = Slugify(Narrow(Utf8Path(path).stem().wstring()));
     std::string category = "ABR : " + Narrow(Utf8Path(path).stem().wstring());
+    // Two files with the same slug must not overwrite each other's tips: the first set name that is free or
+    // that holds the same file (imported again: replaced). The source of a set is noted in its texture folder.
+    const std::string slug = Slugify(Narrow(Utf8Path(path).stem().wstring()));
+    const std::string source = Narrow(std::filesystem::absolute(Utf8Path(path)).wstring());
+    std::string set = slug;
+    {
+        std::error_code ec;
+        for (int k = 2; k < 100000; ++k) {
+            const std::string dir = Brushes().Dir() + "/textures/abr/" + set;
+            std::string noted;
+            if (ReadTextFile(dir + "/source.txt", noted) && noted == source) break;  // the same file again
+            if (!std::filesystem::exists(Utf8Path(dir), ec) && !std::filesystem::exists(Utf8Path(Brushes().Dir() + "/abr_" + set + "_1.slang"), ec)) break;
+            if (std::filesystem::exists(Utf8Path(dir), ec) && !std::filesystem::exists(Utf8Path(dir + "/source.txt"), ec) && k == 2 &&
+                std::filesystem::exists(Utf8Path(Brushes().Dir() + "/abr_" + set + "_1.slang"), ec)) {
+                // A set imported before sources were noted: same name, taken as the same file.
+                break;
+            }
+            set = slug + "_" + std::to_string(k);
+        }
+    }
     std::string texDir = Brushes().Dir() + "/textures/abr/" + set;
     std::filesystem::create_directories(Utf8Path(texDir));
+    std::ofstream(Utf8Path(texDir + "/source.txt"), std::ios::binary) << source;
     int n = 0;
     for (auto& t : tips) {
         // Square tip texture (centered), white ink with the sample as alpha.

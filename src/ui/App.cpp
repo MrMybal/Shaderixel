@@ -1009,6 +1009,7 @@ void App::ResetToolSessions() {
     qsel.view = nullptr;
     qsel.pending = qsel.painting = false;
     qsel.pts.clear();
+    cropActive = false;  // a crop frame drawn on another document
     toolSessionsView = Active();
 }
 

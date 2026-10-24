@@ -78,6 +78,22 @@ Json Smart(const char* name, const char* desc, std::initializer_list<Json> layer
     return s;
 }
 
+// Corrections painted over the smart mask of a material: their own surface, kept when the mask is
+// generated again, shared by the layers of the material. Created in the same history step as the
+// smart mask setting, so undo / redo always bring back the same surface.
+void EnsureMaskEdit(Document& d, Id material) {
+    Id e = 0;
+    bool missing = false;
+    for (auto& x : d.S().layers)
+        if (x.material == material) {
+            if (x.maskEdit) e = x.maskEdit;
+            else missing = true;
+        }
+    if (!missing) return;
+    if (!e) e = d.CreateSurface({0, 0, 0, 0});
+    for (auto& x : d.S().layers) if (x.material == material && !x.maskEdit) x.maskEdit = e;
+}
+
 }  // namespace
 
 // ------------------------------------------------------------------ mesh maps
@@ -130,11 +146,9 @@ void App::UpdateSmartMasks(DocView& v) {
         Json g;
         if (!Json::Parse(l.generator, g)) continue;
         Renderer::MeshGenParams p = GenFromJson(g);
-        if (!l.maskEdit) {
-            // Corrections painted over the smart mask: their own surface, kept when the mask is generated again.
-            const Id e = d.CreateSurface({0, 0, 0, 0});
-            for (auto& x : d.S().layers) if (x.material == l.material) x.maskEdit = e;
-        }
+        // Smart masks set before the correction surface existed (older documents, scripts): created
+        // here, outside history (the smart mask editor and smart materials create it with the setting).
+        if (!l.maskEdit) EnsureMaskEdit(d, l.material);
         if (NeedsMaps(p.type) && !s.maps) {
             if (!mapsBake.running) StartMeshMapsBake(v);
             continue;
@@ -161,6 +175,13 @@ void App::UpdateSmartMasks(DocView& v) {
         if (Surface* es = l.maskEdit ? d.GetSurface(l.maskEdit) : nullptr) {
             p.edits = es->tex.get();
             sig += "|e" + std::to_string(es->version);
+        }
+        // smartMaskDone is keyed by surface id, which other documents reuse: the document and the
+        // mask texture are part of the signature so another document's entry never matches.
+        if (Surface* ms = d.GetSurface(l.mask)) {
+            char who[64];
+            snprintf(who, sizeof(who), "|d%p|t%p", (const void*)&d, (const void*)ms->tex.get());
+            sig += who;
         }
         auto it = smartMaskDone.find(l.mask);
         if (it != smartMaskDone.end() && it->second == sig) continue;
@@ -249,6 +270,7 @@ void App::DrawSmartMaskEditor(DocView& v, Id material) {
         const std::string text = sel == 0 ? "" : cg.Dump(0);
         Edit e(d, v.history, "Masque intelligent");
         for (auto& l : d.S().layers) if (l.material == material) l.generator = text;
+        if (!text.empty()) EnsureMaskEdit(d, material);
         e.Commit();
     }
 }
@@ -555,7 +577,10 @@ void App::ApplySmartMaterial(DocView& v, const Json& def) {
                 mk["source"] = k >= 0 && k + 1 < (int)made.size() ? (int)made[k] : 0;
             }
             const std::string text = mk.Dump(0);
+            Edit e(*v.doc, v.history, "Masque intelligent");
             for (auto& x : v.doc->S().layers) if (x.material == mat) x.generator = text;
+            EnsureMaskEdit(*v.doc, mat);
+            e.Commit();
         }
         last = mat;
     }

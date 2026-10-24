@@ -38,6 +38,7 @@ cbuffer Params : register(b1)
     float4 gColor;    // paint color (linear), emissive part
     float4 gMat;      // roughness, metal, cohesion, coat thickness
     float4 gEmissive; // emissive color (linear), color picked up from the paint already in the layer (w)
+    float4 gBristle;  // bristle marks: strength, bristles across the brush, irregularity, -
     float4 gDabs[512];   // image: x, y (document px), radius; world: x, y, z, radius
     float4 gDabsEx[512]; // amount, normal (world dabs: the side painted)
 };
@@ -124,7 +125,7 @@ void Deposit(int2 p)
 {
     float4 f0 = gF0.Load(int3(p, 0)), f1 = gF1.Load(int3(p, 0)), d0 = gD0.Load(int3(p, 0)), d1 = gD1.Load(int3(p, 0));
     float4 G = gGrav.Load(int3(p, 0));
-    float add = 0.0;
+    float add = 0.0, lockAdd = 0.0, lockPart = 0.0;
     if (G.w > 0)
     {
         float2 uv = (float2(p) + 0.5) / float2(gSize);
@@ -155,13 +156,33 @@ void Deposit(int2 p)
             }
             if (d >= r) continue;
             float fall = 1.0 - smoothstep(r * saturate(gLook2.w), r, d);
+            if (gBristle.x > 0)
+            {
+                // Bristle marks: grooves along the stroke (direction from the neighboring dabs of the batch).
+                const uint ia = i > 0 ? i - 1 : i, ib = i + 1 < gKind ? i + 1 : i;
+                float3 dir = (gFlags & 2) ? gDabs[ib].xyz - gDabs[ia].xyz : float3(gDabs[ib].xy - gDabs[ia].xy, 0);
+                if (dot(dir, dir) < 1e-12) dir = (gFlags & 2) ? cross(N, float3(0, 1, 0.3)) : float3(1, 0, 0);
+                dir = normalize(dir);
+                float3 rel = (gFlags & 2) ? P - dab.xyz : float3(docPx - dab.xy, 0);
+                float3 across = (gFlags & 2) ? normalize(cross(N, dir)) : float3(-dir.y, dir.x, 0);
+                const float s = dot(rel, across) / r;  // -1..1 across the brush
+                const float lane = s * gBristle.y;
+                const float wob = (Hash12(float2(floor(lane), gSeed)) - 0.5) * gBristle.z;  // uneven bristles
+                const float groove = 0.5 + 0.5 * cos((lane + wob) * 6.2831853);
+                fall *= lerp(1.0, 0.12 + 0.88 * groove * groove, gBristle.x);  // valleys between the bristles, never more paint
+            }
             add += fall * ex.x;
             coat = max(coat, fall);
         }
         // The loaded brush lays a coat (up to its thickness), the flow adds paint on top (pools when held still);
         // uneven load: more paint here and there.
         float load = 1.0 + gPhys2.x * (Noise(float2(p) * 1.7 + 91.0) - 0.5) * 1.2;
-        add = max(add * load + max(coat * gMat.w * load - f0.x, 0.0), 0.0);
+        // Bristle marks: part of the coat is laid as a set paste (the stain layer, which does not run), so the
+        // grooves stay; the coat then counts it too (no build-up).
+        lockPart = gBristle.x * 0.75;
+        const float coatAdd = max(coat * gMat.w * load - f0.x - (lockPart > 0 ? d0.x : 0.0), 0.0);
+        lockAdd = coatAdd * lockPart;
+        add = max(add * load + coatAdd - lockAdd, 0.0);
     }
     if (gFlags & 32)
     {
@@ -170,10 +191,10 @@ void Deposit(int2 p)
         f0.x *= 1.0 - k;
         d0.x *= 1.0 - k;
     }
-    else if (add > 0)
+    else if (add > 0 || lockAdd > 0)
     {
         // The absorbent support takes its stain on top: the liquid laid still runs.
-        float wetAdd = add, dryAdd = add * gPhys2.z * 0.5;
+        float wetAdd = add, dryAdd = add * gPhys2.z * 0.5 + lockAdd;
         float h = f0.x + wetAdd;
         float wa = wetAdd / max(h, 1e-6), wo = 1.0 - wa;
         f0 = float4(h, f0.yzw * wo + gColor.rgb * wa);
