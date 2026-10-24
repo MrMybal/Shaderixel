@@ -662,6 +662,45 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_SPOT: dark blobs painted on the grass and the sky, then removed with the spot healing brush (strokes over
+        // them); exported (SX_OUT).
+        if (GetEnvironmentVariableA("SX_SPOT", nullptr, 0) > 0) {
+            static int step = 0;
+            if (frameCounter == 8) {
+                tool = Tool::SpotHeal;
+                const float4 blobs[] = {{300, 360, 330, 385}, {420, 400, 470, 415}, {380, 90, 405, 115}};
+                for (auto& bl : blobs) {
+                    a->renderer.SelectShape(d, *ctx, a->history, SelShape::Ellipse, bl, SelMode::Replace, true, 0, "Sélection");
+                    a->renderer.FillSelection(d, *ctx, &a->history, d.PaintTarget(), 0, float4{0.02f, 0.02f, 0.02f, 1}, 1, "Remplir");
+                }
+                a->renderer.Deselect(d, a->history);
+            }
+            if (frameCounter == 12 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            // One stroke per blob, each once the previous correction is done.
+            const float4 strokes[][2] = {{{300, 372, 0, 0}, {330, 372, 0, 0}}, {{420, 407, 0, 0}, {470, 407, 0, 0}}, {{392, 102, 0, 0}, {393, 103, 0, 0}}};
+            if (frameCounter > 16 && step < 3 && !fillJob.active) {
+                spotHeal.size = step == 1 ? 26 : 36;
+                spotHeal.dabs.clear();
+                const float4 s0 = strokes[step][0], s1 = strokes[step][1];
+                for (int k = 0; k <= 10; ++k) spotHeal.dabs.push_back({s0.x + (s1.x - s0.x) * k / 10, s0.y + (s1.y - s0.y) * k / 10, spotHeal.size * 0.5f, 0});
+                SpotHealApply(*a);
+                ++step;
+            }
+            if (step == 3 && !fillJob.active && !outRb) {
+                Log("[spot] %s, history %zu (%s)", statusMsg.c_str(), a->history.Count(), a->history.Label(a->history.Count() - 1).c_str());
+                std::string o = std::string(out).substr(0, strlen(out) - 4) + "_after.png";
+                static std::string after;
+                after = o;
+                outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+                step = 4;
+            }
+            if (outRb && outRb->ready) {
+                const std::string o = step == 4 ? std::string(out).substr(0, strlen(out) - 4) + "_after.png" : std::string(out);
+                stbi_write_png(o.c_str(), outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_FX=<effect id>: that effect applied (destructive) to the image instead, then exported (SX_OUT).
         char fx[96] = "";
         if (GetEnvironmentVariableA("SX_FX", fx, sizeof(fx)) > 0) {

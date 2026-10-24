@@ -46,7 +46,7 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Fluid, Plugin, Mixer, Ruler, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Fluid, Plugin, Mixer, Ruler, SpotHeal, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
@@ -1259,6 +1259,8 @@ private:
         std::atomic<bool> cancel{false};
         std::atomic<float> progress{0};
         std::function<void()> then;
+        std::vector<u8> maskCpu;  // a mask given by the caller (spot healing brush) instead of the selection
+        std::string label = "Remplissage d'après le contenu";
         FillJob() = default;
         FillJob& operator=(FillJob&& o) noexcept {
             active = o.active; view = o.view; surface = o.surface; selection = o.selection;
@@ -1266,6 +1268,7 @@ private:
             cx = o.cx; cy = o.cy; cw = o.cw; ch = o.ch;
             rgba = std::move(o.rgba); hole = std::move(o.hole); work = std::move(o.work);
             cancel = o.cancel.load(); progress = o.progress.load(); then = std::move(o.then);
+            maskCpu = std::move(o.maskCpu); label = std::move(o.label);
             return *this;
         }
     } fillJob;
@@ -1276,6 +1279,16 @@ private:
     } patchDrag;
     float patchBlend = 0.4f, redEyeSize = 40, redEyeDarken = 0.5f, bgEraserTolerance = 0.25f;
     void StartContentAwareFill(DocView& v, std::function<void()> then = {});
+    // Spot healing brush: the painted area (document-sized mask) rebuilt from its surroundings.
+    void StartContentAwareFillMask(DocView& v, std::vector<u8> mask, const std::string& label);
+    struct {
+        std::vector<float4> dabs;  // x, y, radius (document pixels)
+        bool painting = false;
+        float size = 30;
+    } spotHeal;
+    void SpotHealInput(DocView& v, float2 dp, bool hovered);
+    void SpotHealApply(DocView& v);  // the stroke's area rebuilt
+    void SpotHealOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     void UpdateContentAwareFill();
     void PatchToolInput(DocView& v, ImVec2 canvasMin, bool hovered);
     void ClickToolInput(DocView& v, ImVec2 canvasMin, bool hovered);

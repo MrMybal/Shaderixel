@@ -52,6 +52,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Particles, ui::IconParticles, "Simulation de peinture (particules 3D : coulures, poussière, éclaboussures...)", "-"},
     {Tool::Fluid, ui::IconFluid, "Peinture liquide (coulures PBR : couleur, rugosité, métal, relief ; gravité)", "-"},
     {Tool::Plugin, ui::IconWand, "Outil de plugin", "-"},
+    {Tool::SpotHeal, ui::IconHeal, "Correcteur localisé (peignez sur le défaut : il est reconstruit d'après les alentours)", "J"},
     {Tool::Ruler, ui::IconPicker, "Règle (mesure, redresser)", "I"},
     {Tool::Mixer, ui::IconBrush, "Pinceau mélangeur (la peinture se mêle aux couleurs de la toile)", "B"},
 };
@@ -71,7 +72,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Fluid},
     {Tool::Eraser, Tool::BackgroundEraser, Tool::MagicEraser},
     {Tool::Clone, Tool::PatternStamp},
-    {Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye},
+    {Tool::SpotHeal, Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye},
     {Tool::Text},
     {Tool::Pen},
     {Tool::Shape},
@@ -420,6 +421,7 @@ void App::DrawCanvas() {
     ParamPickOverlay(*v, canvasMin, dl);
     PerspectivePasteOverlay(*v, canvasMin, dl);
     RulerOverlay(*v, canvasMin, dl);
+    SpotHealOverlay(*v, canvasMin, dl);
     DrawSelectionOverlay(*v, canvasMin, dl);
     DrawQuickSelectOverlay(*v, canvasMin, dl);
     DrawPenOverlay(*v, canvasMin, dl);
@@ -530,6 +532,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (tool == Tool::Ruler) {
         RulerInput(v, dp, hovered);
+        return;
+    }
+    if (tool == Tool::SpotHeal) {
+        SpotHealInput(v, dp, hovered);
         return;
     }
     if (tool == Tool::MagneticLasso) {

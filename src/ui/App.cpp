@@ -1693,11 +1693,13 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_B)) setTool(Tool::Brush);
     if (pressed(ImGuiKey_S)) setTool(Tool::Clone);
     if (pressed(ImGuiKey_J)) {
-        // J cycles: correcteur -> pièce -> déplacement basé sur le contenu -> yeux rouges.
-        Tool cyc[] = {Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye};
+        // J cycles (Maj+J): correcteur localisé -> correcteur -> pièce -> déplacement basé sur le contenu -> yeux rouges.
+        Tool cyc[] = {Tool::SpotHeal, Tool::Heal, Tool::Patch, Tool::ContentMove, Tool::RedEye};
         int k = 0;
-        for (int i = 0; i < 4; ++i) if (tool == cyc[i]) k = shift ? (i + 1) % 4 : i;
-        setTool(shift ? cyc[k] : (tool == cyc[0] || tool == cyc[1] || tool == cyc[2] || tool == cyc[3]) ? tool : Tool::Heal);
+        bool inCycle = false;
+        for (int i = 0; i < 5; ++i)
+            if (tool == cyc[i]) { k = shift ? (i + 1) % 5 : i; inCycle = true; }
+        setTool(shift ? cyc[k] : inCycle ? tool : Tool::SpotHeal);
     }
     if (pressed(ImGuiKey_Y)) setTool(Tool::HistoryBrush);
     if (shift && pressed(ImGuiKey_F5) && d.S().selection && d.PaintTarget()) StartContentAwareFill(*v);
@@ -1734,6 +1736,11 @@ void App::HandleShortcuts() {
         if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) Nudge(*v, 0, step);
     }
 
+    if (tool == Tool::SpotHeal) {
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) spotHeal.size = std::max(2.0f, spotHeal.size * 0.85f - 1);
+        if (ImGui::IsKeyPressed(ImGuiKey_RightBracket)) spotHeal.size = std::min(400.0f, spotHeal.size * 1.18f + 1);
+        return;
+    }
     if (tool == Tool::QuickSelect) {
         if (ImGui::IsKeyPressed(ImGuiKey_LeftBracket)) qselSize = std::max(2.0f, qselSize * 0.85f - 1);
         if (ImGui::IsKeyPressed(ImGuiKey_RightBracket)) qselSize = std::min(500.0f, qselSize * 1.18f + 1);

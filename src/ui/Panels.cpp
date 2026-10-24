@@ -1353,6 +1353,11 @@ void App::DrawBrush() {
         }
     } else if (tool == Tool::Ruler) {
         RulerOptions(v);
+    } else if (tool == Tool::SpotHeal) {
+        ImGui::SeparatorText("Correcteur localisé");
+        ImGui::SliderFloat("Taille", &spotHeal.size, 2, 400, "%.0f px", ImGuiSliderFlags_Logarithmic);
+        ImGui::TextWrapped("Peignez sur un défaut (poussière, bouton, fil, objet) : au relâchement, la zone est reconstruite d'après ce qui l'entoure, sans source à choisir. [ et ] : taille.");
+        if (fillJob.active) ImGui::TextDisabled("Correction en cours...");
     } else if (tool == Tool::Move) {
         ImGui::SeparatorText("Déplacement");
         ImGui::TextWrapped("Glissez pour déplacer le calque actif (ou la sélection). Flèches : 1 px, Maj+flèches : 10 px. Ctrl+T : transformation manuelle.");

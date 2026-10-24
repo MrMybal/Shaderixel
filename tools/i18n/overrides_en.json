@@ -714,5 +714,12 @@
  "Rotation de l'image": "Image rotation",
  "Positif : sens horaire.": "Positive: clockwise.",
  "Rotation (angle libre)": "Rotation (any angle)",
- "Effacer la mesure": "Clear the measure"
+ "Effacer la mesure": "Clear the measure",
+ "Correcteur localisé (peignez sur le défaut : il est reconstruit d'après les alentours)": "Spot healing brush (paint over the defect: it is rebuilt from its surroundings)",
+ "Correcteur localisé": "Spot healing brush",
+ "Peignez sur un défaut (poussière, bouton, fil, objet) : au relâchement, la zone est reconstruite d'après ce qui l'entoure, sans source à choisir. [ et ] : taille.": "Paint over a defect (dust, spot, wire, object): on release the area is rebuilt from its surroundings, no source to choose. [ and ]: size.",
+ "Correction en cours...": "Correcting...",
+ "Correction déjà en cours...": "A correction is already running...",
+ "Rien à corriger": "Nothing to correct",
+ "Correcteur localisé : sélectionnez un calque de pixels": "Spot healing brush: select a pixel layer"
 }
