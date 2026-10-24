@@ -127,6 +127,55 @@ void App::ApplyLibraryEffect(DocView& v, const std::string& id, FxApply how) {
     e.Commit();
 }
 
+void App::FrequencySeparation(DocView& v, float radius) {
+    Document& d = *v.doc;
+    Layer* src = d.ActiveLayer();
+    if (d.Mode() != DocMode::Layers || !src || src->kind != LayerKind::Pixel || !d.GetSurface(src->surface)) {
+        Status("Séparation de fréquences : sélectionnez un calque de pixels");
+        return;
+    }
+    auto make = [&](const char* id) {
+        EffectInstance fx;
+        fx.effectId = id;
+        auto def = Effects().Find(id);
+        if (!def) return fx;
+        fx.params = def->DefaultParams();
+        for (size_t i = 0; i < def->params.size() && i < fx.params.size(); ++i)
+            if (def->params[i].id == "radius") fx.params[i].x = radius;
+            else if (def->params[i].id == "gamma") fx.params[i].x = d.blendInGamma ? 1.0f : 0.0f;
+        return fx;
+    };
+    const EffectInstance low = make("gaussian_blur"), high = make("freq_high");
+    if (low.params.empty() || high.params.empty()) { Status("Séparation de fréquences : effets introuvables"); return; }
+    const Id srcId = src->id;
+    const std::string name = src->name;
+    v.history.BeginGroup();
+    Edit e(d, v.history, "Séparation de fréquences");
+    // Above the layer: the low frequencies, then the high ones in Linear Light (the pair rebuilds the image).
+    Layer& lo = d.DuplicateLayer(srcId);
+    lo.name = name + " - basses fréquences";
+    const Id loId = lo.id, loSurf = lo.surface;
+    Layer& hi = d.DuplicateLayer(loId);
+    hi.name = name + " - hautes fréquences";
+    hi.blend = BlendMode::LinearLight;
+    hi.opacity = 1;
+    const Id hiId = hi.id, hiSurf = hi.surface;
+    if (Layer* s = d.FindLayer(srcId)) s->visible = false;  // (kept below, hidden: the pair shows the image)
+    d.SyncGraph();
+    e.Commit();
+    Prepare(v);  // the copies of the pixels are made now (queued by the duplication), before the effects
+    const Id keepSel = d.S().selection;
+    d.S().selection = 0;  // the whole layers
+    const bool ok = v.renderer.ApplyEffectToSurface(d, *ctx, v.history, loSurf, low, "Basses fréquences") &&
+                    v.renderer.ApplyEffectToSurface(d, *ctx, v.history, hiSurf, high, "Hautes fréquences");
+    d.S().selection = keepSel;
+    v.history.EndGroup();
+    d.S().activeLayer = hiId;
+    (void)loId;
+    Status(ok ? "Séparation de fréquences : retouchez les couleurs sur le calque des basses fréquences, la texture sur celui des hautes"
+              : "Séparation de fréquences : effets en cours de compilation, annulez puis réessayez");
+}
+
 void App::DropEffectOnLayer(DocView& v, Id layer, const std::string& effectId) {
     Document& d = *v.doc;
     auto def = Effects().Find(effectId);

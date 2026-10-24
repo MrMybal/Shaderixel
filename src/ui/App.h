@@ -875,11 +875,25 @@ private:
     Id textSelLayer = 0;
     Id charStyleSel = 0, paraStyleSel = 0;
     void DrawTextStylesPanel();
-    int imageDialog = 0;            // 1 image size, 2 canvas size, 3 content-aware scale
+    int imageDialog = 0;            // 1 image size, 2 canvas size, 3 content-aware scale, 4 trim
     int dlgW = 0, dlgH = 0, dlgAnchor = 4, dlgInterp = 2;
     bool dlgKeepRatio = true;
     bool cropActive = false, cropDragging = false;
     float2 cropStart, cropEnd;
+    // Perspective crop: the frame's 4 corners (TL, TR, BR, BL, document pixels), dragged one by one.
+    bool cropPersp = false, cropQuadSet = false;
+    float2 cropQuad[4];
+    int cropCorner = -1;
+    void ApplyPerspectiveCrop(DocView& v);
+    // Layer > Frequency separation: low (Gaussian blur) and high (detail around mid gray, Linear Light) copies.
+    void FrequencySeparation(DocView& v, float radius);
+    float freqRadius = 6;
+    // Image > Trim: transparent pixels or the color of a corner, read back from the composite.
+    gpu::ReadbackPtr trimRb;
+    DocView* trimView = nullptr;
+    int trimMode = 0;              // 0 transparent pixels, 1 top-left pixel color, 2 bottom-right pixel color
+    bool trimSides[4] = {true, true, true, true};  // top, bottom, left, right
+    void TrimTick();
     gpu::ReadbackPtr cropBoundsRb;
     DocView* cropBoundsView = nullptr;
     gpu::TexturePtr clipboard;

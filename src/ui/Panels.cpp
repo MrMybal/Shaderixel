@@ -1324,7 +1324,14 @@ void App::DrawBrush() {
     } else if (tool == Tool::Crop) {
         ImGui::SeparatorText("Recadrage");
         ImGui::TextWrapped("Tracez le cadre (Maj : carré), puis Entrée ou double-clic pour recadrer. Échap : annuler. Le cadre peut dépasser l'image pour agrandir la zone de travail.");
-        if (cropActive && v) {
+        if (ImGui::Checkbox("Perspective", &cropPersp)) cropActive = cropQuadSet = false;
+        ui::HelpTooltip("Recadrage en perspective : tracez le cadre puis placez ses quatre coins sur les bords d'un plan\n"
+                        "(façade, document, tableau) ; l'image est redressée en rectangle.");
+        if (cropActive && v && cropPersp && cropQuadSet) {
+            if (ImGui::Button("Redresser (Entrée)")) ApplyPerspectiveCrop(*v);
+            ImGui::SameLine();
+            if (ImGui::Button("Annuler")) cropActive = cropQuadSet = false;
+        } else if (cropActive && v && !cropPersp) {
             Rect r = CropRect();
             ImGui::Text("%d x %d px", r.Width(), r.Height());
             if (ImGui::Button("Recadrer (Entrée)")) { ApplyCrop(*v, r); cropActive = false; }

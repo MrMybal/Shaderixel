@@ -42,6 +42,70 @@ void App::ApplyCrop(DocView& v, Rect r) {
     ApplyCanvasOp(v, (u32)r.Width(), (u32)r.Height(), m, 0, "Recadrage");
 }
 
+void App::ApplyPerspectiveCrop(DocView& v) {
+    if (!cropQuadSet) return;
+    if (xf.active && xf.view) TransformCommit(*xf.view);
+    const float2* q = cropQuad;  // TL, TR, BR, BL
+    const float W = 0.5f * (Length(q[1] - q[0]) + Length(q[2] - q[3])), H = 0.5f * (Length(q[3] - q[0]) + Length(q[2] - q[1]));
+    const u32 w = (u32)std::max(1L, std::lround(W)), h = (u32)std::max(1L, std::lround(H));
+    // Unit square -> quad (Heckbert), then destination pixels -> unit square.
+    const float x0 = q[0].x, y0 = q[0].y, x1 = q[1].x, y1 = q[1].y, x2 = q[2].x, y2 = q[2].y, x3 = q[3].x, y3 = q[3].y;
+    const float sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3;
+    float a, b, c, d, e, f, g = 0, hh = 0;
+    if (std::abs(sx) < 1e-6f && std::abs(sy) < 1e-6f) {
+        a = x1 - x0; b = x3 - x0; c = x0;
+        d = y1 - y0; e = y3 - y0; f = y0;
+    } else {
+        const float dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2, den = dx1 * dy2 - dx2 * dy1;
+        if (std::abs(den) < 1e-9f) { Status("Recadrage en perspective : cadre dégénéré"); return; }
+        g = (sx * dy2 - dx2 * sy) / den;
+        hh = (dx1 * sy - sx * dy1) / den;
+        a = x1 - x0 + g * x1; b = x3 - x0 + hh * x3; c = x0;
+        d = y1 - y0 + g * y1; e = y3 - y0 + hh * y3; f = y0;
+    }
+    const float m[9] = {a / w, b / h, c, d / w, e / h, f, g / w, hh / h, 1};
+    v.doc->S().selection = 0;
+    if (!v.renderer.ResampleCanvasPerspective(*v.doc, *ctx, v.history, w, h, m, 2, "Recadrage en perspective")) {
+        Status("Recadrage en perspective impossible (taille max 16384 px)");
+        return;
+    }
+    cropActive = cropQuadSet = false;
+    v.fitPending = true;
+    Status("Recadrage en perspective : " + std::to_string(w) + " x " + std::to_string(h));
+}
+
+// Image > Trim: the composite read back, then the rows / columns equal to the reference (transparent or a corner's
+// color) removed from the chosen sides.
+void App::TrimTick() {
+    if (!trimRb || !trimRb->ready) return;
+    auto rb = trimRb;
+    trimRb.reset();
+    bool alive = false;
+    for (auto& dv : docs) alive |= dv.get() == trimView;
+    if (!alive || rb->data.size() < (size_t)rb->width * rb->height * 4) return;
+    const int W = (int)rb->width, H = (int)rb->height;
+    const u8* px = rb->data.data();
+    const u8* ref = trimMode == 1 ? px : trimMode == 2 ? px + ((size_t)(H - 1) * W + (W - 1)) * 4 : nullptr;
+    auto same = [&](int x, int y) {
+        const u8* p = px + ((size_t)y * W + x) * 4;
+        if (!ref) return p[3] == 0;
+        return p[0] == ref[0] && p[1] == ref[1] && p[2] == ref[2] && p[3] == ref[3];
+    };
+    int x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+            if (!same(x, y)) {
+                x0 = std::min(x0, x); x1 = std::max(x1, x);
+                y0 = std::min(y0, y); y1 = std::max(y1, y);
+            }
+    if (x1 < 0) { Status("Rogner : l'image entière serait retirée"); return; }
+    Rect r = {trimSides[2] ? x0 : 0, trimSides[0] ? y0 : 0, trimSides[3] ? x1 + 1 : W, trimSides[1] ? y1 + 1 : H};
+    if (r.x0 == 0 && r.y0 == 0 && r.x1 == W && r.y1 == H) { Status("Rogner : rien à retirer"); return; }
+    float m[6] = {1, 0, (float)r.x0, 0, 1, (float)r.y0};
+    trimView->doc->S().selection = 0;
+    ApplyCanvasOp(*trimView, (u32)r.Width(), (u32)r.Height(), m, 0, "Rogner");
+}
+
 void App::DrawImageMenu() {
     DocView* v = Active();
     if (!ImGui::BeginMenu("Image", v != nullptr)) return;
@@ -82,7 +146,12 @@ void App::DrawImageMenu() {
             cropBoundsView = v;
         }
     }
+    if (ImGui::MenuItem("Rogner...", nullptr, false, !trimRb)) imageDialog = 4;
     if (ImGui::MenuItem("Outil Recadrage", "C")) tool = Tool::Crop;
+    if (ImGui::MenuItem("Recadrage en perspective")) {
+        tool = Tool::Crop;
+        cropPersp = true;
+    }
     ImGui::EndMenu();
 }
 
@@ -90,6 +159,7 @@ void App::DrawImageDialogs() {
     DocView* v = Active();
     ContentScaleTick();
     AnimTick();
+    TrimTick();
     DrawContentScaleProgress();
     if (!carveJob && !animExport) CloseJobModal();
     if (cropBoundsRb && cropBoundsRb->ready) {
@@ -110,6 +180,36 @@ void App::DrawImageDialogs() {
     }
     Document& d = *v->doc;
     const int W = (int)d.Width(), H = (int)d.Height();
+    if (imageDialog == 4) {
+        ImGui::TextUnformatted("Rogner");
+        ImGui::Separator();
+        ImGui::TextDisabled("D'après :");
+        ImGui::RadioButton("Pixels transparents", &trimMode, 0);
+        ImGui::RadioButton("Couleur du pixel en haut à gauche", &trimMode, 1);
+        ImGui::RadioButton("Couleur du pixel en bas à droite", &trimMode, 2);
+        ImGui::TextDisabled("Retirer :");
+        ImGui::Checkbox("Haut", &trimSides[0]);
+        ImGui::SameLine();
+        ImGui::Checkbox("Bas", &trimSides[1]);
+        ImGui::SameLine();
+        ImGui::Checkbox("Gauche", &trimSides[2]);
+        ImGui::SameLine();
+        ImGui::Checkbox("Droite", &trimSides[3]);
+        ImGui::Spacing();
+        if (ImGui::Button("OK", ImVec2(100 * dpi, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+            trimRb = v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx), false);
+            trimView = v;
+            imageDialog = 0;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Annuler", ImVec2(100 * dpi, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            imageDialog = 0;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+        return;
+    }
     ImGui::TextUnformatted(imageDialog == 1 ? "Taille de l'image" : imageDialog == 3 ? "Mise à l'échelle selon le contenu" : "Taille de la zone de travail");
     ImGui::Separator();
     ImGui::TextDisabled("Actuelle : %d x %d px", W, H);
@@ -193,6 +293,46 @@ void App::DrawImageDialogs() {
 void App::CropInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     ImGuiIO& io = ImGui::GetIO();
     float2 dp = Snap(v, ScreenToDoc(v, canvasMin, io.MousePos));
+    if (cropPersp) {
+        // Perspective: a frame drawn like the rectangle, then its corners dragged one by one onto the plane's edges.
+        if (cropCorner >= 0) {
+            cropQuad[cropCorner] = dp;
+            if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) cropCorner = -1;
+            return;
+        }
+        if (cropActive && cropQuadSet && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            const float grab = 10.0f / std::max(v.zoom, 1e-3f);
+            for (int k = 0; k < 4; ++k)
+                if (Length(cropQuad[k] - dp) < grab) {
+                    cropCorner = k;
+                    return;
+                }
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+                ApplyPerspectiveCrop(v);
+                return;
+            }
+        }
+        if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            cropDragging = true;
+            cropActive = true;
+            cropQuadSet = false;
+            cropStart = cropEnd = dp;
+        }
+        if (cropDragging) {
+            cropEnd = dp;
+            if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                cropDragging = false;
+                if (Length(cropEnd - cropStart) < 2) cropActive = false;
+                const Rect r = CropRect();
+                cropQuad[0] = {(float)r.x0, (float)r.y0};
+                cropQuad[1] = {(float)r.x1, (float)r.y0};
+                cropQuad[2] = {(float)r.x1, (float)r.y1};
+                cropQuad[3] = {(float)r.x0, (float)r.y1};
+                cropQuadSet = cropActive;
+            }
+        }
+        return;
+    }
     if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && cropActive) {
         ApplyCrop(v, CropRect());
         cropActive = false;
@@ -224,6 +364,25 @@ Rect App::CropRect() const {
 
 void App::CropOverlay(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, ImDrawList* dl) {
     if (!cropActive || tool != Tool::Crop) return;
+    if (cropPersp && cropQuadSet) {
+        auto S = [&](float2 p) { return ImVec2(canvasMin.x + v.pan.x + p.x * v.zoom, canvasMin.y + v.pan.y + p.y * v.zoom); };
+        ImVec2 q[4];
+        for (int k = 0; k < 4; ++k) q[k] = S(cropQuad[k]);
+        dl->AddPolyline(q, 4, IM_COL32_WHITE, ImDrawFlags_Closed, 1.5f);
+        // Grid of the plane (thirds), to align on the edges of the subject.
+        for (int i = 1; i < 3; ++i) {
+            const float t = i / 3.0f;
+            auto lerp = [](ImVec2 a, ImVec2 b, float k) { return ImVec2(a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k); };
+            dl->AddLine(lerp(q[0], q[1], t), lerp(q[3], q[2], t), IM_COL32(255, 255, 255, 90));
+            dl->AddLine(lerp(q[0], q[3], t), lerp(q[1], q[2], t), IM_COL32(255, 255, 255, 90));
+        }
+        for (int k = 0; k < 4; ++k) {
+            dl->AddRectFilled(ImVec2(q[k].x - 5, q[k].y - 5), ImVec2(q[k].x + 5, q[k].y + 5), IM_COL32_WHITE);
+            dl->AddRect(ImVec2(q[k].x - 5, q[k].y - 5), ImVec2(q[k].x + 5, q[k].y + 5), IM_COL32(0, 0, 0, 200));
+        }
+        dl->AddText(ImVec2(q[3].x, q[3].y + 8), IM_COL32_WHITE, "Perspective : glissez les coins, Entrée pour redresser");
+        return;
+    }
     Rect r = CropRect();
     auto S = [&](float x, float y) { return ImVec2(canvasMin.x + v.pan.x + x * v.zoom, canvasMin.y + v.pan.y + y * v.zoom); };
     ImVec2 a = S((float)r.x0, (float)r.y0), b = S((float)r.x1, (float)r.y1);

@@ -448,6 +448,88 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 109) {
+        // Perspective crop and trim: SX_IMAGE opened; SX_TRIM=1: Image > Trim (transparent pixels) first; then the crop
+        // tool in perspective mode with the frame's corners SX_QUAD (x0,y0,...: TL TR BR BL), straightened; SX_OUT.
+        char img[512] = "", quad[128] = "", out[512] = "";
+        GetEnvironmentVariableA("SX_IMAGE", img, sizeof(img));
+        GetEnvironmentVariableA("SX_QUAD", quad, sizeof(quad));
+        GetEnvironmentVariableA("SX_OUT", out, sizeof(out));
+        const bool trim = GetEnvironmentVariableA("SX_TRIM", nullptr, 0) > 0;
+        static gpu::ReadbackPtr outRb;
+        if (frameCounter == 4) OpenImage(img, false);
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        // SX_FREQ=<radius>: frequency separation, the composite compared with the original (should match).
+        char freq[16] = "";
+        if (GetEnvironmentVariableA("SX_FREQ", freq, sizeof(freq)) > 0) {
+            static gpu::ReadbackPtr before, after;
+            if (frameCounter == 10) before = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (frameCounter == 12) {
+                FrequencySeparation(*a, (float)atof(freq));
+                std::string names;
+                for (auto& l : d.S().layers) names += l.name + (l.visible ? "" : " (masqué)") + (l.blend == BlendMode::LinearLight ? " [lumière linéaire]" : "") + "; ";
+                Log("[freq] %s | %s | history %zu", statusMsg.c_str(), names.c_str(), a->history.Count());
+            }
+            if (frameCounter == 24) after = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (frameCounter == 34 && before && after && before->ready && after->ready) CompareReadbacks("original vs frequency separation", *before, *after, 2);
+            if (frameCounter == 36 && out[0]) {
+                // The high frequency layer alone (shown as the final image of the active layer).
+                for (auto& l : d.S().layers) l.visible = l.blend == BlendMode::LinearLight;
+                for (auto& l : d.S().layers) if (l.visible) l.blend = BlendMode::Normal;
+                d.SyncGraph();
+                outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            }
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
+        // SX_FX=<effect id>: that effect applied (destructive) to the image instead, then exported (SX_OUT).
+        char fx[96] = "";
+        if (GetEnvironmentVariableA("SX_FX", fx, sizeof(fx)) > 0) {
+            if (frameCounter == 10) {
+                ApplyLibraryEffect(*a, fx, FxApply::Destructive);
+                Log("[persp] effect %s: %s", fx, statusMsg.c_str());
+            }
+            if (frameCounter == 16 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                Log("[persp] exported %ux%u", outRb->width, outRb->height);
+                outRb.reset();
+            }
+            return;
+        }
+        if (frameCounter == 10 && trim) {
+            trimMode = 0;
+            for (bool& b : trimSides) b = true;
+            trimRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx), false);
+            trimView = a;
+        }
+        if (frameCounter == 20) {
+            Log("[persp] after trim: %u x %u (%s)", d.Width(), d.Height(), statusMsg.c_str());
+            tool = Tool::Crop;
+            cropPersp = true;
+            float q[8] = {};
+            sscanf(quad, "%f,%f,%f,%f,%f,%f,%f,%f", &q[0], &q[1], &q[2], &q[3], &q[4], &q[5], &q[6], &q[7]);
+            const float off = trim ? 40.0f : 0.0f;  // (the trimmed margin)
+            for (int k = 0; k < 4; ++k) cropQuad[k] = {q[k * 2] - off, q[k * 2 + 1] - off};
+            cropActive = cropQuadSet = true;
+        }
+        if (frameCounter == 30) {
+            ApplyPerspectiveCrop(*a);
+            Log("[persp] %s", statusMsg.c_str());
+        }
+        if (frameCounter == 36 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+        if (outRb && outRb->ready) {
+            stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+            Log("[persp] exported %ux%u", outRb->width, outRb->height);
+            outRb.reset();
+        }
+        return;
+    }
     if (demoMode == 108) {
         // Frame animation: SX_IMAGE opened, a red ball (smart object) added, frame 1, frame 2 with the ball moved
         // right, 6 frames tweened between them, played, then exported to SX_OUT (.gif) and the same path in .mp4.

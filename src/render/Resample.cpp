@@ -49,6 +49,47 @@ bool Renderer::ResampleCanvas(Document& doc, gpu::CommandContext& ctx, History& 
     return true;
 }
 
+bool Renderer::ResampleCanvasPerspective(Document& doc, gpu::CommandContext& ctx, History& hist, u32 newW, u32 newH, const float h[9], int interp,
+                                         const std::string& label) {
+    if (newW == 0 || newH == 0 || newW > 16384 || newH > 16384) return false;
+    auto* k = Kernel("resample_persp.slang");
+    if (!k) return false;
+    struct PerspRoot {
+        u32 dw, dh, sw, sh;
+        float h0[3];
+        u32 interp;
+        float h1[3];
+        u32 pad0;
+        float h2[3];
+        u32 pad1;
+    };
+    DocState before = doc.S();
+    DocState& s = doc.S();
+    std::set<Id> masks;
+    for (auto& l : s.layers) if (l.mask) masks.insert(l.mask);
+    if (s.selection) masks.insert(s.selection);
+    for (auto& [id, surf] : s.surfaces) {
+        if (!surf.tex) continue;
+        auto tex = gpu::Dev().CreateTexture(newW, newH, surf.tex->GetFormat(), "Surface");
+        if (!tex) return false;
+        gpu::DispatchDesc d;
+        d.pipeline = k;
+        d.srv[0] = surf.tex.get();
+        d.uav[0] = tex.get();
+        PerspRoot r{newW, newH, surf.tex->Width(), surf.tex->Height(), {h[0], h[1], h[2]}, (u32)interp | (masks.count(id) && id != s.selection ? 256u : 0u),
+                    {h[3], h[4], h[5]}, 0, {h[6], h[7], h[8]}, 0};
+        SetConstants(d, r);
+        Dispatch2D(ctx, d, newW, newH);
+        surf.tex = tex;
+    }
+    s.width = newW;
+    s.height = newH;
+    doc.InvalidateSurfaces();
+    doc.SyncGraph();
+    hist.PushState(label, before, doc.S());
+    return true;
+}
+
 bool Renderer::CarveCanvas(Document& doc, gpu::CommandContext& ctx, History& hist, u32 newW, u32 newH, const SeamCarveResult& r,
                            const std::string& label) {
     if (newW == 0 || newH == 0 || newW > 16384 || newH > 16384 || r.newW == 0 || r.newH == 0) return false;

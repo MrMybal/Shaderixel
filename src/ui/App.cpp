@@ -95,7 +95,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : m == "drop" ? 69 : m == "uassetconv" ? 70 : m == "layerxf" ? 71 : m == "graphtools" ? 72 : m == "functions" ? 73 : m == "typed" ? 74 : m == "library" ? 75 : m == "trims" ? 76 : m == "nodeui" ? 77 : m == "maketemplates" ? 78 : m == "makescenes" ? 79 : m == "comments" ? 80 : m == "execjoin" ? 81 : m == "call" ? 82 : m == "inpaint" ? 83 : m == "explorer" ? 84 : m == "actioneditor" ? 85 : m == "popout" ? 86 : m == "paint3dtools" ? 87 : m == "smartmat" ? 88 : m == "bake" ? 89 : m == "simulation" ? 90 : m == "projection" ? 91 : m == "smartthumbs" ? 93 : m == "plugins" ? 94 : m == "search" ? 95 : m == "cameraraw" ? 96 : m == "view3d" ? 97 : m == "nodesel" ? 98 : m == "filter" ? 99 : m == "sidetabs" ? 100 : m == "analysis" ? 101 : m == "customshapes" ? 102 : m == "psdadjust" ? 103 : m == "undoram" ? 104 : m == "fluid" ? 105 : m == "multimat" ? 106 : m == "carve" ? 107 : m == "anim" ? 108 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : m == "drop" ? 69 : m == "uassetconv" ? 70 : m == "layerxf" ? 71 : m == "graphtools" ? 72 : m == "functions" ? 73 : m == "typed" ? 74 : m == "library" ? 75 : m == "trims" ? 76 : m == "nodeui" ? 77 : m == "maketemplates" ? 78 : m == "makescenes" ? 79 : m == "comments" ? 80 : m == "execjoin" ? 81 : m == "call" ? 82 : m == "inpaint" ? 83 : m == "explorer" ? 84 : m == "actioneditor" ? 85 : m == "popout" ? 86 : m == "paint3dtools" ? 87 : m == "smartmat" ? 88 : m == "bake" ? 89 : m == "simulation" ? 90 : m == "projection" ? 91 : m == "smartthumbs" ? 93 : m == "plugins" ? 94 : m == "search" ? 95 : m == "cameraraw" ? 96 : m == "view3d" ? 97 : m == "nodesel" ? 98 : m == "filter" ? 99 : m == "sidetabs" ? 100 : m == "analysis" ? 101 : m == "customshapes" ? 102 : m == "psdadjust" ? 103 : m == "undoram" ? 104 : m == "fluid" ? 105 : m == "multimat" ? 106 : m == "carve" ? 107 : m == "anim" ? 108 : m == "perspcrop" ? 109 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--format-library" && i + 1 < argc) {
@@ -1457,6 +1457,13 @@ void App::LayerMenuItems() {
             d.DuplicateLayer(l->id);
             e.Commit();
         }
+        if (ImGui::BeginMenu("Séparation de fréquences", l != nullptr && l->kind == LayerKind::Pixel)) {
+            ImGui::SetNextItemWidth(160 * dpi);
+            ImGui::SliderFloat("Rayon (px)", &freqRadius, 1, 60, "%.1f");
+            ui::HelpTooltip("Taille des détails gardés dans le calque des hautes fréquences (pores, grain : 2 à 8 px).");
+            if (ImGui::MenuItem("Créer les deux calques")) FrequencySeparation(*v, freqRadius);
+            ImGui::EndMenu();
+        }
         if (ImGui::MenuItem("Supprimer le calque", nullptr, false, l != nullptr)) {
             Edit e(d, v->history, "Supprimer le calque");
             d.RemoveLayer(l->id);
@@ -1547,7 +1554,12 @@ void App::HandleShortcuts() {
         if (pressed(ImGuiKey_Escape)) { TransformCancel(*xf.view); return; }
     }
     if (cropActive && v && tool == Tool::Crop) {
-        if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) { ApplyCrop(*v, CropRect()); cropActive = false; return; }
+        if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) {
+            if (cropPersp && cropQuadSet) ApplyPerspectiveCrop(*v);
+            else ApplyCrop(*v, CropRect());
+            cropActive = false;
+            return;
+        }
         if (pressed(ImGuiKey_Escape)) { cropActive = false; return; }
     }
     if (polyActive && v) {
