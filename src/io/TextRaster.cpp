@@ -147,6 +147,13 @@ u64 TextStyle::Hash() const {
     for (auto& p : path) h.Pod(p);
     h.Pod(pathOffset);
     h.Pod(pathFlip);
+    if (warp) {
+        h.Pod(warp);
+        h.Pod(warpBend);
+        h.Pod(warpH);
+        h.Pod(warpV);
+        h.Pod(warpVertical);
+    }
     return h.h;
 }
 
@@ -235,7 +242,89 @@ struct PathSampler {
 
 }  // namespace
 
+namespace {
+// Warp Text: every output pixel reads the straight text through the inverse warp (normalized coordinates of the
+// text's box, -1..1), bilinear on premultiplied colors; the result's box grows to hold the warped text.
+void WarpText(const TextStyle& t, std::vector<float>& rgba, Rect& rect) {
+    const int w = rect.Width(), h = rect.Height();
+    if (w <= 0 || h <= 0 || rgba.size() < (size_t)w * h * 4) return;
+    const float b = std::clamp(t.warpBend, -1.0f, 1.0f), hd = std::clamp(t.warpH, -1.0f, 1.0f), vd = std::clamp(t.warpV, -1.0f, 1.0f);
+    const float hw = w * 0.5f, hh = h * 0.5f, cx = rect.x0 + hw, cy = rect.y0 + hh;
+    const float pi = 3.14159265f;
+    const int m = (int)std::ceil((std::abs(b) + std::abs(hd) + std::abs(vd)) * std::max(hw, hh) * 1.2f) + 2;
+    const Rect out = {rect.x0 - m, rect.y0 - m, rect.x1 + m, rect.y1 + m};
+    const int ow = out.Width(), oh = out.Height();
+    std::vector<float> dst((size_t)ow * oh * 4, 0.0f);
+    auto texel = [&](int x, int y, float* c) {
+        if (x < 0 || y < 0 || x >= w || y >= h) { c[0] = c[1] = c[2] = c[3] = 0; return; }
+        const float* s = &rgba[((size_t)y * w + x) * 4];
+        c[0] = s[0] * s[3]; c[1] = s[1] * s[3]; c[2] = s[2] * s[3]; c[3] = s[3];
+    };
+    for (int py = 0; py < oh; ++py)
+        for (int px = 0; px < ow; ++px) {
+            float u = (out.x0 + px + 0.5f - cx) / hw, v = (out.y0 + py + 0.5f - cy) / hh;
+            if (t.warpVertical) std::swap(u, v);
+            float us = u, vs = v;
+            auto safe = [](float d) { return std::abs(d) < 0.05f ? (d < 0 ? -0.05f : 0.05f) : d; };
+            switch (t.warp) {
+                case 1: vs = v + b * (1 - u * u); break;                                   // arc
+                case 2: vs = v - b * (1 - u * u) * (1 + v) * 0.5f; break;                  // arc lower
+                case 3: vs = v + b * (1 - u * u) * (1 - v) * 0.5f; break;                  // arc upper
+                case 4: vs = v + b * (1 - u * u); us = u * (1 + 0.35f * b * (1 - v) * 0.5f); break;  // arch
+                case 5: vs = v / safe(1 + b * (1 - u * u)); break;                         // bulge
+                case 6: vs = v + b * 0.5f * std::sin(pi * u); break;                       // flag
+                case 7: vs = v + b * 0.4f * std::sin(pi * (1.5f * u + 0.25f * v)); break;  // wave
+                case 8: vs = v / safe(1 + b * 0.8f * std::sin(pi * (u + 1) * 0.75f)); break;  // fish
+                case 9: vs = v + b * u; break;                                             // rise
+                case 10: us = u / safe(1 + b * (1 - v * v)); vs = v / safe(1 + b * (1 - u * u)); break;  // inflate
+                case 11: vs = v / safe(1 - b * 0.8f * (1 - u * u)); break;                 // squeeze
+                case 12: {                                                                 // twist
+                    // In pixels (the box is rarely square), over a disc as wide as the box.
+                    const float X = u * hw, Y = v * hh, R = std::max(hw, hh);
+                    const float r = std::sqrt(X * X + Y * Y) / R, a = -b * pi * 0.5f * std::max(0.0f, 1 - r);
+                    us = (std::cos(a) * X - std::sin(a) * Y) / hw;
+                    vs = (std::sin(a) * X + std::cos(a) * Y) / hh;
+                    break;
+                }
+                default: break;
+            }
+            // Distortions (perspective-like): one side larger than the other.
+            if (hd != 0) vs /= safe(1 + hd * us * 0.8f);
+            if (vd != 0) us /= safe(1 + vd * vs * 0.8f);
+            if (t.warpVertical) std::swap(us, vs);
+            const float sx = us * hw + hw - 0.5f, sy = vs * hh + hh - 0.5f;
+            if (sx < -1 || sy < -1 || sx > w || sy > h) continue;
+            const int ix = (int)std::floor(sx), iy = (int)std::floor(sy);
+            const float ax = sx - ix, ay = sy - iy;
+            float c00[4], c10[4], c01[4], c11[4];
+            texel(ix, iy, c00); texel(ix + 1, iy, c10); texel(ix, iy + 1, c01); texel(ix + 1, iy + 1, c11);
+            float* o = &dst[((size_t)py * ow + px) * 4];
+            for (int k = 0; k < 4; ++k) o[k] = (c00[k] * (1 - ax) + c10[k] * ax) * (1 - ay) + (c01[k] * (1 - ax) + c11[k] * ax) * ay;
+        }
+    // Straight colors again, cropped to what the warp covers.
+    int x0 = ow, y0 = oh, x1 = -1, y1 = -1;
+    for (int y = 0; y < oh; ++y)
+        for (int x = 0; x < ow; ++x) {
+            float* o = &dst[((size_t)y * ow + x) * 4];
+            if (o[3] <= 1e-5f) { o[0] = o[1] = o[2] = o[3] = 0; continue; }
+            o[0] /= o[3]; o[1] /= o[3]; o[2] /= o[3];
+            x0 = std::min(x0, x); y0 = std::min(y0, y); x1 = std::max(x1, x); y1 = std::max(y1, y);
+        }
+    if (x1 < 0) { rgba.clear(); rect = {}; return; }
+    const int nw = x1 - x0 + 1, nh = y1 - y0 + 1;
+    rgba.assign((size_t)nw * nh * 4, 0.0f);
+    for (int y = 0; y < nh; ++y) memcpy(&rgba[(size_t)y * nw * 4], &dst[((size_t)(y + y0) * ow + x0) * 4], (size_t)nw * 16);
+    rect = {out.x0 + x0, out.y0 + y0, out.x0 + x1 + 1, out.y0 + y1 + 1};
+}
+}  // namespace
+
 bool RasterizeText(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles) {
+    if (!RasterizeTextFlat(t, docW, docH, rgba, rect, styles)) return false;
+    if (t.warp > 0 && t.path.size() < 2) WarpText(t, rgba, rect);
+    return true;
+}
+
+bool RasterizeTextFlat(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles) {
     LoadedFont* baseFont = GetFont(t.font.empty() ? DefaultFontPath() : t.font);
     if (!baseFont && !t.font.empty()) baseFont = GetFont(DefaultFontPath());  // font file missing / unreadable
     if (!baseFont) return false;

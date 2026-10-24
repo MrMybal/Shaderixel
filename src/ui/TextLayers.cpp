@@ -316,6 +316,23 @@ void App::TextPropertiesUI(DocView& v, Layer& l) {
     if (!t.runs.empty() || !t.paraStyles.empty())
         ImGui::TextDisabled("%zu plage(s) de style, %zu paragraphe(s) stylé(s) (panneau Styles de texte)", t.runs.size(),
                             (size_t)std::count_if(t.paraStyles.begin(), t.paraStyles.end(), [](Id p) { return p != 0; }));
+    ImGui::SeparatorText("Déformation du texte");
+    if (t.path.size() >= 2) {
+        ImGui::TextDisabled("(sans effet sur un texte posé sur un tracé)");
+    } else {
+        if (ImGui::Combo("Style", &t.warp, kTextWarpNames)) changed = true;
+        TrackUndo("Déformation du texte");
+        if (t.warp) {
+            if (ImGui::Checkbox("Verticale", &t.warpVertical)) changed = true;
+            TrackUndo("Déformation du texte");
+            if (ImGui::SliderFloat("Inflexion", &t.warpBend, -1, 1, "%.2f")) changed = true;
+            TrackUndo("Inflexion");
+            if (ImGui::SliderFloat("Distorsion horizontale", &t.warpH, -1, 1, "%.2f")) changed = true;
+            TrackUndo("Distorsion horizontale");
+            if (ImGui::SliderFloat("Distorsion verticale", &t.warpV, -1, 1, "%.2f")) changed = true;
+            TrackUndo("Distorsion verticale");
+        }
+    }
     ImGui::SeparatorText("Texte sur tracé");
     if (t.path.size() >= 2) {
         if (ImGui::DragFloat("Décalage", &t.pathOffset, 1.0f, -100000, 100000, "%.0f px")) changed = true;

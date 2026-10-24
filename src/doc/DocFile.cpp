@@ -634,6 +634,13 @@ Json SerializeDocument(const Document& doc) {
                 t["pathOffset"] = l.text.pathOffset;
                 t["pathFlip"] = l.text.pathFlip;
             }
+            if (l.text.warp) {
+                t["warp"] = l.text.warp;
+                t["warpBend"] = l.text.warpBend;
+                t["warpH"] = l.text.warpH;
+                t["warpV"] = l.text.warpV;
+                t["warpVertical"] = l.text.warpVertical;
+            }
             o["text"] = t;
         }
         layers.Push(o);
@@ -877,6 +884,11 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
             for (size_t k = 0; k + 1 < t["path"].Size(); k += 2) l.text.path.push_back({t["path"].At(k).F(), t["path"].At(k + 1).F()});
             l.text.pathOffset = t["pathOffset"].F(0);
             l.text.pathFlip = t["pathFlip"].B(false);
+            l.text.warp = std::clamp(t["warp"].I(0), 0, 12);
+            l.text.warpBend = t["warpBend"].F(0.5f);
+            l.text.warpH = t["warpH"].F(0);
+            l.text.warpV = t["warpV"].F(0);
+            l.text.warpVertical = t["warpVertical"].B(false);
         }
         if (l.surface && !s.surfaces.count(l.surface)) l.surface = doc->CreateSurface({0, 0, 0, 0});
         if (l.mask && !s.surfaces.count(l.mask)) l.mask = 0;

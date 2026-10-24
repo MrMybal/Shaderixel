@@ -56,8 +56,14 @@ struct TextStyle {
     std::vector<float2> path;
     float pathOffset = 0;
     bool pathFlip = false;       // other side of the path
+    // Warped text (Photoshop's Warp Text): 0 none, 1 arc, 2 arc lower, 3 arc upper, 4 arch, 5 bulge, 6 flag, 7 wave,
+    // 8 fish, 9 rise, 10 inflate, 11 squeeze, 12 twist; bend and distortions in -1..1. Not with text on a path.
+    int warp = 0;
+    float warpBend = 0.5f, warpH = 0, warpV = 0;
+    bool warpVertical = false;
     u64 Hash() const;
 };
+const char* const kTextWarpNames = "Aucune\0Arc\0Arc inférieur\0Arc supérieur\0Arche\0Renflement\0Drapeau\0Onde\0Poisson\0Montée\0Gonflement\0Compression\0Torsion\0";
 
 struct TextStyleTable {
     const std::vector<CharStyle>* chars = nullptr;
@@ -75,6 +81,8 @@ const std::vector<FontEntry>& SystemFonts();
 std::string DefaultFontPath();
 
 // Rasterize into straight-alpha linear RGBA float pixels covering `rect` (document space).
+// Without the warp (RasterizeText applies it after).
+bool RasterizeTextFlat(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles = nullptr);
 bool RasterizeText(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles = nullptr);
 
 // Codepoint count of a UTF-8 string and conversion of a byte offset to a codepoint index.

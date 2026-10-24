@@ -707,6 +707,31 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_TWARP=<bend>: four text layers with warp styles (arc, flag, fish, twist), exported (SX_OUT).
+        char twarp[16] = "";
+        if (GetEnvironmentVariableA("SX_TWARP", twarp, sizeof(twarp)) > 0) {
+            if (frameCounter == 8) {
+                const int styles[] = {1, 6, 8, 12};
+                const char* words[] = {"Arc", "Drapeau", "Poisson", "Torsion"};
+                for (int i = 0; i < 4; ++i) {
+                    TextStyle ts;
+                    ts.content = words[i];
+                    ts.size = 64;
+                    ts.color = {0.1f, 0.1f, 0.4f, 1};
+                    ts.pos = {40.0f + (i % 2) * 440.0f, 30.0f + (i / 2) * 220.0f};
+                    ts.warp = styles[i];
+                    ts.warpBend = (float)atof(twarp);
+                    d.AddTextLayer(ts);
+                }
+                d.SyncGraph();
+            }
+            if (frameCounter == 24 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_FX=<effect id>: that effect applied (destructive) to the image instead, then exported (SX_OUT).
         char fx[96] = "";
         if (GetEnvironmentVariableA("SX_FX", fx, sizeof(fx)) > 0) {
