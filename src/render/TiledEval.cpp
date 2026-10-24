@@ -232,6 +232,36 @@ Renderer::TileRes Renderer::EvalTile(Document& doc, gpu::CommandContext& ctx, Id
     return res;
 }
 
+gpu::Texture* Renderer::TiledNodePreview(Document& doc, gpu::CommandContext& ctx, Id node, const Rect& area, u64* hash) {
+    const Rect r = area.Clipped((int)doc.Width(), (int)doc.Height());
+    if (!doc.tiled || r.Empty() || !EvalGraph(doc).Find(node)) return nullptr;
+    // What the preview depends on: the node and everything upstream (structure, parameters), the pixels, the area.
+    std::unordered_map<Id, u64> memo;
+    int halo = 0;
+    bool compiling = false;
+    u64 h = StructHash(doc, node, memo, halo, compiling) * 1099511628211ull;
+    for (auto& [sid, s] : doc.S().surfaces) h = (h ^ (s.version + sid * 2654435761ull)) * 1099511628211ull;
+    h ^= ((u64)r.x0 << 48) ^ ((u64)r.y0 << 32) ^ ((u64)r.Width() << 16) ^ (u64)r.Height();
+    PreviewTile& P = tiledPreviews[node];
+    if (hash) *hash = P.hash;
+    if (compiling || (P.hash == h && P.tex)) return P.tex.get();
+    const u64 frame = gpu::Dev().FrameNumber();
+    if (tiledPreviewFrame == frame) return P.tex.get();  // one new preview per frame (the old one meanwhile)
+    tiledPreviewFrame = frame;
+    tileMemo.clear();
+    PoolReset(false);
+    TileRes res = EvalTile(doc, ctx, node, r, 0);
+    if (res.tex) {
+        Ensure(P.tex, (u32)r.Width(), (u32)r.Height(), SurfaceFormat(doc.GetPrecision()), "TiledPreview");
+        ctx.CopyRegion(P.tex.get(), 0, 0, res.tex, {r.x0 - res.origin.x, r.y0 - res.origin.y, r.x1 - res.origin.x, r.y1 - res.origin.y});
+        P.hash = h;
+    }
+    tileMemo.clear();
+    PoolReset(true);
+    if (hash) *hash = P.hash;
+    return P.tex.get();
+}
+
 gpu::Texture* Renderer::EvaluateTiled(Document& doc, gpu::CommandContext& ctx, const Rect* visible, int budget) {
     const u32 W = doc.Width(), H = doc.Height();
     const gpu::Format fmt = SurfaceFormat(doc.GetPrecision());

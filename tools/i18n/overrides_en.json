@@ -520,5 +520,6 @@
  "Nombre de poils": "Bristles",
  "Sillons laissés par les poils du pinceau le long du trait : avec une peinture épaisse": "Grooves left by the bristles along the stroke: with a thick paint",
  "(viscosité et film retenu élevés), ils restent en relief.": "(high viscosity and retained film), they stay in relief.",
- "Ce calque a déjà {n} filtres (le maximum)": "This layer already has {n} filters (the maximum)"
+ "Ce calque a déjà {n} filtres (le maximum)": "This layer already has {n} filters (the maximum)",
+ "détail": "detail"
 }

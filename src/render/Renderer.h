@@ -130,6 +130,9 @@ public:
     // finishes all remaining tiles); use for export, sampling and selections.
     gpu::Texture* EvaluateComplete(Document& doc, gpu::CommandContext& ctx);
     gpu::Texture* NodeOutput(Id node) const;
+    // Tiled documents keep no per-node images: a node's result over `area` (a detail of the document), computed
+    // with the tile evaluator, cached until the node, its inputs or the pixels change; one new preview per frame.
+    gpu::Texture* TiledNodePreview(Document& doc, gpu::CommandContext& ctx, Id node, const Rect& area, u64* hash);
     bool NodeFailed(Id node, std::string* errors = nullptr) const;
     bool AnyPending() const { return pending; }
     // Tiled mode (very large documents): remaining tiles to render, view rect for priority.
@@ -434,6 +437,12 @@ private:
     EvalResult Eval(Document& doc, gpu::CommandContext& ctx, Id id, int depth);
 
     // Tiled evaluation (TiledEval.cpp)
+    struct PreviewTile {
+        gpu::TexturePtr tex;
+        u64 hash = 0;
+    };
+    std::unordered_map<Id, PreviewTile> tiledPreviews;
+    u64 tiledPreviewFrame = 0;
     struct TileRes {
         gpu::Texture* tex = nullptr;
         int2 origin;  // document pixel of texel (0,0)

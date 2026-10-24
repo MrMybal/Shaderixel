@@ -914,6 +914,13 @@ void App::DrawNodeEditor() {
         if (!out && n.kind == NodeKind::Surface)
             if (Surface* s = d.GetSurface(n.surface)) { out = s->tex.get(); outHash = s->version; }
         if (!out && n.kind == NodeKind::Output && d.tiled) { out = v->lastImage; outHash = v->renderer.ImageVersion(); }
+        // Other nodes of a tiled document: a 512 px detail at the center of the document.
+        bool detail = false;
+        if (!out && d.tiled && L.image && n.kind != NodeKind::Surface && ed.zoom > 0.25f) {
+            const int cx = (int)d.Width() / 2, cy = (int)d.Height() / 2;
+            out = v->renderer.TiledNodePreview(d, *ctx, n.id, {cx - 256, cy - 256, cx + 256, cy + 256}, &outHash);
+            detail = out != nullptr;
+        }
         ImVec2 ta = toScreen(n.pos + float2{8, kHeader + L.rows * kRow + 4});
         if (!L.image) {
             // Value / operation / execution nodes: one line of text instead of an image.
@@ -946,6 +953,7 @@ void App::DrawNodeEditor() {
             gpu::Texture* t = v->renderer.Thumbnail(*ctx, kThumbKeyBit | n.id, out, outHash, (u32)L.thumbW, (u32)L.thumbH);
             ImVec2 tb(ta.x + L.thumbW * ed.zoom, ta.y + L.thumbH * ed.zoom);
             dl->AddImageRounded((ImTextureID)gpu::Dev().UiTextureId(t), ta, tb, ImVec2(0, 0), ImVec2(1, 1), n.bypass ? IM_COL32(255, 255, 255, 90) : IM_COL32_WHITE, 3 * ed.zoom);
+            if (detail && ed.zoom > 0.5f) dl->AddText(font, fs * 0.7f, ImVec2(ta.x + 3, tb.y - fs * 0.8f), IM_COL32(255, 255, 255, 170), "détail");
         }
         // Tool / function state badge: BAKED / LIVE / APPLIQUÉ / running.
         if (n.kind == NodeKind::Action && n.surface && drawText) {
