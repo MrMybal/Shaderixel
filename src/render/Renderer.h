@@ -163,6 +163,13 @@ public:
     // Retouch brushes (Retouch.cpp); call between BeginStroke/EndStroke.
     void RetouchDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, const RetouchParams& p);
     void SmudgeDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, float strength);
+    // Mixer brush: a reservoir of paint carried by the brush, laid down and refilled from the canvas at every dab.
+    struct MixerParams {
+        float wet = 0.5f, load = 0.15f, flow = 0.8f;
+        bool clean = true;  // the reservoir starts every stroke with the brush color only
+        float4 color;       // linear, premultiplied
+    };
+    void MixerDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, const MixerParams& p);
     // Liquify brush (mode: 0 push, 1 twirl cw, 2 twirl ccw, 3 pucker, 4 bloat, 5 reconstruct).
     void LiquifyDabs(Document& doc, gpu::CommandContext& ctx, const std::vector<Dab>& dabs, const BrushSettings& b, int mode, float strength);
 
@@ -537,6 +544,9 @@ private:
                   const std::vector<float4>& extra, u32 base, const BrushSettings& s, float4 color, bool erase, const BrushTargets& t, Rect* touched);
     Rect strokeRect;
     gpu::TexturePtr smudgeSnap;
+    gpu::TexturePtr mixRes[2];   // mixer brush reservoir (ping-pong, brush space)
+    int mixCur = 0;
+    bool mixFresh = true, mixInit = false;
     gpu::TexturePtr liqDisp, liqSnap;  // stroke displacement field, per-dab snapshot
     bool liqActive = false, haveLiq = false;
     float2 lastLiq;

@@ -155,6 +155,7 @@ void App::DrawImageMenu() {
         if (ImGui::MenuItem("180°")) RotateCanvas(*v, 2);
         if (ImGui::MenuItem("90° horaire")) RotateCanvas(*v, 0);
         if (ImGui::MenuItem("90° antihoraire")) RotateCanvas(*v, 1);
+        if (ImGui::MenuItem("Paramétrée...")) imageDialog = 5;
         ImGui::Separator();
         if (ImGui::MenuItem("Symétrie horizontale de la zone de travail")) RotateCanvas(*v, 3);
         if (ImGui::MenuItem("Symétrie verticale de la zone de travail")) RotateCanvas(*v, 4);
@@ -203,6 +204,28 @@ void App::DrawImageDialogs() {
     }
     Document& d = *v->doc;
     const int W = (int)d.Width(), H = (int)d.Height();
+    if (imageDialog == 5) {
+        ImGui::TextUnformatted("Rotation de l'image");
+        ImGui::Separator();
+        ImGui::SetNextItemWidth(160 * dpi);
+        ImGui::DragFloat("Angle (°)", &rotateAngle, 0.1f, -360, 360, "%.2f");
+        ImGui::TextDisabled("Positif : sens horaire.");
+        ImGui::SetNextItemWidth(220 * dpi);
+        ImGui::Combo("Bords", &rotateEdges, "Garder la taille\0Recadrer (sans coins vides)\0Agrandir (tout garder)\0");
+        ImGui::Spacing();
+        if (ImGui::Button("OK", ImVec2(100 * dpi, 0)) || ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+            if (std::abs(rotateAngle) > 1e-4f) RotateCanvasArbitrary(*v, rotateAngle, rotateEdges);
+            imageDialog = 0;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Annuler", ImVec2(100 * dpi, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+            imageDialog = 0;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+        return;
+    }
     if (imageDialog == 4) {
         ImGui::TextUnformatted("Rogner");
         ImGui::Separator();

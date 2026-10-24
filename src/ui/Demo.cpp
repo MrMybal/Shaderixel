@@ -596,6 +596,72 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_MIXER=<preset 0..3>: mixer brush strokes (synthetic events) across the ball, the ground and the sky, then
+        // exported (SX_OUT).
+        char mixer[8] = "";
+        if (GetEnvironmentVariableA("SX_MIXER", mixer, sizeof(mixer)) > 0) {
+            ImGuiIO& io = ImGui::GetIO();
+            if (frameCounter == 8) {
+                tool = Tool::Mixer;
+                viewTool[0] = Tool::Mixer;
+                fg = {0.15f, 0.3f, 0.9f, 1};
+                retouch.size = 40;
+                retouch.hardness = 0.6f;
+                const int pr = atoi(mixer);
+                const decltype(mixerSet) presets[] = {{0.05f, 0.5f, 0.9f, true}, {0.5f, 0.15f, 0.8f, true}, {0.85f, 0.05f, 0.7f, true}, {0.6f, 0.0f, 0.8f, false}};
+                mixerSet = presets[std::clamp(pr, 0, 3)];
+            }
+            ImGuiWindow* w = ImGui::FindWindowByName("Canevas");
+            auto toScreen = [&](float x, float y) { return ImVec2(w->InnerRect.Min.x + a->pan.x + x * a->zoom, w->InnerRect.Min.y + a->pan.y + y * a->zoom); };
+            // Two strokes: through the ball to the right, then down from the sky into the ground.
+            const struct { float x0, y0, x1, y1; int f0; } strokes[] = {{60, 260, 420, 270, 20}, {700, 150, 720, 420, 70}};
+            for (auto& st : strokes)
+                if (w && frameCounter >= st.f0 && frameCounter <= st.f0 + 40) {
+                    const float t = (frameCounter - st.f0) / 40.0f;
+                    const ImVec2 sp = toScreen(st.x0 + (st.x1 - st.x0) * t, st.y0 + (st.y1 - st.y0) * t);
+                    io.AddMousePosEvent(sp.x, sp.y);
+                    if (frameCounter == st.f0 + 1) io.AddMouseButtonEvent(0, true);
+                    if (frameCounter == st.f0 + 40) io.AddMouseButtonEvent(0, false);
+                }
+            if (frameCounter == 116) Log("[mixer] history %zu (%s)", a->history.Count(), a->history.Count() ? a->history.Label(a->history.Count() - 1).c_str() : "");
+            if (frameCounter == 118 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
+        // SX_RULER: the image turned 8° (keep size), the ruler laid on the tilted horizon, then Straighten (crop mode);
+        // the horizon must come back level. Exported (SX_OUT).
+        if (GetEnvironmentVariableA("SX_RULER", nullptr, 0) > 0) {
+            if (frameCounter == 10) {
+                RotateCanvasArbitrary(*a, 8, 0);
+                Log("[ruler] tilted: %u x %u", d.Width(), d.Height());
+            }
+            if (frameCounter == 14) {
+                // Where the horizon (y = 300, x 100..800) went: turned 8° clockwise around the center.
+                const float ang = 8 * 3.14159265f / 180, c = std::cos(ang), sn = std::sin(ang), cx = 450, cy = 225;
+                auto turn = [&](float x, float y) { return float2{c * (x - cx) - sn * (y - cy) + cx, sn * (x - cx) + c * (y - cy) + cy}; };
+                tool = Tool::Ruler;
+                ruler.active = true;
+                ruler.a = turn(100, 300);
+                ruler.b = turn(800, 300);
+                ruler.edges = 1;
+                Log("[ruler] measured angle %.2f, length %.1f", RulerAngle(), Length(ruler.b - ruler.a));
+            }
+            if (frameCounter == 18) {
+                const float ang = RulerAngle();
+                RotateCanvasArbitrary(*a, ang, ruler.edges);  // (what Straighten does for a line under 45°)
+                ruler.active = false;
+                Log("[ruler] straightened: %u x %u, history %zu", d.Width(), d.Height(), a->history.Count());
+            }
+            if (frameCounter == 24 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_FX=<effect id>: that effect applied (destructive) to the image instead, then exported (SX_OUT).
         char fx[96] = "";
         if (GetEnvironmentVariableA("SX_FX", fx, sizeof(fx)) > 0) {

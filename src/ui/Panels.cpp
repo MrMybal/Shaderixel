@@ -1351,6 +1351,8 @@ void App::DrawBrush() {
             ImGui::SameLine();
             if (ImGui::Button("Annuler")) cropActive = false;
         }
+    } else if (tool == Tool::Ruler) {
+        RulerOptions(v);
     } else if (tool == Tool::Move) {
         ImGui::SeparatorText("Déplacement");
         ImGui::TextWrapped("Glissez pour déplacer le calque actif (ou la sélection). Flèches : 1 px, Maj+flèches : 10 px. Ctrl+T : transformation manuelle.");
@@ -1436,7 +1438,25 @@ void App::DrawBrush() {
             ImGui::TextDisabled("Efface les couleurs proches de celle sous le centre du pinceau.");
         }
         if (tool == Tool::HistoryBrush) ImGui::TextDisabled("Repeint l'instantané du calque (panneau Historique).");
-        if (IsRetouchTool(tool)) {
+        if (tool == Tool::Mixer) {
+            ImGui::SeparatorText("Pinceau mélangeur");
+            ImGui::SliderFloat("Humidité", &mixerSet.wet, 0, 1, "%.2f");
+            ui::HelpTooltip("Part de la toile reprise par le pinceau à chaque touche : élevée, les couleurs se mêlent et s'étirent.");
+            ImGui::SliderFloat("Charge", &mixerSet.load, 0, 1, "%.2f");
+            ui::HelpTooltip("Couleur de premier plan rechargée à chaque touche : faible, le pinceau se vide et ne fait plus qu'étaler.");
+            ImGui::SliderFloat("Débit", &mixerSet.flow, 0.01f, 1, "%.2f");
+            ImGui::Checkbox("Nettoyer le pinceau après chaque trait", &mixerSet.clean);
+            ImGui::TextDisabled("Préréglages :");
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Sec")) mixerSet = {0.05f, 0.5f, 0.9f, true};
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Humide")) mixerSet = {0.5f, 0.15f, 0.8f, true};
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Très humide")) mixerSet = {0.85f, 0.05f, 0.7f, true};
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Mélange seul")) mixerSet = {0.6f, 0.0f, 0.8f, false};
+        }
+        if (IsRetouchTool(tool) && tool != Tool::Mixer) {
             ImGui::SliderFloat(tool == Tool::Clone || tool == Tool::Heal ? "Intensité (inutilisée)" : "Intensité", &retouchStrength, 0.01f, 1, "%.2f");
             if (tool == Tool::Dodge || tool == Tool::Burn) ImGui::Combo("Plage", &dodgeRange, "Tons foncés\0Tons moyens\0Tons clairs\0");
             if (tool == Tool::Liquify) {

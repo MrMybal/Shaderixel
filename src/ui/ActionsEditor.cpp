@@ -93,6 +93,11 @@ void App::DrawActionInspector(ActionStep& s, bool readOnly) {
             if (ImGui::Selectable(i == an ? "#" : "·", i == an, 0, ImVec2(22 * dpi, 22 * dpi))) { p["anchor"] = i; changed = true; }
             ImGui::PopID();
         }
+    } else if (c == "rotate_arbitrary") {
+        float a = cp["angle"].F(0);
+        if (ImGui::DragFloat("Angle (°)", &a, 0.1f, -360, 360, "%.2f")) { p["angle"] = a; changed = true; }
+        int e = cp["edges"].I(1);
+        if (ImGui::Combo("Bords", &e, "Garder la taille\0Recadrer (sans coins vides)\0Agrandir (tout garder)\0")) { p["edges"] = e; changed = true; }
     } else if (c == "rotate") {
         int op = cp["op"].I(0);
         if (ImGui::Combo("Opération", &op, "Rotation 90° horaire\0Rotation 90° antihoraire\0Rotation 180°\0Symétrie horizontale\0Symétrie verticale\0")) { p["op"] = op; changed = true; }

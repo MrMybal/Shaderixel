@@ -52,6 +52,8 @@ const ToolInfo kToolInfo[] = {
     {Tool::Particles, ui::IconParticles, "Simulation de peinture (particules 3D : coulures, poussière, éclaboussures...)", "-"},
     {Tool::Fluid, ui::IconFluid, "Peinture liquide (coulures PBR : couleur, rugosité, métal, relief ; gravité)", "-"},
     {Tool::Plugin, ui::IconWand, "Outil de plugin", "-"},
+    {Tool::Ruler, ui::IconPicker, "Règle (mesure, redresser)", "I"},
+    {Tool::Mixer, ui::IconBrush, "Pinceau mélangeur (la peinture se mêle aux couleurs de la toile)", "B"},
 };
 
 // Toolbar slots; tools sharing a slot appear in a flyout (right-click).
@@ -62,7 +64,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Lasso, Tool::PolyLasso, Tool::MagneticLasso},
     {Tool::QuickSelect, Tool::Wand},
     {Tool::Crop, Tool::Trim},
-    {Tool::Brush, Tool::HistoryBrush},
+    {Tool::Brush, Tool::Mixer, Tool::HistoryBrush},
     {Tool::Projection},
     {Tool::PolyFill},
     {Tool::Particles},
@@ -76,7 +78,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Gradient, Tool::Bucket},
     {Tool::Blur, Tool::Sharpen, Tool::Smudge, Tool::Liquify},
     {Tool::Dodge, Tool::Burn, Tool::Sponge},
-    {Tool::Picker},
+    {Tool::Picker, Tool::Ruler},
     {Tool::Hand},
     {Tool::Zoom},
 };
@@ -417,6 +419,7 @@ void App::DrawCanvas() {
     AnimOverlay(*v, canvasMin, dl);
     ParamPickOverlay(*v, canvasMin, dl);
     PerspectivePasteOverlay(*v, canvasMin, dl);
+    RulerOverlay(*v, canvasMin, dl);
     DrawSelectionOverlay(*v, canvasMin, dl);
     DrawQuickSelectOverlay(*v, canvasMin, dl);
     DrawPenOverlay(*v, canvasMin, dl);
@@ -523,6 +526,10 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
     if (tool == Tool::Crop) {
         CropInput(v, canvasMin, hovered);
+        return;
+    }
+    if (tool == Tool::Ruler) {
+        RulerInput(v, dp, hovered);
         return;
     }
     if (tool == Tool::MagneticLasso) {
@@ -834,6 +841,16 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
     }
     if (tool == Tool::Smudge) {
         v.renderer.SmudgeDabs(doc, *ctx, dabs, retouch, retouchStrength);
+        return;
+    }
+    if (tool == Tool::Mixer) {
+        Renderer::MixerParams mp;
+        mp.wet = mixerSet.wet;
+        mp.load = mixerSet.load;
+        mp.flow = mixerSet.flow;
+        mp.clean = mixerSet.clean;
+        mp.color = LinearColor(fg);
+        v.renderer.MixerDabs(doc, *ctx, dabs, retouch, mp);
         return;
     }
     if (tool == Tool::Liquify) {

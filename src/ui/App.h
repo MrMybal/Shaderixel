@@ -46,11 +46,11 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Fluid, Plugin, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Fluid, Plugin, Mixer, Ruler, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
-           t == Tool::PatternStamp;
+           t == Tool::PatternStamp || t == Tool::Mixer;
 }
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
 
@@ -818,6 +818,11 @@ private:
     BrushSettings eraser;
     BrushSettings retouch;
     float retouchStrength = 0.5f;
+    // Mixer brush: pickup of the canvas (wet), reload with the color (load) per dab, flow, clean between strokes.
+    struct {
+        float wet = 0.5f, load = 0.15f, flow = 0.8f;
+        bool clean = true;
+    } mixerSet;
     int dodgeRange = 1;
     bool spongeSaturate = false;
     int liquifyMode = 0;  // 0 push, 1 twirl cw, 2 twirl ccw, 3 pucker, 4 bloat, 5 reconstruct
@@ -875,7 +880,7 @@ private:
     Id textSelLayer = 0;
     Id charStyleSel = 0, paraStyleSel = 0;
     void DrawTextStylesPanel();
-    int imageDialog = 0;            // 1 image size, 2 canvas size, 3 content-aware scale, 4 trim
+    int imageDialog = 0;            // 1 image size, 2 canvas size, 3 content-aware scale, 4 trim, 5 arbitrary rotation
     int dlgW = 0, dlgH = 0, dlgAnchor = 4, dlgInterp = 2;
     bool dlgKeepRatio = true;
     bool cropActive = false, cropDragging = false;
@@ -885,6 +890,20 @@ private:
     float2 cropQuad[4];
     int cropCorner = -1;
     void ApplyPerspectiveCrop(DocView& v);
+    // Ruler tool and Image > Rotate > Arbitrary (Ruler.cpp). edges: 0 keep the size, 1 crop the empty corners, 2 enlarge.
+    struct {
+        bool active = false;
+        float2 a, b;
+        int drag = 0;   // 1 start, 2 end
+        int edges = 1;
+    } ruler;
+    float rotateAngle = 0;
+    int rotateEdges = 2;
+    void RotateCanvasArbitrary(DocView& v, float degrees, int edges);
+    void RulerInput(DocView& v, float2 dp, bool hovered);
+    void RulerOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    void RulerOptions(DocView* v);
+    float RulerAngle() const;
     // Edit > Paste in perspective (PerspectivePaste.cpp): the active layer laid on a plane drawn on the image.
     struct PerspPaste {
         bool active = false;

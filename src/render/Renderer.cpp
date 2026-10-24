@@ -685,6 +685,7 @@ bool Renderer::BeginStroke(Document& doc, gpu::CommandContext& ctx, Id surface) 
     strokeColorReady = false;
     strokeRect = {};
     haveSmudge = false;
+    mixFresh = true;
     return true;
 }
 

@@ -26,6 +26,7 @@ const char* kCmds[][2] = {
     {"fit_crop", "Recadrer au format (centré)"},
     {"canvas_size", "Taille de la zone de travail"},
     {"rotate", "Rotation / symétrie"},
+    {"rotate_arbitrary", "Rotation (angle libre)"},
     {"crop_selection", "Recadrer selon la sélection"},
     {"filter", "Filtre"},
     {"new_layer", "Nouveau calque"},
@@ -96,6 +97,7 @@ Json ActionDefaultParams(const std::string& c) {
     else if (c == "export") { p["format"] = "png"; p["folder"] = ""; p["suffix"] = ""; p["quality"] = 92; }
     else if (c == "select") p["what"] = "all";
     else if (c == "rotate") p["op"] = 0;
+    else if (c == "rotate_arbitrary") { p["angle"] = 2.0f; p["edges"] = 1; }
     else if (c == "filter") { p["effect"] = "black_white"; p["destructive"] = true; }
     else if (c == "layer_props") { p["opacity"] = 1.0f; }
     else if (c == "new_layer") p["name"] = "";
@@ -118,6 +120,8 @@ std::string ActionStepSummary(const ActionStep& s) {
         b = Fmt("%s%d x %d px", p["relative"].B() ? "+" : "", p["w"].I(), p["h"].I());
     } else if (s.cmd == "rotate") {
         b = kRotate[std::clamp(p["op"].I(), 0, 4)];
+    } else if (s.cmd == "rotate_arbitrary") {
+        b = Fmt("%.2f°", p["angle"].F());
     } else if (s.cmd == "filter") {
         auto def = Effects().Find(p["effect"].S());
         b = (def ? def->name : p["effect"].S()) + (p["destructive"].B() ? " (pixels)" : "");
@@ -177,6 +181,9 @@ std::string ActionStepDescription(const ActionStep& s) {
         if (op == 2) return "Fait pivoter toute l'image (tous les calques) de 180°.";
         return std::string("Retourne toute l'image (tous les calques) en miroir ") + (op == 3 ? "horizontal (gauche <-> droite)." : "vertical (haut <-> bas).");
     }
+    if (c == "rotate_arbitrary")
+        return Fmt("Fait pivoter toute l'image de %.2f° (sens horaire si positif) ; bords : ", p["angle"].F()) +
+               std::string(p["edges"].I(1) == 0 ? "taille gardée (coins vides transparents)." : p["edges"].I(1) == 1 ? "recadrée pour retirer les coins vides." : "agrandie pour tout garder.");
     if (c == "crop_selection") return "Recadre l'image sur le rectangle qui englobe la sélection active. Sans sélection, l'étape ne fait rien.";
     if (c == "filter") {
         auto def = Effects().Find(p["effect"].S());
@@ -529,6 +536,7 @@ int App::ExecActionStep(DocView& v, const ActionStep& s) {
         return 0;
     }
     if (s.cmd == "rotate") { RotateCanvas(v, p["op"].I()); return 0; }
+    if (s.cmd == "rotate_arbitrary") { RotateCanvasArbitrary(v, p["angle"].F(), std::clamp(p["edges"].I(1), 0, 2)); return 0; }
     if (s.cmd == "crop_selection") {
         if (!R.wait) {
             Surface* sel = d.Selection();
