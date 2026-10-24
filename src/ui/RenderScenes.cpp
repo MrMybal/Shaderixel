@@ -229,16 +229,29 @@ void App::GatherSceneFiles(DocView& v) {
     const fs::path dir = project.parent_path() / (project.stem().wstring() + L"_fichiers");
     std::error_code ec;
     fs::create_directories(dir, ec);
-    int copied = 0, missing = 0;
-    auto copyOne = [&](const fs::path& src) -> fs::path {
+    int copied = 0, missing = 0, outside = 0;
+    auto copyOne = [&](const fs::path& src, const fs::path& into) -> fs::path {
         if (!fs::exists(src, ec)) { ++missing; return {}; }
-        const fs::path dst = dir / src.filename();
+        const fs::path dst = into / src.filename();
         if (fs::equivalent(src, dst, ec)) return dst;
         if (fs::copy_file(src, dst, fs::copy_options::overwrite_existing, ec)) ++copied;
         return dst;
     };
-    // Files a model refers to (OBJ: mtllib + map_*, glTF: uri), copied beside it.
-    auto copyDeps = [&](const fs::path& model) {
+    // Already inside the folder (gathered before): left where it is.
+    auto inside = [&](const fs::path& p) {
+        for (fs::path q = p.parent_path(); !q.empty() && q != q.root_path(); q = q.parent_path())
+            if (fs::equivalent(q, dir, ec)) return true;
+        return false;
+    };
+    // A reference kept relative to its model: no absolute path, no "..", so the copy stays inside the folder.
+    auto safeRef = [](const fs::path& r) {
+        if (r.empty() || r.is_absolute() || r.has_root_name() || r.has_root_directory()) return false;
+        for (auto& part : r)
+            if (part.wstring() == L"..") return false;
+        return true;
+    };
+    // Files a model refers to (OBJ: mtllib + map_*, glTF: uri), copied beside it (in its own sub-folder).
+    auto copyDeps = [&](const fs::path& model, const fs::path& into) {
         std::string ext = Narrow(model.extension().wstring());
         for (auto& c : ext) c = (char)tolower((unsigned char)c);
         std::string txt;
@@ -259,38 +272,60 @@ void App::GatherSceneFiles(DocView& v) {
             }
         }
         for (auto& r : refs) {
-            const fs::path src = model.parent_path() / Utf8Path(r);
-            const fs::path dst = dir / Utf8Path(r);
+            const fs::path rel = Utf8Path(r).lexically_normal();
+            if (!safeRef(rel)) { ++outside; continue; }  // would land outside the folder: not copied (the model keeps pointing at the original)
+            const fs::path src = model.parent_path() / rel;
+            const fs::path dst = into / rel;
             fs::create_directories(dst.parent_path(), ec);
             if (fs::exists(src, ec) && !fs::equivalent(src, dst, ec) && fs::copy_file(src, dst, fs::copy_options::overwrite_existing, ec)) ++copied;
         }
     };
+    // One sub-folder per source model (with its sidecar files): two models of the same name never overwrite each other.
+    std::map<std::wstring, fs::path> modelDirs;  // source model -> its sub-folder
+    auto modelDir = [&](const fs::path& src, const fs::path& named) -> fs::path {
+        const std::wstring key = src.lexically_normal().wstring();
+        if (auto it = modelDirs.find(key); it != modelDirs.end()) return it->second;
+        std::wstring stem = named.stem().wstring();
+        if (stem.empty()) stem = L"modele";
+        fs::path sub = dir / stem;
+        for (int n = 2; fs::exists(sub, ec); ++n) sub = dir / (stem + L"_" + std::to_wstring(n));
+        fs::create_directories(sub, ec);
+        return modelDirs[key] = sub;
+    };
     for (auto& o : v.render->objects) {
         if (o.path.empty() || (o.type != PtObjectType::File && o.type != PtObjectType::Sx3d)) continue;
         fs::path src = Utf8Path(o.path);
+        if (inside(src)) continue;
         std::string ext = Narrow(src.extension().wstring());
         for (auto& c : ext) c = (char)tolower((unsigned char)c);
+        fs::path mat;
         if (ext == ".uasset") {
             // Unreal mesh: its converted copy (no Unreal needed any more).
             const std::string glb = UAssetMeshCached(o.path);
             if (glb.empty()) { ++missing; continue; }
             src = Utf8Path(glb);
-            const fs::path mat = Utf8Path(glb + ".materials.json");
-            if (fs::exists(mat, ec)) copyOne(mat);
+            // Material table written by the conversion as X.materials.json (older copies: X.glb.materials.json).
+            mat = Utf8Path(glb).replace_extension(".materials.json");
+            if (!fs::exists(mat, ec)) mat = Utf8Path(glb + ".materials.json");
+            if (!fs::exists(mat, ec)) mat.clear();
         }
-        const fs::path dst = copyOne(src);
+        if (!fs::exists(src, ec)) { ++missing; continue; }
+        const fs::path into = modelDir(src, Utf8Path(o.path));  // an Unreal mesh's folder is named after its asset
+        const fs::path dst = copyOne(src, into);
         if (dst.empty()) continue;
-        copyDeps(src);
+        if (!mat.empty() && fs::copy_file(mat, fs::path(dst).replace_extension(".materials.json"), fs::copy_options::overwrite_existing, ec)) ++copied;
+        copyDeps(src, into);
         o.path = Narrow(dst.wstring());
     }
     PtSettings& s = v.render->settings;
-    if (!s.hdri.empty() && s.hdri[0] != '*') {
-        const fs::path dst = copyOne(Utf8Path(s.hdri));
+    if (!s.hdri.empty() && s.hdri[0] != '*' && !inside(Utf8Path(s.hdri))) {
+        const fs::path dst = copyOne(Utf8Path(s.hdri), dir);
         if (!dst.empty()) s.hdri = Narrow(dst.wstring());
     }
     v.doc->dirty = true;
     Status("Fichiers rassemblés dans " + Narrow(dir.filename().wstring()) + " : " + std::to_string(copied) + " copié(s)" +
-           (missing ? ", " + std::to_string(missing) + " introuvable(s)" : "") + " ; enregistrez le projet");
+           (missing ? ", " + std::to_string(missing) + " introuvable(s)" : "") +
+           (outside ? ", " + std::to_string(outside) + " référence(s) hors du dossier du modèle non copiée(s)" : "") + " ; enregistrez le projet");
 }
 
 void App::DrawScenesUI(DocView& v) {

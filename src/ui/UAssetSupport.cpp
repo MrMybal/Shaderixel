@@ -96,8 +96,10 @@ bool App::OpenUAsset(const std::string& path, bool asLayer) {
             p3dNew = {};
             p3dNew.mesh = 3;
             p3dNew.meshPath = glb;
+            const size_t before = docs.size();
             NewPaint3DProject();
-            if (DocView* v = Active(); v && v->doc->kind == 1) v->doc->SetName(name + " (3D)");
+            // Renamed only when the project was created (a failed load leaves another document active).
+            if (DocView* v = Active(); v && docs.size() > before && v == docs.back().get() && v->doc->kind == 1) v->doc->SetName(name + " (3D)");
         });
         return true;
     }

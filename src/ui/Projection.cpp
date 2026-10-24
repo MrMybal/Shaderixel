@@ -10,6 +10,8 @@
 
 #include <imgui_stdlib.h>
 #include <stb_image.h>
+#include <cstdio>
+#include <functional>
 
 namespace sx {
 
@@ -113,14 +115,21 @@ void App::UpdateProjections(DocView& v) {
     Document& d = *v.doc;
     for (auto& l : d.S().layers) {
         if (l.projection.empty() || !l.surface || l.kind != LayerKind::Pixel) continue;
-        const std::string sig = l.projection + "|" + std::to_string(s.revision) + "|" + std::to_string(s.posMap->Width());
-        auto it = projectionDone.find(l.surface);
+        // Surface ids are reused (after an undo, in other documents): the key mixes in the document and the
+        // signature names the document and the surface's texture, so a new surface under an old id is projected again.
+        Surface* sf = d.GetSurface(l.surface);
+        if (!sf || !sf->tex) continue;
+        const Id key = (Id)(l.surface ^ (Id)(std::hash<const void*>{}(&d) * 2654435761ull));
+        char who[64];
+        snprintf(who, sizeof(who), "%p|%p|", (const void*)&d, (const void*)sf->tex.get());
+        const std::string sig = who + l.projection + "|" + std::to_string(s.revision) + "|" + std::to_string(s.posMap->Width());
+        auto it = projectionDone.find(key);
         if (it != projectionDone.end() && it->second == sig) continue;
         Json p;
         if (!Json::Parse(l.projection, p)) continue;
         gpu::Texture* img = ProjectionImage(p["source"].S());
         if (!img) {
-            projectionDone[l.surface] = sig;
+            projectionDone[key] = sig;
             Status("Matériau projeté : image introuvable " + p["source"].S());
             continue;
         }
@@ -152,7 +161,7 @@ void App::UpdateProjections(DocView& v) {
             q.mode = 1;
             q.lo = q.hi = p["metal"].F(0);
         }
-        if (v.renderer.MeshProject(d, *ctx, s, l.surface, img, q)) projectionDone[l.surface] = sig;
+        if (v.renderer.MeshProject(d, *ctx, s, l.surface, img, q)) projectionDone[key] = sig;
     }
 }
 

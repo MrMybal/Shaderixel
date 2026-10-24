@@ -102,6 +102,56 @@ const char* OpDescription(const std::string& op) {
 }
 
 // Sub-group in the add menu (Maths is long).
+// Library of effect functions: %LOCALAPPDATA%\\Shaderixel\\effect_functions\\<name>.json ({"name", "graph"}).
+std::string FunctionLibraryDir() {
+    const char* la = getenv("LOCALAPPDATA");
+    return la ? std::string(la) + "\\Shaderixel\\effect_functions" : std::string();
+}
+
+std::vector<std::pair<std::string, std::string>> LibraryFunctions() {
+    // Read again at most once a second (the add menu draws every frame).
+    static std::vector<std::pair<std::string, std::string>> cache;
+    static double last = -10;
+    if (ImGui::GetTime() - last < 1.0) return cache;
+    last = ImGui::GetTime();
+    cache.clear();
+    const std::string dir = FunctionLibraryDir();
+    std::error_code ec;
+    if (dir.empty() || !std::filesystem::exists(Utf8Path(dir), ec)) return cache;
+    for (auto& e : std::filesystem::directory_iterator(Utf8Path(dir), ec)) {
+        if (e.path().extension() != ".json") continue;
+        std::string text;
+        Json j;
+        if (!ReadTextFile(Narrow(e.path().wstring()), text) || !Json::Parse(text, j)) continue;
+        cache.push_back({j["name"].S(Narrow(e.path().stem().wstring())), j["graph"].Dump(0)});
+    }
+    std::sort(cache.begin(), cache.end());
+    return cache;
+}
+
+bool SaveLibraryFunction(const std::string& name, const std::string& graphJson, std::string* error) {
+    const std::string dir = FunctionLibraryDir();
+    Json g;
+    if (dir.empty() || !Json::Parse(graphJson, g)) { if (error) *error = "graphe illisible"; return false; }
+    std::string file = name.empty() ? "Fonction" : name;
+    for (auto& c : file) if (strchr("\\/:*?\"<>|", c) || (unsigned char)c < 32) c = '_';
+    std::error_code ec;
+    std::filesystem::create_directories(Utf8Path(dir), ec);
+    Json j = Json::Object();
+    j["name"] = name;
+    j["graph"] = g;
+    const std::string path = dir + "\\" + file + ".json", tmp = path + ".tmp";
+    {
+        std::ofstream f(Utf8Path(tmp), std::ios::binary);
+        f << j.Dump(1);
+        f.close();
+        if (f.fail()) { if (error) *error = "écriture impossible : " + path; return false; }
+    }
+    std::filesystem::rename(Utf8Path(tmp), Utf8Path(path), ec);
+    if (ec) { if (error) *error = "écriture impossible : " + path; return false; }
+    return true;
+}
+
 std::string OpSubGroup(const std::string& op) {
     static const std::map<std::string, const char*> g = {
         {"add", "Arithmétique"}, {"sub", "Arithmétique"}, {"mul", "Arithmétique"}, {"div", "Arithmétique"}, {"negate", "Arithmétique"},
@@ -141,8 +191,21 @@ float NodeW(const EGNode& n);
 
 // The graph with its output showing one node: RGBA as is; scalars, 2D and RGB values through the RGB input
 // (opaque), a 2D value completed with 0 (blue).
-std::string PreviewGraphFor(const EffectGraph& g, Id node, int outType) {
+// A function's graph has no output node: one is added (previews, output types).
+EffectGraph WithOutput(const EffectGraph& g) {
     EffectGraph g2 = g;
+    if (!g2.OutputNode()) {
+        EGNode o;
+        o.id = g2.nextId++;
+        o.op = "output";
+        o.inputs.resize(3);
+        g2.nodes.push_back(o);
+    }
+    return g2;
+}
+
+std::string PreviewGraphFor(const EffectGraph& g, Id node, int outType) {
+    EffectGraph g2 = WithOutput(g);
     EGNode* o = g2.Find(g2.OutputNode());
     if (!o) return g2.Serialize();
     for (auto& l : o->inputs) l = {};
@@ -440,8 +503,54 @@ void App::DrawEffectEditor() {
         ed.cachedJson = graphJson;
         ed.frameAll = true;
         ed.multi.clear();
+        ed.funcPath.clear();
+        ed.funcLevels.clear();
+    }
+    // Functions: back to the parent graph / into a function node (requested last frame).
+    if (ed.exitFunc && !ed.funcPath.empty()) {
+        EffectGraph parent = ed.funcLevels.back();
+        const Id fnId = ed.funcPath.back();
+        if (EGNode* fn = parent.Find(fnId)) {
+            fn->text = ed.graph.Serialize();
+            SyncFunctionInterface(*fn, ed.graph);
+        }
+        ed.graph = std::move(parent);
+        ed.funcLevels.pop_back();
+        ed.funcPath.pop_back();
+        ed.selected = fnId;
+        ed.multi = {fnId};
+        ed.frameAll = true;
+    }
+    ed.exitFunc = false;
+    if (ed.enterFunc) {
+        if (EGNode* fn = ed.graph.Find(ed.enterFunc); fn && fn->op == "function") {
+            EffectGraph inner;
+            if (EffectGraph::Deserialize(fn->text, inner)) {
+                ed.funcLevels.push_back(ed.graph);
+                ed.funcPath.push_back(fn->id);
+                ed.graph = std::move(inner);
+                ed.selected = 0;
+                ed.multi.clear();
+                ed.frameAll = true;
+            }
+        }
+        ed.enterFunc = 0;
     }
     EffectGraph& g = ed.graph;
+    // The effect's whole graph: the edited level written back into its function nodes, up to the top.
+    auto composeRoot = [&]() {
+        std::string child = g.Serialize();
+        for (int i = (int)ed.funcLevels.size() - 1; i >= 0; --i) {
+            EffectGraph& parent = ed.funcLevels[i];
+            if (EGNode* fn = parent.Find(ed.funcPath[i])) {
+                fn->text = child;
+                EffectGraph inner;
+                if (EffectGraph::Deserialize(child, inner)) SyncFunctionInterface(*fn, inner);
+            }
+            child = parent.Serialize();
+        }
+        return child;
+    };
     gNodePreviews = ed.nodePreviews && !brushMode && ed.graph.kind == EGKind::Effect;
     bool changed = false;     // structural change -> push undo now
     bool live = false;        // continuous change (drag/slider) -> write without undo
@@ -453,6 +562,47 @@ void App::DrawEffectEditor() {
     float panelW = (selNode && selNode->op == "custom" ? 400.0f : 270.0f) * dpi;  // custom nodes: pins + code need room
     ImGui::BeginChild("##efdetails", ImVec2(panelW, 0), ImGuiChildFlags_Borders, 0);
     ImGui::TextDisabled("Édition : %s", where.c_str());
+    if (!ed.funcPath.empty()) {
+        // Inside a function: where, and the way back.
+        std::string crumb = g.name.empty() ? "Graphe" : "Graphe";
+        for (size_t i = 0; i < ed.funcPath.size(); ++i)
+            if (const EGNode* fn = ed.funcLevels[i].Find(ed.funcPath[i])) crumb += "  >  " + (fn->name.empty() ? std::string("Fonction") : fn->name);
+        ImGui::TextColored(ImVec4(0.75f, 0.6f, 1, 1), "%s", crumb.c_str());
+        if (ImGui::Button("\xE2\x97\x80 Remonter au graphe parent")) ed.exitFunc = true;
+        ui::HelpTooltip("Les entrées / sorties de la fonction sont ses nœuds « Entrée de fonction » et « Sortie de fonction ».");
+    }
+    if (EGNode* fsel = g.Find(ed.selected); fsel && (fsel->op == "function" || fsel->op == "funcin" || fsel->op == "funcout")) {
+        ImGui::SeparatorText(fsel->op == "function" ? "Fonction" : fsel->op == "funcin" ? "Entrée de fonction" : "Sortie de fonction");
+        if (ImGui::InputText("Nom##fn", &fsel->name)) live = true;
+        if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+        if (fsel->op != "function") {
+            if (ImGui::InputInt("Ordre##fn", &fsel->index)) { fsel->index = std::max(0, fsel->index); changed = true; }
+            ui::HelpTooltip("Place de cette broche sur le nœud de la fonction.");
+        } else {
+            if (ImGui::Button("Ouvrir (double-clic)")) ed.enterFunc = fsel->id;
+            ImGui::SameLine();
+            if (ImGui::Button("Dégrouper")) {
+                const Id fid = fsel->id;
+                if (ExpandFunction(g, fid)) {
+                    ed.selected = 0;
+                    ed.multi.clear();
+                    changed = true;
+                    changeLabel = "Dégrouper la fonction";
+                }
+                fsel = nullptr;
+            }
+            if (fsel && ImGui::Button("Enregistrer dans la bibliothèque")) {
+                std::string err;
+                if (SaveLibraryFunction(fsel->name, fsel->text, &err)) Status("Fonction enregistrée : " + fsel->name + " (menu d'ajout > Fonctions de la bibliothèque)");
+                else Status("Fonction : " + err);
+            }
+        }
+    }
+    if (ed.multi.size() >= 2) {
+        if (ImGui::Button("Créer une fonction (Ctrl+G)")) ed.demoCollapse = true;
+        ui::HelpTooltip("Les nœuds sélectionnés deviennent un seul nœud réutilisable (comme les Material Functions d'Unreal) :\n"
+                        "les liens qui entrent deviennent ses entrées, ceux qui sortent ses sorties. Double-clic pour l'ouvrir.");
+    }
     if (libGraph) {
         ImGui::TextColored(ImVec4(0.55f, 0.8f, 1, 1), "Effet de la bibliothèque (%s)", libDef->category.c_str());
         ImGui::TextWrapped("Protégé : la première modification en crée une copie dans ce document.");
@@ -460,10 +610,12 @@ void App::DrawEffectEditor() {
     }
     ImGui::SeparatorText("Effet");
     ImGui::PushItemWidth(-90 * dpi);
-    if (ImGui::InputText("Nom", &g.name)) live = true;
-    if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
-    if (ImGui::InputText("Catégorie", &g.category)) live = true;
-    if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+    if (ed.funcPath.empty()) {  // (inside a function: the effect's name is on the top graph)
+        if (ImGui::InputText("Nom", &g.name)) live = true;
+        if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+        if (ImGui::InputText("Catégorie", &g.category)) live = true;
+        if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+    }
     auto trackLive = [&](bool edited) {
         if (edited) live = true;
         if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
@@ -741,7 +893,13 @@ void App::DrawEffectEditor() {
 
     // Compile status
     ImGui::SeparatorText("Compilation");
-    EGCompileResult cr = CompileEffectGraph(g);
+    // Inside a function: the whole effect is compiled (the function alone has no output).
+    EffectGraph rootGraph;
+    const bool inFunc = !ed.funcPath.empty() && EffectGraph::Deserialize(ed.cachedJson, rootGraph);
+    EGCompileResult cr = CompileEffectGraph(inFunc ? rootGraph : g);
+    // Output types of the edited level (inside a function: its own nodes, compiled with an output).
+    const EGCompileResult crLevel = inFunc ? CompileEffectGraph(WithOutput(g)) : EGCompileResult{};
+    const EGCompileResult& crTypes = inFunc ? crLevel : cr;
     std::string shaderErr;
     Id renderNode = 0;
     for (auto& n : d.S().graph.nodes)
@@ -1097,7 +1255,7 @@ void App::DrawEffectEditor() {
     for (auto& n : g.nodes)
         for (int i = 0; i < (int)n.inputs.size(); ++i) {
             const EGNode* s = n.inputs[i].node ? g.Find(n.inputs[i].node) : nullptr;
-            if (s) link(outPin(*s, n.inputs[i].output), inPin(n, i), (s->id == ed.selected || n.id == ed.selected) ? ui::col::Selection : typeColor(cr.OutType(s->id, n.inputs[i].output), 200));
+            if (s) link(outPin(*s, n.inputs[i].output), inPin(n, i), (s->id == ed.selected || n.id == ed.selected) ? ui::col::Selection : typeColor(crTypes.OutType(s->id, n.inputs[i].output), 200));
         }
     if (ed.dragLink) {
         if (ed.linkFrom) { if (const EGNode* s = g.Find(ed.linkFrom)) link(outPin(*s, ed.linkFromOut), m, ui::col::Accent); }
@@ -1113,7 +1271,7 @@ void App::DrawEffectEditor() {
         const std::string key = ed.cachedJson + "#" + std::to_string(n.id);
         if (ng.first != key && pvSettled && pvBuilds > 0) {
             --pvBuilds;
-            ng = {key, PreviewGraphFor(g, n.id, cr.OutType(n.id, 0))};
+            ng = {key, PreviewGraphFor(g, n.id, crTypes.OutType(n.id, 0))};
 
         }
         if (ng.second.empty()) return nullptr;
@@ -1140,7 +1298,7 @@ void App::DrawEffectEditor() {
         ImVec2 a = toS(n.pos), b = toS(n.pos + float2{NodeW(n), h});
         if (n.op == "reroute") {
             // A dot on the link.
-            const int t = cr.OutType(n.id, 0);
+            const int t = crTypes.OutType(n.id, 0);
             const ImVec2 c((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
             dl->AddLine(inPin(n, 0), outPin(n, 0), typeColor(t, 220), 2.0f * ed.zoom);
             dl->AddCircleFilled(c, 6.5f * ed.zoom, typeColor(t));
@@ -1165,7 +1323,7 @@ void App::DrawEffectEditor() {
         for (int i = 0; i < (int)od->inputs.size(); ++i) {
             ImVec2 p = inPin(n, i);
             bool conn = i < (int)n.inputs.size() && n.inputs[i].node;
-            int t = conn ? cr.OutType(n.inputs[i].node, n.inputs[i].output) : 0;
+            int t = conn ? crTypes.OutType(n.inputs[i].node, n.inputs[i].output) : 0;
             int declared = n.op == "custom" && i < (int)n.pins.size() ? (n.pins[i].type == kEGTexture ? kEGTexture : PinValueSize(n.pins[i].type)) : 0;
             if (conn) dl->AddCircleFilled(p, pr, typeColor(t));
             else dl->AddCircle(p, pr, declared ? typeColor(declared) : IM_COL32(120, 122, 140, 255), 0, 1.5f * ed.zoom);
@@ -1182,7 +1340,7 @@ void App::DrawEffectEditor() {
         }
         for (int o = 0; o < (int)od->outputs.size(); ++o) {
             ImVec2 p = outPin(n, o);
-            int t = cr.OutType(n.id, o);
+            int t = crTypes.OutType(n.id, o);
             dl->AddCircleFilled(p, pr, typeColor(t));
             // Label: the output name, else its type.
             const char* lbl = od->outputs[o][0] ? od->outputs[o] : (t >= 1 && t <= 4 ? kTypeNames[t] : t == kEGTexture ? "Texture" : "");
@@ -1201,7 +1359,7 @@ void App::DrawEffectEditor() {
             }
             dl->AddText(font, fs * 0.9f, tp, ui::col::Text, vt.c_str());
         }
-        if (HasNodePreview(n) && cr.OutType(n.id, 0) != kEGTexture) {
+        if (HasNodePreview(n) && crTypes.OutType(n.id, 0) != kEGTexture) {
             const float pw = kPvH * ed.zoom;
             const ImVec2 pa(a.x + (NodeW(n) * ed.zoom - pw) * 0.5f, b.y - pw - 6 * ed.zoom), pb(pa.x + pw, pa.y + pw);
             dl->AddRectFilled(pa, pb, IM_COL32(40, 40, 46, 255));
@@ -1350,6 +1508,9 @@ void App::DrawEffectEditor() {
         ImGui::OpenPopup("##cmtname");
     }
 
+    // Double click on a function node: opened.
+    if (hovered && hNode && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+        if (const EGNode* fnode = g.Find(hNode); fnode && fnode->op == "function") ed.enterFunc = fnode->id;
     // Double click on the label of an unconnected input: its value, edited in place.
     if (hovered && hNode && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
         if (const EGNode* dn = g.Find(hNode); dn && dn->op != "custom" && FindOp(dn->op)) {
@@ -1426,7 +1587,7 @@ void App::DrawEffectEditor() {
                 if (fromOut && ed.ctxFromOut < (int)ce.outputs.size()) pinName = ce.outputs[ed.ctxFromOut];
                 if (toIn && ed.ctxToIn < (int)ce.inputs.size()) pinName = ce.inputs[ed.ctxToIn].name;
             }
-            if (fromOut) linkType = cr.OutType(ed.ctxFrom, ed.ctxFromOut);
+            if (fromOut) linkType = crTypes.OutType(ed.ctxFrom, ed.ctxFromOut);
             if (pinName.empty() && fromOut) pinName = linkType >= 1 && linkType <= 4 ? kTypeNames[linkType] : linkType == kEGTexture ? "Texture" : "";
             ImGui::TextColored(ImVec4(0.55f, 0.8f, 1, 1), fromOut ? "Depuis la sortie %s de « %s »" : "Vers l'entrée %s de « %s »", pinName.c_str(), nodeName.c_str());
             ImGui::Checkbox("Contextuel", &ed.ctxSensitive);
@@ -1439,6 +1600,9 @@ void App::DrawEffectEditor() {
         auto fits = [&](const EGOpDef& od) {
             const std::string op = od.op;
             if (op == "output" || !OpAllowed(od, g.kind)) return false;
+            const std::string cat = od.category;
+            if (cat == "Fonction (appel)") return false;              // inserted from the function library
+            if (cat == "Fonction" && ed.funcPath.empty()) return false;  // inputs / outputs: inside a function
             if (!ed.ctxSensitive) return true;
             if (fromOut) {
                 if (od.inputs.empty() && op != "custom") return false;
@@ -1525,6 +1689,36 @@ void App::DrawEffectEditor() {
                 ImGui::TreePop();
             }
         }
+        // Saved functions (reusable in any effect).
+        {
+            const auto lib = LibraryFunctions();
+            bool any = false;
+            for (auto& [fname, fjson] : lib) any |= q.empty() || ui::FilterMatch(q, fname);
+            if (any && ImGui::TreeNodeEx("Fonctions de la bibliothèque", ImGuiTreeNodeFlags_SpanAvailWidth | (q.empty() ? 0 : ImGuiTreeNodeFlags_DefaultOpen))) {
+                for (auto& [fname, fjson] : lib) {
+                    if (!q.empty() && !ui::FilterMatch(q, fname)) continue;
+                    if (ImGui::Selectable((fname + "##libfn").c_str())) {
+                        EffectGraph inner;
+                        if (EffectGraph::Deserialize(fjson, inner)) {
+                            EGNode fn;
+                            fn.id = g.nextId++;
+                            fn.op = "function";
+                            fn.name = fname;
+                            fn.pos = ed.ctxPos;
+                            fn.text = fjson;
+                            SyncFunctionInterface(fn, inner);
+                            g.nodes.push_back(fn);
+                            ed.selected = fn.id;
+                            ed.multi = {fn.id};
+                            changed = true;
+                            changeLabel = "Ajouter une fonction";
+                            ImGui::CloseCurrentPopup();
+                        }
+                    }
+                }
+                ImGui::TreePop();
+            }
+        }
         ImGui::EndChild();
         if (chosen) {
             addAt(*chosen, ed.ctxPos);
@@ -1598,6 +1792,15 @@ void App::DrawEffectEditor() {
         ed.selComment = 0;
         changed = true;
         changeLabel = "Supprimer un commentaire";
+    }
+    if ((keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_G) && !ed.multi.empty()) || ed.demoCollapse) {
+        ed.demoCollapse = false;
+        if (const Id fid = CollapseToFunction(g, ed.multi, "Fonction")) {
+            ed.selected = fid;
+            ed.multi = {fid};
+            changed = true;
+            changeLabel = "Créer une fonction";
+        }
     }
     if (keys && io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A)) {
         ed.selComment = 0;
@@ -1719,7 +1922,7 @@ void App::DrawEffectEditor() {
         if (nodeMode) {
             const std::string key = ed.cachedJson + "#" + std::to_string(psel->id);
             if (efPv.nodeKey != key) {
-                efPv.nodeGraph = PreviewGraphFor(g, psel->id, cr.OutType(psel->id, 0));
+                efPv.nodeGraph = PreviewGraphFor(g, psel->id, crTypes.OutType(psel->id, 0));
                 efPv.nodeKey = key;
             }
             pvFx.graph = efPv.nodeGraph;
@@ -1758,7 +1961,7 @@ void App::DrawEffectEditor() {
     // Write back: brush graph -> brush settings (no document change).
     if (brushMode && (changed || live)) {
         auto old = fx->Def();
-        fx->graph = g.Serialize();
+        fx->graph = composeRoot();
         ed.cachedJson = fx->graph;
         fx->SyncParams(old);
         brushTarget.tipGraph = fx->graph;
@@ -1770,7 +1973,7 @@ void App::DrawEffectEditor() {
     // Write back to the effect instance.
     if (changed || live) {
         auto old = fx->Def();
-        fx->graph = g.Serialize();
+        fx->graph = composeRoot();
         if (libGraph) {  // the library effect becomes a copy kept in the document
             fx->effectId.clear();
             fx->customCode.clear();

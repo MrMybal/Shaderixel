@@ -280,6 +280,12 @@ struct EffectEditorState {
     double lastEdit = 0;                // time of the last change (node previews wait for a pause)
     std::string cachedJson;
     EffectGraph graph;
+    // Inside functions: the function nodes opened from the effect's graph, and the graphs above (parent first).
+    std::vector<Id> funcPath;
+    std::vector<EffectGraph> funcLevels;
+    Id enterFunc = 0;       // open this function node on the next frame
+    bool exitFunc = false;  // back to the parent graph on the next frame
+    bool demoCollapse = false;  // collapse the selection into a function (button, demos)
     std::optional<DocState> pendingBefore;
     // Library page and edit session (EffectLibrary.cpp).
     bool browse = false;

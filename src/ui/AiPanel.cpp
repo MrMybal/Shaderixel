@@ -95,7 +95,21 @@ void App::SaveAiSettings() {
     hist["gpuMaxMB"] = histGpuMaxMB;
     hist["ramMB"] = histRamMB;
     j["history"] = hist;
-    std::ofstream(Utf8Path(settingsPath), std::ios::binary) << j.Dump(1);
+    // Written to a temporary file then moved over the settings: a failed write (full disk, crash) keeps the previous ones.
+    const fs::path dst = Utf8Path(settingsPath), tmp = Utf8Path(settingsPath + ".tmp");
+    bool ok = false;
+    {
+        std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
+        f << j.Dump(1);
+        f.flush();
+        ok = f.good();
+    }
+    std::error_code ec;
+    if (ok) fs::rename(tmp, dst, ec);
+    if (!ok || ec) {
+        fs::remove(tmp, ec);
+        Log("Settings: cannot write %s", settingsPath.c_str());
+    }
 }
 
 // Run `fn` on a worker; the result is applied on the main thread by PollAiJobs.
@@ -406,15 +420,27 @@ void App::StartImageGeneration() {
                 std::string dir = Narrow(fs::temp_directory_path().wstring());
                 std::string path = dir + "\\shaderixel_gen_" + std::to_string(GetTickCount64()) + ".png";
                 std::ofstream(Utf8Path(path), std::ios::binary).write((const char*)png.data(), png.size());
-                OpenImage(path, !genNewDoc && Active() != nullptr);
-                if (DocView* v = Active())
-                    if (Layer* l = v->doc->ActiveLayer()) l->name = "IA : " + prompt.substr(0, 40);
+                const bool asLayer = !genNewDoc && Active() != nullptr;
+                DocView* before = Active();
+                const size_t docsBefore = docs.size(), layersBefore = before ? before->doc->S().layers.size() : 0;
+                OpenImage(path, asLayer);
+                // Renamed only when the image really arrived (new document, or a new layer of the same document).
+                DocView* v = Active();
+                const bool opened = asLayer ? v && v == before && v->doc->S().layers.size() > layersBefore
+                                            : v && docs.size() > docsBefore && v == docs.back().get();
+                if (!opened) { Status("Génération : ouverture de l'image générée impossible (" + path + ")"); return; }
+                if (Layer* l = v->doc->ActiveLayer()) l->name = "IA : " + prompt.substr(0, 40);
                 Status("Image générée");
             };
         });
     };
     if (refPng == "pending") {
-        auto rb = Active()->renderer.ExportRGBA8(*ctx, Active()->renderer.EvaluateComplete(*Active()->doc, *ctx));
+        auto rb = Active() ? Active()->renderer.ExportRGBA8(*ctx, Active()->renderer.EvaluateComplete(*Active()->doc, *ctx)) : nullptr;
+        if (!rb) {
+            genBusy = false;
+            Status("Génération : lecture de l'image de référence impossible");
+            return;
+        }
         genRefReadback = rb;
         genPendingLaunch = launch;
     } else {
@@ -426,6 +452,14 @@ void App::StartImageGeneration() {
 void App::UpdateImageGeneration() {
     if (genRefReadback && genRefReadback->ready && genPendingLaunch) {
         auto rb = genRefReadback;
+        if (rb->width == 0 || rb->height == 0 || rb->data.size() < (size_t)rb->width * rb->height * 4) {
+            // Failed readback: nothing to send as reference.
+            genRefReadback.reset();
+            genPendingLaunch = nullptr;
+            genBusy = false;
+            Status("Génération : lecture de l'image de référence impossible");
+            return;
+        }
         std::string pngData;
         stbi_write_png_to_func([](void* ctxp, void* data, int size) { ((std::string*)ctxp)->append((const char*)data, size); }, &pngData,
                                rb->width, rb->height, 4, rb->data.data(), rb->width * 4);

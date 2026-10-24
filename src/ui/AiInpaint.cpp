@@ -138,6 +138,13 @@ void App::StartInpaint(DocView& v) {
     J.busy = true;
     J.image = v.renderer.ExportRGBA8(*ctx, v.renderer.EvaluateComplete(d, *ctx));
     J.mask = v.renderer.ExportRGBA8(*ctx, m->tex.get(), false);
+    if (!J.image || !J.mask) {
+        J.busy = false;
+        J.image = nullptr;
+        J.mask = nullptr;
+        Status("Inpainting : lecture de l'image impossible");
+        return;
+    }
     Status("Inpainting : préparation...");
 }
 
@@ -148,6 +155,12 @@ void App::UpdateInpaint() {
     if (!ViewAlive(J.view)) { J.busy = false; return; }
     const auto& img = *J.image;
     const int W = (int)img.width, H = (int)img.height;
+    if (W <= 0 || H <= 0 || J.mask->width != img.width || J.mask->height != img.height ||
+        img.data.size() < (size_t)W * H * 4 || J.mask->data.size() < (size_t)W * H * 4) {
+        J.busy = false;
+        Status("Inpainting : lecture de l'image impossible");
+        return;
+    }
     // Mask (red channel of the mask surface), grown and feathered for the layer mask.
     std::vector<u8> mask((size_t)W * H);
     for (size_t i = 0; i < mask.size(); ++i) mask[i] = J.mask->data[i * 4];
@@ -308,6 +321,11 @@ void App::FinishInpaint(const std::vector<std::vector<u8>>& results, const std::
     DocView& v = *J.view;
     Document& d = *v.doc;
     const int W = (int)d.Width(), H = (int)d.Height();
+    // The mask and the crop were computed at the document size of the start: a crop / resize since then drops the result.
+    if (J.maskFull.size() != (size_t)W * H || J.crop.x1 > W || J.crop.y1 > H) {  // (the image readback is released by then)
+        Status("Inpainting : la taille du document a changé pendant la génération, résultat abandonné");
+        return;
+    }
     J.results = results;
     J.thumbs.clear();
     J.current = 0;

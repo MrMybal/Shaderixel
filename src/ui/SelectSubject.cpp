@@ -89,6 +89,21 @@ std::vector<u8> SkyMask(const u8* rgba, int W, int H) {
         for (int x = 0; x < W; ++x) out[(size_t)y * W + x] = m[(size_t)std::min(y / s, h - 1) * w + std::min(x / s, w - 1)];
     return out;
 }
+
+// Segmentations whose document was closed: left to finish in the background (destroying a running
+// std::async future would block the interface until Python ends), dropped once done.
+std::vector<std::future<int>> abandonedSubjectJobs;
+
+void PollAbandonedSubjectJobs() {
+    for (size_t i = 0; i < abandonedSubjectJobs.size();)
+        if (abandonedSubjectJobs[i].wait_for(std::chrono::seconds(0)) == std::future_status::ready) abandonedSubjectJobs.erase(abandonedSubjectJobs.begin() + i);
+        else ++i;
+}
+
+// The document the running job belongs to (the view address alone may be reused by a new document).
+const Document* subjectDoc = nullptr;
+u64 subjectDocVersion = 0;
+unsigned subjectRun = 0;  // unique temporary file names: an abandoned run never writes the mask of the next one
 }  // namespace
 
 void App::StartSelectSubject(DocView& v, bool sky) {
@@ -99,21 +114,34 @@ void App::StartSelectSubject(DocView& v, bool sky) {
     subjectJob.sky = sky;
     subjectJob.view = &v;
     subjectJob.rb = v.renderer.ExportRGBA8(*ctx, v.lastImage, true);
+    if (!subjectJob.rb) {
+        subjectJob = {};
+        Status("Sélection : lecture de l'image impossible");
+        return;
+    }
+    subjectDoc = v.doc.get();
+    subjectDocVersion = v.doc->ContentVersion();
     Status(sky ? "Sélection du ciel : analyse de l'image..." : "Sélection du sujet : analyse (modèle de segmentation)...");
 }
 
 void App::UpdateSelectSubject() {
+    PollAbandonedSubjectJobs();
     auto& J = subjectJob;
     if (!J.active) return;
     bool alive = false;
-    for (auto& d : docs) alive |= d.get() == J.view;
-    if (!alive) { J = {}; return; }
+    for (auto& d : docs) alive |= d.get() == J.view && d->doc.get() == subjectDoc && d->doc->ContentVersion() >= subjectDocVersion;
+    if (!alive) {
+        if (J.proc.valid()) abandonedSubjectJobs.push_back(std::move(J.proc));  // not waited for here
+        J = {};
+        return;
+    }
     DocView& v = *J.view;
     Document& d = *v.doc;
     std::vector<u8> cov;
     if (J.rb) {
         if (!J.rb->ready) return;
         const int W = (int)J.rb->width, H = (int)J.rb->height;
+        if (W <= 0 || H <= 0 || J.rb->data.size() < (size_t)W * H * 4) { Status("Sélection : lecture de l'image impossible"); J = {}; return; }
         J.w = W;
         J.h = H;
         if (J.sky) {
@@ -124,8 +152,9 @@ void App::UpdateSelectSubject() {
             std::string script = SegmentScript();
             if (script.empty()) { Status("Script de segmentation introuvable (ai/segment.py)"); J = {}; return; }
             std::string dir = Narrow(std::filesystem::temp_directory_path().wstring());
-            J.in = dir + "\\shaderixel_subject_in.png";
-            J.out = dir + "\\shaderixel_subject_mask.png";
+            const std::string tag = std::to_string(GetCurrentProcessId()) + "_" + std::to_string(++subjectRun);
+            J.in = dir + "\\shaderixel_subject_in_" + tag + ".png";
+            J.out = dir + "\\shaderixel_subject_mask_" + tag + ".png";
             stbi_write_png(J.in.c_str(), W, H, 4, J.rb->data.data(), W * 4);
             J.rb.reset();
             std::error_code ec;
@@ -137,7 +166,10 @@ void App::UpdateSelectSubject() {
     } else if (J.proc.valid()) {
         if (J.proc.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
         int code = J.proc.get();
+        std::error_code rec;
+        std::filesystem::remove(Utf8Path(J.in), rec);  // per-run temporary files
         if (code != 0) {
+            std::filesystem::remove(Utf8Path(J.out), rec);
             if (code == 3) {
                 subjectInstallPrompt = true;
                 Status("Sélection du sujet : le module rembg n'est pas installé (Sélection > Installer le modèle de sujet)");
@@ -154,6 +186,7 @@ void App::UpdateSelectSubject() {
             m = stbi_load_from_file(f, &mw, &mh, &comp, 1);
             fclose(f);
         }
+        std::filesystem::remove(Utf8Path(J.out), rec);
         if (!m || mw != J.w || mh != J.h) {
             if (m) stbi_image_free(m);
             Status("Sélection du sujet : masque illisible");

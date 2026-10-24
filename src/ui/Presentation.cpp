@@ -157,7 +157,15 @@ void App::UpdateCameraAnimation(MeshScene& s) {
 }
 
 bool App::PickFocus(MeshScene& s, float2 local, u32 w, u32 h) {
-    if (sim.rc.Empty() || sim.scene != &s || sim.rev != s.revision) {
+    // The scene address and revision alone can match a new scene (closed document, another opened at the same
+    // address): the mesh buffers are part of the key too.
+    static const void* builtIdx = nullptr;
+    static size_t builtVerts = 0, builtTris = 0;
+    const bool sameMesh = builtIdx == (const void*)s.data.indices.data() && builtVerts == s.data.vertices.size() && builtTris == s.data.indices.size();
+    if (sim.rc.Empty() || sim.scene != &s || sim.rev != s.revision || !sameMesh) {
+        builtIdx = s.data.indices.data();
+        builtVerts = s.data.vertices.size();
+        builtTris = s.data.indices.size();
         sim.rc.Build(s.data);
         sim.scene = &s;
         sim.rev = s.revision;
@@ -172,6 +180,19 @@ bool App::PickFocus(MeshScene& s, float2 local, u32 w, u32 h) {
 }
 
 // ---------------------------------------------------------------- turntable
+
+namespace {
+// The document the running turntable belongs to: a view closed and another opened at the same address
+// is not it (same view and document addresses, version counter never gone back).
+const Document* turntableDoc = nullptr;
+u64 turntableDocVersion = 0;
+
+bool TurntableViewAlive(const std::vector<std::unique_ptr<DocView>>& docs, const DocView* view) {
+    for (auto& d : docs)
+        if (d.get() == view) return d->doc.get() == turntableDoc && d->doc->ContentVersion() >= turntableDocVersion;
+    return false;
+}
+}  // namespace
 
 void App::DrawTurntableDialog() {
     auto& T = turntable;
@@ -241,6 +262,8 @@ void App::StartTurntable(DocView& v) {
     std::error_code ec;
     std::filesystem::create_directories(Utf8Path(T.path).parent_path(), ec);
     T.view = &v;
+    turntableDoc = v.doc.get();
+    turntableDocVersion = v.doc->ContentVersion();
     T.running = true;
     T.frame = 0;
     T.settle = 0;
@@ -262,8 +285,7 @@ void App::StopTurntable() {
     auto& T = turntable;
     if (!T.running) return;
     T.running = false;
-    bool alive = false;
-    for (auto& d : docs) alive |= d.get() == T.view;  // the document may have been closed meanwhile
+    const bool alive = TurntableViewAlive(docs, T.view);  // the document may have been closed meanwhile
     if (DocView* v = alive ? T.view : nullptr; v && v->mesh) {
         MeshScene& s = *v->mesh;
         s.yaw = T.yaw0;
@@ -313,9 +335,7 @@ void App::TurntableCapture(DocView& v, gpu::Texture* img) {
 void App::PollTurntable() {
     auto& T = turntable;
     if (T.running) {
-        bool alive = false;
-        for (auto& d : docs) alive |= d.get() == T.view;
-        if (!alive) StopTurntable();
+        if (!TurntableViewAlive(docs, T.view)) StopTurntable();
     }
     while (!T.pending.empty() && T.pending.front() && T.pending.front()->ready) {
         const gpu::Readback& rb = *T.pending.front();

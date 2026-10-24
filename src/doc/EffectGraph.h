@@ -14,6 +14,7 @@
 
 #include <functional>
 #include <map>
+#include <set>
 #include <memory>
 
 namespace sx {
@@ -121,6 +122,20 @@ const EGOpDef* FindOp(const std::string& op);
 // (names point into the node: use the result while the node is alive).
 EGOpDef EffectiveOp(const EGNode& n);
 inline constexpr int kEGTexture = 5;  // value type of texture links
+
+// Functions (like Unreal's material functions) ------------------------------------------
+// A "function" node holds a graph (its `text`, JSON) whose "funcin" nodes are its inputs (index order, name,
+// default value) and whose "funcout" nodes are its outputs; its pins / outs mirror that interface. Before code
+// generation every function is expanded in place (nested ones too), so the generated code is the same as if
+// the nodes were in the graph.
+void SyncFunctionInterface(EGNode& fn, const EffectGraph& inner);
+// Expanded copy of the graph (functions inlined); `error` set when a function graph can't be read.
+EffectGraph FlattenFunctions(const EffectGraph& g, std::string* error = nullptr);
+// The selected nodes (not the output) become a function node: links coming in become its inputs, links going out
+// its outputs. Returns the new node id (0: nothing to collapse).
+Id CollapseToFunction(EffectGraph& g, const std::set<Id>& nodes, const std::string& name);
+// A function node replaced by its nodes (placed around it).
+bool ExpandFunction(EffectGraph& g, Id fn);
 
 // Code generation -----------------------------------------------------------
 struct EGCompileResult {

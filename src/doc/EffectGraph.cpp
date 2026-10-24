@@ -108,6 +108,9 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         // Custom
         {"custom", "HLSL personnalisé", "Personnalisé", {{"A", 0}, {"B", 0}, {"C", 0}, {"D", 0}}, {""}, 4, true},
         {"reroute", "Reroutage", "Organisation", {{"", 0}}, {""}, 0},
+        {"funcin", "Entrée de fonction", "Fonction", {}, {""}, 4, true},
+        {"funcout", "Sortie de fonction", "Fonction", {{"Valeur", 0}}, {""}, 0},
+        {"function", "Fonction", "Fonction (appel)", {}, {}, 0},
         // Output
         {"output", "Sortie", "Sortie", {{"RGBA", 0}, {"RGB", 0}, {"Alpha", 1}}, {}, 0},
     };
@@ -135,6 +138,15 @@ const char* PinTypeName(int t) {
 EGOpDef EffectiveOp(const EGNode& n) {
     const EGOpDef* d = FindOp(n.op);
     EGOpDef r = d ? *d : EGOpDef{"", "?", "", {}, {}, 0};
+    if (n.op == "function") {
+        // Its inputs / outputs: the funcin / funcout nodes of its graph (mirrored in pins / outs).
+        r.inputs.clear();
+        for (auto& p : n.pins) r.inputs.push_back({p.name.c_str(), 0.0f});
+        r.outputs.clear();
+        for (auto& o : n.outs) r.outputs.push_back(o.name.c_str());
+        r.fixedOutType = 0;
+        return r;
+    }
     if (n.op == "custom" && n.HasPins()) {
         r.inputs.clear();
         for (auto& p : n.pins) r.inputs.push_back({p.name.c_str(), p.type == kEGTexture ? -5.0f : -7.0f});  // -7: parameter when unconnected
@@ -719,7 +731,9 @@ struct Gen {
         else if (op == "abs" || op == "frac" || op == "floor" || op == "ceil" || op == "sin" || op == "cos" || op == "exp2" || op == "saturate" || op == "normalize")
             one(op + "(" + a[0].expr + ")", a[0].n);
         else if (op == "negate") one("(-" + a[0].expr + ")", a[0].n);
-        else if (op == "reroute") one(a[0].expr, a[0].n);
+        else if (op == "reroute" || op == "funcout") one(a[0].expr, a[0].n);
+        else if (op == "funcin") one("float4(" + F(n->value.x) + ", " + F(n->value.y) + ", " + F(n->value.z) + ", " + F(n->value.w) + ")", 4);  // alone: its default
+        else if (op == "function") { Fail(id, "fonction non développée"); one("0.0", 1); }
         else if (op == "sqrt") one("sqrt(max(" + a[0].expr + ", 0.0))", a[0].n);
         else if (op == "tan" || op == "round" || op == "sign") one(op + "(" + a[0].expr + ")", a[0].n);
         else if (op == "atan2") one("atan2(" + W(0) + ", " + W(1) + ")", widest);
@@ -845,8 +859,233 @@ void AssignParamNames(const EffectGraph& g, Gen& gen) {
 }
 }  // namespace
 
-EGCompileResult CompileEffectGraph(const EffectGraph& g) {
+// ------------------------------------------------------------------ functions
+
+void SyncFunctionInterface(EGNode& fn, const EffectGraph& inner) {
+    std::vector<const EGNode*> ins, outs;
+    for (auto& n : inner.nodes) {
+        if (n.op == "funcin") ins.push_back(&n);
+        if (n.op == "funcout") outs.push_back(&n);
+    }
+    auto byIndex = [](const EGNode* a, const EGNode* b) { return a->index != b->index ? a->index < b->index : a->id < b->id; };
+    std::sort(ins.begin(), ins.end(), byIndex);
+    std::sort(outs.begin(), outs.end(), byIndex);
+    fn.pins.clear();
+    fn.outs.clear();
+    for (auto* n : ins) {
+        EGPinDecl p;
+        p.name = n->name.empty() ? "Entrée" : n->name;
+        p.type = kPinFloat4;
+        p.def = n->value;
+        fn.pins.push_back(p);
+    }
+    for (auto* n : outs) {
+        EGPinDecl p;
+        p.name = n->name.empty() ? "Sortie" : n->name;
+        p.type = kPinFloat4;
+        fn.outs.push_back(p);
+    }
+    fn.inputs.resize(fn.pins.size());
+}
+
+namespace {
+// Expands the function nodes of g in place (their graphs expanded first). depth: nesting guard.
+bool ExpandAll(EffectGraph& g, int depth, std::string* error, bool recursive = true, Id only = 0) {
+    if (depth > 16) {
+        if (error) *error = "fonctions imbriquées trop profondément (ou qui s'appellent elles-mêmes)";
+        return false;
+    }
+    for (size_t k = 0; k < g.nodes.size(); ++k) {
+        if (g.nodes[k].op != "function" || (only && g.nodes[k].id != only)) continue;
+        const EGNode fn = g.nodes[k];  // a copy: g.nodes changes below
+        EffectGraph inner;
+        if (!EffectGraph::Deserialize(fn.text, inner)) {
+            if (error) *error = "fonction illisible : " + fn.name;
+            return false;
+        }
+        if (recursive && !ExpandAll(inner, depth + 1, error)) return false;
+        // Inputs in pin order (the interface), outputs likewise.
+        std::vector<Id> ins, outs;
+        {
+            std::vector<const EGNode*> a, b;
+            for (auto& n : inner.nodes) {
+                if (n.op == "funcin") a.push_back(&n);
+                if (n.op == "funcout") b.push_back(&n);
+            }
+            auto byIndex = [](const EGNode* x, const EGNode* y) { return x->index != y->index ? x->index < y->index : x->id < y->id; };
+            std::sort(a.begin(), a.end(), byIndex);
+            std::sort(b.begin(), b.end(), byIndex);
+            for (auto* n : a) ins.push_back(n->id);
+            for (auto* n : b) outs.push_back(n->id);
+        }
+        // New ids for the inner nodes.
+        std::map<Id, Id> remap;
+        for (auto& n : inner.nodes) remap[n.id] = g.nextId++;
+        std::vector<EGNode> added;
+        for (auto& n : inner.nodes) {
+            if (n.op == "output") continue;
+            EGNode c = n;
+            c.id = remap[n.id];
+            c.pos = c.pos + fn.pos;
+            for (auto& l : c.inputs) l = l.node && remap.count(l.node) ? EGLink{remap[l.node], l.output} : EGLink{};
+            if (c.op == "funcin") {
+                // The caller's link replaces the input; unconnected: the value set on the node, else the default.
+                const size_t slot = (size_t)(std::find(ins.begin(), ins.end(), n.id) - ins.begin());
+                if (slot < fn.inputs.size() && fn.inputs[slot].node) {
+                    c.op = "reroute";
+                    c.inputs = {fn.inputs[slot]};
+                } else if (slot < fn.pinValues.size() && fn.PinValueSet(slot)) {
+                    const float v = fn.pinValues[slot];
+                    c.value = {v, v, v, v};
+                }
+            }
+            added.push_back(std::move(c));
+        }
+        // Links to the function's outputs now come from its funcout nodes.
+        const Id fid = fn.id;
+        g.nodes.erase(g.nodes.begin() + k);
+        for (auto& n : g.nodes)
+            for (auto& l : n.inputs)
+                if (l.node == fid) l = l.output >= 0 && l.output < (int)outs.size() ? EGLink{remap[outs[l.output]], 0} : EGLink{};
+        for (auto& n : added) g.nodes.push_back(std::move(n));
+        --k;  // the next node moved into this slot
+    }
+    return true;
+}
+}  // namespace
+
+EffectGraph FlattenFunctions(const EffectGraph& g, std::string* error) {
+    bool any = false;
+    for (auto& n : g.nodes) any |= n.op == "function";
+    if (!any) return g;
+    EffectGraph flat = g;
+    if (!ExpandAll(flat, 0, error)) return g;
+    return flat;
+}
+
+bool ExpandFunction(EffectGraph& g, Id fnId) {
+    // Same as the expansion for the code, for this node only (functions inside it stay functions).
+    const EGNode* fn = g.Find(fnId);
+    if (!fn || fn->op != "function") return false;
+    EffectGraph tmp = g;
+    std::string err;
+    if (!ExpandAll(tmp, 0, &err, false, fnId)) return false;
+    g = std::move(tmp);
+    return true;
+}
+
+Id CollapseToFunction(EffectGraph& g, const std::set<Id>& sel, const std::string& name) {
+    std::set<Id> nodes;
+    for (Id id : sel)
+        if (const EGNode* n = g.Find(id); n && n->op != "output" && n->op != "funcin" && n->op != "funcout") nodes.insert(id);
+    if (nodes.empty()) return 0;
+    EffectGraph inner;
+    inner.kind = g.kind;
+    inner.inputs = g.inputs;
+    inner.name = name;
+    float2 mn{1e9f, 1e9f}, mx{-1e9f, -1e9f};
+    for (auto& n : g.nodes)
+        if (nodes.count(n.id)) {
+            mn = {std::min(mn.x, n.pos.x), std::min(mn.y, n.pos.y)};
+            mx = {std::max(mx.x, n.pos.x), std::max(mx.y, n.pos.y)};
+        }
+    const float2 center = (mn + mx) * 0.5f;
+    Id maxId = 0;
+    for (auto& n : g.nodes)
+        if (nodes.count(n.id)) {
+            EGNode c = n;
+            c.pos = c.pos - center;
+            inner.nodes.push_back(c);
+            maxId = std::max(maxId, n.id);
+        }
+    inner.nextId = std::max(g.nextId, maxId + 1);
+    // Links coming in: one input per distinct source (node, output), in the order they are met.
+    std::map<std::pair<Id, int>, Id> inOf;
+    std::vector<EGLink> callerInputs;
+    for (auto& n : inner.nodes)
+        for (auto& l : n.inputs)
+            if (l.node && !nodes.count(l.node) && !inOf.count({l.node, l.output})) {
+                inOf[{l.node, l.output}] = 0;
+                callerInputs.push_back(l);
+            }
+    for (size_t k = 0; k < callerInputs.size(); ++k) {
+        EGNode fi;
+        fi.id = inner.nextId++;
+        fi.op = "funcin";
+        fi.index = (int)k;
+        fi.name = "Entrée " + std::to_string(k + 1);
+        fi.pos = {mn.x - center.x - 220, mn.y - center.y + 90.0f * k};
+        inOf[{callerInputs[k].node, callerInputs[k].output}] = fi.id;
+        inner.nodes.push_back(fi);
+    }
+    for (auto& n : inner.nodes) {
+        if (n.op == "funcin") continue;
+        for (auto& l : n.inputs)
+            if (l.node && !nodes.count(l.node)) {
+                auto it = inOf.find({l.node, l.output});
+                l = it != inOf.end() ? EGLink{it->second, 0} : EGLink{};
+            }
+    }
+    // Links going out: one output per distinct inner (node, output) used outside.
+    std::map<std::pair<Id, int>, int> outOf;
+    int o = 0;
+    for (auto& n : g.nodes) {
+        if (nodes.count(n.id)) continue;
+        for (auto& l : n.inputs)
+            if (l.node && nodes.count(l.node) && !outOf.count({l.node, l.output})) {
+                EGNode fo;
+                fo.id = inner.nextId++;
+                fo.op = "funcout";
+                fo.index = o;
+                fo.name = "Sortie " + std::to_string(o + 1);
+                fo.inputs = {l};
+                fo.pos = {mx.x - center.x + 260, mn.y - center.y + 90.0f * o};
+                inner.nodes.push_back(fo);
+                outOf[{l.node, l.output}] = o++;
+            }
+    }
+    if (o == 0) {
+        // Nothing used outside: one output from the last selected node, so the function shows something.
+        EGNode fo;
+        fo.id = inner.nextId++;
+        fo.op = "funcout";
+        fo.name = "Sortie";
+        fo.inputs = {EGLink{*nodes.rbegin(), 0}};
+        fo.pos = {mx.x - center.x + 260, 0};
+        inner.nodes.push_back(fo);
+    }
+    // The function node replaces the selection.
+    EGNode fn;
+    fn.id = g.nextId++;
+    fn.op = "function";
+    fn.name = name;
+    fn.pos = center;
+    fn.text = inner.Serialize();
+    SyncFunctionInterface(fn, inner);
+    fn.inputs = callerInputs;
+    fn.inputs.resize(fn.pins.size());
+    g.nodes.erase(std::remove_if(g.nodes.begin(), g.nodes.end(), [&](const EGNode& n) { return nodes.count(n.id) != 0; }), g.nodes.end());
+    for (auto& n : g.nodes)
+        for (auto& l : n.inputs)
+            if (l.node && nodes.count(l.node)) {
+                auto it = outOf.find({l.node, l.output});
+                l = it != outOf.end() ? EGLink{fn.id, it->second} : EGLink{};
+            }
+    g.nodes.push_back(fn);
+    g.nextId = std::max(g.nextId, inner.nextId);
+    return fn.id;
+}
+
+EGCompileResult CompileEffectGraph(const EffectGraph& g0) {
     EGCompileResult r;
+    // Functions expanded first (the generated code works on plain nodes).
+    std::string ferr;
+    const EffectGraph flat = FlattenFunctions(g0, &ferr);
+    const EffectGraph& g = flat;
+    if (!ferr.empty()) {
+        r.error = ferr;
+        return r;
+    }
     Id out = g.OutputNode();
     if (!out) {
         r.error = "le graphe n'a pas de nœud de sortie";
@@ -976,8 +1215,15 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g) {
     return r;
 }
 
-EGUnrealExport ExportEffectGraphToUnreal(const EffectGraph& g, const std::string& materialName, const std::string& packagePath) {
+EGUnrealExport ExportEffectGraphToUnreal(const EffectGraph& g0, const std::string& materialName, const std::string& packagePath) {
     EGUnrealExport ex;
+    std::string ferr;
+    const EffectGraph flat = FlattenFunctions(g0, &ferr);
+    const EffectGraph& g = flat;
+    if (!ferr.empty()) {
+        ex.error = ferr;
+        return ex;
+    }
     Id out = g.OutputNode();
     if (!out) {
         ex.error = "le graphe n'a pas de nœud de sortie";

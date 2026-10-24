@@ -181,7 +181,7 @@ bool App::Init() {
         for (auto& od : EffectGraphOps()) {
             if (onlyHlsl) break;
             const std::string op = od.op;
-            if (op == "output" || op == "custom" || op == "texture" || !OpAllowed(od, EGKind::Effect)) continue;  // a texture only feeds HLSL nodes
+            if (op == "output" || op == "custom" || op == "texture" || op == "function" || !OpAllowed(od, EGKind::Effect)) continue;  // a texture only feeds HLSL nodes
             ++no;
             EffectGraph g = EffectGraph::Default();
             EGNode n;
@@ -207,6 +207,30 @@ bool App::Init() {
             }
             oko += why.empty();
             if (!why.empty()) Log("[test-ops] %-14s FAILED: %s", op.c_str(), why.c_str());
+        }
+        {
+            // Functions: the image -> invert inside a function -> the output, collapsed then compiled and expanded.
+            ++no;
+            EffectGraph g = EffectGraph::Default();
+            Id in = 0, outId = g.OutputNode();
+            for (auto& n : g.nodes) if (n.op == "input") in = n.id;
+            EGNode inv;
+            inv.id = g.nextId++;
+            inv.op = "oneminus";
+            inv.inputs = {EGLink{in, 0}};
+            g.nodes.push_back(inv);
+            if (EGNode* o = g.Find(outId)) { o->inputs.resize(3); o->inputs[1] = {inv.id, 0}; }
+            const std::string before = CompileEffectGraph(g).code;
+            const Id fn = CollapseToFunction(g, {inv.id}, "Inverser");
+            EGCompileResult r = CompileEffectGraph(g);
+            const EGNode* fnode = g.Find(fn);
+            std::string why = !fn ? "rien à regrouper" : !r.error.empty() ? r.error : r.code.find("(1.0 - ") == std::string::npos ? "code sans l'inversion" :
+                              !fnode || fnode->pins.size() != 1 || fnode->outs.size() != 1 ? "interface de la fonction" : "";
+            if (why.empty() && (!ExpandFunction(g, fn) || g.Find(fn))) why = "dégrouper";
+            if (why.empty() && CompileEffectGraph(g).error.size()) why = "après dégroupage : " + CompileEffectGraph(g).error;
+            if (why.empty()) ++oko;
+            else Log("[test-ops] %-14s FAILED: %s", "function", why.c_str());
+            (void)before;
         }
         Log("[test-ops] %d / %d graph nodes compiled", oko, no);
         // HLSL import: function with annotations, out parameters, body only, blend.

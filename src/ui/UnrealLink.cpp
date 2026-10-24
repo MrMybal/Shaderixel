@@ -135,8 +135,13 @@ void App::InitLink() {
 
 void App::ShutdownLink() {
     if (!linkInstanceFile) return;
+    // Another instance started later may have taken over the file: only remove it while it names this process.
+    const std::string file = LinkDir() + "\\instance.json";
+    std::string text;
+    Json j;
+    if (!ReadTextFile(file, text) || !Json::Parse(text, j) || j["pid"].U() != (u32)GetCurrentProcessId()) return;
     std::error_code ec;
-    fs::remove(Utf8Path(LinkDir() + "\\instance.json"), ec);
+    fs::remove(Utf8Path(file), ec);
 }
 
 bool App::OpenLinkSession(const std::string& sessionFile) {
@@ -169,13 +174,20 @@ bool App::OpenLinkSession(const std::string& sessionFile) {
     fs::create_directories(Utf8Path(L->dir + "\\out"), ec);
     const std::string project = j["project"].S("");
     const bool hasProject = !project.empty() && fs::exists(Utf8Path(Abs(L->dir, project)));
+    // A document opened / created for this session is pushed at the end of the list and made active;
+    // anything else (failure, asynchronous load) must not rename or relink the current document.
+    const size_t docsBefore = docs.size();
+    auto opened = [&]() { return docs.size() > docsBefore && Active() == docs.back().get(); };
 
     if (L->kind == "texture") {
         L->imageOut = Abs(L->dir, j["output"].S("out/image.png"));
         if (hasProject) LoadSxl(Abs(L->dir, project));
         else OpenImage(Abs(L->dir, j["image"].S("")), false);
         DocView* v = Active();
-        if (!v) return false;
+        if (!v || !opened()) {
+            Status("Lien Unreal : ouverture de la texture " + L->name + " impossible");
+            return false;
+        }
         v->doc->path = L->dir + "\\image.sxl";
         v->doc->SetName(L->name + " (Unreal)");
         v->link = L;
@@ -185,7 +197,10 @@ bool App::OpenLinkSession(const std::string& sessionFile) {
 
     // Mesh session: the saved project if any, otherwise a new Paint 3D project with the Unreal textures.
     if (hasProject) {
-        if (!LoadSxl(Abs(L->dir, project))) return false;
+        if (!LoadSxl(Abs(L->dir, project)) || !opened()) {
+            Status("Lien Unreal : ouverture du projet " + L->name + " impossible");
+            return false;
+        }
     } else {
         struct In { std::string role; LinkImage img; };
         std::vector<In> inputs;
@@ -219,7 +234,10 @@ bool App::OpenLinkSession(const std::string& sessionFile) {
         NewPaint3DProject();
         p3dNew.skipPaintLayer = false;
         DocView* v = Active();
-        if (!v || !v->mesh || v->doc->kind != 1) return false;
+        if (!v || !opened() || !v->mesh || v->doc->kind != 1) {
+            Status("Lien Unreal : création du projet Paint 3D pour " + L->name + " impossible");
+            return false;
+        }
         Document& d = *v->doc;
         if (!inputs.empty()) {
             // The material's current textures, as a 3D paint layer (one layer per channel).
@@ -268,7 +286,7 @@ bool App::OpenLinkSession(const std::string& sessionFile) {
         d.dirty = false;
     }
     DocView* v = Active();
-    if (!v) return false;
+    if (!v || !opened()) return false;
     v->doc->path = L->dir + "\\project.sx3d";
     v->doc->SetName(L->name + " (Unreal)");
     v->link = L;
@@ -341,12 +359,19 @@ void App::UpdateLink() {
     if (linkInstanceFile && now >= next) {
         next = now + 0.5;
         std::error_code ec;
-        for (auto& e : fs::directory_iterator(Utf8Path(LinkDir() + "\\inbox"), ec)) {
-            if (e.path().extension() != ".json") continue;
+        std::vector<fs::path> requests;
+        for (auto& e : fs::directory_iterator(Utf8Path(LinkDir() + "\\inbox"), ec))
+            if (e.path().extension() == ".json") requests.push_back(e.path());
+        for (auto& req : requests) {
+            // Claimed by renaming it first: when several instances poll the inbox, only one gets the request.
+            fs::path claimed = req;
+            claimed += L"." + std::to_wstring(GetCurrentProcessId()) + L".claimed";
+            fs::rename(req, claimed, ec);
+            if (ec) continue;
             std::string text, session;
             Json j;
-            if (ReadTextFile(Narrow(e.path().wstring()), text) && Json::Parse(text, j)) session = j["session"].S("");
-            fs::remove(e.path(), ec);
+            if (ReadTextFile(Narrow(claimed.wstring()), text) && Json::Parse(text, j)) session = j["session"].S("");
+            fs::remove(claimed, ec);
             if (!session.empty() && OpenLinkSession(session) && !Automated()) {
                 // In front of Unreal (the plugin allowed it with AllowSetForegroundWindow).
                 if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);

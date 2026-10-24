@@ -4655,6 +4655,31 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
             if (const char* a = getenv("SX_FXADD")) efEd.demoAdd = atoi(a);
             if (getenv("SX_FXPVNODE")) efPv.node = true;
         }
+        if (demoGraphOpen && getenv("SX_FXFUNC")) {
+            // Functions: 3 nodes collapsed into a function (same image), opened (SX_FXFUNC=in: stays inside), back.
+            static gpu::ReadbackPtr before, after;
+            static Id fn = 0;
+            if (frameCounter == 60) before = grab();
+            if (frameCounter == 70) {
+                efEd.multi.clear();
+                for (auto& n : efEd.graph.nodes)
+                    if (efEd.multi.size() < 3 && n.op != "output" && n.op != "input") efEd.multi.insert(n.id);
+                efEd.selected = *efEd.multi.begin();
+                efEd.demoCollapse = true;
+            }
+            if (frameCounter == 74) {
+                for (auto& n : efEd.graph.nodes) if (n.op == "function") fn = n.id;
+                const EGNode* f = efEd.graph.Find(fn);
+                Log("[fxfunc] collapsed: %zu nodes, function %u with %zu inputs / %zu outputs", efEd.graph.nodes.size(), fn, f ? f->pins.size() : 0,
+                    f ? f->outs.size() : 0);
+            }
+            if (frameCounter == 90) after = grab();
+            if (frameCounter == 96 && before && after && before->ready && after->ready) CompareReadbacks("graph vs graph with a function", *before, *after, 1);
+            if (frameCounter == 100) efEd.enterFunc = fn;
+            if (frameCounter == 106) Log("[fxfunc] inside: depth %zu, %zu nodes", efEd.funcPath.size(), efEd.graph.nodes.size());
+            if (frameCounter == 130 && std::string(getenv("SX_FXFUNC")) != "in") efEd.exitFunc = true;
+            if (frameCounter == 136) Log("[fxfunc] back: depth %zu, %zu nodes", efEd.funcPath.size(), efEd.graph.nodes.size());
+        }
         if (demoGraphOpen && getenv("SX_FXKEYS")) {
             // Synthetic keys in the effect editor: select 3 nodes, Ctrl+D, Delete, Ctrl+A, F.
             ImGuiIO& kio = ImGui::GetIO();

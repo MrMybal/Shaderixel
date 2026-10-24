@@ -133,21 +133,44 @@ std::string PickEngine(const std::string& association, const std::string& packag
     return best;
 }
 
-// NTFS junction (mklink /J: no administrator rights needed).
+// NTFS junction (like mklink /J: no administrator rights needed), set directly on an empty folder with
+// FSCTL_SET_REPARSE_POINT: no command line, so no cmd.exe expansion of % or quotes in the paths.
 bool Junction(const fs::path& link, const fs::path& target) {
-    std::wstring cmd = L"cmd.exe /c mklink /J \"" + link.wstring() + L"\" \"" + fs::absolute(target).wstring() + L"\"";
-    std::vector<wchar_t> line(cmd.begin(), cmd.end());
-    line.push_back(0);
-    STARTUPINFOW si = {sizeof(si)};
-    PROCESS_INFORMATION pi = {};
-    if (!CreateProcessW(nullptr, line.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) return false;
-    WaitForSingleObject(pi.hProcess, 30000);
-    DWORD code = 1;
-    GetExitCodeProcess(pi.hProcess, &code);
-    CloseHandle(pi.hThread);
-    CloseHandle(pi.hProcess);
     std::error_code ec;
-    return code == 0 && fs::exists(link, ec);
+    std::wstring abs = fs::absolute(target, ec).lexically_normal().wstring();
+    if (ec || abs.empty()) return false;
+    if (abs.rfind(L"\\\\?\\", 0) == 0) abs = abs.substr(4);
+    if (abs.size() < 3 || abs[1] != L':') return false;  // junctions point at local drive paths only
+    while (abs.size() > 3 && (abs.back() == L'\\' || abs.back() == L'/')) abs.pop_back();
+    const std::wstring sub = L"\\??\\" + abs;  // NT path of the target
+    const size_t subBytes = sub.size() * sizeof(wchar_t), printBytes = abs.size() * sizeof(wchar_t);
+    // REPARSE_DATA_BUFFER with a MountPointReparseBuffer (the structure is not in the user-mode headers):
+    // tag, data length, reserved, then substitute / print name offsets and lengths and the two names, each null-terminated.
+    const size_t dataBytes = 4 * sizeof(USHORT) + subBytes + sizeof(wchar_t) + printBytes + sizeof(wchar_t);
+    if (dataBytes > 16 * 1024 - 8) return false;
+    std::vector<BYTE> buf(8 + dataBytes, 0);
+    const DWORD tag = IO_REPARSE_TAG_MOUNT_POINT;
+    const USHORT dataLen = (USHORT)dataBytes;
+    const USHORT names[4] = {0, (USHORT)subBytes, (USHORT)(subBytes + sizeof(wchar_t)), (USHORT)printBytes};
+    memcpy(buf.data(), &tag, 4);
+    memcpy(buf.data() + 4, &dataLen, 2);
+    memcpy(buf.data() + 8, names, sizeof(names));
+    memcpy(buf.data() + 16, sub.c_str(), subBytes);
+    memcpy(buf.data() + 16 + subBytes + sizeof(wchar_t), abs.c_str(), printBytes);
+    if (!CreateDirectoryW(link.c_str(), nullptr)) return false;
+    HANDLE h = CreateFileW(link.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (h == INVALID_HANDLE_VALUE) {
+        RemoveDirectoryW(link.c_str());
+        return false;
+    }
+    DWORD ret = 0;
+    const BOOL ok = DeviceIoControl(h, FSCTL_SET_REPARSE_POINT, buf.data(), (DWORD)buf.size(), nullptr, 0, &ret, nullptr);
+    CloseHandle(h);
+    if (!ok) {
+        RemoveDirectoryW(link.c_str());  // still an empty folder
+        return false;
+    }
+    return fs::exists(link, ec);
 }
 
 // Real path of an existing folder (resolves redirections such as packaged-app AppData virtualization).
@@ -268,10 +291,17 @@ except Exception as error:
     raise
 )PY";
 
-std::string Py(const std::string& s) {  // Python string literal (forward slashes, no escapes needed)
-    std::string t = s;
-    std::replace(t.begin(), t.end(), '\\', '/');
-    return "r'" + t + "'";
+std::string Py(const std::string& s) {  // Python string literal (UTF-8 source), every special character escaped
+    std::string t = "'";
+    for (char c : s) {
+        if (c == '\\') t += '/';  // Windows separators as forward slashes (Unreal and pathlib accept both)
+        else if (c == '\'') t += "\\'";
+        else if (c == '\n') t += "\\n";
+        else if (c == '\r') t += "\\r";
+        else if (c == '\0') t += "\\x00";
+        else t += c;
+    }
+    return t + "'";
 }
 
 }  // namespace

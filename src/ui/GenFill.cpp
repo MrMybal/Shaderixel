@@ -61,6 +61,20 @@ std::string Multipart(const std::string& boundary, const std::vector<std::pair<s
     b += "--" + boundary + "--\r\n";
     return b;
 }
+
+// The document the running fill belongs to: a view closed and another opened at the same address
+// must not receive the result (same view and document addresses, and a version counter that never went back).
+struct FillOwner {
+    const DocView* view = nullptr;
+    const Document* doc = nullptr;
+    u64 version = 0;
+} fillOwner;
+
+bool FillOwnerAlive(const std::vector<std::unique_ptr<DocView>>& docs) {
+    for (auto& dv : docs)
+        if (dv.get() == fillOwner.view) return dv->doc.get() == fillOwner.doc && dv->doc->ContentVersion() >= fillOwner.version;
+    return false;
+}
 }  // namespace
 
 void App::StartGenerativeFill(DocView& v, const std::string& prompt) {
@@ -74,6 +88,12 @@ void App::StartGenerativeFill(DocView& v, const std::string& prompt) {
     genFill.selection = d.S().selection;
     genFill.image = v.renderer.ExportRGBA8(*ctx, v.renderer.EvaluateComplete(d, *ctx));
     genFill.mask = ctx->ReadbackTexture(sel->tex.get());
+    if (!genFill.image || !genFill.mask) {
+        genFill = {};
+        Status("Remplissage génératif : lecture de l'image impossible");
+        return;
+    }
+    fillOwner = {&v, v.doc.get(), d.ContentVersion()};
     genFill.busy = true;
     Status("Remplissage génératif : préparation...");
 }
@@ -84,6 +104,13 @@ void App::UpdateGenerativeFill() {
     const auto& img = *genFill.image;
     const auto& msk = *genFill.mask;  // R8
     const int W = (int)img.width, H = (int)img.height;
+    // A failed readback comes back empty: both must cover the whole image before indexing them.
+    if (W <= 0 || H <= 0 || msk.width != img.width || msk.height != img.height || img.data.size() < (size_t)W * H * 4 ||
+        msk.data.size() < (size_t)W * H) {
+        genFill.busy = false;
+        Status("Remplissage génératif : lecture de l'image impossible");
+        return;
+    }
     // Selection bounds + 15% context.
     Rect r{W, H, 0, 0};
     for (int y = 0; y < H; ++y)
@@ -206,8 +233,7 @@ void App::UpdateGenerativeFill() {
         return [this, err, pixels, r, cw, ch, prompt] {
             genFill.busy = false;
             DocView* v = genFill.view;
-            bool alive = false;
-            for (auto& dv : docs) if (dv.get() == v) alive = true;
+            const bool alive = v == fillOwner.view && FillOwnerAlive(docs);
             if (!err.empty() || !alive) { Status("Remplissage génératif : " + (err.empty() ? std::string("document fermé") : err)); return; }
             Document& d = *v->doc;
             Edit e(d, v->history, "Remplissage génératif");

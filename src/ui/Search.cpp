@@ -390,13 +390,18 @@ void GlobalSearch::EndFrame() {
     ImGuiContext& g = *ImGui::GetCurrentContext();
     const ImU32 col = IM_COL32(255, 170, 40, 220);
     for (auto& m : matches) {
-        if (!m.window || !m.window->WasActive) continue;
+        if (!m.window || !m.window->WasActive || !m.window->Viewport) continue;
         ImDrawList* dl = ImGui::GetForegroundDrawList(m.window->Viewport);
         dl->PushClipRect(m.window->ClipRect.Min, m.window->ClipRect.Max, true);
         dl->AddRect(ImVec2(m.bb[0] - 2, m.bb[1] - 2), ImVec2(m.bb[2] + 2, m.bb[3] + 2), col, 3, 0, 1.5f);
         dl->PopClipRect();
     }
-    if (pend.found && pend.win && ImGui::GetTime() < pend.flashUntil) {
+    // The window may have been closed since (a floating window loses its viewport): still listed, active and with a viewport.
+    bool winOk = false;
+    if (pend.found && pend.win)
+        for (ImGuiWindow* w : g.Windows) winOk |= w == pend.win;
+    if (winOk && (!pend.win->WasActive || !pend.win->Viewport)) winOk = false;
+    if (winOk && ImGui::GetTime() < pend.flashUntil) {
         // The reached property blinks.
         const float a = 0.5f + 0.5f * std::sin((float)ImGui::GetTime() * 12.0f);
         ImDrawList* dl = ImGui::GetForegroundDrawList(pend.win->Viewport);
