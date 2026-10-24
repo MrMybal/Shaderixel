@@ -22,11 +22,13 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"sampleoffset", "Échantillonner décalé (pixels)", "Entrées", {{"Décalage", 0}}, {"RGBA", "RGB", "R", "G", "B", "A"}, 4},
         {"blur", "Flou de l'entrée", "Entrées", {{"Rayon (px)", 4}}, {"RGBA", "RGB", "R", "G", "B", "A"}, 4},
         {"edges", "Contours de l'entrée (Sobel)", "Entrées", {{"Épaisseur (px)", 1}}, {""}, 1},
+        {"normalheight", "Normale depuis la hauteur (entrée)", "Entrées", {{"Force", 2}, {"Distance (px)", 1}}, {""}, 4},
         {"const", "Constante", "Constantes", {}, {""}, 1, true},
         {"const2", "Constante 2D", "Constantes", {}, {""}, 2, true},
         {"color", "Couleur", "Constantes", {}, {""}, 4, true},
         {"pi", "Pi", "Constantes", {}, {""}, 1},
         {"param", "Paramètre (réel)", "Paramètres", {}, {""}, 1, true},
+        {"paramswitch", "Interrupteur (paramètre)", "Paramètres", {{"Si coché", 1}, {"Sinon", 0}}, {""}, 0, true},
         {"paramcolor", "Paramètre (couleur)", "Paramètres", {}, {""}, 4, true},
         {"param2", "Paramètre (2D)", "Paramètres", {}, {""}, 2, true},
         // Math
@@ -81,12 +83,15 @@ const std::vector<EGOpDef>& EffectGraphOps() {
         {"tosrgb", "Linéaire vers sRGB", "Couleur", {{"Couleur", 0}}, {""}, 3},
         {"tolinear", "sRGB vers linéaire", "Couleur", {{"Couleur", 0}}, {""}, 3},
         {"contrast", "Contraste", "Couleur", {{"Couleur", 0}, {"Contraste", 1}, {"Pivot", 0.5f}}, {""}, 3},
+        {"colorramp", "Rampe de couleurs", "Couleur", {{"Valeur", 0.5f}}, {""}, 4},
         {"hueshift", "Décaler la teinte", "Couleur", {{"Couleur", 0}, {"Décalage (tours)", 0}}, {""}, 3},
         {"invert", "Inverser les couleurs", "Couleur", {{"Couleur", 0}}, {""}, 4},
         // Procedural
         {"noise", "Bruit", "Procédural", {{"UV", -1}, {"Échelle", 8}}, {""}, 1},
         {"checker", "Damier", "Procédural", {{"UV", -1}, {"Cases", 8}}, {""}, 1},
         {"rotateuv", "Rotation UV", "Procédural", {{"UV", -1}, {"Angle", 0}, {"Centre", 0.5f}}, {""}, 2},
+        {"offsetuv", "Décaler les UV", "Procédural", {{"UV", -1}, {"Décalage", 0}}, {""}, 2},
+        {"twirl", "Tourbillon (UV)", "Procédural", {{"UV", -1}, {"Force", 3}, {"Centre", 0.5f}, {"Rayon", 0.5f}}, {""}, 2},
         {"voronoi", "Voronoï (cellules)", "Procédural", {{"UV", -1}, {"Échelle", 8}}, {"Distance", "Cellule"}, 1},
         {"fbm", "Bruit fractal", "Procédural", {{"UV", -1}, {"Échelle", 4}, {"Octaves", 5}, {"Rugosité", 0.5f}}, {""}, 1},
         {"radial", "Dégradé radial", "Procédural", {{"UV", -1}, {"Centre", 0.5f}, {"Rayon", 0.5f}}, {""}, 1},
@@ -121,7 +126,7 @@ bool OpAllowed(const EGOpDef& op, EGKind kind) {
     std::string c = op.category, o = op.op;
     if (c == "Fusion") return kind == EGKind::Blend;
     if (c == "Pinceau") return kind == EGKind::Brush;
-    if (kind == EGKind::Brush && (o == "input" || o == "sample" || o == "texture" || o == "sampleoffset" || o == "blur" || o == "edges")) return false;
+    if (kind == EGKind::Brush && (o == "input" || o == "sample" || o == "texture" || o == "sampleoffset" || o == "blur" || o == "edges" || o == "normalheight")) return false;
     return true;
 }
 
@@ -571,7 +576,7 @@ struct Gen {
             one(v + ".rgb", 3);
             for (const char* c : {".r", ".g", ".b", ".a"}) one(v + c, 1);
         };
-        if ((op == "input" || (op == "sample" || op == "sampleoffset" || op == "blur" || op == "edges")) && brush()) {
+        if ((op == "input" || (op == "sample" || op == "sampleoffset" || op == "blur" || op == "edges" || op == "normalheight")) && brush()) {
             Fail(id, "un pinceau n'a pas d'image d'entrée");
             one("float4(0.0, 0.0, 0.0, 0.0)", 4);
         } else if (op == "brush") {
@@ -803,6 +808,37 @@ struct Gen {
         } else if (op == "rect") {
             const std::string dd = "(abs(" + Conv(a[0], 2) + " - " + Conv(a[1], 2) + ") - " + Conv(a[2], 2) + " * 0.5)", s = "max(" + S(3) + ", 1e-5)";
             one("(1.0 - smoothstep(-" + s + ", " + s + ", max(" + dd + ".x, " + dd + ".y)))", 1);
+        } else if (op == "paramswitch") {
+            one("(" + paramNames[id] + " > 0.5 ? " + W(0) + " : " + W(1) + ")", widest);
+        } else if (op == "colorramp") {
+            // Stops blended one after the other: below a stop's position its weight is 0, above it 1.
+            const auto stops = ParseRamp(n->text);
+            auto lin = [&](const RampStop& st) {
+                return "float4(" + F(SrgbToLinear(st.color.x)) + ", " + F(SrgbToLinear(st.color.y)) + ", " + F(SrgbToLinear(st.color.z)) + ", " + F(st.color.w) + ")";
+            };
+            const std::string t = "saturate(" + S(0) + ")";
+            std::string e = lin(stops[0]);
+            for (size_t i = 1; i < stops.size(); ++i) {
+                const float span = std::max(stops[i].pos - stops[i - 1].pos, 1e-5f);
+                e = "lerp(" + e + ", " + lin(stops[i]) + ", saturate((" + t + " - " + F(stops[i - 1].pos) + ") * " + F(1.0f / span) + "))";
+            }
+            one(e, 4);
+        } else if (op == "normalheight") {
+            // Normal map from the luminance of the input (central differences, `Distance` pixels apart).
+            const std::string tx = unreal ? "(1.0 / Size)" : brush() ? "(1.0 / b.docSize)" : "ctx.texel";
+            const std::string dpx = "(" + tx + " * max(" + S(1) + ", 0.5))";
+            const std::string v = "n" + std::to_string(id) + "_nh";
+            auto lum = [&](const std::string& off) { return "dot(" + SampleAt(0, UV() + " + " + off) + ".rgb, float3(0.2126, 0.7152, 0.0722))"; };
+            lines.push_back("    float3 " + v + " = normalize(float3((" + lum("float2(-" + dpx + ".x, 0.0)") + " - " + lum("float2(" + dpx + ".x, 0.0)") + ") * " + S(0) +
+                            ", (" + lum("float2(0.0, -" + dpx + ".y)") + " - " + lum("float2(0.0, " + dpx + ".y)") + ") * " + S(0) + ", 1.0));");
+            usedInputs.insert(0);
+            one("float4(" + v + " * 0.5 + 0.5, 1.0)", 4);
+        } else if (op == "offsetuv") {
+            one("(" + Conv(a[0], 2) + " + " + Conv(a[1], 2) + ")", 2);
+        } else if (op == "twirl") {
+            const std::string c = Conv(a[2], 2), uv = Conv(a[0], 2), dd = "(" + uv + " - " + c + ")";
+            const std::string ang = "(" + S(1) + " * pow(saturate(1.0 - length(" + dd + ") / max(" + S(3) + ", 1e-4)), 2.0))";
+            one("(" + c + " + float2(cos(" + ang + ") * " + dd + ".x - sin(" + ang + ") * " + dd + ".y, sin(" + ang + ") * " + dd + ".x + cos(" + ang + ") * " + dd + ".y))", 2);
         } else if (op == "rotateuv") {
             std::string c = Conv(a[2], 2), uv = Conv(a[0], 2), ang = S(1);
             std::string dd = "(" + uv + " - " + c + ")";
@@ -849,7 +885,7 @@ void AssignParamNames(const EffectGraph& g, Gen& gen) {
     std::set<std::string> used;
     int k = 0;
     for (auto& n : g.nodes) {
-        if (n.op != "param" && n.op != "paramcolor" && n.op != "param2") continue;
+        if (n.op != "param" && n.op != "paramcolor" && n.op != "param2" && n.op != "paramswitch") continue;
         std::string base = SanitizeId(n.name, ++k), id = base;
         if (n.index == 1 && !n.name.empty() && base == "P_" + n.name) base = id = n.name;  // imported: the original identifier
         for (int i = 2; used.count(id); ++i) id = base + "_" + std::to_string(i);
@@ -858,6 +894,36 @@ void AssignParamNames(const EffectGraph& g, Gen& gen) {
     }
 }
 }  // namespace
+
+// ------------------------------------------------------------------ color ramp
+
+std::vector<RampStop> ParseRamp(const std::string& text) {
+    std::vector<RampStop> out;
+    size_t i = 0;
+    while (i < text.size()) {
+        size_t e = text.find(';', i);
+        if (e == std::string::npos) e = text.size();
+        RampStop st;
+        if (sscanf(text.substr(i, e - i).c_str(), "%f %f %f %f %f", &st.pos, &st.color.x, &st.color.y, &st.color.z, &st.color.w) == 5) {
+            st.pos = std::clamp(st.pos, 0.0f, 1.0f);
+            out.push_back(st);
+        }
+        i = e + 1;
+    }
+    if (out.size() < 2) out = {{0, {0, 0, 0, 1}}, {1, {1, 1, 1, 1}}};
+    std::stable_sort(out.begin(), out.end(), [](const RampStop& a, const RampStop& b) { return a.pos < b.pos; });
+    return out;
+}
+
+std::string FormatRamp(const std::vector<RampStop>& stops) {
+    std::string s;
+    char b[128];
+    for (auto& st : stops) {
+        snprintf(b, sizeof(b), "%s%.4g %.4g %.4g %.4g %.4g", s.empty() ? "" : ";", st.pos, st.color.x, st.color.y, st.color.z, st.color.w);
+        s += b;
+    }
+    return s;
+}
 
 // ------------------------------------------------------------------ functions
 
@@ -1137,7 +1203,7 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g0) {
     if (!brush) {
         bool global = false;
         for (auto& n : g.nodes)
-            if (n.op == "sample" || n.op == "custom" || n.op == "sampleoffset" || n.op == "blur" || n.op == "edges") global = true;
+            if (n.op == "sample" || n.op == "custom" || n.op == "sampleoffset" || n.op == "blur" || n.op == "edges" || n.op == "normalheight") global = true;
         s += global ? "//@halo full\n" : "//@halo 0\n";
     }
     if (blend && !ownOpacity) s += "//@param opacity float 1 0 1 \"Opacité\"\n";  // driven by the layer opacity
@@ -1149,6 +1215,8 @@ EGCompileResult CompileEffectGraph(const EffectGraph& g0) {
             s += "//@param " + it->second + " float " + F(n.value.x) + " " + F(n.min) + " " + F(n.max) + " \"" + label + "\"\n";
         else if (n.op == "param2")
             s += "//@param " + it->second + " float2 " + F(n.value.x) + " " + F(n.value.y) + " " + F(n.min) + " " + F(n.max) + " \"" + label + "\"\n";
+        else if (n.op == "paramswitch")
+            s += "//@param " + it->second + " bool " + F(n.value.x > 0.5f ? 1.0f : 0.0f) + " \"" + label + "\"\n";
         else
             s += "//@param " + it->second + " color " + F(n.value.x) + " " + F(n.value.y) + " " + F(n.value.z) + " " + F(n.value.w) + " \"" + label + "\"\n";
     }

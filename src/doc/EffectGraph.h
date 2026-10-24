@@ -123,6 +123,14 @@ const EGOpDef* FindOp(const std::string& op);
 EGOpDef EffectiveOp(const EGNode& n);
 inline constexpr int kEGTexture = 5;  // value type of texture links
 
+// Color ramp stops (node text "pos r g b a;..." in sRGB, sorted by position; two stops at least).
+struct RampStop {
+    float pos = 0;
+    float4 color = {0, 0, 0, 1};
+};
+std::vector<RampStop> ParseRamp(const std::string& text);
+std::string FormatRamp(const std::vector<RampStop>& stops);
+
 // Functions (like Unreal's material functions) ------------------------------------------
 // A "function" node holds a graph (its `text`, JSON) whose "funcin" nodes are its inputs (index order, name,
 // default value) and whose "funcout" nodes are its outputs; its pins / outs mirror that interface. Before code

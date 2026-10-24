@@ -55,6 +55,11 @@ const char* OpDescription(const std::string& op) {
         {"const2", "Deux nombres fixes (vecteur 2D)."},
         {"color", "Une couleur fixe (RGBA)."},
         {"param", "Un nombre réglable dans Propriétés (curseur)."},
+        {"paramswitch", "Une case à cocher dans Propriétés : choisit l'une ou l'autre branche."},
+        {"colorramp", "Rampe de couleurs (dégradé à arrêts) : une valeur de 0 à 1 devient une couleur."},
+        {"normalheight", "Carte de normales calculée depuis la luminosité de l'image (relief)."},
+        {"offsetuv", "Décale des coordonnées UV."},
+        {"twirl", "Fait tourner les UV autour d'un centre, plus fort au milieu."},
         {"paramcolor", "Une couleur réglable dans Propriétés."},
         {"param2", "Une position ou un vecteur 2D réglable dans Propriétés."},
         {"add", "A + B"}, {"sub", "A - B"}, {"mul", "A × B"}, {"div", "A / B"},
@@ -167,7 +172,7 @@ std::string OpSubGroup(const std::string& op) {
         {"voronoi", "Bruits"}, {"fbm", "Bruits"}, {"noise", "Bruits"},
         {"radial", "Formes et dégradés"}, {"lineargrad", "Formes et dégradés"}, {"circle", "Formes et dégradés"}, {"rect", "Formes et dégradés"},
         {"checker", "Formes et dégradés"},
-        {"polar", "Coordonnées"}, {"tiling", "Coordonnées"}, {"rotateuv", "Coordonnées"},
+        {"polar", "Coordonnées"}, {"tiling", "Coordonnées"}, {"rotateuv", "Coordonnées"}, {"offsetuv", "Coordonnées"}, {"twirl", "Coordonnées"},
     };
     auto it = g.find(op);
     return it == g.end() ? "" : it->second;
@@ -179,7 +184,7 @@ int Rows(const EGOpDef& d) { return std::max<int>((int)std::max(d.inputs.size(),
 constexpr float kPvH = 100.0f;
 bool gNodePreviews = false;
 bool HasNodePreview(const EGNode& n) {
-    static const char* none[] = {"reroute", "const", "const2", "color", "param", "paramcolor", "param2", "texture", "output", "canvassize", "size",
+    static const char* none[] = {"reroute", "const", "const2", "color", "param", "paramcolor", "param2", "paramswitch", "texture", "output", "canvassize", "size",
                                  "opacity", "blendover", "brush", "brushtex", "roundtip", "random"};
     if (!gNodePreviews) return false;
     for (const char* o : none) if (n.op == o) return false;
@@ -272,7 +277,7 @@ float NodeW(const EGNode& n) { return n.op == "reroute" ? kRerouteW : kW; }
 
 float NodeH(const EGNode& n, const EGOpDef& d) {
     if (n.op == "reroute") return 20.0f;
-    float extra = (n.op == "const" || n.op == "const2" || n.op == "color" || n.op == "param" || n.op == "paramcolor" || n.op == "param2" ||
+    float extra = (n.op == "const" || n.op == "const2" || n.op == "color" || n.op == "param" || n.op == "paramcolor" || n.op == "param2" || n.op == "paramswitch" ||
                    n.op == "input" || n.op == "sample" || n.op == "texture" || n.op == "mask" || n.op == "custom" || n.op == "brushtex" ||
                    n.op == "sampleoffset" || n.op == "blur" || n.op == "edges")
                       ? kRowH
@@ -285,6 +290,7 @@ std::string ValueText(const EGNode& n) {
     if (n.op == "const") snprintf(b, sizeof(b), "%.3g", n.value.x);
     else if (n.op == "const2") snprintf(b, sizeof(b), "%.3g, %.3g", n.value.x, n.value.y);
     else if (n.op == "param" || n.op == "paramcolor" || n.op == "param2") snprintf(b, sizeof(b), "« %s »", (n.text.empty() ? n.name : n.text).c_str());
+    else if (n.op == "paramswitch") snprintf(b, sizeof(b), "« %s » %s", n.name.c_str(), n.value.x > 0.5f ? "(coché)" : "(décoché)");
     else if (n.op == "texture" && !n.name.empty()) snprintf(b, sizeof(b), "Entrée %d (%s)", n.index + 1, n.name.c_str());
     else if (n.op == "brushtex") snprintf(b, sizeof(b), "Texture %d%s%s", n.index + 1, n.text.empty() ? "" : " : ", n.text.c_str());
     else if (n.op == "input" || n.op == "sample" || n.op == "texture" || n.op == "sampleoffset" || n.op == "blur" || n.op == "edges")
@@ -673,6 +679,97 @@ void App::DrawEffectEditor() {
                 track(ImGui::ColorEdit4("Défaut", &sel->value.x, ImGuiColorEditFlags_Float));
             }
             ImGui::TextDisabled("Réglable dans Propriétés.");
+        } else if (op == "paramswitch") {
+            track(ImGui::InputText("Nom", &sel->name));
+            bool on = sel->value.x > 0.5f;
+            if (ImGui::Checkbox("Coché par défaut", &on)) { sel->value.x = on ? 1.0f : 0.0f; changed = true; }
+            ImGui::TextDisabled("Case à cocher dans Propriétés.");
+        } else if (op == "colorramp") {
+            // Gradient bar: stops dragged along it, click to add one, right click to remove, the chosen stop's color below.
+            auto stops = ParseRamp(sel->text);
+            static int rampSel = 0;
+            static Id rampNode = 0;
+            if (rampNode != sel->id) { rampNode = sel->id; rampSel = 0; }
+            rampSel = std::clamp(rampSel, 0, (int)stops.size() - 1);
+            const float bw = ImGui::GetContentRegionAvail().x, bh = 22 * dpi;
+            const ImVec2 b0 = ImGui::GetCursorScreenPos(), b1(b0.x + bw, b0.y + bh);
+            ImDrawList* rdl = ImGui::GetWindowDrawList();
+            auto col = [](const float4& c) { return ImGui::ColorConvertFloat4ToU32(ImVec4(c.x, c.y, c.z, 1)); };
+            for (size_t i = 0; i + 1 < stops.size(); ++i) {
+                const float x0 = b0.x + stops[i].pos * bw, x1 = b0.x + stops[i + 1].pos * bw;
+                rdl->AddRectFilledMultiColor(ImVec2(x0, b0.y), ImVec2(std::max(x1, x0 + 1), b1.y), col(stops[i].color), col(stops[i + 1].color), col(stops[i + 1].color), col(stops[i].color));
+            }
+            if (stops.front().pos > 0) rdl->AddRectFilled(b0, ImVec2(b0.x + stops.front().pos * bw, b1.y), col(stops.front().color));
+            if (stops.back().pos < 1) rdl->AddRectFilled(ImVec2(b0.x + stops.back().pos * bw, b0.y), b1, col(stops.back().color));
+            rdl->AddRect(b0, b1, ui::col::Border);
+            ImGui::InvisibleButton("##rampbar", ImVec2(bw, bh + 12 * dpi));
+            const ImVec2 mp = ImGui::GetIO().MousePos;
+            const float mt = std::clamp((mp.x - b0.x) / std::max(bw, 1.0f), 0.0f, 1.0f);
+            int hoverStop = -1;
+            for (int i = 0; i < (int)stops.size(); ++i) {
+                const float x = b0.x + stops[i].pos * bw;
+                const ImVec2 tri[3] = {ImVec2(x, b1.y + 1), ImVec2(x - 6 * dpi, b1.y + 11 * dpi), ImVec2(x + 6 * dpi, b1.y + 11 * dpi)};
+                rdl->AddTriangleFilled(tri[0], tri[1], tri[2], col(stops[i].color));
+                rdl->AddTriangle(tri[0], tri[1], tri[2], i == rampSel ? ui::col::Accent : IM_COL32(200, 200, 200, 200), i == rampSel ? 2.0f : 1.0f);
+                if (std::abs(mp.x - x) < 7 * dpi && mp.y > b0.y && mp.y < b1.y + 13 * dpi) hoverStop = i;
+            }
+            static bool rampDrag = false;
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+                if (hoverStop >= 0) {
+                    rampSel = hoverStop;
+                    rampDrag = true;
+                } else {
+                    // A new stop with the color the bar has there.
+                    RampStop ns;
+                    ns.pos = mt;
+                    ns.color = stops.back().color;
+                    for (size_t i = 0; i + 1 < stops.size(); ++i)
+                        if (mt >= stops[i].pos && mt <= stops[i + 1].pos) {
+                            const float k = (mt - stops[i].pos) / std::max(stops[i + 1].pos - stops[i].pos, 1e-5f);
+                            const float4 a = stops[i].color, b = stops[i + 1].color;
+                            ns.color = {a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, a.z + (b.z - a.z) * k, a.w + (b.w - a.w) * k};
+                        }
+                    stops.push_back(ns);
+                    std::stable_sort(stops.begin(), stops.end(), [](const RampStop& a, const RampStop& b) { return a.pos < b.pos; });
+                    for (int i = 0; i < (int)stops.size(); ++i) if (stops[i].pos == ns.pos) rampSel = i;
+                    sel->text = FormatRamp(stops);
+                    changed = true;
+                }
+            }
+            if (rampDrag && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+                stops[rampSel].pos = mt;
+                const RampStop moved = stops[rampSel];
+                std::stable_sort(stops.begin(), stops.end(), [](const RampStop& a, const RampStop& b) { return a.pos < b.pos; });
+                for (int i = 0; i < (int)stops.size(); ++i) if (stops[i].pos == moved.pos && stops[i].color.x == moved.color.x) rampSel = i;
+                sel->text = FormatRamp(stops);
+                live = true;
+            } else if (rampDrag) {
+                rampDrag = false;
+                changed = true;
+            }
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && hoverStop >= 0 && stops.size() > 2) {
+                stops.erase(stops.begin() + hoverStop);
+                rampSel = std::min(rampSel, (int)stops.size() - 1);
+                sel->text = FormatRamp(stops);
+                changed = true;
+            }
+            ui::HelpTooltip("Clic sur la barre : ajouter un arrêt. Glisser un repère : le déplacer. Clic droit : le supprimer.");
+            RampStop& cur = stops[rampSel];
+            bool edited = false;
+            edited |= ImGui::ColorEdit4("Couleur de l'arrêt", &cur.color.x);
+            const bool c1 = ImGui::IsItemDeactivatedAfterEdit();
+            edited |= ImGui::SliderFloat("Position", &cur.pos, 0, 1, "%.3f");
+            const bool c2 = ImGui::IsItemDeactivatedAfterEdit();
+            if (edited) {
+                sel->text = FormatRamp(stops);
+                live = true;
+            }
+            if (c1 || c2) changed = true;
+            if (ImGui::SmallButton("Inverser la rampe")) {
+                for (auto& st : stops) st.pos = 1.0f - st.pos;
+                sel->text = FormatRamp(stops);
+                changed = true;
+            }
         } else if (op == "brushtex") {
             int idx = sel->index + 1;
             if (ImGui::SliderInt("Texture", &idx, 1, 4)) { sel->index = idx - 1; changed = true; }
@@ -1379,6 +1476,8 @@ void App::DrawEffectEditor() {
         n.pos = at;
         n.inputs.resize(od.inputs.size());
         if (n.op == "param") { n.name = "Valeur"; n.value = {0.5f, 0, 0, 0}; }
+        if (n.op == "paramswitch") { n.name = "Activer"; n.value = {1, 0, 0, 0}; }
+        if (n.op == "colorramp") n.text = "0 0.02 0.02 0.1 1;0.5 0.9 0.35 0.1 1;1 1 0.95 0.7 1";
         if (n.op == "param2") { n.name = "Position"; n.value = {0.5f, 0.5f, 0, 0}; }
         if (n.op == "paramcolor") { n.name = "Couleur"; n.value = {1, 0.5f, 0.2f, 1}; }
         if (n.op == "color") n.value = {1, 1, 1, 1};

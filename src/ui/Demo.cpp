@@ -4634,6 +4634,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
         static gpu::ReadbackPtr orig, applied, undone;
         static bool demoGraphOpen = false;
         auto grab = [&] { return v->renderer.ExportRGBA8(*ctx, v->renderer.EvaluateComplete(d, *ctx)); };
+        static Id demoRampNode = 0;
         if (frameCounter == 4) {
             for (auto& l : d.S().layers) if (l.name == "Peinture") d.S().activeLayer = l.id;
             fxBrowser.selected = "invert";
@@ -4795,7 +4796,56 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
                 efEd.browseSel = lib;
             }
         }
-        if (frameCounter == 30 && demoGraphOpen) {
+        if (frameCounter == 30 && demoGraphOpen && getenv("SX_FXRAMP")) {
+            // A graph filter: luminance -> color ramp (SX_FXRAMP=normal: normal from height), the ramp selected.
+            EffectGraph g = EffectGraph::Default();
+            Id in = 0, out = g.OutputNode();
+            for (auto& n : g.nodes) if (n.op == "input") in = n.id;
+            EGNode a;
+            a.id = g.nextId++;
+            const bool normal = std::string(getenv("SX_FXRAMP")) == "normal";
+            if (normal) {
+                a.op = "normalheight";
+                a.inputs.resize(2);
+                a.pos = {200, 0};
+            } else {
+                EGNode l;
+                l.id = g.nextId++;
+                l.op = "luma";
+                l.inputs = {EGLink{in, 0}};
+                l.pos = {150, 0};
+                g.nodes.push_back(l);
+                a.op = "colorramp";
+                a.inputs = {EGLink{l.id, 0}};
+                a.text = "0 0.02 0.02 0.12 1;0.35 0.55 0.1 0.35 1;0.7 0.95 0.45 0.1 1;1 1 0.97 0.75 1";
+                a.pos = {400, 0};
+            }
+            g.nodes.push_back(a);
+            if (EGNode* o = g.Find(out)) {
+                o->inputs.resize(3);
+                o->inputs[0] = {a.id, 0};
+                o->pos = {700, 0};
+            }
+            if (Layer* l = d.ActiveLayer()) {
+                EffectInstance fx;
+                fx.graph = g.Serialize();
+                if (auto def = fx.Def()) fx.params = def->DefaultParams();
+                l->filters.push_back(fx);
+                d.SyncGraph();
+                efEd.target = 0;
+                efEd.filterIndex = (int)l->filters.size() - 1;
+                efEd.browse = false;
+                efEd.cachedJson.clear();
+                FocusPanel("Éditeur d'effets");
+            }
+            demoRampNode = a.id;
+        }
+        if (frameCounter == 36 && demoRampNode) {
+            efEd.selected = demoRampNode;
+            efEd.multi = {demoRampNode};
+            efEd.frameAll = true;
+        }
+        if (frameCounter == 30 && demoGraphOpen && !getenv("SX_FXRAMP")) {
             const char* want = getenv("SX_FXID");
             for (auto& def : Effects().All())
                 if (!def->blend && !def->graph.empty() && (!want || def->id == want)) {
