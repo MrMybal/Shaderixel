@@ -799,5 +799,7 @@
  "Tramage": "Dither",
  "Perceptuel": "Perceptual",
  "Mélange des couleurs en sRGB, comme Photoshop (sinon en lumière linéaire, plus physique).": "Colors mixed in sRGB, like Photoshop (else in linear light, more physical).",
- "Tracez le dégradé sur l'image. Maj : 45°.": "Draw the gradient on the image. Shift: 45°."
+ "Tracez le dégradé sur l'image. Maj : 45°.": "Draw the gradient on the image. Shift: 45°.",
+ "Repères commentés": "Smart Guides",
+ "En déplaçant un calque : alignement sur les bords et les centres des autres calques et de la zone de travail (Ctrl : désactivé).": "While moving a layer: alignment on the edges and centers of the other layers and of the canvas (Ctrl: off)."
 }

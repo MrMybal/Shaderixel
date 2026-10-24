@@ -1399,6 +1399,8 @@ void App::DrawMenuBar() {
             ImGui::MenuItem("Repères", "Ctrl+;", &showGuides);
             ImGui::MenuItem("Grille", "Ctrl+'", &showGrid);
             ImGui::MenuItem("Magnétisme", "Ctrl+Maj+;", &snapEnabled);
+            ImGui::MenuItem("Repères commentés", nullptr, &smartGuides);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("En déplaçant un calque : alignement sur les bords et les centres des autres calques et de la zone de travail (Ctrl : désactivé).");
             if (ImGui::BeginMenu("Paramètres de la grille")) {
                 ImGui::SetNextItemWidth(120 * dpi);
                 ImGui::DragFloat("Pas (px)", &gridStep, 1, 4, 4000, "%.0f");

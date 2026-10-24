@@ -888,6 +888,20 @@ private:
     int selDialog = 0;              // 1 feather, 2 expand, 3 contract, 4 color range
     float selDialogValue = 4;
     TransformState xf;
+    // Smart guides (SmartGuides.cpp): the other layers' boxes, the alignment found while moving.
+    bool smartGuides = true;
+    struct {
+        DocView* view = nullptr;
+        std::vector<Rect> rects;
+        std::vector<gpu::ReadbackPtr> pending;
+        float lineX = NAN, lineY = NAN;
+        Rect withX, withY, box;
+        gpu::ReadbackPtr selfRb;  // the moved layer's content (the move tool moves the whole surface)
+        Rect self;
+    } sg;
+    void SmartGuidesCollect(DocView& v, Id exclude);
+    float2 SmartGuidesSnap(DocView& v, float2 center, float2 half);
+    void SmartGuidesOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     TextStyle textDefaults;
     ShapeStyle shapeDefaults;
     bool shapeDragging = false;

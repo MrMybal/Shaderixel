@@ -816,6 +816,49 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_SMARTG: two rectangles on their own layers; the first dragged with the move tool (synthetic events) to
+        // 2.5 px from the second's left edge: the smart guides snap it onto it. Exported (SX_OUT).
+        if (GetEnvironmentVariableA("SX_SMARTG", nullptr, 0) > 0) {
+            ImGuiIO& io = ImGui::GetIO();
+            static Id moving = 0;
+            auto fillRect = [&](Id layer, float4 r, float4 c) {
+                a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, r, SelMode::Replace, false, 0, "Sélection");
+                if (Layer* l = d.FindLayer(layer)) a->renderer.FillSelection(d, *ctx, &a->history, l->surface, 0, c, 1, "Remplir");
+                a->renderer.Deselect(d, a->history);
+            };
+            if (frameCounter == 8) {
+                Id other = d.AddPixelLayer("Bleu").id;
+                moving = d.AddPixelLayer("Rouge").id;
+                d.SyncGraph();
+                Prepare(*a);
+                fillRect(other, {500, 300, 600, 380}, {0.1f, 0.2f, 0.9f, 1});
+                fillRect(moving, {100, 100, 200, 180}, {0.9f, 0.1f, 0.1f, 1});
+                d.S().activeLayer = moving;
+                tool = viewTool[0] = Tool::Move;
+            }
+            auto S = [&](float x, float y) { return ImVec2(lxf.canvasMin.x + a->pan.x + x * a->zoom, lxf.canvasMin.y + a->pan.y + y * a->zoom); };
+            // Grab the red box at (150, 140), drop it so its left edge is at 497.5 (the blue box starts at 500).
+            const float tx = 150 + 397.5f, ty = 140 + 30;
+            if (frameCounter == 20) { const ImVec2 p = S(150, 140); io.AddMousePosEvent(p.x, p.y); }
+            if (frameCounter == 22) io.AddMouseButtonEvent(0, true);
+            if (frameCounter > 22 && frameCounter <= 42) {
+                const float t = (frameCounter - 22) / 20.0f;
+                const ImVec2 p = S(150 + (tx - 150) * t, 140 + (ty - 140) * t);
+                io.AddMousePosEvent(p.x, p.y);
+            }
+            if (frameCounter == 43)
+                Log("[smartg] while dragging: guide x %.1f y %.1f, box %d..%d", sg.lineX, sg.lineY, sg.box.x0, sg.box.x1);
+            if (frameCounter == 44) io.AddMouseButtonEvent(0, false);
+            if (frameCounter == 50)
+                if (Layer* l = d.FindLayer(moving); l && d.GetSurface(l->surface))
+                    outRb = a->renderer.ComputeBounds(*ctx, d.GetSurface(l->surface)->tex.get(), nullptr, false);
+            if (outRb && outRb->ready && frameCounter > 50) {
+                const u32* b = (const u32*)outRb->data.data();
+                Log("[smartg] red box after the move: x %u..%u, y %u..%u (blue: 500..600, 300..380)", b[0], b[2], b[1], b[3]);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_FX=<effect id>: that effect applied (destructive) to the image instead, then exported (SX_OUT).
         char fx[96] = "";
         if (GetEnvironmentVariableA("SX_FX", fx, sizeof(fx)) > 0) {

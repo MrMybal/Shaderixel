@@ -695,6 +695,7 @@ void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
         xf.startAngle = xf.angle;
         memcpy(xf.startCorners, xf.corners, sizeof(xf.corners));
         if (hit < 4 && io.KeyCtrl) xf.freeCorners = true;
+        if (hit == 8 && smartGuides && !xf.selectionOnly) SmartGuidesCollect(v, xf.surface);
     }
     if (xf.drag >= 0 && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         float2 delta = m - xf.dragStart;
@@ -704,6 +705,30 @@ void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
                 if (std::abs(delta.x) > std::abs(delta.y)) delta.y = 0; else delta.x = 0;
             }
             xf.center = xf.startCenter + delta;
+            if (smartGuides && snapEnabled && !io.KeyCtrl && !xf.selectionOnly) {
+                // Smart guides: the box (as it is drawn, rotated or not) snaps to the other layers and the canvas.
+                float2 mn = xf.startCorners[0], mx = xf.startCorners[0];
+                for (auto& c : xf.startCorners) {
+                    mn = {std::min(mn.x, c.x), std::min(mn.y, c.y)};
+                    mx = {std::max(mx.x, c.x), std::max(mx.y, c.y)};
+                }
+                if (xf.moveOnly) {
+                    // The move tool carries the whole surface: its content's box is what lines up.
+                    SmartGuidesSnap(v, xf.center, {0, 0});  // (only reads the bounds as they arrive)
+                    sg.lineX = sg.lineY = NAN;
+                    if (!sg.self.Empty()) {
+                        mn = {(float)sg.self.x0, (float)sg.self.y0};
+                        mx = {(float)sg.self.x1, (float)sg.self.y1};
+                    }
+                }
+                if (!xf.moveOnly || !sg.self.Empty()) {  // (move tool: once its content's box is known)
+                    const float2 boxCenter = (mn + mx) * 0.5f + delta, snapped = SmartGuidesSnap(v, boxCenter, (mx - mn) * 0.5f);
+                    delta = delta + (snapped - boxCenter);
+                    xf.center = xf.startCenter + delta;
+                }
+            } else {
+                sg.lineX = sg.lineY = NAN;
+            }
             if (xf.freeCorners) for (int i = 0; i < 4; ++i) xf.corners[i] = xf.startCorners[i] + delta;
             if (xf.pivotCustom) xf.pivot = xf.startPivot + delta;
         } else if (d == 10) {
