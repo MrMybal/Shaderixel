@@ -1428,6 +1428,7 @@ void App::DrawBrush() {
         ImGui::SeparatorText(tool == Tool::HistoryBrush ? "Forme d'historique" : tool == Tool::BackgroundEraser ? "Gomme d'arrière-plan"
                              : tool == Tool::PatternStamp ? "Tampon de motif"
                              : tool == Tool::Mixer        ? "Pinceau mélangeur"
+                             : tool == Tool::ColorReplace ? "Remplacement de couleur"
                              : (int)tool < (int)std::size(titles) ? titles[(int)tool]
                                                           : "Pinceau");
         if (tool == Tool::PatternStamp) {
@@ -1439,6 +1440,11 @@ void App::DrawBrush() {
             }
             ImGui::SliderFloat("Échelle du motif", &patternScale, 0.1f, 8.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
             ImGui::TextDisabled("Motif aligné sur le document (panneau Motifs).");
+        }
+        if (tool == Tool::ColorReplace) {
+            ImGui::Combo("Mode##cr", &colorReplaceMode, "Teinte\0Saturation\0Couleur\0Luminosité\0");
+            ImGui::SliderFloat("Tolérance##cr", &colorReplaceTolerance, 0.01f, 1, "%.2f");
+            ImGui::TextDisabled("Remplace les tons proches de celui sous le centre du pinceau par la couleur de premier plan\n(Couleur : teinte et saturation, la luminosité est gardée).");
         }
         if (tool == Tool::BackgroundEraser) {
             ImGui::SliderFloat("Tolérance##bg", &bgEraserTolerance, 0.01f, 1, "%.2f");
@@ -1464,7 +1470,8 @@ void App::DrawBrush() {
             if (ImGui::SmallButton("Mélange seul")) mixerSet = {0.6f, 0.0f, 0.8f, false};
         }
         if (IsRetouchTool(tool) && tool != Tool::Mixer) {
-            ImGui::SliderFloat(tool == Tool::Clone || tool == Tool::Heal ? "Intensité (inutilisée)" : "Intensité", &retouchStrength, 0.01f, 1, "%.2f");
+            if (tool != Tool::ColorReplace)
+                ImGui::SliderFloat(tool == Tool::Clone || tool == Tool::Heal ? "Intensité (inutilisée)" : "Intensité", &retouchStrength, 0.01f, 1, "%.2f");
             if (tool == Tool::Dodge || tool == Tool::Burn) ImGui::Combo("Plage", &dodgeRange, "Tons foncés\0Tons moyens\0Tons clairs\0");
             if (tool == Tool::Liquify) {
                 ImGui::Combo("Mode", &liquifyMode, "Déformation avant\0Tourbillon horaire\0Tourbillon antihoraire\0Contraction\0Dilatation\0Reconstruction\0");

@@ -46,11 +46,11 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Fluid, Plugin, Mixer, Ruler, SpotHeal, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Fluid, Plugin, Mixer, Ruler, SpotHeal, ColorReplace, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
-           t == Tool::PatternStamp || t == Tool::Mixer;
+           t == Tool::PatternStamp || t == Tool::Mixer || t == Tool::ColorReplace;
 }
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
 
@@ -818,6 +818,8 @@ private:
     BrushSettings eraser;
     BrushSettings retouch;
     float retouchStrength = 0.5f;
+    int colorReplaceMode = 2;          // 0 hue, 1 saturation, 2 color, 3 luminosity
+    float colorReplaceTolerance = 0.3f;
     // Mixer brush: pickup of the canvas (wet), reload with the color (load) per dab, flow, clean between strokes.
     struct {
         float wet = 0.5f, load = 0.15f, flow = 0.8f;

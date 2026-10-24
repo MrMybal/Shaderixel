@@ -610,6 +610,12 @@ void App::DemoTick() {
                 const int pr = atoi(mixer);
                 const decltype(mixerSet) presets[] = {{0.05f, 0.5f, 0.9f, true}, {0.5f, 0.15f, 0.8f, true}, {0.85f, 0.05f, 0.7f, true}, {0.6f, 0.0f, 0.8f, false}};
                 mixerSet = presets[std::clamp(pr, 0, 3)];
+                if (GetEnvironmentVariableA("SX_CREPLACE", nullptr, 0) > 0) {
+                    // The same strokes with the color replacement tool (blue, Color mode).
+                    tool = viewTool[0] = Tool::ColorReplace;
+                    colorReplaceMode = 2;
+                    colorReplaceTolerance = 0.3f;
+                }
             }
             ImGuiWindow* w = ImGui::FindWindowByName("Canevas");
             auto toScreen = [&](float x, float y) { return ImVec2(w->InnerRect.Min.x + a->pan.x + x * a->zoom, w->InnerRect.Min.y + a->pan.y + y * a->zoom); };

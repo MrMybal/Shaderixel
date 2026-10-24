@@ -53,6 +53,7 @@ const ToolInfo kToolInfo[] = {
     {Tool::Fluid, ui::IconFluid, "Peinture liquide (coulures PBR : couleur, rugosité, métal, relief ; gravité)", "-"},
     {Tool::Plugin, ui::IconWand, "Outil de plugin", "-"},
     {Tool::SpotHeal, ui::IconHeal, "Correcteur localisé (peignez sur le défaut : il est reconstruit d'après les alentours)", "J"},
+    {Tool::ColorReplace, ui::IconBrush, "Remplacement de couleur (la couleur de premier plan sur les tons proches, luminosité gardée)", "B"},
     {Tool::Ruler, ui::IconPicker, "Règle (mesure, redresser)", "I"},
     {Tool::Mixer, ui::IconBrush, "Pinceau mélangeur (la peinture se mêle aux couleurs de la toile)", "B"},
 };
@@ -65,7 +66,7 @@ const std::vector<std::vector<Tool>> kGroups = {
     {Tool::Lasso, Tool::PolyLasso, Tool::MagneticLasso},
     {Tool::QuickSelect, Tool::Wand},
     {Tool::Crop, Tool::Trim},
-    {Tool::Brush, Tool::Mixer, Tool::HistoryBrush},
+    {Tool::Brush, Tool::Mixer, Tool::ColorReplace, Tool::HistoryBrush},
     {Tool::Projection},
     {Tool::PolyFill},
     {Tool::Particles},
@@ -890,6 +891,12 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
         case Tool::BackgroundEraser:
             rp.mode = RetouchMode::BackgroundErase;
             rp.tolerance = bgEraserTolerance;
+            break;
+        case Tool::ColorReplace:
+            rp.mode = RetouchMode::ColorReplace;
+            rp.tolerance = colorReplaceTolerance;
+            rp.range = colorReplaceMode;
+            rp.color = LinearColor(fg);
             break;
         default: rp.mode = spongeSaturate ? RetouchMode::Saturate : RetouchMode::Desaturate; break;
     }

@@ -75,14 +75,15 @@ struct BrushSettings {
 
 struct Dab { float x, y, radius, alpha; };
 
-enum class RetouchMode : u8 { Clone, Heal, Blur, Sharpen, Dodge, Burn, Saturate, Desaturate, History, BackgroundErase, RedEye };
+enum class RetouchMode : u8 { Clone, Heal, Blur, Sharpen, Dodge, Burn, Saturate, Desaturate, History, BackgroundErase, RedEye, ColorReplace };
 struct RetouchParams {
     RetouchMode mode = RetouchMode::Clone;
     float strength = 0.5f;
     int2 srcOffset;
     int range = 1;  // dodge/burn: 0 shadows, 1 midtones, 2 highlights
     gpu::Texture* source = nullptr;  // history brush: snapshot of the layer
-    float tolerance = 0.25f;         // background eraser
+    float tolerance = 0.25f;         // background eraser, color replacement
+    float4 color;                    // color replacement: the new color (linear); range: 0 hue, 1 saturation, 2 color, 3 luminosity
 };
 
 // Point of a bicubic Bezier patch (4x4 control points, row-major) at (u, v).
@@ -544,6 +545,7 @@ private:
                   const std::vector<float4>& extra, u32 base, const BrushSettings& s, float4 color, bool erase, const BrushTargets& t, Rect* touched);
     Rect strokeRect;
     gpu::TexturePtr smudgeSnap;
+    gpu::TexturePtr replaceColor;  // color replacement: 1 x 1 texel holding the new color
     gpu::TexturePtr mixRes[2];   // mixer brush reservoir (ping-pong, brush space)
     int mixCur = 0;
     bool mixFresh = true, mixInit = false;

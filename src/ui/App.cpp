@@ -1690,7 +1690,13 @@ void App::HandleShortcuts() {
     if (pressed(ImGuiKey_C) && !graphFocused) setTool(Tool::Crop);  // in the graph, C frames the selection in a comment
     if (pressed(ImGuiKey_T)) setTool(Tool::Text);
     if (pressed(ImGuiKey_U)) setTool(Tool::Shape);
-    if (pressed(ImGuiKey_B)) setTool(shift && tool == Tool::Brush ? Tool::Mixer : shift && tool == Tool::Mixer ? Tool::Brush : tool == Tool::Mixer ? Tool::Mixer : Tool::Brush);
+    if (pressed(ImGuiKey_B)) {
+        // B: brush (or the brush tool in use); Shift+B cycles brush -> mixer -> color replacement.
+        const Tool cyc[] = {Tool::Brush, Tool::Mixer, Tool::ColorReplace};
+        int k = -1;
+        for (int i = 0; i < 3; ++i) if (tool == cyc[i]) k = i;
+        setTool(k < 0 ? Tool::Brush : shift ? cyc[(k + 1) % 3] : tool);
+    }
     if (pressed(ImGuiKey_S)) setTool(Tool::Clone);
     if (pressed(ImGuiKey_J)) {
         // J cycles (Maj+J): correcteur localisé -> correcteur -> pièce -> déplacement basé sur le contenu -> yeux rouges.

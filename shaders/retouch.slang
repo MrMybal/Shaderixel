@@ -1,8 +1,11 @@
 // Retouch brushes. Same coverage model as brush.slang (dabs accumulate into a
 // per-stroke mask), but the stroke applies an operation on the pre-stroke layer:
 //   0 clone stamp, 1 healing, 2 blur, 3 sharpen, 4 dodge, 5 burn, 6 sponge saturate, 7 sponge desaturate,
-//   8 history brush (t2 = snapshot), 9 background eraser (colors close to the dab center), 10 red eye
+//   8 history brush (t2 = snapshot), 9 background eraser (colors close to the dab center), 10 red eye,
+//   11 color replacement (colors close to the dab center take the color of t2's texel: hue / saturation / color /
+//      luminosity by gRange, in sRGB like Photoshop)
 #include "common.slang"
+#include "blend_modes.slang"
 
 cbuffer Root : register(b0)
 {
@@ -68,9 +71,9 @@ void main(uint3 id : SV_DispatchThreadID)
     float2 p = float2(px) + 0.5;
 
     float m = gStroke[px];
-    if (gMode == 9)
+    if (gMode == 9 || gMode == 11)
     {
-        // Background eraser: a dab only removes the colors close to the one under its center.
+        // Background eraser / color replacement: a dab only takes the colors close to the one under its center.
         float3 c0 = LinearToSrgb(saturate(Unpremultiply(Pre(px)).rgb));
         for (uint i = 0; i < gDabCount; ++i)
         {
@@ -112,6 +115,17 @@ void main(uint3 id : SV_DispatchThreadID)
     else if (gMode == 9)
     {
         result = 0;
+    }
+    else if (gMode == 11)
+    {
+        const float4 c = Unpremultiply(pre);
+        const float3 b = LinearToSrgb(saturate(c.rgb)), t = LinearToSrgb(saturate(gSnapshot.Load(int3(0, 0, 0)).rgb));
+        float3 o;
+        if (gRange == 0) o = SetBlendLum(SetBlendSat(t, BlendSat(b)), BlendLum(b));       // hue
+        else if (gRange == 1) o = SetBlendLum(SetBlendSat(b, BlendSat(t)), BlendLum(b));  // saturation
+        else if (gRange == 3) o = SetBlendLum(b, BlendLum(t));                            // luminosity
+        else o = SetBlendLum(t, BlendLum(b));                                              // color
+        result = Premultiply(float4(SrgbToLinear(saturate(o)), c.a));
     }
     else if (gMode == 10)
     {

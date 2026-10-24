@@ -40,6 +40,12 @@ void Renderer::RetouchDabs(Document& doc, gpu::CommandContext& ctx, const std::v
     const int W = (int)s->tex->Width(), H = (int)s->tex->Height();
     Rect touched;
     Surface* sel = doc.Selection();
+    gpu::Texture* src2 = rp.source;
+    if (rp.mode == RetouchMode::ColorReplace) {
+        Ensure(replaceColor, 1, 1, gpu::Format::RGBA32F, "ReplaceColor");
+        ctx.Upload(replaceColor.get(), &rp.color, sizeof(float4));
+        src2 = replaceColor.get();
+    }
     for (size_t start = 0; start < dabs.size(); start += 4096) {
         size_t count = std::min<size_t>(4096, dabs.size() - start);
         Rect r;
@@ -55,7 +61,7 @@ void Renderer::RetouchDabs(Document& doc, gpu::CommandContext& ctx, const std::v
         d.pipeline = k;
         d.srv[0] = strokePre.get();
         d.srv[1] = sel ? sel->tex.get() : nullptr;
-        d.srv[2] = rp.source;
+        d.srv[2] = src2;
         d.uav[0] = s->tex.get();
         d.uav[1] = strokeMask.get();
         if (rp.mode == RetouchMode::BackgroundErase) d.uavNoMap |= 1;  // erasing: no sparse-page allocation needed
