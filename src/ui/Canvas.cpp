@@ -414,6 +414,7 @@ void App::DrawCanvas() {
     } else if (hovered && panMode) {
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
     }
+    AnimOverlay(*v, canvasMin, dl);
     DrawSelectionOverlay(*v, canvasMin, dl);
     DrawQuickSelectOverlay(*v, canvasMin, dl);
     DrawPenOverlay(*v, canvasMin, dl);

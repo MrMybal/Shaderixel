@@ -603,7 +603,12 @@ private:
         int played = 0, tweenCount = 3;
         std::unordered_map<Id, u64> thumbs;  // frame -> state its thumbnail shows
         int thumbWait = 0;
+        // Onion skins: the frames before / after the selected one, drawn faintly over the canvas.
+        bool onion = false, onionNext = true;
+        float onionOpacity = 0.3f;
+        std::unordered_map<Id, u64> onionImgs;  // frame -> state its onion image shows
     } anim;
+    void AnimOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     void DrawAnimationPanel();
     void AnimTick();
     void AnimCaptureEntries(Document& d, std::vector<LayerComp::Entry>& out);

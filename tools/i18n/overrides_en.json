@@ -608,5 +608,8 @@
  "Durée de l'image": "Frame duration",
  "Durée des images": "Frame durations",
  "Interpoler les images": "Tween frames",
- "Répétitions de l'animation": "Animation repeats"
+ "Répétitions de l'animation": "Animation repeats",
+ "Pelures d'oignon": "Onion skins",
+ "Montre en transparence l'image précédente (et la suivante) sur le canevas.": "Shows the previous (and next) frame faintly over the canvas.",
+ "Image suivante aussi": "Next frame too"
 }

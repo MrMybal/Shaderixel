@@ -532,6 +532,7 @@ void App::DemoTick() {
             std::string mp4 = std::string(out).substr(0, strlen(out) - 4) + ".mp4";
             Log("[anim] mp4: %llu bytes; %s", (unsigned long long)std::filesystem::file_size(mp4, ec), statusMsg.c_str());
             ApplyAnimFrame(*a, d.S().animFrames[3].id);
+            anim.onion = true;  // onion skins of frames 3 and 5 over the canvas
         }
         return;
     }

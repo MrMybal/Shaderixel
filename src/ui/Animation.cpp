@@ -15,6 +15,14 @@ namespace sx {
 
 namespace {
 constexpr u64 kAnimThumbBit = 1ull << 56;
+constexpr u64 kAnimOnionBit = 1ull << 55;
+constexpr u32 kOnionMaxSide = 1600;
+
+void OnionSize(u32 W, u32 H, u32& w, u32& h) {
+    const float k = std::min(1.0f, (float)kOnionMaxSide / std::max(W, H));
+    w = std::max(1u, (u32)std::lround(W * k));
+    h = std::max(1u, (u32)std::lround(H * k));
+}
 constexpr u32 kVideoFps = 30;
 
 bool SameEntry(const LayerComp::Entry& a, const LayerComp::Entry& b) {
@@ -274,6 +282,23 @@ void App::AnimTick() {
     }
 }
 
+void App::AnimOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
+    if (!anim.onion || anim.playing || animExport || v.doc->Mode() != DocMode::Layers) return;
+    const DocState& s = v.doc->S();
+    const int cur = FrameIndex(s, s.activeFrame);
+    if (cur < 0) return;
+    const ImVec2 a(canvasMin.x + v.pan.x, canvasMin.y + v.pan.y);
+    const ImVec2 b(a.x + v.doc->Width() * v.zoom, a.y + v.doc->Height() * v.zoom);
+    for (int i : {cur - 1, cur + 1}) {
+        if (i < 0 || i >= (int)s.animFrames.size() || (i > cur && !anim.onionNext) || !anim.onionImgs.count(s.animFrames[i].id)) continue;
+        gpu::Texture* t = v.renderer.CachedThumbnail(kAnimOnionBit | (s.animFrames[i].id & 0xffffffffffffull));
+        if (!t) continue;
+        // Before: tinted red, after: tinted green (like the usual onion skins).
+        const int alpha = (int)(anim.onionOpacity * 255 * (i > cur ? 0.7f : 1.0f));
+        dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), a, b, ImVec2(0, 0), ImVec2(1, 1), i < cur ? IM_COL32(255, 170, 170, alpha) : IM_COL32(170, 255, 170, alpha));
+    }
+}
+
 void App::DrawAnimationPanel() {
     if (!ImGui::Begin("Animation", PanelFlag("Animation"))) { ImGui::End(); return; }
     DocView* v = Active();
@@ -391,6 +416,15 @@ void App::DrawAnimationPanel() {
         ImGui::SameLine();
         ImGui::ProgressBar((float)animExport->written / std::max(1, animExport->total), ImVec2(160 * dpi, 0));
     }
+    ImGui::SameLine();
+    ImGui::Checkbox("Pelures d'oignon", &anim.onion);
+    ImGui::SetItemTooltip("Montre en transparence l'image précédente (et la suivante) sur le canevas.");
+    if (anim.onion && ImGui::BeginPopupContextItem("##onionopts")) {
+        ImGui::Checkbox("Image suivante aussi", &anim.onionNext);
+        ImGui::SetNextItemWidth(140 * dpi);
+        ImGui::SliderFloat("Opacité", &anim.onionOpacity, 0.05f, 0.8f, "%.2f");
+        ImGui::EndPopup();
+    }
     float total = 0;
     for (auto& f : frames) total += f.delay;
     ImGui::SameLine();
@@ -480,6 +514,25 @@ void App::DrawAnimationPanel() {
             anim.thumbWait = 0;
             break;
         }
+        // Onion skins: the neighbors of the selected frame, near the document's size.
+        if (anim.thumbWait && anim.onion)
+            for (int i : {cur - 1, cur + 1}) {
+                if (i < 0 || i >= (int)frames.size() || (i > cur && !anim.onionNext)) continue;
+                u32 ow, oh;
+                OnionSize(d.Width(), d.Height(), ow, oh);
+                const u64 want = HashEntries(frames[i].entries) ^ content ^ ((u64)ow << 24) ^ 0x0710;
+                if (anim.onionImgs.count(frames[i].id) && anim.onionImgs[frames[i].id] == want) continue;
+                std::vector<LayerComp::Entry> keep;
+                AnimCaptureEntries(d, keep);
+                ApplyAnimEntries(*v, frames[i].entries);
+                Prepare(*v);
+                if (gpu::Texture* img = v->renderer.EvaluateComplete(d, *ctx))
+                    v->renderer.Thumbnail(*ctx, kAnimOnionBit | (frames[i].id & 0xffffffffffffull), img, want, ow, oh);
+                ApplyAnimEntries(*v, keep);
+                anim.onionImgs[frames[i].id] = want;
+                anim.thumbWait = 0;
+                break;
+            }
     }
     if (toApply >= 0 && !exporting) go(toApply);
     if (moveFrom >= 0 && moveTo >= 0 && moveFrom != moveTo && !exporting) {
