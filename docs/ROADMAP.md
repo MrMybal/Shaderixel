@@ -56,7 +56,7 @@
 - Fusionner vers le bas / les calques visibles / aplatir : **fait**
 
 ### 3D
-- Import glTF 2.0 (.gltf / .glb) et FBX : **fait** ; reste : plusieurs matériaux / UDIM
+- Import glTF 2.0 (.gltf / .glb) et FBX : **fait** ; plusieurs matériaux (une tuile chacun, export par matériau) : **fait** ; reste : UDIM
 - Canaux PBR (couleur, rugosité, métal, normale, émissif, occlusion) en groupes de calques, rendu PBR GGX, export textures + script de matériau Unreal : **fait** , canal Hauteur (relief en vue 3D, cuit dans la normale à l'export) : **fait** , éclairage HDRI (préfiltré par rugosité, intensité/rotation) : **fait** , affichage d'un canal seul : **fait**, fond HDRI visible (flou réglable) : **fait**
 - Pinceau en espace UV / triplanar, masquage par ID de matériau
 
@@ -103,8 +103,8 @@
 
 ## Peinture liquide (fait)
 
-Film de peinture simulé sur GPU (shaders/fluid_paint.slang, render/FluidPaint.cpp, ui/FluidPaintUi.cpp) : tous les canaux PBR à la fois, gravité du modèle 3D ou d'un plan incliné, prise, absorption, relief, brillance humide ; une étape d'historique. Reste : passage des coutures UV (la peinture quitte l'île ou s'y accumule), gouttes détachées qui retombent plus bas sur le modèle, mélange avec la peinture déjà sèche du calque.
+Film de peinture simulé sur GPU (shaders/fluid_paint.slang, render/FluidPaint.cpp, ui/FluidPaintUi.cpp) : tous les canaux PBR à la fois, gravité du modèle 3D ou d'un plan incliné, prise, absorption, relief, brillance humide ; une étape d'historique. Coutures UV traversées, gouttes qui retombent plus bas, reprise de couleur, « Faire couler le calque » : **fait**.
 
 ## Paint 3D : matériaux multiples (fait)
 
-Une tuile de texture par matériau (UV remappées, grille carrée en puissance de deux), export d'un jeu de textures par matériau, enregistré dans le projet. Reste : peindre en limitant au matériau survolé, réorganiser les tuiles après coup.
+Une tuile de texture par matériau (UV remappées, grille carrée en puissance de deux), export d'un jeu de textures par matériau, enregistré dans le projet. Peindre en limitant au matériau survolé, tuiles sur un projet existant (peinture reportée) : **fait**.

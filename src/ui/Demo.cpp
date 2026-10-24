@@ -461,10 +461,17 @@ void App::DemoTick() {
             p3dNew.mesh = 3;
             p3dNew.meshPath = mf;
             p3dNew.resolution = 0;
+            // SX_RETILE: the project keeps the overlapping UVs; the tiles come later (Une tuile par matériau).
+            if (GetEnvironmentVariableA("SX_RETILE", nullptr, 0) > 0) p3dNew.tileMode = 2;
             NewPaint3DProject();
         }
         DocView* a = Active();
         if (!a || !a->mesh) return;
+        if (frameCounter == 16 && GetEnvironmentVariableA("SX_RETILE", nullptr, 0) > 0) {
+            RetileMaterials(*a);
+            Log("[multimat] retiled: %zu tiles, %zu vertices, history %zu, %s", a->mesh->data.uvTiles.size(), a->mesh->data.vertices.size(),
+                a->history.Count(), statusMsg.c_str());
+        }
         const MeshData& m = a->mesh->data;
         if (frameCounter == 8) {
             FocusPanel("Vue 3D");

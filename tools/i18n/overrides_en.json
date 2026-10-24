@@ -487,7 +487,7 @@
  "Peinture liquide : annulée": "Liquid paint: canceled",
  "Matériaux multiples": "Multiple materials",
  "Auto : une tuile par matériau si leurs UV se chevauchent": "Auto: a tile per material when their UVs overlap",
- "Une tuile par matériau": "A tile per material",
+ "Une tuile par matériau": "One tile per material",
  "Garder les UV du modèle": "Keep the model's UVs",
  "Un modèle à plusieurs matériaux (chacun avec ses UV de 0 à 1) : chaque matériau reçoit sa propre": "A model with several materials (each with its UVs from 0 to 1): each material gets its own",
  "zone de la texture, et l'export écrit un jeu de textures par matériau (Modèle_Matériau_BaseColor.png...).": "area of the texture, and the export writes a texture set per material (Model_Material_BaseColor.png...).",
@@ -511,5 +511,9 @@
  "Faire couler le calque actif": "Make the active layer run",
  "La peinture déjà présente dans le calque (tous ses canaux dans un projet 3D) devient liquide": "The paint already in the layer (all its channels in a 3D project) becomes liquid",
  "et coule avec les réglages ci-dessous ; une seule étape d'historique.": "and runs with the settings below; a single history step.",
- "Échec de l'export CMJN (lecture de l'image impossible)": "CMYK export failed (the image could not be read)"
+ "Échec de l'export CMJN (lecture de l'image impossible)": "CMYK export failed (the image could not be read)",
+ "Chaque matériau du modèle reçoit sa propre zone de la texture (la peinture déjà faite suit) ;": "Each material of the model gets its own area of the texture (the paint already done follows);",
+ "les exports écrivent ensuite un jeu de textures par matériau.": "exports then write a texture set per material.",
+ "Une tuile par matériau : il faut un modèle à plusieurs matériaux": "One tile per material: needs a model with several materials",
+ "Une tuile par matériau : {n} matériaux, peinture reportée (Ctrl+Z annule le report ; les exports écrivent un jeu par matériau)": "One tile per material: {n} materials, paint transferred (Ctrl+Z undoes the transfer; exports write a set per material)"
 }

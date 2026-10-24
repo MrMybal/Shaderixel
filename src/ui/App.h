@@ -1479,6 +1479,8 @@ private:
     };
     // Parts of a texture export: the whole texture, or one per material tile (file suffix, pixel rect).
     std::vector<std::pair<std::string, Rect>> ExportParts(DocView& v);
+    // An existing project: each material gets its own UV tile, the paint follows (one undo step for the pixels).
+    void RetileMaterials(DocView& v);
     void ExportPbrTexturesPart(DocView& v, const std::string& pngBasePath, Rect crop);
     std::vector<PackJob> packJobs;
     std::string layoutSlot[2];        // saved workspace of each kind

@@ -76,7 +76,8 @@ void NormalizeMesh(MeshData& m);
 // Several materials sharing the UV space (each one laid out over 0..1, or tiling): every material's UVs are
 // fitted into its own tile of a grid (padding in texels for `resolution`). mode 0: only when the materials'
 // UVs overlap or leave 0..1, 1: always (2 materials or more). Returns true when the UVs were moved.
-bool TileMaterialUvs(MeshData& m, u32 resolution, int mode);
+// sourceVertex (optional): for each vertex of the result, the vertex it comes from (paint transfer).
+bool TileMaterialUvs(MeshData& m, u32 resolution, int mode, std::vector<u32>* sourceVertex = nullptr);
 // Wavefront OBJ (positions back in the original units when `original`), Y up, UV v flipped like LoadObj reads it.
 bool SaveObj(const std::string& path, const MeshData& m, bool original, std::string* error = nullptr);
 

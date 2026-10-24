@@ -744,6 +744,53 @@ bool App::LoadDecal(const std::string& path) {
 
 // ------------------------------------------------------------------ exports by template
 
+void App::RetileMaterials(DocView& v) {
+    if (!v.mesh) return;
+    Document& d = *v.doc;
+    const MeshData old = v.mesh->data;
+    MeshData tiled = old;
+    std::vector<u32> source;
+    if (!TileMaterialUvs(tiled, d.Width(), 1, &source)) {
+        Status("Une tuile par matériau : il faut un modèle à plusieurs matériaux");
+        return;
+    }
+    // The paint follows: every painted surface warped from the old UVs to the new ones (same surface points).
+    const float W = (float)d.Width(), H = (float)d.Height();
+    std::vector<float2> dst(tiled.vertices.size()), src(tiled.vertices.size());
+    for (size_t i = 0; i < tiled.vertices.size(); ++i) {
+        dst[i] = {tiled.vertices[i].uv.x * W, tiled.vertices[i].uv.y * H};
+        const float2 ou = source[i] < old.vertices.size() ? old.vertices[source[i]].uv : float2{0, 0};
+        src[i] = {ou.x * W, ou.y * H};
+    }
+    std::vector<Id> surfaces;
+    for (auto& l : d.S().layers) {
+        if (l.surface && l.kind == LayerKind::Pixel) surfaces.push_back(l.surface);
+        if (l.mask) surfaces.push_back(l.mask);
+        if (l.maskEdit) surfaces.push_back(l.maskEdit);
+    }
+    for (auto& n : d.S().graph.nodes) if (n.kind == NodeKind::Surface && n.surface) surfaces.push_back(n.surface);
+    std::sort(surfaces.begin(), surfaces.end());
+    surfaces.erase(std::unique(surfaces.begin(), surfaces.end()), surfaces.end());
+    v.renderer.Prepare(d, *ctx);
+    v.history.BeginGroup();
+    for (Id id : surfaces) {
+        Surface* s = d.GetSurface(id);
+        if (!s || s->tex->Width() != (u32)W || s->tex->Height() != (u32)H) continue;
+        auto before = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "TileBefore");
+        ctx->CopyTexture(before.get(), s->tex.get());
+        v.renderer.WarpTriangles(d, *ctx, id, before.get(), nullptr, Rect{0, 0, (int)W, (int)H}, dst, src, tiled.indices, false);
+        auto after = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "TileAfter");
+        ctx->CopyTexture(after.get(), s->tex.get());
+        v.history.PushPaint("Une tuile par matériau", id, {0, 0, (int)W, (int)H}, before, after);
+    }
+    v.history.EndGroup();
+    uvTool.previousMesh = std::make_shared<MeshData>(old);  // UV tool: "Revenir aux UV précédentes"
+    const size_t n = tiled.materials.size();
+    AttachMesh(v, std::move(tiled));
+    d.dirty = true;
+    Status("Une tuile par matériau : " + std::to_string(n) + " matériaux, peinture reportée (Ctrl+Z annule le report ; les exports écrivent un jeu par matériau)");
+}
+
 std::vector<std::pair<std::string, Rect>> App::ExportParts(DocView& v) {
     std::vector<std::pair<std::string, Rect>> parts;
     const Document& d = *v.doc;

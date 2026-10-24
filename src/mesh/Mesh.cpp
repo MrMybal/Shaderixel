@@ -256,7 +256,7 @@ MeshData MakeSphere(int seg, int rings) {
     return m;
 }
 
-bool TileMaterialUvs(MeshData& m, u32 resolution, int mode) {
+bool TileMaterialUvs(MeshData& m, u32 resolution, int mode, std::vector<u32>* sourceVertex) {
     const size_t nm = m.materials.size(), nt = m.indices.size() / 3;
     if (nm < 2 || m.triMaterial.size() != nt) return false;
     // UV bounds of each material.
@@ -292,6 +292,8 @@ bool TileMaterialUvs(MeshData& m, u32 resolution, int mode) {
     }
     // Vertices shared by several materials are split: each copy moves into its own tile.
     std::vector<MeshVertex> verts = m.vertices;
+    std::vector<u32> source(m.vertices.size());
+    for (size_t i = 0; i < source.size(); ++i) source[i] = (u32)i;
     std::vector<int> vmat(m.vertices.size(), -1);
     std::map<std::pair<u32, int>, u32> copies;
     for (size_t t = 0; t < nt; ++t) {
@@ -304,6 +306,7 @@ bool TileMaterialUvs(MeshData& m, u32 resolution, int mode) {
             if (it == copies.end()) {
                 const u32 n = (u32)verts.size();
                 verts.push_back(m.vertices[idx]);
+                source.push_back(idx);
                 vmat.push_back(mi);
                 it = copies.emplace(std::make_pair(idx, mi), n).first;
             }
@@ -311,6 +314,7 @@ bool TileMaterialUvs(MeshData& m, u32 resolution, int mode) {
         }
     }
     m.vertices = std::move(verts);
+    if (sourceVertex) *sourceVertex = std::move(source);
     // Grid of tiles (row-major), each material's bounds fitted inside its tile with its proportions.
     const int count = (int)mats.size();
     // Square tiles, a power of two per side: each material exports a square power-of-two texture.

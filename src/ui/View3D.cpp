@@ -89,6 +89,11 @@ void App::DrawView3D() {
     if (v->mesh) {
         if (button("UV automatiques...")) uvTool.open = true;
         ui::HelpTooltip("Dépliage UV automatique (xatlas) avec options et aperçu avant d'appliquer.");
+        if (v->mesh->data.materials.size() > 1 && v->mesh->data.uvTiles.empty() && v->mesh->data.triMaterial.size() * 3 == v->mesh->data.indices.size()) {
+            if (button("Une tuile par matériau")) RetileMaterials(*v);
+            ui::HelpTooltip("Chaque matériau du modèle reçoit sa propre zone de la texture (la peinture déjà faite suit) ;\n"
+                            "les exports écrivent ensuite un jeu de textures par matériau.");
+        }
         if (button("Recentrer")) {
             v->mesh->yaw = 0.7f;
             v->mesh->pitch = 0.35f;
