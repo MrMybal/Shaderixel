@@ -1550,6 +1550,12 @@ void App::HandleShortcuts() {
         tool = t;
     };
 
+    // Sessions placing something on the image own Enter / Escape (nothing else reacts to them meanwhile).
+    if (persp.active) {
+        if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) { FinishPerspectivePaste(true); return; }
+        if (pressed(ImGuiKey_Escape)) { FinishPerspectivePaste(false); return; }
+    }
+    if (paramPick.active && pressed(ImGuiKey_Escape)) { paramPick.active = false; return; }
     // Transform / polygon session keys first.
     if (xf.active && xf.view) {
         if (pressed(ImGuiKey_Enter) || pressed(ImGuiKey_KeypadEnter)) { TransformCommit(*xf.view); return; }
