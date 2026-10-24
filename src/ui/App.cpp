@@ -1,5 +1,6 @@
 #include "ui/App.h"
 #include "ai/Comfy.h"
+#include "io/UAsset.h"
 #include "ui/Filter.h"
 #include "ui/Lang.h"
 #include "ui/Search.h"
@@ -340,6 +341,7 @@ void App::Shutdown() {
     comfy::CancelAll();  // ComfyUI jobs waiting for a result stop (their futures are waited for on exit)
     if (baker.running && baker.cancel) baker.cancel->store(true);  // a long bake / unwrap stops instead of holding the exit
     if (uvJob) uvJob->cancel = true;
+    CancelUAssetConversions();  // a running Unreal conversion ends instead of holding the exit
     bridge.Shutdown();
     for (auto& j : aiJobs) j.wait();
     gpu::Dev().WaitIdle();

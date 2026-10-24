@@ -1,6 +1,8 @@
 // Unreal .uasset support: textures through the CyImgView reader (host shim below), meshes
 // through the matching Unreal Editor (glTF export in a temporary project, cached).
 #include "io/UAsset.h"
+
+#include <atomic>
 #include "core/Json.h"
 #include "mesh/Mesh.h"
 #include "io/uasset/cyimg_plugin.h"
@@ -368,6 +370,9 @@ std::string UAssetMeshCached(const std::string& path) {
     return base + ".glb";
 }
 
+static std::atomic<bool> gCancelConversions{false};
+void CancelUAssetConversions() { gCancelConversions = true; }
+
 bool ConvertUAssetMesh(const std::string& path, std::string& glbOut, std::string* error, const std::function<void(const std::string&)>& progress) {
     auto fail = [&](const std::string& m) {
         if (error) *error = m;
@@ -475,7 +480,13 @@ bool ConvertUAssetMesh(const std::string& path, std::string& glbOut, std::string
         cleanup();
         return fail("impossible de lancer " + editor);
     }
-    WaitForSingleObject(pi.hProcess, 30 * 60 * 1000);
+    // Wait (30 minutes at most), or stop when the application closes.
+    for (int waited = 0; waited < 30 * 60 * 1000 && WaitForSingleObject(pi.hProcess, 200) == WAIT_TIMEOUT; waited += 200)
+        if (gCancelConversions) {
+            TerminateProcess(pi.hProcess, 1);
+            WaitForSingleObject(pi.hProcess, 5000);
+            break;
+        }
     DWORD code = 1;
     GetExitCodeProcess(pi.hProcess, &code);
     CloseHandle(pi.hThread);

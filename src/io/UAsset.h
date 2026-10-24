@@ -29,5 +29,7 @@ struct MeshData;
 void ApplyUAssetMaterials(const std::string& glb, MeshData& mesh);
 // Converts with Unreal (blocking, minutes on the first run of an engine); `progress` receives status lines.
 bool ConvertUAssetMesh(const std::string& path, std::string& glbOut, std::string* error, const std::function<void(const std::string&)>& progress = {});
+// Every conversion running stops (Unreal ended): the application closes.
+void CancelUAssetConversions();
 
 }  // namespace sx
