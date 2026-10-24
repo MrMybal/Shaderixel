@@ -744,6 +744,7 @@ void App::Frame() {
     if (Shown("Aperçu du calque")) DrawLayerPreview();
     DrawLayoutSavePopup();
     DrawColorRangeWindow();
+    DrawFocusAreaWindow();
     DrawSelectMaskWindow();
     DrawNewDocDialog();
     DrawSaveTemplateDialog();

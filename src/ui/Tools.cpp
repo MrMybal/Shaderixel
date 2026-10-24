@@ -1073,6 +1073,14 @@ void App::DrawSelectionMenu() {
         colorRange.hash = 0;
         if (colorRange.samples.empty()) colorRange.samples.push_back({SrgbToLinear(fg.x), SrgbToLinear(fg.y), SrgbToLinear(fg.z), 1});
     }
+    if (ImGui::MenuItem("Zone de netteté...", nullptr, false, !focusArea.open)) {
+        focusArea.open = true;
+        focusArea.view = v;
+        focusArea.before = d.S();
+        focusArea.histCount = v->history.Count();
+        focusArea.live = true;  // first result right away
+    }
+    ui::HelpTooltip("Sélectionne les parties nettes de la photo (le sujet mis au point), d'après le détail local.");
     if (ImGui::MenuItem("Sélectionner et masquer...", "Alt+Ctrl+R", false, has)) {
         selectMask.open = true;
         selectMask.hash = 0;
@@ -1091,6 +1099,74 @@ void App::DrawSelectionMenu() {
     if (ImGui::MenuItem("Transformation manuelle", "Ctrl+T")) TransformBegin(*v, false);
     ImGui::MenuItem("Mode Masque", "Q", &quickMask);
     ImGui::EndMenu();
+}
+
+void App::FocusAreaApply() {
+    FocusArea& F = focusArea;
+    bool alive = false;
+    for (auto& dv : docs) alive |= dv.get() == F.view;
+    if (!alive || !F.before) { F = {}; return; }
+    DocView& v = *F.view;
+    Document& d = *v.doc;
+    // From the state before the dialog: one selection step, replaced at every change.
+    d.S() = *F.before;
+    v.history.TruncateTo(F.histCount);
+    EffectInstance fx;
+    fx.effectId = "focus_area";
+    auto def = Effects().Find("focus_area");
+    if (!def) return;
+    fx.params = def->DefaultParams();
+    for (size_t i = 0; i < def->params.size(); ++i) {
+        const std::string& id = def->params[i].id;
+        if (id == "radius") fx.params[i].x = F.radius;
+        else if (id == "threshold") fx.params[i].x = F.threshold;
+        else if (id == "softness") fx.params[i].x = F.softness;
+        else if (id == "invert") fx.params[i].x = F.invert ? 1.0f : 0.0f;
+        else if (id == "fill") fx.params[i].x = F.fill;
+    }
+    gpu::Texture* img = v.renderer.EvaluateComplete(d, *ctx);
+    if (!img) return;
+    gpu::TexturePtr mask = v.renderer.ApplyEffect(d, *ctx, fx, img);
+    if (!mask) return;  // (still compiling: tried again next frame)
+    v.renderer.SelectFrom(d, *ctx, v.history, mask.get(), SelSource::Mask, SelMode::Replace, {}, 0, "Zone de netteté");
+    F.live = false;
+}
+
+void App::DrawFocusAreaWindow() {
+    FocusArea& F = focusArea;
+    if (!F.open) return;
+    bool alive = false;
+    for (auto& dv : docs) alive |= dv.get() == F.view;
+    if (!alive) { F = {}; return; }
+    ImGui::SetNextWindowSize(ImVec2(340 * dpi, 0), ImGuiCond_Always);
+    bool open = true;
+    if (ImGui::Begin("Zone de netteté", &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::TextWrapped("Les parties nettes de l'image sont sélectionnées (le résultat s'affiche en direct).");
+        F.live |= ImGui::SliderFloat("Rayon d'analyse (px)", &F.radius, 1, 48, "%.0f");
+        F.live |= ImGui::SliderFloat("Seuil de netteté", &F.threshold, 0.0f, 0.3f, "%.3f");
+        ui::HelpTooltip("Plus haut : seules les zones très détaillées restent ; plus bas : le grain et le bruit entrent aussi.");
+        F.live |= ImGui::SliderFloat("Transition", &F.softness, 0.001f, 0.1f, "%.3f");
+        F.live |= ImGui::SliderFloat("Combler les zones unies (px)", &F.fill, 0, 96, "%.0f");
+        ui::HelpTooltip("Remplit les surfaces sans détail entourées de contours nets (un mur uni du sujet).");
+        F.live |= ImGui::Checkbox("Inverser (sélectionner le flou)", &F.invert);
+        if (ImGui::Button("OK", ImVec2(100 * dpi, 0))) {
+            if (F.live) FocusAreaApply();
+            F = {};
+            ImGui::End();
+            return;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Annuler", ImVec2(100 * dpi, 0))) open = false;
+    }
+    ImGui::End();
+    if (!open) {
+        // Back to the state before the dialog.
+        F.view->doc->S() = *F.before;
+        F.view->history.TruncateTo(F.histCount);
+        F = {};
+        return;
+    }
+    if (F.live && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) FocusAreaApply();  // (on release while dragging a slider)
 }
 
 void App::DrawSelectionDialog() {

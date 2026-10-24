@@ -676,5 +676,17 @@
  "Coller en perspective : glissez les coins sur le plan (mur, sol, écran), Entrée pour appliquer, Échap pour annuler": "Paste in perspective: drag the corners onto the plane (wall, floor, screen), Enter to apply, Esc to cancel",
  "Coller en perspective : appliqué": "Paste in perspective: applied",
  "Coller en perspective : annulé": "Paste in perspective: canceled",
- "Coller en perspective : sélectionnez un calque de pixels (l'image à poser)": "Paste in perspective: select a pixel layer (the image to lay down)"
+ "Coller en perspective : sélectionnez un calque de pixels (l'image à poser)": "Paste in perspective: select a pixel layer (the image to lay down)",
+ "Zone de netteté...": "Focus Area...",
+ "Zone de netteté": "Focus Area",
+ "Zone de netteté (masque)": "Focus area (mask)",
+ "Sélectionne les parties nettes de la photo (le sujet mis au point), d'après le détail local.": "Selects the sharp parts of the photo (the subject in focus), from the local detail.",
+ "Les parties nettes de l'image sont sélectionnées (le résultat s'affiche en direct).": "The sharp parts of the image are selected (the result shows live).",
+ "Rayon d'analyse (px)": "Analysis radius (px)",
+ "Seuil de netteté": "Sharpness threshold",
+ "Plus haut : seules les zones très détaillées restent ; plus bas : le grain et le bruit entrent aussi.": "Higher: only very detailed areas remain; lower: grain and noise come in too.",
+ "Combler les zones unies (px)": "Fill plain areas (px)",
+ "Remplit les surfaces sans détail entourées de contours nets (un mur uni du sujet).": "Fills detail-free surfaces enclosed by sharp edges (a plain wall of the subject).",
+ "Inverser (sélectionner le flou)": "Invert (select the blur)",
+ "Inverser (zones floues)": "Invert (blurred areas)"
 }

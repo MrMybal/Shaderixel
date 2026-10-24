@@ -1185,6 +1185,17 @@ private:
     bool SelectToolsCanvasInput(DocView& v, float2 dp, bool click);
     void DrawSelectToolsOverlay(DocView& v, ImVec2 d0, ImVec2 d1, ImDrawList* dl);
     void DrawColorRangeWindow();
+    // Selection > Focus Area: the in-focus parts of the image selected (focus_area effect), shown live.
+    struct FocusArea {
+        bool open = false, live = false;
+        DocView* view = nullptr;
+        float radius = 6, threshold = 0.05f, softness = 0.02f, fill = 12;
+        bool invert = false;
+        size_t histCount = 0;
+        std::optional<DocState> before;
+    } focusArea;
+    void DrawFocusAreaWindow();
+    void FocusAreaApply();
     void DrawSelectMaskWindow();
     // Magnetic lasso (MagneticLasso.cpp): edge cost map + live-wire path.
     struct {

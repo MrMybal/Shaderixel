@@ -571,6 +571,32 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_FOCUS=<threshold>: Selection > Focus Area through its dialog, OK, the selection exported as an image (SX_OUT).
+        char focus[16] = "";
+        if (GetEnvironmentVariableA("SX_FOCUS", focus, sizeof(focus)) > 0) {
+            if (frameCounter == 10) {
+                focusArea.open = true;
+                focusArea.view = a;
+                focusArea.before = d.S();
+                focusArea.histCount = a->history.Count();
+                focusArea.threshold = (float)atof(focus);
+                char fill[16] = "";
+                if (GetEnvironmentVariableA("SX_FILL", fill, sizeof(fill)) > 0) focusArea.fill = (float)atof(fill);
+                focusArea.live = true;
+            }
+            if (frameCounter == 60 && focusArea.open) {
+                focusArea = {};  // (OK: the live result kept)
+                Log("[focus] selection %s, history %zu (%s)", d.S().selection ? "made" : "NONE", a->history.Count(),
+                    a->history.Count() ? a->history.Label(a->history.Count() - 1).c_str() : "");
+            }
+            if (frameCounter == 66 && out[0])
+                if (Surface* sel = d.Selection()) outRb = a->renderer.ExportRGBA8(*ctx, sel->tex.get(), false);
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_FX=<effect id>: that effect applied (destructive) to the image instead, then exported (SX_OUT).
         char fx[96] = "";
         if (GetEnvironmentVariableA("SX_FX", fx, sizeof(fx)) > 0) {
