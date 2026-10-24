@@ -487,6 +487,38 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_PICK: Iris Blur added as a filter, its center placed on the image by a click (synthetic events) on the
+        // canvas, then the result exported (SX_OUT).
+        if (GetEnvironmentVariableA("SX_PICK", nullptr, 0) > 0) {
+            ImGuiIO& io = ImGui::GetIO();
+            if (frameCounter == 10) {
+                ApplyLibraryEffect(*a, "blur_iris", FxApply::Filter);
+                FocusPanel("Propriétés");
+                if (Layer* l = d.ActiveLayer(); l && !l->filters.empty()) {
+                    auto def = l->filters.back().Def();
+                    for (size_t i = 0; def && i < def->params.size(); ++i)
+                        if (def->params[i].id == "center") paramPick = {true, a, l->id, (int)l->filters.size() - 1, i, false, {}};
+                }
+            }
+            ImGuiWindow* w = ImGui::FindWindowByName("Canevas");
+            // The house (doc 590, 250): the click lands there in screen space.
+            const ImVec2 target = w ? ImVec2(w->InnerRect.Min.x + a->pan.x + 590 * a->zoom, w->InnerRect.Min.y + a->pan.y + 250 * a->zoom) : ImVec2(0, 0);
+            if (frameCounter == 20 && w) io.AddMousePosEvent(target.x, target.y);
+            if (frameCounter == 22 && w) io.AddMouseButtonEvent(0, true);
+            if (frameCounter == 24 && w) io.AddMouseButtonEvent(0, false);
+            if (frameCounter == 30) {
+                const EffectInstance* fx = ParamPickTarget();
+                if (fx) Log("[pick] center %.3f %.3f (expected ~%.3f %.3f), history %zu: %s", fx->params[paramPick.param].x, fx->params[paramPick.param].y,
+                            590.0f / d.Width(), 250.0f / d.Height(), a->history.Count(), a->history.Count() ? a->history.Label(a->history.Count() - 1).c_str() : "");
+                else Log("[pick] no target");
+            }
+            if (frameCounter == 34 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_FX=<effect id>: that effect applied (destructive) to the image instead, then exported (SX_OUT).
         char fx[96] = "";
         if (GetEnvironmentVariableA("SX_FX", fx, sizeof(fx)) > 0) {

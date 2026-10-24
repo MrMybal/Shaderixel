@@ -885,6 +885,20 @@ private:
     float2 cropQuad[4];
     int cropCorner = -1;
     void ApplyPerspectiveCrop(DocView& v);
+    // Position parameters placed on the image (ParamPick.cpp): a float2 of a layer's filter / adjustment.
+    struct ParamPick {
+        bool active = false;
+        DocView* view = nullptr;
+        Id layer = 0;
+        int filter = -1;  // -1: the layer's own effect
+        size_t param = 0;
+        bool dragging = false;
+        std::optional<DocState> before;
+    } paramPick;
+    EffectInstance* ParamPickTarget();
+    bool ParamPickButton(EffectInstance& fx, size_t param);
+    bool ParamPickInput(DocView& v, float2 dp, bool hovered);
+    void ParamPickOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     // Layer > Frequency separation: low (Gaussian blur) and high (detail around mid gray, Linear Light) copies.
     void FrequencySeparation(DocView& v, float radius);
     float freqRadius = 6;

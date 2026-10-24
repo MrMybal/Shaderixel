@@ -245,7 +245,19 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label, const char* only
                 if (c) val = {SrgbToLinear(s[0]), SrgbToLinear(s[1]), SrgbToLinear(s[2]), s[3]};
                 break;
             }
-            case ParamType::Float2: c = ImGui::SliderFloat2(p.label.c_str(), &val.x, p.min, p.max, "%.3f"); break;
+            case ParamType::Float2:
+                if (p.min == 0 && p.max == 1) {
+                    // A position in the image (0..1): also placed on the canvas.
+                    ImGui::SetNextItemWidth(ImGui::CalcItemWidth() - ImGui::GetFrameHeight() - ImGui::GetStyle().ItemInnerSpacing.x);
+                    c = ImGui::SliderFloat2("##v", &val.x, p.min, p.max, "%.3f");
+                    ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
+                    ParamPickButton(fx, i);
+                    ImGui::SameLine(0, ImGui::GetStyle().ItemInnerSpacing.x);
+                    ImGui::TextUnformatted(p.label.c_str());
+                } else {
+                    c = ImGui::SliderFloat2(p.label.c_str(), &val.x, p.min, p.max, "%.3f");
+                }
+                break;
             case ParamType::Float3: c = ImGui::SliderFloat3(p.label.c_str(), &val.x, p.min, p.max, "%.3f"); break;
             case ParamType::Float4: c = ImGui::SliderFloat4(p.label.c_str(), &val.x, p.min, p.max, "%.3f"); break;
             case ParamType::Lut: {

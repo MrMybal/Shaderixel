@@ -660,5 +660,8 @@
  "Créer les deux calques": "Create the two layers",
  "Taille des détails gardés dans le calque des hautes fréquences (pores, grain : 2 à 8 px).": "Size of the details kept in the high frequency layer (pores, grain: 2 to 8 px).",
  "Basses fréquences": "Low frequencies",
- "Hautes fréquences": "High frequencies"
+ "Hautes fréquences": "High frequencies",
+ "Position sur l'image": "Position on the image",
+ "Placement actif : cliquez ou glissez sur l'image (Échap ou ce bouton pour finir)": "Placing: click or drag on the image (Esc or this button to finish)",
+ "Placer sur l'image (cliquer / glisser sur le canevas)": "Place on the image (click / drag on the canvas)"
 }
