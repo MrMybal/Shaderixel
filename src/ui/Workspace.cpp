@@ -118,6 +118,7 @@ void App::BuildDockLayout(ImGuiID dock) {
         ImGui::DockBuilderDockWindow("Éditeur d'effets", center);
         ImGui::DockBuilderDockWindow("Graphe", bottomLeft);
         ImGui::DockBuilderDockWindow("Calques", bottomLeft);
+        ImGui::DockBuilderDockWindow("Animation", bottomLeft);
     }
     ImGui::DockBuilderDockWindow("Aperçu du calque", bottomRight);
     ImGui::DockBuilderDockWindow("Panneaux", right);
@@ -636,7 +637,7 @@ void App::DrawPopOutCorners() {
 void App::DrawPanelsMenu() {
     // Closed panels come back here (also from Fenêtre).
     static const char* names[] = {"Calques", "Graphe", "Aperçu du calque", "Éditeur d'effets", "Vue 3D", "Propriétés", "Historique", "Histogramme", "Analyse d'image",
-                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Palette de nœuds", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Calques 3D", "Matériau du pinceau", "Rendu", "Scène de rendu", "Assistant IA", "Génération IA", "Trim sheet", "Inpainting IA", "Ressources", "Éditeur d'actions"};
+                                  "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Palette de nœuds", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Calques 3D", "Matériau du pinceau", "Rendu", "Scène de rendu", "Assistant IA", "Génération IA", "Trim sheet", "Inpainting IA", "Ressources", "Éditeur d'actions", "Animation"};
     if (!ImGui::BeginMenu("Panneaux")) return;
     for (const char* n : names) {
         bool open = PanelIsOpen(n);

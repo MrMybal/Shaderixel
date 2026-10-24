@@ -210,6 +210,14 @@ struct LayerComp {
     std::vector<Entry> entries;
 };
 
+// Frame animation (Animation panel): each frame is the state of the layers (like a layer comp) shown for
+// `delay` seconds. Layers missing from a frame (added since) keep their current state.
+struct AnimFrame {
+    Id id = 0;
+    float delay = 0.1f;
+    std::vector<LayerComp::Entry> entries;
+};
+
 // Split: passes its RGBA input through; its outputs R, G, B, A are channel links (1-4).
 // Tool: graph tools working on their input as pixels (bake, upscale, ComfyUI...). Once baked the
 // node outputs its stored pixels and the nodes before it are no longer evaluated ("PassLive":
@@ -428,6 +436,9 @@ struct DocState {
     std::map<Id, float2> layerNodePos;
     std::vector<LayerComp> comps;
     Id activeComp = 0;
+    std::vector<AnimFrame> animFrames;
+    Id activeFrame = 0;
+    int animLoops = 0;  // 0 endless, else the number of plays
     std::vector<CharStyle> charStyles;  // text styles shared by the text layers
     std::vector<ParaStyle> paraStyles;
     std::unordered_map<Id, Surface> surfaces;

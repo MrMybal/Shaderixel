@@ -448,6 +448,93 @@ void App::DemoTick() {
         }
         return;
     }
+    if (demoMode == 108) {
+        // Frame animation: SX_IMAGE opened, a red ball (smart object) added, frame 1, frame 2 with the ball moved
+        // right, 6 frames tweened between them, played, then exported to SX_OUT (.gif) and the same path in .mp4.
+        char img[512] = "", out[512] = "";
+        GetEnvironmentVariableA("SX_IMAGE", img, sizeof(img));
+        GetEnvironmentVariableA("SX_OUT", out, sizeof(out));
+        if (frameCounter == 4) {
+            OpenImage(img, false);
+            panelOpen["Animation"].open = true;
+        }
+        DocView* a = Active();
+        if (!a) return;
+        Document& d = *a->doc;
+        static Id ball = 0;
+        if (frameCounter == 8) {
+            Layer& l = d.AddPixelLayer("Balle");
+            ball = l.id;
+            d.S().activeLayer = l.id;
+            a->renderer.SelectShape(d, *ctx, a->history, SelShape::Ellipse, float4{60, 60, 160, 160}, SelMode::Replace, true, 0, "Sélection");
+        }
+        if (frameCounter == 10) {
+            if (Layer* l = d.FindLayer(ball)) a->renderer.FillSelection(d, *ctx, &a->history, l->surface, 0, float4{0.9f, 0.05f, 0.3f, 1}, 1, "Remplir");
+            a->renderer.Deselect(d, a->history);
+        }
+        if (frameCounter == 12) {
+            d.S().activeLayer = ball;
+            ConvertToSmartObject(*a);
+            FocusPanel("Animation");
+        }
+        if (frameCounter == 20) {
+            Edit e(d, a->history, "Créer l'animation");
+            AnimFrame f;
+            f.id = d.NewId();
+            AnimCaptureEntries(d, f.entries);
+            d.S().animFrames.push_back(f);
+            f.id = d.NewId();
+            d.S().animFrames.push_back(f);
+            d.S().activeFrame = d.S().animFrames[1].id;
+            e.Commit();
+        }
+        if (frameCounter == 24) {
+            // Frame 2: the ball moved right and half transparent (recorded into the selected frame).
+            for (auto& l : d.S().layers)
+                if (l.kind == LayerKind::Smart) {
+                    for (auto& c : l.smartCorners) c.x += 600;
+                    l.opacity = 0.5f;
+                }
+            Prepare(*a);
+            SyncSmartLayers(*a);
+        }
+        if (frameCounter == 28) {
+            const auto& f = d.S().animFrames;
+            float x0 = 0, x1 = 0;
+            for (auto& en : f[0].entries) if (d.FindLayer(en.layer) && d.FindLayer(en.layer)->kind == LayerKind::Smart) x0 = en.corners[0].x;
+            for (auto& en : f[1].entries) if (d.FindLayer(en.layer) && d.FindLayer(en.layer)->kind == LayerKind::Smart) x1 = en.corners[0].x;
+            Log("[anim] frames %zu, ball x %.0f -> %.0f", f.size(), x0, x1);
+            AnimTween(*a, 0, 6);
+            Log("[anim] after tween: %zu frames", d.S().animFrames.size());
+            ApplyAnimFrame(*a, d.S().animFrames[0].id);
+            anim.playing = true;
+            anim.view = a;
+            anim.acc = 0;
+            anim.played = 0;
+        }
+        if (frameCounter == 60) {
+            anim.playing = false;
+            Log("[anim] playing: on frame %d", [&] { int i = 0; for (auto& f : d.S().animFrames) { if (f.id == d.S().activeFrame) return i; ++i; } return -1; }() + 1);
+            if (out[0]) StartAnimExport(*a, out, false);
+        }
+        static bool videoStarted = false;
+        if (frameCounter > 60 && !animExport && !videoStarted && out[0]) {
+            videoStarted = true;
+            std::error_code ec;
+            Log("[anim] gif: %llu bytes; %s", (unsigned long long)std::filesystem::file_size(out, ec), statusMsg.c_str());
+            std::string mp4 = std::string(out).substr(0, strlen(out) - 4) + ".mp4";
+            StartAnimExport(*a, mp4, true);
+        }
+        static bool reported = false;
+        if (videoStarted && !animExport && !reported) {
+            reported = true;
+            std::error_code ec;
+            std::string mp4 = std::string(out).substr(0, strlen(out) - 4) + ".mp4";
+            Log("[anim] mp4: %llu bytes; %s", (unsigned long long)std::filesystem::file_size(mp4, ec), statusMsg.c_str());
+            ApplyAnimFrame(*a, d.S().animFrames[3].id);
+        }
+        return;
+    }
     if (demoMode == 107) {
         // Content-aware scale: SX_IMAGE opened, then scaled to SX_CARVE (width %, default 60; "h" suffix: height),
         // SX_CARVESEL=x0,y0,x1,y1 protects (or with SX_CARVEMODE=2 removes) a rectangle; result exported to SX_OUT.

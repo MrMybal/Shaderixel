@@ -593,6 +593,24 @@ private:
     void TextPropertiesUI(DocView& v, Layer& l);
     void ShapePropertiesUI(DocView& v, Layer& l);
     void DrawImageDialogs();
+    // Frame animation (Animation.cpp): Animation panel, playback, tween, GIF / MP4 export.
+    struct AnimExportJob;
+    std::shared_ptr<AnimExportJob> animExport;
+    struct {
+        bool playing = false;
+        DocView* view = nullptr;
+        double acc = 0;
+        int played = 0, tweenCount = 3;
+        std::unordered_map<Id, u64> thumbs;  // frame -> state its thumbnail shows
+        int thumbWait = 0;
+    } anim;
+    void DrawAnimationPanel();
+    void AnimTick();
+    void AnimCaptureEntries(Document& d, std::vector<LayerComp::Entry>& out);
+    void ApplyAnimEntries(DocView& v, const std::vector<LayerComp::Entry>& entries);  // no history step
+    void ApplyAnimFrame(DocView& v, Id frameId);
+    void AnimTween(DocView& v, int index, int count);
+    void StartAnimExport(DocView& v, const std::string& path, bool video);
     // Image > Content-aware scale (ContentScale.cpp): seam carving in a worker thread, then one GPU pass per layer.
     struct CarveJob;
     std::shared_ptr<CarveJob> carveJob;

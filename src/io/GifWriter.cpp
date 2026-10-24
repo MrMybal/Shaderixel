@@ -29,7 +29,7 @@ struct GifWriter::Impl {
     std::vector<u8> bgra;
 };
 
-bool GifWriter::Open(const std::string& path, u32 fps, u32 maxWidth, std::string* error) {
+bool GifWriter::Open(const std::string& path, u32 fps, u32 maxWidth, std::string* error, u32 loops) {
     Close();
     auto fail = [&](const char* what, HRESULT hr) {
         if (error) {
@@ -62,7 +62,9 @@ bool GifWriter::Open(const std::string& path, u32 fps, u32 maxWidth, std::string
         v.caub.cElems = sizeof(app);
         v.caub.pElems = app;
         meta->SetMetadataByName(L"/appext/Application", &v);
-        static UCHAR loop[] = {3, 1, 0, 0, 0};
+        // Repeat count after the first play (0: endless).
+        const u32 rep = loops == 0 ? 0 : std::min(loops - 1, 65535u);
+        UCHAR loop[] = {3, 1, (UCHAR)(rep & 0xff), (UCHAR)(rep >> 8), 0};
         v.caub.cElems = sizeof(loop);
         v.caub.pElems = loop;
         meta->SetMetadataByName(L"/appext/Data", &v);
@@ -71,7 +73,9 @@ bool GifWriter::Open(const std::string& path, u32 fps, u32 maxWidth, std::string
     return true;
 }
 
-bool GifWriter::Write(const u8* rgba, u32 width, u32 height) {
+bool GifWriter::Write(const u8* rgba, u32 width, u32 height) { return Write(rgba, width, height, -1.0); }
+
+bool GifWriter::Write(const u8* rgba, u32 width, u32 height, double seconds) {
     if (!impl || !rgba || !width || !height) return false;
     // Size: reduced to maxWidth (box filter over the covered source pixels).
     const u32 W = std::min(width, impl->maxWidth), H = std::max(1u, (u32)((u64)height * W / width));
@@ -111,7 +115,7 @@ bool GifWriter::Write(const u8* rgba, u32 width, u32 height) {
     if (SUCCEEDED(hr)) hr = frame->SetPalette(pal);
     if (SUCCEEDED(hr)) {
         // Frame delay in 1/100 s; the remainder carried so the mean rate stays right (e.g. 30 fps: 3, 3, 4).
-        impl->carry += 100.0 / impl->fps;
+        impl->carry += seconds >= 0 ? seconds * 100.0 : 100.0 / impl->fps;
         const u16 delay = (u16)std::max(2.0, std::floor(impl->carry));
         impl->carry -= delay;
         IWICMetadataQueryWriter* meta = nullptr;

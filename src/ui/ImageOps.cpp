@@ -89,6 +89,7 @@ void App::DrawImageMenu() {
 void App::DrawImageDialogs() {
     DocView* v = Active();
     ContentScaleTick();
+    AnimTick();
     DrawContentScaleProgress();
     if (cropBoundsRb && cropBoundsRb->ready) {
         auto rb = cropBoundsRb;

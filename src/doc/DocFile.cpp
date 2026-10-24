@@ -419,6 +419,34 @@ Json SerializeDocument(const Document& doc) {
         j["layerComps"] = cs;
         j["activeComp"] = s.activeComp;
     }
+    if (!s.animFrames.empty()) {
+        Json fs = Json::Array();
+        for (auto& f : s.animFrames) {
+            Json o = Json::Object();
+            o["id"] = f.id;
+            o["delay"] = f.delay;
+            Json es = Json::Array();
+            for (auto& e : f.entries) {
+                Json eo = Json::Object();
+                eo["layer"] = e.layer;
+                eo["visible"] = e.visible;
+                eo["opacity"] = e.opacity;
+                eo["blend"] = (int)e.blend;
+                Json fl = Json::Array();
+                for (u8 b : e.filterOn) fl.Push((int)b);
+                eo["filters"] = fl;
+                Json cr = Json::Array();
+                for (auto& p : e.corners) { cr.Push(p.x); cr.Push(p.y); }
+                eo["corners"] = cr;
+                es.Push(eo);
+            }
+            o["entries"] = es;
+            fs.Push(o);
+        }
+        j["animFrames"] = fs;
+        j["activeFrame"] = s.activeFrame;
+        j["animLoops"] = s.animLoops;
+    }
     if (s.inpaintMask) {
         j["inpaintMask"] = s.inpaintMask;
         j["showInpaint"] = s.showInpaint;
@@ -942,6 +970,24 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         s.comps.push_back(std::move(c));
     }
     s.activeComp = j["activeComp"].U();
+    for (auto& o : j["animFrames"].Elements()) {
+        AnimFrame f;
+        f.id = o["id"].U();
+        f.delay = std::clamp(o["delay"].F(0.1f), 0.0f, 600.0f);
+        for (auto& eo : o["entries"].Elements()) {
+            LayerComp::Entry e;
+            e.layer = eo["layer"].U();
+            e.visible = eo["visible"].B(true);
+            e.opacity = eo["opacity"].F(1);
+            e.blend = (BlendMode)std::clamp(eo["blend"].I(), 0, (int)BlendMode::Count - 1);
+            for (auto& b : eo["filters"].Elements()) e.filterOn.push_back((u8)b.I(1));
+            for (int k = 0; k < 4 && (size_t)k * 2 + 1 < eo["corners"].Size(); ++k) e.corners[k] = {eo["corners"].At(k * 2).F(), eo["corners"].At(k * 2 + 1).F()};
+            f.entries.push_back(std::move(e));
+        }
+        s.animFrames.push_back(std::move(f));
+    }
+    s.activeFrame = j["activeFrame"].U();
+    s.animLoops = std::max(0, j["animLoops"].I(0));
     for (auto& gv : j["guidesY"].Elements()) s.guidesY.push_back(gv.F());
     // nextId must stay above every id in the file.
     Id maxId = j["nextId"].U(100);

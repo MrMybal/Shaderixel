@@ -148,6 +148,11 @@ public:
     gpu::Texture* DisplaySource(gpu::CommandContext& ctx, gpu::Texture* image, float invZoom);
     // Small preview texture for a panel; regenerated when `hash` changes (throttled).
     gpu::Texture* Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Texture* src, u64 hash, u32 w, u32 h);
+    // The preview last drawn under `key` (never refreshed here), nullptr if none.
+    gpu::Texture* CachedThumbnail(u64 key) const {
+        auto it = thumbs.find(key);
+        return it != thumbs.end() ? it->second.tex.get() : nullptr;
+    }
     u64 NodeHash(Id node) const;
 
     // Painting ---------------------------------------------------------
