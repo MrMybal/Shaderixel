@@ -885,6 +885,29 @@ private:
     float2 cropQuad[4];
     int cropCorner = -1;
     void ApplyPerspectiveCrop(DocView& v);
+    // Edit > Paste in perspective (PerspectivePaste.cpp): the active layer laid on a plane drawn on the image.
+    struct PerspPaste {
+        bool active = false;
+        DocView* view = nullptr;
+        Id layer = 0;             // the new layer receiving the warped image
+        Id srcSurface = 0;        // a copy of the source layer's pixels
+        gpu::TexturePtr src;
+        float4 srcRect;           // the source's content (pixels)
+        gpu::ReadbackPtr boundsRb;
+        float2 quad[4];           // the plane: TL, TR, BR, BL (document pixels)
+        int drag = -1;            // corner dragged, 4: the whole plane
+        float2 dragFrom;
+        bool tile = false;
+        float tileSize = 0.25f;   // tiles: size of one repetition across the plane (fraction)
+        float opacity = 1;
+        bool dirty = true;
+        std::optional<DocState> before;
+    } persp;
+    void StartPerspectivePaste(DocView& v);
+    void FinishPerspectivePaste(bool keep);
+    bool PerspectivePasteInput(DocView& v, float2 dp, bool hovered);
+    void PerspectivePasteOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    void PerspectivePasteTick();
     // Position parameters placed on the image (ParamPick.cpp): a float2 of a layer's filter / adjustment.
     struct ParamPick {
         bool active = false;

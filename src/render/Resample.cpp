@@ -90,6 +90,25 @@ bool Renderer::ResampleCanvasPerspective(Document& doc, gpu::CommandContext& ctx
     return true;
 }
 
+void Renderer::WarpPerspective(gpu::CommandContext& ctx, gpu::Texture* src, gpu::Texture* dst, const float h[9], float4 srcRect, float2 tiles, float opacity) {
+    auto* k = Kernel("warp_persp.slang");
+    if (!k || !src || !dst) return;
+    struct Params {
+        float4 h0, h1, h2, rect;
+        float2 tiles;
+        float opacity, pad;
+    } p{{h[0], h[1], h[2], 0}, {h[3], h[4], h[5], 0}, {h[6], h[7], h[8], 0}, srcRect, tiles, opacity, 0};
+    struct { u32 dw, dh, sw, sh; } root = {dst->Width(), dst->Height(), src->Width(), src->Height()};
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = src;
+    d.uav[0] = dst;
+    SetConstants(d, root);
+    d.cbData = &p;
+    d.cbSize = sizeof(p);
+    Dispatch2D(ctx, d, dst->Width(), dst->Height());
+}
+
 bool Renderer::CarveCanvas(Document& doc, gpu::CommandContext& ctx, History& hist, u32 newW, u32 newH, const SeamCarveResult& r,
                            const std::string& label) {
     if (newW == 0 || newH == 0 || newW > 16384 || newH > 16384 || r.newW == 0 || r.newH == 0) return false;

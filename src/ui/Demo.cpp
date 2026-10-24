@@ -519,6 +519,58 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_VPASTE: a layer with a checker patch pasted in perspective on the ground (SX_TILE=1: as tiles), applied,
+        // then undone / redone; result exported (SX_OUT).
+        if (GetEnvironmentVariableA("SX_VPASTE", nullptr, 0) > 0) {
+            static Id patchLayer = 0;
+            if (frameCounter == 8) {
+                Layer& l = d.AddPixelLayer("Motif");
+                patchLayer = l.id;
+                d.S().activeLayer = l.id;
+                a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, float4{100, 100, 260, 220}, SelMode::Replace, false, 0, "Sélection");
+            }
+            if (frameCounter == 10) {
+                // A 2 x 2 checker patch (red / white) with a blue border.
+                Layer* pl = d.FindLayer(patchLayer);
+                auto fillRect = [&](float4 r, float4 c) {
+                    a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, r, SelMode::Replace, false, 0, "Sélection");
+                    a->renderer.FillSelection(d, *ctx, &a->history, pl->surface, 0, c, 1, "Remplir");
+                };
+                fillRect({96, 96, 264, 224}, {0.05f, 0.1f, 0.8f, 1});
+                fillRect({100, 100, 180, 160}, {0.9f, 0.05f, 0.05f, 1});
+                fillRect({180, 100, 260, 160}, {1, 1, 1, 1});
+                fillRect({100, 160, 180, 220}, {1, 1, 1, 1});
+                fillRect({180, 160, 260, 220}, {0.9f, 0.05f, 0.05f, 1});
+            }
+            if (frameCounter == 12) a->renderer.Deselect(d, a->history);
+            if (frameCounter == 14) {
+                d.S().activeLayer = patchLayer;
+                StartPerspectivePaste(*a);
+            }
+            if (frameCounter == 20) {
+                persp.quad[0] = {260, 300};
+                persp.quad[1] = {640, 300};
+                persp.quad[2] = {890, 445};
+                persp.quad[3] = {10, 445};
+                persp.tile = GetEnvironmentVariableA("SX_TILE", nullptr, 0) > 0;
+                persp.tileSize = 0.12f;
+                persp.dirty = true;
+                if (Layer* l = d.FindLayer(patchLayer)) l->visible = false;
+                Log("[vpaste] source rect %.0f %.0f %.0f %.0f", persp.srcRect.x, persp.srcRect.y, persp.srcRect.z, persp.srcRect.w);
+            }
+            if (frameCounter == 26) {
+                FinishPerspectivePaste(true);
+                Log("[vpaste] %s, layers %zu, history %zu (%s)", statusMsg.c_str(), d.S().layers.size(), a->history.Count(), a->history.Label(a->history.Count() - 1).c_str());
+            }
+            if (frameCounter == 28) { Undo(); Log("[vpaste] undo: layers %zu", d.S().layers.size()); }
+            if (frameCounter == 30) { Redo(); Log("[vpaste] redo: layers %zu", d.S().layers.size()); }
+            if (frameCounter == 36 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_FX=<effect id>: that effect applied (destructive) to the image instead, then exported (SX_OUT).
         char fx[96] = "";
         if (GetEnvironmentVariableA("SX_FX", fx, sizeof(fx)) > 0) {

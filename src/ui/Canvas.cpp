@@ -416,6 +416,7 @@ void App::DrawCanvas() {
     }
     AnimOverlay(*v, canvasMin, dl);
     ParamPickOverlay(*v, canvasMin, dl);
+    PerspectivePasteOverlay(*v, canvasMin, dl);
     DrawSelectionOverlay(*v, canvasMin, dl);
     DrawQuickSelectOverlay(*v, canvasMin, dl);
     DrawPenOverlay(*v, canvasMin, dl);
@@ -494,6 +495,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
 
     float2 dp = ScreenToDoc(v, canvasMin, mouse);
     if (ParamPickInput(v, dp, hovered)) return;  // a filter's position placed on the image
+    if (PerspectivePasteInput(v, dp, hovered)) return;
     bool click = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
     if (SelectToolsCanvasInput(v, dp, click)) return;
     bool alt = io.KeyAlt;

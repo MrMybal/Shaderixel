@@ -178,6 +178,7 @@ void App::DrawImageDialogs() {
     DocView* v = Active();
     ContentScaleTick();
     AnimTick();
+    PerspectivePasteTick();
     TrimTick();
     DrawContentScaleProgress();
     if (!carveJob && !animExport) CloseJobModal();

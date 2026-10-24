@@ -1251,6 +1251,8 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Couper", "Ctrl+X", false, canFill)) CopyToClipboard(*v, true);
         if (ImGui::MenuItem("Copier", "Ctrl+C", false, canFill)) CopyToClipboard(*v, false);
         if (ImGui::MenuItem("Coller", "Ctrl+V", false, clipboard != nullptr)) PasteClipboard(*v);
+        if (ImGui::MenuItem("Coller en perspective (calque actif)", nullptr, false, v && v->doc->ActiveLayer() && v->doc->ActiveLayer()->kind == LayerKind::Pixel && !persp.active))
+            StartPerspectivePaste(*v);
         ImGui::Separator();
         if (ImGui::MenuItem("Remplir avec la couleur de premier plan", "Alt+Retour", false, canFill)) FillOrErase(*v, false);
         if (ImGui::MenuItem("Effacer", "Suppr", false, canFill)) FillOrErase(*v, true);
