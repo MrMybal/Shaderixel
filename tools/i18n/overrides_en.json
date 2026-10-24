@@ -776,5 +776,16 @@
  "Suffixe": "Suffix",
  "+ Taille": "+ Size",
  "1x 2x 3x": "1x 2x 3x",
- "Moitié + entière": "Half + full"
+ "Moitié + entière": "Half + full",
+ "Symétrie": "Symmetry",
+ "Axe vertical": "Vertical axis",
+ "Axe horizontal": "Horizontal axis",
+ "Deux axes": "Both axes",
+ "Radiale": "Radial",
+ "Mandala": "Mandala",
+ "Chaque touche du pinceau est répétée en miroir ou en rotation autour du centre.": "Every brush dab is repeated mirrored or rotated around the center.",
+ "Segments": "Segments",
+ "Angle des axes": "Axis angle",
+ "Centre du document": "Document center",
+ "Calques du premier niveau (un groupe : son contenu ; un plan de travail : son cadre).": "Top-level layers (a group: its content; an artboard: its frame)."
 }

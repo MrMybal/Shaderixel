@@ -422,6 +422,7 @@ void App::DrawCanvas() {
     ParamPickOverlay(*v, canvasMin, dl);
     PerspectivePasteOverlay(*v, canvasMin, dl);
     RulerOverlay(*v, canvasMin, dl);
+    SymmetryOverlay(*v, canvasMin, dl);
     SpotHealOverlay(*v, canvasMin, dl);
     DrawSelectionOverlay(*v, canvasMin, dl);
     DrawQuickSelectOverlay(*v, canvasMin, dl);
@@ -817,6 +818,87 @@ float4 App::PaintColor(Document& d) {
 }
 
 void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<float4>* extra) {
+    // Painting symmetry: the dabs repeated by every mirror / rotation around the center (images, brush and eraser).
+    const bool symTool = tool == Tool::Brush || tool == Tool::Eraser || strokeErase;
+    if (paintSym.mode == 0 || !symTool || v.doc->kind == 1 || dabs.empty()) {
+        EmitDabsRaw(v, dabs, extra);
+        return;
+    }
+    const float2 c = paintSym.center.x < 0 ? float2{v.doc->Width() * 0.5f, v.doc->Height() * 0.5f} : paintSym.center;
+    const float base = paintSym.angle * 3.14159265f / 180.0f;
+    struct Xf { float rot; bool mirror; float axis; };  // mirror across the axis at angle `axis`, then turn by rot
+    std::vector<Xf> xfs;
+    const float pi = 3.14159265f;
+    switch (paintSym.mode) {
+        case 1: xfs = {{0, false, 0}, {0, true, base + pi * 0.5f}}; break;
+        case 2: xfs = {{0, false, 0}, {0, true, base}}; break;
+        case 3: xfs = {{0, false, 0}, {0, true, base + pi * 0.5f}, {0, true, base}, {pi, false, 0}}; break;
+        default: {
+            const int n = std::clamp(paintSym.segments, 2, 32);
+            for (int k = 0; k < n; ++k) {
+                xfs.push_back({k * 2 * pi / n, false, 0});
+                if (paintSym.mode == 5) xfs.push_back({k * 2 * pi / n, true, base + pi * 0.5f});
+            }
+        }
+    }
+    std::vector<Dab> all;
+    std::vector<float4> allExtra;
+    all.reserve(dabs.size() * xfs.size());
+    for (const Xf& x : xfs) {
+        const float cr = std::cos(x.rot), sr = std::sin(x.rot), ca = std::cos(2 * x.axis), sa = std::sin(2 * x.axis);
+        for (size_t i = 0; i < dabs.size(); ++i) {
+            float2 p = float2{dabs[i].x, dabs[i].y} - c;
+            if (x.mirror) p = {ca * p.x + sa * p.y, sa * p.x - ca * p.y};  // reflection across the axis
+            p = float2{cr * p.x - sr * p.y, sr * p.x + cr * p.y} + c;
+            Dab d = dabs[i];
+            d.x = p.x;
+            d.y = p.y;
+            all.push_back(d);
+            if (extra && extra->size() >= (i + 1) * 2) {
+                float4 e0 = (*extra)[i * 2], e1 = (*extra)[i * 2 + 1];
+                if (x.mirror) e0.y = 2 * x.axis - e0.y;  // the stroke's direction mirrored, then turned
+                e0.y += x.rot;
+                allExtra.push_back(e0);
+                allExtra.push_back(e1);
+            }
+        }
+    }
+    EmitDabsRaw(v, all, extra && allExtra.size() == all.size() * 2 ? &allExtra : nullptr);
+}
+
+void App::SymmetryOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
+    if (paintSym.mode == 0 || v.doc->kind == 1 || !(tool == Tool::Brush || tool == Tool::Eraser)) return;
+    const float2 c = paintSym.center.x < 0 ? float2{v.doc->Width() * 0.5f, v.doc->Height() * 0.5f} : paintSym.center;
+    const ImVec2 sc(canvasMin.x + v.pan.x + c.x * v.zoom, canvasMin.y + v.pan.y + c.y * v.zoom);
+    const float len = (float)std::max(v.doc->Width(), v.doc->Height()) * v.zoom;
+    const float base = paintSym.angle * 3.14159265f / 180.0f, pi = 3.14159265f;
+    auto line = [&](float a, bool full) {
+        const ImVec2 d(std::cos(a) * len, std::sin(a) * len);
+        dl->AddLine(full ? ImVec2(sc.x - d.x, sc.y - d.y) : sc, ImVec2(sc.x + d.x, sc.y + d.y), IM_COL32(80, 200, 255, 120), 1.0f);
+    };
+    if (paintSym.mode == 1 || paintSym.mode == 3) line(base + pi * 0.5f, true);
+    if (paintSym.mode == 2 || paintSym.mode == 3) line(base, true);
+    if (paintSym.mode >= 4) {
+        const int n = std::clamp(paintSym.segments, 2, 32);
+        for (int k = 0; k < n; ++k) line(base - pi * 0.5f + k * 2 * pi / n, false);
+    }
+    dl->AddCircle(sc, 5, IM_COL32(80, 200, 255, 200), 0, 1.5f);
+}
+
+void App::SymmetryOptions(Document& d) {
+    if (d.kind == 1) return;
+    ImGui::Combo("Symétrie", &paintSym.mode, "Aucune\0Axe vertical\0Axe horizontal\0Deux axes\0Radiale\0Mandala\0");
+    ui::HelpTooltip("Chaque touche du pinceau est répétée en miroir ou en rotation autour du centre.");
+    if (paintSym.mode >= 4) ImGui::SliderInt("Segments", &paintSym.segments, 2, 32);
+    if (paintSym.mode) {
+        ImGui::SliderFloat("Angle des axes", &paintSym.angle, -180, 180, "%.0f°");
+        float2 c = paintSym.center.x < 0 ? float2{d.Width() * 0.5f, d.Height() * 0.5f} : paintSym.center;
+        if (ImGui::DragFloat2("Centre", &c.x, 1, 0, (float)std::max(d.Width(), d.Height()), "%.0f")) paintSym.center = c;
+        if (ImGui::SmallButton("Centre du document")) paintSym.center = {-1, -1};
+    }
+}
+
+void App::EmitDabsRaw(DocView& v, const std::vector<Dab>& dabs, const std::vector<float4>* extra) {
     Document& doc = *v.doc;
     if (strokeErase || tool == Tool::Brush || tool == Tool::Eraser) {
         float4 color = strokeTargets.empty() ? PaintColor(doc) : strokeColors[0];

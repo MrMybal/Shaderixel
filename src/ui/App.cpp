@@ -809,16 +809,18 @@ void App::Frame() {
             e.rb = c;
             e.crop = {};
         }
-        if (e.rb && e.rb->ready && (e.trim || e.matte.w >= 0) && e.rb->format == gpu::Format::RGBA8 &&
-            e.rb->data.size() >= (size_t)e.rb->width * e.rb->height * 4) {
-            // Export As: transparent edges trimmed, then flattened on the background color (8-bit images).
+        const bool wide = e.rb && e.rb->data.size() >= (size_t)e.rb->width * e.rb->height * 8;  // 16-bit TIFF readback
+        if (e.rb && e.rb->ready && (e.trim || e.matte.w >= 0) && e.rb->data.size() >= (size_t)e.rb->width * e.rb->height * 4) {
+            // Export As: transparent edges trimmed, then flattened on the background color (8 or 16 bits per channel).
             const u32 W = e.rb->width, H = e.rb->height;
+            const size_t bpp = wide ? 8 : 4;
+            auto alphaAt = [&](size_t i) -> u32 { return wide ? ((const u16*)e.rb->data.data())[i * 4 + 3] : e.rb->data[i * 4 + 3]; };
             u32 x0 = 0, y0 = 0, x1 = W, y1 = H;
             if (e.trim) {
                 x0 = W; y0 = H; x1 = 0; y1 = 0;
                 for (u32 y = 0; y < H; ++y)
                     for (u32 x = 0; x < W; ++x)
-                        if (e.rb->data[((size_t)y * W + x) * 4 + 3]) { x0 = std::min(x0, x); y0 = std::min(y0, y); x1 = std::max(x1, x + 1); y1 = std::max(y1, y + 1); }
+                        if (alphaAt((size_t)y * W + x)) { x0 = std::min(x0, x); y0 = std::min(y0, y); x1 = std::max(x1, x + 1); y1 = std::max(y1, y + 1); }
                 if (x1 <= x0) { x0 = y0 = 0; x1 = y1 = 1; }
             }
             auto c = std::make_shared<gpu::Readback>();
@@ -826,15 +828,25 @@ void App::Frame() {
             c->height = y1 - y0;
             c->ready = true;
             c->format = e.rb->format;
-            c->data.resize((size_t)c->width * c->height * 4);
+            c->data.resize((size_t)c->width * c->height * bpp);
             for (u32 y = 0; y < c->height; ++y)
-                memcpy(&c->data[(size_t)y * c->width * 4], &e.rb->data[(((size_t)(y + y0)) * W + x0) * 4], (size_t)c->width * 4);
+                memcpy(&c->data[(size_t)y * c->width * bpp], &e.rb->data[(((size_t)(y + y0)) * W + x0) * bpp], (size_t)c->width * bpp);
             if (e.matte.w >= 0) {
-                const float m[3] = {e.matte.x * 255, e.matte.y * 255, e.matte.z * 255};
-                for (size_t k = 0; k < c->data.size(); k += 4) {
-                    const float a = c->data[k + 3] / 255.0f;
-                    for (int ch = 0; ch < 3; ++ch) c->data[k + ch] = (u8)std::lround(c->data[k + ch] * a + m[ch] * (1 - a));
-                    c->data[k + 3] = 255;
+                const float full = wide ? 65535.0f : 255.0f;
+                const float m[3] = {e.matte.x * full, e.matte.y * full, e.matte.z * full};
+                const size_t n = (size_t)c->width * c->height;
+                for (size_t k = 0; k < n; ++k) {
+                    if (wide) {
+                        u16* q = (u16*)c->data.data() + k * 4;
+                        const float a = q[3] / full;
+                        for (int ch = 0; ch < 3; ++ch) q[ch] = (u16)std::lround(q[ch] * a + m[ch] * (1 - a));
+                        q[3] = 65535;
+                    } else {
+                        u8* q = c->data.data() + k * 4;
+                        const float a = q[3] / full;
+                        for (int ch = 0; ch < 3; ++ch) q[ch] = (u8)std::lround(q[ch] * a + m[ch] * (1 - a));
+                        q[3] = 255;
+                    }
                 }
             }
             e.rb = c;

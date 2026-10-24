@@ -610,6 +610,16 @@ void App::DemoTick() {
                 const int pr = atoi(mixer);
                 const decltype(mixerSet) presets[] = {{0.05f, 0.5f, 0.9f, true}, {0.5f, 0.15f, 0.8f, true}, {0.85f, 0.05f, 0.7f, true}, {0.6f, 0.0f, 0.8f, false}};
                 mixerSet = presets[std::clamp(pr, 0, 3)];
+                char sym[8] = "";
+                if (GetEnvironmentVariableA("SX_SYM", sym, sizeof(sym)) > 0) {
+                    // The same strokes with the brush and painting symmetry (SX_SYM = mode, 6 segments).
+                    tool = viewTool[0] = Tool::Brush;
+                    brush.size = 16;
+                    brush.hardness = 0.8f;
+                    paintSym.mode = atoi(sym);
+                    paintSym.segments = 6;
+                    paintSym.center = {450, 225};
+                }
                 if (GetEnvironmentVariableA("SX_CREPLACE", nullptr, 0) > 0) {
                     // The same strokes with the color replacement tool (blue, Color mode).
                     tool = viewTool[0] = Tool::ColorReplace;
@@ -751,14 +761,20 @@ void App::DemoTick() {
                 exportAs.trim = true;
                 exportAs.transparent = true;
                 exportAs.scales = {{1.0f, ""}, {0.5f, "@0.5x"}};
+                d.dirty = false;
                 ExportAsRun(*a, std::string(exdir) + "\\layers.png");
-                Log("[exportas] %s", statusMsg.c_str());
-                exportAs.format = 1;
+            }
+            if (frameCounter > 14 && frameCounter < 60 && !exportAsJob && exportAs.area == 2) {
+                Log("[exportas] %s, dirty %d", statusMsg.c_str(), (int)d.dirty);
+                exportAs.format = 2;  // TIFF 16 bits, flattened on white, trimmed
                 exportAs.area = 0;
-                exportAs.trim = false;
-                exportAs.scales = {{2.0f, "@2x"}};
-                ExportAsRun(*a, std::string(exdir) + "\\whole.jpg");
+                exportAs.transparent = false;
+                exportAs.scales = {{2.0f, "@2x"}, {2.0f, "@2x"}};  // (twice: numbered, not overwritten)
+                ExportAsRun(*a, std::string(exdir) + "\\whole.tif");
+            }
+            if (frameCounter > 20 && !exportAsJob && exportAs.area == 0 && exports.empty()) {
                 Log("[exportas] %s, layers visible after: %d", statusMsg.c_str(), (int)std::count_if(d.S().layers.begin(), d.S().layers.end(), [](const Layer& l) { return l.visible; }));
+                exportAs.area = -1;
             }
             return;
         }

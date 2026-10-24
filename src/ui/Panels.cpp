@@ -1493,6 +1493,7 @@ void App::DrawBrush() {
         if (tool == Tool::Brush || tool == Tool::Eraser) {
             BrushTipPicker(b);
             td = TipDef(b);
+            if (v) SymmetryOptions(*v->doc);
         }
         if (td) {
             EffectInstance fx;

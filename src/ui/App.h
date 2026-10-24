@@ -819,6 +819,16 @@ private:
     BrushSettings retouch;
     float retouchStrength = 0.5f;
     int colorReplaceMode = 2;          // 0 hue, 1 saturation, 2 color, 3 luminosity
+    // Painting symmetry (brush, eraser on images): every dab repeated around a center.
+    struct {
+        int mode = 0;        // 0 off, 1 vertical axis, 2 horizontal axis, 3 both axes, 4 radial, 5 mandala (radial + mirror)
+        int segments = 6;
+        float2 center = {-1, -1};  // document pixels (negative: the document's center)
+        float angle = 0;     // degrees, turns the axes
+    } paintSym;
+    void EmitDabsRaw(DocView& v, const std::vector<Dab>& dabs, const std::vector<float4>* extra);
+    void SymmetryOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
+    void SymmetryOptions(Document& d);
     float colorReplaceTolerance = 0.3f;
     // Mixer brush: pickup of the canvas (wet), reload with the color (load) per dab, flow, clean between strokes.
     struct {
@@ -1328,9 +1338,14 @@ private:
         std::vector<std::pair<float, std::string>> scales = {{1.0f, ""}};
         gpu::ReadbackPtr selRb;
         Rect selRect;
+        DocView* selFor = nullptr;  // the document / selection selRect was read for
+        Id selId = 0;
     } exportAs;
+    struct ExportAsJob;
+    std::shared_ptr<ExportAsJob> exportAsJob;
     void DrawExportAsWindow();
     void ExportAsRun(DocView& v, const std::string& basePath);
+    void ExportAsTick();
     // Action editor (ActionsEditor.cpp).
     int actionStepSel = -1, builtinSel = -1;  // builtinSel >= 0: a built-in action is shown
     std::string actionFxFilter;

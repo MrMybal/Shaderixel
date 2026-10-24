@@ -185,7 +185,7 @@ void App::DrawImageDialogs() {
     PerspectivePasteTick();
     TrimTick();
     DrawContentScaleProgress();
-    if (!carveJob && !animExport) CloseJobModal();
+    if (!carveJob && !animExport && !exportAsJob) CloseJobModal();
     if (cropBoundsRb && cropBoundsRb->ready) {
         auto rb = cropBoundsRb;
         cropBoundsRb.reset();
