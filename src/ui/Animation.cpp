@@ -10,6 +10,7 @@
 #include <imgui_internal.h>
 #include <cmath>
 #include <deque>
+#include <set>
 
 namespace sx {
 
@@ -66,6 +67,20 @@ u64 HashEntries(const std::vector<LayerComp::Entry>& es) {
     return h;
 }
 
+// Thumbnail / onion state maps: per view (each view's renderer holds its own textures).
+u64 ViewKey(const void* v, Id id) { return (u64)id * 0x9E3779B97F4A7C15ull ^ (u64)(uintptr_t)v; }
+
+// What the frames' images depend on besides their layer states: the pixels (not those of smart layers, which a
+// frame's placement re-renders) and the history position.
+u64 ContentHash(const Document& d, const History& h) {
+    std::set<Id> smart;
+    for (auto& l : d.S().layers) if (l.kind == LayerKind::Smart && l.surface) smart.insert(l.surface);
+    u64 x = ((u64)h.Cursor() << 32) ^ h.Count();
+    for (auto& [id, sf] : d.S().surfaces)
+        if (!smart.count(id)) x += (sf.version * 0x9E3779B97F4A7C15ull) ^ (id * 1099511628211ull);  // (order independent)
+    return x;
+}
+
 std::string DelayLabel(float d) {
     char b[32];
     if (d <= 0) snprintf(b, sizeof(b), "0 s");
@@ -86,6 +101,7 @@ struct App::AnimExportJob {
     std::vector<LayerComp::Entry> restore;
     Id restoreFrame = 0;
     std::string error;
+    bool cancel = false;
 };
 
 void App::AnimCaptureEntries(Document& d, std::vector<LayerComp::Entry>& out) {
@@ -96,6 +112,7 @@ void App::AnimCaptureEntries(Document& d, std::vector<LayerComp::Entry>& out) {
 
 void App::ApplyAnimEntries(DocView& v, const std::vector<LayerComp::Entry>& entries) {
     Document& d = *v.doc;
+    const bool wasDirty = d.dirty;  // showing a frame is not an edit (thumbnails, playback, export)
     bool moved = false;
     for (auto& en : entries) {
         Layer* l = d.FindLayer(en.layer);
@@ -116,6 +133,7 @@ void App::ApplyAnimEntries(DocView& v, const std::vector<LayerComp::Entry>& entr
         Prepare(v);
         SyncSmartLayers(v);
     }
+    d.dirty = wasDirty;
 }
 
 void App::ApplyAnimFrame(DocView& v, Id frameId) {
@@ -159,6 +177,12 @@ void App::AnimTween(DocView& v, int index, int count) {
             }
             f.entries.push_back(std::move(en));
         }
+        for (auto& b : B.entries)
+            if (!find(A, b.layer)) {
+                LayerComp::Entry en = b;  // only in the next frame: fades in
+                en.opacity = (b.visible ? b.opacity : 0.0f) * t;
+                f.entries.push_back(std::move(en));
+            }
         added.push_back(std::move(f));
     }
     frames.insert(frames.begin() + index + 1, added.begin(), added.end());
@@ -201,6 +225,8 @@ void App::AnimTick() {
         }
         DocView& v = *J.view;
         auto& frames = v.doc->S().animFrames;
+        DrawJobModal("Export de l'animation", (float)J.written / std::max(1, J.total), &J.cancel);
+        if (J.cancel) J.next = (int)frames.size();  // nothing more rendered; the frames in flight are written
         if (J.next < (int)frames.size() && J.pending.size() < 3) {
             ApplyAnimEntries(v, frames[J.next].entries);
             Prepare(v);
@@ -227,6 +253,7 @@ void App::AnimTick() {
             ApplyAnimEntries(v, J.restore);
             v.doc->S().activeFrame = J.restoreFrame;
             if (!closed && J.error.empty()) J.error = "écriture du fichier impossible";
+            if (J.cancel) J.error = "interrompu (" + std::to_string(J.written) + " image(s) écrites)";
             Status(J.error.empty() ? "Animation exportée : " + std::to_string(J.written) + " image(s), " + J.path : "Export de l'animation : " + J.error);
             animExport.reset();
         }
@@ -268,6 +295,13 @@ void App::AnimTick() {
     if (i < 0) return;
     std::vector<LayerComp::Entry> now;
     AnimCaptureEntries(*v->doc, now);
+    // A layer added since: every frame gets it as it is now (else each frame would show whatever was applied last).
+    for (auto& f : s.animFrames)
+        for (auto& x : now) {
+            bool has = false;
+            for (auto& en : f.entries) has |= en.layer == x.layer;
+            if (!has) f.entries.push_back(x);
+        }
     if (!SameEntries(now, s.animFrames[i].entries)) {
         // Layers missing from the current state (deleted) are kept in the frame (undo may bring them back).
         for (auto& en : s.animFrames[i].entries) {
@@ -290,7 +324,7 @@ void App::AnimOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
     const ImVec2 a(canvasMin.x + v.pan.x, canvasMin.y + v.pan.y);
     const ImVec2 b(a.x + v.doc->Width() * v.zoom, a.y + v.doc->Height() * v.zoom);
     for (int i : {cur - 1, cur + 1}) {
-        if (i < 0 || i >= (int)s.animFrames.size() || (i > cur && !anim.onionNext) || !anim.onionImgs.count(s.animFrames[i].id)) continue;
+        if (i < 0 || i >= (int)s.animFrames.size() || (i > cur && !anim.onionNext) || !anim.onionImgs.count(ViewKey(&v, s.animFrames[i].id))) continue;
         gpu::Texture* t = v.renderer.CachedThumbnail(kAnimOnionBit | (s.animFrames[i].id & 0xffffffffffffull));
         if (!t) continue;
         // Before: tinted red, after: tinted green (like the usual onion skins).
@@ -348,6 +382,7 @@ void App::DrawAnimationPanel() {
         anim.view = v;
         anim.acc = 0;
         anim.played = 0;
+        if (anim.playing && cur == (int)frames.size() - 1 && frames.size() > 1) go(0), anim.playing = true;  // (ended: from the start)
     }
     ImGui::SameLine();
     if (ImGui::ArrowButton("##next", ImGuiDir_Right)) go((cur + 1) % (int)frames.size());
@@ -395,8 +430,8 @@ void App::DrawAnimationPanel() {
         Edit e(d, v->history, "Supprimer l'image");
         frames.erase(frames.begin() + cur);
         cur = std::min(cur, (int)frames.size() - 1);
-        e.Commit();
         ApplyAnimFrame(*v, frames[cur].id);
+        e.Commit();
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
@@ -459,7 +494,7 @@ void App::DrawAnimationPanel() {
         ImDrawList* dl = ImGui::GetWindowDrawList();
         dl->AddRectFilled(p, ImVec2(p.x + tw + 8 * dpi, p.y + th + 8 * dpi), ImGui::GetColorU32(sel ? ImGuiCol_HeaderActive : ImGuiCol_FrameBg), 4 * dpi);
         const u64 key = kAnimThumbBit | (f.id & 0xffffffffffffull);
-        gpu::Texture* t = anim.thumbs.count(f.id) ? v->renderer.CachedThumbnail(key) : nullptr;
+        gpu::Texture* t = anim.thumbs.count(ViewKey(v, f.id)) ? v->renderer.CachedThumbnail(key) : nullptr;
         const ImVec2 a(p.x + 4 * dpi, p.y + 4 * dpi), b(p.x + 4 * dpi + tw, p.y + 4 * dpi + th);
         if (t) dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), a, b);
         else dl->AddText(ImVec2(a.x + 6 * dpi, a.y + 6 * dpi), ImGui::GetColorU32(ImGuiCol_TextDisabled), "...");
@@ -497,10 +532,10 @@ void App::DrawAnimationPanel() {
     // Thumbnails: a frame whose layers' state or the document changed is rendered again, one every few frames
     // (applied, evaluated, previewed, then the current state put back).
     if (!anim.playing && !exporting && ++anim.thumbWait >= 8) {
-        const u64 content = ((u64)v->history.Cursor() << 32) ^ v->history.Count() ^ ((u64)(u32)tw << 48) ^ ((u64)(u32)th << 40) ^ ((u64)d.Width() << 20) ^ d.Height();
+        const u64 content = ContentHash(d, v->history) ^ ((u64)(u32)tw << 48) ^ ((u64)(u32)th << 40) ^ ((u64)d.Width() << 20) ^ d.Height();
         for (int i = 0; i < (int)frames.size(); ++i) {
             const u64 want = HashEntries(frames[i].entries) ^ content;
-            if (anim.thumbs.count(frames[i].id) && anim.thumbs[frames[i].id] == want) continue;
+            if (anim.thumbs.count(ViewKey(v, frames[i].id)) && anim.thumbs[ViewKey(v, frames[i].id)] == want) continue;
             std::vector<LayerComp::Entry> keep;
             if (i != cur) {
                 AnimCaptureEntries(d, keep);
@@ -510,7 +545,7 @@ void App::DrawAnimationPanel() {
             if (gpu::Texture* img = v->renderer.EvaluateComplete(d, *ctx))
                 v->renderer.Thumbnail(*ctx, kAnimThumbBit | (frames[i].id & 0xffffffffffffull), img, want, (u32)tw, (u32)th);
             if (i != cur) ApplyAnimEntries(*v, keep);
-            anim.thumbs[frames[i].id] = want;
+            anim.thumbs[ViewKey(v, frames[i].id)] = want;
             anim.thumbWait = 0;
             break;
         }
@@ -521,7 +556,7 @@ void App::DrawAnimationPanel() {
                 u32 ow, oh;
                 OnionSize(d.Width(), d.Height(), ow, oh);
                 const u64 want = HashEntries(frames[i].entries) ^ content ^ ((u64)ow << 24) ^ 0x0710;
-                if (anim.onionImgs.count(frames[i].id) && anim.onionImgs[frames[i].id] == want) continue;
+                if (anim.onionImgs.count(ViewKey(v, frames[i].id)) && anim.onionImgs[ViewKey(v, frames[i].id)] == want) continue;
                 std::vector<LayerComp::Entry> keep;
                 AnimCaptureEntries(d, keep);
                 ApplyAnimEntries(*v, frames[i].entries);
@@ -529,7 +564,7 @@ void App::DrawAnimationPanel() {
                 if (gpu::Texture* img = v->renderer.EvaluateComplete(d, *ctx))
                     v->renderer.Thumbnail(*ctx, kAnimOnionBit | (frames[i].id & 0xffffffffffffull), img, want, ow, oh);
                 ApplyAnimEntries(*v, keep);
-                anim.onionImgs[frames[i].id] = want;
+                anim.onionImgs[ViewKey(v, frames[i].id)] = want;
                 anim.thumbWait = 0;
                 break;
             }

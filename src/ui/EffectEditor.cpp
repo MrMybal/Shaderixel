@@ -776,10 +776,12 @@ void App::DrawEffectEditor() {
                 for (int i = 0; i < (int)order.size(); ++i) order[i] = i;
                 std::stable_sort(order.begin(), order.end(), [&](int x, int y) { return stops[x].pos < stops[y].pos; });
                 std::vector<RampStop> sorted;
+                int newSel = rampSel;
                 for (int i = 0; i < (int)order.size(); ++i) {
                     sorted.push_back(stops[order[i]]);
-                    if (order[i] == rampSel) rampSel = i;
+                    if (order[i] == rampSel) newSel = i;
                 }
+                rampSel = newSel;
                 sel->text = FormatRamp(sorted);
                 live = true;
             }

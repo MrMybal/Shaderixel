@@ -613,5 +613,6 @@
  "Montre en transparence l'image précédente (et la suivante) sur le canevas.": "Shows the previous (and next) frame faintly over the canvas.",
  "Image suivante aussi": "Next frame too",
  "Limiter à la tuile UDIM sous le pinceau": "Limit to the UDIM tile under the brush",
- "Modèle UDIM : un trait ne peint que la tuile (1001, 1002...) sur laquelle il commence.": "UDIM model: a stroke only paints the tile (1001, 1002...) it starts on."
+ "Modèle UDIM : un trait ne peint que la tuile (1001, 1002...) sur laquelle il commence.": "UDIM model: a stroke only paints the tile (1001, 1002...) it starts on.",
+ "Export de l'animation": "Exporting the animation"
 }

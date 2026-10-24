@@ -54,7 +54,8 @@ bool GifWriter::Open(const std::string& path, u32 fps, u32 maxWidth, std::string
     if (FAILED(hr)) return fail("encodeur GIF indisponible", hr);
     // Endless loop (NETSCAPE2.0 application extension).
     IWICMetadataQueryWriter* meta = nullptr;
-    if (SUCCEEDED(impl->encoder->GetMetadataQueryWriter(&meta)) && meta) {
+    // Played once: no loop extension at all (a repeat count of 0 would mean endless).
+    if (loops != 1 && SUCCEEDED(impl->encoder->GetMetadataQueryWriter(&meta)) && meta) {
         PROPVARIANT v;
         PropVariantInit(&v);
         static UCHAR app[] = {'N', 'E', 'T', 'S', 'C', 'A', 'P', 'E', '2', '.', '0'};
@@ -117,7 +118,7 @@ bool GifWriter::Write(const u8* rgba, u32 width, u32 height, double seconds) {
         // Frame delay in 1/100 s; the remainder carried so the mean rate stays right (e.g. 30 fps: 3, 3, 4).
         impl->carry += seconds >= 0 ? seconds * 100.0 : 100.0 / impl->fps;
         const u16 delay = (u16)std::max(2.0, std::floor(impl->carry));
-        impl->carry -= delay;
+        impl->carry = std::max(0.0, impl->carry - delay);  // (a frame lengthened to the minimum does not shorten the next ones)
         IWICMetadataQueryWriter* meta = nullptr;
         if (SUCCEEDED(frame->GetMetadataQueryWriter(&meta)) && meta) {
             PROPVARIANT v;

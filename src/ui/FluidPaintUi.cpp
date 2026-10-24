@@ -272,6 +272,7 @@ void App::FluidInput2D(DocView& v, float2 dp, float2 canvasMin, bool hovered) {
     } else {
         const float2 dd = dp - fluidRun.lastDoc;
         const float len = Length(dd), step = std::max(rad * 0.3f, 0.75f);
+        if (len > 0.5f) fluidRun.bristleAngle = std::atan2(dd.y, dd.x);  // bristle grooves along the motion, even one dab at a time
         const int n = std::min(256, (int)std::floor(len / step));
         for (int i = 1; i <= n; ++i) pts.push_back(fluidRun.lastDoc + dd * (i * step / std::max(len, 1e-4f)));
         if (pts.empty()) pts.push_back(dp);
@@ -436,10 +437,6 @@ void App::FluidTick() {
         fluidRun.gravKey = key;
     }
     if (!fluidRun.dabs.empty()) {
-        if (!fluidRun.world && fluidRun.dabs.size() >= 2) {
-            const float4 a = fluidRun.dabs[fluidRun.dabs.size() - 2], b = fluidRun.dabs.back();
-            if (std::abs(b.x - a.x) + std::abs(b.y - a.y) > 1e-3f) fluidRun.bristleAngle = std::atan2(b.y - a.y, b.x - a.x);
-        }
         p.bristleAngle = fluidRun.bristleAngle;
         v->renderer.FluidDeposit(*ctx, fluidRun.dabs, fluidRun.ex, fluidRun.world, fluidRun.erase, p);
         fluidRun.dabs.clear();

@@ -54,7 +54,7 @@ void App::DrawImageMenu() {
         dlgW = (int)d.Width();
         dlgH = (int)d.Height();
     }
-    if (ImGui::MenuItem("Mise à l'échelle selon le contenu...", nullptr, false, !carveJob)) {
+    if (ImGui::MenuItem("Mise à l'échelle selon le contenu...", nullptr, false, !carveJob && !v->mesh)) {  // (3D: the paint follows the UVs)
         imageDialog = 3;
         dlgW = (int)d.Width();
         dlgH = (int)d.Height();
@@ -91,6 +91,7 @@ void App::DrawImageDialogs() {
     ContentScaleTick();
     AnimTick();
     DrawContentScaleProgress();
+    if (!carveJob && !animExport) CloseJobModal();
     if (cropBoundsRb && cropBoundsRb->ready) {
         auto rb = cropBoundsRb;
         cropBoundsRb.reset();

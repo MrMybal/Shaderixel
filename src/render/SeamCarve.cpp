@@ -12,6 +12,7 @@ namespace sx {
 namespace {
 
 constexpr float kProtect = 1e5f;
+constexpr float kRemove = 200.0f;  // (small enough that the sums along a seam keep the gradient costs in float precision)
 constexpr float kSaliency = 0.6f;
 
 // One direction (width): the luminance and the mask of the current image, column indices of the original.
@@ -167,7 +168,7 @@ SeamCarveResult SeamCarve(const SeamCarveInput& in, std::atomic<float>* progress
     const bool hasMask = in.maskMode && in.mask.size() >= (size_t)w * h;
     if (hasMask)
         for (size_t i = 0; i < bias.size(); ++i)
-            if (in.mask[i] > 127) bias[i] = in.maskMode == 1 ? kProtect : -kProtect;
+            if (in.mask[i] > 127) bias[i] = in.maskMode == 1 ? kProtect : -kRemove;
     const bool both = nw != w && nh != h;
     // Width first.
     if (!CarveWidth(lum, bias, w, h, nw, r.mapX, progress, 0.0f, both ? 0.5f : 1.0f, cancel)) { r.error = "annulé"; return r; }
@@ -179,7 +180,7 @@ SeamCarveResult SeamCarve(const SeamCarveInput& in, std::atomic<float>* progress
             const float sx = r.mapX[(size_t)y * nw + x];
             SampleRowX(in.rgba, w, y, sx, px);
             lumT[(size_t)x * h + y] = lumOf(px);
-            if (hasMask) biasT[(size_t)x * h + y] = bias[(size_t)y * w + std::clamp((int)std::lround(sx), 0, w - 1)];
+            biasT[(size_t)x * h + y] = bias[(size_t)y * w + std::clamp((int)std::lround(sx), 0, w - 1)];  // (saliency and selection)
         }
     std::vector<float> mapT;
     if (!CarveWidth(lumT, biasT, h, nw, nh, mapT, progress, both ? 0.5f : 0.0f, 1.0f, cancel)) { r.error = "annulé"; return r; }

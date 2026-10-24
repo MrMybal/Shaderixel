@@ -601,12 +601,12 @@ private:
         DocView* view = nullptr;
         double acc = 0;
         int played = 0, tweenCount = 3;
-        std::unordered_map<Id, u64> thumbs;  // frame -> state its thumbnail shows
+        std::unordered_map<u64, u64> thumbs;  // (view, frame) -> state its thumbnail shows
         int thumbWait = 0;
         // Onion skins: the frames before / after the selected one, drawn faintly over the canvas.
         bool onion = false, onionNext = true;
         float onionOpacity = 0.3f;
-        std::unordered_map<Id, u64> onionImgs;  // frame -> state its onion image shows
+        std::unordered_map<u64, u64> onionImgs;  // (view, frame) -> state its onion image shows
     } anim;
     void AnimOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     void DrawAnimationPanel();
@@ -623,6 +623,9 @@ private:
     void StartContentScale(DocView& v, u32 w, u32 h, int mode);
     void ContentScaleTick();
     void DrawContentScaleProgress();
+    // Modal progress of a job (content-aware scale, animation export): the document stays as the job expects.
+    void DrawJobModal(const char* title, float progress, bool* cancel);
+    void CloseJobModal();
     void ApplyCanvasOp(DocView& v, u32 w, u32 h, const float m[6], int interp, const char* label);
     void RotateCanvas(DocView& v, int op);
     void ApplyCrop(DocView& v, Rect r);

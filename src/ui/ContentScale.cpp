@@ -111,19 +111,32 @@ void App::ContentScaleTick() {
     carveJob.reset();
 }
 
-// Progress (bottom of the canvas area) while the seams are computed.
+// Progress while the seams are computed: modal, the document must not change before the maps are applied.
 void App::DrawContentScaleProgress() {
     if (!carveJob) return;
+    bool cancel = false;
+    DrawJobModal("Mise à l'échelle selon le contenu", carveJob->progress.load(), &cancel);
+    if (cancel) carveJob->cancel = true;
+}
+
+void App::DrawJobModal(const char* title, float progress, bool* cancel) {
+    if (!ImGui::IsPopupOpen("##jobmodal")) ImGui::OpenPopup("##jobmodal");
     const ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + vp->WorkSize.y - 60 * dpi), ImGuiCond_Always, ImVec2(0.5f, 1));
-    ImGui::SetNextWindowBgAlpha(0.9f);
-    if (ImGui::Begin("##carveprog", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
-                                                 ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoFocusOnAppearing)) {
-        ImGui::TextUnformatted("Mise à l'échelle selon le contenu");
-        ImGui::ProgressBar(carveJob->progress.load(), ImVec2(260 * dpi, 0));
-        if (ImGui::Button("Interrompre", ImVec2(260 * dpi, 0))) carveJob->cancel = true;
+    ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.5f, vp->WorkPos.y + vp->WorkSize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    if (ImGui::BeginPopupModal("##jobmodal", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::TextUnformatted(title);
+        ImGui::ProgressBar(progress, ImVec2(300 * dpi, 0));
+        if (cancel && ImGui::Button("Interrompre", ImVec2(300 * dpi, 0))) *cancel = true;
+        ImGui::EndPopup();
     }
-    ImGui::End();
+}
+
+void App::CloseJobModal() {
+    if (!ImGui::IsPopupOpen("##jobmodal")) return;
+    if (ImGui::BeginPopupModal("##jobmodal", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
 }
 
 }  // namespace sx
