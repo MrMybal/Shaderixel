@@ -62,6 +62,11 @@ void App::GradientEditorUI() {
             const float4 b = StopColor(order[i], fg, bg);
             if (t <= order[i].pos) {
                 const float k = order[i].pos > pa ? (t - pa) / (order[i].pos - pa) : 1.0f;
+                if (!gradPerceptual) {
+                    // Like the result: the colors mixed in linear light.
+                    auto mix = [&](float x, float y) { return LinearToSrgb(SrgbToLinear(x) + (SrgbToLinear(y) - SrgbToLinear(x)) * k); };
+                    return float4{mix(a.x, b.x), mix(a.y, b.y), mix(a.z, b.z), a.w + (b.w - a.w) * k};
+                }
                 return float4{a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, a.z + (b.z - a.z) * k, a.w + (b.w - a.w) * k};
             }
             a = b;
@@ -79,10 +84,14 @@ void App::GradientEditorUI() {
     }
     dl->AddRect(p0, ImVec2(p0.x + w, p0.y + h), IM_COL32(0, 0, 0, 120));
     static int dragStop = -1;
+    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) dragStop = -1;  // (a drag never resumes later)
     int hoverStop = -1;
     const ImVec2 m = ImGui::GetIO().MousePos;
+    // Reversed: the markers drawn where their colors appear in the bar.
+    auto barX = [&](float pos) { return p0.x + w * (gradReverse ? 1 - pos : pos); };
+    auto posAt = [&](float x) { const float t = std::clamp((x - p0.x) / w, 0.0f, 1.0f); return gradReverse ? 1 - t : t; };
     for (int i = 0; i < (int)S.size(); ++i) {
-        const float x = p0.x + w * S[i].pos;
+        const float x = barX(S[i].pos);
         const ImVec2 tri[3] = {ImVec2(x, p0.y + h), ImVec2(x - mk, p0.y + h + mk * 1.6f), ImVec2(x + mk, p0.y + h + mk * 1.6f)};
         const float4 c = StopColor(S[i], fg, bg);
         dl->AddTriangleFilled(tri[0], tri[1], tri[2], ImGui::ColorConvertFloat4ToU32(ImVec4(c.x, c.y, c.z, 1)));
@@ -95,7 +104,7 @@ void App::GradientEditorUI() {
             dragStop = gradSel = hoverStop;
         } else {
             // A new stop with the color the gradient has there.
-            const float t = std::clamp((m.x - p0.x) / w, 0.0f, 1.0f);
+            const float t = posAt(m.x);
             if (S.size() < 16) {
                 S.push_back({t, colorAt(t), 0});
                 gradSel = dragStop = (int)S.size() - 1;
@@ -103,11 +112,12 @@ void App::GradientEditorUI() {
         }
     }
     if (dragStop >= 0) {
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && dragStop < (int)S.size()) S[dragStop].pos = std::clamp((m.x - p0.x) / w, 0.0f, 1.0f);
+        if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && dragStop < (int)S.size()) S[dragStop].pos = posAt(m.x);
         else dragStop = -1;
     }
-    if (barHovered && hoverStop >= 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && S.size() > 2) {
+    if (barHovered && hoverStop >= 0 && dragStop < 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && S.size() > 2) {
         S.erase(S.begin() + hoverStop);
+        if (gradSel > hoverStop) --gradSel;  // (the selected stop stays the same one)
         gradSel = std::min(gradSel, (int)S.size() - 1);
     }
     ui::HelpTooltip("Clic sur la barre : ajouter un arrêt. Glisser un repère : le déplacer. Clic droit : le supprimer.");

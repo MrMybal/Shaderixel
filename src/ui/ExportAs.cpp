@@ -40,6 +40,7 @@ struct App::ExportAsJob {
     };
     std::vector<Task> tasks;
     size_t next = 0;
+    int queued = 0;  // images actually sent to be written
     std::vector<std::pair<Id, bool>> visible;  // to restore after a per-layer export
     bool wasDirty = false, perLayer = false, cancel = false;
     Id shownLayer = ~0ull;
@@ -223,6 +224,7 @@ void App::ExportAsTick() {
                     pe.trim = J.trim;
                     pe.matte = J.keepAlpha ? float4{0, 0, 0, -1} : float4{J.matte.x, J.matte.y, J.matte.z, 1};
                     exports.push_back(std::move(pe));
+                    ++J.queued;
                 }
             }
     }
@@ -235,7 +237,7 @@ void App::ExportAsTick() {
             Prepare(v);
         }
         d.dirty = J.wasDirty;  // (showing the layers one by one is not an edit)
-        Status("Exporter sous : " + std::to_string(J.next) + " image(s)" + (J.cancel ? " (interrompu)" : "") + " vers " + J.dir);
+        Status("Exporter sous : " + std::to_string(J.queued) + " image(s)" + (J.cancel ? " (interrompu)" : "") + " vers " + J.dir);
         exportAsJob.reset();
     }
 }

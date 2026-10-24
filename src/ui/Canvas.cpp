@@ -854,12 +854,18 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
     std::vector<Dab> all;
     std::vector<float4> allExtra;
     all.reserve(dabs.size() * xfs.size());
-    for (const Xf& x : xfs) {
-        const float cr = std::cos(x.rot), sr = std::sin(x.rot), ca = std::cos(2 * x.axis), sa = std::sin(2 * x.axis);
-        for (size_t i = 0; i < dabs.size(); ++i) {
+    std::vector<float2> placed;  // copies of the current dab (one landing on another, on an axis, is laid once)
+    for (size_t i = 0; i < dabs.size(); ++i) {
+        placed.clear();
+        for (const Xf& x : xfs) {
+            const float cr = std::cos(x.rot), sr = std::sin(x.rot), ca = std::cos(2 * x.axis), sa = std::sin(2 * x.axis);
             float2 p = float2{dabs[i].x, dabs[i].y} - c;
             if (x.mirror) p = {ca * p.x + sa * p.y, sa * p.x - ca * p.y};  // reflection across the axis
             p = float2{cr * p.x - sr * p.y, sr * p.x + cr * p.y} + c;
+            bool twin = false;
+            for (const float2& q : placed) twin |= Length(q - p) < std::max(dabs[i].radius * 0.3f, 0.75f);
+            if (twin) continue;
+            placed.push_back(p);
             Dab d = dabs[i];
             d.x = p.x;
             d.y = p.y;
@@ -868,6 +874,14 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
                 float4 e0 = (*extra)[i * 2], e1 = (*extra)[i * 2 + 1];
                 if (x.mirror) e0.y = 2 * x.axis - e0.y;  // the stroke's direction mirrored, then turned
                 e0.y += x.rot;
+                // Pen tilt (vector) and rotation follow the same mirror / turn.
+                float2 tilt = {e1.x, e1.y};
+                if (x.mirror) {
+                    tilt = {ca * tilt.x + sa * tilt.y, sa * tilt.x - ca * tilt.y};
+                    e1.z = 2 * x.axis - e1.z;
+                }
+                tilt = {cr * tilt.x - sr * tilt.y, sr * tilt.x + cr * tilt.y};
+                e1 = {tilt.x, tilt.y, e1.z + x.rot, e1.w};
                 allExtra.push_back(e0);
                 allExtra.push_back(e1);
             }
@@ -901,7 +915,7 @@ void App::SymmetryOptions(Document& d) {
     ui::HelpTooltip("Chaque touche du pinceau est répétée en miroir ou en rotation autour du centre.");
     if (paintSym.mode >= 4) ImGui::SliderInt("Segments", &paintSym.segments, 2, 32);
     if (paintSym.mode) {
-        ImGui::SliderFloat("Angle des axes", &paintSym.angle, -180, 180, "%.0f°");
+        if (paintSym.mode != 4) ImGui::SliderFloat("Angle des axes", &paintSym.angle, -180, 180, "%.0f°");  // (radial: turning has no effect)
         float2 c = paintSym.center.x < 0 ? float2{d.Width() * 0.5f, d.Height() * 0.5f} : paintSym.center;
         if (ImGui::DragFloat2("Centre", &c.x, 1, 0, (float)std::max(d.Width(), d.Height()), "%.0f")) paintSym.center = c;
         if (ImGui::SmallButton("Centre du document")) paintSym.center = {-1, -1};
