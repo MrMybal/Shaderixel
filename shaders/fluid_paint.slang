@@ -25,7 +25,8 @@ cbuffer Root : register(b0)
                       // 1024 / 2048 load (pass 8): roughness (t10) / metal (t11) layers bound
     float gDt;
     float gSeed;
-    float3 _pad;
+    int2 gOffset;     // passes 1-4: the dispatch covers the active area only (its first texel)
+    float _pad;
 };
 
 cbuffer Params : register(b1)
@@ -439,7 +440,7 @@ void Composite(int2 p)
 [numthreads(8, 8, 1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
-    int2 p = int2(id.xy);
+    int2 p = int2(id.xy) + ((gPass >= 1 && gPass <= 4) ? gOffset : int2(0, 0));
     if (gPass == 4)
     {
         if (any(id.xy >= gDocSize)) return;

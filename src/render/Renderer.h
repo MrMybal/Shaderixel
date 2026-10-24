@@ -408,6 +408,12 @@ private:
         gpu::ReadbackPtr rbDropA, rbDropB;
         bool resetDrops = false;
         bool replace = false;  // the layers' paint became the liquid
+        // Image documents: simulated and composited on the active area only (simulation texels).
+        bool windowed = false, finalComposite = false;
+        Rect simRect, paintRect, dabsSince;
+        gpu::TexturePtr boundsTex;
+        gpu::ReadbackPtr rbBounds;
+        int boundsFrame = 0, boundsGrowth = 0;
     } fluid;
     void FluidPortals(gpu::CommandContext& ctx);
     void FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float dt, const FluidParams& p, const std::vector<float4>* dabs,

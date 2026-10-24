@@ -16,8 +16,14 @@ struct FluidRoot {
     u32 w, h, docW, docH;
     u32 pass, kind, flags;
     float dt, seed;
-    float pad[3];
+    i32 ox = 0, oy = 0;  // first texel of the dispatch (active area)
+    float pad = 0;
 };
+
+Rect GrowRect(const Rect& r, int k, int W, int H) {
+    if (r.Empty()) return r;
+    return Rect{r.x0 - k, r.y0 - k, r.x1 + k, r.y1 + k}.Clipped(W, H);
+}
 
 struct FluidCB {
     float4 gravity, phys, phys2, look, look2, color, mat, emissive, bristle;
@@ -96,7 +102,7 @@ bool Renderer::FluidBegin(Document& doc, gpu::CommandContext& ctx, const std::ve
         d.uav[1] = F.f1[k].get();
         d.uav[2] = F.d0[k].get();
         d.uav[3] = F.d1[k].get();
-        SetConstants(d, FluidRoot{F.w, F.h, doc.Width(), doc.Height(), 5, 0, 0, 0, 0, {0, 0, 0}});
+        SetConstants(d, FluidRoot{F.w, F.h, doc.Width(), doc.Height(), 5, 0, 0, 0, 0});
         Dispatch2D(ctx, d, F.w, F.h);
         d.uav[0] = F.flux[k].get();
         d.uav[1] = F.grav.get();
@@ -109,6 +115,11 @@ bool Renderer::FluidBegin(Document& doc, gpu::CommandContext& ctx, const std::ve
     F.active = true;
     F.replace = false;
     F.time = 0;
+    F.windowed = mesh == nullptr;  // models: portals and drops reach anywhere in the texture
+    F.simRect = F.paintRect = F.dabsSince = {};
+    F.rbBounds.reset();
+    F.boundsFrame = F.boundsGrowth = 0;
+    F.finalComposite = false;
     return true;
 }
 
@@ -160,7 +171,7 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
         if (under) {
             d.srv[9] = under;
             flags |= 256;
-            SetConstants(d, FluidRoot{F.w, F.h, F.docW, F.docH, pass, kind, flags, dt, p.seed, {0, 0, 0}});
+            SetConstants(d, FluidRoot{F.w, F.h, F.docW, F.docH, pass, kind, flags, dt, p.seed});
         }
     }
     if (flags & 64) {
@@ -181,14 +192,18 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
         d.uav[2] = F.d0[o].get();
         d.uav[3] = F.d1[o].get();
     }
-    SetConstants(d, FluidRoot{F.w, F.h, F.docW, F.docH, pass, kind, flags, dt, p.seed, {0, 0, 0}});
+    // Passes 1-3 on the active area only (image documents: where the paint is, grown while it may move).
+    Rect area = {0, 0, (int)F.w, (int)F.h};
+    if (pass >= 1 && pass <= 3 && !F.simRect.Empty()) area = F.simRect;
+    FluidRoot root{F.w, F.h, F.docW, F.docH, pass, kind, flags, dt, p.seed, area.x0, area.y0};
+    SetConstants(d, root);
     d.cbData = &cb;
     d.cbSize = n ? sizeof(FluidCB) : offsetof(FluidCB, dabs);  // the extras follow the full dab array
     if (pass == 7) {
         Dispatch2D(ctx, d, (F.w + 15) / 16, (F.h + 15) / 16);
         return;
     }
-    Dispatch2D(ctx, d, F.w, F.h);
+    Dispatch2D(ctx, d, (u32)area.Width(), (u32)area.Height());
     if (pass == 2) F.fluxCur = 1 - F.fluxCur;
     else if (pass != 0) F.cur = o;
 }
@@ -209,6 +224,24 @@ void Renderer::FluidGravity(gpu::CommandContext& ctx, const FluidParams& p) {
 void Renderer::FluidDeposit(gpu::CommandContext& ctx, const std::vector<float4>& dabs, const std::vector<float4>& ex, bool world, bool erase,
                             const FluidParams& p) {
     if (!fluid.active || dabs.empty()) return;
+    if (fluid.windowed) {
+        if (world) {
+            fluid.simRect = {0, 0, (int)fluid.w, (int)fluid.h};  // (model space: anywhere in the texture)
+        } else {
+            const float sx = (float)fluid.w / std::max(fluid.docW, 1u), sy = (float)fluid.h / std::max(fluid.docH, 1u);
+            for (auto& dab : dabs) {
+                const Rect r = Rect{(int)std::floor((dab.x - dab.z) * sx) - 2, (int)std::floor((dab.y - dab.z) * sy) - 2, (int)std::ceil((dab.x + dab.z) * sx) + 3,
+                                    (int)std::ceil((dab.y + dab.z) * sy) + 3}
+                                   .Clipped((int)fluid.w, (int)fluid.h);
+                if (fluid.simRect.Empty()) fluid.simRect = r;
+                else fluid.simRect.Merge(r);
+                if (fluid.dabsSince.Empty()) fluid.dabsSince = r;  // (kept when the bounds read back come in)
+                else fluid.dabsSince.Merge(r);
+            }
+        }
+        if (fluid.paintRect.Empty()) fluid.paintRect = fluid.simRect;
+        else fluid.paintRect.Merge(fluid.simRect);
+    }
     for (size_t i = 0; i < dabs.size(); i += 512) {
         std::vector<float4> d(dabs.begin() + i, dabs.begin() + std::min(dabs.size(), i + 512));
         std::vector<float4> e(ex.begin() + std::min(ex.size(), i), ex.begin() + std::min(ex.size(), i + 512));
@@ -348,12 +381,13 @@ void Renderer::FluidLoadLayers(gpu::CommandContext& ctx, const FluidParams& p, f
     d.uav[1] = F.f1[o].get();
     d.uav[2] = F.d0[o].get();
     d.uav[3] = F.d1[o].get();
-    SetConstants(d, FluidRoot{F.w, F.h, F.docW, F.docH, 8, 0, flags, 0, p.seed, {0, 0, 0}});
+    SetConstants(d, FluidRoot{F.w, F.h, F.docW, F.docH, 8, 0, flags, 0, p.seed});
     d.cbData = &cb;
     d.cbSize = offsetof(FluidCB, dabs);
     Dispatch2D(ctx, d, F.w, F.h);
     F.cur = o;
     F.replace = true;
+    F.windowed = false;  // the layer's paint may be anywhere
 }
 
 bool Renderer::FluidCollectDrops(gpu::CommandContext& ctx) {
@@ -395,7 +429,51 @@ int Renderer::FluidStep(gpu::CommandContext& ctx, float dt, const FluidParams& p
     const float fastest = p.speed * std::max(p.strength, 0.05f) * 1.6f;
     const int n = std::clamp((int)std::ceil(fastest * dt) + 1, 2, 32);
     const float h = dt / n;
+    FluidState& F = fluid;
+    if (F.windowed) {
+        // The paint's real extent (read back a few frames ago) tightens the area, grown since by the substeps run.
+        if (F.rbBounds && F.rbBounds->ready) {
+            const u32* b = (const u32*)F.rbBounds->data.data();
+            if (F.rbBounds->data.size() >= 16) {
+                Rect r = b[2] > b[0] && b[3] > b[1] ? Rect{(int)b[0], (int)b[1], (int)b[2], (int)b[3]} : Rect{};
+                r = GrowRect(r, F.boundsGrowth + 2, (int)F.w, (int)F.h);
+                // Dabs laid since the request are in the current area: kept (union with the new dabs' area).
+                F.simRect = r.Empty() ? F.dabsSince : (F.dabsSince.Empty() ? r : (Rect{std::min(r.x0, F.dabsSince.x0), std::min(r.y0, F.dabsSince.y0),
+                                                                                       std::max(r.x1, F.dabsSince.x1), std::max(r.y1, F.dabsSince.y1)}));
+            }
+            F.rbBounds.reset();
+        }
+        if (!F.rbBounds && ++F.boundsFrame >= 10 && !F.simRect.Empty()) {
+            F.boundsFrame = 0;
+            auto* init = Kernel("bounds_init.slang");
+            auto* bk = Kernel("bounds.slang");
+            if (init && bk) {
+                Ensure(F.boundsTex, 4, 1, gpu::Format::R32U, "FluidBounds");
+                gpu::DispatchDesc di;
+                di.pipeline = init;
+                di.uav[0] = F.boundsTex.get();
+                di.threadsX = 4;
+                di.threadsY = 1;
+                ctx.Dispatch(di);
+                gpu::DispatchDesc db;
+                db.pipeline = bk;
+                db.srv[0] = F.f0[F.cur].get();
+                db.uav[0] = F.boundsTex.get();
+                struct { u32 w, h, flags; } br = {F.w, F.h, 4u};  // red channel: the wet thickness
+                SetConstants(db, br);
+                Dispatch2D(ctx, db, F.w, F.h);
+                F.rbBounds = ctx.ReadbackTexture(F.boundsTex.get());
+                F.boundsGrowth = 0;
+                F.dabsSince = {};
+            }
+        }
+    }
     for (int i = 0; i < n; ++i) {
+        if (F.windowed) {
+            F.simRect = GrowRect(F.simRect, 1, (int)F.w, (int)F.h);  // the paint moves one texel per substep at most
+            F.paintRect.Merge(F.simRect);
+            ++F.boundsGrowth;
+        }
         FluidDispatch(ctx, 2, 0, h, p, nullptr, nullptr, 0);
         FluidDispatch(ctx, 3, 0, h, p, nullptr, nullptr, 0);
     }
@@ -421,15 +499,35 @@ void Renderer::FluidComposite(Document& doc, gpu::CommandContext& ctx, const Flu
         d.srv[5] = F.grav.get();
         d.srv[9] = pre;
         d.uav[0] = s->tex.get();
-        SetConstants(d, FluidRoot{F.w, F.h, s->tex->Width(), s->tex->Height(), 4, (u32)kind, (F.mesh ? 1u : 0u) | (F.replace ? 512u : 0u), 0, p.seed, {0, 0, 0}});
+        // The layer around the active area (document pixels; the whole layer when not windowed or at the end).
+        const u32 SW = s->tex->Width(), SH = s->tex->Height();
+        Rect area = {0, 0, (int)SW, (int)SH};
+        const Rect& src = F.finalComposite ? F.paintRect : F.simRect;
+        if (F.windowed && !src.Empty()) {
+            const float kx = (float)SW / F.w, ky = (float)SH / F.h;
+            area = Rect{(int)std::floor(src.x0 * kx) - 2, (int)std::floor(src.y0 * ky) - 2, (int)std::ceil(src.x1 * kx) + 2, (int)std::ceil(src.y1 * ky) + 2}
+                       .Clipped((int)SW, (int)SH);
+        } else if (F.windowed) {
+            return;  // nothing painted yet
+        }
+        SetConstants(d, FluidRoot{F.w, F.h, SW, SH, 4, (u32)kind, (F.mesh ? 1u : 0u) | (F.replace ? 512u : 0u), 0, p.seed, area.x0, area.y0});
         d.cbData = &cb;
         d.cbSize = offsetof(FluidCB, dabs);
-        Dispatch2D(ctx, d, s->tex->Width(), s->tex->Height());
-        doc.TouchSurface(surface);
+        d.uavRect[0] = area;
+        Dispatch2D(ctx, d, (u32)area.Width(), (u32)area.Height());
+        doc.TouchSurface(surface, &area);
     };
     one(strokeSurface, strokePre.get(), F.kinds.empty() ? 0 : F.kinds[0]);
     for (size_t i = 0; i < strokeSlots.size(); ++i) one(strokeSlots[i].surface, strokeSlots[i].pre.get(), i + 1 < F.kinds.size() ? F.kinds[i + 1] : 0);
-    strokeRect = {0, 0, (int)F.docW, (int)F.docH};
+    // Undo: the painted area only (whole layer when not windowed).
+    if (F.windowed && !F.paintRect.Empty()) {
+        const float kx = (float)F.docW / F.w, ky = (float)F.docH / F.h;
+        strokeRect = Rect{(int)std::floor(F.paintRect.x0 * kx) - 2, (int)std::floor(F.paintRect.y0 * ky) - 2, (int)std::ceil(F.paintRect.x1 * kx) + 2,
+                          (int)std::ceil(F.paintRect.y1 * ky) + 2}
+                         .Clipped((int)F.docW, (int)F.docH);
+    } else if (!F.windowed) {
+        strokeRect = {0, 0, (int)F.docW, (int)F.docH};
+    }
 }
 
 void Renderer::FluidEnd(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label, bool keep) {
