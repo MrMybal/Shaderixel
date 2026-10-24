@@ -193,7 +193,7 @@ void App::UpdateContentAwareFill() {
             if (then) then();
             return;
         }
-        Status("Remplissage d'après le contenu impossible (zone trop grande par rapport au reste ?)");
+        Status(J.cancel ? J.label + " : interrompu" : J.label + " impossible (zone trop grande par rapport au reste ?)");
         J = {};
     }
 }

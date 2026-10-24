@@ -185,7 +185,13 @@ void App::DrawImageDialogs() {
     PerspectivePasteTick();
     TrimTick();
     DrawContentScaleProgress();
-    if (!carveJob && !animExport && !exportAsJob) CloseJobModal();
+    if (fillJob.active) {
+        // Content-aware fill / spot healing: the layer must stay as it was read until the result is pasted.
+        bool cancel = false;
+        DrawJobModal(fillJob.label.c_str(), fillJob.progress.load(), &cancel);
+        if (cancel) fillJob.cancel = true;
+    }
+    if (!carveJob && !animExport && !exportAsJob && !fillJob.active) CloseJobModal();
     if (cropBoundsRb && cropBoundsRb->ready) {
         auto rb = cropBoundsRb;
         cropBoundsRb.reset();
