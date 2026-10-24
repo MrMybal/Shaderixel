@@ -744,6 +744,7 @@ void App::Frame() {
     if (Shown("Aperçu du calque")) DrawLayerPreview();
     DrawLayoutSavePopup();
     DrawColorRangeWindow();
+    DrawExportAsWindow();
     DrawFocusAreaWindow();
     DrawSelectMaskWindow();
     DrawNewDocDialog();
@@ -807,6 +808,38 @@ void App::Frame() {
                 memcpy(&c->data[(size_t)y * c->width * bpp], &e.rb->data[(((size_t)(y + e.crop.y0)) * e.rb->width + e.crop.x0) * bpp], (size_t)c->width * bpp);
             e.rb = c;
             e.crop = {};
+        }
+        if (e.rb && e.rb->ready && (e.trim || e.matte.w >= 0) && e.rb->format == gpu::Format::RGBA8 &&
+            e.rb->data.size() >= (size_t)e.rb->width * e.rb->height * 4) {
+            // Export As: transparent edges trimmed, then flattened on the background color (8-bit images).
+            const u32 W = e.rb->width, H = e.rb->height;
+            u32 x0 = 0, y0 = 0, x1 = W, y1 = H;
+            if (e.trim) {
+                x0 = W; y0 = H; x1 = 0; y1 = 0;
+                for (u32 y = 0; y < H; ++y)
+                    for (u32 x = 0; x < W; ++x)
+                        if (e.rb->data[((size_t)y * W + x) * 4 + 3]) { x0 = std::min(x0, x); y0 = std::min(y0, y); x1 = std::max(x1, x + 1); y1 = std::max(y1, y + 1); }
+                if (x1 <= x0) { x0 = y0 = 0; x1 = y1 = 1; }
+            }
+            auto c = std::make_shared<gpu::Readback>();
+            c->width = x1 - x0;
+            c->height = y1 - y0;
+            c->ready = true;
+            c->format = e.rb->format;
+            c->data.resize((size_t)c->width * c->height * 4);
+            for (u32 y = 0; y < c->height; ++y)
+                memcpy(&c->data[(size_t)y * c->width * 4], &e.rb->data[(((size_t)(y + y0)) * W + x0) * 4], (size_t)c->width * 4);
+            if (e.matte.w >= 0) {
+                const float m[3] = {e.matte.x * 255, e.matte.y * 255, e.matte.z * 255};
+                for (size_t k = 0; k < c->data.size(); k += 4) {
+                    const float a = c->data[k + 3] / 255.0f;
+                    for (int ch = 0; ch < 3; ++ch) c->data[k + ch] = (u8)std::lround(c->data[k + ch] * a + m[ch] * (1 - a));
+                    c->data[k + 3] = 255;
+                }
+            }
+            e.rb = c;
+            e.trim = false;
+            e.matte.w = -1;
         }
         if (e.rb && e.rb->ready) {
             std::string ext = Narrow(Utf8Path(e.path).extension().wstring());
@@ -1192,6 +1225,8 @@ void App::DrawMenuBar() {
         ImGui::Separator();
         if (ImGui::MenuItem("Exporter...", "Ctrl+Alt+Maj+W", false, v != nullptr))
             ExportImage(platform::SaveFileDialog(hwnd, L"PNG\0*.png\0JPEG\0*.jpg\0TIFF 16 bits\0*.tif\0TGA\0*.tga\0BMP\0*.bmp\0", L"png"));
+        if (ImGui::MenuItem("Exporter sous...", nullptr, false, v != nullptr)) exportAs.open = true;
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Plusieurs tailles d'un coup (@2x, @3x), la sélection ou chaque calque à part, rognage, fond.");
         if (ImGui::BeginMenu("Importer des ressources")) {
             if (ImGui::MenuItem("Pinceaux Photoshop (.abr)...")) {
                 std::string f = platform::OpenFileDialog(hwnd, L"Pinceaux Photoshop (*.abr)\0*.abr\0");

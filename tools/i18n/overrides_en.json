@@ -762,5 +762,19 @@
  "Verticale": "Vertical",
  "Inflexion": "Bend",
  "Distorsion horizontale": "Horizontal distortion",
- "Distorsion verticale": "Vertical distortion"
+ "Distorsion verticale": "Vertical distortion",
+ "Exporter sous...": "Export As...",
+ "Exporter sous": "Export As",
+ "Plusieurs tailles d'un coup (@2x, @3x), la sélection ou chaque calque à part, rognage, fond.": "Several sizes at once (@2x, @3x), the selection or every layer apart, trimming, background.",
+ "Transparence": "Transparency",
+ "Rogner les bords transparents": "Trim transparent edges",
+ "Contenu": "Content",
+ "Sélection (rectangle)": "Selection (rectangle)",
+ "Chaque calque séparément": "Every layer separately",
+ "Aucune sélection : l'image entière.": "No selection: the whole image.",
+ "Tailles": "Sizes",
+ "Suffixe": "Suffix",
+ "+ Taille": "+ Size",
+ "1x 2x 3x": "1x 2x 3x",
+ "Moitié + entière": "Half + full"
 }

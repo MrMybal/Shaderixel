@@ -109,6 +109,21 @@ void Renderer::WarpPerspective(gpu::CommandContext& ctx, gpu::Texture* src, gpu:
     Dispatch2D(ctx, d, dst->Width(), dst->Height());
 }
 
+gpu::TexturePtr Renderer::ScaleTexture(gpu::CommandContext& ctx, gpu::Texture* src, const Rect& srcRect, u32 w, u32 h) {
+    auto* k = Kernel("resample.slang");
+    if (!k || !src || !w || !h || srcRect.Empty()) return nullptr;
+    auto dst = gpu::Dev().CreateTexture(w, h, src->GetFormat(), "Scaled");
+    if (!dst) return nullptr;
+    const float sx = (float)srcRect.Width() / w, sy = (float)srcRect.Height() / h;
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = src;
+    d.uav[0] = dst.get();
+    SetConstants(d, ResampleRoot{w, h, src->Width(), src->Height(), {sx, 0, 0, sy}, {(float)srcRect.x0, (float)srcRect.y0}, 2u, 0u, float4{0, 0, 0, 0}});
+    Dispatch2D(ctx, d, w, h);
+    return dst;
+}
+
 bool Renderer::CarveCanvas(Document& doc, gpu::CommandContext& ctx, History& hist, u32 newW, u32 newH, const SeamCarveResult& r,
                            const std::string& label) {
     if (newW == 0 || newH == 0 || newW > 16384 || newH > 16384 || r.newW == 0 || r.newH == 0) return false;

@@ -732,6 +732,36 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_EXPORTAS=<folder>: a text layer added, then Export As: every layer at 1x and @0.5x trimmed (PNG), and the
+        // whole image as JPEG at 2x.
+        char exdir[512] = "";
+        if (GetEnvironmentVariableA("SX_EXPORTAS", exdir, sizeof(exdir)) > 0) {
+            if (frameCounter == 8) {
+                TextStyle ts;
+                ts.content = "Export";
+                ts.size = 80;
+                ts.color = {0.9f, 0.2f, 0.1f, 1};
+                ts.pos = {300, 40};
+                d.AddTextLayer(ts);
+                d.SyncGraph();
+            }
+            if (frameCounter == 14) {
+                exportAs.format = 0;
+                exportAs.area = 2;
+                exportAs.trim = true;
+                exportAs.transparent = true;
+                exportAs.scales = {{1.0f, ""}, {0.5f, "@0.5x"}};
+                ExportAsRun(*a, std::string(exdir) + "\\layers.png");
+                Log("[exportas] %s", statusMsg.c_str());
+                exportAs.format = 1;
+                exportAs.area = 0;
+                exportAs.trim = false;
+                exportAs.scales = {{2.0f, "@2x"}};
+                ExportAsRun(*a, std::string(exdir) + "\\whole.jpg");
+                Log("[exportas] %s, layers visible after: %d", statusMsg.c_str(), (int)std::count_if(d.S().layers.begin(), d.S().layers.end(), [](const Layer& l) { return l.visible; }));
+            }
+            return;
+        }
         // SX_FX=<effect id>: that effect applied (destructive) to the image instead, then exported (SX_OUT).
         char fx[96] = "";
         if (GetEnvironmentVariableA("SX_FX", fx, sizeof(fx)) > 0) {

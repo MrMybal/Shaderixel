@@ -277,6 +277,8 @@ public:
     // Paste in perspective: `src` (its rectangle srcRect) laid on a plane of `dst` through h (3x3 row-major, document
     // pixel -> plane coordinates 0..1); tiles: repetitions across / down the plane (0: once).
     void WarpPerspective(gpu::CommandContext& ctx, gpu::Texture* src, gpu::Texture* dst, const float h[9], float4 srcRect, float2 tiles, float opacity);
+    // A part of an image (srcRect) resampled to w x h (bicubic, supersampled when reduced), same format.
+    gpu::TexturePtr ScaleTexture(gpu::CommandContext& ctx, gpu::Texture* src, const Rect& srcRect, u32 w, u32 h);
     bool ResampleCanvas(Document& doc, gpu::CommandContext& ctx, History& hist, u32 newW, u32 newH, const float m[6], int interp,
                         const std::string& label);
     // 3D painting (MeshPaint.cpp)

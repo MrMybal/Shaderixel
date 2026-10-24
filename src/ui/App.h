@@ -1319,6 +1319,18 @@ private:
     } actionRun;
     std::string actionLastExport;  // last file written by an Exporter step
     int exportQuality = 92;        // JPG quality of ExportImage
+    // File > Export As (ExportAs.cpp).
+    struct {
+        bool open = false;
+        int format = 0, quality = 90, area = 0;  // area: 0 image, 1 selection, 2 every layer
+        bool transparent = true, trim = false;
+        float4 matte = {1, 1, 1, 1};
+        std::vector<std::pair<float, std::string>> scales = {{1.0f, ""}};
+        gpu::ReadbackPtr selRb;
+        Rect selRect;
+    } exportAs;
+    void DrawExportAsWindow();
+    void ExportAsRun(DocView& v, const std::string& basePath);
     // Action editor (ActionsEditor.cpp).
     int actionStepSel = -1, builtinSel = -1;  // builtinSel >= 0: a built-in action is shown
     std::string actionFxFilter;
@@ -1931,7 +1943,16 @@ private:
 
     // async GPU readbacks
     gpu::ReadbackPtr pickReadback;
-    struct PendingExport { std::string path; gpu::ReadbackPtr rb; Rect crop; int quality = 92; };  // crop: part of the image written (empty = all)
+    // crop: part of the image written (empty = all); trim: transparent edges cut; matte.w >= 0: flattened on that
+    // color (sRGB), else the alpha is kept.
+    struct PendingExport {
+        std::string path;
+        gpu::ReadbackPtr rb;
+        Rect crop;
+        int quality = 92;
+        bool trim = false;
+        float4 matte = {0, 0, 0, -1};
+    };
     std::vector<PendingExport> exports;
     struct PsdExportState {
         PsdExportJob job;
