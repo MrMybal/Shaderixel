@@ -1420,7 +1420,8 @@ void App::DrawBrush() {
         ImGui::SeparatorText("Dégradé");
         ImGui::Combo("Style", &gradientShape, "Linéaire\0" "Radial\0" "Angle\0" "Réfléchi\0" "Losange\0");
         ImGui::SliderFloat("Opacité", &gradientOpacity, 0, 1);
-        ImGui::TextDisabled("Premier plan -> arrière-plan. Maj : 45°.");
+        GradientEditorUI();
+        ImGui::TextDisabled("Tracez le dégradé sur l'image. Maj : 45°.");
     } else if (IsPaintTool(tool)) {
         BrushSettings& b = CurrentBrush();
         static const char* titles[] = {"", "", "", "", "", "", "Pinceau", "Gomme", "Tampon de duplication", "Correcteur", "", "",

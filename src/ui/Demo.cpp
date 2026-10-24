@@ -778,6 +778,44 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_GRAD: the gradient tool with the editor: a rainbow (linear) on a new layer, then foreground -> transparent
+        // (radial) on another; exported (SX_OUT).
+        if (GetEnvironmentVariableA("SX_GRAD", nullptr, 0) > 0) {
+            auto stopsOf = [&]() {
+                std::vector<std::pair<float, float4>> st;
+                for (auto& g : gradStops) st.push_back({g.pos, g.follow == 1 ? float4{fg.x, fg.y, fg.z, g.color.w} : g.follow == 2 ? float4{bg.x, bg.y, bg.z, g.color.w} : g.color});
+                std::stable_sort(st.begin(), st.end(), [](auto& x, auto& y) { return x.first < y.first; });
+                return st;
+            };
+            if (frameCounter == 8) {
+                tool = viewTool[0] = Tool::Gradient;
+                Layer& l = d.AddPixelLayer("Arc-en-ciel");
+                d.S().activeLayer = l.id;
+                gradStops = {{0, {1, 0, 0, 1}}, {0.17f, {1, 0.5f, 0, 1}}, {0.33f, {1, 1, 0, 1}}, {0.5f, {0, 0.8f, 0, 1}}, {0.67f, {0, 0.6f, 1, 1}}, {0.83f, {0.3f, 0, 0.8f, 1}}, {1, {0.6f, 0, 0.6f, 1}}};
+                FocusPanel("Options");
+            }
+            if (frameCounter == 12) {
+                Prepare(*a);
+                a->renderer.ApplyGradientStops(d, *ctx, a->history, d.PaintTarget(), {0, 0}, {900, 0}, 0, stopsOf(), 0x800, 0.6f, "Dégradé");
+            }
+            if (frameCounter == 16) {
+                Layer& l = d.AddPixelLayer("Halo");
+                d.S().activeLayer = l.id;
+                fg = {1, 1, 0.6f, 1};
+                gradStops = {{0, {0, 0, 0, 1}, 1}, {1, {0, 0, 0, 0}, 1}};
+            }
+            if (frameCounter == 20) {
+                Prepare(*a);
+                a->renderer.ApplyGradientStops(d, *ctx, a->history, d.PaintTarget(), {760, 80}, {900, 80}, 1, stopsOf(), 0x800, 1, "Dégradé");
+                gradStops = {{0, {1, 0, 0, 1}}, {0.5f, {0, 0.8f, 0, 1}}, {1, {0, 0.6f, 1, 1}}};  // (shown in the editor)
+            }
+            if (frameCounter == 28 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_FX=<effect id>: that effect applied (destructive) to the image instead, then exported (SX_OUT).
         char fx[96] = "";
         if (GetEnvironmentVariableA("SX_FX", fx, sizeof(fx)) > 0) {

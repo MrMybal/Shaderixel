@@ -642,8 +642,18 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
             if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
                 gradientDrag = false;
                 if (target && Length(gradientEnd - gradientStart) > 1.0f)
-                    v.renderer.ApplyGradient(doc, *ctx, v.history, target, gradientStart, gradientEnd, gradientShape,
-                                             LinearColor(fg), LinearColor(bg), gradientOpacity, "Dégradé");
+                {
+                    // The editor's stops (foreground / background ones take the current colors).
+                    std::vector<std::pair<float, float4>> stops;
+                    auto sorted = gradStops;
+                    std::stable_sort(sorted.begin(), sorted.end(), [](const GradStop& x, const GradStop& y) { return x.pos < y.pos; });
+                    for (auto& s : sorted) {
+                        float4 c = s.follow == 1 ? float4{fg.x, fg.y, fg.z, s.color.w} : s.follow == 2 ? float4{bg.x, bg.y, bg.z, s.color.w} : s.color;
+                        stops.push_back({std::clamp(s.pos, 0.0f, 1.0f), c});
+                    }
+                    const u32 flags = (gradReverse ? 0x400u : 0u) | (gradPerceptual ? 0x800u : 0u) | (gradDither ? 0u : 0x1000u);
+                    v.renderer.ApplyGradientStops(doc, *ctx, v.history, target, gradientStart, gradientEnd, gradientShape, stops, flags, gradientOpacity, "Dégradé");
+                }
             }
         }
         return;

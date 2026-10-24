@@ -176,6 +176,10 @@ public:
 
     void ApplyGradient(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, float2 a, float2 b,
                        int shape, float4 colorA, float4 colorB, float opacity, const std::string& label);
+    // Gradient with stops (position, sRGB straight color with alpha; up to 16). flags: 0x400 reversed, 0x800
+    // perceptual (sRGB) interpolation, 0x1000 no dither.
+    void ApplyGradientStops(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, float2 a, float2 b, int shape,
+                            const std::vector<std::pair<float, float4>>& stops, u32 flags, float opacity, const std::string& label);
 
     // Off-graph helpers (layer merging): composite `top` over `base` into `dst`
     // like a Blend node; apply an effect to `in` (nullptr while compiling); fill.

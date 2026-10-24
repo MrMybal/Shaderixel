@@ -787,5 +787,17 @@
  "Segments": "Segments",
  "Angle des axes": "Axis angle",
  "Centre du document": "Document center",
- "Calques du premier niveau (un groupe : son contenu ; un plan de travail : son cadre).": "Top-level layers (a group: its content; an artboard: its frame)."
+ "Calques du premier niveau (un groupe : son contenu ; un plan de travail : son cadre).": "Top-level layers (a group: its content; an artboard: its frame).",
+ "Premier plan -> arrière-plan": "Foreground -> background",
+ "Premier plan -> transparent": "Foreground -> transparent",
+ "Noir -> blanc": "Black -> white",
+ "Arc-en-ciel": "Rainbow",
+ "Chrome": "Chrome",
+ "Transparent -> noir": "Transparent -> black",
+ "Couleur choisie": "Chosen color",
+ "Opacité de l'arrêt": "Stop opacity",
+ "Tramage": "Dither",
+ "Perceptuel": "Perceptual",
+ "Mélange des couleurs en sRGB, comme Photoshop (sinon en lumière linéaire, plus physique).": "Colors mixed in sRGB, like Photoshop (else in linear light, more physical).",
+ "Tracez le dégradé sur l'image. Maj : 45°.": "Draw the gradient on the image. Shift: 45°."
 }

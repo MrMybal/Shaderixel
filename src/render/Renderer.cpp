@@ -810,6 +810,43 @@ void Renderer::ApplyGradient(Document& doc, gpu::CommandContext& ctx, History& h
     doc.TouchSurface(surface);
 }
 
+void Renderer::ApplyGradientStops(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, float2 a, float2 b, int shape,
+                                  const std::vector<std::pair<float, float4>>& stops, u32 flags, float opacity, const std::string& label) {
+    Surface* s = doc.GetSurface(surface);
+    auto* p = Shaders().Builtin("gradient.slang");
+    if (!s || !p || stops.empty()) return;
+    const u32 W = s->tex->Width(), H = s->tex->Height();
+    auto before = gpu::Dev().CreateTexture(W, H, s->tex->GetFormat(), "UndoBefore");
+    auto after = gpu::Dev().CreateTexture(W, H, s->tex->GetFormat(), "UndoAfter");
+    if (!before || !after) return;
+    struct StopsCB {
+        float4 stop[32];
+        u32 count[4];
+    } cb = {};
+    const size_t n = std::min<size_t>(stops.size(), 16);
+    for (size_t i = 0; i < n; ++i) {
+        cb.stop[i * 2] = stops[i].second;
+        cb.stop[i * 2 + 1] = {stops[i].first, 0, 0, 0};
+    }
+    cb.count[0] = (u32)n;
+    ctx.CopyTexture(before.get(), s->tex.get());
+    gpu::DispatchDesc d;
+    d.pipeline = p;
+    d.srv[0] = before.get();
+    Surface* sel = doc.Selection();
+    d.srv[1] = sel ? sel->tex.get() : nullptr;
+    d.uav[0] = s->tex.get();
+    SetConstants(d, GradientRoot{W, H, a, b, (u32)shape | 0x200u | (flags & 0x1C00u) | (sel ? 0x100u : 0u), opacity, {}, {}});
+    d.cbData = &cb;
+    d.cbSize = sizeof(cb);
+    d.threadsX = W;
+    d.threadsY = H;
+    ctx.Dispatch(d);
+    ctx.CopyTexture(after.get(), s->tex.get());
+    hist.PushPaint(label, surface, {0, 0, (int)W, (int)H}, before, after);
+    doc.TouchSurface(surface);
+}
+
 void Renderer::Import(Document& doc, gpu::CommandContext& ctx, Id surface, const void* pixels, u32 w, u32 h, bool isFloat, int2 offset) {
     Surface* s = doc.GetSurface(surface);
     auto* p = Shaders().CompileNow("import.slang", Shaders().File("import.slang"))->pipeline.get();

@@ -854,6 +854,16 @@ private:
     int colorSliderMode = 0;           // 0 RGB, 1 HSV
     void PushRecentColor(float4 c);
     int gradientShape = 0;
+    // Gradient editor: stops (position, sRGB straight color with alpha); "fg/bg" stops follow the current colors.
+    struct GradStop {
+        float pos = 0;
+        float4 color = {0, 0, 0, 1};
+        int follow = 0;  // 0 own color, 1 foreground, 2 background
+    };
+    std::vector<GradStop> gradStops = {{0, {0, 0, 0, 1}, 1}, {1, {1, 1, 1, 1}, 2}};
+    int gradSel = 0;
+    bool gradReverse = false, gradDither = true, gradPerceptual = true;
+    void GradientEditorUI();
     // selection options
     int selModeOption = 0;          // 0 new, 1 add, 2 subtract, 3 intersect
     float selFeather = 0;
