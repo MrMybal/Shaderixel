@@ -52,7 +52,7 @@
 - Ressources : import des pinceaux Photoshop .abr (pointes échantillonnées v1, v2, v6 / v10 -> pinceaux texturés de la bibliothèque), motifs (bibliothèque, motifs par défaut, Définir un motif, Remplir avec un motif, outil Tampon de motif, import .pat), nuancier (panneau, bibliothèques .aco / .ase / .gpl, enregistrement .aco) : **fait**
 - Export PSD avec calques : **fait** (8 bits RLE, groupes, masques, écrêtage, modes ; réglages/remplissages/filtres rastérisés). PSB et 16 bits (ZIP avec prédiction) en export et import : **fait**. Calques de réglage natifs à l'export et à l'import (luminosité / contraste, niveaux, courbes, teinte / saturation, négatif, isohélie, seuil, exposition ; les autres restent rastérisés) : **fait**
 
-- Mise à l'échelle selon le contenu (seam carving, sélection protégée ou supprimée) : **fait** ; animation image par image (panneau Animation : états des calques par image, durées, interpolation, lecture, export GIF / MP4), pelures d'oignon) : **fait**
+- Mise à l'échelle selon le contenu (seam carving, sélection protégée ou supprimée) : **fait** ; animation image par image (panneau Animation : états des calques par image, durées, interpolation, lecture, export GIF / MP4, pelures d'oignon) : **fait**
 - Règles, repères, grille et magnétisme : **fait**
 - Fusionner vers le bas / les calques visibles / aplatir : **fait**
 

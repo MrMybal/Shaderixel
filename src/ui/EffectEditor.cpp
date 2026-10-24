@@ -771,7 +771,16 @@ void App::DrawEffectEditor() {
             edited |= ImGui::SliderFloat("Position", &cur.pos, 0, 1, "%.3f");
             const bool c2 = ImGui::IsItemDeactivatedAfterEdit();
             if (edited) {
-                sel->text = FormatRamp(stops);
+                // The stops stay sorted (as parsed next frame): the edited one keeps the selection when it passes a neighbor.
+                std::vector<int> order(stops.size());
+                for (int i = 0; i < (int)order.size(); ++i) order[i] = i;
+                std::stable_sort(order.begin(), order.end(), [&](int x, int y) { return stops[x].pos < stops[y].pos; });
+                std::vector<RampStop> sorted;
+                for (int i = 0; i < (int)order.size(); ++i) {
+                    sorted.push_back(stops[order[i]]);
+                    if (order[i] == rampSel) rampSel = i;
+                }
+                sel->text = FormatRamp(sorted);
                 live = true;
             }
             if (c1 || c2) changed = true;

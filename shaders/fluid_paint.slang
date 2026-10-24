@@ -39,7 +39,7 @@ cbuffer Params : register(b1)
     float4 gColor;    // paint color (linear), emissive part
     float4 gMat;      // roughness, metal, cohesion, coat thickness
     float4 gEmissive; // emissive color (linear), color picked up from the paint already in the layer (w)
-    float4 gBristle;  // bristle marks: strength, bristles across the brush, irregularity, -
+    float4 gBristle;  // bristle marks: strength, bristles across the brush, irregularity, stroke direction (radians, images)
     float4 gDabs[512];   // image: x, y (document px), radius; world: x, y, z, radius
     float4 gDabsEx[512]; // amount, normal (world dabs: the side painted)
 };
@@ -162,7 +162,7 @@ void Deposit(int2 p)
                 // Bristle marks: grooves along the stroke (direction from the neighboring dabs of the batch).
                 const uint ia = i > 0 ? i - 1 : i, ib = i + 1 < gKind ? i + 1 : i;
                 float3 dir = (gFlags & 2) ? gDabs[ib].xyz - gDabs[ia].xyz : float3(gDabs[ib].xy - gDabs[ia].xy, 0);
-                if (dot(dir, dir) < 1e-12) dir = (gFlags & 2) ? cross(N, float3(0, 1, 0.3)) : float3(1, 0, 0);
+                if (dot(dir, dir) < 1e-12) dir = (gFlags & 2) ? cross(N, float3(0, 1, 0.3)) : float3(cos(gBristle.w), sin(gBristle.w), 0);
                 dir = normalize(dir);
                 float3 rel = (gFlags & 2) ? P - dab.xyz : float3(docPx - dab.xy, 0);
                 float3 across = (gFlags & 2) ? normalize(cross(N, dir)) : float3(-dir.y, dir.x, 0);

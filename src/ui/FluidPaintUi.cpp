@@ -436,6 +436,11 @@ void App::FluidTick() {
         fluidRun.gravKey = key;
     }
     if (!fluidRun.dabs.empty()) {
+        if (!fluidRun.world && fluidRun.dabs.size() >= 2) {
+            const float4 a = fluidRun.dabs[fluidRun.dabs.size() - 2], b = fluidRun.dabs.back();
+            if (std::abs(b.x - a.x) + std::abs(b.y - a.y) > 1e-3f) fluidRun.bristleAngle = std::atan2(b.y - a.y, b.x - a.x);
+        }
+        p.bristleAngle = fluidRun.bristleAngle;
         v->renderer.FluidDeposit(*ctx, fluidRun.dabs, fluidRun.ex, fluidRun.world, fluidRun.erase, p);
         fluidRun.dabs.clear();
         fluidRun.ex.clear();

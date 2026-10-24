@@ -242,6 +242,9 @@ gpu::Texture* Renderer::TiledNodePreview(Document& doc, gpu::CommandContext& ctx
     u64 h = StructHash(doc, node, memo, halo, compiling) * 1099511628211ull;
     for (auto& [sid, s] : doc.S().surfaces) h = (h ^ (s.version + sid * 2654435761ull)) * 1099511628211ull;
     h ^= ((u64)r.x0 << 48) ^ ((u64)r.y0 << 32) ^ ((u64)r.Width() << 16) ^ (u64)r.Height();
+    // Previews of deleted nodes are dropped (their textures freed).
+    if (tiledPreviews.size() > doc.S().graph.nodes.size())
+        for (auto it = tiledPreviews.begin(); it != tiledPreviews.end();) it = doc.S().graph.Find(it->first) ? std::next(it) : tiledPreviews.erase(it);
     PreviewTile& P = tiledPreviews[node];
     if (hash) *hash = P.hash;
     if (compiling || (P.hash == h && P.tex)) return P.tex.get();

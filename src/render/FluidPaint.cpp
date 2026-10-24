@@ -42,7 +42,7 @@ void FillCB(FluidCB& cb, const Renderer::FluidParams& p) {
     cb.color = p.color;
     cb.mat = {p.rough, p.metal, p.cohesion, p.coat};
     cb.emissive = {p.emissive.x, p.emissive.y, p.emissive.z, p.pickup};
-    cb.bristle = {p.bristle, p.bristleCount, p.bristleNoise, 0};
+    cb.bristle = {p.bristle, p.bristleCount, p.bristleNoise, p.bristleAngle};
 }
 
 }  // namespace

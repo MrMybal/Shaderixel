@@ -1463,6 +1463,7 @@ private:
         float3 lastHit;
         bool haveHit = false;
         std::vector<float4> dabs, ex;
+        float bristleAngle = 0;  // direction of the image stroke so far (a batch of one dab has none of its own)
         bool world = false;
         u64 gravKey = 0;
         int substeps = 0;
