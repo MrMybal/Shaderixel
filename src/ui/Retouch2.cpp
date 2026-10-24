@@ -45,14 +45,29 @@ void App::StartContentAwareFillMask(DocView& v, std::vector<u8> mask, const std:
 
 void App::SpotHealInput(DocView& v, float2 dp, bool hovered) {
     ImGuiIO& io = ImGui::GetIO();
-    if (fillJob.active) return;  // (one correction at a time)
+    if (fillJob.active) {  // (one correction at a time: a stroke started meanwhile is dropped)
+        spotHeal.painting = false;
+        return;
+    }
     if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         spotHeal.dabs.clear();
         spotHeal.painting = true;
+        spotHeal.view = &v;
     }
-    if (!spotHeal.painting) return;
+    if (!spotHeal.painting || spotHeal.view != &v) return;
     const float r = std::max(spotHeal.size * 0.5f, 1.0f);
-    if (spotHeal.dabs.empty() || Length(float2{spotHeal.dabs.back().x, spotHeal.dabs.back().y} - dp) > r * 0.25f) spotHeal.dabs.push_back({dp.x, dp.y, r, 0});
+    if (spotHeal.dabs.empty()) {
+        spotHeal.dabs.push_back({dp.x, dp.y, r, 0});
+    } else {
+        // Dabs every quarter of the radius from the last one (a fast stroke leaves no gaps).
+        const float2 last = {spotHeal.dabs.back().x, spotHeal.dabs.back().y};
+        const float len = Length(dp - last), step = std::max(r * 0.25f, 0.5f);
+        const int n = std::min(2048, (int)std::floor(len / step));
+        for (int i = 1; i <= n; ++i) {
+            const float2 q = last + (dp - last) * (i * step / len);
+            spotHeal.dabs.push_back({q.x, q.y, r, 0});
+        }
+    }
     if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         spotHeal.painting = false;
         SpotHealApply(v);
@@ -82,7 +97,14 @@ void App::SpotHealApply(DocView& v) {
 }
 
 void App::SpotHealOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
-    if (tool != Tool::SpotHeal) return;
+    if (tool != Tool::SpotHeal) {
+        // Another tool: a stroke in progress is dropped (never applied later).
+        if (spotHeal.painting) {
+            spotHeal.painting = false;
+            spotHeal.dabs.clear();
+        }
+        return;
+    }
     auto S = [&](float x, float y) { return ImVec2(canvasMin.x + v.pan.x + x * v.zoom, canvasMin.y + v.pan.y + y * v.zoom); };
     // The stroke being painted (or being rebuilt), then the brush outline.
     const bool show = spotHeal.painting || (fillJob.active && fillJob.view == &v && !fillJob.maskCpu.empty());
@@ -143,8 +165,8 @@ void App::UpdateContentAwareFill() {
     if (J.work.valid()) {
         if (J.work.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
             char b[64];
-            snprintf(b, sizeof(b), "Remplissage d'après le contenu : %.0f %%", J.progress.load() * 100.0f);
-            Status(b);
+            snprintf(b, sizeof(b), " : %.0f %%", J.progress.load() * 100.0f);
+            Status(J.label + b);
             return;
         }
         bool ok = J.work.get();

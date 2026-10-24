@@ -37,7 +37,7 @@ float3 Shade(float3 base, float3 N, float3 P, float2 lightUv, float3 lcol, float
     if (type == 2)
     {
         // Infinite: from the position toward the target, coming down at the light's height.
-        L = normalize(float3(-dir * diag, height * diag));
+        L = normalize(float3(-dir * sizePx, height * diag));
     }
     else
     {
@@ -49,7 +49,7 @@ float3 Shade(float3 base, float3 N, float3 P, float2 lightUv, float3 lcol, float
         if (type == 0)
         {
             // Spot: a cone aimed at the target point on the image.
-            const float3 aim = normalize(float3(dir * diag, -height * diag));
+            const float3 aim = normalize(float3(dir * sizePx, -height * diag));  // (toward the target as placed on the image)
             const float c = dot(-L, aim);
             const float outer = cos(radians(cone)), inner = cos(radians(cone * (1.0 - feather)));
             att *= smoothstep(outer, max(inner, outer + 1e-3), c);
@@ -57,7 +57,7 @@ float3 Shade(float3 base, float3 N, float3 P, float2 lightUv, float3 lcol, float
     }
     const float ndl = saturate(dot(N, L));
     const float3 H = normalize(L + float3(0, 0, 1));
-    const float spec = pow(saturate(dot(N, H)), shininess) * gloss;
+    const float spec = ndl > 0 ? pow(saturate(dot(N, H)), shininess) * gloss : 0.0;
     return (base * ndl + spec) * lcol * lint * att;
 }
 

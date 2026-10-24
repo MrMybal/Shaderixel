@@ -245,14 +245,26 @@ struct PathSampler {
 namespace {
 // Warp Text: every output pixel reads the straight text through the inverse warp (normalized coordinates of the
 // text's box, -1..1), bilinear on premultiplied colors; the result's box grows to hold the warped text.
-void WarpText(const TextStyle& t, std::vector<float>& rgba, Rect& rect) {
+void WarpText(const TextStyle& t, std::vector<float>& rgba, Rect& rect, int docW, int docH) {
     const int w = rect.Width(), h = rect.Height();
     if (w <= 0 || h <= 0 || rgba.size() < (size_t)w * h * 4) return;
     const float b = std::clamp(t.warpBend, -1.0f, 1.0f), hd = std::clamp(t.warpH, -1.0f, 1.0f), vd = std::clamp(t.warpV, -1.0f, 1.0f);
     const float hw = w * 0.5f, hh = h * 0.5f, cx = rect.x0 + hw, cy = rect.y0 + hh;
     const float pi = 3.14159265f;
-    const int m = (int)std::ceil((std::abs(b) + std::abs(hd) + std::abs(vd)) * std::max(hw, hh) * 1.2f) + 2;
-    const Rect out = {rect.x0 - m, rect.y0 - m, rect.x1 + m, rect.y1 + m};
+    // Room for the warped text, per axis (in the warp's own frame: across = the text's height, along = its width).
+    const float along = t.warpVertical ? hh : hw, across = t.warpVertical ? hw : hh;
+    float mAcross = (1.6f * std::abs(b) + std::abs(hd)) * across, mAlong = std::abs(vd) * along;
+    if (t.warp == 4 || t.warp == 10) mAlong += std::abs(b) * along;
+    if (t.warp == 12) {  // twist: turns the box within a disc as wide as it
+        const float R = std::max(hw, hh);
+        mAcross = std::max(mAcross, R * std::abs(std::sin(b * pi * 0.5f)));
+        mAlong = std::max(mAlong, R * (1 - std::cos(b * pi * 0.5f)));
+    }
+    const int mx = (int)std::ceil((t.warpVertical ? mAcross : mAlong) * 1.2f) + 2, my = (int)std::ceil((t.warpVertical ? mAlong : mAcross) * 1.2f) + 2;
+    // The document's part only (and never a runaway buffer).
+    Rect out = Rect{rect.x0 - mx, rect.y0 - my, rect.x1 + mx, rect.y1 + my}.Clipped(docW, docH);
+    if (out.Empty()) { rgba.clear(); rect = {}; return; }
+    if ((long long)out.Width() * out.Height() > (64ll << 20)) return;  // (left unwarped: too large)
     const int ow = out.Width(), oh = out.Height();
     std::vector<float> dst((size_t)ow * oh * 4, 0.0f);
     auto texel = [&](int x, int y, float* c) {
@@ -265,7 +277,13 @@ void WarpText(const TextStyle& t, std::vector<float>& rgba, Rect& rect) {
             float u = (out.x0 + px + 0.5f - cx) / hw, v = (out.y0 + py + 0.5f - cy) / hh;
             if (t.warpVertical) std::swap(u, v);
             float us = u, vs = v;
-            auto safe = [](float d) { return std::abs(d) < 0.05f ? (d < 0 ? -0.05f : 0.05f) : d; };
+            // A denominator reaching 0 or below folds the plane (mirrored copies): such pixels stay empty.
+            bool fold = false;
+            auto safe = [&fold](float d) {
+                if (d <= 0.05f) fold = true;
+                return std::max(d, 0.05f);
+            };
+            const float ehw = t.warpVertical ? hh : hw, ehh = t.warpVertical ? hw : hh;  // half sizes in the warp's frame
             switch (t.warp) {
                 case 1: vs = v + b * (1 - u * u); break;                                   // arc
                 case 2: vs = v - b * (1 - u * u) * (1 + v) * 0.5f; break;                  // arc lower
@@ -280,10 +298,10 @@ void WarpText(const TextStyle& t, std::vector<float>& rgba, Rect& rect) {
                 case 11: vs = v / safe(1 - b * 0.8f * (1 - u * u)); break;                 // squeeze
                 case 12: {                                                                 // twist
                     // In pixels (the box is rarely square), over a disc as wide as the box.
-                    const float X = u * hw, Y = v * hh, R = std::max(hw, hh);
+                    const float X = u * ehw, Y = v * ehh, R = std::max(hw, hh);
                     const float r = std::sqrt(X * X + Y * Y) / R, a = -b * pi * 0.5f * std::max(0.0f, 1 - r);
-                    us = (std::cos(a) * X - std::sin(a) * Y) / hw;
-                    vs = (std::sin(a) * X + std::cos(a) * Y) / hh;
+                    us = (std::cos(a) * X - std::sin(a) * Y) / ehw;
+                    vs = (std::sin(a) * X + std::cos(a) * Y) / ehh;
                     break;
                 }
                 default: break;
@@ -291,6 +309,7 @@ void WarpText(const TextStyle& t, std::vector<float>& rgba, Rect& rect) {
             // Distortions (perspective-like): one side larger than the other.
             if (hd != 0) vs /= safe(1 + hd * us * 0.8f);
             if (vd != 0) us /= safe(1 + vd * vs * 0.8f);
+            if (fold) continue;
             if (t.warpVertical) std::swap(us, vs);
             const float sx = us * hw + hw - 0.5f, sy = vs * hh + hh - 0.5f;
             if (sx < -1 || sy < -1 || sx > w || sy > h) continue;
@@ -319,12 +338,24 @@ void WarpText(const TextStyle& t, std::vector<float>& rgba, Rect& rect) {
 }  // namespace
 
 bool RasterizeText(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles) {
-    if (!RasterizeTextFlat(t, docW, docH, rgba, rect, styles)) return false;
-    if (t.warp > 0 && t.path.size() < 2) WarpText(t, rgba, rect);
+    const bool warp = t.warp > 0 && t.path.size() < 2;
+    if (!RasterizeTextFlat(t, docW, docH, rgba, rect, styles, !warp)) return false;  // (warped: around the whole text)
+    if (warp) {
+        WarpText(t, rgba, rect, docW, docH);
+        if (!rect.Empty() && (rect.x0 < 0 || rect.y0 < 0 || rect.x1 > docW || rect.y1 > docH)) {
+            // Left unwarped (too large): cut to the document like an ordinary text.
+            const Rect c = rect.Clipped(docW, docH);
+            std::vector<float> cut((size_t)std::max(0, c.Width()) * std::max(0, c.Height()) * 4, 0.0f);
+            for (int y = 0; y < c.Height(); ++y)
+                memcpy(&cut[(size_t)y * c.Width() * 4], &rgba[((size_t)(y + c.y0 - rect.y0) * rect.Width() + (c.x0 - rect.x0)) * 4], (size_t)c.Width() * 16);
+            rgba.swap(cut);
+            rect = c;
+        }
+    }
     return true;
 }
 
-bool RasterizeTextFlat(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles) {
+bool RasterizeTextFlat(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles, bool clip) {
     LoadedFont* baseFont = GetFont(t.font.empty() ? DefaultFontPath() : t.font);
     if (!baseFont && !t.font.empty()) baseFont = GetFont(DefaultFontPath());  // font file missing / unreadable
     if (!baseFont) return false;
@@ -475,7 +506,8 @@ bool RasterizeTextFlat(const TextStyle& t, int docW, int docH, std::vector<float
             if (g.a.underline) grow(g.x + g.adv, g.y + g.a.size * 0.15f);
         }
     }
-    rect = Rect{(int)minX - 2, (int)minY - 2, (int)maxX + 2, (int)maxY + 2}.Clipped(docW, docH);
+    rect = Rect{(int)minX - 2, (int)minY - 2, (int)maxX + 2, (int)maxY + 2};
+    if (clip) rect = rect.Clipped(docW, docH);
     rgba.clear();
     if (glyphs.empty() || rect.Empty() || minX > maxX) return true;
     const int w = rect.Width(), h = rect.Height();

@@ -82,7 +82,8 @@ std::string DefaultFontPath();
 
 // Rasterize into straight-alpha linear RGBA float pixels covering `rect` (document space).
 // Without the warp (RasterizeText applies it after).
-bool RasterizeTextFlat(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles = nullptr);
+// clip: the box limited to the document (the warp needs the whole text).
+bool RasterizeTextFlat(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles = nullptr, bool clip = true);
 bool RasterizeText(const TextStyle& t, int docW, int docH, std::vector<float>& rgba, Rect& rect, const TextStyleTable* styles = nullptr);
 
 // Codepoint count of a UTF-8 string and conversion of a byte offset to a codepoint index.

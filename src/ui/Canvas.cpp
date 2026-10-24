@@ -896,7 +896,7 @@ void App::EmitDabs(DocView& v, const std::vector<Dab>& dabs, const std::vector<f
             rp.mode = RetouchMode::ColorReplace;
             rp.tolerance = colorReplaceTolerance;
             rp.range = colorReplaceMode;
-            rp.color = LinearColor(fg);
+            rp.color = PaintColor(doc);  // (gray on masks, like the brush)
             break;
         default: rp.mode = spongeSaturate ? RetouchMode::Saturate : RetouchMode::Desaturate; break;
     }

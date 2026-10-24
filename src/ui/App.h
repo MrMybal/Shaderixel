@@ -924,6 +924,7 @@ private:
         bool dirty = true;
         size_t histCursor = 0;    // history position right after the step that added the layer
         u64 warpedVersion = 0;    // the layer's surface version after our last warp (another change ends the session)
+        u64 othersVersion = 0;    // sum of the other surfaces' versions then (all bumped together: a refresh, not an edit)
     } persp;
     void StartPerspectivePaste(DocView& v);
     void FinishPerspectivePaste(bool keep);
@@ -1287,6 +1288,7 @@ private:
     struct {
         std::vector<float4> dabs;  // x, y, radius (document pixels)
         bool painting = false;
+        DocView* view = nullptr;   // the document the stroke is painted on
         float size = 30;
     } spotHeal;
     void SpotHealInput(DocView& v, float2 dp, bool hovered);

@@ -161,11 +161,20 @@ void App::PerspectivePasteTick() {
     ImGui::End();
     Layer* l = d.FindLayer(persp.layer);
     if (!l) { persp = {}; return; }  // (undone or deleted meanwhile: the session ends)
+    auto others = [&]() {
+        u64 sum = 0;
+        for (auto& [id, sf] : d.S().surfaces) if (id != l->surface) sum += sf.version;
+        return sum;
+    };
     if (Surface* cur = d.GetSurface(l->surface); cur && persp.warpedVersion && cur->version != persp.warpedVersion) {
-        // The layer was painted / changed by something else: the plane is fixed as it is (no rewarp over the edit).
-        persp = {};
-        Status("Coller en perspective : appliqué (le calque a été modifié)");
-        return;
+        if (others() != persp.othersVersion && d.S().surfaces.size() > 1) {
+            persp.dirty = true;  // every surface refreshed (undo of another step...): the plane is laid again
+        } else {
+            // The layer itself was painted / changed: the plane is fixed as it is (no rewarp over the edit).
+            persp = {};
+            Status("Coller en perspective : appliqué (le calque a été modifié)");
+            return;
+        }
     }
     if (!persp.dirty) return;
     Prepare(v);  // (the new layer's surface allocated)
@@ -183,6 +192,7 @@ void App::PerspectivePasteTick() {
     v.renderer.WarpPerspective(*ctx, persp.src.get(), s->tex.get(), inv, persp.srcRect, tiles, persp.opacity);
     d.TouchSurface(l->surface);
     persp.warpedVersion = s->version;
+    persp.othersVersion = others();
     persp.dirty = false;
 }
 
