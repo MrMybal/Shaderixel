@@ -418,7 +418,7 @@ void App::DrawAnimationPanel() {
     if (ImGui::BeginPopup("##tween")) {
         ImGui::SetNextItemWidth(120 * dpi);
         ImGui::SliderInt("Images à ajouter", &anim.tweenCount, 1, 30);
-        if (ImGui::Button("Interpoler", ImVec2(-1, 0))) {
+        if (ImGui::Button("Interpoler les images", ImVec2(-1, 0))) {
             AnimTween(*v, cur, anim.tweenCount);
             ImGui::CloseCurrentPopup();
         }

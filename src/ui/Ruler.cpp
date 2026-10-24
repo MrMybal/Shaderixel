@@ -107,7 +107,7 @@ void App::RulerOptions(DocView* v) {
     }
     ui::HelpTooltip("Tourne l'image pour que la ligne mesurée devienne horizontale (ou verticale) : horizon, façade, document.");
     ImGui::SameLine();
-    if (ImGui::Button("Effacer")) ruler.active = false;
+    if (ImGui::Button("Effacer la mesure")) ruler.active = false;
 }
 
 }  // namespace sx

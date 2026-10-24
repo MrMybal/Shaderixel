@@ -582,7 +582,6 @@
  "Lecture": "Play",
  "Dupliquer l'image": "Duplicate frame",
  "Interpoler...": "Tween...",
- "Interpoler": "Tween",
  "Images à ajouter": "Frames to add",
  "Exporter GIF...": "Export GIF...",
  "Exporter vidéo...": "Export video...",
@@ -711,9 +710,9 @@
  "Agrandir (tout garder)": "Enlarge (keep everything)",
  "Redresser l'image": "Straighten the image",
  "Tourne l'image pour que la ligne mesurée devienne horizontale (ou verticale) : horizon, façade, document.": "Turns the image so that the measured line becomes horizontal (or vertical): horizon, facade, document.",
- "Effacer": "Clear",
  "Paramétrée...": "Arbitrary...",
  "Rotation de l'image": "Image rotation",
  "Positif : sens horaire.": "Positive: clockwise.",
- "Rotation (angle libre)": "Rotation (any angle)"
+ "Rotation (angle libre)": "Rotation (any angle)",
+ "Effacer la mesure": "Clear the measure"
 }
