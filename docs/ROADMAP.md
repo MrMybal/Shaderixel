@@ -31,7 +31,7 @@
 ## Prochaines étapes
 
 ### Performance / grands formats
-- Rendu par tuiles : **fait** (au-delà de ~36 MP : tuiles 512 px, halos d'effets, zones modifiées, rendu progressif visible d'abord ; identique au pixel près au rendu complet). Surfaces creuses : **fait** (ressources réservées D3D12, mémoire allouée par tuiles de 64 Ko seulement là où on peint ; démo 16K : 11,3 → 4,75 Go). Historique de peinture hors VRAM (anciennes retouches compressées en mémoire système, rechargées à l'annulation) : **fait**. Aperçus de nœuds en mode tuiles (détail de 512 px au centre, mis en cache) : **fait**. Reste : fond uni sans mémoire
+- Rendu par tuiles : **fait** (au-delà de ~36 MP : tuiles 512 px, halos d'effets, zones modifiées, rendu progressif visible d'abord ; identique au pixel près au rendu complet). Surfaces creuses : **fait** (ressources réservées D3D12, mémoire allouée par tuiles de 64 Ko seulement là où on peint ; démo 16K : 11,3 → 4,75 Go). Historique de peinture hors VRAM (anciennes retouches compressées en mémoire système, rechargées à l'annulation) : **fait**. Aperçus de nœuds en mode tuiles (détail de 512 px au centre, mis en cache) : **fait**. Fond uni sans mémoire (très grands documents : remplissage de couleur + calque vide pour peindre ; démo 16K : 4,75 → 2,7 Go) : **fait**
 - Recalcul limité aux régions modifiées
 - Réduction d'affichage en zoom arrière : **fait** (moyenne par boîte incrémentale)
 - Histogramme GPU : **fait** (panneau Histogramme, statistiques, fond de l'éditeur de courbes)

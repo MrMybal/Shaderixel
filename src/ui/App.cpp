@@ -781,7 +781,17 @@ void App::NewDocument(u32 w, u32 h, Precision p, DocMode mode, int background, c
     Document& d = *v->doc;
     if (background != 3) {
         float4 clear = background == 0 ? float4{1, 1, 1, 1} : background == 2 ? float4{0, 0, 0, 1} : float4{0, 0, 0, 0};
-        if (mode == DocMode::Layers) {
+        const bool huge = (u64)w * h > 6000ull * 6000ull;  // tiled documents (sparse layers)
+        if (mode == DocMode::Layers && huge && background != 1) {
+            // A plain background of a very large document takes no memory: a color fill, and an empty pixel
+            // layer above it to paint on (its memory is only used where it is painted).
+            Layer& bgl = d.AddEffectLayer(LayerKind::Fill, "solid_color");
+            bgl.name = "Arrière-plan";
+            if (!bgl.effect.params.empty()) bgl.effect.params[0] = clear;
+            Layer& paint = d.AddPixelLayer("Calque 1");
+            d.S().activeLayer = paint.id;
+            d.SyncGraph();
+        } else if (mode == DocMode::Layers) {
             d.AddPixelLayer("Arrière-plan");
             d.pendingClears.back().second = clear;
         } else {
