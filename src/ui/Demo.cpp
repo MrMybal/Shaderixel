@@ -1111,6 +1111,25 @@ void App::DemoTick() {
             if (frameCounter == 60) io.AddKeyEvent(ImGuiKey_RightArrow, true);
             if (frameCounter == 61) io.AddKeyEvent(ImGuiKey_RightArrow, false);
             if (frameCounter == 64) logBoxes("right arrow (expected red 101..201, green 401..461)");
+            // Linked: the choice dropped, only the red one active; the green one still follows (arrow key).
+            if (frameCounter == 66) {
+                Edit e(d, a->history, "Lier les calques");
+                d.LinkLayers({red, green});
+                e.Commit();
+                d.S().layerSel.clear();
+                d.S().activeLayer = red;
+                Log("[multimove] linked: %zu layer(s) with the red one", d.WithLinked({red}).size());
+                if (frameCounter == 66 && GetEnvironmentVariableA("SX_LINKUI", nullptr, 0) > 0) { ShowSideTab(0); FocusPanel("Calques"); }
+            }
+            if (frameCounter == 68) io.AddKeyEvent(ImGuiKey_DownArrow, true);
+            if (frameCounter == 69) io.AddKeyEvent(ImGuiKey_DownArrow, false);
+            if (frameCounter == 72) logBoxes("linked, down arrow on the red one alone (expected both y + 1)");
+            if (frameCounter == 76) {
+                Edit e(d, a->history, "Délier les calques");
+                d.UnlinkLayers({red});
+                e.Commit();
+                Log("[multimove] unlinked the red one: green link %u (expected 0: a link left alone goes away)", d.FindLayer(green) ? d.FindLayer(green)->link : 99);
+            }
             for (int k = 0; k < 2; ++k)
                 if (rbs[k] && rbs[k]->ready) {
                     const u32* b = (const u32*)rbs[k]->data.data();

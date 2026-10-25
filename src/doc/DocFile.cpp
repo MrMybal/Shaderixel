@@ -534,6 +534,7 @@ Json SerializeDocument(const Document& doc) {
         o["opacity"] = l.opacity;
         o["visible"] = l.visible;
         o["locked"] = l.locked;
+        if (l.link) o["link"] = l.link;
         if (l.mask) { o["mask"] = l.mask; o["maskEnabled"] = l.maskEnabled; }
         if (l.parent) o["parent"] = l.parent;
         if (l.kind == LayerKind::Smart) {
@@ -802,6 +803,7 @@ std::unique_ptr<Document> DeserializeDocument(const Json& j, const std::vector<S
         l.opacity = o["opacity"].F(1);
         l.visible = o["visible"].B(true);
         l.locked = o["locked"].B(false);
+        l.link = (u32)o["link"].U();
         l.mask = o["mask"].U();
         l.maskEnabled = o["maskEnabled"].B(true);
         l.parent = o["parent"].U();

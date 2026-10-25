@@ -186,6 +186,7 @@ struct Layer {
     float2 smartPivot = {0.5f, 0.5f};  // Smart layers: transform pivot, in the contents (0..1)
     u8 smartInterp = 2;       // Smart layers: sampling (0 nearest, 1 bilinear, 2 bicubic)
     bool clipped = false;     // clipping mask: clipped to the layer below
+    u32 link = 0;             // linked layers share this number (0: none): they move together
     bool passThrough = true;  // groups: blend children straight into the parent stack
     bool collapsed = false;   // groups: UI state
     TextStyle text;           // Text layers (rasterized into `surface`)
@@ -514,6 +515,12 @@ public:
     Layer* GroupLayers(const std::vector<Id>& ids);
     // The layers selected together (at least the active one, if any), bottom to top.
     std::vector<Id> SelectedLayers() const;
+    // `ids` plus the layers linked to any of them (bottom to top).
+    std::vector<Id> WithLinked(const std::vector<Id>& ids) const;
+    // Link these layers together (a new link; their old links are left), or take them out of their links (a link
+    // left with one layer goes away).
+    void LinkLayers(const std::vector<Id>& ids);
+    void UnlinkLayers(const std::vector<Id>& ids);
     void Ungroup(Id groupId);
     bool IsDescendant(Id layer, Id group) const;
     int LayerDepth(Id id) const;

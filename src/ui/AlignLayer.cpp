@@ -73,7 +73,7 @@ void App::CarryBegin(DocView& v) {
     carry = {};
     Document& d = *v.doc;
     if (d.S().selection || d.Mode() != DocMode::Layers) return;  // (a pixel selection: only it moves)
-    for (Id id : d.SelectedLayers()) {
+    for (Id id : d.WithLinked(d.SelectedLayers())) {  // (the chosen layers and the ones linked to them)
         const Layer* l = d.FindLayer(id);
         if (!l || id == d.S().activeLayer || l->kind == LayerKind::Group || l->locked) continue;
         carry.ids.push_back(id);

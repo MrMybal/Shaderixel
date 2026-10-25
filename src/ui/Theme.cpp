@@ -235,6 +235,13 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             }
             break;
         }
+        case IconLink: {
+            // Two chain links, slanted.
+            const float k = P(1, 0).x - P(0, 0).x;
+            dl->AddRect(P(-0.95f, -0.42f), P(0.2f, 0.42f), col, 0.42f * k, 0, t * 1.7f);
+            dl->AddRect(P(-0.2f, -0.42f), P(0.95f, 0.42f), col, 0.42f * k, 0, t * 1.7f);
+            break;
+        }
         case IconFluid: {
             // A stroke of paint at the top, its runs dripping down (different lengths).
             const float k = P(1, 0).x - P(0, 0).x;

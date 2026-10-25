@@ -1568,6 +1568,21 @@ void App::LayerMenuItems() {
             d.Ungroup(l->id);
             e.Commit();
         }
+        if (ImGui::MenuItem("Lier les calques", nullptr, false, d.SelectedLayers().size() > 1)) {
+            Edit e(d, v->history, "Lier les calques");
+            d.LinkLayers(d.SelectedLayers());
+            e.Commit();
+        }
+        ImGui::SetItemTooltip("Les calques choisis (Ctrl+clic dans le panneau Calques) se déplacent ensemble, même choisis seuls");
+        if (ImGui::MenuItem("Délier les calques", nullptr, false, l && l->link)) {
+            Edit e(d, v->history, "Délier les calques");
+            d.UnlinkLayers(d.SelectedLayers());
+            e.Commit();
+        }
+        if (ImGui::MenuItem("Sélectionner les calques liés", nullptr, false, l && l->link)) {
+            const auto ids = d.WithLinked({l->id});
+            d.S().layerSel = ids;
+        }
         if (ImGui::MenuItem("Masque d'écrêtage", "Ctrl+Alt+G", l && l->clipped, l && l->kind != LayerKind::Group)) {
             Edit e(d, v->history, "Masque d'écrêtage");
             l->clipped = !l->clipped;
@@ -1823,9 +1838,9 @@ void App::HandleShortcuts() {
         if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) o.x += step;
         if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) o.y -= step;
         if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) o.y += step;
-        const auto chosen = v->doc->SelectedLayers();
+        const auto chosen = v->doc->WithLinked(v->doc->SelectedLayers());
         if ((o.x || o.y) && chosen.size() > 1 && !v->doc->S().selection) {
-            // The chosen layers together (without a pixel selection): one undo step.
+            // The chosen layers (and the ones linked to them) together, without a pixel selection: one undo step.
             bool smart = false;
             v->history.BeginGroup();
             for (Id id : chosen) MoveLayerBy(*v, id, o, smart);

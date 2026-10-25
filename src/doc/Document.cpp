@@ -492,6 +492,41 @@ std::vector<Id> Document::SelectedLayers() const {
     return out;
 }
 
+std::vector<Id> Document::WithLinked(const std::vector<Id>& ids) const {
+    std::set<u32> links;
+    for (auto& l : state.layers)
+        if (l.link && std::find(ids.begin(), ids.end(), l.id) != ids.end()) links.insert(l.link);
+    std::vector<Id> out;
+    for (auto& l : state.layers)
+        if (std::find(ids.begin(), ids.end(), l.id) != ids.end() || (l.link && links.count(l.link))) out.push_back(l.id);
+    return out;
+}
+
+void Document::LinkLayers(const std::vector<Id>& ids) {
+    if (ids.size() < 2) return;
+    u32 next = 1;
+    for (auto& l : state.layers) next = std::max(next, l.link + 1);
+    UnlinkLayers(ids);  // (their old links lose them first: a link left alone goes away)
+    for (Id id : ids)
+        if (Layer* l = FindLayer(id)) l->link = next;
+}
+
+void Document::UnlinkLayers(const std::vector<Id>& ids) {
+    std::set<u32> touched;
+    for (Id id : ids)
+        if (Layer* l = FindLayer(id); l && l->link) {
+            touched.insert(l->link);
+            l->link = 0;
+        }
+    for (u32 k : touched) {
+        int n = 0;
+        for (auto& l : state.layers) n += l.link == k;
+        if (n == 1)
+            for (auto& l : state.layers)
+                if (l.link == k) l.link = 0;
+    }
+}
+
 Layer* Document::GroupLayers(const std::vector<Id>& ids) {
     if (ids.empty()) return nullptr;
     if (ids.size() == 1) return &GroupLayer(ids[0]);

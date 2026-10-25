@@ -638,6 +638,11 @@ void App::DrawLayers() {
         dl->AddText(tpos, l.visible ? ui::col::Text : ui::col::TextDim, l.name.c_str());
         if (l.clipped) dl->AddLine(ImVec2(tpos.x, tpos.y + ImGui::GetFontSize() + 1), ImVec2(tpos.x + ImGui::CalcTextSize(l.name.c_str()).x, tpos.y + ImGui::GetFontSize() + 1), ui::col::TextDim);
         if (l.locked) ui::DrawIcon(dl, ui::IconLock, ImVec2(rowMin.x + w - 14 * dpi, rowMin.y + rowH * 0.5f), 12 * dpi, ui::col::TextDim);
+        if (l.link) {  // (linked: brighter when linked to the active layer)
+            const Layer* al = d.ActiveLayer();
+            ui::DrawIcon(dl, ui::IconLink, ImVec2(rowMin.x + w - 32 * dpi, rowMin.y + rowH * 0.5f), 16 * dpi,
+                         al && al->link == l.link ? ui::col::Accent2 : ui::col::TextDim);
+        }
         if (l.filters.size()) {
             char fx[16];
             snprintf(fx, sizeof(fx), "fx %zu", l.filters.size());
@@ -710,6 +715,19 @@ void App::DrawLayers() {
         Edit e(d, v->history, "Descendre le calque");
         d.MoveLayerSibling(active->id, -1);
         e.Commit();
+    }
+    ImGui::SameLine();
+    {
+        // Link the chosen layers, or unlink the active one's link.
+        const auto chosenIds = d.SelectedLayers();
+        const bool unlink = chosenIds.size() < 2 && active && active->link;
+        if (ui::IconButton("link", ui::IconLink, false, bs, unlink ? "Délier les calques" : "Lier les calques (choisis avec Ctrl+clic)") && active &&
+            (unlink || chosenIds.size() > 1)) {
+            Edit e(d, v->history, unlink ? "Délier les calques" : "Lier les calques");
+            if (unlink) d.UnlinkLayers(d.WithLinked({active->id}));
+            else d.LinkLayers(chosenIds);
+            e.Commit();
+        }
     }
     ImGui::SameLine();
     if (ui::IconButton("del", ui::IconTrash, false, bs, "Supprimer le calque") && active) {
