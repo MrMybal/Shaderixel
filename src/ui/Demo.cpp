@@ -1067,6 +1067,66 @@ void App::DemoTick() {
         }
         // SX_SMARTG: two rectangles on their own layers; the first dragged with the move tool (synthetic events) to
         // 2.5 px from the second's left edge: the smart guides snap it onto it. Exported (SX_OUT).
+        // SX_CROPPHOTOS: a "scan" (light gray paper) with three photos turned by +8, -12 and 0 degrees, each with a dark
+        // mark in its top-left corner; Crop and Straighten Photos then logs the documents made (the first exported).
+        if (GetEnvironmentVariableA("SX_CROPPHOTOS", nullptr, 0) > 0) {
+            struct P { float cx, cy, w, h, deg; float4 color; };
+            static const P photos[3] = {{330, 300, 400, 300, 8, {0.8f, 0.3f, 0.2f, 1}},
+                                        {950, 330, 300, 420, -12, {0.2f, 0.5f, 0.8f, 1}},
+                                        {600, 780, 360, 240, 0, {0.3f, 0.7f, 0.3f, 1}}};
+            static size_t firstDoc = 0;
+            // Coverage of a turned rectangle (or of its corner mark) over the whole canvas.
+            auto fillTurned = [&](Id layer, const P& p, float2 lo, float2 hi, float4 c) {
+                const u32 W = d.Width(), H = d.Height();
+                std::vector<u8> cov((size_t)W * H, 0);
+                const float r = p.deg * 3.14159265f / 180, cs = std::cos(r), sn = std::sin(r);
+                for (u32 y = 0; y < H; ++y)
+                    for (u32 x = 0; x < W; ++x) {
+                        const float dx = x + 0.5f - p.cx, dy = y + 0.5f - p.cy;
+                        const float u = dx * cs + dy * sn, v = -dx * sn + dy * cs;  // (the photo's own axes)
+                        if (u >= lo.x && u < hi.x && v >= lo.y && v < hi.y) cov[(size_t)y * W + x] = 255;
+                    }
+                a->renderer.SelectCoverage(d, *ctx, a->history, cov, {0, 0, (int)W, (int)H}, SelMode::Replace, 0, "Sélection");
+                if (Layer* l = d.FindLayer(layer)) a->renderer.FillSelection(d, *ctx, &a->history, l->surface, 0, c, 1, "Remplir");
+                a->renderer.Deselect(d, a->history);
+            };
+            if (frameCounter == 6) {
+                NewDocument(1400, 1000, Precision::Half16, DocMode::Layers, 0, "Scan");
+            }
+            if (frameCounter == 10) {
+                Layer& paper = d.AddPixelLayer("Papier");
+                d.SyncGraph();
+                Prepare(*a);
+                a->renderer.FillSelection(d, *ctx, &a->history, paper.surface, 0, float4{0.88f, 0.88f, 0.86f, 1}, 1, "Remplir");
+                const Id lid = d.AddPixelLayer("Photos").id;
+                d.SyncGraph();
+                Prepare(*a);
+                for (const P& p : photos) {
+                    fillTurned(lid, p, {-p.w / 2, -p.h / 2}, {p.w / 2, p.h / 2}, p.color);
+                    fillTurned(lid, p, {-p.w / 2, -p.h / 2}, {-p.w / 2 + 50, -p.h / 2 + 40}, {0.05f, 0.05f, 0.05f, 1});
+                }
+            }
+            if (frameCounter == 16) {
+                firstDoc = docs.size();
+                StartCropPhotos(*a);
+            }
+            if (frameCounter == 26) {
+                Log("[cropphotos] %s", statusMsg.c_str());
+                for (size_t i = firstDoc; i < docs.size(); ++i)
+                    Log("[cropphotos]   %s: %u x %u (expected about 400x300, 300x420, 360x240 minus a few pixels)",
+                        docs[i]->doc->Name().c_str(), docs[i]->doc->Width(), docs[i]->doc->Height());
+                if (out[0] && firstDoc < docs.size()) {
+                    DocView& pv = *docs[firstDoc];
+                    Prepare(pv);
+                    outRb = pv.renderer.ExportRGBA8(*ctx, pv.renderer.EvaluateComplete(*pv.doc, *ctx));
+                }
+            }
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_CALC: Calculations on the merged image: red channel (source 1) multiplied over the inverted blue channel
         // (source 2), as a new layer (exported, SX_OUT), then as a selection, then as a new document (logged).
         if (GetEnvironmentVariableA("SX_CALC", nullptr, 0) > 0) {

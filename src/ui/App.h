@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <map>
 #include <set>
 // Application shell: window, frame loop, documents, panels.
@@ -975,6 +976,19 @@ private:
     float2 cropQuad[4];
     int cropCorner = -1;
     void ApplyPerspectiveCrop(DocView& v);
+    static bool QuadToRectMatrix(const float2 q[4], u32& w, u32& h, float m[9]);
+    // File > Automate > Crop and Straighten Photos (CropStraighten.cpp): the photos of a scan found on its plain
+    // background, each straightened into its own document.
+    struct {
+        DocView* view = nullptr;
+        gpu::ReadbackPtr rb;
+        gpu::TexturePtr image;  // the merged image (copied: the renderer reuses its textures)
+        Precision precision = Precision::Half16;
+    } cropPhotos;
+    void StartCropPhotos(DocView& v);
+    void CropPhotosTick();
+    // The photos' frames (TL, TR, BR, BL, document pixels) in an RGBA8 image, background found on its border.
+    static std::vector<std::array<float2, 4>> FindPhotos(const u8* rgba, u32 w, u32 h);
     // Ruler tool and Image > Rotate > Arbitrary (Ruler.cpp). edges: 0 keep the size, 1 crop the empty corners, 2 enlarge.
     struct {
         bool active = false;

@@ -45,6 +45,31 @@ void App::ApplyCrop(DocView& v, Rect r) {
     v.history.EndGroup();
 }
 
+// The frame TL, TR, BR, BL -> an upright w x h image: `m` maps its pixels to the document (3x3 row-major).
+bool App::QuadToRectMatrix(const float2 q[4], u32& w, u32& h, float m[9]) {
+    const float W = 0.5f * (Length(q[1] - q[0]) + Length(q[2] - q[3])), H = 0.5f * (Length(q[3] - q[0]) + Length(q[2] - q[1]));
+    w = (u32)std::max(1L, std::lround(W));
+    h = (u32)std::max(1L, std::lround(H));
+    // Unit square -> quad (Heckbert), then destination pixels -> unit square.
+    const float x0 = q[0].x, y0 = q[0].y, x1 = q[1].x, y1 = q[1].y, x2 = q[2].x, y2 = q[2].y, x3 = q[3].x, y3 = q[3].y;
+    const float sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3;
+    float a, b, c, d, e, f, g = 0, hh = 0;
+    if (std::abs(sx) < 1e-6f && std::abs(sy) < 1e-6f) {
+        a = x1 - x0; b = x3 - x0; c = x0;
+        d = y1 - y0; e = y3 - y0; f = y0;
+    } else {
+        const float dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2, den = dx1 * dy2 - dx2 * dy1;
+        if (std::abs(den) < 1e-9f) return false;
+        g = (sx * dy2 - dx2 * sy) / den;
+        hh = (dx1 * sy - sx * dy1) / den;
+        a = x1 - x0 + g * x1; b = x3 - x0 + hh * x3; c = x0;
+        d = y1 - y0 + g * y1; e = y3 - y0 + hh * y3; f = y0;
+    }
+    const float r[9] = {a / w, b / h, c, d / w, e / h, f, g / w, hh / h, 1};
+    memcpy(m, r, sizeof(r));
+    return true;
+}
+
 void App::ApplyPerspectiveCrop(DocView& v) {
     if (!cropQuadSet) return;
     if (xf.active && xf.view) TransformCommit(*xf.view);
@@ -60,24 +85,9 @@ void App::ApplyPerspectiveCrop(DocView& v) {
             sign = sg;
         }
     }
-    const float W = 0.5f * (Length(q[1] - q[0]) + Length(q[2] - q[3])), H = 0.5f * (Length(q[3] - q[0]) + Length(q[2] - q[1]));
-    const u32 w = (u32)std::max(1L, std::lround(W)), h = (u32)std::max(1L, std::lround(H));
-    // Unit square -> quad (Heckbert), then destination pixels -> unit square.
-    const float x0 = q[0].x, y0 = q[0].y, x1 = q[1].x, y1 = q[1].y, x2 = q[2].x, y2 = q[2].y, x3 = q[3].x, y3 = q[3].y;
-    const float sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3;
-    float a, b, c, d, e, f, g = 0, hh = 0;
-    if (std::abs(sx) < 1e-6f && std::abs(sy) < 1e-6f) {
-        a = x1 - x0; b = x3 - x0; c = x0;
-        d = y1 - y0; e = y3 - y0; f = y0;
-    } else {
-        const float dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2, den = dx1 * dy2 - dx2 * dy1;
-        if (std::abs(den) < 1e-9f) { Status("Recadrage en perspective : cadre dégénéré"); return; }
-        g = (sx * dy2 - dx2 * sy) / den;
-        hh = (dx1 * sy - sx * dy1) / den;
-        a = x1 - x0 + g * x1; b = x3 - x0 + hh * x3; c = x0;
-        d = y1 - y0 + g * y1; e = y3 - y0 + hh * y3; f = y0;
-    }
-    const float m[9] = {a / w, b / h, c, d / w, e / h, f, g / w, hh / h, 1};
+    u32 w = 0, h = 0;
+    float m[9];
+    if (!QuadToRectMatrix(q, w, h, m)) { Status("Recadrage en perspective : cadre dégénéré"); return; }
     if (w > 16384 || h > 16384) { Status("Recadrage en perspective impossible (taille max 16384 px)"); return; }
     v.history.BeginGroup();
     if (v.doc->S().selection) v.renderer.Deselect(*v.doc, v.history);  // (undone with the crop)
@@ -190,6 +200,7 @@ void App::DrawImageDialogs() {
     DocView* v = Active();
     ContentScaleTick();
     AlignLayerTick();
+    CropPhotosTick();
     AnimTick();
     PerspectivePasteTick();
     TrimTick();

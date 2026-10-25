@@ -862,5 +862,11 @@
  "Calculs : un calque source n'existe plus": "Calculations: a source layer no longer exists",
  "Calculs : les sources doivent avoir la taille du document": "Calculations: the sources must have the document's size",
  "Calculs : mémoire graphique insuffisante": "Calculations: not enough video memory",
- "Calculs : calque impossible à créer": "Calculations: the layer could not be created"
+ "Calculs : calque impossible à créer": "Calculations: the layer could not be created",
+ "Recadrer et redresser les photos": "Crop and Straighten Photos",
+ "Plusieurs photos numérisées ensemble : chacune détectée sur le fond, redressée et ouverte dans son document": "Several photos scanned together: each one found on the background, straightened and opened in its own document",
+ "Recadrer et redresser : mémoire graphique insuffisante": "Crop and Straighten: not enough video memory",
+ "Recadrer et redresser les photos : recherche...": "Crop and Straighten Photos: searching...",
+ "Recadrer et redresser : aucune photo trouvée sur un fond uni": "Crop and Straighten: no photo found on a plain background",
+ "Recadrer et redresser": "Crop and Straighten"
 }
