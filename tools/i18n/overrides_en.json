@@ -811,5 +811,6 @@
  "Bords inférieurs": "Bottom edges",
  "Aligner : calque vide ou non pris en charge": "Align: empty or unsupported layer",
  "Aligner : déjà aligné": "Align: already aligned",
- "Aligner le calque": "Align layer"
+ "Aligner le calque": "Align layer",
+ "Bords de droite": "Right edges"
 }

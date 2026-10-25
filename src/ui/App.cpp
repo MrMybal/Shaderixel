@@ -1527,7 +1527,7 @@ void App::LayerMenuItems() {
         ImGui::Separator();
         if (ImGui::BeginMenu("Aligner", l != nullptr && d.Mode() == DocMode::Layers)) {
             ImGui::TextDisabled(d.S().selection ? "Sur la sélection" : "Sur la zone de travail");
-            const char* items[] = {"Bords gauches", "Centres horizontaux", "Bords droits", "Bords supérieurs", "Centres verticaux", "Bords inférieurs"};
+            const char* items[] = {"Bords gauches", "Centres horizontaux", "Bords de droite", "Bords supérieurs", "Centres verticaux", "Bords inférieurs"};
             for (int i = 0; i < 6; ++i)
                 if (ImGui::MenuItem(items[i])) StartAlignLayer(*v, i);
             ImGui::EndMenu();
