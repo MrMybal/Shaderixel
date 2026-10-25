@@ -418,6 +418,7 @@ def main():
         if f.lower().endswith(('.exe', '.dll')):
             shutil.copy2(os.path.join(BUILD, f), dist)
     shutil.copy2(os.path.join(ROOT, 'README.md'), os.path.join(dist, 'README.md'))
+    shutil.copy2(os.path.join(ROOT, 'LICENSE'), os.path.join(dist, 'LICENSE'))
     shutil.copytree(os.path.join(ROOT, 'shaders'), os.path.join(dist, 'shaders'))
     # Function library (sub-graphs and tools, .sxfn), listed in the node menu > Bibliothèque.
     shutil.copytree(os.path.join(ROOT, 'library', 'functions'), os.path.join(dist, 'functions'))
@@ -455,6 +456,8 @@ def main():
             src = os.path.join(built, ver, 'ShaderixelLink')
             if ver[0].isdigit() and os.path.isdir(os.path.join(src, 'Binaries')):
                 shutil.copytree(src, os.path.join(ue, ver, 'ShaderixelLink'), ignore=shutil.ignore_patterns('Intermediate', '*.pdb'))
+                shutil.copy2(os.path.join(ROOT, 'unreal', 'ShaderixelLink', 'LICENSE'),
+                             os.path.join(ue, ver, 'ShaderixelLink', 'LICENSE'))
     shutil.copytree(os.path.join(ROOT, 'unreal', 'ShaderixelLink'), os.path.join(ue, 'Sources', 'ShaderixelLink'),
                     ignore=shutil.ignore_patterns('Binaries', 'Intermediate'))
     shutil.copy2(os.path.join(ROOT, 'unreal', 'ShaderixelLink', 'README.md'), os.path.join(ue, 'LISEZMOI_Unreal.md'))

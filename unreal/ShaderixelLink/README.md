@@ -99,3 +99,10 @@ Shaderixel.Paint <mesh asset path> [material slot]
 Shaderixel.EditTexture <texture asset path>
 Shaderixel.Poll
 ```
+
+## License
+
+The Shaderixel Link connector in this folder is licensed under the
+[MIT License](LICENSE). Unreal Engine is not covered by this license and remains
+subject to Epic's terms. The separate Shaderixel application is licensed under
+GPL-3.0-or-later; see the [repository README](../../README.md#license).

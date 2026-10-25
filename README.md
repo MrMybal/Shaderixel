@@ -40,3 +40,26 @@ interface dictionaries into `lang/` alongside the executables.
 See also [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
 [docs/ROADMAP.md](docs/ROADMAP.md) and the
 [Unreal Engine plugin README](unreal/ShaderixelLink/README.md).
+
+## License
+
+Copyright (c) 2026 MrMybal and Shaderixel contributors.
+
+Except where a separate license is specified, Shaderixel is free software:
+you can redistribute it and/or modify it under the terms of the GNU General
+Public License as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version (`GPL-3.0-or-later`).
+See [LICENSE](LICENSE) for the full terms.
+
+Shaderixel is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE.
+
+The standalone Unreal Engine connector in `unreal/ShaderixelLink/` is separately
+licensed under the [MIT License](unreal/ShaderixelLink/LICENSE). It communicates
+with Shaderixel through files and a separate process. This license does not
+cover Unreal Engine itself, which remains subject to Epic's terms.
+
+Third-party dependencies retain their own licenses and copyright notices.
+Using Shaderixel does not, by itself, place your images, textures or models
+under the GPL.
