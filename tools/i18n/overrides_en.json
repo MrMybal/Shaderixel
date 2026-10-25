@@ -812,5 +812,8 @@
  "Aligner : calque vide ou non pris en charge": "Align: empty or unsupported layer",
  "Aligner : déjà aligné": "Align: already aligned",
  "Aligner le calque": "Align layer",
- "Bords de droite": "Right edges"
+ "Bords de droite": "Right edges",
+ "Aligner : le calque est verrouillé": "Align: the layer is locked",
+ "Aligner : quittez l'édition du masque d'abord": "Align: leave the mask editing first",
+ "Aligner : ce calque ne peut pas être déplacé": "Align: this layer cannot be moved"
 }

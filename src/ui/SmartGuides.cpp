@@ -6,17 +6,46 @@
 
 namespace sx {
 
-void App::SmartGuidesCollect(DocView& v, Id exclude) {
+Rect App::ShapeBox(const ShapeStyle& s) {
+    float2 mn = {1e30f, 1e30f}, mx = {-1e30f, -1e30f};
+    auto add = [&](const float4& r, float degrees) {
+        const float2 c = {(r.x + r.z) * 0.5f, (r.y + r.w) * 0.5f}, h = {std::abs(r.z - r.x) * 0.5f, std::abs(r.w - r.y) * 0.5f};
+        const float a = degrees * 3.14159265f / 180.0f, ca = std::abs(std::cos(a)), sa = std::abs(std::sin(a));
+        const float2 e = {h.x * ca + h.y * sa, h.x * sa + h.y * ca};  // the rotated frame's half extents
+        mn = {std::min(mn.x, c.x - e.x), std::min(mn.y, c.y - e.y)};
+        mx = {std::max(mx.x, c.x + e.x), std::max(mx.y, c.y + e.y)};
+    };
+    add(s.rect, s.type == 2 ? 0 : s.rotation);  // (a line: its two ends)
+    for (const ShapePart& p : s.parts)
+        if (p.op == 0 || p.op == 3) add(p.rect, p.rotation);
+    const float pad = s.strokeOn ? s.strokeWidth * 0.5f : 0.0f;
+    return {(int)std::floor(mn.x - pad), (int)std::floor(mn.y - pad), (int)std::ceil(mx.x + pad), (int)std::ceil(mx.y + pad)};
+}
+
+void App::SmartGuidesCollect(DocView& v, Id exclude, Id selection) {
     sg.rects.clear();
     sg.pending.clear();
     sg.view = &v;
     sg.self = {};
     sg.selfRb.reset();
     Document& d = *v.doc;
-    if (Surface* me = d.GetSurface(exclude)) sg.selfRb = v.renderer.ComputeBounds(*ctx, me->tex.get(), nullptr, false);
+    // The moved content: the surface's pixels (inside the selection when one is moved).
+    Surface* selS = selection ? d.GetSurface(selection) : nullptr;
+    if (Surface* me = d.GetSurface(exclude)) sg.selfRb = v.renderer.ComputeBounds(*ctx, me->tex.get(), selS ? selS->tex.get() : nullptr, me->tex->GetFormat() == gpu::Format::R8, me->tex->GetFormat() == gpu::Format::R8);
     if (d.Mode() != DocMode::Layers) return;
+    const Layer* active = d.ActiveLayer();
+    auto shown = [&](const Layer& l) {
+        // Visible, and every enclosing group too.
+        if (!l.visible) return false;
+        for (Id p = l.parent; p;) {
+            const Layer* g = d.FindLayer(p);
+            if (!g || !g->visible) return false;
+            p = g->parent;
+        }
+        return true;
+    };
     for (auto& l : d.S().layers) {
-        if (!l.visible || l.surface == exclude) continue;
+        if (!shown(l) || l.surface == exclude || (active && l.id == active->id)) continue;
         if (l.kind == LayerKind::Smart) {
             float2 mn = l.smartCorners[0], mx = l.smartCorners[0];
             for (auto& c : l.smartCorners) {
@@ -24,7 +53,9 @@ void App::SmartGuidesCollect(DocView& v, Id exclude) {
                 mx = {std::max(mx.x, c.x), std::max(mx.y, c.y)};
             }
             sg.rects.push_back({(int)std::floor(mn.x), (int)std::floor(mn.y), (int)std::ceil(mx.x), (int)std::ceil(mx.y)});
-        } else if (l.kind == LayerKind::Text || l.kind == LayerKind::Shape) {
+        } else if (l.kind == LayerKind::Shape) {
+            sg.rects.push_back(ShapeBox(l.shape));
+        } else if (l.kind == LayerKind::Text) {
             if (auto it = v.textRects.find(l.surface); it != v.textRects.end() && !it->second.Empty()) sg.rects.push_back(it->second);
         } else if (l.kind == LayerKind::Pixel) {
             if (Surface* s = d.GetSurface(l.surface))

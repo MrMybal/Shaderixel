@@ -695,7 +695,7 @@ void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
         xf.startAngle = xf.angle;
         memcpy(xf.startCorners, xf.corners, sizeof(xf.corners));
         if (hit < 4 && io.KeyCtrl) xf.freeCorners = true;
-        if (hit == 8 && smartGuides && !xf.selectionOnly) SmartGuidesCollect(v, xf.surface);
+        if (hit == 8 && smartGuides && snapEnabled && !xf.selectionOnly) SmartGuidesCollect(v, xf.surface, xf.selection);
     }
     if (xf.drag >= 0 && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         float2 delta = m - xf.dragStart;
@@ -723,7 +723,13 @@ void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
                 }
                 if (!xf.moveOnly || !sg.self.Empty()) {  // (move tool: once its content's box is known)
                     const float2 boxCenter = (mn + mx) * 0.5f + delta, snapped = SmartGuidesSnap(v, boxCenter, (mx - mn) * 0.5f);
-                    delta = delta + (snapped - boxCenter);
+                    float2 shift = snapped - boxCenter;
+                    if (io.KeyShift) {  // the axis constraint holds: only the free axis snaps
+                        if (delta.x == 0) { shift.x = 0; sg.lineX = NAN; }
+                        if (delta.y == 0) { shift.y = 0; sg.lineY = NAN; }
+                    }
+                    delta = delta + shift;
+                    if (xf.moveOnly) delta = {std::round(delta.x), std::round(delta.y)};  // (whole pixels: no resampling blur)
                     xf.center = xf.startCenter + delta;
                 }
             } else {

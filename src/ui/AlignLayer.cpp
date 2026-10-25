@@ -11,6 +11,8 @@ void App::StartAlignLayer(DocView& v, int mode) {
     Document& d = *v.doc;
     Layer* l = d.ActiveLayer();
     if (!l || d.Mode() != DocMode::Layers) return;
+    if (l->locked) { Status("Aligner : le calque est verrouillé"); return; }
+    if (d.S().editMask || d.S().editInpaint) { Status("Aligner : quittez l'édition du masque d'abord"); return; }
     if (xf.active && xf.view) TransformCommit(*xf.view);
     alignJob = {};
     alignJob.view = &v;
@@ -43,7 +45,9 @@ void App::AlignLayerTick() {
     // The layer's box.
     Rect box;
     if (l && l->kind == LayerKind::Pixel && J.layerRb) box = rectOf(J.layerRb);
-    else if (l && (l->kind == LayerKind::Text || l->kind == LayerKind::Shape)) {
+    else if (l && l->kind == LayerKind::Shape) {
+        box = ShapeBox(l->shape);
+    } else if (l && l->kind == LayerKind::Text) {
         if (auto it = v.textRects.find(l->surface); it != v.textRects.end()) box = it->second;
     } else if (l && l->kind == LayerKind::Smart) {
         float2 mn = l->smartCorners[0], mx = l->smartCorners[0];
@@ -72,12 +76,17 @@ void App::AlignLayerTick() {
         // (the whole layer: the move tool would carry only the selected pixels)
         const Id keepSel = d.S().selection;
         d.S().selection = 0;
-        Nudge(v, dx, dy);
+        const bool moved = d.PaintTarget() == l->surface;
+        if (moved) Nudge(v, dx, dy);
         d.S().selection = keepSel;
+        if (!moved) { Status("Aligner : ce calque ne peut pas être déplacé"); return; }
     } else {
         Edit e(d, v.history, "Aligner le calque");
         if (l->kind == LayerKind::Text) l->text.pos = l->text.pos + float2{dx, dy};
-        else if (l->kind == LayerKind::Shape) l->shape.rect = {l->shape.rect.x + dx, l->shape.rect.y + dy, l->shape.rect.z + dx, l->shape.rect.w + dy};
+        else if (l->kind == LayerKind::Shape) {
+            l->shape.rect = {l->shape.rect.x + dx, l->shape.rect.y + dy, l->shape.rect.z + dx, l->shape.rect.w + dy};
+            for (auto& p : l->shape.parts) p.rect = {p.rect.x + dx, p.rect.y + dy, p.rect.z + dx, p.rect.w + dy};  // (the whole combined shape)
+        }
         else for (auto& c : l->smartCorners) c = c + float2{dx, dy};
         d.SyncGraph();
         e.Commit();
