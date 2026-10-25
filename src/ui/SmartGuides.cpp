@@ -18,7 +18,8 @@ Rect App::ShapeBox(const ShapeStyle& s) {
     add(s.rect, s.type == 2 ? 0 : s.rotation);  // (a line: its two ends)
     for (const ShapePart& p : s.parts)
         if (p.op == 0 || p.op == 3) add(p.rect, p.rotation);
-    const float pad = s.strokeOn ? s.strokeWidth * 0.5f : 0.0f;
+    // The stroke when drawn; a lone line always has its width (drawn as a thick segment).
+    const float pad = s.type == 2 ? std::max(s.strokeWidth, 1.0f) * 0.5f : s.strokeOn ? s.strokeWidth * 0.5f : 0.0f;
     return {(int)std::floor(mn.x - pad), (int)std::floor(mn.y - pad), (int)std::ceil(mx.x + pad), (int)std::ceil(mx.y + pad)};
 }
 
@@ -130,6 +131,11 @@ float2 App::SmartGuidesVector(DocView& v, float2 delta, bool shift) {
 }
 
 void App::SmartGuidesOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
+    if (sg.vectorDrag && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+        // A text / shape drag that ended anywhere (tool change, released elsewhere): no lines left behind.
+        sg.vectorDrag = false;
+        sg.lineX = sg.lineY = NAN;
+    }
     if (sg.view != &v) return;
     if (!sg.vectorDrag && (!xf.active || xf.view != &v || xf.drag != 8)) return;
     auto S = [&](float x, float y) { return ImVec2(canvasMin.x + v.pan.x + x * v.zoom, canvasMin.y + v.pan.y + y * v.zoom); };

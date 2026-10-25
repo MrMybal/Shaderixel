@@ -171,6 +171,8 @@ void App::FillWithPattern(DocView& v, int index, float scale) {
 void App::DefinePattern(DocView& v) {
     // From the selection bounds of the composite (whole image without a selection).
     Document& d = *v.doc;
+    if (patternDefine.active) { Status("Définir : une définition est déjà en cours"); return; }
+    patternDefine.brush = false;
     gpu::Texture* img = v.renderer.EvaluateComplete(d, *ctx);
     if (!img) return;
     patternDefine.view = &v;
@@ -180,8 +182,9 @@ void App::DefinePattern(DocView& v) {
 }
 
 void App::DefineBrush(DocView& v) {
+    if (patternDefine.active) { Status("Définir : une définition est déjà en cours"); return; }
     DefinePattern(v);
-    patternDefine.brush = true;
+    patternDefine.brush = patternDefine.active;  // (only when the readback started)
 }
 
 void App::UpdateResources() {
@@ -229,15 +232,19 @@ void App::UpdateResources() {
                 q[3] = (u8)(n ? acc / n : 0);
             }
         const std::string texDir = Brushes().Dir() + "/textures/user";
-        std::filesystem::create_directories(Utf8Path(texDir));
         std::error_code ec;
+        std::filesystem::create_directories(Utf8Path(texDir), ec);  // (a read-only install folder: reported, no throw)
         int idx = 1;
-        while (std::filesystem::exists(Utf8Path(Brushes().Dir() + "/user_brush_" + std::to_string(idx) + ".slang"), ec)) ++idx;
+        // A number neither a brush nor a leftover tip image uses (never an old cached image).
+        while (std::filesystem::exists(Utf8Path(Brushes().Dir() + "/user_brush_" + std::to_string(idx) + ".slang"), ec) ||
+               std::filesystem::exists(Utf8Path(texDir + "/brush_" + std::to_string(idx) + ".png"), ec))
+            ++idx;
         const std::string texRel = "textures/user/brush_" + std::to_string(idx) + ".png";
         if (!stbi_write_png((Brushes().Dir() + "/" + texRel).c_str(), side, side, 4, px.data(), side * 4)) {
-            Status("Définir un pinceau : écriture impossible");
+            Status("Définir un pinceau : écriture impossible dans " + Brushes().Dir() + " (dossier en lecture seule ?)");
             return;
         }
+        brushTextures.erase(Brushes().Dir() + "/" + texRel);
         const std::string name = "Pinceau défini " + std::to_string(idx);
         const std::string code = "//@name " + name + "\n//@category Mes pinceaux\n//@user\n//@spacing 0.25\n//@texture TipTexture \"Pointe\" " + texRel +
                                  "\n//@param RandomAngle float 0 0 1 \"Rotation aléatoire\"\n//@param FollowStroke float 0 0 1 \"Suivre le trait\"\n"
@@ -246,14 +253,12 @@ void App::UpdateResources() {
                                  "void Dynamics(inout Dab d)\n{\n    d.angle = Rand(d.seed, 4.0) * 6.2831853 * RandomAngle + FollowStroke * atan2(d.direction.y, d.direction.x);\n}\n";
         std::ofstream(Utf8Path(Brushes().Dir() + "/user_brush_" + std::to_string(idx) + ".slang"), std::ios::binary) << code;
         Brushes().Reload();
-        // The new tip on the brush, at the size it was drawn.
-        brush.tipId = "user_brush_" + std::to_string(idx);
-        brush.tipCode.clear();
-        brush.tipGraph.clear();
-        brush.tipParams.clear();
-        brush.tipTextures.clear();
-        brush.size = (float)std::min(side0, 2500);
-        tool = Tool::Brush;
+        // The new tip on the brush (as when chosen in the list: spacing, parameters), at the size it was drawn.
+        if (!stroking) {
+            SelectTip(brush, "user_brush_" + std::to_string(idx));
+            brush.size = (float)std::min(side0, 2500);
+            tool = Tool::Brush;
+        }
         Status("Pinceau défini : " + name + " (" + std::to_string(side0) + " px, catégorie Mes pinceaux)");
         return;
     }

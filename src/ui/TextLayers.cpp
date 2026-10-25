@@ -130,7 +130,7 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             shapeRectStart = al->shape.rect;
             editBefore = frameBefore;
             if (smartGuides && snapEnabled) {
-                SmartGuidesCollect(v, al->surface, 0);
+                SmartGuidesCollect(v, 0, 0);  // (the active layer is never its own target)
                 sg.vectorStart = ShapeBox(al->shape);
                 sg.vectorDrag = true;
             }
@@ -144,6 +144,8 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             for (auto& p : al->shape.parts) p.rect = {p.rect.x + step.x, p.rect.y + step.y, p.rect.z + step.x, p.rect.w + step.y};
             if (!ImGui::IsMouseDown(0)) {
                 shapeDragging = false;
+                sg.vectorDrag = false;
+                sg.lineX = sg.lineY = NAN;
                 if (editBefore) v.history.PushState("Déplacer la forme", *editBefore, d.S());
                 editBefore.reset();
             }
@@ -166,7 +168,7 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
                 textPosStart = al->text.pos;
                 editBefore = frameBefore;
                 if (smartGuides && snapEnabled) {
-                    SmartGuidesCollect(v, al->surface, 0);
+                    SmartGuidesCollect(v, 0, 0);  // (the active layer is never its own target)
                     auto tr = v.textRects.find(al->surface);
                     sg.vectorStart = tr != v.textRects.end() ? tr->second : Rect{};
                     sg.vectorDrag = true;

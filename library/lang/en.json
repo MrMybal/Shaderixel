@@ -1274,6 +1274,7 @@
  "Défaut x, y, minimum, maximum": "Default x, y, minimum, maximum",
  "Défaut, minimum, maximum": "Default, minimum, maximum",
  "Définir": "Define",
+ "Définir : une définition est déjà en cours": "Define: a definition is already running",
  "Définir un motif": "Define pattern",
  "Définir un motif : zone trop grande (2048 px maximum)": "Define pattern: area too large (2048 px maximum)",
  "Définir un pinceau : la zone est vide (blanche ou transparente)": "Define brush: the area is empty (white or transparent)",

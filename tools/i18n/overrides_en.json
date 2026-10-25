@@ -824,5 +824,6 @@
  "Créer un instantané": "Create snapshot",
  "Mémorise tout le document (calques, réglages, pixels) ; cliquer sur un instantané le rétablit\n(une étape d'annulation), même quand l'historique a oublié les étapes qui y menaient.": "Remembers the whole document (layers, settings, pixels); clicking a snapshot restores it\n(one undo step), even when the history has forgotten the steps that led to it.",
  "Instantané impossible : mémoire graphique insuffisante": "Snapshot impossible: not enough video memory",
- "Rétablir l'instantané : mémoire graphique insuffisante": "Restore snapshot: not enough video memory"
+ "Rétablir l'instantané : mémoire graphique insuffisante": "Restore snapshot: not enough video memory",
+ "Définir : une définition est déjà en cours": "Define: a definition is already running"
 }
