@@ -396,7 +396,8 @@ def main():
         lay = os.path.join(dist, 'layouts')
         if os.path.isdir(lay):
             for f in os.listdir(lay):
-                if f.endswith('.ini'):
+                # (the per-kind workspaces "_espace_N.ini" are never kept: the example renders may have written them)
+                if f.endswith('.ini') and not f.startswith('_espace_'):
                     kept[os.path.join('layouts', f)] = open(os.path.join(lay, f), 'rb').read()
         shutil.rmtree(dist)
     os.makedirs(dist)
@@ -520,6 +521,17 @@ def main():
         f.write(html)
     with open(os.path.join(dist, 'Lancer Shaderixel (Vulkan).bat'), 'w', encoding='utf-8') as f:
         f.write('@echo off\r\nstart "" "%~dp0ShaderixelVk.exe" %*\r\n')
+
+    # Workspace files the example renders may have written (an older exe, or one run outside the demo rules): the
+    # package starts from the default layouts, never from a layout arranged by a scripted run.
+    lay = os.path.join(dist, 'layouts')
+    if os.path.isdir(lay):
+        for f in os.listdir(lay):
+            if f.startswith('_espace_') and f.endswith('.ini'):
+                os.remove(os.path.join(lay, f))
+    for f in os.listdir(dist):
+        if f.startswith('shaderixel_layout') and f.endswith('.ini') and f not in kept:
+            os.remove(os.path.join(dist, f))
 
     z = os.path.join(ROOT, 'dist', name + '.zip')
     if os.path.exists(z):

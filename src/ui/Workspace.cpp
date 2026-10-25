@@ -314,14 +314,16 @@ void App::SwitchWorkspaceKind() {
     size_t n = 0;
     const char* ini = ImGui::SaveIniSettingsToMemory(&n);
     layoutSlot[layoutKind].assign(ini, n);
-    {
+    // Scripted runs (demos, captures, the packaging's example renders) never write the user's workspaces: their
+    // layouts are arranged for the run and would come back mixed up on the next switch.
+    if (!Automated()) {
         std::error_code ec;
         std::filesystem::create_directories(Utf8Path(LayoutDir()), ec);
         std::ofstream f(Utf8Path(LayoutDir() + "/_espace_" + std::to_string(layoutKind) + ".ini"), std::ios::binary);
         f << layoutSlot[layoutKind];
     }
     layoutKind = want;
-    if (layoutSlot[want].empty()) {
+    if (layoutSlot[want].empty() && !Automated()) {
         std::ifstream f(Utf8Path(LayoutDir() + "/_espace_" + std::to_string(want) + ".ini"), std::ios::binary);
         if (f) layoutSlot[want].assign((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     }

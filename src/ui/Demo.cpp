@@ -1067,6 +1067,26 @@ void App::DemoTick() {
         }
         // SX_SMARTG: two rectangles on their own layers; the first dragged with the move tool (synthetic events) to
         // 2.5 px from the second's left edge: the smart guides snap it onto it. Exported (SX_OUT).
+        // SX_OPEN3D=<file>: a Paint 3D project opened from the image document (workspace switch), logged.
+        char open3d[512] = "";
+        if (GetEnvironmentVariableA("SX_OPEN3D", open3d, sizeof(open3d)) > 0) {
+            if (frameCounter == 20) {
+                const bool ok = LoadSxl(open3d);
+                Log("[open3d] loaded %d, layout kind %d", ok ? 1 : 0, layoutKind);
+            }
+            if (frameCounter == 60) {
+                std::string where;
+                for (const char* n : {"Canevas", "Vue 3D", "Calques", "Graphe", "Matériaux", "Panneaux", "Outils", "Aperçu du calque", "Navigateur", "Calques 3D"}) {
+                    ImGuiWindow* w = ImGui::FindWindowByName(n);
+                    char b[160];
+                    snprintf(b, sizeof(b), " | %s: %s pos %.0f,%.0f size %.0fx%.0f dock 0x%08X", n, w ? (w->Active || w->WasActive ? "shown" : "hidden") : "none",
+                             w ? w->Pos.x : 0, w ? w->Pos.y : 0, w ? w->Size.x : 0, w ? w->Size.y : 0, w ? w->DockId : 0);
+                    where += b;
+                }
+                Log("[open3d] kind %d, migration %d%s", layoutKind, layoutMigration, where.c_str());
+            }
+            return;
+        }
         // SX_CONTACT=<folder>: a contact sheet of the folder's images, 3 x 2 on 1600 x 1200 pages with their names; the
         // pages made logged and the first exported (SX_OUT).
         char contactDir[512] = "";
