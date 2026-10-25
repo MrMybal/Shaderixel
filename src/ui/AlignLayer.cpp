@@ -72,7 +72,7 @@ bool App::MoveLayerBy(DocView& v, Id id, float2 delta, bool& smart) {
 void App::CarryBegin(DocView& v) {
     carry = {};
     Document& d = *v.doc;
-    if (d.S().selection || d.Mode() != DocMode::Layers) return;  // (a pixel selection: only it moves)
+    if (d.S().selection || d.S().editMask || d.Mode() != DocMode::Layers) return;  // (a pixel selection or a mask: only it moves)
     for (Id id : d.WithLinked(d.SelectedLayers())) {  // (the chosen layers and the ones linked to them)
         const Layer* l = d.FindLayer(id);
         if (!l || id == d.S().activeLayer || l->kind == LayerKind::Group || l->locked) continue;

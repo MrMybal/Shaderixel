@@ -496,9 +496,16 @@ std::vector<Id> Document::WithLinked(const std::vector<Id>& ids) const {
     std::set<u32> links;
     for (auto& l : state.layers)
         if (l.link && std::find(ids.begin(), ids.end(), l.id) != ids.end()) links.insert(l.link);
-    std::vector<Id> out;
+    std::set<Id> in;
     for (auto& l : state.layers)
-        if (std::find(ids.begin(), ids.end(), l.id) != ids.end() || (l.link && links.count(l.link))) out.push_back(l.id);
+        if (std::find(ids.begin(), ids.end(), l.id) != ids.end() || (l.link && links.count(l.link))) in.insert(l.id);
+    // A group brings its layers (they are what moves); each layer once.
+    std::vector<Id> out;
+    for (auto& l : state.layers) {
+        bool take = in.count(l.id) > 0;
+        for (Id p = l.parent; p && !take; p = FindLayerConst(p) ? FindLayerConst(p)->parent : 0) take = in.count(p) > 0;
+        if (take) out.push_back(l.id);
+    }
     return out;
 }
 
@@ -675,6 +682,22 @@ Layer& Document::DuplicateLayer(Id id) {
     // The copy is an independent material: material layers (and 3D folders) of the block get a new
     // material id, shared by the copied layers that shared one, as are their copied masks.
     std::unordered_map<Id, Id> materials, masks, edits;
+    // Links: the copies are linked among themselves (fresh numbers), never to the originals; a link with a single
+    // copied member goes away.
+    {
+        u32 next = 1;
+        for (auto& l : state.layers) next = std::max(next, l.link + 1);
+        std::unordered_map<u32, int> count;
+        for (auto& l : block) if (l.link) ++count[l.link];
+        std::unordered_map<u32, u32> renum;
+        for (auto& l : block)
+            if (l.link) {
+                if (count[l.link] < 2) { l.link = 0; continue; }
+                auto [it, fresh] = renum.try_emplace(l.link, 0);
+                if (fresh) it->second = next++;
+                l.link = it->second;
+            }
+    }
     for (auto& l : block) {
         l.id = remap[l.id];
         if (remap.count(l.parent)) l.parent = remap[l.parent];
@@ -724,7 +747,15 @@ void Document::AddMask(Id layerId) {
     }
 }
 
+void Document::PruneLinks() {
+    std::unordered_map<u32, int> count;
+    for (auto& l : state.layers) if (l.link) ++count[l.link];
+    for (auto& l : state.layers)
+        if (l.link && count[l.link] < 2) l.link = 0;
+}
+
 void Document::SyncGraph() {
+    PruneLinks();  // (a layer of a link deleted or merged: the one left alone is no longer linked)
     if (state.mode == DocMode::Layers) RebuildFromLayers();
     dirty = true;
 }

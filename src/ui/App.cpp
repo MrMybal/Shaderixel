@@ -1839,7 +1839,7 @@ void App::HandleShortcuts() {
         if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) o.y -= step;
         if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) o.y += step;
         const auto chosen = v->doc->WithLinked(v->doc->SelectedLayers());
-        if ((o.x || o.y) && chosen.size() > 1 && !v->doc->S().selection) {
+        if ((o.x || o.y) && chosen.size() > 1 && !v->doc->S().selection && !v->doc->S().editMask && v->doc->Mode() == DocMode::Layers) {
             // The chosen layers (and the ones linked to them) together, without a pixel selection: one undo step.
             bool smart = false;
             v->history.BeginGroup();

@@ -521,6 +521,11 @@ public:
     // left with one layer goes away).
     void LinkLayers(const std::vector<Id>& ids);
     void UnlinkLayers(const std::vector<Id>& ids);
+    void PruneLinks();  // links with a single layer left go away (SyncGraph)
+    const Layer* FindLayerConst(Id id) const {
+        for (auto& l : state.layers) if (l.id == id) return &l;
+        return nullptr;
+    }
     void Ungroup(Id groupId);
     bool IsDescendant(Id layer, Id group) const;
     int LayerDepth(Id id) const;

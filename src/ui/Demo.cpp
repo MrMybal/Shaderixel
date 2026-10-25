@@ -1130,6 +1130,17 @@ void App::DemoTick() {
                 e.Commit();
                 Log("[multimove] unlinked the red one: green link %u (expected 0: a link left alone goes away)", d.FindLayer(green) ? d.FindLayer(green)->link : 99);
             }
+            if (frameCounter == 78) {
+                // A duplicate is not linked to its original; deleting one layer of a link of two clears the other.
+                Edit e(d, a->history, "Lier les calques");
+                d.LinkLayers({red, green});
+                const Id copy = d.DuplicateLayer(red).id;
+                Log("[multimove] duplicate of a linked layer: copy link %u (expected 0), red %u green %u (expected equal)",
+                    d.FindLayer(copy)->link, d.FindLayer(red)->link, d.FindLayer(green)->link);
+                d.RemoveLayer(green);
+                Log("[multimove] linked green deleted: red link %u (expected 0)", d.FindLayer(red)->link);
+                e.Commit();
+            }
             for (int k = 0; k < 2; ++k)
                 if (rbs[k] && rbs[k]->ready) {
                     const u32* b = (const u32*)rbs[k]->data.data();

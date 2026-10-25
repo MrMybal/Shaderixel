@@ -724,7 +724,7 @@ void App::DrawLayers() {
         if (ui::IconButton("link", ui::IconLink, false, bs, unlink ? "Délier les calques" : "Lier les calques (choisis avec Ctrl+clic)") && active &&
             (unlink || chosenIds.size() > 1)) {
             Edit e(d, v->history, unlink ? "Délier les calques" : "Lier les calques");
-            if (unlink) d.UnlinkLayers(d.WithLinked({active->id}));
+            if (unlink) d.UnlinkLayers({active->id});  // (like the menu: the chosen layer leaves its link)
             else d.LinkLayers(chosenIds);
             e.Commit();
         }
