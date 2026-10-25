@@ -870,5 +870,18 @@
  "Recadrer et redresser : aucune photo trouvée sur un fond uni": "Crop and Straighten: no photo found on a plain background",
  "Recadrer et redresser": "Crop and Straighten",
  "Recadrer et redresser : mémoire insuffisante": "Crop and Straighten: not enough memory",
- "Recadrer et redresser : mémoire insuffisante pour les documents": "Crop and Straighten: not enough memory for the documents"
+ "Recadrer et redresser : mémoire insuffisante pour les documents": "Crop and Straighten: not enough memory for the documents",
+ "Planche contact": "Contact Sheet",
+ "Planche contact...": "Contact Sheet...",
+ "A4 300 ppp": "A4 300 ppi",
+ "A4 paysage": "A4 landscape",
+ "Écran 1920 x 1080": "Screen 1920 x 1080",
+ "Nom du fichier sous chaque image": "File name under each image",
+ "Aplatir chaque page": "Flatten each page",
+ "Images du dossier": "Folder images",
+ "Page": "Page",
+ "Colonnes": "Columns",
+ "Lignes": "Rows",
+ "Espacement (px)": "Spacing (px)",
+ "Parcourir...": "Browse..."
 }

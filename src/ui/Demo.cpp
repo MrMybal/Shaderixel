@@ -1067,6 +1067,48 @@ void App::DemoTick() {
         }
         // SX_SMARTG: two rectangles on their own layers; the first dragged with the move tool (synthetic events) to
         // 2.5 px from the second's left edge: the smart guides snap it onto it. Exported (SX_OUT).
+        // SX_CONTACT=<folder>: a contact sheet of the folder's images, 3 x 2 on 1600 x 1200 pages with their names; the
+        // pages made logged and the first exported (SX_OUT).
+        char contactDir[512] = "";
+        if (GetEnvironmentVariableA("SX_CONTACT", contactDir, sizeof(contactDir)) > 0) {
+            static size_t firstDoc = 0;
+            static int doneAt = 0;
+            if (frameCounter == 8) {
+                firstDoc = docs.size();
+                contactSheet.folder = contactDir;
+                contactSheet.width = 1600;
+                contactSheet.height = 1200;
+                contactSheet.cols = 3;
+                contactSheet.rows = 2;
+                contactSheet.margin = 60;
+                contactSheet.spacing = 30;
+                contactSheet.fontSize = 28;
+                contactSheet.captions = true;
+                StartContactSheet();
+                Log("[contact] %zu image(s) found", contactSheet.files.size());
+            }
+            if (frameCounter > 8 && !contactSheet.running && !doneAt) {
+                doneAt = frameCounter;
+                Log("[contact] %s", statusMsg.c_str());
+                for (size_t i = firstDoc; i < docs.size(); ++i) {
+                    int px = 0, tx = 0;
+                    for (auto& l : docs[i]->doc->S().layers) { px += l.kind == LayerKind::Pixel; tx += l.kind == LayerKind::Text; }
+                    Log("[contact]   %s: %u x %u, %d pixel layer(s), %d caption(s)", docs[i]->doc->Name().c_str(), docs[i]->doc->Width(),
+                        docs[i]->doc->Height(), px, tx);
+                }
+            }
+            if (doneAt && frameCounter == doneAt + 6 && out[0] && firstDoc < docs.size()) {
+                DocView& pv = *docs[firstDoc];
+                Prepare(pv);
+                SyncTextLayers(pv);
+                outRb = pv.renderer.ExportRGBA8(*ctx, pv.renderer.EvaluateComplete(*pv.doc, *ctx));
+            }
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_CROPPHOTOS: a "scan" (light gray paper) with three photos turned by +8, -12 and 0 degrees, each with a dark
         // mark in its top-left corner; Crop and Straighten Photos then logs the documents made (the first exported).
         if (GetEnvironmentVariableA("SX_CROPPHOTOS", nullptr, 0) > 0) {

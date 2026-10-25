@@ -986,6 +986,19 @@ private:
         Precision precision = Precision::Half16;
     } cropPhotos;
     void StartCropPhotos(DocView& v);
+    // File > Automate > Contact Sheet (ContactSheet.cpp).
+    struct {
+        bool open = false, subfolders = false, captions = true, flatten = false, running = false, cancel = false;
+        std::string folder;
+        int width = 2480, height = 3508, cols = 5, rows = 6, margin = 80, spacing = 40, fontSize = 32;
+        std::vector<std::string> files;
+        size_t index = 0, failed = 0;
+        int pages = 0;
+        DocView* page = nullptr;  // the page being filled
+    } contactSheet;
+    void DrawContactSheetDialog();
+    void StartContactSheet();
+    void ContactSheetTick();
     void CropPhotosTick();
     // The photos' frames (TL, TR, BR, BL, document pixels) in an RGBA8 image, background found on its border.
     static std::vector<std::array<float2, 4>> FindPhotos(const u8* rgba, u32 w, u32 h);

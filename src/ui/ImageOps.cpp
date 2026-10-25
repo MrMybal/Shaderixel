@@ -201,6 +201,8 @@ void App::DrawImageDialogs() {
     ContentScaleTick();
     AlignLayerTick();
     CropPhotosTick();
+    ContactSheetTick();
+    DrawContactSheetDialog();
     AnimTick();
     PerspectivePasteTick();
     TrimTick();
@@ -211,7 +213,7 @@ void App::DrawImageDialogs() {
         DrawJobModal(fillJob.label.c_str(), fillJob.progress.load(), &cancel);
         if (cancel) fillJob.cancel = true;
     }
-    if (!carveJob && !animExport && !exportAsJob && !fillJob.active) CloseJobModal();
+    if (!carveJob && !animExport && !exportAsJob && !fillJob.active && !contactSheet.running) CloseJobModal();
     if (cropBoundsRb && cropBoundsRb->ready) {
         auto rb = cropBoundsRb;
         cropBoundsRb.reset();
