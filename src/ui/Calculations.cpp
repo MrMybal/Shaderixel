@@ -19,7 +19,7 @@ void App::DrawCalculationsDialog() {
     auto& C = calculations;
     if (!C.open) return;
     DocView* v = Active();
-    if (!v) { C.open = false; return; }
+    if (!v || v->doc->Mode() != DocMode::Layers) { C.open = false; return; }  // (a node document: no layers to add)
     Document& d = *v->doc;
     ImGui::SetNextWindowSize(ImVec2(420 * dpi, 0), ImGuiCond_Always);
     if (!ImGui::Begin("Calculs", &C.open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings)) {
@@ -108,7 +108,7 @@ void App::CalculationsRun(DocView& v) {
         dd.pipeline = k;
         dd.srv[0] = src;
         dd.uav[0] = prepared[i].get();
-        SetConstants(dd, Root{W, H, 0, ShaderChannel(S.channel), S.invert ? 1u : 0u, {0, 0, 0}});
+        SetConstants(dd, Root{W, H, 0, ShaderChannel(S.channel), S.invert ? 1u : 0u, {1, 0, 0}});  // (an opaque 0..1 channel)
         Dispatch2D(*ctx, dd, W, H);
     }
     auto result = gpu::Dev().CreateTexture(W, H, gpu::Format::RGBA16F, "Calculations");
@@ -124,24 +124,18 @@ void App::CalculationsRun(DocView& v) {
     // A gray layer: in this document, or alone in a new one.
     DocView* target = &v;
     if (C.result == 2) {
-        NewDocument(W, H, d.GetPrecision(), DocMode::Layers, 1, "Calculs");
+        NewDocument(W, H, d.GetPrecision(), DocMode::Layers, 3, "Calculs");  // (no background: the result is its layer)
         target = docs.back().get();
     }
     Document& td = *target->doc;
     Edit e(td, target->history, "Calculs");
-    Layer* l = nullptr;
-    if (C.result == 2 && !td.S().layers.empty()) {
-        l = &td.S().layers.back();
-        l->name = "Calculs";
-    } else {
-        l = &td.AddPixelLayer("Calculs", (int)td.S().layers.size());  // (on top: the result seen as computed)
-        td.S().activeLayer = l->id;
-    }
-    const Id surf = l->surface;
+    Layer* l = &td.AddPixelLayer("Calculs", (int)td.S().layers.size());  // (on top: the result seen as computed)
+    td.S().activeLayer = l->id;
+    const Id surf = l->surface, lid = l->id;
     td.SyncGraph();
     Prepare(*target);  // (the new surface created)
     Surface* s = td.GetSurface(surf);
-    if (!s || !s->tex) { e.Commit(); Status("Calculs : calque impossible à créer"); return; }
+    if (!s || !s->tex) { td.RemoveLayer(lid); Status("Calculs : calque impossible à créer"); return; }  // (no step)
     if (s->tex->GetFormat() == result->GetFormat()) {
         ctx->CopyTexture(s->tex.get(), result.get());
     } else {

@@ -8,7 +8,8 @@ cbuffer Root : register(b0)
     uint gPass;
     uint gChannel;  // 0 RGB, 1 red, 2 green, 3 blue, 4 alpha, 5 gray (luminance)
     uint gInvert;
-    uint3 _pad;
+    uint gChannelOnly;  // Calculations: the channel as an opaque 0..1 gray (transparency ignored)
+    uint2 _pad;
 };
 
 Texture2D<float4> gA : register(t0);  // pass 0: the source; pass 1: the blended result
@@ -27,12 +28,13 @@ void main(uint3 id : SV_DispatchThreadID)
         return;
     }
     float4 s = Unpremultiply(a);
-    // (HDR images: a channel is a 0..1 value; RGB kept finite, a glow can overflow to infinity)
+    // (HDR images kept finite: a glow can overflow to infinity; NaN removed)
     if (any(isnan(s.rgb))) s.rgb = 0;
-    s.rgb = gChannel == 0 ? clamp(s.rgb, 0.0, 60000.0) : saturate(s.rgb);
+    s.rgb = clamp(s.rgb, -60000.0, 60000.0);
     if (gChannel == 4) s = float4(SrgbToLinear(s.aaa), 1);  // (alpha shown as a gray: 0.5 -> mid gray)
     else if (gChannel == 5) s = float4(Luma(s.rgb).xxx, s.a);
     else if (gChannel >= 1) s = float4(s[gChannel - 1].xxx, s.a);
+    if (gChannelOnly) s = float4(saturate(s.rgb), 1);  // (a channel: 0..1, opaque)
     if (gInvert)
     {
         // Inverted in the display space (like Photoshop's Invert): sRGB.
