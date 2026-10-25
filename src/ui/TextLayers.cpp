@@ -116,6 +116,7 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             }
             if (!ImGui::IsMouseDown(0)) {
                 shapeDragging = false;
+                sg.vectorDrag = false;
                 if (editBefore) v.history.PushState("Forme", *editBefore, d.S());
                 editBefore.reset();
             }
@@ -128,10 +129,16 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             shapeStart = dp;
             shapeRectStart = al->shape.rect;
             editBefore = frameBefore;
+            if (smartGuides && snapEnabled) {
+                SmartGuidesCollect(v, al->surface, 0);
+                sg.vectorStart = ShapeBox(al->shape);
+                sg.vectorDrag = true;
+            }
         }
         if (shapeDragging) {
             float2 dd = dp - shapeStart;
             if (io.KeyShift) { if (std::abs(dd.x) > std::abs(dd.y)) dd.y = 0; else dd.x = 0; }
+            if (sg.vectorDrag) dd = SmartGuidesVector(v, dd, io.KeyShift);  // (lined up on the other layers)
             float2 step = {shapeRectStart.x + dd.x - al->shape.rect.x, shapeRectStart.y + dd.y - al->shape.rect.y};
             al->shape.rect = {shapeRectStart.x + dd.x, shapeRectStart.y + dd.y, shapeRectStart.z + dd.x, shapeRectStart.w + dd.y};
             for (auto& p : al->shape.parts) p.rect = {p.rect.x + step.x, p.rect.y + step.y, p.rect.z + step.x, p.rect.w + step.y};
@@ -158,6 +165,12 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
                 textDragStart = dp;
                 textPosStart = al->text.pos;
                 editBefore = frameBefore;
+                if (smartGuides && snapEnabled) {
+                    SmartGuidesCollect(v, al->surface, 0);
+                    auto tr = v.textRects.find(al->surface);
+                    sg.vectorStart = tr != v.textRects.end() ? tr->second : Rect{};
+                    sg.vectorDrag = true;
+                }
             }
             if (tool == Tool::Text) focusTextEdit = true;
         } else {
@@ -198,10 +211,12 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
         if (l && l->kind == LayerKind::Text) {
             float2 delta = dp - textDragStart;
             if (io.KeyShift) { if (std::abs(delta.x) > std::abs(delta.y)) delta.y = 0; else delta.x = 0; }
+            if (sg.vectorDrag) delta = SmartGuidesVector(v, delta, io.KeyShift);  // (lined up on the other layers)
             l->text.pos = {std::round(textPosStart.x + delta.x), std::round(textPosStart.y + delta.y)};
         }
         if (!ImGui::IsMouseDown(0)) {
             textDragging = false;
+            sg.vectorDrag = false;
             if (editBefore && l && !(l->text.pos == textPosStart)) v.history.PushState("Déplacer le texte", *editBefore, d.S());
             editBefore.reset();
         }

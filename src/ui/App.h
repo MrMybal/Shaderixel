@@ -898,7 +898,11 @@ private:
         Rect withX, withY, box;
         gpu::ReadbackPtr selfRb;  // the moved layer's content (the move tool moves the whole surface)
         Rect self;
+        bool vectorDrag = false;  // a text / shape layer being moved (its own move code)
+        Rect vectorStart;         // its box when the drag started
     } sg;
+    // Smart guides for a text / shape move: the delta adjusted so the box lines up (Shift: only the free axis).
+    float2 SmartGuidesVector(DocView& v, float2 delta, bool shift);
     void SmartGuidesCollect(DocView& v, Id exclude, Id selection);
     // The visible box of a shape layer: its frame and its added parts, rotated, plus the stroke when drawn.
     static Rect ShapeBox(const ShapeStyle& s);

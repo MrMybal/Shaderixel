@@ -851,6 +851,41 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_SMARTG2: a shape layer (rectangle, no stroke) dragged with the move tool to 2.5 px from a blue pixel box's
+        // left edge: it snaps onto it (shape rect logged).
+        if (GetEnvironmentVariableA("SX_SMARTG2", nullptr, 0) > 0) {
+            ImGuiIO& io = ImGui::GetIO();
+            static Id shapeL = 0;
+            if (frameCounter == 8) {
+                Id blue = d.AddPixelLayer("Bleu").id;
+                d.SyncGraph();
+                Prepare(*a);
+                a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, float4{500, 300, 600, 380}, SelMode::Replace, false, 0, "Sélection");
+                if (Layer* l = d.FindLayer(blue)) a->renderer.FillSelection(d, *ctx, &a->history, l->surface, 0, float4{0.1f, 0.2f, 0.9f, 1}, 1, "Remplir");
+                a->renderer.Deselect(d, a->history);
+                ShapeStyle st;
+                st.rect = {100, 100, 200, 180};
+                st.strokeOn = false;
+                shapeL = d.AddShapeLayer(st).id;
+                d.S().activeLayer = shapeL;
+                d.SyncGraph();
+                tool = viewTool[0] = Tool::Move;
+            }
+            auto S = [&](float x, float y) { return ImVec2(lxf.canvasMin.x + a->pan.x + x * a->zoom, lxf.canvasMin.y + a->pan.y + y * a->zoom); };
+            const float tx = 150 + 397.5f, ty = 140 + 30;
+            if (frameCounter == 20) { const ImVec2 p = S(150, 140); io.AddMousePosEvent(p.x, p.y); }
+            if (frameCounter == 22) io.AddMouseButtonEvent(0, true);
+            if (frameCounter > 22 && frameCounter <= 42) {
+                const float t = (frameCounter - 22) / 20.0f;
+                const ImVec2 p = S(150 + (tx - 150) * t, 140 + (ty - 140) * t);
+                io.AddMousePosEvent(p.x, p.y);
+            }
+            if (frameCounter == 44) io.AddMouseButtonEvent(0, false);
+            if (frameCounter == 50)
+                if (Layer* l = d.FindLayer(shapeL))
+                    Log("[smartg2] shape rect after the move: %.1f..%.1f, %.1f..%.1f (blue starts at x 500)", l->shape.rect.x, l->shape.rect.z, l->shape.rect.y, l->shape.rect.w);
+            return;
+        }
         // SX_SMARTG: two rectangles on their own layers; the first dragged with the move tool (synthetic events) to
         // 2.5 px from the second's left edge: the smart guides snap it onto it. Exported (SX_OUT).
         if (GetEnvironmentVariableA("SX_SMARTG", nullptr, 0) > 0) {

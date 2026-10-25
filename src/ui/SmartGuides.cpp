@@ -114,8 +114,24 @@ float2 App::SmartGuidesSnap(DocView& v, float2 center, float2 half) {
     return center;
 }
 
+float2 App::SmartGuidesVector(DocView& v, float2 delta, bool shift) {
+    if (!smartGuides || !snapEnabled || ImGui::GetIO().KeyCtrl || sg.vectorStart.Empty() || sg.view != &v) {
+        sg.lineX = sg.lineY = NAN;
+        return delta;
+    }
+    const Rect& r = sg.vectorStart;
+    const float2 half = {r.Width() * 0.5f, r.Height() * 0.5f}, c = float2{(r.x0 + r.x1) * 0.5f, (r.y0 + r.y1) * 0.5f} + delta;
+    float2 d = SmartGuidesSnap(v, c, half) - c;
+    if (shift) {
+        if (delta.x == 0) { d.x = 0; sg.lineX = NAN; }
+        if (delta.y == 0) { d.y = 0; sg.lineY = NAN; }
+    }
+    return delta + d;
+}
+
 void App::SmartGuidesOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
-    if (!xf.active || xf.view != &v || xf.drag != 8 || sg.view != &v) return;
+    if (sg.view != &v) return;
+    if (!sg.vectorDrag && (!xf.active || xf.view != &v || xf.drag != 8)) return;
     auto S = [&](float x, float y) { return ImVec2(canvasMin.x + v.pan.x + x * v.zoom, canvasMin.y + v.pan.y + y * v.zoom); };
     const ImU32 col = IM_COL32(255, 40, 200, 230);
     if (!std::isnan(sg.lineX)) {
