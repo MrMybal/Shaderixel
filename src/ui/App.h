@@ -55,6 +55,12 @@ inline bool IsRetouchTool(Tool t) {
 inline bool IsPaintTool(Tool t) { return t == Tool::Brush || t == Tool::Eraser || IsRetouchTool(t); }
 
 struct DocView;
+// A document snapshot (History panel): the state and its own copy of every surface.
+struct DocSnapshot {
+    std::string name;
+    DocState state;
+    u64 bytes = 0;
+};
 struct PhotoJob;
 struct UvJob;
 struct LinkSession;  // Unreal live link (UnrealLink.cpp)
@@ -156,6 +162,8 @@ struct DocView {
     std::unique_ptr<PtRenderState> viewRT;    // ray-traced 3D view (its own scene: model + floor)
     std::shared_ptr<LinkSession> link;        // opened from the Unreal plugin (sent back on Ctrl+S)
     std::unordered_map<Id, gpu::TexturePtr> snapshots;  // history brush sources (layer state before the first edit)
+    std::vector<DocSnapshot> docSnapshots;               // document snapshots (History panel)
+    int snapshotCounter = 0;
     int viewMode = 0;                         // 0 final image, 1 active layer only, 2 up to the active layer
     std::string displayLutKey;                // color management chain of displayLut
     gpu::TexturePtr displayLut;
@@ -2067,6 +2075,9 @@ private:
     bool demoOpenHistMem = false;  // demos: opens the memory settings of the History panel
     void ApplyHistoryLimits();
     void DrawHistoryMemorySettings();
+    void TakeDocSnapshot(DocView& v);
+    void RestoreDocSnapshot(DocView& v, size_t index);
+    void DocSnapshotsUI(DocView& v);
     // Custom shapes (ShapeLibrary.cpp).
     std::vector<CustomShape> userShapes;
     bool userShapesLoaded = false;

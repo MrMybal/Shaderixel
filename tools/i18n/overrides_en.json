@@ -819,5 +819,10 @@
  "Définir une forme prédéfinie de pinceau": "Define Brush Preset",
  "La sélection (ou l'image) devient une pointe de pinceau : le sombre peint, le blanc et le transparent non.": "The selection (or the image) becomes a brush tip: dark paints, white and transparent do not.",
  "Définir un pinceau : la zone est vide (blanche ou transparente)": "Define brush: the area is empty (white or transparent)",
- "Définir un pinceau : écriture impossible": "Define brush: cannot write the files"
+ "Définir un pinceau : écriture impossible": "Define brush: cannot write the files",
+ "Instantanés du document": "Document snapshots",
+ "Créer un instantané": "Create snapshot",
+ "Mémorise tout le document (calques, réglages, pixels) ; cliquer sur un instantané le rétablit\n(une étape d'annulation), même quand l'historique a oublié les étapes qui y menaient.": "Remembers the whole document (layers, settings, pixels); clicking a snapshot restores it\n(one undo step), even when the history has forgotten the steps that led to it.",
+ "Instantané impossible : mémoire graphique insuffisante": "Snapshot impossible: not enough video memory",
+ "Rétablir l'instantané : mémoire graphique insuffisante": "Restore snapshot: not enough video memory"
 }

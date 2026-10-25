@@ -851,6 +851,32 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_SNAP: a document snapshot, then a red fill and a crop; restoring the snapshot gives the original image back
+        // (compared), and undoing the restore gives the cropped one again.
+        if (GetEnvironmentVariableA("SX_SNAP", nullptr, 0) > 0) {
+            static gpu::ReadbackPtr orig, back;
+            if (frameCounter == 8) {
+                orig = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+                TakeDocSnapshot(*a);
+            }
+            if (frameCounter == 12) {
+                a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, float4{0, 0, 450, 450}, SelMode::Replace, false, 0, "Sélection");
+                a->renderer.FillSelection(d, *ctx, &a->history, d.PaintTarget(), 0, float4{0.9f, 0.05f, 0.05f, 1}, 1, "Remplir");
+                ApplyCrop(*a, Rect{100, 50, 700, 400});
+                Log("[snap] after fill + crop: %u x %u", d.Width(), d.Height());
+            }
+            if (frameCounter == 18) {
+                RestoreDocSnapshot(*a, 0);
+                Log("[snap] restored: %u x %u, history %zu (%s)", d.Width(), d.Height(), a->history.Count(), a->history.Label(a->history.Count() - 1).c_str());
+            }
+            if (frameCounter == 22) back = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (frameCounter == 30 && orig && back && orig->ready && back->ready) CompareReadbacks("original vs restored snapshot", *orig, *back, 0);
+            if (frameCounter == 32) {
+                Undo();
+                Log("[snap] undo of the restore: %u x %u", d.Width(), d.Height());
+            }
+            return;
+        }
         // SX_DEFBRUSH: Define Brush Preset from a selection around the ball, then a stroke with it on a new layer;
         // exported (SX_OUT). The brush files written are removed at the end (tests leave no brush behind).
         if (GetEnvironmentVariableA("SX_DEFBRUSH", nullptr, 0) > 0) {

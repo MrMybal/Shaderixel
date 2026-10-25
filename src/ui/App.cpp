@@ -2153,6 +2153,7 @@ void App::DrawHistory() {
             ImGui::TextDisabled(v->snapshots.count(t) ? "(instantané défini)" : "");
             ImGui::Separator();
         }
+        DocSnapshotsUI(*v);
         // Undo memory: recent steps on the GPU, older pixel steps compressed in system memory.
         const HistoryLimits& HL = History::Limits();
         ImGui::AlignTextToFramePadding();
