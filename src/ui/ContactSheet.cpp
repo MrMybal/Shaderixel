@@ -1,9 +1,11 @@
 // File > Automate > Contact Sheet (like Photoshop's Contact Sheet II): the images of a folder laid out as
-// thumbnails in a grid, on as many pages as needed (a new document per page), each on its own layer with its file
-// name below as a text layer; flattened on request. One image per frame, progress and cancel in the job window.
+// thumbnails in a grid, on as many pages as needed (a new document per page): the thumbnails on one layer, their file
+// names below on another (two page-sized layers whatever the count); flattened on request. One image per frame,
+// progress and cancel in the job window; an unreadable file takes no cell.
 #include "ui/App.h"
 #include "render/Dispatch.h"
 #include "io/WicLoad.h"
+#include "io/TextRaster.h"
 
 #include <algorithm>
 #include <cmath>
@@ -88,6 +90,7 @@ void App::StartContactSheet() {
     std::sort(C.files.begin(), C.files.end());
     if (C.files.empty()) { Status("Planche contact : aucune image dans " + C.folder); return; }
     C.index = 0;
+    C.placed = 0;
     C.page = nullptr;
     C.pages = 0;
     C.failed = 0;
@@ -95,6 +98,46 @@ void App::StartContactSheet() {
     C.running = true;
     C.open = false;
 }
+
+namespace {
+struct PerspRoot { u32 dw, dh, sw, sh; float h0[3]; u32 interp; float h1[3]; u32 pad0; float h2[3]; u32 pad1; };
+
+// `src` (sw x sh) scaled by `sc` into a new w x h texture of `fmt` (supersampled when reduced, bicubic).
+gpu::TexturePtr Scaled(gpu::CommandContext& ctx, gpu::Texture* src, u32 sw, u32 sh, float sc, u32 w, u32 h, gpu::Format fmt, u32 interp) {
+    auto* k = Kernel("resample_persp.slang");
+    auto out = k ? gpu::Dev().CreateTexture(w, h, fmt, "ContactSheet") : nullptr;
+    if (!out) return nullptr;
+    gpu::DispatchDesc dd;
+    dd.pipeline = k;
+    dd.srv[0] = src;
+    dd.uav[0] = out.get();
+    SetConstants(dd, PerspRoot{w, h, sw, sh, {1 / sc, 0, 0}, interp, {0, 1 / sc, 0}, 0, {0, 0, 1}, 0});
+    Dispatch2D(ctx, dd, w, h);
+    return out;
+}
+
+// Straight linear float RGBA -> a premultiplied RGBA32F texture (reduced by a whole factor when very large).
+gpu::TexturePtr UploadFloat(gpu::CommandContext& ctx, std::vector<float>& px, int& w, int& h) {
+    const int f = std::max(1, (std::max(w, h) + 4095) / 4096);
+    if (f > 1) {
+        const int nw = std::max(1, w / f), nh = std::max(1, h / f);
+        std::vector<float> reduced((size_t)nw * nh * 4, 0.0f);
+        for (int y = 0; y < nh; ++y)
+            for (int x = 0; x < nw; ++x)
+                for (int j = 0; j < f; ++j)
+                    for (int i = 0; i < f; ++i)
+                        for (int c = 0; c < 4; ++c) reduced[((size_t)y * nw + x) * 4 + c] += px[((size_t)(y * f + j) * w + (x * f + i)) * 4 + c] / (f * f);
+        px.swap(reduced);
+        w = nw;
+        h = nh;
+    }
+    for (size_t i = 0; i < px.size(); i += 4)
+        for (int c = 0; c < 3; ++c) px[i + c] *= px[i + 3];
+    auto t = gpu::Dev().CreateTexture((u32)w, (u32)h, gpu::Format::RGBA32F, "ContactSheetSrc");
+    if (t) ctx.Upload(t.get(), px.data(), (u32)w * 16);
+    return t;
+}
+}  // namespace
 
 void App::ContactSheetTick() {
     auto& C = contactSheet;
@@ -107,31 +150,63 @@ void App::ContactSheetTick() {
     if (!alive) C.page = nullptr;
     const int perPage = C.cols * C.rows;
     auto finishPage = [&]() {
-        if (C.page && C.flatten) MergeVisible(*C.page, true);
-        if (C.page) { C.page->history.Clear(); C.page->fitPending = true; }
+        if (!C.page) return;
+        if (C.flatten) {
+            Prepare(*C.page);
+            SyncTextLayers(*C.page);
+            MergeVisible(*C.page, true);
+        }
+        C.page->history.Clear();
+        C.page->fitPending = true;
+        C.page = nullptr;
     };
     if (cancel || C.cancel || C.index >= C.files.size()) {
         finishPage();
         C.running = false;
-        Status("Planche contact : " + std::to_string(C.index - C.failed) + " image(s) sur " + std::to_string(C.pages) + " page(s)" +
+        Status("Planche contact : " + std::to_string(C.placed) + " image(s) sur " + std::to_string(C.pages) + " page(s)" +
                (C.failed ? ", " + std::to_string(C.failed) + " illisible(s)" : "") + (cancel || C.cancel ? " (arrêtée)" : ""));
         return;
     }
-    const int slot = (int)(C.index % perPage);
+    const std::string file = C.files[C.index++];
+    // The image: decoded first (an unreadable file takes no cell). TIFF, WebP, camera RAW through WIC.
+    std::string ext = Narrow(Utf8Path(file).extension().wstring());
+    for (auto& c : ext) c = (char)tolower((unsigned char)c);
+    const bool wic = IsRawExtension(ext) || ext == ".tif" || ext == ".tiff" || ext == ".webp";
+    gpu::TexturePtr img;
+    u32 iw = 0, ih = 0;
+    DocView* host = C.page ? C.page : Active();
+    if (wic) {
+        std::vector<float> px;
+        int w = 0, h = 0;
+        if (LoadWicFloat(file, px, w, h, nullptr) && w > 0 && h > 0) {
+            img = UploadFloat(*ctx, px, w, h);
+            iw = (u32)w;
+            ih = (u32)h;
+        }
+    } else if (host) {
+        img = LoadImageTexture(*host, file, iw, ih);
+        loadedSubDoc.reset();  // (only the image is used)
+    }
+    if (!img || !iw || !ih) { ++C.failed; return; }
+    // A new page when needed: the paper, the thumbnails' layer and the names' layer.
+    const int slot = C.placed % perPage;
     if (slot == 0 || !C.page) {
         finishPage();
         NewDocument((u32)C.width, (u32)C.height, Precision::Half16, DocMode::Layers, 0, "Planche contact " + std::to_string(++C.pages));
         C.page = docs.back().get();
+        Document& nd = *C.page->doc;
+        C.thumbs = nd.AddPixelLayer("Vignettes", (int)nd.S().layers.size()).id;
+        C.names = C.captions ? nd.AddPixelLayer("Noms", (int)nd.S().layers.size()).id : 0;
+        nd.SyncGraph();
     }
-    const std::string file = C.files[C.index++];
     DocView& pv = *C.page;
     Document& pd = *pv.doc;
-    u32 iw = 0, ih = 0;
-    gpu::TexturePtr img = LoadImageTexture(pv, file, iw, ih);
-    loadedSubDoc.reset();  // (only the image is used)
-    auto* k = Kernel("resample_persp.slang");
-    if (!img || !iw || !ih || !k) { ++C.failed; return; }
-    // The cell: its image area above, the caption below.
+    Prepare(pv);
+    const Layer* tl = pd.FindLayer(C.thumbs);
+    Surface* thumbs = tl ? pd.GetSurface(tl->surface) : nullptr;
+    if (!thumbs || !thumbs->tex) { ++C.failed; return; }
+    ++C.placed;
+    // The cell: the image and its caption centered together.
     const float W = (float)C.width, H = (float)C.height, m = (float)C.margin, s = (float)C.spacing;
     const float cellW = std::max(1.0f, (W - 2 * m - (C.cols - 1) * s) / C.cols), cellH = std::max(1.0f, (H - 2 * m - (C.rows - 1) * s) / C.rows);
     const float capH = C.captions ? C.fontSize * 1.5f : 0;
@@ -139,27 +214,19 @@ void App::ContactSheetTick() {
     const int col = slot % C.cols, row = slot / C.cols;
     const float cx = m + col * (cellW + s), cy = m + row * (cellH + s);
     const float sc = std::min(cellW / iw, areaH / ih);
-    // The image and its caption centered together in the cell.
-    const float ox = std::round(cx + (cellW - iw * sc) * 0.5f), oy = std::round(cy + (cellH - (ih * sc + capH)) * 0.5f);
-    const std::string stem = Narrow(Utf8Path(file).stem().wstring());
-    Layer& l = pd.AddPixelLayer(stem, (int)pd.S().layers.size());
-    const Id surf = l.surface;
-    pd.SyncGraph();
-    Prepare(pv);
-    Surface* dst = pd.GetSurface(surf);
-    if (!dst || !dst->tex) { ++C.failed; return; }
-    // Page pixel -> image pixel: (p - offset) / scale; outside the image stays transparent (supersampled when reduced).
-    struct PerspRoot { u32 dw, dh, sw, sh; float h0[3]; u32 interp; float h1[3]; u32 pad0; float h2[3]; u32 pad1; };
-    gpu::DispatchDesc dd;
-    dd.pipeline = k;
-    dd.srv[0] = img.get();
-    dd.uav[0] = dst->tex.get();
-    SetConstants(dd, PerspRoot{(u32)C.width, (u32)C.height, iw, ih, {1 / sc, 0, -ox / sc}, 2, {0, 1 / sc, -oy / sc}, 0, {0, 0, 1}, 0});
-    Dispatch2D(*ctx, dd, (u32)C.width, (u32)C.height);
-    pd.TouchSurface(surf);
-    if (C.captions) {
-        // The name, shortened to fit the cell (about half an em per character).
-        std::string name = stem;
+    const u32 tw = std::max(1u, (u32)std::lround(iw * sc)), th = std::max(1u, (u32)std::lround(ih * sc));
+    const int ox = (int)std::round(cx + (cellW - tw) * 0.5f), oy = (int)std::round(cy + (cellH - (th + capH)) * 0.5f);
+    // The thumbnail drawn at its own size, then copied into its place (the other cells untouched).
+    if (auto t = Scaled(*ctx, img.get(), iw, ih, (float)tw / iw, tw, th, thumbs->tex->GetFormat(), 2)) {
+        const Rect r = {0, 0, std::min((int)tw, C.width - ox), std::min((int)th, C.height - oy)};
+        if (ox >= 0 && oy >= 0 && r.x1 > 0 && r.y1 > 0) ctx->CopyRegion(thumbs->tex.get(), ox, oy, t.get(), r);
+        pd.TouchSurface(tl->surface);
+    }
+    const Layer* nl = pd.FindLayer(C.names);
+    Surface* names = nl ? pd.GetSurface(nl->surface) : nullptr;
+    if (C.captions && names && names->tex) {
+        // The name, shortened to fit the cell (about half an em per character), rasterized into the names' layer.
+        std::string name = Narrow(Utf8Path(file).stem().wstring());
         const size_t fit = (size_t)std::max(4.0f, cellW / (C.fontSize * 0.55f));
         if (name.size() > fit) name = name.substr(0, fit - 3) + "...";
         TextStyle ts;
@@ -167,8 +234,19 @@ void App::ContactSheetTick() {
         ts.size = (float)C.fontSize;
         ts.color = {0.1f, 0.1f, 0.1f, 1};
         ts.align = 1;
-        ts.pos = {std::round(cx + cellW * 0.5f), std::round(oy + ih * sc + C.fontSize * 0.3f)};
-        pd.AddTextLayer(ts);
+        ts.pos = {std::round(cx + cellW * 0.5f), std::round(oy + th + C.fontSize * 0.3f)};
+        std::vector<float> px;
+        Rect rect;
+        if (RasterizeText(ts, C.width, C.height, px, rect) && !rect.Empty()) {
+            int rw = rect.Width(), rh = rect.Height();
+            if (auto up = UploadFloat(*ctx, px, rw, rh))
+                if (auto t = Scaled(*ctx, up.get(), (u32)rw, (u32)rh, 1.0f, (u32)rw, (u32)rh, names->tex->GetFormat(), 0)) {
+                    const int x0 = std::max(0, rect.x0), y0 = std::max(0, rect.y0);
+                    const Rect r = {x0 - rect.x0, y0 - rect.y0, std::min(rw, C.width - rect.x0), std::min(rh, C.height - rect.y0)};
+                    if (r.x1 > r.x0 && r.y1 > r.y0) ctx->CopyRegion(names->tex.get(), x0, y0, t.get(), r);
+                    pd.TouchSurface(nl->surface);
+                }
+        }
     }
     pd.dirty = true;
 }

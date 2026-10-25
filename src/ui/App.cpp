@@ -1296,8 +1296,8 @@ void App::DrawMenuBar() {
             if (ImGui::MenuItem("Photomerge (panorama)...")) { photoDlg.open = true; photoDlg.kind = 1; }
             if (ImGui::MenuItem("Fusion HDR...")) { photoDlg.open = true; photoDlg.kind = 4; }
             if (ImGui::MenuItem("Recadrer et redresser les photos", nullptr, false, v && v->doc->Mode() == DocMode::Layers)) StartCropPhotos(*v);
-            if (ImGui::MenuItem("Planche contact...", nullptr, false, !contactSheet.running)) contactSheet.open = true;
             ImGui::SetItemTooltip("Plusieurs photos numérisées ensemble : chacune détectée sur le fond, redressée et ouverte dans son document");
+            if (ImGui::MenuItem("Planche contact...", nullptr, false, !contactSheet.running)) contactSheet.open = true;
             ImGui::Separator();
             if (ImGui::MenuItem("Actions")) { panelOpen["Actions"].open = true; ShowSideTab(1); FocusPanel("Actions"); }
             ImGui::EndMenu();

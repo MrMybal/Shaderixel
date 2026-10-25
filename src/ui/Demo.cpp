@@ -1091,10 +1091,9 @@ void App::DemoTick() {
                 doneAt = frameCounter;
                 Log("[contact] %s", statusMsg.c_str());
                 for (size_t i = firstDoc; i < docs.size(); ++i) {
-                    int px = 0, tx = 0;
-                    for (auto& l : docs[i]->doc->S().layers) { px += l.kind == LayerKind::Pixel; tx += l.kind == LayerKind::Text; }
-                    Log("[contact]   %s: %u x %u, %d pixel layer(s), %d caption(s)", docs[i]->doc->Name().c_str(), docs[i]->doc->Width(),
-                        docs[i]->doc->Height(), px, tx);
+                    std::string names;
+                    for (auto& l : docs[i]->doc->S().layers) names += "'" + l.name + "' ";
+                    Log("[contact]   %s: %u x %u, layers %s", docs[i]->doc->Name().c_str(), docs[i]->doc->Width(), docs[i]->doc->Height(), names.c_str());
                 }
             }
             if (doneAt && frameCounter == doneAt + 6 && out[0] && firstDoc < docs.size()) {

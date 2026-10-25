@@ -993,8 +993,9 @@ private:
         int width = 2480, height = 3508, cols = 5, rows = 6, margin = 80, spacing = 40, fontSize = 32;
         std::vector<std::string> files;
         size_t index = 0, failed = 0;
-        int pages = 0;
+        int pages = 0, placed = 0;
         DocView* page = nullptr;  // the page being filled
+        Id thumbs = 0, names = 0;  // its layers
     } contactSheet;
     void DrawContactSheetDialog();
     void StartContactSheet();
