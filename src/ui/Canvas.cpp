@@ -491,6 +491,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         float2 local = {mouse.x - canvasMin.x, mouse.y - canvasMin.y};
         v.pan = local - (local - v.pan) * (nz / v.zoom);
         v.zoom = nz;
+        v.fitHold = 0;  // (a fit still settling would undo it)
     }
 
     // Panning: middle mouse, space, hand tool.
@@ -610,6 +611,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         float2 local = {mouse.x - canvasMin.x, mouse.y - canvasMin.y};
         v.pan = local - (local - v.pan) * (nz / v.zoom);
         v.zoom = nz;
+        v.fitHold = 0;  // (a fit still settling would undo it)
         return;
     }
 

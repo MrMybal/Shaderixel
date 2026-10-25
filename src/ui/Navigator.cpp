@@ -10,11 +10,12 @@ namespace sx {
 namespace {
 // Zoom about the view's center (the same document point stays in the middle of the canvas).
 void ZoomAboutCenter(DocView& v, float z) {
-    z = std::clamp(z, 0.01f, 64.0f);
+    z = std::clamp(z, 0.01f, 128.0f);  // (the canvas' own range)
     const float2 half = v.viewSize * 0.5f;
     const float2 c = (half - v.pan) * (1.0f / v.zoom);
     v.zoom = z;
     v.pan = half - c * z;
+    v.fitHold = 0;  // (a fit still settling would undo the user's zoom)
 }
 // Transparency checkerboard under the image.
 void Checker(ImDrawList* dl, ImVec2 p0, ImVec2 p1, float cell) {
@@ -27,13 +28,19 @@ void Checker(ImDrawList* dl, ImVec2 p0, ImVec2 p1, float cell) {
 }  // namespace
 
 void App::DrawNavigator() {
-    if (!ImGui::Begin("Navigateur", PanelFlag("Navigateur"))) {
+    // (no scrolling with the wheel: it zooms here)
+    if (!ImGui::Begin("Navigateur", PanelFlag("Navigateur"), ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoScrollbar)) {
         ImGui::End();
         return;
     }
     DocView* v = Active();
-    if (!v || !v->lastImage || v->viewSize.x <= 0) {
+    if (!v || !v->lastImage) {
         ImGui::TextDisabled("Aucun document ouvert");
+        ImGui::End();
+        return;
+    }
+    if (v->viewSize.x <= 0) {  // (opened while the canvas tab is hidden: its size is not known yet)
+        ImGui::TextDisabled("Affichez le canevas pour naviguer");
         ImGui::End();
         return;
     }
@@ -50,7 +57,7 @@ void App::DrawNavigator() {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     // The image (refreshed a few times a second: it is small).
     Checker(dl, p0, p1, 6 * dpi);
-    const u64 hash = (u64)(uintptr_t)v->lastImage ^ ((u64)ImGui::GetFrameCount() / 8 << 20);
+    const u64 hash = (u64)(uintptr_t)v->lastImage ^ (v->renderer.ImageVersion() << 1);  // (redrawn when the image changes)
     if (gpu::Texture* t = v->renderer.Thumbnail(*ctx, 0xA5A5000000000000ull, v->lastImage, hash, (u32)tw, (u32)th))
         dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), p0, p1);
     dl->AddRect(p0, p1, ui::col::Border);
@@ -84,7 +91,7 @@ void App::DrawNavigator() {
     float pct = v->zoom * 100.0f;
     const float side = ImGui::GetFrameHeight() * 2 + ImGui::CalcTextSize("Ajuster").x + ImGui::GetStyle().FramePadding.x * 2 + ImGui::GetStyle().ItemSpacing.x * 3;
     ImGui::SetNextItemWidth(std::max(60.0f, ImGui::GetContentRegionAvail().x - side));
-    if (ImGui::SliderFloat("##zoom", &pct, 1.0f, 6400.0f, "%.0f %%", ImGuiSliderFlags_Logarithmic)) ZoomAboutCenter(*v, pct / 100.0f);
+    if (ImGui::SliderFloat("##zoom", &pct, 1.0f, 12800.0f, "%.0f %%", ImGuiSliderFlags_Logarithmic)) ZoomAboutCenter(*v, pct / 100.0f);
     ImGui::SameLine();
     if (ImGui::Button("+", ImVec2(ImGui::GetFrameHeight(), 0))) ZoomAboutCenter(*v, v->zoom * 1.25f);
     ImGui::SameLine();

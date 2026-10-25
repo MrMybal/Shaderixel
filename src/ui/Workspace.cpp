@@ -286,12 +286,16 @@ void App::MigrateLayout() {
     // Panels added in later versions, left floating by an older saved layout: put them in their tab once.
     if (layoutMigration >= kLayoutMigration) return;
     if (++layoutMigrationFrames < 3) return;  // windows created first
-    struct P { const char* name; int tab; bool lower; };
-    static const P panels[] = {{"Actions", 1, false}, {"Compositions de calques", 1, false}, {"Styles de texte", 1, false},
-                               {"Nuancier", 4, false}, {"Motifs", 4, true}, {"Histogramme", 0, false}, {"Analyse d'image", 0, false}, {"Navigateur", 0, false},
-                               {"Palette de nœuds", 2, false}, {"Trim sheet", 1, true}, {"Inpainting IA", 6, false},
-                               {"Calques 3D", 5, false}, {"Matériau du pinceau", 5, true}, {"Scène de rendu", 5, false}};
+    // `since`: the migration that brought the panel in; only the newer ones move (a panel the user floated since
+    // stays where it is).
+    struct P { const char* name; int tab; bool lower; int since; };
+    static const P panels[] = {{"Actions", 1, false, 4}, {"Compositions de calques", 1, false, 4}, {"Styles de texte", 1, false, 4},
+                               {"Nuancier", 4, false, 4}, {"Motifs", 4, true, 4}, {"Histogramme", 0, false, 4}, {"Analyse d'image", 0, false, 4},
+                               {"Navigateur", 0, false, 5},
+                               {"Palette de nœuds", 2, false, 4}, {"Trim sheet", 1, true, 4}, {"Inpainting IA", 6, false, 4},
+                               {"Calques 3D", 5, false, 4}, {"Matériau du pinceau", 5, true, 4}, {"Scène de rendu", 5, false, 4}};
     for (const P& p : panels) {
+        if (p.since <= layoutMigration) continue;
         ImGuiWindow* w = ImGui::FindWindowByName(p.name);
         if (!w || w->DockId || IsPoppedOut(p.name)) continue;
         ImGuiDockNode* n = ImGui::DockBuilderGetNode(SideTabDock(p.tab));
