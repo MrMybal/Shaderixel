@@ -815,5 +815,9 @@
  "Bords de droite": "Right edges",
  "Aligner : le calque est verrouillé": "Align: the layer is locked",
  "Aligner : quittez l'édition du masque d'abord": "Align: leave the mask editing first",
- "Aligner : ce calque ne peut pas être déplacé": "Align: this layer cannot be moved"
+ "Aligner : ce calque ne peut pas être déplacé": "Align: this layer cannot be moved",
+ "Définir une forme prédéfinie de pinceau": "Define Brush Preset",
+ "La sélection (ou l'image) devient une pointe de pinceau : le sombre peint, le blanc et le transparent non.": "The selection (or the image) becomes a brush tip: dark paints, white and transparent do not.",
+ "Définir un pinceau : la zone est vide (blanche ou transparente)": "Define brush: the area is empty (white or transparent)",
+ "Définir un pinceau : écriture impossible": "Define brush: cannot write the files"
 }

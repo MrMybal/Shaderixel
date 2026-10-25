@@ -851,6 +851,44 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_DEFBRUSH: Define Brush Preset from a selection around the ball, then a stroke with it on a new layer;
+        // exported (SX_OUT). The brush files written are removed at the end (tests leave no brush behind).
+        if (GetEnvironmentVariableA("SX_DEFBRUSH", nullptr, 0) > 0) {
+            ImGuiIO& io = ImGui::GetIO();
+            if (frameCounter == 8) {
+                a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, float4{110, 200, 230, 320}, SelMode::Replace, false, 0, "Sélection");
+                DefineBrush(*a);
+            }
+            if (frameCounter == 14) {
+                Log("[defbrush] %s, tip %s, found %d", statusMsg.c_str(), brush.tipId.c_str(), Brushes().Find(brush.tipId) ? 1 : 0);
+                a->renderer.Deselect(d, a->history);
+                d.S().activeLayer = d.AddPixelLayer("Trait").id;
+                d.SyncGraph();
+                tool = viewTool[0] = Tool::Brush;
+                brush.size = 60;
+                brush.spacing = 0.6f;
+                fg = {0.1f, 0.3f, 0.9f, 1};
+            }
+            auto S = [&](float x, float y) { return ImVec2(lxf.canvasMin.x + a->pan.x + x * a->zoom, lxf.canvasMin.y + a->pan.y + y * a->zoom); };
+            if (frameCounter >= 20 && frameCounter <= 50) {
+                const float t = (frameCounter - 20) / 30.0f;
+                const ImVec2 p = S(300 + 500 * t, 380 - 40 * t);
+                io.AddMousePosEvent(p.x, p.y);
+                if (frameCounter == 21) io.AddMouseButtonEvent(0, true);
+                if (frameCounter == 50) io.AddMouseButtonEvent(0, false);
+            }
+            if (frameCounter == 56 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+                std::error_code ec;
+                const std::string id = brush.tipId;
+                std::filesystem::remove(Utf8Path(Brushes().Dir() + "/" + id + ".slang"), ec);
+                std::filesystem::remove(Utf8Path(Brushes().Dir() + "/textures/user/" + id.substr(5) + ".png"), ec);
+                Log("[defbrush] test brush removed (%s)", id.c_str());
+            }
+            return;
+        }
         // SX_SMARTG2: a shape layer (rectangle, no stroke) dragged with the move tool to 2.5 px from a blue pixel box's
         // left edge: it snaps onto it (shape rect logged).
         if (GetEnvironmentVariableA("SX_SMARTG2", nullptr, 0) > 0) {

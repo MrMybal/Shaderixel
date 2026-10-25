@@ -1308,6 +1308,8 @@ void App::DrawMenuBar() {
         DrawColorEditMenu();
         ImGui::Separator();
         if (ImGui::MenuItem("Définir un motif", nullptr, false, v != nullptr)) DefinePattern(*v);
+        if (ImGui::MenuItem("Définir une forme prédéfinie de pinceau", nullptr, false, v != nullptr)) DefineBrush(*v);
+        if (ImGui::IsItemHovered()) ImGui::SetTooltip("La sélection (ou l'image) devient une pointe de pinceau : le sombre peint, le blanc et le transparent non.");
         if (ImGui::MenuItem("Remplir avec un motif", nullptr, false, canFill)) FillWithPattern(*v, patternSel, patternScale);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Motif choisi dans le panneau Motifs (Peinture).");
         ImGui::Separator();

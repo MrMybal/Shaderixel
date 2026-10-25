@@ -1779,7 +1779,9 @@ private:
         bool active = false;
         DocView* view = nullptr;
         gpu::ReadbackPtr image, bounds;
+        bool brush = false;  // Define Brush Preset (the same readbacks)
     } patternDefine;
+    void DefineBrush(DocView& v);
     struct SwatchEntry {
         std::string name;
         float4 srgb;

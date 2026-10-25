@@ -179,6 +179,11 @@ void App::DefinePattern(DocView& v) {
     patternDefine.active = true;
 }
 
+void App::DefineBrush(DocView& v) {
+    DefinePattern(v);
+    patternDefine.brush = true;
+}
+
 void App::UpdateResources() {
     auto& P = patternDefine;
     if (!P.active) return;
@@ -189,6 +194,68 @@ void App::UpdateResources() {
     if (P.bounds && P.bounds->data.size() >= 16) {
         const u32* b = (const u32*)P.bounds->data.data();
         if (b[0] < b[2] && b[1] < b[3]) r = {(int)b[0], (int)b[1], (int)b[2], (int)b[3]};
+    }
+    if (P.brush) {
+        // Define Brush Preset: dark = ink (luminance inverted, times alpha), cropped to the ink, at most 1024 px.
+        P.brush = false;
+        const int W = (int)P.image->width;
+        std::vector<u8> ink((size_t)r.Width() * r.Height());
+        int x0 = r.Width(), y0 = r.Height(), x1 = -1, y1 = -1;
+        for (int y = 0; y < r.Height(); ++y)
+            for (int x = 0; x < r.Width(); ++x) {
+                const u8* p = &P.image->data[((size_t)(y + r.y0) * W + x + r.x0) * 4];
+                const float l = (0.2126f * p[0] + 0.7152f * p[1] + 0.0722f * p[2]) / 255.0f;
+                const u8 a = (u8)std::lround((1.0f - l) * p[3]);
+                ink[(size_t)y * r.Width() + x] = a;
+                if (a > 2) { x0 = std::min(x0, x); y0 = std::min(y0, y); x1 = std::max(x1, x); y1 = std::max(y1, y); }
+            }
+        if (x1 < 0) { Status("Définir un pinceau : la zone est vide (blanche ou transparente)"); return; }
+        const int cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+        const int side0 = std::max(cw, ch), side = std::min(side0, 1024);
+        const float k = (float)side0 / side;
+        // Square, centered, white ink with the sample as alpha (box-reduced when larger than 1024).
+        std::vector<u8> px((size_t)side * side * 4, 0);
+        const float ox = (side0 - cw) * 0.5f, oy = (side0 - ch) * 0.5f;
+        for (int y = 0; y < side; ++y)
+            for (int x = 0; x < side; ++x) {
+                const int sx0 = (int)std::floor(x * k - ox), sy0 = (int)std::floor(y * k - oy);
+                const int sx1 = std::max(sx0 + 1, (int)std::floor((x + 1) * k - ox)), sy1 = std::max(sy0 + 1, (int)std::floor((y + 1) * k - oy));
+                u32 acc = 0, n = 0;
+                for (int sy = sy0; sy < sy1; ++sy)
+                    for (int sx = sx0; sx < sx1; ++sx, ++n)
+                        if (sx >= 0 && sy >= 0 && sx < cw && sy < ch) acc += ink[(size_t)(sy + y0) * r.Width() + sx + x0];
+                u8* q = &px[((size_t)y * side + x) * 4];
+                q[0] = q[1] = q[2] = 255;
+                q[3] = (u8)(n ? acc / n : 0);
+            }
+        const std::string texDir = Brushes().Dir() + "/textures/user";
+        std::filesystem::create_directories(Utf8Path(texDir));
+        std::error_code ec;
+        int idx = 1;
+        while (std::filesystem::exists(Utf8Path(Brushes().Dir() + "/user_brush_" + std::to_string(idx) + ".slang"), ec)) ++idx;
+        const std::string texRel = "textures/user/brush_" + std::to_string(idx) + ".png";
+        if (!stbi_write_png((Brushes().Dir() + "/" + texRel).c_str(), side, side, 4, px.data(), side * 4)) {
+            Status("Définir un pinceau : écriture impossible");
+            return;
+        }
+        const std::string name = "Pinceau défini " + std::to_string(idx);
+        const std::string code = "//@name " + name + "\n//@category Mes pinceaux\n//@user\n//@spacing 0.25\n//@texture TipTexture \"Pointe\" " + texRel +
+                                 "\n//@param RandomAngle float 0 0 1 \"Rotation aléatoire\"\n//@param FollowStroke float 0 0 1 \"Suivre le trait\"\n"
+                                 "// Defined from the image (Edit > Define Brush Preset): sampled tip, dark = ink.\n"
+                                 "float4 Tip(Brush b)\n{\n    float m = BrushTex(0, b.uv).a;\n    return float4(b.color, m * b.flow * saturate(b.pressure));\n}\n\n"
+                                 "void Dynamics(inout Dab d)\n{\n    d.angle = Rand(d.seed, 4.0) * 6.2831853 * RandomAngle + FollowStroke * atan2(d.direction.y, d.direction.x);\n}\n";
+        std::ofstream(Utf8Path(Brushes().Dir() + "/user_brush_" + std::to_string(idx) + ".slang"), std::ios::binary) << code;
+        Brushes().Reload();
+        // The new tip on the brush, at the size it was drawn.
+        brush.tipId = "user_brush_" + std::to_string(idx);
+        brush.tipCode.clear();
+        brush.tipGraph.clear();
+        brush.tipParams.clear();
+        brush.tipTextures.clear();
+        brush.size = (float)std::min(side0, 2500);
+        tool = Tool::Brush;
+        Status("Pinceau défini : " + name + " (" + std::to_string(side0) + " px, catégorie Mes pinceaux)");
+        return;
     }
     if (r.Width() > 2048 || r.Height() > 2048) { Status("Définir un motif : zone trop grande (2048 px maximum)"); return; }
     std::vector<u8> px((size_t)r.Width() * r.Height() * 4);
