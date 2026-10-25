@@ -17,7 +17,7 @@ constexpr u32 kPersistentSize = 16384;
 constexpr u32 kRingPerFrame = 262144;  // 16 per dispatch: ~16000 dispatches in a frame (tiled exports of huge images)
 constexpr size_t kUploadPerFrame = 64ull << 20;
 
-#define SX_CHECK(x) do { HRESULT hr_ = (x); if (FAILED(hr_)) { Log("D3D12 failure 0x%08X at %s:%d: %s", (unsigned)hr_, __FILE__, __LINE__, #x); } } while (0)
+#define SX_CHECK(x) do { HRESULT hr_ = (x); if (FAILED(hr_)) { Log("D3D12 failure 0x%08X at %s:%d: %s", (unsigned)hr_, "DeviceD3D12.cpp", __LINE__, #x); } } while (0)
 
 D3D12_HEAP_PROPERTIES HeapProps(D3D12_HEAP_TYPE t) {
     D3D12_HEAP_PROPERTIES p = {};

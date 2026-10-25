@@ -25,7 +25,7 @@ constexpr int kTilesPerBlock = 512;  // 32 MB memory blocks
 
 Device g_device;
 
-#define VK_CHECK(x) do { VkResult r_ = (x); if (r_ != VK_SUCCESS) Log("Vulkan error %d at %s:%d: %s", (int)r_, __FILE__, __LINE__, #x); } while (0)
+#define VK_CHECK(x) do { VkResult r_ = (x); if (r_ != VK_SUCCESS) Log("Vulkan error %d at %s:%d: %s", (int)r_, "DeviceVulkan.cpp", __LINE__, #x); } while (0)
 
 VkFormat ToVk(Format f) {
     switch (f) {

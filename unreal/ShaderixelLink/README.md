@@ -1,63 +1,101 @@
-# Shaderixel Link (Unreal Engine 4.25 – 5.8)
+# Shaderixel Link (Unreal Engine 4.25–5.8)
 
-Plugin d'éditeur : peindre un maillage statique ou retoucher une texture dans Shaderixel, puis
-réimporter le résultat automatiquement dans Unreal.
+Editor plugin for painting a static mesh or editing a texture in Shaderixel,
+then automatically reimporting the result into Unreal Engine.
 
 ## Installation
 
-Copier le dossier `ShaderixelLink` compilé pour votre version (dans le package Shaderixel :
-`Unreal/<version>/ShaderixelLink`) dans le dossier `Plugins` du projet (ou
-`Engine/Plugins/Marketplace` du moteur), puis activer **Shaderixel Link** (Edit > Plugins).
+Copy the `ShaderixelLink` folder built for your engine version from the Shaderixel
+package (`Unreal/<version>/ShaderixelLink`) into your project's `Plugins` folder,
+or into the engine's `Engine/Plugins/Marketplace` folder. Enable **Shaderixel Link**
+under **Edit > Plugins**.
 
-Shaderixel est trouvé automatiquement (le dernier lancé sur l'ordinateur). Sinon :
-Project Settings > Plugins > Shaderixel Link > Executable Path.
+If your package contains source only, copy `Unreal/Sources/ShaderixelLink` into
+the `Plugins` folder of a C++ Unreal project, then build the project's Editor
+target for your engine version.
 
-## Utilisation
+The plugin automatically locates the most recently launched Shaderixel executable
+on the computer. To select it manually, open **Project Settings > Plugins >
+Shaderixel Link > Executable Path**.
 
-- **Content Browser, clic droit sur un Static Mesh > Peindre dans Shaderixel > (emplacement)** :
-  Shaderixel ouvre un projet Paint 3D avec le maillage (UV du canal choisi dans les réglages) et
-  les textures du matériau de cet emplacement (BaseColor, Normal, ORM, Roughness, Metallic, AO,
-  Emissive, Height, reconnues d'après le nom du paramètre ou de la texture), sous forme d'un calque
-  « Unreal (textures d'origine) ». Peignez par-dessus, puis **Ctrl+S** (ou « Envoyer vers Unreal ») :
-  les textures sont réimportées en place (mêmes assets, mêmes réglages).
-  Case **Direct** (barre d'état de Shaderixel) : les textures partent toutes seules vers Unreal un
-  instant après chaque modification ; le matériau se met à jour dans l'éditeur sans rien faire.
-- Matériau sans texture : de nouvelles textures `T_<maillage>_BC / _N / _ORM` et une instance
-  `MI_<maillage>` du matériau `M_ShaderixelPBR2` (créé une fois dans `/Game/Shaderixel`) sont créées
-  dans le dossier `Shaderixel` à côté du maillage, et assignées à l'emplacement.
-- **Clic droit sur une Texture 2D > Éditer dans Shaderixel** : la texture s'ouvre comme image ;
-  Ctrl+S la réimporte.
-- **Tools > Shaderixel > Importer un modèle Shaderixel...** :
-  - un projet Paint 3D (`*.sx3d`) : Shaderixel l'exporte en arrière-plan (`--export-unreal`) ;
-  - ou la description écrite par « Exporter pour Unreal » dans Shaderixel (`*.sxmat.json`, à côté
-    du modèle OBJ et des textures).
-  Résultat dans le dossier courant du Content Browser : le maillage statique `SM_<nom>` (unités et
-  position d'origine, échelle réglable, UV de lightmap générées), les textures `T_<nom>_BaseColor /
-  _Normal / _ORM / _Emissive` avec leurs réglages (sRGB, compression), et l'instance `MI_<nom>` du
-  matériau `M_ShaderixelPBR2` (BaseColor, Normal, ORM, Emissive x EmissiveStrength) ou du matériau
-  parent choisi dans Shaderixel, déjà assignée au maillage. Les réglages (nom, dossier, échelle,
-  parent, double face, intensité émissive) sont enregistrés dans le `.sx3d`.
-  Le même menu importe les textures seules (`*.sxue.json`).
-- Un `.sxmat.json` posé à côté d'un FBX / OBJ **du même nom** est appliqué automatiquement quand ce
-  modèle est importé normalement (glisser-déposer, Import) : textures + instance de matériau.
-- Console : `Shaderixel.Import <fichier> [dossier]`, `Shaderixel.Paint`, `Shaderixel.EditTexture`,
-  `Shaderixel.Poll`. Tools > Shaderixel ouvre aussi le dossier des sessions.
+## Usage
 
-Les projets Shaderixel restent dans la session (`%LOCALAPPDATA%\Shaderixel\Link\sessions\...`) :
-rouvrir le même maillage reprend tous les calques tant que la géométrie n'a pas changé.
+The current French plugin menu labels are included in parentheses where needed.
 
-## Échange (pour référence)
+- **Content Browser > right-click a Static Mesh > Paint in Shaderixel**
+  (`Peindre dans Shaderixel`) **> material slot** opens a Paint 3D project with
+  the mesh, the UV channel selected in the settings, and that slot's material
+  textures. BaseColor, Normal, ORM, Roughness, Metallic, AO, Emissive and Height
+  are recognized from their parameter or texture names. The original textures
+  are placed in an Unreal source-texture layer. Paint on top, then press
+  **Ctrl+S** or choose **Send to Unreal** to reimport the textures into the same
+  assets with their settings preserved.
+  Enable **Live** (`Direct`) in Shaderixel's status bar to send changes
+  automatically after each edit and update the material in the Unreal Editor.
+- For a material without textures, the plugin creates `T_<mesh>_BC`,
+  `T_<mesh>_N`, `T_<mesh>_ORM` and an instance named `MI_<mesh>`. Its parent,
+  `M_ShaderixelPBR2`, is created once under `/Game/Shaderixel`. The new assets are
+  placed in a `Shaderixel` folder beside the mesh and assigned to its material slot.
+- **Right-click a Texture 2D > Edit in Shaderixel** (`Éditer dans Shaderixel`)
+  opens the texture as an image. Press **Ctrl+S** to reimport it.
+- **Tools > Shaderixel > Import a Shaderixel Model...**
+  (`Importer un modèle Shaderixel...`) accepts either:
+  - a Paint 3D project (`*.sx3d`), exported in the background by Shaderixel using
+    `--export-unreal`; or
+  - a description written by Shaderixel's **Export for Unreal** command
+    (`*.sxmat.json`, alongside the OBJ model and textures).
 
-`session.json` (écrit par le plugin) : `kind` mesh / texture, `mesh` (OBJ, Y vers le haut, mètres),
-`textures` (entrées : rôle, fichier, asset), `outputs` (rôle, fichier à écrire, asset cible),
-`project` (projet Shaderixel à rouvrir). Shaderixel écrit `result.json` (révision, sorties) une
-fois les fichiers écrits ; le plugin le surveille et réimporte. Une instance de Shaderixel déjà
-ouverte reçoit les sessions par `Link\inbox`.
+  The import creates the following assets in the current Content Browser folder:
+  a static mesh named `SM_<name>` with its original units and position,
+  adjustable scale and generated lightmap UVs; `T_<name>_BaseColor`, `_Normal`,
+  `_ORM` and `_Emissive` textures with the appropriate sRGB and compression
+  settings; and an `MI_<name>` material instance already assigned to the mesh.
+  The parent is `M_ShaderixelPBR2` (BaseColor, Normal, ORM and Emissive multiplied
+  by EmissiveStrength), or the parent selected in Shaderixel. The name, output
+  folder, scale, parent, two-sided setting and emissive strength are saved in
+  the `.sx3d` project. The same menu also imports texture-only descriptions
+  (`*.sxue.json`).
+- A `.sxmat.json` file placed beside an FBX or OBJ file **with the same base
+  name** is applied automatically when the model is imported normally through
+  drag-and-drop or the Import command, including textures and the material instance.
+- Console commands: `Shaderixel.Import <file> [folder]`, `Shaderixel.Paint`,
+  `Shaderixel.EditTexture` and `Shaderixel.Poll`. **Tools > Shaderixel** also
+  provides access to the sessions folder.
 
-## Compilation
+Shaderixel projects remain in their session folder
+(`%LOCALAPPDATA%\Shaderixel\Link\sessions\...`). Reopening the same mesh restores
+its layers as long as its geometry has not changed.
 
-`python tools/build_unreal_plugin.py [versions]` (dans le dépôt Shaderixel) compile pour chaque
-moteur installé ; `python tools/test_unreal_link.py [versions]` fait un test complet sans fenêtre.
+## Exchange format
 
-Commandes console : `Shaderixel.Paint <chemin du maillage> [emplacement]`,
-`Shaderixel.EditTexture <chemin de la texture>`, `Shaderixel.Poll`.
+The plugin writes `session.json` with:
+
+- `kind`: `mesh` or `texture`;
+- `mesh`: OBJ file, Y-up, in meters;
+- `textures`: input roles, files and assets;
+- `outputs`: output roles, destination files and target assets;
+- `project`: the Shaderixel project to reopen.
+
+After writing the output files, Shaderixel writes `result.json` with the revision
+and outputs. The plugin watches it and reimports the results. An already running
+Shaderixel instance receives new sessions through `Link\inbox`.
+
+## Build and test
+
+From the Shaderixel repository:
+
+```bat
+python tools/build_unreal_plugin.py [versions]
+python tools/test_unreal_link.py [versions]
+```
+
+The first command builds the plugin for the selected installed engines. The
+second runs an end-to-end test without showing application windows.
+
+Additional console command forms:
+
+```text
+Shaderixel.Paint <mesh asset path> [material slot]
+Shaderixel.EditTexture <texture asset path>
+Shaderixel.Poll
+```

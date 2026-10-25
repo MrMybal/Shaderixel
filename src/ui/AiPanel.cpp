@@ -67,7 +67,7 @@ void App::LoadAiSettings() {
     // CyUEMCPSDK companion: %CYUEMCPSDK_DIR%, else a CyUEMCPSDK folder next to the Shaderixel sources.
     fs::path sdk;
     if (const char* e = getenv("CYUEMCPSDK_DIR")) sdk = Utf8Path(e);
-    else sdk = Utf8Path(SX_SHADER_DIR).parent_path().parent_path() / "CyUEMCPSDK";
+    else sdk = Utf8Path(ExeDir()).parent_path().parent_path().parent_path() / "CyUEMCPSDK";
     std::error_code ec;
     if (aiSettings.companionScript.empty() && fs::exists(sdk / "Bridge" / "run.py", ec))
         aiSettings.companionScript = Narrow((sdk / "Bridge" / "run.py").generic_wstring());

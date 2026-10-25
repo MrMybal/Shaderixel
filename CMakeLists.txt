@@ -58,7 +58,14 @@ target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends ${IMG
 target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS IMGUI_ENABLE_TEST_ENGINE)
 
 # ---------------------------------------------------------------- xatlas (automatic UV unwrapping, MIT)
-add_library(xatlas STATIC ${EXT}/xatlas/source/xatlas/xatlas.cpp)
+# Build a generated copy with relative diagnostic filenames; keep upstream sources untouched.
+set(XA_SOURCE ${EXT}/xatlas/source/xatlas/xatlas.cpp)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${XA_SOURCE})
+file(READ ${XA_SOURCE} SX_XATLAS_SOURCE)
+string(REPLACE "__FILE__" "\"xatlas.cpp\"" SX_XATLAS_SOURCE "${SX_XATLAS_SOURCE}")
+file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/generated)
+file(WRITE ${CMAKE_BINARY_DIR}/generated/xatlas.cpp "${SX_XATLAS_SOURCE}")
+add_library(xatlas STATIC ${CMAKE_BINARY_DIR}/generated/xatlas.cpp)
 target_include_directories(xatlas PUBLIC ${EXT}/xatlas/source/xatlas)
 if(MSVC)
     target_compile_options(xatlas PRIVATE /W0 /O2)
@@ -109,13 +116,18 @@ foreach(dir ${WINSDK_BINS})
     endif()
 endforeach()
 
+# Keep dictionaries next to both executables, including dictionary-only updates.
+add_custom_target(ShaderixelLanguages ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/library/lang ${CMAKE_BINARY_DIR}/lang
+    COMMENT "Copying interface dictionaries")
+
 function(sx_app target)
     add_executable(${target} WIN32 ${SX_SOURCES} ${ARGN} ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc)
     target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/sdk/include ${EXT}/stb)
     target_link_libraries(${target} PRIVATE imgui slang xatlas ufbx comdlg32 shell32 ole32 d3d11 windowscodecs advapi32 pdh)
     target_compile_definitions(${target} PRIVATE
-        NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE
-        SX_SHADER_DIR="${CMAKE_SOURCE_DIR}/shaders")
+        NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE)
     if(MSVC)
         target_compile_options(${target} PRIVATE /W4 /wd4100 /wd4201 /wd4324 /permissive- /utf-8 /MP)
     endif()
@@ -124,7 +136,7 @@ function(sx_app target)
             ${SLANG_DIR}/bin/slang.dll ${SLANG_DIR}/bin/slang-compiler.dll
             ${SLANG_DIR}/bin/slang-glslang.dll ${SLANG_DIR}/bin/slang-rt.dll
             $<TARGET_FILE_DIR:${target}>)
-    add_dependencies(${target} ShaderixelExamplePlugin ShaderixelPalettePlugin ShaderixelScriptPlugins)
+    add_dependencies(${target} ShaderixelExamplePlugin ShaderixelPalettePlugin ShaderixelScriptPlugins ShaderixelLanguages)
     if(SX_HAVE_LIBRAW)
         target_link_libraries(${target} PRIVATE libraw)
         target_compile_definitions(${target} PRIVATE SX_LIBRAW=1)
