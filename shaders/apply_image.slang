@@ -27,7 +27,7 @@ void main(uint3 id : SV_DispatchThreadID)
         return;
     }
     float4 s = Unpremultiply(a);
-    if (gChannel == 4) s = float4(s.aaa, 1);
+    if (gChannel == 4) s = float4(SrgbToLinear(s.aaa), 1);  // (alpha shown as a gray: 0.5 -> mid gray)
     else if (gChannel >= 1) s = float4(s[gChannel - 1].xxx, s.a);
     if (gInvert)
     {

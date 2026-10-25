@@ -73,21 +73,31 @@ void App::DrawApplyImageDialog() {
 
 void App::ApplyImageRun(DocView& v) {
     auto& A = applyImage;
+    if (xf.active && xf.view) TransformCommit(*xf.view);  // (before reading the target: the commit may change it)
     Document& d = *v.doc;
     Layer* target = d.ActiveLayer();
     Surface* ts = target ? d.GetSurface(target->surface) : nullptr;
     auto* k = Kernel("apply_image.slang");
     if (!ts || !k || !A.source) return;
-    if (xf.active && xf.view) TransformCommit(*xf.view);
     // The source image: a layer's pixels, or the merged image of its document (copied: renderers reuse textures).
     Document& sd = *A.source->doc;
     gpu::Texture* src = nullptr;
-    if (const Layer* sl = sd.FindLayer(A.layer); sl && sd.GetSurface(sl->surface)) src = sd.GetSurface(sl->surface)->tex.get();
-    else src = A.source->renderer.EvaluateComplete(sd, *ctx);
+    Prepare(*A.source);  // (its queued surface operations first)
+    if (A.layer) {
+        const Layer* sl = sd.FindLayer(A.layer);
+        if (!sl || !sd.GetSurface(sl->surface)) { Status("Appliquer une image : le calque source n'existe plus"); return; }
+        src = sd.GetSurface(sl->surface)->tex.get();
+    } else {
+        src = A.source->renderer.EvaluateComplete(sd, *ctx);
+    }
     if (!src || src->Width() != ts->tex->Width() || src->Height() != ts->tex->Height()) { Status("Appliquer une image : la source doit avoir la même taille"); return; }
     const u32 W = ts->tex->Width(), H = ts->tex->Height();
     struct Root { u32 w, h, pass, channel, invert, pad[3]; };
     auto prepared = gpu::Dev().CreateTexture(W, H, gpu::Format::RGBA16F, "ApplyImageSrc");
+    auto before = gpu::Dev().CreateTexture(W, H, ts->tex->GetFormat(), "UndoBefore");
+    auto blended = gpu::Dev().CreateTexture(W, H, ts->tex->GetFormat(), "ApplyImage");
+    auto after = gpu::Dev().CreateTexture(W, H, ts->tex->GetFormat(), "UndoAfter");
+    if (!prepared || !before || !blended || !after) { Status("Appliquer une image : mémoire graphique insuffisante"); return; }
     {
         gpu::DispatchDesc dd;
         dd.pipeline = k;
@@ -97,9 +107,7 @@ void App::ApplyImageRun(DocView& v) {
         Dispatch2D(*ctx, dd, W, H);
     }
     // Blended into a copy of the layer (the selection as mask), then the transparency kept if asked.
-    auto before = gpu::Dev().CreateTexture(W, H, ts->tex->GetFormat(), "UndoBefore");
     ctx->CopyTexture(before.get(), ts->tex.get());
-    auto blended = gpu::Dev().CreateTexture(W, H, ts->tex->GetFormat(), "ApplyImage");
     Surface* sel = d.Selection();
     v.renderer.Composite(d, *ctx, blended.get(), before.get(), prepared.get(), sel ? sel->tex.get() : nullptr, (BlendMode)A.mode, A.opacity, false, nullptr);
     if (A.preserve) {
@@ -113,7 +121,6 @@ void App::ApplyImageRun(DocView& v) {
     } else {
         ctx->CopyTexture(ts->tex.get(), blended.get());
     }
-    auto after = gpu::Dev().CreateTexture(W, H, ts->tex->GetFormat(), "UndoAfter");
     ctx->CopyTexture(after.get(), ts->tex.get());
     v.history.PushPaint("Appliquer une image", target->surface, {0, 0, (int)W, (int)H}, before, after);
     d.TouchSurface(target->surface);

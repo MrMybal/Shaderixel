@@ -116,9 +116,12 @@ void History::PushState(const std::string& label, const DocState& before, const 
     e.label = label;
     e.before = before;
     e.after = after;
-    // Surfaces created by this step are owned (memory-wise) by it.
-    for (auto& [id, s] : after.surfaces)
-        if (!before.surfaces.count(id)) e.bytes += TextureBytes(s.tex);
+    // Textures this step brings in (new surfaces, or new pixels under an existing id: resize, crop, snapshot
+    // restore) are owned (memory-wise) by it.
+    for (auto& [id, s] : after.surfaces) {
+        auto it = before.surfaces.find(id);
+        if (it == before.surfaces.end() || it->second.tex != s.tex) e.bytes += TextureBytes(s.tex);
+    }
     Push(std::move(e));
 }
 

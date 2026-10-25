@@ -60,6 +60,10 @@ struct DocSnapshot {
     std::string name;
     DocState state;
     u64 bytes = 0;
+    // The live textures and versions at capture: surfaces unchanged since are not copied again on restore.
+    std::unordered_map<Id, std::pair<const gpu::Texture*, u64>> live;
+    std::string icc, cmyk;
+    int colorMode = 0;
 };
 struct PhotoJob;
 struct UvJob;
@@ -163,7 +167,7 @@ struct DocView {
     std::shared_ptr<LinkSession> link;        // opened from the Unreal plugin (sent back on Ctrl+S)
     std::unordered_map<Id, gpu::TexturePtr> snapshots;  // history brush sources (layer state before the first edit)
     std::vector<DocSnapshot> docSnapshots;               // document snapshots (History panel)
-    int snapshotCounter = 0;
+    int snapshotCounter = 0, snapshotRenaming = -1;
     int viewMode = 0;                         // 0 final image, 1 active layer only, 2 up to the active layer
     std::string displayLutKey;                // color management chain of displayLut
     gpu::TexturePtr displayLut;

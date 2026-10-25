@@ -831,5 +831,8 @@
  "(document sans nom)": "(untitled document)",
  "Conserver la transparence": "Preserve transparency",
  "Sélectionnez un calque de pixels (la cible).": "Select a pixel layer (the target).",
- "Appliquer une image : la source doit avoir la même taille": "Apply Image: the source must have the same size"
+ "Appliquer une image : la source doit avoir la même taille": "Apply Image: the source must have the same size",
+ "Appliquer une image : le calque source n'existe plus": "Apply Image: the source layer no longer exists",
+ "Appliquer une image : mémoire graphique insuffisante": "Apply Image: not enough video memory",
+ "Mémorise tout le document (calques, réglages, pixels, profil colorimétrique) ; cliquer sur un instantané\nle rétablit (une étape d'annulation), même quand l'historique a oublié les étapes qui y menaient.\nLe contenu des objets dynamiques n'en fait pas partie.": "Remembers the whole document (layers, settings, pixels, color profile); clicking a snapshot\nrestores it (one undo step), even when the history has forgotten the steps that led to it.\nSmart object contents are not included."
 }
