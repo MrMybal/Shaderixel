@@ -159,6 +159,7 @@ struct DocView {
     float fitW = 0, fitH = 0;
     gpu::TexturePtr viewTex;
     gpu::Texture* lastImage = nullptr;
+    float2 viewSize = {0, 0};  // the canvas area (screen pixels), for the Navigator
     std::unordered_map<Id, u64> textHashes;   // surface -> rasterized style hash
     std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
     std::unique_ptr<MeshScene> mesh;          // 3D painting scene (optional)
@@ -466,7 +467,7 @@ public:
     std::vector<bool> extraWindows;  // "Fenêtre 2..." (open flags)
     struct PanelOpenFlag { bool open = true; };
     std::map<std::string, PanelOpenFlag> panelOpen;  // closed panels (tab cross)
-    static constexpr int kLayoutMigration = 4;
+    static constexpr int kLayoutMigration = 5;
     int layoutMigration = 0, layoutMigrationFrames = 0;  // saved layouts from older versions start at 0
     int layoutKind = 0;  // workspace currently built for: 0 image documents, 1 Paint 3D projects
     std::vector<std::string> focusAfterLayout;
@@ -647,6 +648,7 @@ private:
     void DrawSelectionDialog();
     void DrawHistory();
     void DrawHistogram();
+    void DrawNavigator();  // Navigator.cpp
     void UpdateHistogram();
     struct HistogramState {
         gpu::ReadbackPtr rb;

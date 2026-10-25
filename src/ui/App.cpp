@@ -733,6 +733,7 @@ void App::Frame() {
     DrawUvToolWindow();
     UpdateHistogram();
     if (Shown("Histogramme")) DrawHistogram();
+    if (Shown("Navigateur")) DrawNavigator();
     if (Shown("Analyse d'image")) {
         UpdateAnalysis();
         DrawAnalysis();

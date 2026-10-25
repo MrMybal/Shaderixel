@@ -145,6 +145,7 @@ void App::BuildDockLayout(ImGuiID dock) {
         switch (i) {
             case 0:  // Général
                 two(0.45f);
+                ImGui::DockBuilderDockWindow("Navigateur", top);
                 ImGui::DockBuilderDockWindow("Histogramme", top);
                 ImGui::DockBuilderDockWindow("Propriétés", low);
                 ImGui::DockBuilderDockWindow("Historique", low);
@@ -287,7 +288,7 @@ void App::MigrateLayout() {
     if (++layoutMigrationFrames < 3) return;  // windows created first
     struct P { const char* name; int tab; bool lower; };
     static const P panels[] = {{"Actions", 1, false}, {"Compositions de calques", 1, false}, {"Styles de texte", 1, false},
-                               {"Nuancier", 4, false}, {"Motifs", 4, true}, {"Histogramme", 0, false}, {"Analyse d'image", 0, false},
+                               {"Nuancier", 4, false}, {"Motifs", 4, true}, {"Histogramme", 0, false}, {"Analyse d'image", 0, false}, {"Navigateur", 0, false},
                                {"Palette de nœuds", 2, false}, {"Trim sheet", 1, true}, {"Inpainting IA", 6, false},
                                {"Calques 3D", 5, false}, {"Matériau du pinceau", 5, true}, {"Scène de rendu", 5, false}};
     for (const P& p : panels) {
@@ -636,7 +637,7 @@ void App::DrawPopOutCorners() {
 
 void App::DrawPanelsMenu() {
     // Closed panels come back here (also from Fenêtre).
-    static const char* names[] = {"Calques", "Graphe", "Aperçu du calque", "Éditeur d'effets", "Vue 3D", "Propriétés", "Historique", "Histogramme", "Analyse d'image",
+    static const char* names[] = {"Calques", "Graphe", "Aperçu du calque", "Éditeur d'effets", "Vue 3D", "Propriétés", "Historique", "Navigateur", "Histogramme", "Analyse d'image",
                                   "Options", "Tracés", "Actions", "Compositions de calques", "Styles de texte", "Effets", "Palette de nœuds", "Fusions", "Couleur", "Nuancier", "Pinceaux", "Motifs", "Matériaux", "Calques 3D", "Matériau du pinceau", "Rendu", "Scène de rendu", "Assistant IA", "Génération IA", "Trim sheet", "Inpainting IA", "Ressources", "Éditeur d'actions", "Animation"};
     if (!ImGui::BeginMenu("Panneaux")) return;
     for (const char* n : names) {

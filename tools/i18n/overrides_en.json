@@ -848,5 +848,9 @@
  "Délier les calques": "Unlink Layers",
  "Sélectionner les calques liés": "Select Linked Layers",
  "Les calques choisis (Ctrl+clic dans le panneau Calques) se déplacent ensemble, même choisis seuls": "The chosen layers (Ctrl+click in the Layers panel) move together, even when one is chosen alone",
- "Lier les calques (choisis avec Ctrl+clic)": "Link the layers (chosen with Ctrl+click)"
+ "Lier les calques (choisis avec Ctrl+clic)": "Link the layers (chosen with Ctrl+click)",
+ "Navigateur": "Navigator",
+ "Ajuster": "Fit",
+ "Aucun document ouvert": "No open document",
+ "Toute l'image dans le canevas": "The whole image in the canvas"
 }

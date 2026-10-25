@@ -1067,6 +1067,35 @@ void App::DemoTick() {
         }
         // SX_SMARTG: two rectangles on their own layers; the first dragged with the move tool (synthetic events) to
         // 2.5 px from the second's left edge: the smart guides snap it onto it. Exported (SX_OUT).
+        // SX_NAV: the Navigator shown, the view zoomed to 300 % on the top-left corner; a click in the middle of the
+        // Navigator (synthetic events) brings the view's center to the image's center (logged).
+        if (GetEnvironmentVariableA("SX_NAV", nullptr, 0) > 0) {
+            ImGuiIO& io = ImGui::GetIO();
+            auto centerDoc = [&]() { return (a->viewSize * 0.5f - a->pan) * (1.0f / a->zoom); };
+            if (frameCounter == 10) { ShowSideTab(0); FocusPanel("Navigateur"); }
+            if (frameCounter == 14) {
+                a->zoom = 3;
+                a->pan = {0, 0};
+                a->fitHold = 0;
+                const float2 c = centerDoc();
+                Log("[nav] zoom 300 %%, view center at %.0f, %.0f", c.x, c.y);
+            }
+            static ImVec2 click;
+            if (frameCounter == 24)
+                if (ImGuiWindow* w = ImGui::FindWindowByName("Navigateur")) {
+                    // (the middle of the image: the content width, at the image's aspect ratio)
+                    const float pad = ImGui::GetStyle().WindowPadding.x, cw = w->InnerRect.GetWidth() - 2 * pad;
+                    click = ImVec2(w->InnerRect.Min.x + pad + cw * 0.5f, w->InnerRect.Min.y + ImGui::GetStyle().WindowPadding.y + cw * d.Height() / d.Width() * 0.5f);
+                    io.AddMousePosEvent(click.x, click.y);
+                }
+            if (frameCounter == 26) io.AddMouseButtonEvent(0, true);
+            if (frameCounter == 28) io.AddMouseButtonEvent(0, false);
+            if (frameCounter == 32) {
+                const float2 c = centerDoc();
+                Log("[nav] after a click in the middle: view center at %.0f, %.0f (image %u x %u, zoom %.0f %%)", c.x, c.y, d.Width(), d.Height(), a->zoom * 100);
+            }
+            return;
+        }
         // SX_MULTIMOVE: two rectangles chosen together, the active one dragged by (200, 50) with the move tool (synthetic
         // events): the other follows on release; boxes logged, then after one undo (both back).
         if (GetEnvironmentVariableA("SX_MULTIMOVE", nullptr, 0) > 0) {
