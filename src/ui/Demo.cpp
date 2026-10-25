@@ -816,6 +816,41 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_ALIGN: a red rectangle on its own layer aligned to the right of the canvas, then to the bottom of a selection;
+        // its bounds logged after each.
+        if (GetEnvironmentVariableA("SX_ALIGN", nullptr, 0) > 0) {
+            static Id red = 0;
+            static int step = 0;
+            if (frameCounter == 8) {
+                red = d.AddPixelLayer("Rouge").id;
+                d.SyncGraph();
+                Prepare(*a);
+                a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, float4{100, 100, 200, 180}, SelMode::Replace, false, 0, "Sélection");
+                if (Layer* l = d.FindLayer(red)) a->renderer.FillSelection(d, *ctx, &a->history, l->surface, 0, float4{0.9f, 0.1f, 0.1f, 1}, 1, "Remplir");
+                a->renderer.Deselect(d, a->history);
+                d.S().activeLayer = red;
+            }
+            auto logBounds = [&](const char* what) {
+                if (Layer* l = d.FindLayer(red)) outRb = a->renderer.ComputeBounds(*ctx, d.GetSurface(l->surface)->tex.get(), nullptr, false);
+                Log("[align] %s (%s)", what, statusMsg.c_str());
+            };
+            if (frameCounter == 14) StartAlignLayer(*a, 2);  // right of the canvas
+            if (frameCounter == 20) logBounds("right of the canvas, expected x1 = 900");
+            if (frameCounter == 26) {
+                a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, float4{300, 50, 700, 300}, SelMode::Replace, false, 0, "Sélection");
+                StartAlignLayer(*a, 5);  // bottom of the selection
+                step = 1;
+            }
+            if (frameCounter == 34) logBounds("bottom of the selection, expected y1 = 300");
+            if (frameCounter == 40) { Undo(); Undo(); }
+            if (frameCounter == 46) logBounds("two undos: back at the canvas' right");
+            if (outRb && outRb->ready) {
+                const u32* b = (const u32*)outRb->data.data();
+                Log("[align]   red box x %u..%u y %u..%u, selection %s", b[0], b[2], b[1], b[3], d.S().selection ? "kept" : "none");
+                outRb.reset();
+            }
+            return;
+        }
         // SX_SMARTG: two rectangles on their own layers; the first dragged with the move tool (synthetic events) to
         // 2.5 px from the second's left edge: the smart guides snap it onto it. Exported (SX_OUT).
         if (GetEnvironmentVariableA("SX_SMARTG", nullptr, 0) > 0) {

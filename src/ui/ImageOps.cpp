@@ -181,6 +181,7 @@ void App::DrawImageMenu() {
 void App::DrawImageDialogs() {
     DocView* v = Active();
     ContentScaleTick();
+    AlignLayerTick();
     AnimTick();
     PerspectivePasteTick();
     TrimTick();

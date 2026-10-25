@@ -900,6 +900,16 @@ private:
         Rect self;
     } sg;
     void SmartGuidesCollect(DocView& v, Id exclude);
+    // Layer > Align (AlignLayer.cpp): mode 0 left, 1 horizontal centers, 2 right, 3 top, 4 vertical centers, 5 bottom.
+    struct {
+        bool active = false;
+        DocView* view = nullptr;
+        int mode = 0;
+        Id layer = 0;
+        gpu::ReadbackPtr selRb, layerRb;
+    } alignJob;
+    void StartAlignLayer(DocView& v, int mode);
+    void AlignLayerTick();
     float2 SmartGuidesSnap(DocView& v, float2 center, float2 half);
     void SmartGuidesOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     TextStyle textDefaults;

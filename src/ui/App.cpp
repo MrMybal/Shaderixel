@@ -1525,6 +1525,13 @@ void App::LayerMenuItems() {
         if (ImGui::MenuItem("Fusionner les calques visibles", "Ctrl+Maj+E")) MergeVisible(*v, false);
         if (ImGui::MenuItem("Aplatir l'image")) MergeVisible(*v, true);
         ImGui::Separator();
+        if (ImGui::BeginMenu("Aligner", l != nullptr && d.Mode() == DocMode::Layers)) {
+            ImGui::TextDisabled(d.S().selection ? "Sur la sélection" : "Sur la zone de travail");
+            const char* items[] = {"Bords gauches", "Centres horizontaux", "Bords droits", "Bords supérieurs", "Centres verticaux", "Bords inférieurs"};
+            for (int i = 0; i < 6; ++i)
+                if (ImGui::MenuItem(items[i])) StartAlignLayer(*v, i);
+            ImGui::EndMenu();
+        }
         if (ImGui::MenuItem("Grouper", "Ctrl+G", false, l != nullptr)) {
             Edit e(d, v->history, "Grouper");
             d.GroupLayer(l->id);
