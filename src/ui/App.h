@@ -2076,6 +2076,17 @@ private:
     void ApplyHistoryLimits();
     void DrawHistoryMemorySettings();
     void TakeDocSnapshot(DocView& v);
+    // Image > Apply Image (ApplyImage.cpp).
+    struct {
+        bool open = false;
+        DocView* source = nullptr;
+        Id layer = 0;  // 0: the merged image
+        int channel = 0, mode = 1;
+        bool invert = false, preserve = false;
+        float opacity = 1;
+    } applyImage;
+    void DrawApplyImageDialog();
+    void ApplyImageRun(DocView& v);
     void RestoreDocSnapshot(DocView& v, size_t index);
     void DocSnapshotsUI(DocView& v);
     // Custom shapes (ShapeLibrary.cpp).

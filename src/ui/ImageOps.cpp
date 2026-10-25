@@ -169,6 +169,10 @@ void App::DrawImageMenu() {
             cropBoundsView = v;
         }
     }
+    if (ImGui::MenuItem("Appliquer une image...", nullptr, false, d.Mode() == DocMode::Layers)) {
+        applyImage.open = true;
+        applyImage.source = v;
+    }
     if (ImGui::MenuItem("Rogner...", nullptr, false, !trimRb)) imageDialog = 4;
     if (ImGui::MenuItem("Outil Recadrage", "C")) tool = Tool::Crop;
     if (ImGui::MenuItem("Recadrage en perspective")) {

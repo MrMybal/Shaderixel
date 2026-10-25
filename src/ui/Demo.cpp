@@ -851,6 +851,27 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_APPLYIMG: Apply Image on the background: its own red channel, inverted, in Multiply, inside a selection of
+        // the left half; exported (SX_OUT), then undone (history logged).
+        if (GetEnvironmentVariableA("SX_APPLYIMG", nullptr, 0) > 0) {
+            if (frameCounter == 10) {
+                a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, float4{0, 0, 450, 450}, SelMode::Replace, false, 0, "Sélection");
+                applyImage.source = a;
+                applyImage.layer = 0;
+                applyImage.channel = 1;
+                applyImage.invert = true;
+                applyImage.mode = (int)BlendMode::Multiply;
+                applyImage.opacity = 1;
+                ApplyImageRun(*a);
+                Log("[applyimg] %s, history %zu (%s)", statusMsg.c_str(), a->history.Count(), a->history.Label(a->history.Count() - 1).c_str());
+            }
+            if (frameCounter == 16 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_SNAP: a document snapshot, then a red fill and a crop; restoring the snapshot gives the original image back
         // (compared), and undoing the restore gives the cropped one again.
         if (GetEnvironmentVariableA("SX_SNAP", nullptr, 0) > 0) {

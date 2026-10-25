@@ -745,6 +745,7 @@ void App::Frame() {
     DrawLayoutSavePopup();
     DrawColorRangeWindow();
     DrawExportAsWindow();
+    DrawApplyImageDialog();
     DrawFocusAreaWindow();
     DrawSelectMaskWindow();
     DrawNewDocDialog();
