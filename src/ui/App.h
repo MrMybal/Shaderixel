@@ -930,6 +930,23 @@ private:
     } alignJob;
     void StartAlignLayer(DocView& v, int mode);
     void AlignLayerTick();
+    // A layer's content box: pixels from a bounds readback (`rb`), text / shape / smart object from their geometry.
+    Rect LayerBox(DocView& v, const Layer& l, const gpu::ReadbackPtr& rb);
+    // A whole layer moved by whole pixels (pixel layers through the move tool's path, the others by geometry);
+    // false when it cannot be. The caller groups the history steps and restores the active layer.
+    bool MoveLayerBy(DocView& v, Id layer, float2 delta, bool& smart);
+    // The other chosen layers follow a move of the active one (move tool, text / shape move): their boxes shown
+    // while dragging, moved on release in the same undo step. Not with a pixel selection (only it moves then).
+    struct {
+        DocView* view = nullptr;
+        std::vector<Id> ids;
+        std::vector<gpu::ReadbackPtr> rbs;
+        std::vector<Rect> boxes;
+        float2 delta = {0, 0};
+    } carry;
+    void CarryBegin(DocView& v);
+    void CarryEnd(DocView& v);  // (inside the caller's history group)
+    void CarryOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     float2 SmartGuidesSnap(DocView& v, float2 center, float2 half);
     void SmartGuidesOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl);
     TextStyle textDefaults;

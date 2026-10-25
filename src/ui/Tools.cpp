@@ -696,6 +696,7 @@ void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
         memcpy(xf.startCorners, xf.corners, sizeof(xf.corners));
         if (hit < 4 && io.KeyCtrl) xf.freeCorners = true;
         if (hit == 8 && smartGuides && snapEnabled && !xf.selectionOnly) SmartGuidesCollect(v, xf.surface, xf.selection);
+        if (hit == 8 && xf.moveOnly) CarryBegin(v);  // (the other chosen layers follow)
     }
     if (xf.drag >= 0 && ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         float2 delta = m - xf.dragStart;
@@ -735,8 +736,11 @@ void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             } else {
                 sg.lineX = sg.lineY = NAN;
             }
+            if (xf.moveOnly)  // (the move tool: whole pixels, no resampling blur)
+                xf.center = xf.startCenter + float2{std::round(xf.center.x - xf.startCenter.x), std::round(xf.center.y - xf.startCenter.y)};
             if (xf.freeCorners) for (int i = 0; i < 4; ++i) xf.corners[i] = xf.startCorners[i] + delta;
             if (xf.pivotCustom) xf.pivot = xf.startPivot + delta;
+            carry.delta = xf.center - xf.startCenter;
         } else if (d == 10) {
             xf.pivot = m;
             xf.pivotCustom = true;
@@ -800,7 +804,16 @@ void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
     }
     if (xf.drag >= 0 && !ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
         xf.drag = -1;
-        if (xf.moveOnly) TransformCommit(v);
+        if (xf.moveOnly) {
+            // The chosen layers moved together: one undo step.
+            const bool together = carry.view == &v && !carry.ids.empty();
+            if (together) v.history.BeginGroup();
+            TransformCommit(v);
+            if (together) {
+                CarryEnd(v);
+                v.history.EndGroup();
+            }
+        }
     }
 }
 

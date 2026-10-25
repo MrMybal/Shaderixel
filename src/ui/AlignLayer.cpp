@@ -3,10 +3,117 @@
 // spread evenly (distribute). Pixel layers move by whole pixels through the move tool's path; text, shapes and
 // smart objects move their own geometry. One undo step.
 #include "ui/App.h"
+#include "ui/Theme.h"
 
 #include <cmath>
 
 namespace sx {
+
+namespace {
+Rect RectOf(const gpu::ReadbackPtr& rb) {
+    if (!rb || !rb->ready) return {};
+    const u32* b = (const u32*)rb->data.data();
+    return rb->data.size() >= 16 && b[2] > b[0] && b[3] > b[1] ? Rect{(int)b[0], (int)b[1], (int)b[2], (int)b[3]} : Rect{};
+}
+}  // namespace
+
+Rect App::LayerBox(DocView& v, const Layer& l, const gpu::ReadbackPtr& rb) {
+    if (l.kind == LayerKind::Pixel) return RectOf(rb);
+    if (l.kind == LayerKind::Shape) return ShapeBox(l.shape);
+    if (l.kind == LayerKind::Text) {
+        auto it = v.textRects.find(l.surface);
+        return it != v.textRects.end() ? it->second : Rect{};
+    }
+    if (l.kind == LayerKind::Smart) {
+        float2 mn = l.smartCorners[0], mx = l.smartCorners[0];
+        for (auto& c : l.smartCorners) {
+            mn = {std::min(mn.x, c.x), std::min(mn.y, c.y)};
+            mx = {std::max(mx.x, c.x), std::max(mx.y, c.y)};
+        }
+        return {(int)std::lround(mn.x), (int)std::lround(mn.y), (int)std::lround(mx.x), (int)std::lround(mx.y)};
+    }
+    return {};
+}
+
+bool App::MoveLayerBy(DocView& v, Id id, float2 delta, bool& smart) {
+    Document& d = *v.doc;
+    Layer* l = d.FindLayer(id);
+    if (!l || l->locked || (delta.x == 0 && delta.y == 0)) return false;
+    const float dx = delta.x, dy = delta.y;
+    if (l->kind == LayerKind::Pixel) {
+        // The move tool's path: the whole layer moved by whole pixels (its pixels only in the history: the active
+        // layer is put back right after, so the steps around never record the borrowed one).
+        if (xf.active) return false;  // (a transform opened meanwhile is not ours to move)
+        const Id keepActive = d.S().activeLayer;
+        d.S().activeLayer = l->id;
+        // (the whole layer: the move tool would carry only the selected pixels)
+        const Id keepSel = d.S().selection;
+        d.S().selection = 0;
+        const bool ok = d.PaintTarget() == l->surface;
+        if (ok) Nudge(v, dx, dy);
+        d.S().selection = keepSel;
+        d.S().activeLayer = keepActive;
+        return ok;
+    }
+    if (l->kind != LayerKind::Text && l->kind != LayerKind::Shape && l->kind != LayerKind::Smart) return false;
+    Edit e(d, v.history, "Déplacer le calque");
+    if (l->kind == LayerKind::Text) l->text.pos = l->text.pos + float2{dx, dy};
+    else if (l->kind == LayerKind::Shape) {
+        l->shape.rect = {l->shape.rect.x + dx, l->shape.rect.y + dy, l->shape.rect.z + dx, l->shape.rect.w + dy};
+        for (auto& p : l->shape.parts) p.rect = {p.rect.x + dx, p.rect.y + dy, p.rect.z + dx, p.rect.w + dy};  // (the whole combined shape)
+    }
+    else for (auto& c : l->smartCorners) c = c + float2{dx, dy};
+    d.SyncGraph();
+    e.Commit();
+    smart |= l->kind == LayerKind::Smart;
+    return true;
+}
+
+void App::CarryBegin(DocView& v) {
+    carry = {};
+    Document& d = *v.doc;
+    if (d.S().selection || d.Mode() != DocMode::Layers) return;  // (a pixel selection: only it moves)
+    for (Id id : d.SelectedLayers()) {
+        const Layer* l = d.FindLayer(id);
+        if (!l || id == d.S().activeLayer || l->kind == LayerKind::Group || l->locked) continue;
+        carry.ids.push_back(id);
+        gpu::ReadbackPtr rb;
+        if (l->kind == LayerKind::Pixel)
+            if (Surface* s = d.GetSurface(l->surface)) rb = v.renderer.ComputeBounds(*ctx, s->tex.get(), nullptr, false);
+        carry.rbs.push_back(rb);
+        carry.boxes.push_back(rb ? Rect{} : LayerBox(v, *l, nullptr));
+    }
+    if (!carry.ids.empty()) carry.view = &v;
+}
+
+void App::CarryEnd(DocView& v) {
+    if (carry.view != &v || carry.ids.empty()) { carry = {}; return; }
+    Document& d = *v.doc;
+    const float2 delta = {std::round(carry.delta.x), std::round(carry.delta.y)};
+    const auto ids = carry.ids;
+    carry = {};
+    if (delta.x == 0 && delta.y == 0) return;
+    bool smart = false;
+    for (Id id : ids) MoveLayerBy(v, id, delta, smart);
+    if (smart) { Prepare(v); SyncSmartLayers(v); }
+}
+
+void App::CarryOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
+    if (carry.view != &v || carry.ids.empty()) return;
+    if (!(xf.active && xf.drag >= 0) && !shapeDragging && !textDragging) return;  // (only while dragging; the release moves them)
+    for (size_t i = 0; i < carry.ids.size(); ++i) {
+        if (carry.boxes[i].Empty() && carry.rbs[i] && carry.rbs[i]->ready) {
+            carry.boxes[i] = RectOf(carry.rbs[i]);
+            carry.rbs[i].reset();
+        }
+        const Rect& r = carry.boxes[i];
+        if (r.Empty()) continue;
+        const ImVec2 a(canvasMin.x + v.pan.x + (r.x0 + carry.delta.x) * v.zoom, canvasMin.y + v.pan.y + (r.y0 + carry.delta.y) * v.zoom);
+        const ImVec2 b(canvasMin.x + v.pan.x + (r.x1 + carry.delta.x) * v.zoom, canvasMin.y + v.pan.y + (r.y1 + carry.delta.y) * v.zoom);
+        dl->AddRect(a, b, IM_COL32(0, 0, 0, 140), 0, 0, 3.0f);
+        dl->AddRect(a, b, ui::col::Accent2, 0, 0, 1.5f);
+    }
+}
 
 void App::StartAlignLayer(DocView& v, int mode) {
     Document& d = *v.doc;
@@ -44,36 +151,20 @@ void App::AlignLayerTick() {
         if (rb && !rb->ready) return;
     DocView& v = *J.view;
     Document& d = *v.doc;
-    auto rectOf = [](const gpu::ReadbackPtr& rb) {
-        const u32* b = (const u32*)rb->data.data();
-        return rb->data.size() >= 16 && b[2] > b[0] && b[3] > b[1] ? Rect{(int)b[0], (int)b[1], (int)b[2], (int)b[3]} : Rect{};
-    };
+    if (xf.active && xf.view) TransformCommit(*xf.view);  // (a transform opened while the bounds were read)
     // Each layer's box.
     struct Item { Id id; Rect box; };
     std::vector<Item> items;
     for (Id id : J.layers) {
         const Layer* l = d.FindLayer(id);
         if (!l) continue;
-        Rect box;
-        if (l->kind == LayerKind::Pixel) {
-            if (auto it = J.layerRb.find(id); it != J.layerRb.end() && it->second) box = rectOf(it->second);
-        } else if (l->kind == LayerKind::Shape) {
-            box = ShapeBox(l->shape);
-        } else if (l->kind == LayerKind::Text) {
-            if (auto it = v.textRects.find(l->surface); it != v.textRects.end()) box = it->second;
-        } else if (l->kind == LayerKind::Smart) {
-            float2 mn = l->smartCorners[0], mx = l->smartCorners[0];
-            for (auto& c : l->smartCorners) {
-                mn = {std::min(mn.x, c.x), std::min(mn.y, c.y)};
-                mx = {std::max(mx.x, c.x), std::max(mx.y, c.y)};
-            }
-            box = {(int)std::lround(mn.x), (int)std::lround(mn.y), (int)std::lround(mx.x), (int)std::lround(mx.y)};
-        }
+        auto it = J.layerRb.find(id);
+        const Rect box = LayerBox(v, *l, it != J.layerRb.end() ? it->second : nullptr);
         if (!box.Empty()) items.push_back({id, box});
     }
     const int mode = J.mode;
     // The target: the selection's box, else the box around the chosen layers (several), else the canvas.
-    Rect target = J.selRb ? rectOf(J.selRb) : Rect{};
+    Rect target = J.selRb ? RectOf(J.selRb) : Rect{};
     const bool toSel = !target.Empty();
     const bool among = !toSel && J.layers.size() > 1;
     J = {};
@@ -122,33 +213,8 @@ void App::AlignLayerTick() {
     bool smart = false;
     v.history.BeginGroup();
     for (size_t i = 0; i < items.size(); ++i) {
-        const float dx = moves[i].x, dy = moves[i].y;
-        if (dx == 0 && dy == 0) continue;
-        Layer* l = d.FindLayer(items[i].id);
-        if (!l) continue;
-        if (l->kind == LayerKind::Pixel) {
-            // The move tool's path: the whole layer moved by whole pixels.
-            d.S().activeLayer = l->id;
-            // (the whole layer: the move tool would carry only the selected pixels)
-            const Id keepSel = d.S().selection;
-            d.S().selection = 0;
-            const bool ok = d.PaintTarget() == l->surface;
-            if (ok) Nudge(v, dx, dy);
-            d.S().selection = keepSel;
-            ++(ok ? moved : refused);
-        } else {
-            Edit e(d, v.history, "Aligner le calque");
-            if (l->kind == LayerKind::Text) l->text.pos = l->text.pos + float2{dx, dy};
-            else if (l->kind == LayerKind::Shape) {
-                l->shape.rect = {l->shape.rect.x + dx, l->shape.rect.y + dy, l->shape.rect.z + dx, l->shape.rect.w + dy};
-                for (auto& p : l->shape.parts) p.rect = {p.rect.x + dx, p.rect.y + dy, p.rect.z + dx, p.rect.w + dy};  // (the whole combined shape)
-            }
-            else for (auto& c : l->smartCorners) c = c + float2{dx, dy};
-            d.SyncGraph();
-            e.Commit();
-            smart |= l->kind == LayerKind::Smart;
-            ++moved;
-        }
+        if (moves[i].x == 0 && moves[i].y == 0) continue;
+        ++(MoveLayerBy(v, items[i].id, moves[i], smart) ? moved : refused);
     }
     v.history.EndGroup();
     // The chosen layers stay chosen, the active one too.

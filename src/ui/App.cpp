@@ -1157,6 +1157,18 @@ void App::ResetToolSessions() {
     toolSessionsView = Active();
 }
 
+namespace {
+// After undo / redo: the layers chosen together stay chosen (those still there), unless the step restored a choice
+// of its own (grouping clears it).
+void KeepLayerChoice(Document& d, const std::vector<Id>& chosen) {
+    if (chosen.empty() || !d.S().layerSel.empty()) return;
+    std::vector<Id> keep;
+    for (Id id : chosen)
+        if (d.FindLayer(id)) keep.push_back(id);
+    if (keep.size() > 1 && std::find(keep.begin(), keep.end(), d.S().activeLayer) != keep.end()) d.S().layerSel = keep;
+}
+}  // namespace
+
 void App::Undo() {
     DocView* v = Active();
     if (!v || stroking) return;
@@ -1164,7 +1176,9 @@ void App::Undo() {
     if (fluidRun.active) FluidFinish(true);  // the wet paint becomes the last step (undone here)
     if (xf.active) { TransformCancel(*v); return; }
     u32 w = v->doc->Width(), h = v->doc->Height();
+    const auto chosen = v->doc->S().layerSel;  // (choosing layers is not a step: the choice stays)
     v->history.Undo(*v->doc, *ctx);
+    KeepLayerChoice(*v->doc, chosen);
     if (w != v->doc->Width() || h != v->doc->Height()) v->fitPending = true;
 }
 
@@ -1174,7 +1188,9 @@ void App::Redo() {
     pen.drawing = false;
     if (fluidRun.active) FluidFinish(true);
     u32 w = v->doc->Width(), h = v->doc->Height();
+    const auto chosen = v->doc->S().layerSel;
     v->history.Redo(*v->doc, *ctx);
+    KeepLayerChoice(*v->doc, chosen);
     if (w != v->doc->Width() || h != v->doc->Height()) v->fitPending = true;
 }
 

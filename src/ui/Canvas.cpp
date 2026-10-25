@@ -424,6 +424,7 @@ void App::DrawCanvas() {
     RulerOverlay(*v, canvasMin, dl);
     SymmetryOverlay(*v, canvasMin, dl);
     SmartGuidesOverlay(*v, canvasMin, dl);
+    CarryOverlay(*v, canvasMin, dl);
     SpotHealOverlay(*v, canvasMin, dl);
     DrawSelectionOverlay(*v, canvasMin, dl);
     DrawQuickSelectOverlay(*v, canvasMin, dl);

@@ -1042,6 +1042,55 @@ void App::DemoTick() {
         }
         // SX_SMARTG: two rectangles on their own layers; the first dragged with the move tool (synthetic events) to
         // 2.5 px from the second's left edge: the smart guides snap it onto it. Exported (SX_OUT).
+        // SX_MULTIMOVE: two rectangles chosen together, the active one dragged by (200, 50) with the move tool (synthetic
+        // events): the other follows on release; boxes logged, then after one undo (both back).
+        if (GetEnvironmentVariableA("SX_MULTIMOVE", nullptr, 0) > 0) {
+            ImGuiIO& io = ImGui::GetIO();
+            static Id red = 0, green = 0;
+            static gpu::ReadbackPtr rbs[2];
+            if (frameCounter == 8) {
+                green = d.AddPixelLayer("Vert").id;
+                red = d.AddPixelLayer("Rouge").id;
+                d.SyncGraph();
+                Prepare(*a);
+                const Id ids[2] = {red, green};
+                const float4 rects[2] = {{100, 100, 200, 180}, {400, 300, 460, 340}};
+                for (int k = 0; k < 2; ++k) {
+                    a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, rects[k], SelMode::Replace, false, 0, "Sélection");
+                    if (Layer* l = d.FindLayer(ids[k])) a->renderer.FillSelection(d, *ctx, &a->history, l->surface, 0, k ? float4{0.1f, 0.8f, 0.1f, 1} : float4{0.9f, 0.1f, 0.1f, 1}, 1, "Remplir");
+                    a->renderer.Deselect(d, a->history);
+                }
+                d.S().activeLayer = red;
+                d.S().layerSel = {red, green};
+                smartGuides = false;  // (an exact move)
+                tool = viewTool[0] = Tool::Move;
+            }
+            auto S = [&](float x, float y) { return ImVec2(lxf.canvasMin.x + a->pan.x + x * a->zoom, lxf.canvasMin.y + a->pan.y + y * a->zoom); };
+            if (frameCounter == 20) { const ImVec2 q = S(150, 140); io.AddMousePosEvent(q.x, q.y); }
+            if (frameCounter == 22) io.AddMouseButtonEvent(0, true);
+            if (frameCounter > 22 && frameCounter <= 42) {
+                const float t = (frameCounter - 22) / 20.0f;
+                const ImVec2 q = S(150 + 200 * t, 140 + 50 * t);
+                io.AddMousePosEvent(q.x, q.y);
+            }
+            if (frameCounter == 43) Log("[multimove] while dragging: %zu layer(s) follow, delta %.1f %.1f", carry.ids.size(), carry.delta.x, carry.delta.y);
+            if (frameCounter == 44) io.AddMouseButtonEvent(0, false);
+            auto logBoxes = [&](const char* w) {
+                const Id ids[2] = {red, green};
+                for (int k = 0; k < 2; ++k)
+                    if (Layer* l = d.FindLayer(ids[k])) rbs[k] = a->renderer.ComputeBounds(*ctx, d.GetSurface(l->surface)->tex.get(), nullptr, false);
+                Log("[multimove] %s: history '%s', chosen %zu", w, a->history.Label(a->history.Count() - 1).c_str(), d.SelectedLayers().size());
+            };
+            if (frameCounter == 50) logBoxes("after the move (expected red 300..400 x 150..230, green 600..660 x 350..390)");
+            if (frameCounter == 56) { Undo(); logBoxes("one undo (both back)"); }
+            for (int k = 0; k < 2; ++k)
+                if (rbs[k] && rbs[k]->ready) {
+                    const u32* b = (const u32*)rbs[k]->data.data();
+                    Log("[multimove]   %s: x %u..%u y %u..%u", k ? "green" : "red", b[0], b[2], b[1], b[3]);
+                    rbs[k].reset();
+                }
+            return;
+        }
         if (GetEnvironmentVariableA("SX_SMARTG", nullptr, 0) > 0) {
             ImGuiIO& io = ImGui::GetIO();
             static Id moving = 0;

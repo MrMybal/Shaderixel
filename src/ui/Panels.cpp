@@ -457,12 +457,18 @@ void App::DrawLayers() {
         }
         return false;
     };
+    // The choice of several layers holds while the active layer is one of them (a new or merged layer, an ungroup...
+    // leave it behind): the same rule as Document::SelectedLayers.
+    {
+        auto& ch = d.S().layerSel;
+        if (!ch.empty() && (ch.size() < 2 || std::find(ch.begin(), ch.end(), d.S().activeLayer) == ch.end())) ch.clear();
+    }
+    const bool chosenNow = !d.S().layerSel.empty();
     for (int i = (int)layers.size() - 1; i >= 0; --i) {
         Layer& l = layers[i];
         if (layerFilter.empty() ? hiddenByCollapse(l) : !shownByFilter(l)) continue;
         ImGui::PushID((int)l.id);
-        bool selected = l.id == d.S().activeLayer ||
-                        (d.S().layerSel.size() > 1 && std::find(d.S().layerSel.begin(), d.S().layerSel.end(), l.id) != d.S().layerSel.end());
+        bool selected = l.id == d.S().activeLayer || (chosenNow && std::find(d.S().layerSel.begin(), d.S().layerSel.end(), l.id) != d.S().layerSel.end());
         bool group = l.kind == LayerKind::Group;
         int depth = d.LayerDepth(l.id);
         float indent = depth * 16.0f * dpi + (l.clipped ? 14.0f * dpi : 0.0f);
@@ -483,13 +489,15 @@ void App::DrawLayers() {
                 if (chosen.empty() && d.S().activeLayer) chosen.push_back(d.S().activeLayer);
                 if (io.KeyShift) {
                     const int a = d.LayerIndex(d.S().activeLayer);
-                    const Id anchor = d.S().activeLayer;
                     chosen.clear();
-                    if (anchor) chosen.push_back(anchor);
-                    if (a >= 0)
+                    if (a >= 0 && layers[a].parent == l.parent) {
                         for (int k = std::min(a, i); k <= std::max(a, i); ++k)
-                            if (k != a && layers[k].parent == l.parent) chosen.push_back(layers[k].id);
-                    if (std::find(chosen.begin(), chosen.end(), l.id) == chosen.end()) chosen.push_back(l.id);
+                            if (layers[k].parent == l.parent) chosen.push_back(layers[k].id);
+                    } else {
+                        // (another group: the range starts over from this row)
+                        chosen.push_back(l.id);
+                        d.S().activeLayer = l.id;
+                    }
                 } else if (auto it = std::find(chosen.begin(), chosen.end(), l.id); it != chosen.end()) {
                     if (chosen.size() > 1) {
                         chosen.erase(it);

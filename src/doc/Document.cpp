@@ -503,11 +503,28 @@ Layer* Document::GroupLayers(const std::vector<Id>& ids) {
     std::vector<Id> roots;
     for (Id id : ids)
         if (const Layer* l = FindLayer(id); l && l->parent == parent) roots.push_back(id);
+    // A clipped layer whose base comes along comes too (it would clip onto another layer otherwise).
+    std::unordered_map<Id, Id> below;
+    {
+        Id prev = 0;
+        for (auto& l : state.layers)
+            if (l.parent == parent) { below[l.id] = prev; prev = l.id; }
+    }
+    for (bool added = true; added;) {
+        added = false;
+        for (auto& l : state.layers)
+            if (l.parent == parent && l.clipped && std::find(roots.begin(), roots.end(), l.id) == roots.end() &&
+                std::find(roots.begin(), roots.end(), below[l.id]) != roots.end()) {
+                roots.push_back(l.id);
+                added = true;
+            }
+    }
     // Their blocks (a group comes with its content), in their order.
     std::set<Id> moving;
     for (Id id : roots) {
         const int s = BlockStart(id), e = LayerIndex(id);
         for (int k = s; k <= e; ++k) moving.insert(state.layers[k].id);
+        top = std::max(top, e);
     }
     std::vector<Layer> kept, block;
     int insertAt = 0;
@@ -525,11 +542,7 @@ Layer* Document::GroupLayers(const std::vector<Id>& ids) {
     g.name = "Groupe " + std::to_string(std::count_if(state.layers.begin(), state.layers.end(), [](const Layer& x) { return x.kind == LayerKind::Group; }) + 1);
     g.parent = parent;
     // A clipped layer keeps its clipping only when its base (the sibling under it) comes along.
-    std::unordered_map<Id, Id> below;
     Id prev = 0;
-    for (auto& l : state.layers)
-        if (l.parent == parent) { below[l.id] = prev; prev = l.id; }
-    prev = 0;
     for (auto& l : block)
         if (l.parent == parent) {
             l.parent = g.id;
