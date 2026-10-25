@@ -853,5 +853,14 @@
  "Ajuster": "Fit",
  "Aucun document ouvert": "No open document",
  "Toute l'image dans le canevas": "The whole image in the canvas",
- "Affichez le canevas pour naviguer": "Show the canvas to navigate"
+ "Affichez le canevas pour naviguer": "Show the canvas to navigate",
+ "Calculs": "Calculations",
+ "Calculs...": "Calculations...",
+ "Source 1 (dessus)": "Source 1 (top)",
+ "Source 2 (dessous)": "Source 2 (bottom)",
+ "Résultat": "Result",
+ "Calculs : un calque source n'existe plus": "Calculations: a source layer no longer exists",
+ "Calculs : les sources doivent avoir la taille du document": "Calculations: the sources must have the document's size",
+ "Calculs : mémoire graphique insuffisante": "Calculations: not enough video memory",
+ "Calculs : calque impossible à créer": "Calculations: the layer could not be created"
 }

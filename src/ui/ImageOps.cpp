@@ -173,6 +173,10 @@ void App::DrawImageMenu() {
         applyImage.open = true;
         applyImage.source = v;
     }
+    if (ImGui::MenuItem("Calculs...", nullptr, false, d.Mode() == DocMode::Layers)) {
+        calculations.open = true;
+        for (auto& s : calculations.src) s.view = v;
+    }
     if (ImGui::MenuItem("Rogner...", nullptr, false, !trimRb)) imageDialog = 4;
     if (ImGui::MenuItem("Outil Recadrage", "C")) tool = Tool::Crop;
     if (ImGui::MenuItem("Recadrage en perspective")) {

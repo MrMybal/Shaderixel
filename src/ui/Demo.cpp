@@ -1067,6 +1067,58 @@ void App::DemoTick() {
         }
         // SX_SMARTG: two rectangles on their own layers; the first dragged with the move tool (synthetic events) to
         // 2.5 px from the second's left edge: the smart guides snap it onto it. Exported (SX_OUT).
+        // SX_CALC: Calculations on the merged image: red channel (source 1) multiplied over the inverted blue channel
+        // (source 2), as a new layer (exported, SX_OUT), then as a selection, then as a new document (logged).
+        if (GetEnvironmentVariableA("SX_CALC", nullptr, 0) > 0) {
+            auto setup = [&](int result) {
+                // (SX_CALC=<ch1><ch2><inv2><mode>, e.g. 1310 = red over inverted blue, Multiply... digits: channel,
+                // channel, invert, 0 multiply / 1 normal)
+                char cfg[16] = "1310";
+                GetEnvironmentVariableA("SX_CALC", cfg, sizeof(cfg));
+                if (strlen(cfg) < 4) strcpy(cfg, "1310");
+                calculations.src[0] = {a, 0, cfg[0] - '0', false};
+                calculations.src[1] = {a, 0, cfg[1] - '0', cfg[2] == '1'};
+                calculations.mode = cfg[3] == '1' ? (int)BlendMode::Normal : (int)BlendMode::Multiply;
+                calculations.opacity = 1;
+                calculations.result = result;
+            };
+            static gpu::ReadbackPtr srcRb;
+            if (frameCounter == 8 && out[0]) srcRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));  // (the source, to check)
+            if (srcRb && srcRb->ready) {
+                const std::string f = std::string(out) + ".src.png";
+                stbi_write_png(f.c_str(), srcRb->width, srcRb->height, 4, srcRb->data.data(), srcRb->width * 4);
+                srcRb.reset();
+            }
+            if (frameCounter == 26) {
+                setup(1);
+                CalculationsRun(*a);
+                Log("[calc] %s, active '%s', history '%s'", statusMsg.c_str(), d.ActiveLayer() ? d.ActiveLayer()->name.c_str() : "-",
+                    a->history.Label(a->history.Count() - 1).c_str());
+            }
+            if (frameCounter == 14 && out[0]) {  // (the new document: the raw result)
+                DocView& nv = *docs.back();
+                Prepare(nv);
+                outRb = nv.renderer.ExportRGBA8(*ctx, nv.renderer.EvaluateComplete(*nv.doc, *ctx));
+            }
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            if (frameCounter == 22) {
+                setup(0);
+                CalculationsRun(*a);
+                Log("[calc] %s, selection %s, history '%s'", statusMsg.c_str(), d.S().selection ? "made" : "none", a->history.Label(a->history.Count() - 1).c_str());
+            }
+            if (frameCounter == 10) {
+                const size_t before = docs.size();
+                setup(2);
+                CalculationsRun(*a);
+                Log("[calc] %s, documents %zu -> %zu, new one %u x %u with %zu layer(s)", statusMsg.c_str(), before, docs.size(),
+                    docs.back()->doc->Width(), docs.back()->doc->Height(), docs.back()->doc->S().layers.size());
+                activeDoc = 0;  // (back to the source document for the next steps)
+            }
+            return;
+        }
         // SX_NAV: the Navigator shown, the view zoomed to 300 % on the top-left corner; a click in the middle of the
         // Navigator (synthetic events) brings the view's center to the image's center (logged).
         if (GetEnvironmentVariableA("SX_NAV", nullptr, 0) > 0) {

@@ -2112,6 +2112,16 @@ private:
     } applyImage;
     void DrawApplyImageDialog();
     void ApplyImageRun(DocView& v);
+    // Image > Calculations (Calculations.cpp): channel 0 gray, 1 red, 2 green, 3 blue, 4 transparency; result 0
+    // selection, 1 new layer, 2 new document.
+    struct {
+        bool open = false;
+        struct Source { DocView* view = nullptr; Id layer = 0; int channel = 0; bool invert = false; } src[2];
+        int mode = 0, result = 0;
+        float opacity = 1;
+    } calculations;
+    void DrawCalculationsDialog();
+    void CalculationsRun(DocView& v);
     void RestoreDocSnapshot(DocView& v, size_t index);
     void DocSnapshotsUI(DocView& v);
     // Custom shapes (ShapeLibrary.cpp).
