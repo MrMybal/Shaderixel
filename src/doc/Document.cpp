@@ -483,6 +483,69 @@ Layer& Document::GroupLayer(Id id) {
     return state.layers[i + 1];
 }
 
+std::vector<Id> Document::SelectedLayers() const {
+    std::vector<Id> out;
+    const bool multi = state.layerSel.size() > 1 &&
+                       std::find(state.layerSel.begin(), state.layerSel.end(), state.activeLayer) != state.layerSel.end();
+    for (auto& l : state.layers)
+        if (multi ? std::find(state.layerSel.begin(), state.layerSel.end(), l.id) != state.layerSel.end() : l.id == state.activeLayer) out.push_back(l.id);
+    return out;
+}
+
+Layer* Document::GroupLayers(const std::vector<Id>& ids) {
+    if (ids.empty()) return nullptr;
+    if (ids.size() == 1) return &GroupLayer(ids[0]);
+    // The topmost selected layer gives the parent and the place; the others under another parent are left out.
+    int top = -1;
+    for (Id id : ids) top = std::max(top, LayerIndex(id));
+    if (top < 0) return nullptr;
+    const Id parent = state.layers[top].parent;
+    std::vector<Id> roots;
+    for (Id id : ids)
+        if (const Layer* l = FindLayer(id); l && l->parent == parent) roots.push_back(id);
+    // Their blocks (a group comes with its content), in their order.
+    std::set<Id> moving;
+    for (Id id : roots) {
+        const int s = BlockStart(id), e = LayerIndex(id);
+        for (int k = s; k <= e; ++k) moving.insert(state.layers[k].id);
+    }
+    std::vector<Layer> kept, block;
+    int insertAt = 0;
+    for (int k = 0; k < (int)state.layers.size(); ++k) {
+        if (moving.count(state.layers[k].id)) {
+            block.push_back(state.layers[k]);
+        } else {
+            kept.push_back(state.layers[k]);
+            if (k < top) insertAt = (int)kept.size();
+        }
+    }
+    Layer g;
+    g.id = NewId();
+    g.kind = LayerKind::Group;
+    g.name = "Groupe " + std::to_string(std::count_if(state.layers.begin(), state.layers.end(), [](const Layer& x) { return x.kind == LayerKind::Group; }) + 1);
+    g.parent = parent;
+    // A clipped layer keeps its clipping only when its base (the sibling under it) comes along.
+    std::unordered_map<Id, Id> below;
+    Id prev = 0;
+    for (auto& l : state.layers)
+        if (l.parent == parent) { below[l.id] = prev; prev = l.id; }
+    prev = 0;
+    for (auto& l : block)
+        if (l.parent == parent) {
+            l.parent = g.id;
+            if (l.clipped && (!prev || below[l.id] != prev)) l.clipped = false;
+            prev = l.id;
+        }
+    block.push_back(g);
+    kept.insert(kept.begin() + insertAt, block.begin(), block.end());
+    state.layers = std::move(kept);
+    state.activeLayer = g.id;
+    state.layerSel.clear();
+    state.editMask = false;
+    SyncGraph();
+    return FindLayer(g.id);
+}
+
 void Document::Ungroup(Id groupId) {
     int i = LayerIndex(groupId);
     if (i < 0 || state.layers[i].kind != LayerKind::Group) return;

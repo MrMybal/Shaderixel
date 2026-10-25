@@ -419,6 +419,7 @@ struct DocState {
     std::vector<Layer> layers;  // [0] = bottom
     Graph graph;
     Id activeLayer = 0;
+    std::vector<Id> layerSel;  // layers selected together (Ctrl / Shift + click), the active one among them
     Id activeNode = 0;
     bool editMask = false;     // painting targets the active layer's mask
     Id selection = 0;          // R8 selection surface (0 = no selection: everything)
@@ -509,6 +510,10 @@ public:
     void MoveLayerSibling(Id id, int dir);           // +1 up, -1 down among siblings
     void MoveLayerTo(Id id, Id target, bool into);   // above target, or into a group
     Layer& GroupLayer(Id id);                         // wrap a layer in a new group
+    // Several layers (same parent as the topmost one) gathered into a new group at the topmost one's place.
+    Layer* GroupLayers(const std::vector<Id>& ids);
+    // The layers selected together (at least the active one, if any), bottom to top.
+    std::vector<Id> SelectedLayers() const;
     void Ungroup(Id groupId);
     bool IsDescendant(Id layer, Id group) const;
     int LayerDepth(Id id) const;

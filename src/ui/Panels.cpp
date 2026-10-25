@@ -461,7 +461,8 @@ void App::DrawLayers() {
         Layer& l = layers[i];
         if (layerFilter.empty() ? hiddenByCollapse(l) : !shownByFilter(l)) continue;
         ImGui::PushID((int)l.id);
-        bool selected = l.id == d.S().activeLayer;
+        bool selected = l.id == d.S().activeLayer ||
+                        (d.S().layerSel.size() > 1 && std::find(d.S().layerSel.begin(), d.S().layerSel.end(), l.id) != d.S().layerSel.end());
         bool group = l.kind == LayerKind::Group;
         int depth = d.LayerDepth(l.id);
         float indent = depth * 16.0f * dpi + (l.clipped ? 14.0f * dpi : 0.0f);
@@ -470,10 +471,39 @@ void App::DrawLayers() {
         float w = ImGui::GetContentRegionAvail().x;
         if (ImGui::Selectable("##row", selected, ImGuiSelectableFlags_AllowOverlap | ImGuiSelectableFlags_AllowDoubleClick, ImVec2(w, rowH))) {
             ImGuiIO& io = ImGui::GetIO();
-            if (io.KeyCtrl && !group) {  // Ctrl+click: load layer pixels as selection
+            const float thumbX = rowMin.x + 30 * dpi + indent;  // (the thumbnail's place)
+            const bool onThumb = io.MousePos.x >= thumbX && io.MousePos.x < thumbX + thumb;
+            auto& chosen = d.S().layerSel;
+            if (io.KeyCtrl && !group && onThumb) {  // Ctrl+click on the thumbnail: load layer pixels as selection
                 SelMode m = io.KeyShift && io.KeyAlt ? SelMode::Intersect : io.KeyShift ? SelMode::Add : io.KeyAlt ? SelMode::Subtract : SelMode::Replace;
                 SelectFromLayer(*v, l, m);
+            } else if (io.KeyCtrl || io.KeyShift) {
+                // Several layers: Ctrl+click adds / removes one, Shift+click takes the range from the active one
+                // (its siblings in between).
+                if (chosen.empty() && d.S().activeLayer) chosen.push_back(d.S().activeLayer);
+                if (io.KeyShift) {
+                    const int a = d.LayerIndex(d.S().activeLayer);
+                    const Id anchor = d.S().activeLayer;
+                    chosen.clear();
+                    if (anchor) chosen.push_back(anchor);
+                    if (a >= 0)
+                        for (int k = std::min(a, i); k <= std::max(a, i); ++k)
+                            if (k != a && layers[k].parent == l.parent) chosen.push_back(layers[k].id);
+                    if (std::find(chosen.begin(), chosen.end(), l.id) == chosen.end()) chosen.push_back(l.id);
+                } else if (auto it = std::find(chosen.begin(), chosen.end(), l.id); it != chosen.end()) {
+                    if (chosen.size() > 1) {
+                        chosen.erase(it);
+                        if (d.S().activeLayer == l.id) d.S().activeLayer = chosen.back();
+                    }
+                } else {
+                    chosen.push_back(l.id);
+                    d.S().activeLayer = l.id;
+                }
+                if (chosen.size() < 2) chosen.clear();
+                d.S().activeNode = 0;
+                d.S().editMask = false;
             } else {
+                chosen.clear();
                 d.S().activeLayer = l.id;
                 d.S().activeNode = 0;  // the layer itself (not one of its filter nodes)
                 d.S().editMask = false;
@@ -481,7 +511,8 @@ void App::DrawLayers() {
                 if (l.kind == LayerKind::Smart && ImGui::IsMouseDoubleClicked(0)) smartEditRequest = l.id;
             }
         }
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) && !group) ImGui::SetTooltip("Ctrl+clic : sélectionner les pixels du calque");
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal))
+            ImGui::SetTooltip("Ctrl+clic : ajouter ou retirer ce calque du choix\nMaj+clic : choisir les calques jusqu'ici\nCtrl+clic sur la vignette : sélectionner les pixels du calque");
         if (ImGui::BeginDragDropSource()) {
             Id id = l.id;
             ImGui::SetDragDropPayload("SX_LAYER", &id, sizeof(Id));
@@ -504,6 +535,7 @@ void App::DrawLayers() {
             Id rowId = l.id;
             size_t count = layers.size();
             const Layer* data = layers.data();
+            if (std::find(d.S().layerSel.begin(), d.S().layerSel.end(), l.id) == d.S().layerSel.end()) d.S().layerSel.clear();  // (a row outside the choice)
             d.S().activeLayer = l.id;
             LayerMenuItems();
             ImGui::EndPopup();
@@ -673,8 +705,10 @@ void App::DrawLayers() {
     }
     ImGui::SameLine();
     if (ui::IconButton("del", ui::IconTrash, false, bs, "Supprimer le calque") && active) {
-        Edit e(d, v->history, "Supprimer le calque");
-        d.RemoveLayer(active->id);
+        const auto ids = d.SelectedLayers();
+        Edit e(d, v->history, ids.size() > 1 ? "Supprimer les calques" : "Supprimer le calque");
+        for (Id id : ids) d.RemoveLayer(id);  // (a layer already gone with its group is skipped)
+        d.S().layerSel.clear();
         e.Commit();
     }
     ImGui::EndDisabled();

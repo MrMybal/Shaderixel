@@ -816,6 +816,75 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_MULTISEL: three rectangles on their own layers chosen together: aligned on their top edges (between them),
+        // centers spread horizontally, then grouped (Ctrl+G) and the choice deleted after an undo; boxes logged.
+        if (GetEnvironmentVariableA("SX_MULTISEL", nullptr, 0) > 0) {
+            static Id ids[3];
+            static gpu::ReadbackPtr rbs[3];
+            static const char* what = "";
+            const float4 rects[3] = {{100, 300, 160, 360}, {300, 120, 380, 200}, {780, 220, 840, 260}};
+            const float4 cols[3] = {{0.9f, 0.1f, 0.1f, 1}, {0.1f, 0.8f, 0.1f, 1}, {0.1f, 0.3f, 0.9f, 1}};
+            if (frameCounter == 8) {
+                Prepare(*a);
+                for (int k = 0; k < 3; ++k) {
+                    ids[k] = d.AddPixelLayer("Bloc " + std::to_string(k + 1)).id;
+                    d.SyncGraph();
+                    Prepare(*a);
+                    a->renderer.SelectShape(d, *ctx, a->history, SelShape::Rect, rects[k], SelMode::Replace, false, 0, "Sélection");
+                    if (Layer* l = d.FindLayer(ids[k])) a->renderer.FillSelection(d, *ctx, &a->history, l->surface, 0, cols[k], 1, "Remplir");
+                    a->renderer.Deselect(d, a->history);
+                }
+                d.S().activeLayer = ids[2];
+                d.S().layerSel = {ids[0], ids[1], ids[2]};
+                Log("[multisel] chosen %zu layers", d.SelectedLayers().size());
+            }
+            auto logBoxes = [&](const char* w) {
+                what = w;
+                for (int k = 0; k < 3; ++k)
+                    if (Layer* l = d.FindLayer(ids[k])) rbs[k] = a->renderer.ComputeBounds(*ctx, d.GetSurface(l->surface)->tex.get(), nullptr, false);
+                Log("[multisel] %s (%s)", w, statusMsg.c_str());
+            };
+            if (frameCounter == 12) { ShowSideTab(0); FocusPanel("Calques"); }  // (the chosen rows shown in the capture)
+            if (frameCounter == 14) StartAlignLayer(*a, 3);  // top edges, between them: y0 = 120
+            if (frameCounter == 22) logBoxes("top edges aligned, expected y0 = 120 for all");
+            if (frameCounter == 28) StartAlignLayer(*a, 6);  // centers spread: 130 .. 810, the middle at 470
+            if (frameCounter == 36) logBoxes("centers spread, expected the middle centered on x = 470");
+            if (frameCounter == 42) {
+                const size_t before = d.S().layers.size();
+                Edit e(d, a->history, "Grouper");
+                d.GroupLayers(d.SelectedLayers());
+                e.Commit();
+                const Layer* g = d.ActiveLayer();
+                int inside = 0;
+                for (auto& l : d.S().layers) inside += g && l.parent == g->id;
+                Log("[multisel] grouped: %zu -> %zu layers, active '%s' holds %d, top layer '%s'", before, d.S().layers.size(),
+                    g ? g->name.c_str() : "?", inside, d.S().layers.back().name.c_str());
+            }
+            if (frameCounter == 46) {
+                Undo();
+                d.S().activeLayer = ids[1];
+                d.S().layerSel = {ids[1], ids[2]};
+                const size_t before = d.S().layers.size();
+                const auto chosen = d.SelectedLayers();
+                Edit e(d, a->history, "Supprimer les calques");
+                for (Id id : chosen) d.RemoveLayer(id);
+                d.S().layerSel.clear();
+                e.Commit();
+                Log("[multisel] undo group then delete 2: %zu -> %zu layers, active '%s'", before, d.S().layers.size(), d.ActiveLayer() ? d.ActiveLayer()->name.c_str() : "-");
+            }
+            if (frameCounter == 50 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
+            for (int k = 0; k < 3; ++k)
+                if (rbs[k] && rbs[k]->ready) {
+                    const u32* b = (const u32*)rbs[k]->data.data();
+                    Log("[multisel]   block %d: x %u..%u y %u..%u (center x %.1f)", k + 1, b[0], b[2], b[1], b[3], (b[0] + b[2]) * 0.5f);
+                    rbs[k].reset();
+                }
+            if (outRb && outRb->ready) {
+                stbi_write_png(out, outRb->width, outRb->height, 4, outRb->data.data(), outRb->width * 4);
+                outRb.reset();
+            }
+            return;
+        }
         // SX_ALIGN: a red rectangle on its own layer aligned to the right of the canvas, then to the bottom of a selection;
         // its bounds logged after each.
         if (GetEnvironmentVariableA("SX_ALIGN", nullptr, 0) > 0) {

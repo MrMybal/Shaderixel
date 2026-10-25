@@ -1519,9 +1519,11 @@ void App::LayerMenuItems() {
             if (ImGui::MenuItem("Créer les deux calques")) FrequencySeparation(*v, freqRadius);
             ImGui::EndMenu();
         }
-        if (ImGui::MenuItem("Supprimer le calque", nullptr, false, l != nullptr)) {
-            Edit e(d, v->history, "Supprimer le calque");
-            d.RemoveLayer(l->id);
+        if (ImGui::MenuItem(d.SelectedLayers().size() > 1 ? "Supprimer les calques" : "Supprimer le calque", nullptr, false, l != nullptr)) {
+            const auto ids = d.SelectedLayers();
+            Edit e(d, v->history, ids.size() > 1 ? "Supprimer les calques" : "Supprimer le calque");
+            for (Id id : ids) d.RemoveLayer(id);
+            d.S().layerSel.clear();
             e.Commit();
         }
         if (ImGui::MenuItem("Fusionner vers le bas", "Ctrl+E", false, l != nullptr)) MergeDown(*v);
@@ -1529,15 +1531,20 @@ void App::LayerMenuItems() {
         if (ImGui::MenuItem("Aplatir l'image")) MergeVisible(*v, true);
         ImGui::Separator();
         if (ImGui::BeginMenu("Aligner", l != nullptr && d.Mode() == DocMode::Layers)) {
-            ImGui::TextDisabled(d.S().selection ? "Sur la sélection" : "Sur la zone de travail");
+            const size_t chosen = d.SelectedLayers().size();
+            ImGui::TextDisabled(d.S().selection ? "Sur la sélection" : chosen > 1 ? "Les calques choisis entre eux" : "Sur la zone de travail");
             const char* items[] = {"Bords gauches", "Centres horizontaux", "Bords de droite", "Bords supérieurs", "Centres verticaux", "Bords inférieurs"};
             for (int i = 0; i < 6; ++i)
                 if (ImGui::MenuItem(items[i])) StartAlignLayer(*v, i);
+            ImGui::Separator();
+            if (ImGui::MenuItem("Répartir les centres horizontalement", nullptr, false, chosen >= 3)) StartAlignLayer(*v, 6);
+            if (ImGui::MenuItem("Répartir les centres verticalement", nullptr, false, chosen >= 3)) StartAlignLayer(*v, 7);
+            ImGui::SetItemTooltip("Trois calques choisis ou plus (Ctrl+clic dans le panneau Calques)");
             ImGui::EndMenu();
         }
         if (ImGui::MenuItem("Grouper", "Ctrl+G", false, l != nullptr)) {
             Edit e(d, v->history, "Grouper");
-            d.GroupLayer(l->id);
+            d.GroupLayers(d.SelectedLayers());
             e.Commit();
         }
         if (ImGui::MenuItem("Dissocier", "Ctrl+Maj+G", false, l && l->kind == LayerKind::Group)) {
@@ -1699,7 +1706,7 @@ void App::HandleShortcuts() {
         Layer* al = d.ActiveLayer();
         if (al && ctrl && !alt && pressed(ImGuiKey_G)) {
             Edit e(d, v->history, shift ? "Dissocier" : "Grouper");
-            if (shift) d.Ungroup(al->id); else d.GroupLayer(al->id);
+            if (shift) d.Ungroup(al->id); else d.GroupLayers(d.SelectedLayers());
             e.Commit();
             al = nullptr;
         }

@@ -834,5 +834,14 @@
  "Appliquer une image : la source doit avoir la même taille": "Apply Image: the source must have the same size",
  "Appliquer une image : le calque source n'existe plus": "Apply Image: the source layer no longer exists",
  "Appliquer une image : mémoire graphique insuffisante": "Apply Image: not enough video memory",
- "Mémorise tout le document (calques, réglages, pixels, profil colorimétrique) ; cliquer sur un instantané\nle rétablit (une étape d'annulation), même quand l'historique a oublié les étapes qui y menaient.\nLe contenu des objets dynamiques n'en fait pas partie.": "Remembers the whole document (layers, settings, pixels, color profile); clicking a snapshot\nrestores it (one undo step), even when the history has forgotten the steps that led to it.\nSmart object contents are not included."
+ "Mémorise tout le document (calques, réglages, pixels, profil colorimétrique) ; cliquer sur un instantané\nle rétablit (une étape d'annulation), même quand l'historique a oublié les étapes qui y menaient.\nLe contenu des objets dynamiques n'en fait pas partie.": "Remembers the whole document (layers, settings, pixels, color profile); clicking a snapshot\nrestores it (one undo step), even when the history has forgotten the steps that led to it.\nSmart object contents are not included.",
+ "Supprimer les calques": "Delete layers",
+ "Les calques choisis entre eux": "The chosen layers to each other",
+ "Répartir les centres horizontalement": "Distribute horizontal centers",
+ "Répartir les centres verticalement": "Distribute vertical centers",
+ "Trois calques choisis ou plus (Ctrl+clic dans le panneau Calques)": "Three chosen layers or more (Ctrl+click in the Layers panel)",
+ "Ctrl+clic : ajouter ou retirer ce calque du choix\nMaj+clic : choisir les calques jusqu'ici\nCtrl+clic sur la vignette : sélectionner les pixels du calque": "Ctrl+click: add this layer to the chosen ones or remove it\nShift+click: choose the layers up to here\nCtrl+click on the thumbnail: select the layer's pixels",
+ "Aligner : aucun calque déplaçable (verrouillé ou groupe)": "Align: no movable layer (locked or group)",
+ "Répartir : choisissez au moins trois calques": "Distribute: choose at least three layers",
+ "Répartir : il faut au moins trois calques non vides": "Distribute: at least three non-empty layers are needed"
 }

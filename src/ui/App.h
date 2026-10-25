@@ -918,13 +918,15 @@ private:
     void SmartGuidesCollect(DocView& v, Id exclude, Id selection);
     // The visible box of a shape layer: its frame and its added parts, rotated, plus the stroke when drawn.
     static Rect ShapeBox(const ShapeStyle& s);
-    // Layer > Align (AlignLayer.cpp): mode 0 left, 1 horizontal centers, 2 right, 3 top, 4 vertical centers, 5 bottom.
+    // Layer > Align (AlignLayer.cpp): mode 0 left, 1 horizontal centers, 2 right, 3 top, 4 vertical centers, 5 bottom,
+    // 6 / 7 distribute the horizontal / vertical centers (three layers or more).
     struct {
         bool active = false;
         DocView* view = nullptr;
         int mode = 0;
-        Id layer = 0;
-        gpu::ReadbackPtr selRb, layerRb;
+        std::vector<Id> layers;
+        gpu::ReadbackPtr selRb;
+        std::unordered_map<Id, gpu::ReadbackPtr> layerRb;
     } alignJob;
     void StartAlignLayer(DocView& v, int mode);
     void AlignLayerTick();
