@@ -2,6 +2,7 @@
 // found in the merged image (background color from the border, connected shapes, smallest rotated rectangle around
 // each), then each one straightened and cropped into a new document.
 #include "ui/App.h"
+#include "render/Dispatch.h"
 
 #include <algorithm>
 #include <cmath>
@@ -142,11 +143,13 @@ std::vector<std::array<float2, 4>> App::FindPhotos(const u8* px, u32 w, u32 h) {
     }
     // Reading order: rows from the top (a photo starting within a fifth of the image's height is on the same row),
     // then from the left.
-    const float row = h / 5.0f;
-    std::sort(found.begin(), found.end(), [&](const Found& a, const Found& b) {
-        const int ra = (int)(a.top / row), rb = (int)(b.top / row);
-        return ra != rb ? ra < rb : a.left < b.left;
-    });
+    std::sort(found.begin(), found.end(), [](const Found& a, const Found& b) { return a.top < b.top; });
+    for (size_t i = 0; i < found.size();) {
+        size_t j = i + 1;
+        while (j < found.size() && found[j].top - found[i].top < h / 5.0f) ++j;  // (the same row)
+        std::sort(found.begin() + i, found.begin() + j, [](const Found& a, const Found& b) { return a.left < b.left; });
+        i = j;
+    }
     for (auto& f : found) out.push_back(f.q);
     return out;
 }
@@ -163,6 +166,7 @@ void App::StartCropPhotos(DocView& v) {
     cropPhotos.view = &v;
     cropPhotos.precision = d.GetPrecision();
     cropPhotos.rb = v.renderer.ExportRGBA8(*ctx, cropPhotos.image.get());
+    if (!cropPhotos.rb) { cropPhotos = {}; Status("Recadrer et redresser : mémoire insuffisante"); return; }
     Status("Recadrer et redresser les photos : recherche...");
 }
 
@@ -176,30 +180,48 @@ void App::CropPhotosTick() {
     const auto frames = FindPhotos(rb->data.data(), rb->width, rb->height);
     if (frames.empty()) { Status("Recadrer et redresser : aucune photo trouvée sur un fond uni"); return; }
     const u32 W = image->Width(), H = image->Height();
+    auto* k = Kernel("resample_persp.slang");
+    if (!k) return;
+    struct PerspRoot {  // (resample_persp.slang)
+        u32 dw, dh, sw, sh;
+        float h0[3];
+        u32 interp;
+        float h1[3];
+        u32 pad0;
+        float h2[3];
+        u32 pad1;
+    };
     int made = 0;
     for (size_t i = 0; i < frames.size(); ++i) {
         u32 w = 0, h = 0;
         float m[9];
         if (!QuadToRectMatrix(frames[i].data(), w, h, m) || w > 16384 || h > 16384) continue;
-        // A document of the scan's size holding the merged image, then cropped to the photo (straightened).
-        NewDocument(W, H, precision, DocMode::Layers, 3, "Photo " + std::to_string(i + 1));
+        // A document of the photo's size, its layer sampled straight from the scan (straightened, bicubic).
+        NewDocument(w, h, precision, DocMode::Layers, 3, "Photo " + std::to_string(made + 1));
         DocView& nv = *docs.back();
         Document& nd = *nv.doc;
-        Layer& l = nd.AddPixelLayer("Photo");
-        const Id surf = l.surface;
+        const Id surf = nd.AddPixelLayer("Photo").surface;
         nd.SyncGraph();
         Prepare(nv);
         Surface* s = nd.GetSurface(surf);
-        if (!s || !s->tex) continue;
-        if (s->tex->GetFormat() == image->GetFormat()) ctx->CopyTexture(s->tex.get(), image.get());
-        else nv.renderer.Composite(nd, *ctx, s->tex.get(), image.get(), image.get(), nullptr, BlendMode::Normal, 1, false, nullptr);
+        if (!s || !s->tex) {  // (no memory: the empty document goes away)
+            docs.pop_back();
+            activeDoc = std::min(activeDoc, (int)docs.size() - 1);
+            continue;
+        }
+        gpu::DispatchDesc dd;
+        dd.pipeline = k;
+        dd.srv[0] = image.get();
+        dd.uav[0] = s->tex.get();
+        SetConstants(dd, PerspRoot{w, h, W, H, {m[0], m[1], m[2]}, 2, {m[3], m[4], m[5]}, 0, {m[6], m[7], m[8]}, 0});
+        Dispatch2D(*ctx, dd, w, h);
         nd.TouchSurface(surf);
-        nv.renderer.ResampleCanvasPerspective(nd, *ctx, nv.history, w, h, m, 2, "Recadrer et redresser");
         nv.history.Clear();  // (a fresh document: nothing to undo)
         nd.dirty = true;
         nv.fitPending = true;
         ++made;
     }
+    if (!made) { Status("Recadrer et redresser : mémoire insuffisante pour les documents"); return; }
     Status(std::to_string(made) + (made > 1 ? " photos redressées, chacune dans son document" : " photo redressée dans un document"));
 }
 

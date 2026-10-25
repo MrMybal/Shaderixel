@@ -3033,6 +3033,8 @@
  "Recadrer et redresser": "Crop and Straighten",
  "Recadrer et redresser : aucune photo trouvée sur un fond uni": "Crop and Straighten: no photo found on a plain background",
  "Recadrer et redresser : mémoire graphique insuffisante": "Crop and Straighten: not enough video memory",
+ "Recadrer et redresser : mémoire insuffisante": "Crop and Straighten: not enough memory",
+ "Recadrer et redresser : mémoire insuffisante pour les documents": "Crop and Straighten: not enough memory for the documents",
  "Recadrer et redresser les photos": "Crop and Straighten Photos",
  "Recadrer et redresser les photos : recherche...": "Crop and Straighten Photos: searching...",
  "Recadrer selon la sélection": "Crop to selection",
