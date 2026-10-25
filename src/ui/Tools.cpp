@@ -631,6 +631,7 @@ void App::TransformCommit(DocView& v) {
 }
 
 void App::TransformCancel(DocView& v) {
+    carry = {};  // (a move abandoned: the chosen layers stay)
     if (!xf.active) return;
     Document& doc = *v.doc;
     if (xf.selectionOnly) {
@@ -736,11 +737,13 @@ void App::TransformInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             } else {
                 sg.lineX = sg.lineY = NAN;
             }
-            if (xf.moveOnly)  // (the move tool: whole pixels, no resampling blur)
-                xf.center = xf.startCenter + float2{std::round(xf.center.x - xf.startCenter.x), std::round(xf.center.y - xf.startCenter.y)};
+            if (xf.moveOnly) {  // (the move tool: whole pixels, no resampling blur)
+                delta = {std::round(xf.center.x - xf.startCenter.x), std::round(xf.center.y - xf.startCenter.y)};
+                xf.center = xf.startCenter + delta;
+            }
             if (xf.freeCorners) for (int i = 0; i < 4; ++i) xf.corners[i] = xf.startCorners[i] + delta;
             if (xf.pivotCustom) xf.pivot = xf.startPivot + delta;
-            carry.delta = xf.center - xf.startCenter;
+            if (xf.moveOnly) carry.delta = delta;
         } else if (d == 10) {
             xf.pivot = m;
             xf.pivotCustom = true;

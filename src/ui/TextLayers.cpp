@@ -140,6 +140,7 @@ void App::TextInput(DocView& v, ImVec2 canvasMin, bool hovered) {
             float2 dd = dp - shapeStart;
             if (io.KeyShift) { if (std::abs(dd.x) > std::abs(dd.y)) dd.y = 0; else dd.x = 0; }
             if (sg.vectorDrag) dd = SmartGuidesVector(v, dd, io.KeyShift);  // (lined up on the other layers)
+            dd = {std::round(dd.x), std::round(dd.y)};  // (whole pixels: the chosen layers that follow move by the same)
             float2 step = {shapeRectStart.x + dd.x - al->shape.rect.x, shapeRectStart.y + dd.y - al->shape.rect.y};
             al->shape.rect = {shapeRectStart.x + dd.x, shapeRectStart.y + dd.y, shapeRectStart.z + dd.x, shapeRectStart.w + dd.y};
             for (auto& p : al->shape.parts) p.rect = {p.rect.x + step.x, p.rect.y + step.y, p.rect.z + step.x, p.rect.w + step.y};

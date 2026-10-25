@@ -503,22 +503,21 @@ Layer* Document::GroupLayers(const std::vector<Id>& ids) {
     std::vector<Id> roots;
     for (Id id : ids)
         if (const Layer* l = FindLayer(id); l && l->parent == parent) roots.push_back(id);
-    // A clipped layer whose base comes along comes too (it would clip onto another layer otherwise).
-    std::unordered_map<Id, Id> below;
+    // A clipped layer's base is the nearest unclipped sibling under it (a chain clips onto one base). The clipped
+    // layers of a base that comes along come too (they would clip onto another layer otherwise).
+    std::unordered_map<Id, Id> base;
     {
-        Id prev = 0;
+        Id b = 0;
         for (auto& l : state.layers)
-            if (l.parent == parent) { below[l.id] = prev; prev = l.id; }
-    }
-    for (bool added = true; added;) {
-        added = false;
-        for (auto& l : state.layers)
-            if (l.parent == parent && l.clipped && std::find(roots.begin(), roots.end(), l.id) == roots.end() &&
-                std::find(roots.begin(), roots.end(), below[l.id]) != roots.end()) {
-                roots.push_back(l.id);
-                added = true;
+            if (l.parent == parent) {
+                if (!l.clipped) b = l.id;
+                else base[l.id] = b;
             }
     }
+    for (auto& l : state.layers)
+        if (l.parent == parent && l.clipped && std::find(roots.begin(), roots.end(), l.id) == roots.end() &&
+            std::find(roots.begin(), roots.end(), base[l.id]) != roots.end())
+            roots.push_back(l.id);
     // Their blocks (a group comes with its content), in their order.
     std::set<Id> moving;
     for (Id id : roots) {
@@ -541,13 +540,11 @@ Layer* Document::GroupLayers(const std::vector<Id>& ids) {
     g.kind = LayerKind::Group;
     g.name = "Groupe " + std::to_string(std::count_if(state.layers.begin(), state.layers.end(), [](const Layer& x) { return x.kind == LayerKind::Group; }) + 1);
     g.parent = parent;
-    // A clipped layer keeps its clipping only when its base (the sibling under it) comes along.
-    Id prev = 0;
+    // A clipped layer keeps its clipping only when its base comes along.
     for (auto& l : block)
         if (l.parent == parent) {
             l.parent = g.id;
-            if (l.clipped && (!prev || below[l.id] != prev)) l.clipped = false;
-            prev = l.id;
+            if (l.clipped && !moving.count(base[l.id])) l.clipped = false;
         }
     block.push_back(g);
     kept.insert(kept.begin() + insertAt, block.begin(), block.end());

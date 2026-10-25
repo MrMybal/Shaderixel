@@ -146,6 +146,7 @@ void App::AlignLayerTick() {
     bool alive = false;
     for (auto& dv : docs) alive |= dv.get() == J.view;
     if (!alive) { J = {}; return; }
+    if ((xf.active && xf.drag >= 0) || shapeDragging || textDragging) return;  // (a drag under way ends first)
     if (J.selRb && !J.selRb->ready) return;
     for (auto& [id, rb] : J.layerRb)
         if (rb && !rb->ready) return;

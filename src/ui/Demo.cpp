@@ -872,6 +872,31 @@ void App::DemoTick() {
                 e.Commit();
                 Log("[multisel] undo group then delete 2: %zu -> %zu layers, active '%s'", before, d.S().layers.size(), d.ActiveLayer() ? d.ActiveLayer()->name.c_str() : "-");
             }
+            if (frameCounter == 48) {
+                // Clipping chains: B, C1 and C2 clipped onto B, X; grouping C1 and X leaves C2 clipped onto B, then the
+                // base B and X: its clipped C1, C2 come along, still clipped.
+                auto& L = d.S().layers;
+                auto add = [&](const char* n, bool clip) { Layer& l = d.AddPixelLayer(n); l.clipped = clip; return l.id; };
+                const Id B = add("B", false), C1 = add("C1", true), C2 = add("C2", true), X = add("X", false);
+                d.SyncGraph();
+                auto show = [&](const char* w) {
+                    std::string s;
+                    for (auto& l : L)
+                        if (l.id == B || l.id == C1 || l.id == C2 || l.id == X || l.kind == LayerKind::Group)
+                            s += l.name + (l.clipped ? "(clip)" : "") + (l.parent ? "[in]" : "") + " ";
+                    Log("[multisel] %s: %s", w, s.c_str());
+                };
+                Edit e1(d, a->history, "Grouper");
+                d.GroupLayers({C1, X});
+                e1.Commit();
+                show("group C1 + X (expected C2 still clipped outside, C1 unclipped inside)");
+                Undo();
+                Edit e2(d, a->history, "Grouper");
+                d.GroupLayers({B, X});
+                e2.Commit();
+                show("group B + X (expected C1, C2 inside, still clipped)");
+                Undo();
+            }
             if (frameCounter == 50 && out[0]) outRb = a->renderer.ExportRGBA8(*ctx, a->renderer.EvaluateComplete(d, *ctx));
             for (int k = 0; k < 3; ++k)
                 if (rbs[k] && rbs[k]->ready) {
@@ -1083,6 +1108,9 @@ void App::DemoTick() {
             };
             if (frameCounter == 50) logBoxes("after the move (expected red 300..400 x 150..230, green 600..660 x 350..390)");
             if (frameCounter == 56) { Undo(); logBoxes("one undo (both back)"); }
+            if (frameCounter == 60) io.AddKeyEvent(ImGuiKey_RightArrow, true);
+            if (frameCounter == 61) io.AddKeyEvent(ImGuiKey_RightArrow, false);
+            if (frameCounter == 64) logBoxes("right arrow (expected red 101..201, green 401..461)");
             for (int k = 0; k < 2; ++k)
                 if (rbs[k] && rbs[k]->ready) {
                     const u32* b = (const u32*)rbs[k]->data.data();

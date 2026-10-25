@@ -1818,10 +1818,22 @@ void App::HandleShortcuts() {
     }
     if (tool == Tool::Move && !xf.active) {
         float step = shift ? 10.0f : 1.0f;
-        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) Nudge(*v, -step, 0);
-        if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) Nudge(*v, step, 0);
-        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) Nudge(*v, 0, -step);
-        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) Nudge(*v, 0, step);
+        float2 o = {0, 0};
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow)) o.x -= step;
+        if (ImGui::IsKeyPressed(ImGuiKey_RightArrow)) o.x += step;
+        if (ImGui::IsKeyPressed(ImGuiKey_UpArrow)) o.y -= step;
+        if (ImGui::IsKeyPressed(ImGuiKey_DownArrow)) o.y += step;
+        const auto chosen = v->doc->SelectedLayers();
+        if ((o.x || o.y) && chosen.size() > 1 && !v->doc->S().selection) {
+            // The chosen layers together (without a pixel selection): one undo step.
+            bool smart = false;
+            v->history.BeginGroup();
+            for (Id id : chosen) MoveLayerBy(*v, id, o, smart);
+            v->history.EndGroup();
+            if (smart) { Prepare(*v); SyncSmartLayers(*v); }
+        } else if (o.x || o.y) {
+            Nudge(*v, o.x, o.y);
+        }
     }
 
     if (tool == Tool::SpotHeal) {
