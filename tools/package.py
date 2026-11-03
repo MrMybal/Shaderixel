@@ -418,6 +418,7 @@ def main():
         if f.lower().endswith(('.exe', '.dll')):
             shutil.copy2(os.path.join(BUILD, f), dist)
     shutil.copy2(os.path.join(ROOT, 'README.md'), os.path.join(dist, 'README.md'))
+    shutil.copytree(os.path.join(ROOT, 'docs', 'screenshots'), os.path.join(dist, 'docs', 'screenshots'))
     shutil.copy2(os.path.join(ROOT, 'LICENSE'), os.path.join(dist, 'LICENSE'))
     shutil.copytree(os.path.join(ROOT, 'shaders'), os.path.join(dist, 'shaders'))
     # Function library (sub-graphs and tools, .sxfn), listed in the node menu > Bibliothèque.

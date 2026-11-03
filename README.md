@@ -3,6 +3,23 @@
 GPU image editor with a Photoshop-style **layer** workflow and a **node graph**
 workflow. Effects are written in HLSL/Slang and compiled at runtime.
 
+## Screenshots
+
+**Layers and non-destructive effects** — combine painting, gradients, masks and
+adjustments, with the layer stack and generated graph visible together.
+
+![Shaderixel canvas with painting, glow, adjustment layers and the layer stack](docs/screenshots/layers.png)
+
+**Visual effect graphs** — connect image inputs, math operations and parameters,
+with live node thumbnails and an effect-output preview.
+
+![Shaderixel visual effect editor with connected nodes and live image previews](docs/screenshots/effect-graph.png)
+
+**HLSL/Slang editing** — edit shader code with syntax highlighting and expose
+parameters in the same workspace as the graph and layer preview.
+
+![Shaderixel HLSL and Slang source editor with exposed parameters and a layer preview](docs/screenshots/shader-editor.png)
+
 ## Interface language
 
 The interface defaults to **English** on a fresh installation. Select another
