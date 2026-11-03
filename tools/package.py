@@ -471,6 +471,15 @@ def main():
                 shutil.copy2(os.path.join(base, f), os.path.join(lic, lib + '_' + f))
         if os.path.isdir(os.path.join(base, 'LICENSES')):
             shutil.copytree(os.path.join(base, 'LICENSES'), os.path.join(lic, lib + '_LICENSES'))
+    cyui_notices = (
+        'LICENSE', 'THIRD_PARTY_NOTICES.md', 'third_party/texteditor/LICENSE',
+        'third_party/lexilla/License.txt', 'third_party/scintilla/License.txt',
+        'third_party/SciTE-Properties-License.txt', 'third_party/code-syntax.lock.json')
+    for relative in cyui_notices:
+        source = os.path.join(ROOT, 'external', 'cyui', *relative.split('/'))
+        target = os.path.join(lic, 'cyui', *relative.split('/'))
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        shutil.copy2(source, target)
     for rel, data in kept.items():
         os.makedirs(os.path.dirname(os.path.join(dist, rel)) or dist, exist_ok=True)
         with open(os.path.join(dist, rel), 'wb') as fh:

@@ -454,7 +454,7 @@ void App::LayerTransformOverlay(DocView& v, ImVec2 canvasMin, ImVec2 avail, ImDr
     };
     ImGui::PushID("lxfbar");
     auto toggle = [&](const char* label, bool on, const char* tip) {
-        if (on) ImGui::PushStyleColor(ImGuiCol_Button, ui::col::Accent);
+        if (on) ImGui::PushStyleColor(ImGuiCol_Button, cyui::palette().accent);
         bool r = ImGui::Button(label);
         if (on) ImGui::PopStyleColor();
         track();

@@ -4,116 +4,13 @@
 #include "io/ColorMgmt.h"
 #include "doc/Brushes.h"
 #include "ui/Theme.h"
+#include "ui/ToneCurve.h"
 
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
 
 namespace sx {
 
-
-namespace {
-// Interactive tone-curve editor. Returns true while points changed this frame.
-// `active` reports whether the widget is being dragged (for undo grouping).
-bool CurveEditor(const char* id, CurvePoints& pts, ImU32 color, float size, bool& activated, bool& released, const float* histogram = nullptr) {
-    activated = released = false;
-    if (pts.size() < 2) pts = {{0, 0}, {1, 1}};
-    ImGui::PushID(id);
-    ImVec2 p0 = ImGui::GetCursorScreenPos();
-    ImVec2 p1(p0.x + size, p0.y + size);
-    ImGui::InvisibleButton("##curve", ImVec2(size, size), ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
-    bool hovered = ImGui::IsItemHovered();
-    ImGuiStorage* st = ImGui::GetStateStorage();
-    ImGuiID dragKey = ImGui::GetID("drag");
-    int drag = st->GetInt(dragKey, -1);
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    auto toScreen = [&](float2 c) { return ImVec2(p0.x + c.x * size, p1.y - c.y * size); };
-    auto toCurve = [&](ImVec2 s) { return float2{std::clamp((s.x - p0.x) / size, 0.0f, 1.0f), std::clamp((p1.y - s.y) / size, 0.0f, 1.0f)}; };
-
-    dl->AddRectFilled(p0, p1, IM_COL32(18, 18, 22, 255), 4);
-    if (histogram) {
-        // Image histogram behind the curve (like Photoshop).
-        for (int i = 0; i < 256; ++i) {
-            float x = p0.x + size * (i + 0.5f) / 256.0f, h = histogram[i] * size * 0.9f;
-            dl->AddLine(ImVec2(x, p1.y), ImVec2(x, p1.y - h), IM_COL32(150, 150, 160, 70), std::max(1.0f, size / 256.0f));
-        }
-    }
-    for (int i = 1; i < 4; ++i) {
-        float t = i / 4.0f;
-        dl->AddLine(ImVec2(p0.x + size * t, p0.y), ImVec2(p0.x + size * t, p1.y), IM_COL32(255, 255, 255, 18));
-        dl->AddLine(ImVec2(p0.x, p0.y + size * t), ImVec2(p1.x, p0.y + size * t), IM_COL32(255, 255, 255, 18));
-    }
-    dl->AddLine(ImVec2(p0.x, p1.y), ImVec2(p1.x, p0.y), IM_COL32(255, 255, 255, 40));
-    dl->AddRect(p0, p1, IM_COL32(70, 72, 84, 255), 4);
-
-    bool changed = false;
-    ImVec2 mouse = ImGui::GetIO().MousePos;
-    int hot = -1;
-    for (int i = 0; i < (int)pts.size(); ++i) {
-        ImVec2 s = toScreen(pts[i]);
-        if (std::abs(s.x - mouse.x) < 7 && std::abs(s.y - mouse.y) < 7) hot = i;
-    }
-    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        activated = true;
-        if (hot >= 0) drag = hot;
-        else {
-            float2 c = toCurve(mouse);
-            auto it = std::lower_bound(pts.begin(), pts.end(), c, [](const float2& a, const float2& b) { return a.x < b.x; });
-            drag = (int)(it - pts.begin());
-            pts.insert(it, c);
-            changed = true;
-        }
-    }
-    if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && hot > 0 && hot < (int)pts.size() - 1) {
-        activated = true;
-        pts.erase(pts.begin() + hot);
-        changed = true;
-        released = true;
-    }
-    if (drag >= 0 && drag < (int)pts.size()) {
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-            float2 c = toCurve(mouse);
-            bool endpoint = drag == 0 || drag == (int)pts.size() - 1;
-            float lo = drag > 0 ? pts[drag - 1].x + 0.01f : 0.0f;
-            float hi = drag + 1 < (int)pts.size() ? pts[drag + 1].x - 0.01f : 1.0f;
-            float outside = std::max(p0.y - mouse.y, mouse.y - p1.y);
-            if (!endpoint && outside > 24.0f && pts.size() > 2) {  // drag out to delete
-                pts.erase(pts.begin() + drag);
-                drag = -1;
-                changed = true;
-            } else {
-                float2 np = {std::clamp(c.x, lo, std::max(lo, hi)), c.y};
-                if (!(np == pts[drag])) { pts[drag] = np; changed = true; }
-            }
-        } else {
-            drag = -1;
-            released = true;
-        }
-    }
-    st->SetInt(dragKey, drag);
-
-    // Curve
-    ImVec2 line[129];
-    for (int i = 0; i <= 128; ++i) {
-        float x = i / 128.0f;
-        line[i] = toScreen({x, EvalCurve(pts, x)});
-    }
-    dl->PushClipRect(p0, p1, true);
-    dl->AddPolyline(line, 129, color, 0, 2.0f);
-    dl->PopClipRect();
-    for (int i = 0; i < (int)pts.size(); ++i) {
-        ImVec2 s = toScreen(pts[i]);
-        bool on = i == drag || i == hot;
-        dl->AddRectFilled(ImVec2(s.x - 4, s.y - 4), ImVec2(s.x + 4, s.y + 4), on ? IM_COL32_WHITE : IM_COL32(20, 20, 24, 255));
-        dl->AddRect(ImVec2(s.x - 4, s.y - 4), ImVec2(s.x + 4, s.y + 4), color);
-    }
-    if (hot >= 0 || drag >= 0) {
-        int i = drag >= 0 ? drag : hot;
-        if (i < (int)pts.size()) ImGui::SetTooltip("Entrée %d  Sortie %d", (int)std::lround(pts[i].x * 255), (int)std::lround(pts[i].y * 255));
-    }
-    ImGui::PopID();
-    return changed;
-}
-}  // namespace
 
 // Photoshop-style Blend If bar: black-to-white gradient with 4 handles
 // (lo0, lo1, hi0, hi1). Each pair moves together until split with Alt-drag.
@@ -317,10 +214,11 @@ bool App::EffectParamsUI(EffectInstance& fx, const char* label, const char* only
         size_t pi = curveParams[chan];
         // Square editor: as wide as the panel, but leave the rest of the properties visible.
         float edSize = std::clamp(std::min(ImGui::GetContentRegionAvail().x, ImGui::GetWindowHeight() * 0.55f), 120 * dpi, 300 * dpi);
-        bool act = false, rel = false;
+        bool act = false, rel = false, cancel = false;
         DocView* v = Active();
         const float* hist = histo.valid ? histo.norm[std::min<size_t>(chan, 3)] : nullptr;
-        if (CurveEditor(def->params[pi].id.c_str(), fx.curves[pi], colors[std::min<size_t>(chan, 3)], edSize, act, rel, hist)) changed = true;
+        if (ui::CurveEditor(def->params[pi].id.c_str(), fx.curves[pi], colors[std::min<size_t>(chan, 3)], edSize, act, rel, cancel, hist, EvalCurve)) changed = true;
+        if (cancel) editBefore.reset();
         if (act && v) editBefore = frameBefore;
         if (rel && v && editBefore) {
             v->history.PushState("Courbes", *editBefore, v->doc->S());
@@ -564,8 +462,8 @@ void App::DrawLayers() {
         float x0 = rowMin.x + 30 * dpi + indent;
         if (l.clipped) {  // clipping arrow
             float cx = x0 - 9 * dpi, cy = rowMin.y + rowH * 0.5f;
-            dl->AddLine(ImVec2(cx, cy - 8 * dpi), ImVec2(cx, cy + 4 * dpi), ui::col::TextDim, 1.5f);
-            dl->AddTriangleFilled(ImVec2(cx - 4 * dpi, cy + 3 * dpi), ImVec2(cx + 4 * dpi, cy + 3 * dpi), ImVec2(cx, cy + 8 * dpi), ui::col::TextDim);
+            dl->AddLine(ImVec2(cx, cy - 8 * dpi), ImVec2(cx, cy + 4 * dpi), cyui::palette().textDim, 1.5f);
+            dl->AddTriangleFilled(ImVec2(cx - 4 * dpi, cy + 3 * dpi), ImVec2(cx + 4 * dpi, cy + 3 * dpi), ImVec2(cx, cy + 8 * dpi), cyui::palette().textDim);
         }
         float textX;
         if (group) {
@@ -575,9 +473,9 @@ void App::DrawLayers() {
             if (ImGui::InvisibleButton("##fold", ImVec2(16 * dpi, 18 * dpi))) l.collapsed = !l.collapsed;
             ImVec2 c(x0 + 8 * dpi, rowMin.y + h * 0.5f);
             float a = 4.5f * dpi;
-            if (l.collapsed) dl->AddTriangleFilled(ImVec2(c.x - a * 0.6f, c.y - a), ImVec2(c.x + a, c.y), ImVec2(c.x - a * 0.6f, c.y + a), ui::col::Text);
-            else dl->AddTriangleFilled(ImVec2(c.x - a, c.y - a * 0.6f), ImVec2(c.x + a, c.y - a * 0.6f), ImVec2(c.x, c.y + a), ui::col::Text);
-            ui::DrawIcon(dl, ui::IconFolder, ImVec2(x0 + 30 * dpi, c.y), 18 * dpi, l.passThrough ? ui::col::TextDim : ui::col::Accent2);
+            if (l.collapsed) dl->AddTriangleFilled(ImVec2(c.x - a * 0.6f, c.y - a), ImVec2(c.x + a, c.y), ImVec2(c.x - a * 0.6f, c.y + a), cyui::palette().text);
+            else dl->AddTriangleFilled(ImVec2(c.x - a, c.y - a * 0.6f), ImVec2(c.x + a, c.y - a * 0.6f), ImVec2(c.x, c.y + a), cyui::palette().text);
+            ui::DrawIcon(dl, ui::IconFolder, ImVec2(x0 + 30 * dpi, c.y), 18 * dpi, l.passThrough ? cyui::palette().textDim : cyui::palette().info);
             textX = x0 + 46 * dpi;
         } else {
             // Thumbnail(s)
@@ -605,10 +503,10 @@ void App::DrawLayers() {
                 dl->AddRectFilled(b0, b1, IM_COL32(30, 30, 36, 230), 2);
                 dl->AddRect(ImVec2(b0.x + 2 * dpi, b0.y + 2 * dpi), ImVec2(b1.x - 2 * dpi, b1.y - 2 * dpi), IM_COL32(230, 230, 240, 255), 1);
                 SmartObject* so = d.GetSmart(l.smart);
-                if (so && !so->linkedPath.empty()) dl->AddLine(ImVec2(b0.x + 3 * dpi, b1.y - 3 * dpi), ImVec2(b1.x - 3 * dpi, b0.y + 3 * dpi), ui::col::Accent2, 1.5f);
+                if (so && !so->linkedPath.empty()) dl->AddLine(ImVec2(b0.x + 3 * dpi, b1.y - 3 * dpi), ImVec2(b1.x - 3 * dpi, b0.y + 3 * dpi), cyui::palette().info, 1.5f);
             } else if (l.kind != LayerKind::Pixel) ui::DrawIcon(dl, ui::IconFx, ImVec2(tp.x + thumb * 0.5f, tp.y + thumb * 0.5f), thumb * 0.5f, IM_COL32(255, 255, 255, 200));
             bool contentSel = selected && !d.S().editMask;
-            dl->AddRect(ImVec2(tp.x - 1, tp.y - 1), ImVec2(tp.x + thumb + 1, tp.y + thumb + 1), contentSel ? ui::col::Accent2 : ui::col::Border, 0, 0, contentSel ? 2.0f : 1.0f);
+            dl->AddRect(ImVec2(tp.x - 1, tp.y - 1), ImVec2(tp.x + thumb + 1, tp.y + thumb + 1), contentSel ? cyui::palette().info : cyui::palette().line, 0, 0, contentSel ? 2.0f : 1.0f);
             textX = tp.x + thumb + 8;
             if (l.mask) {
                 ImVec2 mp(textX, tp.y);
@@ -617,8 +515,8 @@ void App::DrawLayers() {
                     dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), mp, ImVec2(mp.x + thumb, mp.y + thumb));
                 }
                 bool maskSel = selected && d.S().editMask;
-                dl->AddRect(ImVec2(mp.x - 1, mp.y - 1), ImVec2(mp.x + thumb + 1, mp.y + thumb + 1), maskSel ? ui::col::Accent2 : ui::col::Border, 0, 0, maskSel ? 2.0f : 1.0f);
-                if (!l.maskEnabled) dl->AddLine(mp, ImVec2(mp.x + thumb, mp.y + thumb), ui::col::Error, 2);
+                dl->AddRect(ImVec2(mp.x - 1, mp.y - 1), ImVec2(mp.x + thumb + 1, mp.y + thumb + 1), maskSel ? cyui::palette().info : cyui::palette().line, 0, 0, maskSel ? 2.0f : 1.0f);
+                if (!l.maskEnabled) dl->AddLine(mp, ImVec2(mp.x + thumb, mp.y + thumb), cyui::palette().error, 2);
                 ImGui::SetCursorScreenPos(mp);
                 if (ImGui::InvisibleButton("##mask", ImVec2(thumb, thumb))) {
                     d.S().activeLayer = l.id;
@@ -635,18 +533,18 @@ void App::DrawLayers() {
             }
         }
         ImVec2 tpos(textX, rowMin.y + (rowH - ImGui::GetFontSize()) * 0.5f);
-        dl->AddText(tpos, l.visible ? ui::col::Text : ui::col::TextDim, l.name.c_str());
-        if (l.clipped) dl->AddLine(ImVec2(tpos.x, tpos.y + ImGui::GetFontSize() + 1), ImVec2(tpos.x + ImGui::CalcTextSize(l.name.c_str()).x, tpos.y + ImGui::GetFontSize() + 1), ui::col::TextDim);
-        if (l.locked) ui::DrawIcon(dl, ui::IconLock, ImVec2(rowMin.x + w - 14 * dpi, rowMin.y + rowH * 0.5f), 12 * dpi, ui::col::TextDim);
+        dl->AddText(tpos, l.visible ? cyui::palette().text : cyui::palette().textDim, l.name.c_str());
+        if (l.clipped) dl->AddLine(ImVec2(tpos.x, tpos.y + ImGui::GetFontSize() + 1), ImVec2(tpos.x + ImGui::CalcTextSize(l.name.c_str()).x, tpos.y + ImGui::GetFontSize() + 1), cyui::palette().textDim);
+        if (l.locked) ui::DrawIcon(dl, ui::IconLock, ImVec2(rowMin.x + w - 14 * dpi, rowMin.y + rowH * 0.5f), 12 * dpi, cyui::palette().textDim);
         if (l.link) {  // (linked: brighter when linked to the active layer)
             const Layer* al = d.ActiveLayer();
             ui::DrawIcon(dl, ui::IconLink, ImVec2(rowMin.x + w - 32 * dpi, rowMin.y + rowH * 0.5f), 16 * dpi,
-                         al && al->link == l.link ? ui::col::Accent2 : ui::col::TextDim);
+                         al && al->link == l.link ? cyui::palette().info : cyui::palette().textDim);
         }
         if (l.filters.size()) {
             char fx[16];
             snprintf(fx, sizeof(fx), "fx %zu", l.filters.size());
-            dl->AddText(ImVec2(rowMin.x + w - 48 * dpi, tpos.y), ui::col::Accent2, fx);
+            dl->AddText(ImVec2(rowMin.x + w - 48 * dpi, tpos.y), cyui::palette().info, fx);
         }
         ImGui::SetCursorScreenPos(ImVec2(rowMin.x, rowMin.y + rowH + ImGui::GetStyle().ItemSpacing.y));
         ImGui::PopID();
@@ -1117,7 +1015,7 @@ void App::ColorPickerBody() {
         ImVec2 bgMin(p.x + off, p.y + off);
         auto swatch = [&](ImVec2 a, const float4& col, bool active) {
             dl->AddRectFilled(a, ImVec2(a.x + sw, a.y + sw), ImGui::ColorConvertFloat4ToU32(ImVec4(col.x, col.y, col.z, 1)), 3);
-            dl->AddRect(a, ImVec2(a.x + sw, a.y + sw), active ? ui::col::Accent : IM_COL32(120, 122, 135, 255), 3, 0, active ? 2.0f : 1.0f);
+            dl->AddRect(a, ImVec2(a.x + sw, a.y + sw), active ? cyui::palette().accent : IM_COL32(120, 122, 135, 255), 3, 0, active ? 2.0f : 1.0f);
         };
         swatch(bgMin, bg, editBg);
         swatch(p, fg, !editBg);
@@ -1173,7 +1071,7 @@ void App::ColorPickerBody() {
         ImVec2 p1(p0.x + sq, p0.y + sq);
         dl->AddRectFilledMultiColor(p0, p1, IM_COL32_WHITE, hueCol, hueCol, IM_COL32_WHITE);
         dl->AddRectFilledMultiColor(p0, p1, IM_COL32(0, 0, 0, 0), IM_COL32(0, 0, 0, 0), IM_COL32_BLACK, IM_COL32_BLACK);
-        dl->AddRect(p0, p1, ui::col::Border);
+        dl->AddRect(p0, p1, cyui::palette().line);
         ImGui::InvisibleButton("##sv", ImVec2(sq, sq));
         if (ImGui::IsItemActive()) {
             ImVec2 m = ImGui::GetIO().MousePos;
@@ -1194,7 +1092,7 @@ void App::ColorPickerBody() {
             ImU32 ca = ImGui::ColorConvertFloat4ToU32(ImVec4(ra, ga, ba, 1)), cb = ImGui::ColorConvertFloat4ToU32(ImVec4(rb, gb, bb, 1));
             dl->AddRectFilledMultiColor(ImVec2(h0.x, h0.y + sq * i / 6), ImVec2(h0.x + barW, h0.y + sq * (i + 1) / 6), ca, ca, cb, cb);
         }
-        dl->AddRect(h0, ImVec2(h0.x + barW, h0.y + sq), ui::col::Border);
+        dl->AddRect(h0, ImVec2(h0.x + barW, h0.y + sq), cyui::palette().line);
         ImGui::SetCursorScreenPos(h0);
         ImGui::InvisibleButton("##hue", ImVec2(barW, sq));
         if (ImGui::IsItemActive()) {
@@ -1309,7 +1207,7 @@ void App::ColorPickerBody() {
             if (q.x + s > xmax) break;
             const float4 rc = recentColors[i];
             dl->AddRectFilled(q, ImVec2(q.x + s, q.y + s), ImGui::ColorConvertFloat4ToU32(ImVec4(rc.x, rc.y, rc.z, 1)), 2);
-            dl->AddRect(q, ImVec2(q.x + s, q.y + s), ui::col::Border, 2);
+            dl->AddRect(q, ImVec2(q.x + s, q.y + s), cyui::palette().line, 2);
             ImGui::PushID((int)i);
             if (ImGui::InvisibleButton("##rc", ImVec2(s, s))) c = rc;
             ui::HelpTooltip("Couleur récente");
@@ -1614,7 +1512,7 @@ void App::DrawBrush() {
             for (int i = 1; i <= 24; ++i) {
                 float x = i / 24.0f;
                 ImVec2 q(p.x + x * w, p.y + hh * (1 - PenPressure(x)));
-                dl->AddLine(prev, q, ui::col::Accent, 1.5f);
+                dl->AddLine(prev, q, cyui::palette().accent, 1.5f);
                 prev = q;
             }
             if (platform::PenActive()) {

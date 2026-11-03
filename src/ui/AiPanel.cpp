@@ -58,6 +58,8 @@ void App::LoadAiSettings() {
         penPressureGamma = std::clamp(j["tablet"]["pressureGamma"].F(1.0f), 0.2f, 5.0f);
         lensfunDir = j["lensfun"]["dir"].S("");
         uiLanguage = j["ui"]["language"].S("en");
+        uiTheme = j["ui"]["theme"].S("violet");
+        uiComfortable = j["ui"]["comfortable"].B(true);
         histGpuMB = j["history"]["gpuMB"].I(0);
         histGpuMaxMB = j["history"]["gpuMaxMB"].I(0);
         histRamMB = j["history"]["ramMB"].I(0);
@@ -89,6 +91,8 @@ void App::SaveAiSettings() {
     j["lensfun"] = lf;
     Json ui = Json::Object();
     ui["language"] = uiLanguage;
+    ui["theme"] = uiTheme;
+    ui["comfortable"] = uiComfortable;
     j["ui"] = ui;
     Json hist = Json::Object();  // 0: automatic (from the graphics card and the system memory)
     hist["gpuMB"] = histGpuMB;

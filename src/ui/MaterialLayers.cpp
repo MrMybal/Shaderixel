@@ -385,7 +385,7 @@ void App::DrawMaterialPanel() {
         float spec = (1.0f - p.rough) * (p.metal > 0.5f ? 0.9f : 0.6f);
         dl->AddCircleFilled(ImVec2(c.x - r * 0.35f, c.y - r * 0.35f), r * (0.08f + 0.3f * p.rough), IM_COL32(255, 255, 255, (int)(spec * 200)), 20);
         if (p.hasHeight && !p.hasColor) dl->AddCircle(c, r * 0.6f, IM_COL32(220, 220, 230, 160), 24, 2.0f);
-        if (hov) dl->AddCircle(c, r + 2, ui::col::Accent, 32, 2.0f);
+        if (hov) dl->AddCircle(c, r + 2, cyui::palette().accent, 32, 2.0f);
         ImVec4 clip(a.x, a.y, a.x + sw, a.y + sw + fs * 1.3f);
         ImVec2 ts = ImGui::CalcTextSize(p.name);
         dl->AddText(nullptr, 0, ImVec2(a.x + std::max(0.0f, (sw - ts.x) * 0.5f), a.y + sw), ImGui::GetColorU32(ImGuiCol_Text), p.name, nullptr, 0, &clip);

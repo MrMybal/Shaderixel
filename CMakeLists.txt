@@ -5,6 +5,51 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Ninja must recognize /showIncludes exactly, regardless of the host VS language.
+# A misdecoded localized prefix otherwise drops header dependencies and permits
+# stale, ABI-incompatible objects after model/header changes. No C++ modules are used.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+if(MSVC AND CMAKE_GENERATOR MATCHES "Ninja")
+    add_compile_options(/utf-8)
+    foreach(language C CXX)
+        set(SX_COMPILER_LAUNCHER ${CMAKE_${language}_COMPILER_LAUNCHER})
+        set(CMAKE_${language}_COMPILER_LAUNCHER "${CMAKE_COMMAND}" -E env VSLANG=1033)
+        if(SX_COMPILER_LAUNCHER)
+            list(APPEND CMAKE_${language}_COMPILER_LAUNCHER ${SX_COMPILER_LAUNCHER})
+        endif()
+    endforeach()
+    # Some VS installations have no English compiler resources. Probe the actual
+    # bytes instead of relying on CMake's locale-dependent auto-decoding.
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/generated")
+    file(WRITE "${CMAKE_BINARY_DIR}/generated/SXHeaderProbe.h" [=[// Dependency prefix probe
+]=])
+    file(WRITE "${CMAKE_BINARY_DIR}/generated/SXHeaderProbe.cpp" [=[#include "SXHeaderProbe.h"
+]=])
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env VSLANG=1033 "${CMAKE_CXX_COMPILER}"
+        /nologo /showIncludes /c /utf-8 "/Fo${CMAKE_BINARY_DIR}/generated/SXHeaderProbe.obj"
+        "${CMAKE_BINARY_DIR}/generated/SXHeaderProbe.cpp"
+        OUTPUT_VARIABLE SX_INCLUDE_PROBE ERROR_VARIABLE SX_INCLUDE_PROBE_ERROR
+        RESULT_VARIABLE SX_INCLUDE_PROBE_RESULT ENCODING NONE)
+    if(NOT SX_INCLUDE_PROBE_RESULT EQUAL 0)
+        message(FATAL_ERROR "Cannot determine MSVC header dependency prefix: ${SX_INCLUDE_PROBE_ERROR}")
+    endif()
+    string(APPEND SX_INCLUDE_PROBE "${SX_INCLUDE_PROBE_ERROR}")
+    string(REPLACE "\r\n" "\n" SX_INCLUDE_PROBE "${SX_INCLUDE_PROBE}")
+    string(REPLACE "\n" ";" SX_INCLUDE_LINES "${SX_INCLUDE_PROBE}")
+    unset(SX_INCLUDE_PREFIX)
+    foreach(line IN LISTS SX_INCLUDE_LINES)
+        if(line MATCHES "[A-Za-z]:[/\\\\]")
+            string(FIND "${line}" "${CMAKE_MATCH_0}" SX_INCLUDE_PATH_OFFSET)
+            string(SUBSTRING "${line}" 0 ${SX_INCLUDE_PATH_OFFSET} SX_INCLUDE_PREFIX)
+            break()
+        endif()
+    endforeach()
+    if(NOT DEFINED SX_INCLUDE_PREFIX OR SX_INCLUDE_PREFIX STREQUAL "")
+        message(FATAL_ERROR "MSVC /showIncludes returned no dependency prefix")
+    endif()
+    set(CMAKE_CL_SHOWINCLUDES_PREFIX "${SX_INCLUDE_PREFIX}")
+endif()
+
 if(NOT WIN32)
     message(FATAL_ERROR "Shaderixel currently targets Windows (D3D12, and Vulkan as a second backend); Linux/macOS platform layers are planned.")
 endif()
@@ -56,6 +101,8 @@ add_library(imgui STATIC
 target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends ${IMGUI_DIR}/misc/cpp)
 # Test engine hooks: every item drawn is reported (labels, boxes) to the search index (src/ui/Search.cpp).
 target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS IMGUI_ENABLE_TEST_ENGINE)
+
+include(cmake/CyUI.cmake)
 
 # ---------------------------------------------------------------- xatlas (automatic UV unwrapping, MIT)
 # Build a generated copy with relative diagnostic filenames; keep upstream sources untouched.
@@ -125,7 +172,7 @@ add_custom_target(ShaderixelLanguages ALL
 function(sx_app target)
     add_executable(${target} WIN32 ${SX_SOURCES} ${ARGN} ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc)
     target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/sdk/include ${EXT}/stb)
-    target_link_libraries(${target} PRIVATE imgui slang xatlas ufbx comdlg32 shell32 ole32 d3d11 windowscodecs advapi32 pdh)
+    target_link_libraries(${target} PRIVATE CyUI::Core CyUI::Nodes CyUI::Images CyUI::Curves CyUI::Plots CyUI::CodeEditor slang xatlas ufbx comdlg32 shell32 ole32 d3d11 windowscodecs advapi32 pdh)
     target_compile_definitions(${target} PRIVATE
         NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE)
     if(MSVC)
@@ -194,4 +241,19 @@ if(MSVC)
     target_compile_options(imgui PRIVATE /utf-8 /MP)
     set_source_files_properties(${IMGUI_DIR}/backends/imgui_impl_dx12.cpp ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp ${EXT}/volk/volk.c
         PROPERTIES COMPILE_OPTIONS "/W0")
+endif()
+
+# Optional headless interaction tests: no native input devices or GPU are used.
+option(SX_BUILD_UI_TESTS "Build Shaderixel's CyUI integration tests" OFF)
+if(SX_BUILD_UI_TESTS)
+    enable_testing()
+    add_executable(ShaderixelUiTests tests/CyUiIntegration.cpp
+        src/ui/CodeEdit.cpp src/ui/Theme.cpp src/ui/ToneCurve.cpp)
+    target_include_directories(ShaderixelUiTests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_compile_definitions(ShaderixelUiTests PRIVATE NOMINMAX IMGUI_DEFINE_MATH_OPERATORS)
+    target_link_libraries(ShaderixelUiTests PRIVATE CyUI::Core CyUI::CodeEditor CyUI::Images CyUI::Nodes CyUI::Curves CyUI::Plots)
+    if(MSVC)
+        target_compile_options(ShaderixelUiTests PRIVATE /utf-8 /EHsc)
+    endif()
+    add_test(NAME shaderixel_cyui_interactions COMMAND ShaderixelUiTests)
 endif()

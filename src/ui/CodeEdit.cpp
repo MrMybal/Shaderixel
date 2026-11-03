@@ -2,140 +2,94 @@
 #include "ui/Theme.h"
 
 #include <imgui_internal.h>
-#include <imgui_stdlib.h>
+#include <cyui/modules/CodeEditor.h>
+#include <TextEditor.h>
+#include <unordered_map>
+#include <memory>
 #include <algorithm>
 #include <cctype>
 #include <cstring>
 
 namespace sx::ui {
 namespace {
-
-enum Tok { kText, kKeyword, kType, kFunc, kNumber, kComment, kString, kPreproc, kName, kAttr };
-
-ImU32 TokColor(Tok t) {
-    switch (t) {
-        case kKeyword: return IM_COL32(197, 134, 192, 255);
-        case kType: return IM_COL32(86, 156, 214, 255);
-        case kFunc: return IM_COL32(220, 220, 170, 255);
-        case kNumber: return IM_COL32(181, 206, 168, 255);
-        case kComment: return IM_COL32(106, 153, 85, 255);
-        case kString: return IM_COL32(206, 145, 120, 255);
-        case kPreproc: return IM_COL32(155, 155, 210, 255);
-        case kName: return IM_COL32(78, 201, 176, 255);
-        case kAttr: return IM_COL32(140, 140, 150, 255);
-        default: return IM_COL32(212, 212, 212, 255);
-    }
+// Identifier boundaries are also used by Shaderixel's source formatter.
+bool IsIdStart(char c) { return std::isalpha((unsigned char)c) || c=='_' || (unsigned char)c>=0x80; }
+bool IsId(char c) { return std::isalnum((unsigned char)c) || c=='_' || (unsigned char)c>=0x80; }
+bool IsKeyword(std::string_view word) {
+    const auto tokens = cyui::highlightCode(word, cyui::CodeLanguage::hlsl);
+    return !tokens.empty() && tokens.front().role == cyui::TokenRole::keyword;
 }
-
-bool IsIdStart(char c) { return std::isalpha((unsigned char)c) || c == '_' || (unsigned char)c >= 0x80; }
-bool IsId(char c) { return std::isalnum((unsigned char)c) || c == '_' || (unsigned char)c >= 0x80; }
-
-bool IsKeyword(std::string_view w) {
-    static const char* k[] = {"if", "else", "for", "while", "do", "return", "break", "continue", "switch", "case", "default", "discard",
-                              "true", "false", "in", "out", "inout", "uniform", "static", "const", "struct", "cbuffer", "typedef",
-                              "groupshared", "precise", "nointerpolation", "linear", "register", "packoffset"};
-    for (const char* s : k) if (w == s) return true;
-    return false;
-}
-
-bool IsType(std::string_view w) {
-    static const char* base[] = {"float", "half", "int", "uint", "bool", "double", "min16float", "min16int", "dword"};
-    for (const char* b : base) {
-        size_t n = std::strlen(b);
-        if (w.compare(0, n, b) != 0) continue;
-        std::string_view rest = w.substr(n);
-        if (rest.empty()) return true;
-        // float2, float4x4
-        if (rest.size() == 1 && rest[0] >= '1' && rest[0] <= '4') return true;
-        if (rest.size() == 3 && rest[0] >= '1' && rest[0] <= '4' && rest[1] == 'x' && rest[2] >= '1' && rest[2] <= '4') return true;
-    }
-    static const char* k[] = {"void", "Texture2D", "Texture3D", "TextureCube", "Texture2DArray", "RWTexture2D", "SamplerState", "Buffer",
-                              "StructuredBuffer", "RWStructuredBuffer", "matrix", "vector", "EffectContext", "auto"};
-    for (const char* s : k) if (w == s) return true;
-    return false;
-}
-
-struct Span {
-    size_t a, b;
-    Tok t;
+struct EditorView {
+    cyui::CodeEditor editor;
+    std::string published;
+    const std::string* owner = nullptr;
+    std::vector<std::string> semanticNames;
+    size_t semanticRevision = ~size_t(0);
+    bool focused = false, dirty = false;
 };
-
-// Tokens of one line. `inComment`: inside a /* */ comment at the start of the line (updated).
-void TokenizeLine(std::string_view s, bool& inComment, const std::vector<std::string>* names, std::vector<Span>& out) {
-    out.clear();
-    size_t i = 0;
-    if (inComment) {
-        size_t e = s.find("*/");
-        size_t end = e == std::string_view::npos ? s.size() : e + 2;
-        out.push_back({0, end, kComment});
-        if (e == std::string_view::npos) return;
-        inComment = false;
-        i = end;
+struct EditorViews {
+    std::unordered_map<ImGuiID, std::unique_ptr<EditorView>> views;
+    ImGuiID item = 0;
+    int frame = -1;
+    bool committed = false;
+};
+std::unordered_map<ImGuiContext*, EditorViews> editors;
+EditorView& View(const char* label) {
+    auto* context = ImGui::GetCurrentContext();
+    if (!editors.count(context)) {
+        editors.emplace(context, EditorViews{});
+        ImGuiContextHook hook;
+        hook.Type = ImGuiContextHookType_Shutdown;
+        hook.Callback = [](ImGuiContext* ctx, ImGuiContextHook*) { editors.erase(ctx); };
+        ImGui::AddContextHook(context, &hook);
     }
-    size_t first = s.find_first_not_of(" \t");
-    if (first != std::string_view::npos && s[first] == '#' && i == 0) {
-        out.push_back({0, s.size(), kPreproc});
-        return;
+    auto& view = editors.at(context).views[ImGui::GetID(label)];
+    if (!view) {
+        view = std::make_unique<EditorView>();
+        view->editor.setLanguage(cyui::CodeLanguage::hlsl);
     }
-    while (i < s.size()) {
-        char c = s[i];
-        if (c == '/' && i + 1 < s.size() && s[i + 1] == '/') {
-            out.push_back({i, s.size(), kComment});
-            return;
-        }
-        if (c == '/' && i + 1 < s.size() && s[i + 1] == '*') {
-            size_t e = s.find("*/", i + 2);
-            if (e == std::string_view::npos) {
-                out.push_back({i, s.size(), kComment});
-                inComment = true;
-                return;
-            }
-            out.push_back({i, e + 2, kComment});
-            i = e + 2;
-            continue;
-        }
-        if (c == '"' || c == '\'') {
-            size_t j = i + 1;
-            while (j < s.size() && s[j] != c) j += s[j] == '\\' ? 2 : 1;
-            j = std::min(s.size(), j + 1);
-            out.push_back({i, j, kString});
-            i = j;
-            continue;
-        }
-        if (std::isdigit((unsigned char)c) || (c == '.' && i + 1 < s.size() && std::isdigit((unsigned char)s[i + 1]))) {
-            size_t j = i + 1;
-            while (j < s.size() && (std::isalnum((unsigned char)s[j]) || s[j] == '.' ||
-                                    ((s[j] == '+' || s[j] == '-') && (s[j - 1] == 'e' || s[j - 1] == 'E'))))
-                ++j;
-            out.push_back({i, j, kNumber});
-            i = j;
-            continue;
-        }
-        if (IsIdStart(c)) {
-            size_t j = i + 1;
-            while (j < s.size() && IsId(s[j])) ++j;
-            std::string_view w = s.substr(i, j - i);
-            Tok t = kText;
-            if (IsKeyword(w)) t = kKeyword;
-            else if (IsType(w)) t = kType;
-            else if (names && std::find(names->begin(), names->end(), w) != names->end()) t = kName;
-            else {
-                size_t k = j;
-                while (k < s.size() && s[k] == ' ') ++k;
-                if (k < s.size() && s[k] == '(') t = kFunc;
-            }
-            if (i > 0 && s[i - 1] == '[') {
-                size_t k = j;
-                if (k < s.size() && s[k] == ']') t = kAttr;  // [loop], [unroll], [branch]
-            }
-            out.push_back({i, j, t});
-            i = j;
-            continue;
-        }
-        ++i;  // punctuation, spaces: default color (drawn in runs below)
-    }
+    return *view;
 }
-
+// Shared syntax supplies lexical rules; Shaderixel adds only semantic pin/parameter names.
+void SemanticNames(cyui::CodeEditor& editor, const std::vector<std::string>& names) {
+    const auto text = editor.native().GetText();
+    const auto tokens = cyui::highlightCode(text, cyui::CodeLanguage::hlsl);
+    std::vector<TextEditor::SharedSyntaxToken> spans;
+    using C = TextEditor::Color;
+    auto role = [](cyui::TokenRole r) {
+        switch (r) {
+            case cyui::TokenRole::keyword: return C::keyword;
+            case cyui::TokenRole::type: return C::declaration;
+            case cyui::TokenRole::function: return C::sharedFunction;
+            case cyui::TokenRole::number: return C::number;
+            case cyui::TokenRole::string: return C::string;
+            case cyui::TokenRole::comment: return C::comment;
+            case cyui::TokenRole::preprocessor: return C::preprocessor;
+            default: return C::text;
+        }
+    };
+    size_t byte=0, line=0, glyph=0;
+    auto advance = [&](size_t end) {
+        while (byte < end) {
+            unsigned char c = (unsigned char)text[byte++];
+            if (c == '\n') { ++line; glyph=0; }
+            else if (c != '\r' && (c & 0xc0) != 0x80) ++glyph;
+        }
+    };
+    for (const auto& token : tokens) {
+        auto color = role(token.role);
+        if (token.role == cyui::TokenRole::text && std::find(names.begin(), names.end(), text.substr(token.start, token.length)) != names.end()) color = C::knownIdentifier;
+        advance(token.start);
+        const auto end = token.start + token.length;
+        while (byte < end) {
+            const auto row=line, start=glyph;
+            while (byte < end && text[byte] != '\n') advance(byte+1);
+            if (glyph > start) spans.push_back({row, start, glyph, color});
+            if (byte < end) advance(byte+1);
+        }
+    }
+    editor.native().SetSharedSyntaxTokens(spans);
+}
 }  // namespace
 
 bool LooksMinified(const std::string& code) {
@@ -453,97 +407,57 @@ std::string LineOf(const std::string& text, int n) {
     return text.substr(start, (e == std::string::npos ? text.size() : e) - start);
 }
 
-bool CodeEditor(const char* label, std::string* text, ImVec2 size, bool readOnly, const std::vector<std::string>* names,
-                const std::vector<CodeMark>* marks) {
-    ImGuiContext& g = *GImGui;
-    ImGui::PushFont(GetFonts().mono, 0.0f);
-    ImFont* font = ImGui::GetFont();
-    const float fs = ImGui::GetFontSize();
-    // Line numbers on the left.
-    int lines = 1 + (int)std::count(text->begin(), text->end(), '\n');
-    char numBuf[16];
-    snprintf(numBuf, sizeof(numBuf), "%d", std::max(99, lines));
-    const float gutter = font->CalcTextSizeA(fs, FLT_MAX, 0, numBuf).x + fs * 0.9f;
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-    if (size.x <= 0) size.x = std::max(50.0f, avail.x + size.x);
-    if (size.y <= 0) size.y = std::max(fs * 4, avail.y + size.y);
-    ImGui::BeginGroup();
-    const ImVec2 gutterPos = ImGui::GetCursorScreenPos();
-    ImGui::Dummy(ImVec2(gutter, size.y));
-    ImGui::SameLine(0, 0);
-    ImGuiWindow* parent = ImGui::GetCurrentWindow();
-    const ImGuiID id = ImGui::GetID(label);
-    // The field draws the selection and the caret; the text itself is drawn over it in colors.
-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 0, 0, 0));
-    ImGuiInputTextFlags flags = ImGuiInputTextFlags_AllowTabInput | (readOnly ? ImGuiInputTextFlags_ReadOnly : 0);
-    bool changed = ImGui::InputTextMultiline(label, text, ImVec2(size.x - gutter, size.y), flags);
-    ImGui::PopStyleColor();
-    ImGuiWindow* child = nullptr;
-    for (ImGuiWindow* w : g.Windows)
-        if (w->ParentWindow == parent && w->ChildId == id) { child = w; break; }
-    ImGui::EndGroup();
-    if (child) {
-        float scrollX = 0;
-        if (ImGuiInputTextState* st = ImGui::GetInputTextState(id)) scrollX = st->Scroll.x;
-        const ImVec2 origin(child->Pos.x + g.Style.FramePadding.x - scrollX, child->Pos.y + g.Style.FramePadding.y - child->Scroll.y);
-        const ImRect clip(child->Pos, ImVec2(child->Pos.x + child->Size.x - child->ScrollbarSizes.x, child->Pos.y + child->Size.y - child->ScrollbarSizes.y));
-        ImDrawList* dl = child->DrawList;
-        dl->PushClipRect(clip.Min, clip.Max, true);
-        ImDrawList* pdl = parent->DrawList;
-        pdl->PushClipRect(ImVec2(gutterPos.x, clip.Min.y), ImVec2(gutterPos.x + gutter, clip.Max.y), true);
-        std::vector<Span> spans;
-        bool inComment = false;
-        size_t start = 0;
-        int n = 0;
-        while (start <= text->size()) {
-            size_t e = text->find('\n', start);
-            if (e == std::string::npos) e = text->size();
-            const float y = origin.y + n * fs;
-            std::string_view line(text->data() + start, e - start);
-            // Comments spanning lines need the lines above even when they are not visible.
-            const CodeMark* mark = nullptr;
-            if (marks)
-                for (const CodeMark& cm : *marks) if (cm.line == n) { mark = &cm; break; }
-            if (y + fs >= clip.Min.y && y <= clip.Max.y) {
-                if (mark) {
-                    dl->AddRectFilled(ImVec2(clip.Min.x, y), ImVec2(clip.Max.x, y + fs), IM_COL32(200, 50, 50, 70));
-                    if (ImGui::IsMouseHoveringRect(ImVec2(gutterPos.x, y), ImVec2(clip.Max.x, y + fs)) && ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
-                        ImGui::PopFont();
-                        ImGui::SetTooltip("%s", mark->message.c_str());
-                        ImGui::PushFont(GetFonts().mono, 0.0f);
-                    }
-                }
-                TokenizeLine(line, inComment, names, spans);
-                float x = origin.x;
-                size_t at = 0;
-                auto draw = [&](size_t a, size_t b, ImU32 col) {
-                    if (b <= a) return;
-                    const char* p = line.data() + a;
-                    dl->AddText(font, fs, ImVec2(x, y), col, p, p + (b - a));
-                    x += font->CalcTextSizeA(fs, FLT_MAX, 0, p, p + (b - a)).x;
-                };
-                for (const Span& s : spans) {
-                    draw(at, s.a, TokColor(kText));
-                    draw(s.a, s.b, TokColor(s.t));
-                    at = s.b;
-                }
-                draw(at, line.size(), TokColor(kText));
-                char nb[16];
-                snprintf(nb, sizeof(nb), "%d", n + 1);
-                const float w = font->CalcTextSizeA(fs, FLT_MAX, 0, nb).x;
-                pdl->AddText(font, fs, ImVec2(gutterPos.x + gutter - w - fs * 0.45f, y), mark ? IM_COL32(255, 110, 110, 255) : IM_COL32(110, 112, 125, 255), nb);
-            } else {
-                TokenizeLine(line, inComment, names, spans);
-                if (y > clip.Max.y) break;
-            }
-            start = e + 1;
-            ++n;
-        }
-        pdl->PopClipRect();
-        dl->PopClipRect();
+bool CodeEditor(const char* label, std::string* text, ImVec2 size, bool readOnly,
+                const std::vector<std::string>* names, const std::vector<CodeMark>* marks) {
+    auto& view = View(label);
+    if (view.owner != text || view.published != *text) {
+        view.editor.setText(*text);
+        view.owner = text;
+        view.published = *text;
+        view.dirty = false;
+        view.semanticRevision = ~size_t(0);
     }
+    view.editor.setReadOnly(readOnly);
+    auto& native = view.editor.native();
+    native.ClearMarkers();
+    if (marks) for (const auto& mark : *marks)
+        if (mark.line >= 0) native.AddMarker((size_t)mark.line, cyui::palette().error,
+            cyui::alpha(cyui::palette().error, .25f), mark.message, mark.message);
+    const std::vector<std::string> noNames;
+    const auto& semanticNames = names ? *names : noNames;
+    const bool namesChanged = view.semanticNames != semanticNames;
+    if (namesChanged) view.editor.setSyntaxEnabled(true);
+    view.editor.refreshSyntax();
+    if ((namesChanged || view.semanticRevision != native.GetTextRevision()) && !semanticNames.empty())
+        SemanticNames(view.editor, semanticNames);
+    view.semanticNames = semanticNames;
+    view.semanticRevision = native.GetTextRevision();
+    const auto id=ImGui::GetID(label);
+    auto* parent=ImGui::GetCurrentWindow();
+    ImGui::PushFont(cyui::monoFont(), 0.f);
+    const bool changed = view.editor.draw(label, size);
     ImGui::PopFont();
-    return changed;
+    bool focused=false;
+    for (auto* w=GImGui->NavWindow; w; w=w->ParentWindow)
+        if (w->ChildId==id && w->ParentWindow==parent) { focused=true; break; }
+    auto& context=editors.at(ImGui::GetCurrentContext());
+    context.item=ImGui::GetItemID(); context.frame=ImGui::GetFrameCount();
+    context.committed=view.focused && !focused && view.dirty;
+    if (context.committed) view.dirty=false;
+    view.focused=focused;
+    view.dirty|=changed && !readOnly;
+    if (changed && !readOnly) {
+        *text = view.editor.text();
+        view.published = *text;
+        return true;
+    }
+    return false;
+}
+
+bool CodeEditorCommitted() {
+    const auto it=editors.find(ImGui::GetCurrentContext());
+    return it!=editors.end() && it->second.frame==ImGui::GetFrameCount() &&
+        it->second.item==ImGui::GetItemID() && it->second.committed;
 }
 
 }  // namespace sx::ui

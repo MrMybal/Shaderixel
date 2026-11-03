@@ -62,7 +62,7 @@ void App::DrawBlendPanel() {
     auto chip = [&](const char* label, bool on) {
         float w = ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2;
         if (ImGui::GetCursorPosX() > ImGui::GetStyle().WindowPadding.x + 1 && ImGui::GetContentRegionAvail().x < w + 4) ImGui::NewLine();
-        if (on) ImGui::PushStyleColor(ImGuiCol_Button, ui::col::Accent);
+        if (on) ImGui::PushStyleColor(ImGuiCol_Button, cyui::palette().accent);
         bool clicked = ImGui::SmallButton(label);
         if (on) ImGui::PopStyleColor();
         ImGui::SameLine();
@@ -185,9 +185,9 @@ void App::DrawBlendPanel() {
         } else {
             const char* wait = layer ? "..." : "-";
             ImVec2 ts = ImGui::CalcTextSize(wait);
-            dl->AddText(ImVec2(p.x + (cardW - ts.x) * 0.5f, p.y + (cardW - ts.y) * 0.5f), ui::col::TextDim, wait);
+            dl->AddText(ImVec2(p.x + (cardW - ts.x) * 0.5f, p.y + (cardW - ts.y) * 0.5f), cyui::palette().textDim, wait);
         }
-        if (current) dl->AddRect(p, ImVec2(p.x + cardW, p.y + cardH), ui::col::Accent, 6, 0, 2.0f);
+        if (current) dl->AddRect(p, ImVec2(p.x + cardW, p.y + cardH), cyui::palette().accent, 6, 0, 2.0f);
         ImVec4 clip(p.x + 4, p.y + cardW, p.x + cardW - 4, p.y + cardH);
         dl->AddText(nullptr, 0, ImVec2(p.x + 6, p.y + cardW + 2), ImGui::GetColorU32(ImGuiCol_Text), it.name.c_str(), nullptr, 0, &clip);
         dl->AddText(nullptr, 0, ImVec2(p.x + 6, p.y + cardW + fs + 3), IM_COL32(230, 120, 160, 255), it.category.c_str(), nullptr, 0, &clip);

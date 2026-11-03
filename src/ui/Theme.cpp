@@ -6,115 +6,43 @@
 namespace sx::ui {
 
 namespace {
-Fonts g_fonts;
-
-ImVec4 C(int r, int g, int b, int a = 255) { return ImVec4(r / 255.f, g / 255.f, b / 255.f, a / 255.f); }
-}  // namespace
-
-Fonts& GetFonts() { return g_fonts; }
-
-void ApplyTheme(float dpi) {
-    ImGuiStyle& s = ImGui::GetStyle();
-    s = ImGuiStyle();
-    s.WindowPadding = ImVec2(10, 10);
-    s.FramePadding = ImVec2(8, 5);
-    s.CellPadding = ImVec2(6, 4);
-    s.ItemSpacing = ImVec2(8, 6);
-    s.ItemInnerSpacing = ImVec2(6, 4);
-    s.IndentSpacing = 16;
-    s.ScrollbarSize = 11;
-    s.GrabMinSize = 10;
-    s.WindowBorderSize = 1;
-    s.ChildBorderSize = 1;
-    s.PopupBorderSize = 1;
-    s.FrameBorderSize = 0;
-    s.TabBorderSize = 0;
-    s.WindowRounding = 6;
-    s.ChildRounding = 5;
-    s.FrameRounding = 5;
-    s.PopupRounding = 6;
-    s.ScrollbarRounding = 8;
-    s.GrabRounding = 4;
-    s.TabRounding = 5;
-    s.WindowTitleAlign = ImVec2(0.0f, 0.5f);
-    s.WindowMenuButtonPosition = ImGuiDir_None;
-    s.SeparatorTextBorderSize = 1;
-    s.DockingSeparatorSize = 3;
-
-    ImVec4* c = s.Colors;
-    c[ImGuiCol_Text] = C(222, 224, 232);
-    c[ImGuiCol_TextDisabled] = C(120, 124, 138);
-    c[ImGuiCol_WindowBg] = C(27, 28, 33);
-    c[ImGuiCol_ChildBg] = C(23, 24, 28);
-    c[ImGuiCol_PopupBg] = C(32, 33, 39, 250);
-    c[ImGuiCol_Border] = C(48, 50, 58);
-    c[ImGuiCol_BorderShadow] = C(0, 0, 0, 0);
-    c[ImGuiCol_FrameBg] = C(40, 42, 50);
-    c[ImGuiCol_FrameBgHovered] = C(52, 54, 64);
-    c[ImGuiCol_FrameBgActive] = C(60, 58, 84);
-    c[ImGuiCol_TitleBg] = C(22, 23, 27);
-    c[ImGuiCol_TitleBgActive] = C(24, 25, 30);
-    c[ImGuiCol_TitleBgCollapsed] = C(22, 23, 27);
-    c[ImGuiCol_MenuBarBg] = C(22, 23, 27);
-    c[ImGuiCol_ScrollbarBg] = C(0, 0, 0, 0);
-    c[ImGuiCol_ScrollbarGrab] = C(64, 66, 78);
-    c[ImGuiCol_ScrollbarGrabHovered] = C(84, 86, 100);
-    c[ImGuiCol_ScrollbarGrabActive] = C(124, 92, 255);
-    c[ImGuiCol_CheckMark] = C(150, 124, 255);
-    c[ImGuiCol_SliderGrab] = C(124, 92, 255);
-    c[ImGuiCol_SliderGrabActive] = C(150, 124, 255);
-    c[ImGuiCol_Button] = C(44, 46, 55);
-    c[ImGuiCol_ButtonHovered] = C(60, 62, 76);
-    c[ImGuiCol_ButtonActive] = C(124, 92, 255);
-    c[ImGuiCol_Header] = C(124, 92, 255, 70);
-    c[ImGuiCol_HeaderHovered] = C(124, 92, 255, 110);
-    c[ImGuiCol_HeaderActive] = C(124, 92, 255, 160);
-    c[ImGuiCol_Separator] = C(48, 50, 58);
-    c[ImGuiCol_SeparatorHovered] = C(124, 92, 255, 160);
-    c[ImGuiCol_SeparatorActive] = C(124, 92, 255);
-    c[ImGuiCol_ResizeGrip] = C(0, 0, 0, 0);
-    c[ImGuiCol_ResizeGripHovered] = C(124, 92, 255, 120);
-    c[ImGuiCol_ResizeGripActive] = C(124, 92, 255);
-    c[ImGuiCol_Tab] = C(30, 31, 37);
-    c[ImGuiCol_TabHovered] = C(64, 56, 110);
-    c[ImGuiCol_TabSelected] = C(40, 41, 50);
-    c[ImGuiCol_TabSelectedOverline] = C(124, 92, 255);
-    c[ImGuiCol_TabDimmed] = C(26, 27, 32);
-    c[ImGuiCol_TabDimmedSelected] = C(34, 35, 42);
-    c[ImGuiCol_TabDimmedSelectedOverline] = C(80, 70, 140);
-    c[ImGuiCol_DockingPreview] = C(124, 92, 255, 120);
-    c[ImGuiCol_DockingEmptyBg] = C(18, 18, 22);
-    c[ImGuiCol_PlotLines] = C(46, 196, 214);
-    c[ImGuiCol_PlotHistogram] = C(124, 92, 255);
-    c[ImGuiCol_TableHeaderBg] = C(34, 35, 42);
-    c[ImGuiCol_TableBorderStrong] = C(48, 50, 58);
-    c[ImGuiCol_TableBorderLight] = C(40, 42, 48);
-    c[ImGuiCol_TextSelectedBg] = C(124, 92, 255, 90);
-    c[ImGuiCol_DragDropTarget] = C(46, 196, 214);
-    c[ImGuiCol_NavCursor] = C(124, 92, 255);
-    c[ImGuiCol_ModalWindowDimBg] = C(0, 0, 0, 140);
-
-    s.ScaleAllSizes(dpi);
-    s.FontScaleDpi = dpi;
+const char* SharedIcon(int icon) {
+    switch(icon) {
+        case IconPlus:return cyui::icon::add;
+        case IconTrash:return cyui::icon::trash;
+        case IconCopy:return cyui::icon::copy;
+        case IconFolder:return cyui::icon::folder;
+        case IconLink:return cyui::icon::link;
+        case IconLock:return cyui::icon::lock;
+        case IconUp:return cyui::icon::chevronUp;
+        case IconDown:return cyui::icon::chevronDown;
+        case IconZoom:return cyui::icon::zoomIn;
+        case IconCrop:return cyui::icon::crop;
+        case IconTrim:return cyui::icon::trim;
+        case IconText:return cyui::icon::document;
+        default:return nullptr;
+    }
+}
 }
 
-Fonts LoadFonts(float dpi) {
-    ImGuiIO& io = ImGui::GetIO();
-    namespace fs = std::filesystem;
-    auto tryFont = [&](const char* path, float size, bool merge) -> ImFont* {
-        if (!fs::exists(path)) return nullptr;
-        ImFontConfig cfg;
-        cfg.MergeMode = merge;
-        cfg.OversampleH = 2;
-        return io.Fonts->AddFontFromFileTTF(path, size, &cfg);
-    };
-    (void)dpi;
-    g_fonts.ui = tryFont("C:/Windows/Fonts/segoeui.ttf", 16.0f, false);
-    if (g_fonts.ui) tryFont("C:/Windows/Fonts/seguisym.ttf", 16.0f, true);  // arrows & symbols
-    else g_fonts.ui = io.Fonts->AddFontDefault();
-    g_fonts.mono = tryFont("C:/Windows/Fonts/consola.ttf", 15.0f, false);
-    if (!g_fonts.mono) g_fonts.mono = g_fonts.ui;
-    return g_fonts;
+Fonts& GetFonts() {
+    // A borrowed view of the fonts owned by the current CyUI/ImGui context.
+    static thread_local Fonts fonts;
+    fonts = {cyui::uiFont(), cyui::monoFont()};
+    return fonts;
+}
+
+void ApplyTheme(float dpi, const char* theme, bool comfortable) {
+    cyui::Config config;
+    config.themeKey = theme;
+    config.density = comfortable ? cyui::Density::comfortable : cyui::Density::compact;
+    config.dpiScale = dpi;
+    cyui::apply(config);
+}
+
+Fonts LoadFonts(float) {
+    cyui::loadFonts();
+    return GetFonts();
 }
 
 void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
@@ -409,21 +337,18 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
 }
 
 bool IconButton(const char* id, int icon, bool selected, float size, const char* tooltip) {
-    ImGui::PushID(id);
-    ImVec2 pos = ImGui::GetCursorScreenPos();
-    bool pressed = ImGui::InvisibleButton("##ib", ImVec2(size, size));
-    bool hovered = ImGui::IsItemHovered();
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    ImU32 bg = selected ? col::Accent : hovered ? IM_COL32(255, 255, 255, 22) : IM_COL32(0, 0, 0, 0);
-    dl->AddRectFilled(pos, ImVec2(pos.x + size, pos.y + size), bg, 5.0f);
-    DrawIcon(dl, icon, ImVec2(pos.x + size * 0.5f, pos.y + size * 0.5f), size * 0.55f, selected ? IM_COL32_WHITE : (hovered ? col::Text : col::TextDim));
-    if (tooltip && hovered) ImGui::SetTooltip("%s", tooltip);
-    ImGui::PopID();
+    cyui::ScopedID scope(id);
+    if (const auto* glyph=SharedIcon(icon))
+        return cyui::iconButton(glyph, tooltip ? tooltip : id, selected, 0, ImVec2(size,size));
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const bool pressed = cyui::button("##ib", selected ? cyui::Variant::primary : cyui::Variant::ghost, ImVec2(size, size));
+    const auto& p = cyui::palette();
+    DrawIcon(ImGui::GetWindowDrawList(), icon, ImVec2(pos.x + size * .5f, pos.y + size * .5f),
+             size * .55f, selected ? p.accentText : ImGui::IsItemHovered() ? p.text : p.textDim);
+    if (tooltip) cyui::tooltip(tooltip);
     return pressed;
 }
 
-void HelpTooltip(const char* text) {
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort)) ImGui::SetTooltip("%s", text);
-}
+void HelpTooltip(const char* text) { cyui::tooltip(text); }
 
 }  // namespace sx::ui

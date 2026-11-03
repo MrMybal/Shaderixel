@@ -314,7 +314,7 @@ void App::DrawArtboards(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
         if (!l.artboard) continue;
         ImVec2 a = toScreen((float)l.board.x0, (float)l.board.y0), b = toScreen((float)l.board.x1, (float)l.board.y1);
         bool act = l.id == v.doc->S().activeLayer;
-        dl->AddRect(a, b, act ? ui::col::Accent2 : IM_COL32(150, 150, 160, 200), 0, 0, act ? 2.0f : 1.0f);
+        dl->AddRect(a, b, act ? cyui::palette().info : IM_COL32(150, 150, 160, 200), 0, 0, act ? 2.0f : 1.0f);
         dl->AddText(ImVec2(a.x, a.y - ImGui::GetFontSize() - 3), act ? IM_COL32_WHITE : IM_COL32(190, 190, 200, 255), l.name.c_str());
     }
 }

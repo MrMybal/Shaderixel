@@ -60,7 +60,7 @@ void App::DrawNavigator() {
     const u64 hash = (u64)(uintptr_t)v->lastImage ^ (v->renderer.ImageVersion() << 1);  // (redrawn when the image changes)
     if (gpu::Texture* t = v->renderer.Thumbnail(*ctx, 0xA5A5000000000000ull, v->lastImage, hash, (u32)tw, (u32)th))
         dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), p0, p1);
-    dl->AddRect(p0, p1, ui::col::Border);
+    dl->AddRect(p0, p1, cyui::palette().line);
     // The canvas' visible part, in document pixels.
     const float iz = 1.0f / v->zoom;
     const float2 a = {-v->pan.x * iz, -v->pan.y * iz};

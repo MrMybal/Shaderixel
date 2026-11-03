@@ -599,9 +599,9 @@ void App::DrawFluidOptions(bool in3D) {
         ImGui::Dummy(ImVec2(r * 2, r * 2));
         ImDrawList* dl = ImGui::GetWindowDrawList();
         ImVec2 m(c.x + r, c.y + r);
-        dl->AddCircle(m, r, ui::col::Border);
+        dl->AddCircle(m, r, cyui::palette().line);
         const float slope = std::sin(F.tilt2D * kDeg);
-        dl->AddLine(m, ImVec2(m.x - std::sin(F.dir2D * kDeg) * r * slope, m.y + std::cos(F.dir2D * kDeg) * r * slope), ui::col::Accent, 2);
+        dl->AddLine(m, ImVec2(m.x - std::sin(F.dir2D * kDeg) * r * slope, m.y + std::cos(F.dir2D * kDeg) * r * slope), cyui::palette().accent, 2);
         if (ImGui::Button("Mur")) { F.tilt2D = 90; F.dir2D = 0; }
         ImGui::SameLine();
         if (ImGui::Button("Incliné 45°")) { F.tilt2D = 45; F.dir2D = 0; }

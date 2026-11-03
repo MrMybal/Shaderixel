@@ -1,5 +1,5 @@
 #pragma once
-// HLSL code editing: an InputTextMultiline with syntax colors, line numbers, and a formatter
+// HLSL editing through CyUI Code/CodeEditor, with compiler annotations and a formatter
 // that lays out minified code (one statement per line, indented blocks).
 #include <imgui.h>
 #include <string>
@@ -17,6 +17,9 @@ struct CodeMark {
 // Returns true when the text changed (read-only: never).
 bool CodeEditor(const char* label, std::string* text, ImVec2 size, bool readOnly = false, const std::vector<std::string>* names = nullptr,
                 const std::vector<CodeMark>* marks = nullptr);
+
+// True after the last CodeEditor when a dirty editor lost focus (one host transaction).
+bool CodeEditorCommitted();
 
 // Compiler messages "file(line): error ...": 1-based line and message, errors first.
 std::vector<std::pair<int, std::string>> ParseShaderErrors(const std::string& log);

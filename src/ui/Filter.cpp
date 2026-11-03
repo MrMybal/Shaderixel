@@ -2,7 +2,7 @@
 #include "ui/Search.h"
 #include "ui/Lang.h"
 
-#include <imgui.h>
+#include <cyui/Core.h>
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
 #include <cstring>
@@ -20,6 +20,7 @@ namespace {
 struct FilterEntry {
     std::string text;                 // as typed
     std::vector<std::string> words;   // folded
+    cyui::TextFilter view;
     int frame = -10;                  // last frame its box was drawn
 };
 
@@ -49,10 +50,9 @@ bool MatchWords(const std::vector<std::string>& words, const char* label, const 
     if (hash && hash < end) end = hash;
     const std::string src(label, end);
     // The words may be in the interface language or in French (the labels of the code).
-    const std::string folded = GlobalSearch::Fold(src), shown = GlobalSearch::Fold(Tr(src));
-    for (auto& w : words)
-        if (folded.find(w) == std::string::npos && shown.find(w) == std::string::npos) return false;
-    return true;
+    cyui::TextFilter filter;
+    for (const auto& word : words) { if (!filter.query.empty()) filter.query += ' '; filter.query += word; }
+    return filter.matches(src, Tr(src));
 }
 
 // The filter governing a window: its own, or that of the window it is a child of (not across popups).
@@ -114,21 +114,11 @@ bool FilterBox(const char* hint, float width) {
     if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && io.KeyCtrl && !io.KeyShift && !io.WantTextInput &&
         ImGui::IsKeyPressed(ImGuiKey_F, false))
         ImGui::SetKeyboardFocusHere();
-    const float clearW = e.text.empty() ? 0.0f : ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x;
-    ImGui::SetNextItemWidth((width > 0 ? width : ImGui::GetContentRegionAvail().x) - clearW);
-    if (ImGui::InputTextWithHint("##sxfilter", hint, &e.text)) e.words = Words(e.text);
-    if (ImGui::IsItemActive() && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) {
-        e.text.clear();
-        e.words.clear();
-    }
-    if (!e.text.empty()) {
-        ImGui::SameLine();
-        if (ImGui::Button("x##sxfilterclear", ImVec2(ImGui::GetFrameHeight(), 0))) {
-            e.text.clear();
-            e.words.clear();
-        }
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Effacer le filtre (Échap)");
-    }
+    e.view.query=e.text;
+    cyui::FilterOptions options;
+    options.hint=hint; options.width=width>0?width:ImGui::GetContentRegionAvail().x;
+    cyui::filterBox("##sxfilter",e.view,options);
+    if (e.text != e.view.query) { e.text=e.view.query; e.words=Words(e.text); }
     if (!e.words.empty()) gActiveFrame = frame;
     return !e.words.empty();
 }
@@ -138,14 +128,11 @@ bool ListFilter(std::string& text, const char* hint) {
     if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && io.KeyCtrl && !io.KeyShift && !io.WantTextInput &&
         ImGui::IsKeyPressed(ImGuiKey_F, false))
         ImGui::SetKeyboardFocusHere();
-    const float clearW = text.empty() ? 0.0f : ImGui::GetFrameHeight() + ImGui::GetStyle().ItemSpacing.x;
-    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - clearW);
-    ImGui::InputTextWithHint("##sxfilterlist", hint, &text);
-    if (ImGui::IsItemActive() && ImGui::IsKeyPressed(ImGuiKey_Escape, false)) text.clear();
-    if (!text.empty()) {
-        ImGui::SameLine();
-        if (ImGui::Button("x##sxfilterlistclear", ImVec2(ImGui::GetFrameHeight(), 0))) text.clear();
-    }
+    cyui::TextFilter filter;
+    filter.query=text;
+    cyui::FilterOptions options; options.hint=hint;
+    cyui::filterBox("##sxfilterlist",filter,options);
+    text=filter.query;
     return !Words(text).empty();
 }
 

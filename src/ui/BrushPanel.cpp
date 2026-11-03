@@ -229,7 +229,7 @@ void App::BrushStrokePreview(BrushSettings& b, const BrushDef* td, float h) {
     } else {
         ImGui::Dummy(ImVec2(w, h));
     }
-    dl->AddRect(p, ImVec2(p.x + w, p.y + h), ui::col::Border, 3);
+    dl->AddRect(p, ImVec2(p.x + w, p.y + h), cyui::palette().line, 3);
     if (!err.empty()) ImGui::TextColored(ImVec4(1, 0.45f, 0.45f, 1), "%s", err.substr(0, 300).c_str());
 }
 

@@ -578,7 +578,7 @@ void App::DrawAnalysis() {
     }
     ImGui::TextDisabled("%u x %u analysé (image %u x %u)", A.w, A.h, A.srcW, A.srcH);
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    const ImU32 grid = IM_COL32(255, 255, 255, 40), gridText = IM_COL32(200, 200, 210, 140);
+    const ImU32 grid = cyui::palette().gridStrong, gridText = cyui::palette().textDim;
     ImFont* font = ImGui::GetFont();
     const float fsSmall = ImGui::GetFontSize() * 0.8f;
 
@@ -607,33 +607,27 @@ void App::DrawAnalysis() {
         ImGui::Combo("##anhch", &A.histoChannel, "RVB\0Luminance\0Rouge\0Vert\0Bleu\0Alpha\0");
         ImGui::SameLine();
         ImGui::Checkbox("Log", &A.logHisto);
-        ImVec2 p0 = ImGui::GetCursorScreenPos(), p1(p0.x + bw, p0.y + bh);
-        ImGui::Dummy(ImVec2(bw, bh));
-        dl->AddRectFilled(p0, p1, IM_COL32(14, 14, 18, 255), 3);
-        auto plot = [&](int c, ImU32 col) {
+        std::vector<cyui::Point> points[3];
+        std::vector<cyui::PlotSeries> series;
+        static const int map[] = {0, 3, 0, 1, 2, 4};
+        static const char* labels[] = {"Rouge", "Vert", "Bleu", "Luminosité", "Alpha"};
+        const int count = A.histoChannel == 0 ? 3 : 1;
+        for (int channel=0; channel<count; ++channel) {
+            const int c = A.histoChannel == 0 ? channel : map[std::clamp(A.histoChannel, 0, 5)];
             u64 peak = 1;
-            for (int i = 1; i < 255; ++i) peak = std::max(peak, A.bins[c][i]);
-            const float lp = std::log1p((float)peak);
-            for (int i = 0; i < 256; ++i) {
-                float t = A.logHisto ? std::log1p((float)A.bins[c][i]) / lp : (float)A.bins[c][i] / (float)peak;
-                t = std::min(1.0f, t);
-                const float x0 = p0.x + bw * i / 256.0f, x1 = p0.x + bw * (i + 1) / 256.0f;
-                dl->AddRectFilled(ImVec2(x0, p1.y - t * (bh - 2)), ImVec2(std::max(x1, x0 + 1), p1.y), col);
+            for (int i=1; i<255; ++i) peak=std::max(peak, A.bins[c][i]);
+            for (int i=0; i<256; ++i) {
+                const double value = A.logHisto ? std::log1p(double(A.bins[c][i]))/std::log1p(double(peak)) : double(A.bins[c][i])/double(peak);
+                points[channel].push_back({double(i), std::min(1., value)});
             }
-        };
-        dl->PushClipRect(p0, p1, true);
-        if (A.histoChannel == 0) {
-            plot(0, IM_COL32(230, 60, 60, 110));
-            plot(1, IM_COL32(60, 210, 80, 110));
-            plot(2, IM_COL32(70, 110, 240, 110));
-        } else {
-            static const int map[] = {0, 3, 0, 1, 2, 4};
-            static const ImU32 cols[] = {0, IM_COL32(210, 210, 220, 220), IM_COL32(230, 70, 70, 220), IM_COL32(70, 210, 90, 220), IM_COL32(80, 120, 245, 220),
-                                         IM_COL32(180, 180, 180, 220)};
-            plot(map[A.histoChannel], cols[A.histoChannel]);
+            series.push_back({u64(c+1), TrC(labels[c]), {points[channel].data(), points[channel].size()}, cyui::PlotStyle::bars, c});
         }
-        for (int k = 1; k < 4; ++k) dl->AddLine(ImVec2(p0.x + bw * k / 4, p0.y), ImVec2(p0.x + bw * k / 4, p1.y), grid);
-        dl->PopClipRect();
+        cyui::PlotState plot;
+        plot.x.range = {0, 255}; plot.y.range = {0, 1};
+        cyui::PlotOptions options;
+        options.navigation = false; options.legend = true;
+        options.formatX = [](double x) { return std::to_string((int)std::lround(x)); };
+        cyui::plot("##analysisHistogram", plot, {series.data(), series.size()}, ImVec2(bw, bh), options);
         static const int statOf[] = {3, 3, 0, 1, 2, 4};
         const int sc = statOf[std::clamp(A.histoChannel, 0, 5)];
         const auto& s = A.stats[sc];

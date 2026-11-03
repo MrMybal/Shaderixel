@@ -243,12 +243,12 @@ void App::DrawNewDocDialog() {
                     dl->PopClipRect();
                     dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(tex), a, ImVec2(a.x + w, a.y + h));
                 } else {
-                    dl->AddText(ImVec2(p.x + 12, p.y + ch * 0.45f), ui::col::TextDim, t.w ? (std::to_string(t.w) + " x " + std::to_string(t.h)).c_str() : "?");
+                    dl->AddText(ImVec2(p.x + 12, p.y + ch * 0.45f), cyui::palette().textDim, t.w ? (std::to_string(t.w) + " x " + std::to_string(t.h)).c_str() : "?");
                 }
                 dl->PushClipRect(ImVec2(p.x, p.y), ImVec2(p.x + cw, p.y + ch + ImGui::GetTextLineHeight() * 2.4f), true);
                 dl->AddText(ImVec2(p.x + 6, p.y + ch + 2), IM_COL32(230, 230, 236, 255), t.name.c_str());
                 std::string sub = t.category + (t.w ? "  " + std::to_string(t.w) + " x " + std::to_string(t.h) : "");
-                dl->AddText(ImVec2(p.x + 6, p.y + ch + 2 + ImGui::GetTextLineHeight()), t.user ? ui::col::Accent : ui::col::TextDim, sub.c_str());
+                dl->AddText(ImVec2(p.x + 6, p.y + ch + 2 + ImGui::GetTextLineHeight()), t.user ? cyui::palette().accent : cyui::palette().textDim, sub.c_str());
                 dl->PopClipRect();
                 ImGui::PopID();
                 ImGui::EndGroup();

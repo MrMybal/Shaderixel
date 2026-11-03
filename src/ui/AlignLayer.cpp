@@ -111,7 +111,7 @@ void App::CarryOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
         const ImVec2 a(canvasMin.x + v.pan.x + (r.x0 + carry.delta.x) * v.zoom, canvasMin.y + v.pan.y + (r.y0 + carry.delta.y) * v.zoom);
         const ImVec2 b(canvasMin.x + v.pan.x + (r.x1 + carry.delta.x) * v.zoom, canvasMin.y + v.pan.y + (r.y1 + carry.delta.y) * v.zoom);
         dl->AddRect(a, b, IM_COL32(0, 0, 0, 140), 0, 0, 3.0f);
-        dl->AddRect(a, b, ui::col::Accent2, 0, 0, 1.5f);
+        dl->AddRect(a, b, cyui::palette().info, 0, 0, 1.5f);
     }
 }
 

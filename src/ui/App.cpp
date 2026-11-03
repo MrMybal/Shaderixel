@@ -82,7 +82,7 @@ int App::Run() {
         Frame();
     }
     Shutdown();
-    return 0;
+    return uiErrorCount ? 1 : 0;
 }
 
 void App::ParseCommandLine() {
@@ -334,6 +334,14 @@ bool App::Init() {
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
+    if (Automated()) {
+        auto* context=ImGui::GetCurrentContext();
+        context->ErrorCallbackUserData=this;
+        context->ErrorCallback=[](ImGuiContext*,void* data,const char* message) {
+            ++static_cast<App*>(data)->uiErrorCount;
+            Log("[ui-error] %s",message);
+        };
+    }
     ui::InstallFilter();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
@@ -348,7 +356,13 @@ bool App::Init() {
     static std::string iniPath = ExeDir() + "/shaderixel_layout_v12.ini";
     LoadRecent();
     io.IniFilename = iniPath.c_str();
-    ui::ApplyTheme(dpi);
+    settingsPath = ExeDir() + "/shaderixel_settings.json";
+    LoadAiSettings();
+    if (const char* forced = getenv("SX_THEME")) uiTheme = forced;
+    if (const char* forced = getenv("SX_DENSITY")) uiComfortable = std::string(forced) == "comfortable";
+    if (const char* forced = getenv("SX_DPI")) dpi = std::clamp((float)atof(forced), .5f, 4.f);
+    if (std::none_of(cyui::builtInThemes().begin(), cyui::builtInThemes().end(), [&](const auto& t) { return t.key == uiTheme; })) uiTheme = "violet";
+    ui::ApplyTheme(dpi, uiTheme.c_str(), uiComfortable);
     ui::LoadFonts(dpi);
 
     ImGui_ImplWin32_Init(hwnd);
@@ -356,8 +370,6 @@ bool App::Init() {
 
     eraser = brush;
     eraser.hardness = 0.9f;
-    settingsPath = ExeDir() + "/shaderixel_settings.json";
-    LoadAiSettings();
     if (const char* forced = getenv("SX_LANG")) uiLanguage = forced;  // tests
     if (uiLanguage.empty()) uiLanguage = "en";
     if (!SetLanguage(uiLanguage)) {
@@ -368,7 +380,10 @@ bool App::Init() {
             SetLanguage(uiLanguage);
         }
     }
+    cyui::registerTranslations("fr", {{"Theme", "Thème"}, {"Comfortable density", "Densité confortable"}, {"Arrange nodes", "Organiser les nœuds"}});
+    if (!cyui::setLocale(uiLanguage.c_str())) cyui::setLocale("en");
     Log("Interface language: %s", CurrentLanguage().c_str());
+    Log("[cyui] theme=%s density=%s dpi=%.2f", cyui::currentThemeKey().c_str(), uiComfortable ? "comfortable" : "compact", dpi);
     ApplyHistoryLimits();
     InitFunctions();
     LoadActions();
@@ -555,6 +570,14 @@ void App::Frame() {
     ctx = &gpu::Dev().BeginFrame();
     if (!logoTried) LoadLogo();
 
+    // Keep CyUI metrics and host tool geometry in sync when the window changes monitor.
+    if (!getenv("SX_DPI")) {
+        const float currentDpi = ImGui_ImplWin32_GetDpiScaleForHwnd(hwnd);
+        if (currentDpi > 0.f && std::abs(currentDpi-dpi) > .001f) {
+            dpi=currentDpi;
+            cyui::applyDpi(dpi);
+        }
+    }
     gpu::Dev().ImGuiNewFrame();
     ImGui_ImplWin32_NewFrame();
     UpdateRelativeDrag();  // before NewFrame: feeds the cursor motion of slider drags
@@ -904,6 +927,7 @@ void App::Frame() {
     }
 
     GlobalSearch::Get().EndFrame();
+    cyui::renderNotifications();
     ImGui::Render();
     gpu::Dev().EndFrame();
     if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
@@ -1145,6 +1169,7 @@ void App::Status(const std::string& msg) {
     statusMsg = msg;
     statusTime = Now();
     Log("%s", msg.c_str());
+    if (ImGui::GetCurrentContext() && !Automated()) cyui::notify(Tr(msg).c_str());
 }
 
 void App::ResetToolSessions() {
@@ -1402,11 +1427,27 @@ void App::DrawMenuBar() {
             }
             ImGui::EndMenu();
         }
+        if (ImGui::BeginMenu(cyui::trLabel("Theme").c_str())) {
+            for (const auto& theme : cyui::builtInThemes())
+                if (ImGui::MenuItem(theme.name.c_str(), nullptr, uiTheme == theme.key)) {
+                    uiTheme = theme.key;
+                    cyui::setTheme(uiTheme.c_str());
+                    SaveAiSettings();
+                }
+            ImGui::Separator();
+            if (ImGui::MenuItem(cyui::trLabel("Comfortable density").c_str(), nullptr, uiComfortable)) {
+                uiComfortable = !uiComfortable;
+                cyui::setDensity(uiComfortable ? cyui::Density::comfortable : cyui::Density::compact);
+                SaveAiSettings();
+            }
+            ImGui::EndMenu();
+        }
         if (ImGui::BeginMenu("Langue / Language")) {
             for (auto& lang : AvailableLanguages())
                 if (ImGui::MenuItem((lang.name + "##lang" + lang.code).c_str(), nullptr, CurrentLanguage() == lang.code)) {
                     uiLanguage = lang.code;
                     SetLanguage(lang.code);
+                    if (!cyui::setLocale(lang.code.c_str())) cyui::setLocale("en");
                     SaveAiSettings();
                 }
             ImGui::EndMenu();
@@ -2157,30 +2198,22 @@ void App::DrawHistogram() {
         return;
     }
     float w = ImGui::GetContentRegionAvail().x, h = std::clamp(ImGui::GetContentRegionAvail().y - 70 * dpi, 60 * dpi, 220 * dpi);
-    ImVec2 p0 = ImGui::GetCursorScreenPos(), p1(p0.x + w, p0.y + h);
-    ImGui::InvisibleButton("##histo", ImVec2(w, h));
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddRectFilled(p0, p1, IM_COL32(18, 18, 22, 255), 3);
-    auto plot = [&](int c, ImU32 col) {
-        for (int i = 0; i < 256; ++i) {
-            float x0 = p0.x + w * i / 256.0f, x1 = p0.x + w * (i + 1) / 256.0f;
-            dl->AddRectFilled(ImVec2(x0, p1.y - histo.norm[c][i] * (h - 2)), ImVec2(std::max(x1, x0 + 1), p1.y), col);
-        }
-    };
-    int stat = 0;  // channel the statistics refer to
-    if (histoChannel == 0) {
-        // Additive RGB overlay (white where all three overlap).
-        dl->PushClipRect(p0, p1, true);
-        plot(1, IM_COL32(230, 60, 60, 110));
-        plot(2, IM_COL32(60, 210, 80, 110));
-        plot(3, IM_COL32(70, 110, 240, 110));
-        dl->PopClipRect();
-    } else {
-        stat = histoChannel - 1;
-        static const ImU32 cols[] = {IM_COL32(200, 200, 210, 220), IM_COL32(230, 70, 70, 220), IM_COL32(70, 210, 90, 220), IM_COL32(80, 120, 245, 220)};
-        plot(stat, cols[stat]);
+    const int stat = histoChannel == 0 ? 0 : histoChannel-1;
+    std::vector<cyui::Point> points[3];
+    std::vector<cyui::PlotSeries> series;
+    static const char* labels[] = {"Luminosité", "Rouge", "Vert", "Bleu"};
+    const int count = histoChannel == 0 ? 3 : 1;
+    for (int k=0;k<count;++k) {
+        const int c = histoChannel == 0 ? k+1 : stat;
+        for (int i=0;i<256;++i) points[k].push_back({double(i),histo.norm[c][i]});
+        series.push_back({u64(c+1), TrC(labels[c]), {points[k].data(),points[k].size()},cyui::PlotStyle::bars,c});
     }
-    dl->AddRect(p0, p1, IM_COL32(70, 72, 84, 255), 3);
+    cyui::PlotState plotState;
+    plotState.x.range={0,255}; plotState.y.range={0,1};
+    cyui::PlotOptions options;
+    options.navigation=false;
+    options.formatX=[](double x) { return std::to_string((int)std::lround(x)); };
+    const auto plotResult=cyui::plot("##histo",plotState,{series.data(),series.size()},ImVec2(w,h),options);
     // Statistics (weights are alpha x255).
     double total = 0, sum = 0, sum2 = 0;
     for (int i = 0; i < 256; ++i) {
@@ -2195,11 +2228,10 @@ void App::DrawHistogram() {
         acc += (double)histo.bins[stat][median];
         if (acc >= total * 0.5) break;
     }
-    if (ImGui::IsItemHovered()) {
-        int lvl = std::clamp((int)((ImGui::GetIO().MousePos.x - p0.x) / w * 256.0f), 0, 255);
-        dl->AddLine(ImVec2(p0.x + w * (lvl + 0.5f) / 256.0f, p0.y), ImVec2(p0.x + w * (lvl + 0.5f) / 256.0f, p1.y), IM_COL32(255, 255, 255, 90));
-        ImGui::SetTooltip("Niveau %d\nNombre %.0f\nPourcentage %.2f %%", lvl, histo.bins[stat][lvl] / 255.0,
-                          total > 0 ? 100.0 * histo.bins[stat][lvl] / total : 0.0);
+    if (plotResult.hovered) {
+        const int lvl=std::clamp((int)std::lround(plotResult.mouse.x),0,255);
+        ImGui::SetTooltip("Niveau %d\nNombre %.0f\nPourcentage %.2f %%", lvl, histo.bins[stat][lvl]/255.,
+                          total>0?100.*histo.bins[stat][lvl]/total:0.);
     }
     ImGui::Text("Moyenne %.2f   Écart type %.2f", mean, sd);
     ImGui::Text("Médiane %d   Pixels %.0f", std::min(median, 255), total / 255.0);

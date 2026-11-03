@@ -42,7 +42,7 @@ void DrawLayout(ImDrawList* dl, ImVec2 a, float size, const MeshData& m, const s
             u32 i0 = m.indices[t * 3], i1 = m.indices[t * 3 + 1], i2 = m.indices[t * 3 + 2];
             dl->AddTriangle(P(i0), P(i1), P(i2), IM_COL32(255, 255, 255, 50), 1.0f);
         }
-    dl->AddRect(a, ImVec2(a.x + size, a.y + size), ui::col::Border);
+    dl->AddRect(a, ImVec2(a.x + size, a.y + size), cyui::palette().line);
 }
 
 // The UV job and the "previous UVs" are shared by the app: they only apply to the mesh they were made from
@@ -221,7 +221,7 @@ void App::DrawUvToolWindow() {
     ImVec2 p = ImGui::GetCursorScreenPos();
     DrawLayout(dl, p, side, cur, nullptr);
     if (have) DrawLayout(dl, ImVec2(p.x + side + 12 * dpi, p.y), side, uvJob->result.mesh, &uvJob->result.chartOfVertex);
-    else dl->AddRect(ImVec2(p.x + side + 12 * dpi, p.y), ImVec2(p.x + 2 * side + 12 * dpi, p.y + side), ui::col::Border);
+    else dl->AddRect(ImVec2(p.x + side + 12 * dpi, p.y), ImVec2(p.x + 2 * side + 12 * dpi, p.y + side), cyui::palette().line);
     ImGui::Dummy(ImVec2(2 * side + 12 * dpi, side));
     ImGui::Text("Actuel : %zu sommets, %zu triangles", cur.vertices.size(), cur.indices.size() / 3);
     if (otherMesh) ImGui::TextDisabled("L'aperçu calculé concerne un autre maillage : recalculez-le pour ce document.");

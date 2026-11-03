@@ -362,7 +362,7 @@ void App::DrawLayers3DPanel() {
             float4 col = bc && !bc->effect.params.empty() ? bc->effect.params[0] : float4{0.4f, 0.4f, 0.4f, 1};
             dl->AddRectFilled(sp, ImVec2(sp.x + hh, sp.y + hh), ImGui::ColorConvertFloat4ToU32(ImVec4(LinearToSrgb(col.x), LinearToSrgb(col.y), LinearToSrgb(col.z), 1)), 3);
         }
-        dl->AddRect(sp, ImVec2(sp.x + hh, sp.y + hh), ui::col::Border, 3);
+        dl->AddRect(sp, ImVec2(sp.x + hh, sp.y + hh), cyui::palette().line, 3);
         ImGui::Dummy(ImVec2(hh, hh));
         ImGui::SameLine();
         ImGui::BeginGroup();
@@ -580,7 +580,7 @@ void App::DrawBrushMaterialPanel() {
     auto section = [&](const char* title, Tool t) {
         if (tool == t) {
             if (toolJump) ImGui::SetScrollHereY(0.0f);
-            ImGui::PushStyleColor(ImGuiCol_Text, ui::col::Accent);
+            ImGui::PushStyleColor(ImGuiCol_Text, cyui::palette().accent);
         }
         ImGui::SeparatorText(title);
         if (tool == t) ImGui::PopStyleColor();

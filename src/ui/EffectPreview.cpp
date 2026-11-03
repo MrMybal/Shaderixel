@@ -2,6 +2,7 @@
 // for the effect editor (output or a node) and its library page.
 #include "ui/App.h"
 #include "ui/Theme.h"
+#include "ui/CyUiState.h"
 
 #include <imgui_internal.h>
 #include <stb_image.h>
@@ -143,23 +144,17 @@ void App::DrawPreviewImage(DocView& v, gpu::Texture* t, u64 key, u64 hash, float
         h = maxHeight;
         w = h / aspect;
     }
-    ImVec2 p = ImGui::GetCursorScreenPos();
-    p.x += std::max(0.0f, (width - w) * 0.5f);
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    // Checker behind: transparency shows.
-    const float cell = 8.0f;
-    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), IM_COL32(60, 60, 66, 255));
-    dl->PushClipRect(p, ImVec2(p.x + w, p.y + h), true);
-    for (float y = 0; y < h; y += cell)
-        for (float x = ((int)(y / cell) & 1) ? cell : 0; x < w; x += cell * 2)
-            dl->AddRectFilled(ImVec2(p.x + x, p.y + y), ImVec2(p.x + x + cell, p.y + y + cell), IM_COL32(90, 90, 98, 255));
-    dl->PopClipRect();
-    if (t) {
-        gpu::Texture* shown = v.renderer.Thumbnail(*ctx, key, t, hash ^ ((u64)w << 20), (u32)std::max(1.0f, w), (u32)std::max(1.0f, h));
-        if (shown) dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(shown), p, ImVec2(p.x + w, p.y + h));
-    }
-    dl->AddRect(p, ImVec2(p.x + w, p.y + h), ui::col::Border);
-    ImGui::Dummy(ImVec2(width, h));
+    cyui::ItemScope document((u64)(uintptr_t)v.doc.get());
+    cyui::ItemScope preview(key);
+    auto& state = ui::CyUiViewState<cyui::ImageState>(ImGui::GetID("previewView"));
+    gpu::Texture* shown = t ? v.renderer.Thumbnail(*ctx, key, t, hash ^ ((u64)w << 20),
+        (u32)std::max(1.f,w), (u32)std::max(1.f,h)) : nullptr;
+    cyui::ImageData image;
+    image.texture = shown ? (ImTextureID)gpu::Dev().UiTextureId(shown) : 0;
+    image.width = t ? (int)t->Width() : 1;
+    image.height = t ? (int)t->Height() : 1;
+    cyui::imageViewport("##effectPreview", state, image, ImVec2(width,h));
+
 }
 
 }  // namespace sx

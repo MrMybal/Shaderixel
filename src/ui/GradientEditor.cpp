@@ -38,88 +38,55 @@ void App::GradientEditorUI() {
             }
         ImGui::EndCombo();
     }
-    // The bar (checker under it for the transparency) and its markers.
-    const float w = std::max(120.0f, ImGui::GetContentRegionAvail().x), h = 22 * dpi, mk = 8 * dpi;
-    const ImVec2 p0 = ImGui::GetCursorScreenPos();
-    ImGui::InvisibleButton("##gradbar", ImVec2(w, h + mk * 2));
-    const bool barHovered = ImGui::IsItemHovered();
-    ImDrawList* dl = ImGui::GetWindowDrawList();
-    for (int cx = 0; cx * 6 * dpi < w; ++cx)
-        for (int cy = 0; cy * 6 * dpi < h; ++cy)
-            if ((cx + cy) & 1)
-                dl->AddRectFilled(ImVec2(p0.x + cx * 6 * dpi, p0.y + cy * 6 * dpi), ImVec2(std::min(p0.x + w, p0.x + (cx + 1) * 6 * dpi), std::min(p0.y + h, p0.y + (cy + 1) * 6 * dpi)),
-                                  IM_COL32(200, 200, 200, 255));
-            else
-                dl->AddRectFilled(ImVec2(p0.x + cx * 6 * dpi, p0.y + cy * 6 * dpi), ImVec2(std::min(p0.x + w, p0.x + (cx + 1) * 6 * dpi), std::min(p0.y + h, p0.y + (cy + 1) * 6 * dpi)),
-                                  IM_COL32(255, 255, 255, 255));
-    auto order = S;
-    std::stable_sort(order.begin(), order.end(), [](const GradStop& a, const GradStop& b) { return a.pos < b.pos; });
-    auto colorAt = [&](float t) {
-        float4 a = StopColor(order[0], fg, bg);
-        float pa = order[0].pos;
-        if (t <= pa) return a;
-        for (size_t i = 1; i < order.size(); ++i) {
-            const float4 b = StopColor(order[i], fg, bg);
-            if (t <= order[i].pos) {
-                const float k = order[i].pos > pa ? (t - pa) / (order[i].pos - pa) : 1.0f;
-                if (!gradPerceptual) {
-                    // Like the result: the colors mixed in linear light.
-                    auto mix = [&](float x, float y) { return LinearToSrgb(SrgbToLinear(x) + (SrgbToLinear(y) - SrgbToLinear(x)) * k); };
-                    return float4{mix(a.x, b.x), mix(a.y, b.y), mix(a.z, b.z), a.w + (b.w - a.w) * k};
-                }
-                return float4{a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, a.z + (b.z - a.z) * k, a.w + (b.w - a.w) * k};
-            }
-            a = b;
-            pa = order[i].pos;
+    // Shared gradient view; Shaderixel retains follower colors, interpolation and presets.
+    std::vector<cyui::GradientStop> model;
+    for (auto& stop : S) {
+        if (!stop.uiId) stop.uiId = gradUiNext++;
+        const auto color = StopColor(stop, fg, bg);
+        model.push_back({stop.uiId, gradReverse ? 1.0 - stop.pos : stop.pos,
+                         ImVec4(color.x, color.y, color.z, color.w)});
+    }
+    const auto sameModel = [](const auto& a, const auto& b) {
+        if (a.size() != b.size()) return false;
+        for (size_t i=0; i<a.size(); ++i) {
+            if (a[i].id != b[i].id || a[i].position != b[i].position) return false;
+            const auto& x=a[i].color; const auto& y=b[i].color;
+            if (x.x!=y.x || x.y!=y.y || x.z!=y.z || x.w!=y.w) return false;
         }
-        return a;
+        return true;
     };
-    const int steps = (int)(w / 3);
-    for (int i = 0; i < steps; ++i) {
-        float t = (i + 0.5f) / steps;
-        if (gradReverse) t = 1 - t;
-        const float4 c = colorAt(t);
-        dl->AddRectFilled(ImVec2(p0.x + w * i / steps, p0.y), ImVec2(p0.x + w * (i + 1) / steps + 1, p0.y + h),
-                          ImGui::ColorConvertFloat4ToU32(ImVec4(c.x, c.y, c.z, c.w)));
+    if (!sameModel(model, gradUiModel)) { ++gradUiRevision; gradUiModel = model; }
+    if (!gradUi.active) { gradUi.selected = S[gradSel].uiId; gradUi.hasSelection = true; }
+    const ImVec2 origin = ImGui::GetCursorScreenPos();
+    const ImVec2 room(std::max(cyui::dp(120.f), ImGui::GetContentRegionAvail().x), cyui::dp(48.f));
+    auto edit = cyui::gradientEditor("##gradbar", gradUi, model, room, !gradPerceptual, gradUiRevision);
+    // Preserve the existing single-click-to-add gesture (CyUI also supports double-click).
+    if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(0) && !gradUi.active &&
+        edit.phase == cyui::EditPhase::none && S.size() < 16) {
+        const double position = std::clamp(double((ImGui::GetIO().MousePos.x-origin.x)/room.x), 0., 1.);
+        const auto id = gradUiNext++;
+        gradUi.before = model;
+        gradUi.preview = model;
+        gradUi.preview.push_back({id, position, cyui::sampleGradient(model, position, !gradPerceptual)});
+        gradUi.selected = gradUi.dragging = id;
+        gradUi.hasSelection = gradUi.active = true;
+        gradUi.revision = gradUiRevision;
     }
-    dl->AddRect(p0, ImVec2(p0.x + w, p0.y + h), IM_COL32(0, 0, 0, 120));
-    static int dragStop = -1;
-    if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) dragStop = -1;  // (a drag never resumes later)
-    int hoverStop = -1;
-    const ImVec2 m = ImGui::GetIO().MousePos;
-    // Reversed: the markers drawn where their colors appear in the bar.
-    auto barX = [&](float pos) { return p0.x + w * (gradReverse ? 1 - pos : pos); };
-    auto posAt = [&](float x) { const float t = std::clamp((x - p0.x) / w, 0.0f, 1.0f); return gradReverse ? 1 - t : t; };
-    for (int i = 0; i < (int)S.size(); ++i) {
-        const float x = barX(S[i].pos);
-        const ImVec2 tri[3] = {ImVec2(x, p0.y + h), ImVec2(x - mk, p0.y + h + mk * 1.6f), ImVec2(x + mk, p0.y + h + mk * 1.6f)};
-        const float4 c = StopColor(S[i], fg, bg);
-        dl->AddTriangleFilled(tri[0], tri[1], tri[2], ImGui::ColorConvertFloat4ToU32(ImVec4(c.x, c.y, c.z, 1)));
-        dl->AddTriangle(tri[0], tri[1], tri[2], i == gradSel ? ui::col::Accent : IM_COL32(40, 40, 40, 255), i == gradSel ? 2.0f : 1.0f);
-        if (S[i].follow) dl->AddText(ImVec2(x - 3 * dpi, p0.y + h + mk * 1.7f), IM_COL32(200, 200, 200, 255), S[i].follow == 1 ? "P" : "A");
-        if (std::abs(m.x - x) < mk && m.y > p0.y + h - 2 && m.y < p0.y + h + mk * 2) hoverStop = i;
-    }
-    if (barHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
-        if (hoverStop >= 0) {
-            dragStop = gradSel = hoverStop;
-        } else {
-            // A new stop with the color the gradient has there.
-            const float t = posAt(m.x);
-            if (S.size() < 16) {
-                S.push_back({t, colorAt(t), 0});
-                gradSel = dragStop = (int)S.size() - 1;
-            }
+    if (edit.committed() && edit.value.size() >= 2 && edit.value.size() <= 16) {
+        std::vector<GradStop> accepted;
+        for (const auto& proposal : edit.value) {
+            auto old = std::find_if(S.begin(), S.end(), [&](const auto& stop) { return stop.uiId == proposal.id; });
+            GradStop stop;
+            if (old != S.end()) stop = *old;
+            else { stop.color = {proposal.color.x, proposal.color.y, proposal.color.z, proposal.color.w}; stop.uiId = proposal.id; }
+            stop.pos = (float)(gradReverse ? 1-proposal.position : proposal.position);
+            accepted.push_back(stop);
+            gradUiNext = std::max(gradUiNext, proposal.id+1);
         }
+        S = std::move(accepted);
     }
-    if (dragStop >= 0) {
-        if (ImGui::IsMouseDown(ImGuiMouseButton_Left) && dragStop < (int)S.size()) S[dragStop].pos = posAt(m.x);
-        else dragStop = -1;
-    }
-    if (barHovered && hoverStop >= 0 && dragStop < 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && S.size() > 2) {
-        S.erase(S.begin() + hoverStop);
-        if (gradSel > hoverStop) --gradSel;  // (the selected stop stays the same one)
-        gradSel = std::min(gradSel, (int)S.size() - 1);
-    }
+    for (int i=0; i<(int)S.size(); ++i) if (S[i].uiId == gradUi.selected) gradSel=i;
+    gradSel = std::clamp(gradSel, 0, (int)S.size()-1);
     ui::HelpTooltip("Clic sur la barre : ajouter un arrêt. Glisser un repère : le déplacer. Clic droit : le supprimer.");
     // The selected stop.
     GradStop& st = S[gradSel];

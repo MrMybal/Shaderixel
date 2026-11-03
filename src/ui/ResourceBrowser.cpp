@@ -588,7 +588,7 @@ void App::DrawResourceBrowser() {
                 } else {
                     const std::string ext = Narrow(Utf8Path(path).extension().wstring());
                     const ImVec2 ts = ImGui::CalcTextSize(ext.c_str());
-                    dl->AddText(ImVec2(p.x + (cw - ts.x) * 0.5f, p.y + cw * 0.45f), ui::col::TextDim, ext.c_str());
+                    dl->AddText(ImVec2(p.x + (cw - ts.x) * 0.5f, p.y + cw * 0.45f), cyui::palette().textDim, ext.c_str());
                 }
                 // Keep (pin) star.
                 if (!folder) {
@@ -608,7 +608,7 @@ void App::DrawResourceBrowser() {
                 }
                 const ImVec4 clip(p.x + 4, p.y, p.x + cw - 4, p.y + ch);
                 dl->AddText(nullptr, 0, ImVec2(p.x + 5, p.y + cw), IM_COL32(225, 225, 232, 255), name.c_str(), nullptr, 0, &clip);
-                if (!info.empty()) dl->AddText(nullptr, 0, ImVec2(p.x + 5, p.y + cw + fs), ui::col::TextDim, info.c_str(), nullptr, 0, &clip);
+                if (!info.empty()) dl->AddText(nullptr, 0, ImVec2(p.x + 5, p.y + cw + fs), cyui::palette().textDim, info.c_str(), nullptr, 0, &clip);
                 if (hot && !folder) ImGui::SetTooltip("%s\n%s", path.c_str(), meshes ? "Double-clic : ajouter à la scène (projet 3D) ou ouvrir\nGlisser sur la vue Rendu"
                                                                                          : "Double-clic : ouvrir\nGlisser sur le canevas, les calques ou le graphe");
                 if (!folder && ImGui::BeginPopupContextItem("##ctx")) {

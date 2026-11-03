@@ -828,7 +828,7 @@ void App::TransformDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
     ImVec2 q[4];
     for (int i = 0; i < 4; ++i) q[i] = toScreen(xf.corners[i]);
     dl->AddPolyline(q, 4, IM_COL32(0, 0, 0, 160), ImDrawFlags_Closed, 3.0f);
-    dl->AddPolyline(q, 4, ui::col::Accent2, ImDrawFlags_Closed, 1.5f);
+    dl->AddPolyline(q, 4, cyui::palette().info, ImDrawFlags_Closed, 1.5f);
     auto handle = [&](ImVec2 p) {
         dl->AddRectFilled(ImVec2(p.x - 5, p.y - 5), ImVec2(p.x + 5, p.y + 5), IM_COL32_WHITE);
         dl->AddRect(ImVec2(p.x - 5, p.y - 5), ImVec2(p.x + 5, p.y + 5), IM_COL32(20, 20, 24, 255));
@@ -944,7 +944,7 @@ void App::WarpDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
             }
             bool edge = k == 0 || k == 3;
             dl->AddPolyline(pts, S + 1, IM_COL32(0, 0, 0, 140), 0, edge ? 3.0f : 2.0f);
-            dl->AddPolyline(pts, S + 1, edge ? ui::col::Accent2 : IM_COL32(255, 255, 255, 150), 0, edge ? 1.5f : 1.0f);
+            dl->AddPolyline(pts, S + 1, edge ? cyui::palette().info : IM_COL32(255, 255, 255, 150), 0, edge ? 1.5f : 1.0f);
         }
     // Tangent handles of the corners.
     const int corners[4] = {0, 3, 15, 12};

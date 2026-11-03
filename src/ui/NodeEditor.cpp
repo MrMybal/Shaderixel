@@ -1,5 +1,6 @@
 // Node graph editor (custom ImDrawList widget): pan/zoom, links, live thumbnails.
 #include "ui/App.h"
+#include <cyui/modules/Nodes.h>
 #include <unordered_set>
 #include "ui/Theme.h"
 #include "doc/EffectGraph.h"
@@ -19,30 +20,21 @@ constexpr float kRow = 22.0f;
 constexpr float kPin = 6.0f;
 constexpr u64 kThumbKeyBit = 1ull << 62;
 
+ImU32 HeaderText(ImU32 background) {
+    auto luminance=[](ImU32 color) {
+        const auto c=cyui::vec(color);
+        auto linear=[](float x) { return x<=.04045f?x/12.92f:std::pow((x+.055f)/1.055f,2.4f); };
+        return .2126f*linear(c.x)+.7152f*linear(c.y)+.0722f*linear(c.z);
+    };
+    const auto& palette=cyui::palette();
+    const float bg=luminance(cyui::mix(palette.bg2,background,cyui::vec(background).w));
+    auto contrast=[&](ImU32 color) { const float y=luminance(color);return (std::max(y,bg)+.05f)/(std::min(y,bg)+.05f); };
+    return contrast(palette.text)>=contrast(palette.bg0)?palette.text:palette.bg0;
+}
+
 ImU32 HeaderColor(const Node& n) {
-    switch (n.kind) {
-        case NodeKind::Output: return IM_COL32(52, 160, 110, 255);
-        case NodeKind::Surface: return IM_COL32(36, 150, 168, 255);
-        case NodeKind::Blend: return IM_COL32(64, 104, 200, 255);
-        case NodeKind::Split: return IM_COL32(70, 150, 90, 255);
-        case NodeKind::Tool: return IM_COL32(170, 124, 26, 255);
-        case NodeKind::Value: return IM_COL32(70, 120, 60, 255);
-        case NodeKind::Math: return IM_COL32(60, 110, 90, 255);
-        case NodeKind::VarGet: case NodeKind::VarSet: return IM_COL32(120, 90, 50, 255);
-        case NodeKind::Event: return IM_COL32(170, 40, 40, 255);
-        case NodeKind::Reroute: return IM_COL32(60, 60, 70, 255);
-        case NodeKind::Action: return IM_COL32(60, 70, 110, 255);
-        case NodeKind::Function: return n.funcKind == "tool" ? IM_COL32(170, 124, 26, 255) : IM_COL32(150, 80, 180, 255);
-        case NodeKind::SubInput: return IM_COL32(40, 130, 150, 255);
-        case NodeKind::SubOutput: return IM_COL32(52, 150, 100, 255);
-        case NodeKind::Effect: {
-            auto d = n.fx.Def();
-            if (!n.fx.customCode.empty()) return IM_COL32(200, 92, 150, 255);
-            if (d && d->inputs.empty()) return IM_COL32(210, 130, 50, 255);
-            return IM_COL32(112, 84, 220, 255);
-        }
-    }
-    return IM_COL32(90, 90, 90, 255);
+    return cyui::categorical((int)n.kind);
+
 }
 
 // Kind of a node, shown as a tag in its header: Image (pixels), Draw (drawn by a shader: fills,
@@ -53,23 +45,23 @@ struct NodeTag { const char* text; ImU32 color; };
 // Tools placed in the layer graph (operate on an input without being an image effect).
 bool IsGraphTool(const std::string& id) { return id == "transform_2d"; }
 NodeTag NodeTypeTag(Document& d, const Node& n) {
-    const NodeTag image = {"IMAGE", IM_COL32(36, 150, 168, 255)}, draw = {"DRAW", IM_COL32(210, 130, 50, 255)},
-                  blend = {"BLEND", IM_COL32(64, 104, 200, 255)}, effect = {"EFFECT", IM_COL32(112, 84, 220, 255)},
-                  tool = {"TOOL", IM_COL32(220, 170, 40, 255)}, sub = {"SUBGRAPH", IM_COL32(170, 90, 200, 255)};
+    const NodeTag image = {"IMAGE", cyui::categorical(0)}, draw = {"DRAW", cyui::categorical(1)},
+                  blend = {"BLEND", cyui::categorical(2)}, effect = {"EFFECT", cyui::categorical(3)},
+                  tool = {"TOOL", cyui::categorical(4)}, sub = {"SUBGRAPH", cyui::categorical(5)};
     Layer* l = n.layer ? d.FindLayer(n.layer) : nullptr;
     switch (n.kind) {
-        case NodeKind::Output: return {"SORTIE", IM_COL32(52, 160, 110, 255)};
-        case NodeKind::Split: return {"CANAUX", IM_COL32(70, 150, 90, 255)};
+        case NodeKind::Output: return {"SORTIE", cyui::categorical(6)};
+        case NodeKind::Split: return {"CANAUX", cyui::categorical(7)};
         case NodeKind::Tool: return tool;
         case NodeKind::Function: return n.funcKind == "tool" ? tool : sub;
-        case NodeKind::SubInput: return {"IN", IM_COL32(60, 190, 210, 255)};
-        case NodeKind::Value: return {"VALEUR", IM_COL32(160, 230, 70, 255)};
-        case NodeKind::Math: return {"MATH", IM_COL32(120, 220, 170, 255)};
-        case NodeKind::VarGet: case NodeKind::VarSet: return {"VAR", IM_COL32(230, 180, 90, 255)};
-        case NodeKind::Event: return {"EVENT", IM_COL32(255, 110, 110, 255)};
-        case NodeKind::Reroute: return {"", IM_COL32(150, 150, 160, 255)};
-        case NodeKind::Action: return {"EXEC", IM_COL32(170, 190, 255, 255)};
-        case NodeKind::SubOutput: return {"OUT", IM_COL32(70, 200, 130, 255)};
+        case NodeKind::SubInput: return {"IN", cyui::categorical(8)};
+        case NodeKind::Value: return {"VALEUR", cyui::categorical(9)};
+        case NodeKind::Math: return {"MATH", cyui::categorical(10)};
+        case NodeKind::VarGet: case NodeKind::VarSet: return {"VAR", cyui::categorical(11)};
+        case NodeKind::Event: return {"EVENT", cyui::categorical(12)};
+        case NodeKind::Reroute: return {"", cyui::palette().textDim};
+        case NodeKind::Action: return {"EXEC", cyui::categorical(13)};
+        case NodeKind::SubOutput: return {"OUT", cyui::categorical(14)};
         case NodeKind::Blend: return l && l->kind == LayerKind::Group ? sub : blend;
         case NodeKind::Surface:
             if (l && (l->kind == LayerKind::Text || l->kind == LayerKind::Shape)) return draw;
@@ -122,16 +114,16 @@ void DrawPin(ImDrawList* dl, ImVec2 p, float r, const PinDesc& pin, bool filled,
     }
     if (filled) {
         dl->AddCircleFilled(p, r, c);
-        dl->AddCircle(p, r, IM_COL32(20, 20, 24, 255), 0, 1.5f);
+        dl->AddCircle(p, r, cyui::palette().bg0, 0, 1.5f);
     } else {
-        dl->AddCircleFilled(p, r, IM_COL32(40, 42, 50, 255));
+        dl->AddCircleFilled(p, r, cyui::palette().bg2);
         dl->AddCircle(p, r, c, 0, 2.0f * zoom);
     }
 }
 // Labels of the Split outputs keep their channel color.
 ImU32 LabelColor(const Node& n, int k) {
     if (n.kind != NodeKind::Split) return TypeColor(PinType::RGBA, 230);
-    static const ImU32 c[] = {IM_COL32(235, 90, 90, 255), IM_COL32(100, 215, 110, 255), IM_COL32(90, 150, 255, 255), IM_COL32(210, 210, 215, 255)};
+    static const ImU32 c[] = {IM_COL32(235, 90, 90, 255), IM_COL32(100, 215, 110, 255), IM_COL32(90, 150, 255, 255), cyui::palette().text};
     return c[std::clamp(k, 0, 3)];
 }
 
@@ -397,8 +389,14 @@ void App::DrawNodeEditor() {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     dl->PushClipRect(origin, ImVec2(origin.x + size.x, origin.y + size.y), true);
 
-    auto toScreen = [&](float2 p) { return ImVec2(origin.x + (p.x + ed.pan.x) * ed.zoom, origin.y + (p.y + ed.pan.y) * ed.zoom); };
-    auto toGraph = [&](ImVec2 s) { return float2{(s.x - origin.x) / ed.zoom - ed.pan.x, (s.y - origin.y) / ed.zoom - ed.pan.y}; };
+    cyui::CanvasView graphView;
+    auto syncGraphView = [&] {
+        graphView.zoom = ed.zoom;
+        graphView.origin = {-double(ed.pan.x)*ed.zoom, -double(ed.pan.y)*ed.zoom};
+    };
+    syncGraphView();
+    auto toScreen = [&](float2 p) { syncGraphView(); return graphView.screen({p.x,p.y}, origin); };
+    auto toGraph = [&](ImVec2 s) { syncGraphView(); const auto p=graphView.world(s, origin); return float2{(float)p.x,(float)p.y}; };
     const float aspect = (float)d.Width() / d.Height();
 
     // Pan & zoom
@@ -412,14 +410,10 @@ void App::DrawNodeEditor() {
                                              (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0) && (io.KeyAlt || spaceHeld)));
     if (panDrag) ed.pan = ed.pan + float2{io.MouseDelta.x / ed.zoom, io.MouseDelta.y / ed.zoom};
 
-    // Grid
-    dl->AddRectFilled(origin, ImVec2(origin.x + size.x, origin.y + size.y), IM_COL32(19, 20, 24, 255));
-    float step = 24.0f * ed.zoom;
-    if (step > 6) {
-        float ox = std::fmod(ed.pan.x * ed.zoom, step), oy = std::fmod(ed.pan.y * ed.zoom, step);
-        for (float x = ox; x < size.x; x += step) dl->AddLine(ImVec2(origin.x + x, origin.y), ImVec2(origin.x + x, origin.y + size.y), ui::col::Grid);
-        for (float y = oy; y < size.y; y += step) dl->AddLine(ImVec2(origin.x, origin.y + y), ImVec2(origin.x + size.x, origin.y + y), ui::col::Grid);
-    }
+    // Shared grid respects theme, density and the current host navigation transform.
+    syncGraphView();
+    dl->AddRectFilled(origin, ImVec2(origin.x+size.x, origin.y+size.y), cyui::palette().bg0);
+    cyui::drawCanvasGrid({origin, ImVec2(origin.x+size.x, origin.y+size.y)}, graphView, 24.0);
 
     // Comment frames, behind links and nodes.
     const float kCommentHeader = 30.0f;
@@ -433,7 +427,7 @@ void App::DrawNodeEditor() {
         const float rr = 6 * ed.zoom;
         dl->AddRectFilled(a, b, commentByColor(c.color, 34), rr);
         dl->AddRectFilled(a, ImVec2(b.x, a.y + kCommentHeader * ed.zoom), commentByColor(c.color, 150), rr, ImDrawFlags_RoundCornersTop);
-        dl->AddRect(a, b, sel ? ui::col::Selection : commentByColor(c.color, hot ? 255 : 170), rr, 0, sel ? 2.5f : 1.5f);
+        dl->AddRect(a, b, sel ? cyui::palette().accent : commentByColor(c.color, hot ? 255 : 170), rr, 0, sel ? 2.5f : 1.5f);
         if (ed.zoom > 0.25f) {
             const float tfs = ImGui::GetFontSize() * ed.zoom * 1.25f;
             dl->PushClipRect(a, ImVec2(b.x - 4, a.y + kCommentHeader * ed.zoom), true);
@@ -697,8 +691,8 @@ void App::DrawNodeEditor() {
     }
     if (ed.boxSelecting) {
         ImVec2 a = toScreen(ed.boxStart);
-        dl->AddRectFilled(ImVec2(std::min(a.x, mouse.x), std::min(a.y, mouse.y)), ImVec2(std::max(a.x, mouse.x), std::max(a.y, mouse.y)), IM_COL32(120, 100, 255, 40));
-        dl->AddRect(ImVec2(std::min(a.x, mouse.x), std::min(a.y, mouse.y)), ImVec2(std::max(a.x, mouse.x), std::max(a.y, mouse.y)), ui::col::Accent);
+        dl->AddRectFilled(ImVec2(std::min(a.x, mouse.x), std::min(a.y, mouse.y)), ImVec2(std::max(a.x, mouse.x), std::max(a.y, mouse.y)), cyui::palette().selection);
+        dl->AddRect(ImVec2(std::min(a.x, mouse.x), std::min(a.y, mouse.y)), ImVec2(std::max(a.x, mouse.x), std::max(a.y, mouse.y)), cyui::palette().accent);
     }
     if (ed.commentDrag) {
         GraphComment* c = findComment(ed.selComment);
@@ -783,18 +777,18 @@ void App::DrawNodeEditor() {
             int ch = InputChannel(n, i);
             bool sel = ed.selection.count(src->id) || ed.selection.count(n.id);
             const bool exec = NodeOutputType(*src, linkPin(*src, ch)) == PinType::Exec;
-            drawLink(outPin(*src, linkPin(*src, ch)), inPin(n, i), sel ? ui::col::Selection : linkColor(*src, ch, 200), sel ? 3.0f : exec ? 3.0f : 2.0f);
+            drawLink(outPin(*src, linkPin(*src, ch)), inPin(n, i), sel ? cyui::palette().accent : linkColor(*src, ch, 200), sel ? 3.0f : exec ? 3.0f : 2.0f);
         }
         for (auto& e : n.execLinks) {  // extra flows joining an execution input
             const Node* src = g.Find(e.src);
             if (!src || e.pin >= NodeInputCount(n)) continue;
             const bool sel = ed.selection.count(src->id) || ed.selection.count(n.id);
-            drawLink(outPin(*src, linkPin(*src, e.channel)), inPin(n, e.pin), sel ? ui::col::Selection : linkColor(*src, e.channel, 200), 3.0f);
+            drawLink(outPin(*src, linkPin(*src, e.channel)), inPin(n, e.pin), sel ? cyui::palette().accent : linkColor(*src, e.channel, 200), 3.0f);
         }
     }
     if (ed.draggingLink) {
         if (ed.linkFrom) { if (const Node* s = g.Find(ed.linkFrom)) drawLink(outPin(*s, linkPin(*s, ed.linkChannel)), mouse, linkColor(*s, ed.linkChannel, 255), 2.5f); }
-        else if (const Node* t = g.Find(ed.linkTo)) drawLink(mouse, inPin(*t, ed.linkInput), ui::col::Accent, 2.5f);
+        else if (const Node* t = g.Find(ed.linkTo)) drawLink(mouse, inPin(*t, ed.linkInput), cyui::palette().accent, 2.5f);
     }
 
     // Nodes before a baked tool are frozen (not evaluated): dimmed.
@@ -816,8 +810,8 @@ void App::DrawNodeEditor() {
             const ImVec2 pa = inPin(n, 0), pb = outPin(n, 0);
             const float hh = 8 * ed.zoom;
             const ImU32 tc = TypeColor(pin.type, 255);
-            dl->AddRectFilled(ImVec2(pa.x, pa.y - hh), ImVec2(pb.x, pb.y + hh), IM_COL32(34, 34, 42, 240), hh);
-            dl->AddRect(ImVec2(pa.x, pa.y - hh), ImVec2(pb.x, pb.y + hh), selected ? ui::col::Selection : n.id == hoverNode ? IM_COL32(200, 200, 210, 255) : tc, hh, 0,
+            dl->AddRectFilled(ImVec2(pa.x, pa.y - hh), ImVec2(pb.x, pb.y + hh), cyui::alpha(cyui::palette().bg2, 0.941f), hh);
+            dl->AddRect(ImVec2(pa.x, pa.y - hh), ImVec2(pb.x, pb.y + hh), selected ? cyui::palette().accent : n.id == hoverNode ? cyui::palette().text : tc, hh, 0,
                         selected ? 2.5f : 1.5f);
             DrawPin(dl, pa, pinR, pin, !n.inputs.empty() && n.inputs[0], ed.zoom);
             DrawPin(dl, pb, pinR, NodeOutputPin(n, 0), true, ed.zoom);
@@ -825,13 +819,13 @@ void App::DrawNodeEditor() {
         }
         bool failedNode = v->renderer.NodeFailed(n.id);
         bool isPaint = n.kind == NodeKind::Surface && n.surface == d.PaintTarget();
-        dl->AddRectFilled(ImVec2(a.x + 3, a.y + 4), ImVec2(b.x + 3, b.y + 4), IM_COL32(0, 0, 0, 70), r);
-        dl->AddRectFilled(a, b, n.bypass ? IM_COL32(36, 37, 42, 255) : ui::col::PanelLight, r);
+        dl->AddRectFilled(ImVec2(a.x + 3, a.y + 4), ImVec2(b.x + 3, b.y + 4), cyui::alpha(cyui::palette().bg0, 0.275f), r);
+        dl->AddRectFilled(a, b, n.bypass ? cyui::palette().bg1 : cyui::palette().bg2, r);
         ImU32 hc = HeaderColor(n);
         if (n.bypass) hc = (hc & 0x00FFFFFF) | 0x60000000;
         dl->AddRectFilled(a, ImVec2(b.x, a.y + kHeader * ed.zoom), hc, r, ImDrawFlags_RoundCornersTop);
-        ImU32 border = failedNode ? ui::col::Error : selected ? ui::col::Selection : (n.id == hoverNode ? IM_COL32(110, 110, 130, 255) : ui::col::Border);
-        if (selected) dl->AddRect(ImVec2(a.x - 3, a.y - 3), ImVec2(b.x + 3, b.y + 3), IM_COL32(255, 140, 0, 90), r + 3, 0, 4.0f);
+        ImU32 border = failedNode ? cyui::palette().error : selected ? cyui::palette().accent : (n.id == hoverNode ? cyui::palette().textDim : cyui::palette().line);
+        if (selected) dl->AddRect(ImVec2(a.x - 3, a.y - 3), ImVec2(b.x + 3, b.y + 3), cyui::alpha(cyui::palette().accent,.35f), r + 3, 0, 4.0f);
         dl->AddRect(a, b, border, r, 0, selected ? 3.0f : failedNode ? 2.0f : 1.0f);
         if (drawText) {
             std::string title = n.name;
@@ -842,11 +836,11 @@ void App::DrawNodeEditor() {
             const ImVec2 tsz = font->CalcTextSizeA(tfs, FLT_MAX, 0, tag.text);
             const float th = kHeader * ed.zoom, pad = 4 * ed.zoom;
             const ImVec2 t1(b.x - pad, a.y + th * 0.5f + tsz.y * 0.5f + pad * 0.5f), t0(t1.x - tsz.x - pad * 2, a.y + th * 0.5f - tsz.y * 0.5f - pad * 0.5f);
-            dl->AddRectFilled(t0, t1, IM_COL32(16, 16, 20, 200), 3 * ed.zoom);
+            dl->AddRectFilled(t0, t1, cyui::alpha(cyui::palette().bg0, 0.784f), 3 * ed.zoom);
             dl->AddRect(t0, t1, tag.color, 3 * ed.zoom);
-            dl->AddText(font, tfs, ImVec2(t0.x + pad, t0.y + pad * 0.5f), tag.color | IM_COL32(60, 60, 60, 0), tag.text);
+            dl->AddText(font, tfs, ImVec2(t0.x + pad, t0.y + pad * 0.5f), cyui::brighter(tag.color,.15f), tag.text);
             dl->PushClipRect(a, ImVec2(t0.x - 4, a.y + kHeader * ed.zoom), true);
-            dl->AddText(font, fs, ImVec2(a.x + 8 * ed.zoom, a.y + (kHeader * ed.zoom - fs) * 0.5f), IM_COL32_WHITE, title.c_str());
+            dl->AddText(font, fs, ImVec2(a.x + 8 * ed.zoom, a.y + (kHeader * ed.zoom - fs) * 0.5f), HeaderText(hc), title.c_str());
             dl->PopClipRect();
         }
         // Inputs (filled with the color of the linked channel)
@@ -858,14 +852,14 @@ void App::DrawNodeEditor() {
             const PinDesc pin = NodeInputPin(n, i);
             DrawPin(dl, p, pr, pin, connected, ed.zoom);
             if (drawText) {
-                dl->AddText(font, fs * 0.9f, ImVec2(p.x + 10 * ed.zoom, p.y - fs * 0.45f), ui::col::TextDim, pin.name.c_str());
+                dl->AddText(font, fs * 0.9f, ImVec2(p.x + 10 * ed.zoom, p.y - fs * 0.45f), cyui::palette().textDim, pin.name.c_str());
                 // Unlinked value input: its value field (click / drag to edit).
                 ImVec2 va, vb;
                 if (valRect(n, i, va, vb)) {
                     ed.valRects[((u64)n.id << 8) | (u64)i] = ImVec4(va.x, va.y, vb.x, vb.y);
                     const Value val = NodePinDefault(n, i);
                     const bool hotv = hoverValNode == n.id && hoverValPin == i;
-                    const ImU32 edge = hotv ? ui::col::Accent : IM_COL32(64, 66, 78, 255);
+                    const ImU32 edge = hotv ? cyui::palette().accent : cyui::palette().lineStrong;
                     const float rr = 3 * ed.zoom;
                     if (pin.array) {
                         std::string t = "[" + std::to_string(val.Size()) + "]";
@@ -873,7 +867,7 @@ void App::DrawNodeEditor() {
                     } else if (pin.type == PinType::Bool) {
                         const float sz = vb.y - va.y;
                         const ImVec2 c0(va.x, va.y), c1(va.x + sz, va.y + sz);
-                        dl->AddRectFilled(c0, c1, IM_COL32(14, 14, 18, 255), rr);
+                        dl->AddRectFilled(c0, c1, cyui::palette().bg0, rr);
                         dl->AddRect(c0, c1, edge, rr);
                         if (val.f.x != 0) {
                             dl->AddLine(ImVec2(c0.x + sz * 0.2f, c0.y + sz * 0.55f), ImVec2(c0.x + sz * 0.42f, c0.y + sz * 0.78f), TypeColor(PinType::Bool), 2 * ed.zoom);
@@ -884,11 +878,11 @@ void App::DrawNodeEditor() {
                         dl->AddRectFilled(va, vb, IM_COL32(toByte(val.f.x), toByte(val.f.y), toByte(val.f.z), 255), rr);
                         dl->AddRect(va, vb, edge, rr);
                     } else {
-                        dl->AddRectFilled(va, vb, IM_COL32(14, 14, 18, 255), rr);
+                        dl->AddRectFilled(va, vb, cyui::palette().bg0, rr);
                         dl->AddRect(va, vb, edge, rr);
                         std::string t = ValueToText(val, 1);
                         dl->PushClipRect(va, vb, true);
-                        dl->AddText(font, fs * 0.8f, ImVec2(va.x + 4 * ed.zoom, va.y + (vb.y - va.y - fs * 0.8f) * 0.5f), IM_COL32(225, 225, 232, 255), t.c_str());
+                        dl->AddText(font, fs * 0.8f, ImVec2(va.x + 4 * ed.zoom, va.y + (vb.y - va.y - fs * 0.8f) * 0.5f), cyui::palette().text, t.c_str());
                         dl->PopClipRect();
                     }
                 }
@@ -942,18 +936,18 @@ void App::DrawNodeEditor() {
             }
             if (drawText && !line.empty()) {
                 dl->PushClipRect(ta, ImVec2(ta.x + L.thumbW * ed.zoom, ta.y + L.thumbH * ed.zoom), true);
-                dl->AddText(font, fs * 0.85f, ImVec2(ta.x + 2 * ed.zoom, ta.y + 2 * ed.zoom), ui::col::TextDim, line.c_str());
+                dl->AddText(font, fs * 0.85f, ImVec2(ta.x + 2 * ed.zoom, ta.y + 2 * ed.zoom), cyui::palette().textDim, line.c_str());
                 dl->PopClipRect();
             }
             out = nullptr;
         }
         if (!out && L.image && d.tiled && ed.zoom > 0.4f)
-            dl->AddText(ImVec2(ta.x + 4, ta.y + 4), ui::col::TextDim, "Aperçu indisponible\n(grand document)");
+            dl->AddText(ImVec2(ta.x + 4, ta.y + 4), cyui::palette().textDim, "Aperçu indisponible\n(grand document)");
         if (out) {
             gpu::Texture* t = v->renderer.Thumbnail(*ctx, kThumbKeyBit | n.id, out, outHash, (u32)L.thumbW, (u32)L.thumbH);
             ImVec2 tb(ta.x + L.thumbW * ed.zoom, ta.y + L.thumbH * ed.zoom);
-            dl->AddImageRounded((ImTextureID)gpu::Dev().UiTextureId(t), ta, tb, ImVec2(0, 0), ImVec2(1, 1), n.bypass ? IM_COL32(255, 255, 255, 90) : IM_COL32_WHITE, 3 * ed.zoom);
-            if (detail && ed.zoom > 0.5f) dl->AddText(font, fs * 0.7f, ImVec2(ta.x + 3, tb.y - fs * 0.8f), IM_COL32(255, 255, 255, 170), "détail");
+            dl->AddImageRounded((ImTextureID)gpu::Dev().UiTextureId(t), ta, tb, ImVec2(0, 0), ImVec2(1, 1), n.bypass ? cyui::alpha(cyui::palette().text, 0.353f) : IM_COL32_WHITE, 3 * ed.zoom);
+            if (detail && ed.zoom > 0.5f) dl->AddText(font, fs * 0.7f, ImVec2(ta.x + 3, tb.y - fs * 0.8f), cyui::alpha(cyui::palette().text, 0.667f), "détail");
         }
         // Tool / function state badge: BAKED / LIVE / APPLIQUÉ / running.
         if (n.kind == NodeKind::Action && n.surface && drawText) {
@@ -962,7 +956,7 @@ void App::DrawNodeEditor() {
             const float bfs = fs * 0.72f;
             const ImVec2 bs = font->CalcTextSizeA(bfs, FLT_MAX, 0, st);
             const ImVec2 b0(ta.x + 4 * ed.zoom, ta.y + 4 * ed.zoom), b1(b0.x + bs.x + 8 * ed.zoom, b0.y + bs.y + 4 * ed.zoom);
-            dl->AddRectFilled(b0, b1, IM_COL32(16, 16, 20, 220), 3 * ed.zoom);
+            dl->AddRectFilled(b0, b1, cyui::alpha(cyui::palette().bg0, 0.863f), 3 * ed.zoom);
             dl->AddRect(b0, b1, sc, 3 * ed.zoom);
             dl->AddText(font, bfs, ImVec2(b0.x + 4 * ed.zoom, b0.y + 2 * ed.zoom), sc, st);
         }
@@ -978,12 +972,12 @@ void App::DrawNodeEditor() {
             const float bfs = fs * 0.72f;
             const ImVec2 bs = font->CalcTextSizeA(bfs, FLT_MAX, 0, st);
             const ImVec2 b0(ta.x + 4 * ed.zoom, ta.y + 4 * ed.zoom), b1(b0.x + bs.x + 8 * ed.zoom, b0.y + bs.y + 4 * ed.zoom);
-            dl->AddRectFilled(b0, b1, IM_COL32(16, 16, 20, 220), 3 * ed.zoom);
+            dl->AddRectFilled(b0, b1, cyui::alpha(cyui::palette().bg0, 0.863f), 3 * ed.zoom);
             dl->AddRect(b0, b1, sc, 3 * ed.zoom);
             dl->AddText(font, bfs, ImVec2(b0.x + 4 * ed.zoom, b0.y + 2 * ed.zoom), sc, st);
         }
         if (frozen.count(n.id)) {
-            dl->AddRectFilled(a, b, IM_COL32(14, 14, 18, 150), r);
+            dl->AddRectFilled(a, b, cyui::alpha(cyui::palette().bg0, 0.588f), r);
             if (drawText) dl->AddText(font, fs * 0.8f, ImVec2(a.x + 8 * ed.zoom, b.y - fs - 6 * ed.zoom), IM_COL32(230, 160, 40, 230), "figé (baké plus loin)");
         }
     }
@@ -1012,6 +1006,38 @@ void App::DrawNodeEditor() {
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(260 * dpi, 0), ImVec2(360 * dpi, 520 * dpi));
     if (ImGui::BeginPopup("##addnode")) {
+        if (!ed.pendFrom && !ed.pendTo && editable && ImGui::MenuItem(cyui::trLabel("Arrange nodes").c_str())) {
+            std::vector<cyui::Node> nodes;
+            std::vector<cyui::NodeLink> links;
+            std::unordered_map<Id,u64> outputs;
+            u64 nextPin=1, nextLink=1;
+            double width=240, height=130;
+            for (const auto& n : g.nodes) {
+                cyui::Node node;
+                node.id=n.id; node.position={n.pos.x,n.pos.y}; node.label=n.name;
+                outputs[n.id]=nextPin;
+                node.outputs.push_back({nextPin++, ""});
+                const auto& layout=lay(n);
+                width=std::max(width,double(layout.w+60)); height=std::max(height,double(layout.h+50));
+                nodes.push_back(std::move(node));
+            }
+            for (size_t i=0;i<g.nodes.size();++i) {
+                const auto& n=g.nodes[i];
+                auto add=[&](Id source) {
+                    if (!source || !outputs.count(source)) return;
+                    const auto input=nextPin++;
+                    nodes[i].inputs.push_back({input,""});
+                    links.push_back({nextLink++,outputs[source],input});
+                };
+                for (const auto source : n.inputs) add(source);
+                for (const auto& input : n.execLinks) add(input.src);
+            }
+            const auto before=d.S();
+            for (const auto& move : cyui::arrangeNodes(nodes,links,{width,height}))
+                if (auto* node=g.Find(move.id)) node->pos={(float)move.position.x,(float)move.position.y};
+            v->history.PushState("Arrange nodes",before,d.S());
+            ImGui::CloseCurrentPopup();
+        }
         ImGui::TextDisabled(ed.pendFrom ? "Nouveau nœud relié à cette sortie" : ed.pendTo ? "Nouveau nœud relié à cette entrée" : "Ajouter un nœud");
         if (!ed.pendFrom && !ed.pendTo && editable && ImGui::SmallButton("+ Commentaire ici")) {
             const auto keep = ed.selection;
@@ -1398,14 +1424,14 @@ void App::DrawNodeEditor() {
         // Feedback.
         if (on) {
             const Layout& L = lay(*on);
-            dl->AddRect(toScreen(on->pos), toScreen(on->pos + float2{L.w, L.h}), ui::col::Accent2, 6 * ed.zoom, 0, 3.0f);
+            dl->AddRect(toScreen(on->pos), toScreen(on->pos + float2{L.w, L.h}), cyui::palette().info, 6 * ed.zoom, 0, 3.0f);
         } else if (const Node* s2 = g.Find(linkSrc); s2 && g.Find(linkDst)) {
-            drawLink(outPin(*s2, linkPin(*s2, linkCh)), inPin(*g.Find(linkDst), linkIn), ui::col::Accent2, 4.0f);
+            drawLink(outPin(*s2, linkPin(*s2, linkCh)), inPin(*g.Find(linkDst), linkIn), cyui::palette().info, 4.0f);
         }
         const char* what = layerOf ? "Filtre sur ce calque" : on ? "Insérer après ce nœud" : linkSrc ? "Insérer dans le lien" : "Nouveau nœud";
         ImVec2 ts = ImGui::CalcTextSize(what);
-        dl->AddRectFilled(ImVec2(mouse.x + 14, mouse.y - 22), ImVec2(mouse.x + 22 + ts.x, mouse.y - 18 + ts.y), IM_COL32(20, 20, 26, 230), 4);
-        dl->AddText(ImVec2(mouse.x + 18, mouse.y - 20), ui::col::Accent2, what);
+        dl->AddRectFilled(ImVec2(mouse.x + 14, mouse.y - 22), ImVec2(mouse.x + 22 + ts.x, mouse.y - 18 + ts.y), cyui::alpha(cyui::palette().bg0, 0.902f), 4);
+        dl->AddText(ImVec2(mouse.x + 18, mouse.y - 20), cyui::palette().info, what);
         if (ImGui::BeginDragDropTargetCustom(ImRect(origin, ImVec2(origin.x + size.x, origin.y + size.y)), ImGui::GetID("##graphdrop"))) {
             if (const ImGuiPayload* got = ImGui::AcceptDragDropPayload(kEffectPayload)) {
                 std::string id((const char*)got->Data);
@@ -1480,14 +1506,14 @@ void App::DrawNodeEditor() {
         const ImVec2 m0(origin.x + size.x - mw - 10 * dpi, origin.y + size.y - mh - 10 * dpi), m1(m0.x + mw, m0.y + mh);
         const float ox = m0.x + pad + ((mw - 2 * pad) - ext.x * k) * 0.5f, oy = m0.y + pad + ((mh - 2 * pad) - ext.y * k) * 0.5f;
         auto mp = [&](float2 p) { return ImVec2(ox + (p.x - mn.x) * k, oy + (p.y - mn.y) * k); };
-        dl->AddRectFilled(m0, m1, IM_COL32(14, 14, 18, 215), 6);
-        dl->AddRect(m0, m1, ui::col::Border, 6);
-        for (auto& c : g.comments) dl->AddRectFilled(mp(c.pos), mp(c.pos + c.size), IM_COL32(90, 90, 110, 60), 2);
+        dl->AddRectFilled(m0, m1, cyui::alpha(cyui::palette().bg0, 0.843f), 6);
+        dl->AddRect(m0, m1, cyui::palette().line, 6);
+        for (auto& c : g.comments) dl->AddRectFilled(mp(c.pos), mp(c.pos + c.size), cyui::alpha(cyui::palette().lineStrong, 0.235f), 2);
         for (auto& n : g.nodes) {
-            const ImU32 col = ed.selection.count(n.id) ? ui::col::Accent : n.id == g.output ? IM_COL32(230, 160, 40, 220) : IM_COL32(150, 150, 165, 200);
+            const ImU32 col = ed.selection.count(n.id) ? cyui::palette().accent : n.id == g.output ? IM_COL32(230, 160, 40, 220) : cyui::alpha(cyui::palette().textDim, 0.784f);
             dl->AddRectFilled(mp(n.pos), mp(n.pos + float2{lay(n).w, lay(n).h}), col, 1.5f);
         }
-        dl->AddRect(mp(view0), mp(view1), IM_COL32(255, 255, 255, 170), 2, 0, 1.5f);
+        dl->AddRect(mp(view0), mp(view1), cyui::alpha(cyui::palette().text, 0.667f), 2, 0, 1.5f);
         if (overMinimap && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) ed.minimapDrag = true;
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left)) ed.minimapDrag = false;
         if (ed.minimapDrag) {
@@ -1502,8 +1528,8 @@ void App::DrawNodeEditor() {
     ImVec2 bp(origin.x + 10, origin.y + 8);
     if (!editable) {
         const char* msg = "Mode calques : graphe généré depuis les calques. Modifier un lien ou ajouter un nœud passe en mode nodal.";
-        dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + ImGui::CalcTextSize(msg).x + 190 * dpi, bp.y + ImGui::GetFrameHeight()), IM_COL32(20, 20, 26, 220), 5);
-        dl->AddText(ImVec2(bp.x, bp.y + 3), ui::col::TextDim, msg);
+        dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + ImGui::CalcTextSize(msg).x + 190 * dpi, bp.y + ImGui::GetFrameHeight()), cyui::alpha(cyui::palette().bg0, 0.863f), 5);
+        dl->AddText(ImVec2(bp.x, bp.y + 3), cyui::palette().textDim, msg);
         ImGui::SetCursorScreenPos(ImVec2(bp.x + ImGui::CalcTextSize(msg).x + 10, bp.y));
         if (ImGui::SmallButton("Passer en mode nodal")) {
             Edit e(d, v->history, "Convertir en nœuds");
@@ -1540,14 +1566,14 @@ void App::DrawNodeEditor() {
         }
         ui::HelpTooltip("Revenir au graphe qui contient cette fonction (l'onglet reste ouvert).");
         dl->AddText(ImVec2(bp.x + bw + 12, bp.y + 3), IM_COL32(240, 210, 255, 255), path.c_str());
-        dl->AddText(ImVec2(bp.x + bw + 12 + pw + 16, bp.y + 3), IM_COL32(190, 170, 205, 255), hint);
+        dl->AddText(ImVec2(bp.x + bw + 12 + pw + 16, bp.y + 3), cyui::palette().textDim, hint);
         ImGui::SetCursorScreenPos(ImVec2(bp.x + total - sw, bp.y));
         if (ImGui::SmallButton("Enregistrer dans la bibliothèque")) SaveFunctionToLibrary(*v->funcLink.parent, v->funcLink.node);
     } else {
         const char* hint = "Clic droit : nœuds  |  tirer un lien dans le vide : nouveau nœud relié  |  rectangle / Ctrl+clic : sélection  |  F : cadrer  |  M : mini-carte  |  Suppr";
         ImVec2 ts = ImGui::CalcTextSize(hint);
-        dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + ts.x + 6, bp.y + ts.y + 4), IM_COL32(20, 20, 26, 220), 5);
-        dl->AddText(ImVec2(bp.x, bp.y), ui::col::TextDim, hint);
+        dl->AddRectFilled(ImVec2(bp.x - 6, bp.y - 4), ImVec2(bp.x + ts.x + 6, bp.y + ts.y + 4), cyui::alpha(cyui::palette().bg0, 0.863f), 5);
+        dl->AddText(ImVec2(bp.x, bp.y), cyui::palette().textDim, hint);
     }
     dl->PopClipRect();
     ImGui::End();

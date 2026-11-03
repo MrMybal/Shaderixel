@@ -324,7 +324,7 @@ void App::MeshWarpDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
             ImVec2 p = toScreen(xf.pinDst[i]);
             bool sel = (int)i == xf.pinSel;
             dl->AddCircleFilled(p, 6.5f, IM_COL32(20, 20, 24, 255));
-            dl->AddCircleFilled(p, 5.0f, sel ? ui::col::Accent2 : IM_COL32(250, 210, 60, 255));
+            dl->AddCircleFilled(p, 5.0f, sel ? cyui::palette().info : IM_COL32(250, 210, 60, 255));
             if (sel) dl->AddCircleFilled(p, 2.0f, IM_COL32(20, 20, 24, 255));
         }
         return;
@@ -344,7 +344,7 @@ void App::MeshWarpDrawOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
         ImVec2 s[4];
         for (int c = 0; c < 4; ++c) s[c] = toScreen(q[c]);
         dl->AddPolyline(s, 4, IM_COL32(0, 0, 0, 160), ImDrawFlags_Closed, 3.0f);
-        dl->AddPolyline(s, 4, sel ? ui::col::Accent2 : IM_COL32(120, 180, 255, 255), ImDrawFlags_Closed, 1.5f);
+        dl->AddPolyline(s, 4, sel ? cyui::palette().info : IM_COL32(120, 180, 255, 255), ImDrawFlags_Closed, 1.5f);
         if (xf.perspPhase == 0) dl->AddQuadFilled(s[0], s[1], s[2], s[3], sel ? IM_COL32(120, 160, 255, 40) : IM_COL32(120, 160, 255, 18));
     }
     for (auto& p : pts) {

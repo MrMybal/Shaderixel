@@ -246,7 +246,7 @@ void App::TextOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
     const Rect& r = it->second;
     ImVec2 a(canvasMin.x + v.pan.x + r.x0 * v.zoom, canvasMin.y + v.pan.y + r.y0 * v.zoom);
     ImVec2 b(canvasMin.x + v.pan.x + r.x1 * v.zoom, canvasMin.y + v.pan.y + r.y1 * v.zoom);
-    dl->AddRect(a, b, ui::col::Accent2, 0, 0, 1.0f);
+    dl->AddRect(a, b, cyui::palette().info, 0, 0, 1.0f);
     if (al->kind == LayerKind::Text && al->text.path.size() >= 2) {
         std::vector<ImVec2> pts;
         for (auto& p : al->text.path) pts.push_back(ImVec2(canvasMin.x + v.pan.x + p.x * v.zoom, canvasMin.y + v.pan.y + p.y * v.zoom));
@@ -254,7 +254,7 @@ void App::TextOverlay(DocView& v, ImVec2 canvasMin, ImDrawList* dl) {
     }
     if (al->kind == LayerKind::Text) {
         ImVec2 anchor(canvasMin.x + v.pan.x + al->text.pos.x * v.zoom, canvasMin.y + v.pan.y + al->text.pos.y * v.zoom);
-        dl->AddCircleFilled(anchor, 3.5f, ui::col::Accent2);
+        dl->AddCircleFilled(anchor, 3.5f, cyui::palette().info);
     }
 }
 

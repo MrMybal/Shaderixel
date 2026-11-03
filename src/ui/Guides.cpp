@@ -133,8 +133,8 @@ void App::DrawRulers(DocView& v, ImVec2 origin, ImVec2 canvasMin, ImVec2 avail) 
     ImVec2 end(canvasMin.x + avail.x, canvasMin.y + avail.y);
     dl->AddRectFilled(origin, ImVec2(end.x, canvasMin.y), rulerBg);
     dl->AddRectFilled(origin, ImVec2(canvasMin.x, end.y), rulerBg);
-    dl->AddLine(ImVec2(canvasMin.x, canvasMin.y - 1), ImVec2(end.x, canvasMin.y - 1), ui::col::Border);
-    dl->AddLine(ImVec2(canvasMin.x - 1, canvasMin.y), ImVec2(canvasMin.x - 1, end.y), ui::col::Border);
+    dl->AddLine(ImVec2(canvasMin.x, canvasMin.y - 1), ImVec2(end.x, canvasMin.y - 1), cyui::palette().line);
+    dl->AddLine(ImVec2(canvasMin.x - 1, canvasMin.y), ImVec2(canvasMin.x - 1, end.y), cyui::palette().line);
     // Tick spacing: 1-2-5 sequence giving >= 50 screen pixels between labels.
     float step = 1;
     for (float k = 1; k < 1e7f; k *= 10) {

@@ -152,10 +152,10 @@ bool App::ShapePicker(ShapeStyle& s, DocView* v) {
         }
         const bool hov = ImGui::IsItemHovered();
         dl->AddRectFilled(a, b, on ? IM_COL32(70, 60, 130, 255) : hov ? IM_COL32(50, 52, 62, 255) : IM_COL32(36, 37, 44, 255), 4);
-        if (on) dl->AddRect(a, b, ui::col::Accent, 4, 0, 2.0f);
+        if (on) dl->AddRect(a, b, cyui::palette().accent, 4, 0, 2.0f);
         const float u0 = (float)i / (float)all.size(), u1 = (float)(i + 1) / (float)all.size();
         dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(shapeAtlas.get()), ImVec2(a.x + 3, a.y + 3), ImVec2(b.x - 3, b.y - 3), ImVec2(u0, 0), ImVec2(u1, 1));
-        if (cs.user) dl->AddCircleFilled(ImVec2(b.x - 5, a.y + 5), 2.5f, ui::col::Accent);
+        if (cs.user) dl->AddCircleFilled(ImVec2(b.x - 5, a.y + 5), 2.5f, cyui::palette().accent);
         if (hov) ImGui::SetTooltip("%s%s", cs.name.c_str(), cs.user ? "\n(clic droit : supprimer)" : "");
         if (cs.user && ImGui::BeginPopupContextItem("##ushape")) {
             if (ImGui::MenuItem("Supprimer cette forme")) removeName = cs.name;

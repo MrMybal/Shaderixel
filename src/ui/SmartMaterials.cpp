@@ -527,8 +527,8 @@ bool App::DrawSmartMaterialGrid(DocView& v) {
             if (gpu::Texture* t = SmartMaterialThumb(v, name))
                 dl->AddImageRounded((ImTextureID)gpu::Dev().UiTextureId(t), p, ImVec2(p.x + cell, p.y + cell), ImVec2(0, 0), ImVec2(1, 1), IM_COL32_WHITE, 6);
             else
-                dl->AddText(ImVec2(p.x + 8, p.y + cell * 0.45f), ui::col::TextDim, "(aperçu)");
-            dl->AddRect(p, ImVec2(p.x + cell, p.y + cell), hot ? ui::col::Accent : ui::col::Border, 6, 0, hot ? 2.0f : 1.0f);
+                dl->AddText(ImVec2(p.x + 8, p.y + cell * 0.45f), cyui::palette().textDim, "(aperçu)");
+            dl->AddRect(p, ImVec2(p.x + cell, p.y + cell), hot ? cyui::palette().accent : cyui::palette().line, 6, 0, hot ? 2.0f : 1.0f);
             if (hot && !sm["description"].S("").empty()) ImGui::SetTooltip("%s\n\n%s", name.c_str(), sm["description"].S("").c_str());
             ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + cell);
             ImGui::TextUnformatted(name.c_str());

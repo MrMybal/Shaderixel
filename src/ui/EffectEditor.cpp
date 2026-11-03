@@ -590,7 +590,7 @@ void App::DrawEffectEditor() {
     if (EGNode* fsel = g.Find(ed.selected); fsel && (fsel->op == "function" || fsel->op == "funcin" || fsel->op == "funcout")) {
         ImGui::SeparatorText(fsel->op == "function" ? "Fonction" : fsel->op == "funcin" ? "Entrée de fonction" : "Sortie de fonction");
         if (ImGui::InputText("Nom##fn", &fsel->name)) live = true;
-        if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+        if (ImGui::IsItemDeactivatedAfterEdit() || ui::CodeEditorCommitted()) changed = true;
         if (fsel->op != "function") {
             if (ImGui::InputInt("Ordre##fn", &fsel->index)) { fsel->index = std::max(0, fsel->index); changed = true; }
             ui::HelpTooltip("Place de cette broche sur le nœud de la fonction.");
@@ -628,13 +628,13 @@ void App::DrawEffectEditor() {
     ImGui::PushItemWidth(-90 * dpi);
     if (ed.funcPath.empty()) {  // (inside a function: the effect's name is on the top graph)
         if (ImGui::InputText("Nom", &g.name)) live = true;
-        if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+        if (ImGui::IsItemDeactivatedAfterEdit() || ui::CodeEditorCommitted()) changed = true;
         if (ImGui::InputText("Catégorie", &g.category)) live = true;
-        if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+        if (ImGui::IsItemDeactivatedAfterEdit() || ui::CodeEditorCommitted()) changed = true;
     }
     auto trackLive = [&](bool edited) {
         if (edited) live = true;
-        if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+        if (ImGui::IsItemDeactivatedAfterEdit() || ui::CodeEditorCommitted()) changed = true;
     };
     if (g.kind == EGKind::Effect) {
         if (ImGui::SliderInt("Entrées", &g.inputs, 0, 4)) changed = true;
@@ -670,7 +670,7 @@ void App::DrawEffectEditor() {
         const std::string& op = sel->op;
         auto track = [&](bool edited) {
             if (edited) live = true;
-            if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+            if (ImGui::IsItemDeactivatedAfterEdit() || ui::CodeEditorCommitted()) changed = true;
         };
         if (op == "const") track(ImGui::DragFloat("Valeur", &sel->value.x, 0.01f));
         else if (op == "const2") track(ImGui::DragFloat2("Valeur", &sel->value.x, 0.01f));
@@ -711,7 +711,7 @@ void App::DrawEffectEditor() {
             }
             if (stops.front().pos > 0) rdl->AddRectFilled(b0, ImVec2(b0.x + stops.front().pos * bw, b1.y), col(stops.front().color));
             if (stops.back().pos < 1) rdl->AddRectFilled(ImVec2(b0.x + stops.back().pos * bw, b0.y), b1, col(stops.back().color));
-            rdl->AddRect(b0, b1, ui::col::Border);
+            rdl->AddRect(b0, b1, cyui::palette().line);
             ImGui::InvisibleButton("##rampbar", ImVec2(bw, bh + 12 * dpi));
             const ImVec2 mp = ImGui::GetIO().MousePos;
             const float mt = std::clamp((mp.x - b0.x) / std::max(bw, 1.0f), 0.0f, 1.0f);
@@ -720,7 +720,7 @@ void App::DrawEffectEditor() {
                 const float x = b0.x + stops[i].pos * bw;
                 const ImVec2 tri[3] = {ImVec2(x, b1.y + 1), ImVec2(x - 6 * dpi, b1.y + 11 * dpi), ImVec2(x + 6 * dpi, b1.y + 11 * dpi)};
                 rdl->AddTriangleFilled(tri[0], tri[1], tri[2], col(stops[i].color));
-                rdl->AddTriangle(tri[0], tri[1], tri[2], i == rampSel ? ui::col::Accent : IM_COL32(200, 200, 200, 200), i == rampSel ? 2.0f : 1.0f);
+                rdl->AddTriangle(tri[0], tri[1], tri[2], i == rampSel ? cyui::palette().accent : IM_COL32(200, 200, 200, 200), i == rampSel ? 2.0f : 1.0f);
                 if (std::abs(mp.x - x) < 7 * dpi && mp.y > b0.y && mp.y < b1.y + 13 * dpi) hoverStop = i;
             }
             static bool rampDrag = false;
@@ -876,7 +876,7 @@ void App::DrawEffectEditor() {
                                     case kPinInt: {
                                         int iv = (int)std::lround(pin.def.x);
                                         if (ImGui::DragInt("Défaut", &iv)) { pin.def.x = (float)iv; live = true; }
-                                        if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+                                        if (ImGui::IsItemDeactivatedAfterEdit() || ui::CodeEditorCommitted()) changed = true;
                                         break;
                                     }
                                     case kPinBool: {
@@ -892,7 +892,7 @@ void App::DrawEffectEditor() {
                                 if (pin.type != kPinBool && pin.type != kPinColor) {
                                     float r[2] = {pin.min, pin.max};
                                     if (ImGui::DragFloat2("Min / max", r, 0.01f)) { pin.min = r[0]; pin.max = r[1]; live = true; }
-                                    if (ImGui::IsItemDeactivatedAfterEdit()) changed = true;
+                                    if (ImGui::IsItemDeactivatedAfterEdit() || ui::CodeEditorCommitted()) changed = true;
                                 }
                                 ImGui::TextDisabled("Non reliée : réglable dans Propriétés.");
                             }
@@ -1154,8 +1154,8 @@ void App::DrawEffectEditor() {
     float step = 24.0f * ed.zoom;
     if (step > 6) {
         float ox = std::fmod(ed.pan.x * ed.zoom, step), oy = std::fmod(ed.pan.y * ed.zoom, step);
-        for (float x = ox; x < size.x; x += step) dl->AddLine(ImVec2(origin.x + x, origin.y), ImVec2(origin.x + x, origin.y + size.y), ui::col::Grid);
-        for (float y = oy; y < size.y; y += step) dl->AddLine(ImVec2(origin.x, origin.y + y), ImVec2(origin.x + size.x, origin.y + y), ui::col::Grid);
+        for (float x = ox; x < size.x; x += step) dl->AddLine(ImVec2(origin.x + x, origin.y), ImVec2(origin.x + x, origin.y + size.y), cyui::palette().grid);
+        for (float y = oy; y < size.y; y += step) dl->AddLine(ImVec2(origin.x, origin.y + y), ImVec2(origin.x + size.x, origin.y + y), cyui::palette().grid);
     }
 
     auto inPin = [&](const EGNode& n, int i) { return toS(n.op == "reroute" ? n.pos + float2{0, 10} : n.pos + float2{0, kHead + kRowH * (i + 0.5f)}); };
@@ -1355,7 +1355,7 @@ void App::DrawEffectEditor() {
         dl->AddRectFilled(a, b, col(0.14f), rr);
         dl->AddRectFilled(a, ImVec2(b.x, a.y + th), col(0.7f), rr, ImDrawFlags_RoundCornersTop);
         const bool csel = c.id == ed.selComment;
-        dl->AddRect(a, b, csel ? ui::col::Selection : col(0.8f), rr, 0, csel ? 2.5f : 1.0f);
+        dl->AddRect(a, b, csel ? cyui::palette().accent : col(0.8f), rr, 0, csel ? 2.5f : 1.0f);
         dl->AddTriangleFilled(ImVec2(b.x - 12, b.y - 2), ImVec2(b.x - 2, b.y - 2), ImVec2(b.x - 2, b.y - 12), col(0.9f));
         if (ed.zoom > 0.3f) {
             const float cfs = ImGui::GetFontSize() * std::max(0.8f, ed.zoom * 1.05f);
@@ -1373,11 +1373,11 @@ void App::DrawEffectEditor() {
     for (auto& n : g.nodes)
         for (int i = 0; i < (int)n.inputs.size(); ++i) {
             const EGNode* s = n.inputs[i].node ? g.Find(n.inputs[i].node) : nullptr;
-            if (s) link(outPin(*s, n.inputs[i].output), inPin(n, i), (s->id == ed.selected || n.id == ed.selected) ? ui::col::Selection : typeColor(crTypes.OutType(s->id, n.inputs[i].output), 200));
+            if (s) link(outPin(*s, n.inputs[i].output), inPin(n, i), (s->id == ed.selected || n.id == ed.selected) ? cyui::palette().accent : typeColor(crTypes.OutType(s->id, n.inputs[i].output), 200));
         }
     if (ed.dragLink) {
-        if (ed.linkFrom) { if (const EGNode* s = g.Find(ed.linkFrom)) link(outPin(*s, ed.linkFromOut), m, ui::col::Accent); }
-        else if (const EGNode* t = g.Find(ed.linkTo)) link(m, inPin(*t, ed.linkToIn), ui::col::Accent);
+        if (ed.linkFrom) { if (const EGNode* s = g.Find(ed.linkFrom)) link(outPin(*s, ed.linkFromOut), m, cyui::palette().accent); }
+        else if (const EGNode* t = g.Find(ed.linkTo)) link(m, inPin(*t, ed.linkToIn), cyui::palette().accent);
     }
 
     // Result of a node on the simulated inputs: the graph with the output wired to it (rebuilt after a pause in the edits,
@@ -1428,16 +1428,16 @@ void App::DrawEffectEditor() {
             const ImVec2 c((a.x + b.x) * 0.5f, (a.y + b.y) * 0.5f);
             dl->AddLine(inPin(n, 0), outPin(n, 0), typeColor(t, 220), 2.0f * ed.zoom);
             dl->AddCircleFilled(c, 6.5f * ed.zoom, typeColor(t));
-            if (n.id == ed.selected || ed.multi.count(n.id)) dl->AddCircle(c, 10.0f * ed.zoom, ui::col::Selection, 0, 2.0f);
+            if (n.id == ed.selected || ed.multi.count(n.id)) dl->AddCircle(c, 10.0f * ed.zoom, cyui::palette().accent, 0, 2.0f);
             continue;
         }
         float r = 5 * ed.zoom;
         dl->AddRectFilled(ImVec2(a.x + 3, a.y + 4), ImVec2(b.x + 3, b.y + 4), IM_COL32(0, 0, 0, 70), r);
-        dl->AddRectFilled(a, b, ui::col::PanelLight, r);
+        dl->AddRectFilled(a, b, cyui::palette().bg2, r);
         dl->AddRectFilled(a, ImVec2(b.x, a.y + kHead * ed.zoom), CategoryColor(od->category), r, ImDrawFlags_RoundCornersTop);
         bool selected = n.id == ed.selected || ed.multi.count(n.id);
         if (selected) dl->AddRect(ImVec2(a.x - 3, a.y - 3), ImVec2(b.x + 3, b.y + 3), IM_COL32(255, 140, 0, 90), r + 3, 0, 4.0f);
-        dl->AddRect(a, b, errNodes.count(n.id) ? ui::col::Error : selected ? ui::col::Selection : ui::col::Border, r, 0, selected ? 3.0f : 1.0f);
+        dl->AddRect(a, b, errNodes.count(n.id) ? cyui::palette().error : selected ? cyui::palette().accent : cyui::palette().line, r, 0, selected ? 3.0f : 1.0f);
         if (text) {
             std::string title = (n.op == "param" || n.op == "paramcolor" || n.op == "param2" || n.op == "custom") && !n.name.empty()
                                     ? (n.op == "custom" ? "HLSL : " + n.name : !n.text.empty() ? n.text : n.name)
@@ -1461,7 +1461,7 @@ void App::DrawEffectEditor() {
                     snprintf(b2, sizeof(b2), " (%.3g)", n.PinValue(i, od->inputs[i].defValue));
                     lbl += b2;
                 }
-                dl->AddText(font, fs * 0.88f, ImVec2(p.x + 9 * ed.zoom, p.y - fs * 0.45f), setHere ? IM_COL32(150, 200, 255, 255) : ui::col::TextDim, lbl.c_str());
+                dl->AddText(font, fs * 0.88f, ImVec2(p.x + 9 * ed.zoom, p.y - fs * 0.45f), setHere ? IM_COL32(150, 200, 255, 255) : cyui::palette().textDim, lbl.c_str());
             }
         }
         for (int o = 0; o < (int)od->outputs.size(); ++o) {
@@ -1483,7 +1483,7 @@ void App::DrawEffectEditor() {
                 dl->AddRectFilled(tp, ImVec2(tp.x + 40 * ed.zoom, tp.y + fs), c, 3);
                 tp.x += 46 * ed.zoom;
             }
-            dl->AddText(font, fs * 0.9f, tp, ui::col::Text, vt.c_str());
+            dl->AddText(font, fs * 0.9f, tp, cyui::palette().text, vt.c_str());
         }
         if (HasNodePreview(n) && crTypes.OutType(n.id, 0) != kEGTexture) {
             const float pw = kPvH * ed.zoom;
@@ -1494,7 +1494,7 @@ void App::DrawEffectEditor() {
                                                                 (u32)std::max(1.0f, pw), (u32)std::max(1.0f, pw)))
                     dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(shown), pa, pb);
             }
-            dl->AddRect(pa, pb, ui::col::Border);
+            dl->AddRect(pa, pb, cyui::palette().line);
         }
     }
 
@@ -1698,8 +1698,8 @@ void App::DrawEffectEditor() {
     }
     if (ImGui::IsPopupOpen("##efadd") && (ed.ctxFrom || ed.ctxTo)) {
         const ImVec2 to = toS(ed.ctxPos);
-        if (ed.ctxFrom) { if (const EGNode* s = g.Find(ed.ctxFrom)) link(outPin(*s, ed.ctxFromOut), to, ui::col::Accent); }
-        else if (const EGNode* t = g.Find(ed.ctxTo)) link(to, inPin(*t, ed.ctxToIn), ui::col::Accent);
+        if (ed.ctxFrom) { if (const EGNode* s = g.Find(ed.ctxFrom)) link(outPin(*s, ed.ctxFromOut), to, cyui::palette().accent); }
+        else if (const EGNode* t = g.Find(ed.ctxTo)) link(to, inPin(*t, ed.ctxToIn), cyui::palette().accent);
     }
     ImGui::SetNextWindowSizeConstraints(ImVec2(320 * dpi, 0), ImVec2(460 * dpi, 620 * dpi));
     ImGui::SetNextWindowPos(toS(ed.ctxPos), ImGuiCond_Appearing);
@@ -2029,7 +2029,7 @@ void App::DrawEffectEditor() {
         if (gNodePreviews) SpreadNodes(g);  // view only: saved with the next change
         frame(false);
     }
-    dl->AddText(ImVec2(origin.x + 10, origin.y + 8), ui::col::TextDim,
+    dl->AddText(ImVec2(origin.x + 10, origin.y + 8), cyui::palette().textDim,
                 "Clic droit : ajouter  |  sortie vers entrée : relier  |  cadre : sélection  |  Ctrl+C / X / V / D  |  F : cadrer  |  C : commentaire  |  double-clic sur un lien : reroutage  |  Suppr");
     dl->PopClipRect();
 
@@ -2413,7 +2413,7 @@ void App::DrawBrushPad(DocView& v, BrushSettings& b) {
     if (gpu::Texture* t = v.renderer.PadTexture()) dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), o, ImVec2(o.x + w, o.y + h));
     ImGui::InvisibleButton("##brushpad", ImVec2(w, h));
     bool hovered = ImGui::IsItemHovered();
-    dl->AddRect(o, ImVec2(o.x + w, o.y + h), hovered ? ui::col::Accent : ui::col::Border, 4);
+    dl->AddRect(o, ImVec2(o.x + w, o.y + h), hovered ? cyui::palette().accent : cyui::palette().line, 4);
     if (!pad.stroking) dl->AddText(ImVec2(o.x + 8, o.y + 6), IM_COL32(90, 90, 100, 255), "Zone d'essai : dessinez ici (souris ou stylet)");
     if (hovered) {
         float r = std::max(b.size * 0.5f, 1.0f);

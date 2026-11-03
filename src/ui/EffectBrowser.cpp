@@ -4,6 +4,7 @@
 #include "ui/Lang.h"
 #include <stb_image.h>
 #include "ui/Theme.h"
+#include "ui/CyUiState.h"
 
 #include <imgui_internal.h>
 #include <imgui_stdlib.h>
@@ -353,7 +354,7 @@ void App::DrawEffectBrowser() {
     ImGui::SetNextItemWidth(-(std::floor(ImGui::GetFontSize() * 1.1f) + 8 * dpi));  // room for the pop-out icon
     ImGui::InputTextWithHint("##fxsearch", "Rechercher un effet (nom, catégorie)...", &B.search);
     auto chip = [&](const char* label, bool on) {
-        if (on) ImGui::PushStyleColor(ImGuiCol_Button, ui::col::Accent);
+        if (on) ImGui::PushStyleColor(ImGuiCol_Button, cyui::palette().accent);
         bool clicked = ImGui::SmallButton(label);
         if (on) ImGui::PopStyleColor();
         return clicked;
@@ -572,9 +573,9 @@ void App::DrawEffectBrowser() {
         } else {
             const char* wait = "...";
             ImVec2 ts = ImGui::CalcTextSize(wait);
-            dl->AddText(ImVec2(p.x + (cardW - ts.x) * 0.5f, p.y + (cardW - ts.y) * 0.5f), ui::col::TextDim, wait);
+            dl->AddText(ImVec2(p.x + (cardW - ts.x) * 0.5f, p.y + (cardW - ts.y) * 0.5f), cyui::palette().textDim, wait);
         }
-        if (selected) dl->AddRect(p, ImVec2(p.x + cardW, p.y + cardH), ui::col::Accent, 6, 0, 2.0f);
+        if (selected) dl->AddRect(p, ImVec2(p.x + cardW, p.y + cardH), cyui::palette().accent, 6, 0, 2.0f);
         // Graph effect: two linked nodes (top left).
         if (!def.graph.empty()) {
             const float s = fs * 0.17f, bw = fs * 1.7f, bh = fs * 1.05f, m = fs * 0.15f;
@@ -675,10 +676,13 @@ void App::DrawLayerPreview() {
         if (h > av.y) { h = av.y; w = h * a; }
         const u32 tw = (u32)std::max(1.0f, w), th = (u32)std::max(1.0f, h);
         gpu::Texture* t = v->renderer.Thumbnail(*ctx, kLayerPreviewKey, nt, nh ^ ((u64)tw << 40) ^ ((u64)th << 20) ^ ((u64)selNode->id << 8) ^ 7, tw, th);
-        ImVec2 p = ImGui::GetCursorScreenPos();
-        p.x += (av.x - w) * 0.5f;
-        ImGui::SetCursorScreenPos(p);
-        ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(t), ImVec2(w, h));
+        {
+        cyui::ItemScope document((u64)(uintptr_t)v->doc.get());
+        cyui::ItemScope source(selNode->id);
+        auto& state = ui::CyUiViewState<cyui::ImageState>(ImGui::GetID("nodePreview"));
+        if (t) cyui::imageViewport("##nodePreview", state,
+            {(ImTextureID)gpu::Dev().UiTextureId(t), (int)nt->Width(), (int)nt->Height()}, av);
+        }
         ImGui::End();
         return;
     }
@@ -712,10 +716,14 @@ void App::DrawLayerPreview() {
     if (h > avail.y) { h = avail.y; w = h * aspect; }
     u32 tw = (u32)std::max(1.0f, w), th = (u32)std::max(1.0f, h);
     gpu::Texture* t = v->renderer.Thumbnail(*ctx, kLayerPreviewKey, src, hash ^ ((u64)tw << 40) ^ ((u64)th << 20) ^ (u64)what, tw, th);
-    ImVec2 p = ImGui::GetCursorScreenPos();
-    p.x += (avail.x - w) * 0.5f;
-    ImGui::SetCursorScreenPos(p);
-    ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(t), ImVec2(w, h));
+    {
+    cyui::ItemScope document((u64)(uintptr_t)v->doc.get());
+    cyui::ItemScope source((d.Mode()==DocMode::Layers && l) ? l->id : d.S().activeNode);
+    cyui::ScopedID mode(what);
+    auto& state = ui::CyUiViewState<cyui::ImageState>(ImGui::GetID("layerPreview"));
+    if (t) cyui::imageViewport("##layerPreview", state,
+        {(ImTextureID)gpu::Dev().UiTextureId(t), (int)src->Width(), (int)src->Height()}, avail);
+    }
     ImGui::End();
 }
 

@@ -33,6 +33,8 @@
 #include <thread>
 
 #include <imgui.h>
+#include <cyui/modules/Images.h>
+#include <cyui/modules/Plots.h>
 #include <memory>
 #include <optional>
 #include <unordered_map>
@@ -814,6 +816,7 @@ private:
     gpu::ReadbackPtr dumpRb;
     int captureFrame = 30;
     u64 frameCounter = 0;
+    int uiErrorCount = 0;
     gpu::ReadbackPtr captureRb;
 
     HWND hwnd = nullptr;
@@ -874,9 +877,13 @@ private:
         float pos = 0;
         float4 color = {0, 0, 0, 1};
         int follow = 0;  // 0 own color, 1 foreground, 2 background
+        u64 uiId = 0;  // stable view ID, independent of order and position
     };
     std::vector<GradStop> gradStops = {{0, {0, 0, 0, 1}, 1}, {1, {1, 1, 1, 1}, 2}};
     int gradSel = 0;
+    cyui::GradientState gradUi;
+    std::vector<cyui::GradientStop> gradUiModel;
+    u64 gradUiNext = 1, gradUiRevision = 1;
     bool gradReverse = false, gradDither = true, gradPerceptual = true;
     void GradientEditorUI();
     // selection options
@@ -1601,6 +1608,8 @@ private:
         bool applyDist = true, applyTca = true, applyVig = true;
     } lensPick;
     std::string lensfunDir;  // setting ("": automatic)
+    std::string uiTheme = "violet";
+    bool uiComfortable = true;
     std::string uiLanguage = "en";  // interface language (ui/Lang.h), English by default
     void OpenCameraRaw(DocView& v);
     void DrawCameraRaw();

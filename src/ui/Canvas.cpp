@@ -131,7 +131,7 @@ void App::DrawToolbar() {
             if (p3d ? !allowed3D(group[0]) : only3D(group[0])) continue;
             if (g == 1 || g == 5 || g == 17) {  // separators before transform, brushes, gradients
                 ImVec2 c = ImGui::GetCursorScreenPos();
-                ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);
+                ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), cyui::palette().line);
                 ImGui::Dummy(ImVec2(size, 3 * dpi));
             }
             Tool shown = group[0];
@@ -156,7 +156,7 @@ void App::DrawToolbar() {
             }
             if (group.size() > 1) {
                 ImGui::GetWindowDrawList()->AddTriangleFilled(ImVec2(pos.x + size - 2, pos.y + size - 7), ImVec2(pos.x + size - 2, pos.y + size - 2),
-                                                              ImVec2(pos.x + size - 7, pos.y + size - 2), ui::col::TextDim);
+                                                              ImVec2(pos.x + size - 7, pos.y + size - 2), cyui::palette().textDim);
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) ImGui::OpenPopup("##flyout");
                 if (ImGui::BeginPopup("##flyout")) {
                     for (Tool t : group) {
@@ -169,7 +169,7 @@ void App::DrawToolbar() {
                             if (xf.active && xf.view) TransformCommit(*xf.view);
                             tool = t;
                         }
-                        ui::DrawIcon(ImGui::GetWindowDrawList(), ti.icon, ImVec2(ip.x + h * 0.5f, ip.y + h * 0.5f), h * 0.6f, ui::col::Text);
+                        ui::DrawIcon(ImGui::GetWindowDrawList(), ti.icon, ImVec2(ip.x + h * 0.5f, ip.y + h * 0.5f), h * 0.6f, cyui::palette().text);
                         ImGui::SameLine(200 * dpi);
                         ImGui::TextDisabled("%s", ti.key);
                     }
@@ -181,7 +181,7 @@ void App::DrawToolbar() {
         if (!pluginTools.empty()) {
             // Tools of the plugins (Plugins > Outils too).
             ImVec2 c = ImGui::GetCursorScreenPos();
-            ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), ui::col::Border);
+            ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), cyui::palette().line);
             ImGui::Dummy(ImVec2(size, 3 * dpi));
             for (size_t i = 0; i < pluginTools.size(); ++i) {
                 const auto& pt = pluginTools[i];
@@ -202,7 +202,7 @@ void App::DrawToolbar() {
         ImDrawList* dl = ImGui::GetWindowDrawList();
         ImVec2 bgMin(p.x + size - sw, p.y + size - sw);
         dl->AddRectFilled(bgMin, ImVec2(bgMin.x + sw, bgMin.y + sw), ImGui::ColorConvertFloat4ToU32(ImVec4(bg.x, bg.y, bg.z, 1)), 3);
-        dl->AddRect(bgMin, ImVec2(bgMin.x + sw, bgMin.y + sw), ui::col::Border, 3);
+        dl->AddRect(bgMin, ImVec2(bgMin.x + sw, bgMin.y + sw), cyui::palette().line, 3);
         dl->AddRectFilled(p, ImVec2(p.x + sw, p.y + sw), ImGui::ColorConvertFloat4ToU32(ImVec4(fg.x, fg.y, fg.z, 1)), 3);
         dl->AddRect(p, ImVec2(p.x + sw, p.y + sw), IM_COL32(200, 200, 210, 255), 3);
         ImGui::SetCursorScreenPos(p);
@@ -449,7 +449,7 @@ void App::DrawCanvas() {
         dl->AddLine(a, b, IM_COL32(0, 0, 0, 160), 3);
         dl->AddLine(a, b, IM_COL32_WHITE, 1.5f);
         dl->AddCircleFilled(a, 4, IM_COL32_WHITE);
-        dl->AddCircleFilled(b, 4, ui::col::Accent);
+        dl->AddCircleFilled(b, 4, cyui::palette().accent);
     }
     // Paint-target hint
     if (hovered && (IsPaintTool(tool) || tool == Tool::Gradient || tool == Tool::Bucket || tool == Tool::Move) && !doc.PaintTarget()) {
@@ -469,7 +469,7 @@ void App::DrawCanvas() {
     if (const ImGuiPayload* pl = ImGui::GetDragDropPayload(); pl && pl->IsDataType(kEffectPayload) && doc.Mode() == DocMode::Layers && doc.ActiveLayer()) {
         ImRect r(canvasMin, ImVec2(canvasMin.x + avail.x, canvasMin.y + avail.y));
         if (ImGui::BeginDragDropTargetCustom(r, ImGui::GetID("##canvasdrop"))) {
-            dl->AddRect(r.Min, r.Max, ui::col::Accent2, 0, 0, 3.0f);
+            dl->AddRect(r.Min, r.Max, cyui::palette().info, 0, 0, 3.0f);
             if (const ImGuiPayload* got = ImGui::AcceptDragDropPayload(kEffectPayload)) DropEffectOnLayer(*v, doc.S().activeLayer, (const char*)got->Data);
             ImGui::EndDragDropTarget();
         }

@@ -373,7 +373,7 @@ void App::DrawExtraWindows() {
                 ImVec2 c = ImGui::GetCursorScreenPos(), avail = ImGui::GetContentRegionAvail();
                 const char* hint = "Glissez des panneaux ici (par leur onglet).\nCette fenêtre peut aller sur un autre écran.";
                 ImVec2 ts = ImGui::CalcTextSize(hint);
-                ImGui::GetWindowDrawList()->AddText(ImVec2(c.x + (avail.x - ts.x) * 0.5f, c.y + (avail.y - ts.y) * 0.5f), ui::col::TextDim, hint);
+                ImGui::GetWindowDrawList()->AddText(ImVec2(c.x + (avail.x - ts.x) * 0.5f, c.y + (avail.y - ts.y) * 0.5f), cyui::palette().textDim, hint);
             }
             ImGui::DockSpace(dock, ImGui::GetContentRegionAvail(), ImGuiDockNodeFlags_None);
         } else {

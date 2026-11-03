@@ -2,6 +2,7 @@
 #include "ui/Lang.h"
 
 #include <imgui_internal.h>
+#include <cyui/Core.h>
 
 #include <algorithm>
 #include <cstring>
@@ -59,32 +60,10 @@ GlobalSearch& GlobalSearch::Get() {
 }
 
 std::string GlobalSearch::Fold(const std::string& s) {
-    // Lower case; accented letters as their base letter (UTF-8 Latin-1 range + oe).
-    static const char* from[] = {"à", "â", "ä", "á", "ã", "å", "À", "Â", "Ä", "Á", "ç", "Ç", "é", "è", "ê", "ë", "É", "È", "Ê", "Ë", "î", "ï", "í", "ì", "Î", "Ï",
-                                 "ô", "ö", "ó", "ò", "õ", "Ô", "Ö", "ù", "û", "ü", "ú", "Ù", "Û", "Ü", "ÿ", "ñ", "Ñ", "œ", "Œ", "æ", "Æ", "’"};
-    static const char* to[] = {"a", "a", "a", "a", "a", "a", "a", "a", "a", "a", "c", "c", "e", "e", "e", "e", "e", "e", "e", "e", "i", "i", "i", "i", "i", "i",
-                               "o", "o", "o", "o", "o", "o", "o", "u", "u", "u", "u", "u", "u", "u", "y", "n", "n", "oe", "oe", "ae", "ae", "'"};
-    std::string out;
-    out.reserve(s.size());
-    for (size_t i = 0; i < s.size();) {
-        const unsigned char c = (unsigned char)s[i];
-        if (c < 0x80) {
-            out.push_back((char)((c >= 'A' && c <= 'Z') ? c + 32 : c));
-            ++i;
-            continue;
-        }
-        bool done = false;
-        for (size_t k = 0; k < sizeof(from) / sizeof(from[0]) && !done; ++k) {
-            const size_t n = std::strlen(from[k]);
-            if (s.compare(i, n, from[k]) == 0) {
-                out += to[k];
-                i += n;
-                done = true;
-            }
-        }
-        if (!done) out.push_back(s[i++]);
-    }
-    return out;
+    // Preserve apostrophe matching while sharing CyUI's UTF-8 accent/ligature folding.
+    std::string text=s;
+    for (size_t at=0;(at=text.find("’",at))!=std::string::npos;) text.replace(at,3,"'");
+    return cyui::foldFilterText(text);
 }
 
 std::string GlobalSearch::Key(int kind, const std::vector<std::string>& path, const std::string& label) {

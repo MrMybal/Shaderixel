@@ -42,6 +42,19 @@ void CompareReadbacks(const char* what, const gpu::Readback& a, const gpu::Readb
 }  // namespace
 
 void App::DemoTick() {
+    if (frameCounter==70) {
+        if (const char* focus=getenv("SX_UI_FOCUS")) {
+            const bool gradient=std::string(focus)=="gradient";
+            const char* panel=gradient?"Options":std::string(focus)=="analysis"?"Analyse d'image":"Propriétés";
+            if (gradient) tool=Tool::Gradient;
+            panelOpen[panel].open=true;
+            ShowSideTab(gradient?1:0);
+            if (std::string(focus)=="code") {
+                efEd.filterIndex=-1;
+                OpenGraphEditor(0);
+            } else FocusPanel(panel);
+        }
+    }
     DocView* v = Active();
     if (demoMode == 15 && v) {
         // Tiled vs full rendering must match (halo correctness, no seams), including after an incremental stroke.

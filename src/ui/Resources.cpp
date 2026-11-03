@@ -334,7 +334,7 @@ void App::DrawPatternsPanel() {
         // Two repeats so the tiling shows.
         float rep = cell / std::max(p.w, p.h) < 0.5f ? 1.0f : 2.0f;
         dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(p.thumb.get()), a, ImVec2(a.x + cell, a.y + cell), ImVec2(0, 0), ImVec2(rep, rep));
-        dl->AddRect(a, ImVec2(a.x + cell, a.y + cell), i == patternSel ? ui::col::Accent : ui::col::Border, 2, 0, i == patternSel ? 2.0f : 1.0f);
+        dl->AddRect(a, ImVec2(a.x + cell, a.y + cell), i == patternSel ? cyui::palette().accent : cyui::palette().line, 2, 0, i == patternSel ? 2.0f : 1.0f);
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s (%d x %d)\nCtrl+clic : outil Tampon de motif", p.name.c_str(), p.w, p.h);
         ImGui::PopID();
     }
@@ -432,7 +432,7 @@ void App::DrawSwatchesPanel() {
         ImGui::InvisibleButton("##sw", ImVec2(s, s));
         ImDrawList* dl = ImGui::GetWindowDrawList();
         dl->AddRectFilled(a, ImVec2(a.x + s, a.y + s), ImGui::ColorConvertFloat4ToU32(ImVec4(sw.srgb.x, sw.srgb.y, sw.srgb.z, 1)), 2);
-        dl->AddRect(a, ImVec2(a.x + s, a.y + s), ImGui::IsItemHovered() ? ui::col::Accent : IM_COL32(0, 0, 0, 90), 2);
+        dl->AddRect(a, ImVec2(a.x + s, a.y + s), ImGui::IsItemHovered() ? cyui::palette().accent : IM_COL32(0, 0, 0, 90), 2);
         if (ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
             if (ImGui::GetIO().KeyCtrl || ImGui::GetIO().KeyAlt) bg = sw.srgb;
             else fg = sw.srgb;
