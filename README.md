@@ -3,6 +3,22 @@
 GPU image editor with a Photoshop-style **layer** workflow and a **node graph**
 workflow. Effects are written in HLSL/Slang and compiled at runtime.
 
+## Install (Windows x64)
+
+[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261103/Shaderixel-0.1.0-alpha.20261103-windows-x64-setup.exe)
+and run it. Windows 10 version 2004 or later and a D3D12-capable GPU are required;
+the Vulkan executable requires a compatible Vulkan driver.
+
+The installer defaults to `%LOCALAPPDATA%\Programs\Shaderixel Alpha` and does not
+require administrator rights. It adds Start menu shortcuts for D3D12 and Vulkan,
+with an optional desktop shortcut. Visual C++ runtime libraries, effects, graph
+functions, examples and license notices are included. The installer interface
+starts in English; French is also available.
+
+Uninstall from **Windows Settings > Apps**. User-created files and settings are
+retained. The portable ZIP remains available on the
+[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261103).
+
 ## Screenshots
 
 **Layers and non-destructive effects** — combine painting, gradients, masks and
@@ -40,6 +56,29 @@ The Release executables are generated in `build/Release/`: `Shaderixel.exe`
 (D3D12) and, when the Vulkan headers are available, `ShaderixelVk.exe` (Vulkan).
 Use `build_target.bat <target>` to build a single target. The build copies the
 interface dictionaries into `lang/` alongside the executables.
+
+## Build the Windows installer
+
+Install [Inno Setup 7](https://jrsoftware.org/isdl.php), then generate the example
+package and compile the setup executable with the Visual Studio x64 CRT:
+
+```bat
+python tools/package.py --source-only-unreal --name Shaderixel-0.1.0-alpha.20261103-windows-x64
+python tools/build_installer.py --package dist/Shaderixel-0.1.0-alpha.20261103-windows-x64 --version 0.1.0-alpha.20261103 --iscc "C:\Program Files\Inno Setup 7\ISCC.exe"
+```
+
+Use a fresh version/package name for each build. The installer tool rebuilds both
+executables, stages selected package content and writes a setup EXE plus a SHA-256
+sidecar to `dist/`. Use `--crt-dir` to select another Visual Studio x64
+`Microsoft.VC143.CRT` redistributable directory. Machine-dependent demo guide
+captures and runtime caches are excluded; the reviewed README screenshots are included.
+
+`python tools/test_installer.py --installer <setup.exe> --manifest <manifest.json>`
+checks installation, reinstall, both installed executables and uninstall while
+preserving a user-created file. The manifest is generated under
+`build/InstallerPayload/<version>/manifest.json`. The check refuses to replace an
+existing Shaderixel Alpha registration and uses silent installers and internal
+application demos without operating system input devices.
 
 ## Dependencies (`external/`, not tracked by Git)
 
