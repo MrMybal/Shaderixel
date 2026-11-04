@@ -28,6 +28,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--installer', required=True, type=Path)
     parser.add_argument('--manifest', required=True, type=Path)
+    parser.add_argument('--upgrade-from', type=Path, help='Previous setup EXE used before installing the new one')
     args = parser.parse_args()
     if registered() is not None:
         parser.error('An existing Shaderixel Alpha registration must not be changed by this test.')
@@ -59,7 +60,17 @@ def main():
         command = [str(installer), '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
                    '/LANG=english', '/DIR=' + str(app), '/GROUP=' + group, '/TASKS=',
                    '/LOG=' + str(work / 'install.log')]
+        if args.upgrade_from:
+            old_command = [str(args.upgrade_from.resolve()), *command[1:]]
+            run(old_command)
+            assert registered() and Path(registered()).resolve() == app.resolve()
+            (app / 'upgrade-user-file.sxl').write_bytes(b'Upgrade preservation fixture\n')
+            (app / 'shaderixel_settings.json').write_text('{"updates":{"checkAtStartup":false,"includePrereleases":true}}', encoding='utf-8')
         run(command)
+        if args.upgrade_from:
+            assert (app / 'upgrade-user-file.sxl').read_bytes() == b'Upgrade preservation fixture\n'
+            assert json.loads((app / 'shaderixel_settings.json').read_text(encoding='utf-8'))['updates']['checkAtStartup'] is False
+            results.append({'check': 'upgrade preserves projects and startup-update preferences', 'passed': True})
         assert registered() and Path(registered()).resolve() == app.resolve()
         verify_payload()
         assert (start_menu / 'Shaderixel Alpha.lnk').is_file()

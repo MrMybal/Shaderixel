@@ -75,13 +75,28 @@ int App::Run() {
             int dirtyIdx = -1;
             for (int i = 0; i < (int)docs.size(); ++i) if (docs[i]->doc->dirty) { dirtyIdx = i; break; }
             if (dirtyIdx >= 0 && closePrompt == -1) { activeDoc = dirtyIdx; focusDocRequest = dirtyIdx; closePrompt = dirtyIdx; }
-            if (dirtyIdx < 0 && saves.empty()) quit = true;
+            if (dirtyIdx < 0 && saves.empty()) {
+                if (!pendingUpdateInstaller.empty() && !updates::VerifyFile(pendingUpdateInstaller, updateClient.Get().release)) {
+                    pendingUpdateInstaller.clear(); quitting = false; showUpdates = true;
+                    updateInstallError = "Installer verification failed. Download the update again.";
+                } else quit = true;
+            }
         }
         if (quit) break;
         if (IsIconic(hwnd)) { Sleep(16); continue; }
         Frame();
     }
     Shutdown();
+    if (!pendingUpdateInstaller.empty()) {
+        std::wstring parameters = gpu::BackendName() == std::string("Vulkan") ? L"/NORESTART /Backend=vulkan" : L"/NORESTART /Backend=d3d12";
+        if (fs::exists(Utf8Path(ExeDir() + "/unins000.exe"))) parameters += L" /DIR=\"" + Widen(ExeDir()) + L"\"";
+        auto result = ShellExecuteW(nullptr, L"open", Widen(pendingUpdateInstaller).c_str(), parameters.c_str(), nullptr, SW_SHOWNORMAL);
+        if ((INT_PTR)result <= 32) {
+            MessageBoxW(nullptr, L"The update installer could not be started. Open Help > Check for updates and download it again.",
+                        L"Shaderixel update", MB_OK | MB_ICONERROR);
+            return 1;
+        }
+    }
     return uiErrorCount ? 1 : 0;
 }
 
@@ -107,6 +122,8 @@ void App::ParseCommandLine() {
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
         else if (a == "--focus" && i + 1 < argc) focusAtStart.push_back(Narrow(argv[++i]));  // panel to bring forward (captures)
         else if (a == "--about") aboutAtStart = true;
+        else if (a == "--updates") showUpdates = true;
+        else if (a == "--check-updates") { showUpdates = true; updateCheckRequested = true; }
         else if (a == "--multiwindow") multiWindowTest = true;  // screenshot of the About box
         else if (a == "--save" && i + 1 < argc) cliSavePath = Narrow(argv[++i]);  // save the active document at the capture frame
         else if (a == "--dump-image" && i + 1 < argc) dumpPath = Narrow(argv[++i]);  // document composite at the capture frame
@@ -409,11 +426,13 @@ bool App::Init() {
         ShowWindow(hwnd, SW_SHOWMAXIMIZED);
     }
     UpdateWindow(hwnd);
+    InitUpdates();
     // No document at launch: the canvas shows the welcome screen (logo, new/open, recent files).
     return true;
 }
 
 void App::Shutdown() {
+    updateClient.Cancel();
     SaveSearch();
     ShutdownPlugins();
     ShutdownLink();
@@ -509,6 +528,7 @@ void App::DrawAbout() {
         ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(logoTex.get()), ImVec2(s, s));
     }
     ImGui::Dummy(ImVec2(ImGui::GetFontSize() * 22, 0));
+    ImGui::Text("Shaderixel %s", updates::Version);
     ImGui::TextUnformatted("Éditeur d'images entièrement GPU");
     ImGui::TextDisabled("Calques, mode nodal, effets HLSL/Slang, peinture 3D PBR, IA (MCP)");
     ImGui::TextDisabled("Rendu : %s    Compilation : %s", gpu::BackendName(), __DATE__);
@@ -791,6 +811,7 @@ void App::Frame() {
     DrawPopOutCorners();
 
     DrawClosePrompt();
+    DrawUpdates();
     UpdateSaves();
     UpdateTemplateJobs();
     UpdateTitle();
@@ -1500,6 +1521,7 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem("Guide de test", nullptr, false, std::filesystem::exists(guide)))
             ShellExecuteW(nullptr, L"open", guide.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         ImGui::Separator();
+        if (ImGui::MenuItem(cyui::trLabel("Check for updates...").c_str())) { showUpdates = true; updateClient.CheckNow(updateIncludePrereleases); }
         if (ImGui::MenuItem("À propos de Shaderixel")) showAbout = true;
         ImGui::EndMenu();
     }
@@ -2708,6 +2730,7 @@ void App::DrawClosePrompt() {
     if (ImGui::Button("Annuler", ImVec2(110 * dpi, 0)) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         closePrompt = -1;
         quitting = false;
+        pendingUpdateInstaller.clear();
         ImGui::CloseCurrentPopup();
     }
     ImGui::EndPopup();

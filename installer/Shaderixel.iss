@@ -61,7 +61,16 @@ Name: "{group}\Shaderixel Alpha (Vulkan)"; Filename: "{app}\ShaderixelVk.exe"; W
 Name: "{autodesktop}\Shaderixel Alpha"; Filename: "{app}\Shaderixel.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\Shaderixel.exe"; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,Shaderixel Alpha}"; Flags: nowait postinstall skipifsilent
+Filename: "{code:GetLaunchExecutable}"; WorkingDir: "{app}"; Description: "{cm:LaunchProgram,Shaderixel Alpha}"; Flags: nowait postinstall skipifsilent
 
 ; Only installed files are removed. User-created projects, presets and settings
 ; are deliberately not matched by recursive uninstall deletion rules.
+
+[Code]
+function GetLaunchExecutable(Param: String): String;
+begin
+  if CompareText(ExpandConstant('{param:Backend|d3d12}'), 'vulkan') = 0 then
+    Result := ExpandConstant('{app}\ShaderixelVk.exe')
+  else
+    Result := ExpandConstant('{app}\Shaderixel.exe');
+end;

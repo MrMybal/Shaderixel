@@ -4,6 +4,7 @@
 #include <set>
 // Application shell: window, frame loop, documents, panels.
 
+#include "core/Updates.h"
 #include "doc/Document.h"
 #include "doc/History.h"
 #include "render/Renderer.h"
@@ -2107,6 +2108,14 @@ private:
     // dialogs / panels
     bool showNewDoc = false;
     bool showAbout = false, aboutAtStart = false;
+    updates::Client updateClient;
+    bool updateCheckAtStartup = true, updateIncludePrereleases = true;
+    bool showUpdates = false, updateNotified = false, updateCheckRequested = false;
+    std::string pendingUpdateInstaller, updateInstallError;
+    void InitUpdates();
+    void DrawUpdates();
+    void InstallReadyUpdate();
+
     gpu::TexturePtr logoTex;  // embedded logo (resource 2), loaded on the first frame
     bool logoTried = false;
     void LoadLogo();

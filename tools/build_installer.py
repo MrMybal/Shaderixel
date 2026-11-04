@@ -50,6 +50,8 @@ def main():
     args = parser.parse_args()
     if not re.fullmatch(r'\d+\.\d+\.\d+-alpha\.[A-Za-z0-9._-]+', args.version):
         parser.error('Expected an alpha version such as 0.1.0-alpha.20261103')
+    if args.version != (ROOT / "VERSION").read_text(encoding="ascii").strip():
+        parser.error("Installer version must match VERSION.")
     package = args.package.resolve()
     for relative in ('LICENSE', 'shaders', 'functions', 'lang/en.json'):
         if not (package / relative).exists():

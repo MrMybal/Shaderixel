@@ -5,7 +5,7 @@ workflow. Effects are written in HLSL/Slang and compiled at runtime.
 
 ## Install (Windows x64)
 
-[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261103/Shaderixel-0.1.0-alpha.20261103-windows-x64-setup.exe)
+[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261104/Shaderixel-0.1.0-alpha.20261104-windows-x64-setup.exe)
 and run it. Windows 10 version 2004 or later and a D3D12-capable GPU are required;
 the Vulkan executable requires a compatible Vulkan driver.
 
@@ -17,7 +17,26 @@ starts in English; French is also available.
 
 Uninstall from **Windows Settings > Apps**. User-created files and settings are
 retained. The portable ZIP remains available on the
-[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261103).
+[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261104).
+
+## Updates
+
+Shaderixel checks GitHub releases in the background at startup. Open
+**Help > Check for updates...** to check manually, change the startup preference
+or choose whether to include alpha/prerelease versions.
+
+When a newer Windows installer is available, the update window shows the release
+notes and a download button. The application verifies the download size and
+SHA-256 before offering **Install and restart**. Unsaved documents go through the
+normal save/discard/cancel prompts; cancelling keeps the application open. The
+setup wizard preserves the installed folder and the current D3D12/Vulkan backend.
+A failed or offline check leaves the editor usable and can be retried manually.
+
+The first installer dated 2026-11-03 has no built-in updater. Install the
+2026-11-04 alpha once to enable subsequent checks. No GitHub account is required
+for this public release channel. Development capture/effect-test runs skip the
+startup check; `--updates` opens the panel and `--check-updates` explicitly runs a
+check, including during an automated capture.
 
 ## Screenshots
 
@@ -63,8 +82,8 @@ Install [Inno Setup 7](https://jrsoftware.org/isdl.php), then generate the examp
 package and compile the setup executable with the Visual Studio x64 CRT:
 
 ```bat
-python tools/package.py --source-only-unreal --name Shaderixel-0.1.0-alpha.20261103-windows-x64
-python tools/build_installer.py --package dist/Shaderixel-0.1.0-alpha.20261103-windows-x64 --version 0.1.0-alpha.20261103 --iscc "C:\Program Files\Inno Setup 7\ISCC.exe"
+python tools/package.py --source-only-unreal --name Shaderixel-0.1.0-alpha.20261104-windows-x64
+python tools/build_installer.py --package dist/Shaderixel-0.1.0-alpha.20261104-windows-x64 --version 0.1.0-alpha.20261104 --iscc "C:\Program Files\Inno Setup 7\ISCC.exe"
 ```
 
 Use a fresh version/package name for each build. The installer tool rebuilds both
@@ -94,6 +113,13 @@ application demos without operating system input devices.
 - DXC (`dxcompiler.dll` / `dxil.dll`): copied automatically from the Windows SDK.
 - Vulkan (optional): `git clone --depth 1 https://github.com/KhronosGroup/Vulkan-Headers external/vulkan-headers`
   and `git clone --depth 1 https://github.com/zeux/volk external/volk`. No Vulkan SDK is required; a compatible driver is needed at runtime.
+
+## Update checks
+
+Run `tools\test_updates.bat` for release selection, version ordering, trusted URL
+validation and installer integrity checks. Add `--live` to download and verify a
+published installer from GitHub without launching it. For installer upgrade
+checks, pass `--upgrade-from <previous-setup.exe>` to `tools/test_installer.py`.
 
 ## UI integration checks
 

@@ -60,6 +60,8 @@ void App::LoadAiSettings() {
         uiLanguage = j["ui"]["language"].S("en");
         uiTheme = j["ui"]["theme"].S("violet");
         uiComfortable = j["ui"]["comfortable"].B(true);
+        updateCheckAtStartup = j["updates"]["checkAtStartup"].B(true);
+        updateIncludePrereleases = j["updates"]["includePrereleases"].B(std::string(updates::Version).find('-') != std::string::npos);
         histGpuMB = j["history"]["gpuMB"].I(0);
         histGpuMaxMB = j["history"]["gpuMaxMB"].I(0);
         histRamMB = j["history"]["ramMB"].I(0);
@@ -94,6 +96,8 @@ void App::SaveAiSettings() {
     ui["theme"] = uiTheme;
     ui["comfortable"] = uiComfortable;
     j["ui"] = ui;
+    j["updates"]["checkAtStartup"] = updateCheckAtStartup;
+    j["updates"]["includePrereleases"] = updateIncludePrereleases;
     Json hist = Json::Object();  // 0: automatic (from the graphics card and the system memory)
     hist["gpuMB"] = histGpuMB;
     hist["gpuMaxMB"] = histGpuMaxMB;
