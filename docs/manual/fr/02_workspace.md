@@ -22,7 +22,7 @@ Double-cliquez ou Ctrl+cliquez sur une valeur numérique pour la saisir. Entrée
 
 Affichage > Langue change l'interface. Le manuel peut suivre cette langue automatiquement ou se consulter dans une autre langue avec son sélecteur.
 
-F1 ouvre l'aide du panneau actif ou du nœud sélectionné. Propriétés > Aide sur la sélection et le menu contextuel d'un nœud ouvrent la même fiche. Aide > Documentation reprend la lecture ; Dans ce chapitre mène aux sections et Taille du texte agrandit l'article sans modifier l'échelle de l'éditeur.
+F1 ouvre l'aide du panneau actif ou du nœud sélectionné. Propriétés > Aide sur la sélection et le menu contextuel d'un nœud ouvrent la même fiche. Aide > Documentation rouvre le manuel local ; le sommaire CyDoc mène aux sections et le zoom du navigateur agrandit l’article sans modifier l’échelle de l’éditeur.
 
 Avec Canevas, Vue 3D, la barre ou Options actif, F1 ouvre la fiche de l'outil courant. Options > Aide de l'outil et Aide > Référence des outils donnent également un accès direct.
 

@@ -1,9 +1,5 @@
 # Texte, formes et géométrie booléenne
 
-Styles de texte conserve des réglages typographiques séparés du contenu. Vérifiez police disponible, alignement, interligne et cadre après application à un autre texte. Un calque reste modifiable pendant que ses pixels calculés passent dans les filtres.
-
-Pour une géométrie exacte, saisissez largeur/hauteur propres à la forme en pixels, avec proportions désactivées si nécessaire. Rotation, contour, ombre et transformation de calque peuvent changer les limites visibles. Utilisez des décimales si voulu et inspectez l’anticrénelage à la taille finale.
-
 ## Texte éditable
 
 Choisissez Texte (T), cliquez pour créer le calque puis saisissez le contenu dans Propriétés. Cliquer un texte existant l'édite. Réglez police, taille, couleur, alignement et interligne avant le placement.
@@ -12,7 +8,13 @@ Gardez le texte éditable pour corriger orthographe et mise en page. Un dégrad�
 
 Les polices doivent être disponibles sur l'autre machine pour une édition reproductible. Pour livrer une image, exportez la composition. Convertir en pixels rend les glyphes peignables ; annuler restaure le texte.
 
+## Styles de texte
+
+Styles de texte conserve des réglages typographiques séparés du contenu. Vérifiez police disponible, alignement, interligne et cadre après application à un autre texte. Un calque reste modifiable pendant que ses pixels calculés passent dans les filtres.
+
 ## Formes
+
+Pour une géométrie exacte, saisissez largeur/hauteur propres à la forme en pixels, avec proportions désactivées si nécessaire. Rotation, contour, ombre et transformation de calque peuvent changer les limites visibles. Utilisez des décimales si voulu et inspectez l’anticrénelage à la taille finale.
 
 Choisissez Forme (U), tracez le cadre puis réglez type, remplissage, contour et géométrie dans Propriétés. Rectangle, ellipse, polygone, étoile et ligne ont des paramètres distincts. Le cadre précède rotation, contour et filtres.
 

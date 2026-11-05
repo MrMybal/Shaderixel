@@ -4,7 +4,7 @@ Shaderixel distingue réglages du document, préférences de l’application et 
 
 ## Interface et lecture
 
-Affichage > Langue choisit la langue de l’interface ; une configuration neuve utilise l’anglais. Affichage > Thème choisit palette et densité confortable/compacte. Le manuel suit l’interface ou une langue indépendante pour la session. Sa Taille du texte change la lecture sans modifier l’échelle de l’éditeur.
+Affichage > Langue choisit la langue de l’interface ; une configuration neuve utilise l’anglais. Affichage > Thème choisit palette et densité confortable/compacte. Les liens d’aide utilisent la langue de l’interface. Le sélecteur CyDoc peut choisir anglais/français indépendamment ; le zoom du navigateur modifie la lecture sans changer l’échelle de l’éditeur. Positions de lecture et favoris utilisent le stockage local lorsqu’il est disponible.
 
 Fenêtre contrôle les panneaux et espaces enregistrés. Ouvrez Peinture pour les pinceaux, 3D pour matériaux/rendu et IA pour les fournisseurs. Un panneau ouvert peut être caché derrière un onglet. Rétablissez l’onglet ou l’espace avant de le croire fermé. Un filtre de panneau peut aussi cacher les réglages jusqu’à son effacement.
 

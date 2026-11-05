@@ -29,7 +29,7 @@ The first 2026-11-03 installer lacks the updater; install a later alpha once. Th
 
 Report version, D3D12/Vulkan backend, GPU/driver, steps and a minimal project. Inspect shared logs/screenshots for private content. The repository is github.com/MrMybal/Shaderixel.
 
-The handbook and references are embedded and remain readable if help files move. The browser edition is docs/manual/index.html in a normal distribution.
+The CyDoc handbook, reader scripts, media and references are distributed together in docs/manual/. Keep this complete directory beside the executable. If help files are missing, repair or reinstall Shaderixel. Reading requires no Internet connection.
 
 [Getting started](#getting_started)
 [AI, ComfyUI and upscaling](#ai)

@@ -3,6 +3,9 @@
 Editor plugin for painting a static mesh or editing a texture in Shaderixel,
 then automatically reimporting the result into Unreal Engine.
 
+[**Documentation**](https://mrmybal.github.io/Shaderixel/#/en/reference-unreal-shaderixellink-readme) opens the visual
+Unreal integration guide, with navigation, search and a French language option.
+
 ## Installation
 
 Copy the `ShaderixelLink` folder built for your engine version from the Shaderixel

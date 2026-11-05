@@ -2,5 +2,10 @@
   "cyui": {
     "repository": "https://github.com/MrMybal/CyUI.git",
     "revision": "8367401fe45fc22bfed5e227cb3de343177f676b"
+  },
+  "cydoc": {
+    "repository": "https://github.com/MrMybal/CyDoc.git",
+    "revision": "774f2a7eabf7dd181a98ffc5add115b580b67f42",
+    "version": "0.1.0"
   }
 }

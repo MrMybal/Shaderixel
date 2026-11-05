@@ -123,6 +123,8 @@ void App::ParseCommandLine() {
         else if (a == "--focus" && i + 1 < argc) focusAtStart.push_back(Narrow(argv[++i]));  // panel to bring forward (captures)
         else if (a == "--about") aboutAtStart = true;
         else if (a == "--documentation") documentation.Navigate("getting_started");
+        else if (a == "--documentation-section" && i + 1 < argc) documentation.anchor=Narrow(argv[++i]);
+        else if (a == "--documentation-media" && i + 1 < argc) documentation.media=Narrow(argv[++i]);
         else if (a == "--documentation-language" && i + 1 < argc) documentation.language=Narrow(argv[++i]);
         else if (a == "--documentation-page" && i + 1 < argc) {
             if (!documentation.Navigate(Narrow(argv[++i]))) documentation.Navigate("getting_started");
@@ -434,6 +436,9 @@ bool App::Init() {
     InitUpdates();
     cyui::registerTranslations("fr", {{"Documentation", "Documentation"}, {"Getting started", "Prise en main"},
         {"Keyboard shortcuts", "Raccourcis clavier"}, {"Troubleshooting", "Dépannage"}, {"Guided projects", "Projets guidés"}, {"Tool reference", "Référence des outils"}, {"Action reference", "Référence des actions"}});
+    cyui::registerTranslations("fr", {{"Practice projects", "Projets d’exercice"},
+        {"Offline documentation is missing. Repair or reinstall Shaderixel.", "La documentation locale manque. Réparez ou réinstallez Shaderixel."},
+        {"Could not open the offline manual in your browser.", "Impossible d’ouvrir le manuel local dans le navigateur."}});
     // No document at launch: the canvas shows the welcome screen (logo, new/open, recent files).
     return true;
 }
@@ -1529,6 +1534,13 @@ void App::DrawMenuBar() {
         if (ImGui::MenuItem(cyui::trLabel("Documentation").c_str(), "F1")) documentation.open = documentation.focus = true;
         if (ImGui::MenuItem(cyui::trLabel("Getting started").c_str())) documentation.Navigate("getting_started");
         if (ImGui::MenuItem(cyui::trLabel("Guided projects").c_str())) documentation.Navigate("tutorials");
+        if (ImGui::BeginMenu(cyui::trLabel("Practice projects").c_str())) {
+            for (const auto id:ui::ManualPracticeIds()) {
+                const auto name=std::string(id);
+                if (ImGui::MenuItem(ui::ManualText(CurrentLanguage(),name))) documentation.exampleRequest=name;
+            }
+            ImGui::EndMenu();
+        }
         if (ImGui::MenuItem(cyui::trLabel("Tool reference").c_str())) documentation.Navigate("tools");
         if (ImGui::MenuItem(cyui::trLabel("Action reference").c_str())) documentation.Navigate("actions");
         if (ImGui::MenuItem(ui::ManualText(CurrentLanguage(),"Brushes"))) documentation.Navigate("brushes_tablet");
@@ -1738,7 +1750,6 @@ void App::EffectMenu(const std::function<void(const std::string&)>& onPick, bool
 
 void App::HandleShortcuts() {
     if (ImGui::IsKeyPressed(ImGuiKey_F1,false)) ui::DocumentationShortcut(documentation, DocumentationTopic());
-    if (documentation.open && ui::DocumentationFocused()) { spaceHeld = false; return; }
     ImGuiIO& io = ImGui::GetIO();
     spaceHeld = !io.WantTextInput && ImGui::IsKeyDown(ImGuiKey_Space);
     if (io.WantTextInput || ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel)) return;

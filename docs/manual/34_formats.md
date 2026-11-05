@@ -1,6 +1,6 @@
 # Import formats and interoperability
 
-## Images and layered documents
+## File families
 
 - Editable projects: .sxl and .sx3d. Open the native file to recover the stack/graph rather than importing its flattened export.
 - Common image choices: PNG, JPEG, BMP, TGA, HDR, GIF and layered PSD/PSB. Image opening and animation-frame editing are separate paths; do not assume a GIF import recreates an editable frame timeline.
@@ -9,6 +9,8 @@
 - Reusable resources: .slang effects/brushes, .sxfn image functions, native templates plus metadata/thumbnail, smart-material JSON, .cube LUTs and .sxactions recorded actions. Import each through the matching editor/panel rather than treating it as an ordinary bitmap.
 
 An alpha-capable format does not guarantee the source is transparent. A 16-bit file is not necessarily a floating-point data file. Check the actual decoding/output path and reopen a sample before converting a large collection.
+
+## Images and layered documents
 
 Open supported raster formats through File or the resource browser. PSD/PSB import/export preserves supported layer information, but another application's complete effect/adjustment model is not guaranteed to round-trip exactly. Keep a native Shaderixel project as the working master.
 

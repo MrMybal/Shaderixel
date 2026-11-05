@@ -14,6 +14,8 @@ Multi-material projects can allocate texture tiles/sets by material. Select the 
 
 ## Bake geometry maps
 
+### Full baking workflow
+
 1. Save the project and verify destination UVs, overlaps, normals and material sets.
 2. Choose tangent normal, AO, curvature, thickness, height, position, world normal or color ID as needed. ID can distinguish parts, materials or UV islands.
 3. For a high-definition source, choose its mesh and front/back cage distances relative to model size. Too small misses detail; too large can capture neighboring geometry.

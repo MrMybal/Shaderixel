@@ -22,7 +22,7 @@ Double-click a numeric slider or drag field, or Ctrl+click it, to type. Enter co
 
 View > Language changes the interface language; English is the default on a fresh installation. This handbook uses English labels.
 
-F1 opens help for the focused panel or selected graph node. Properties > Selection help and a graph node's context menu open the same reference. Use Help > Documentation to resume reading, In this chapter to jump between sections, and Text size to enlarge the article without changing the editor scale.
+F1 opens help for the focused panel or selected graph node. Properties > Selection help and a graph node's context menu open the same reference. Use Help > Documentation to reopen the local manual, the CyDoc page outline to jump between sections, and browser zoom to enlarge the article without changing the editor scale.
 
 With Canvas, 3D View, the toolbar or Options focused, F1 opens the active tool's individual reference. Options > Tool help and Help > Tool reference provide direct access as well.
 

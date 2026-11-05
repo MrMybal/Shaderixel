@@ -1,5 +1,7 @@
 # Multilingual illustrated documentation
 
+Historical implementation record of the previous reader. The current reader is CyDoc; see CYDOC_MIGRATION.md for generation, integration and remaining limitations.
+
 ## Delivered coverage
 
 44 handbook chapters in English and French share stable chapter IDs. They cover
@@ -103,7 +105,7 @@ all defaults to the compiled factory, rather than relying only on source parsing
 - Referenced figures: docs/manual/media/; manifest records dimensions/hashes.
 - python tools/build_manual.py regenerates C++ data, HTML, resource declarations,
   the media manifest and six docs/manual/examples/*.sxl practice files. Their
-  source recipes are tools/manual_examples.py. Standalone [label](example:id)
+  source recipes are tools/manual_examples.py. Standalone `[label](example:id)`
   lines create native opening buttons and offline HTML downloads.
   Missing translations or changed source descriptions
   fail validation instead of silently shipping an obsolete French description.

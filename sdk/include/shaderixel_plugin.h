@@ -1,3 +1,41 @@
+/**
+ * @doc sdk-abi
+ * @locale en
+ * @title Native plugin ABI
+ * @section SDK
+ * @symbol sx_plugin_load
+ * Shaderixel exposes a versioned C ABI for Windows x64 native plugins.
+ *
+ * ## Loading {#loading}
+ * Export `sx_plugin_load(const SxHost* host, SxPlugin* plugin)`, check
+ * `host->api_version` against `SX_PLUGIN_API_VERSION`, then register callbacks.
+ * Keep the host pointer only for the lifetime of the loaded plugin. UI callbacks
+ * run on the main thread; use the supplied host functions to access documents.
+ *
+ * ## Examples {#examples}
+ * The indexed example and palette plugins show the shipped callback signatures.
+ * See the actual header below for structs, ownership comments and available fields.
+ * This index is lexical documentation, not a C++ compiler or ABI verifier.
+ */
+/**
+ * @doc sdk-abi
+ * @locale fr
+ * @title ABI des plugins natifs
+ * @section SDK
+ * @symbol sx_plugin_load
+ * Shaderixel expose une ABI C versionnée pour les plugins natifs Windows x64.
+ *
+ * ## Chargement {#loading}
+ * Exportez `sx_plugin_load(const SxHost* host, SxPlugin* plugin)`, vérifiez
+ * `host->api_version` par rapport à `SX_PLUGIN_API_VERSION`, puis enregistrez les callbacks.
+ * Gardez le pointeur hôte uniquement pendant la durée du plugin chargé. Les callbacks
+ * d’interface s’exécutent sur le thread principal ; utilisez les fonctions hôte pour les documents.
+ *
+ * ## Exemples {#examples}
+ * Les plugins exemple et palette indexés montrent les signatures réellement livrées.
+ * Le fichier source décrit structures, propriété des données et champs disponibles.
+ * Cet index lexical n’est ni un compilateur C++ ni un vérificateur ABI.
+ */
 /*
  * Shaderixel plugin SDK (C ABI, any compiler able to build a Windows x64 DLL).
  *

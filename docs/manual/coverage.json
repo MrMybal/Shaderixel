@@ -1,22 +1,31 @@
 {
+  "reader": "CyDoc",
   "languages": [
     "en",
     "fr"
   ],
   "pagesPerLanguage": 942,
   "catalogs": {
-    "Brushes": 53,
-    "Commands": 20,
+    "Handbook": 44,
     "Effects": 449,
     "Functions": 162,
-    "Handbook": 44,
-    "Nodes": 168,
-    "Tools": 46
+    "Tools": 46,
+    "Commands": 20,
+    "Brushes": 53,
+    "Nodes": 168
   },
-  "panelsAndDialogs": 68,
   "illustrations": 42,
-  "editableDiagrams": 24,
   "practiceDocuments": 6,
+  "panelsAndDialogs": 68,
+  "modules": [
+    "image",
+    "graph"
+  ],
+  "sourceIndexScope": [
+    "sdk/include",
+    "sdk/examples"
+  ],
+  "repositoryReferences": 19,
   "compiledNodeSources": {
     "src/doc/EffectGraph.cpp": "b802a380007b819fde7c5c0abece889afa065bcd4d64b90741ad217f4031ffee",
     "src/doc/EffectGraph.h": "b5cddf27c41e0fd7dcc86358511167f2d9816b3d03c77708933d674db2718f11",

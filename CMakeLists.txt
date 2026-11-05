@@ -185,16 +185,18 @@ add_custom_target(ShaderixelLanguages ALL
         ${CMAKE_SOURCE_DIR}/library/lang ${CMAKE_BINARY_DIR}/lang
     COMMENT "Copying interface dictionaries")
 
-# The compiled manual always works offline; ship the matching printable edition too.
+# Generate the pinned CyDoc reader and copy the complete offline export.
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_custom_target(ShaderixelDocumentation ALL
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/docs/manual ${CMAKE_BINARY_DIR}/docs/manual
-    COMMENT "Copying offline documentation")
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/build_manual.py
+        --ensure --output-dir ${CMAKE_BINARY_DIR}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Generating and staging local CyDoc documentation")
 
 function(sx_app target)
     add_executable(${target} WIN32 ${SX_SOURCES} ${ARGN} ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc)
     target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/sdk/include ${EXT}/stb)
-    target_link_libraries(${target} PRIVATE CyUI::Core CyUI::Nodes CyUI::Images CyUI::Curves CyUI::Plots CyUI::CodeEditor slang xatlas ufbx comdlg32 shell32 ole32 d3d11 windowscodecs advapi32 pdh)
+    target_link_libraries(${target} PRIVATE CyUI::Core CyUI::Nodes CyUI::Images CyUI::Curves CyUI::Plots CyUI::CodeEditor slang xatlas ufbx comdlg32 shell32 shlwapi ole32 d3d11 windowscodecs advapi32 pdh)
     target_compile_definitions(${target} PRIVATE
         NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE SX_APP_VERSION="${SX_APP_VERSION}")
     if(MSVC)
@@ -211,12 +213,6 @@ function(sx_app target)
         target_compile_definitions(${target} PRIVATE SX_LIBRAW=1)
     endif()
 endfunction()
-
-# RC dependency scanning does not reliably include RCDATA files or nested .rc
-# includes. Rebuild both resource objects when a manual illustration is replaced.
-file(GLOB SX_MANUAL_IMAGES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/docs/manual/media/*.png)
-set_property(SOURCE ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc APPEND PROPERTY OBJECT_DEPENDS
-    ${CMAKE_SOURCE_DIR}/assets/manual_images.rc ${SX_MANUAL_IMAGES})
 
 # Example plugin (sdk/examples): built into <exe dir>/plugins/Exemple with its manifest.
 add_library(ShaderixelExamplePlugin SHARED ${CMAKE_SOURCE_DIR}/sdk/examples/example_plugin/example_plugin.cpp)
@@ -280,7 +276,7 @@ if(SX_BUILD_UI_TESTS)
         tests/NumericEntry.cpp tests/Documentation.cpp src/ui/Documentation.cpp)
     target_include_directories(ShaderixelUiTests PRIVATE ${CMAKE_SOURCE_DIR}/src)
     target_compile_definitions(ShaderixelUiTests PRIVATE NOMINMAX IMGUI_DEFINE_MATH_OPERATORS)
-    target_link_libraries(ShaderixelUiTests PRIVATE CyUI::Core CyUI::CodeEditor CyUI::Images CyUI::Nodes CyUI::Curves CyUI::Plots)
+    target_link_libraries(ShaderixelUiTests PRIVATE CyUI::Core CyUI::CodeEditor CyUI::Images CyUI::Nodes CyUI::Curves CyUI::Plots shlwapi)
     if(MSVC)
         target_compile_options(ShaderixelUiTests PRIVATE /utf-8 /EHsc)
     endif()

@@ -18,9 +18,9 @@ Shaderixel est un éditeur d'images sur GPU. Vous pouvez composer avec une pile 
 
 Aide > Documentation ou F1 ouvre ce manuel sans connexion Internet. La recherche couvre le guide et la référence des effets et fonctions livrés. Les presets ajoutés par l'utilisateur ne figurent pas automatiquement dans cette référence.
 
-F1 tient compte du panneau actif : un effet sélectionné ouvre sa fiche, tandis qu'un outil de peinture ou un éditeur ouvre son chapitre. Propriétés propose aussi Aide sur la sélection, comme le menu contextuel d'un nœud du graphe. Une fonction inconnue ou renommée renvoie au chapitre des bibliothèques ; un effet personnalisé renvoie à la création d'effets. Dans le manuel, F1 conserve l'article courant. Aide > Documentation reprend le dernier article.
+F1 tient compte du panneau actif : un effet sélectionné ouvre sa fiche, tandis qu'un outil de peinture ou un éditeur ouvre son chapitre. Propriétés propose aussi Aide sur la sélection, comme le menu contextuel d'un nœud du graphe. Une fonction inconnue ou renommée renvoie au chapitre des bibliothèques ; un effet personnalisé renvoie à la création d'effets. Dans le manuel, F1 conserve l'article courant. Aide > Documentation rouvre la dernière page demandée depuis l’application. L’historique CyDoc et Mon espace permettent de reprendre la lecture dans le manuel.
 
-Dans ce chapitre permet d'atteindre une section ; Taille du texte propose une lecture de 85 à 150 %. Ces réglages existent dans le lecteur intégré et le navigateur. La taille et le choix de langue du manuel restent valables pour la session.
+CyDoc ouvre le manuel local complet dans le navigateur, sans serveur ni Internet. Le sommaire mène aux sections ; le sélecteur propose anglais/français. Le zoom du navigateur règle la taille de lecture. Les images s’agrandissent dans la fenêtre ; Échap les réduit. Mon espace et Reprendre la lecture conservent les données si le stockage local est disponible.
 
 ## Installer et démarrer
 

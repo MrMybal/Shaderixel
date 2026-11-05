@@ -2123,7 +2123,6 @@ private:
     bool showNewDoc = false;
     bool showAbout = false, aboutAtStart = false;
     ui::DocumentationState documentation;
-    std::unordered_map<std::string, gpu::TexturePtr> manualImages;
     void DrawDocumentation();
     std::string SelectedDocumentationTopic();
     std::string DocumentationTopic();

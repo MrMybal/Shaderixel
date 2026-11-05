@@ -1,11 +1,9 @@
 """Check actual reference coverage, links, offline assets and both staging paths."""
-from html.parser import HTMLParser
 import json
 from pathlib import Path
 import re
 import tempfile
 import unittest
-import base64
 import hashlib
 import struct
 from manual_examples import files as practice_files
@@ -16,31 +14,6 @@ from manual_nodes import catalog as node_catalog, reference_id
 from manual_panels import catalog as panel_catalog
 
 from build_manual import ROOT, MANUAL, copy_manual, pages, validate_generated, languages, blocks, ui_strings
-
-
-class Document(HTMLParser):
-    def __init__(self, source):
-        super().__init__()
-        self.ids, self.links, self.remote = [], [], []
-        self.articles, self.navigation, self.language = 0, 0, None
-        self.images = []
-        self.feed(source)
-
-    def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
-        if 'id' in attrs:
-            self.ids.append(attrs['id'])
-        if tag == 'html':
-            self.language = attrs.get('lang')
-        if tag == 'article':
-            self.articles += 1
-        if tag == 'a':
-            self.links.append(attrs.get('href', ''))
-        if tag == 'img' and attrs.get('src'):
-            self.images.append(attrs)
-        for key in ('src', 'href'):
-            if key in attrs and not attrs[key].startswith(('#', 'data:image/png;base64,', 'data:application/octet-stream;base64,')):
-                self.remote.append(attrs[key])
 
 
 class ManualTests(unittest.TestCase):
@@ -127,46 +100,56 @@ class ManualTests(unittest.TestCase):
         self.assertIn('Plage : 0 à 32768.', fr['function:UI UV Nine Slice Panel']['body'])
         messages = ui_strings()
         self.assertEqual(set(messages['en']), set(messages['fr']))
-        self.assertEqual(messages['fr']['Print handbook'], 'Imprimer le guide')
+        self.assertTrue(messages['fr']['Tool help'])
         # Stable shader IDs and parameter coverage are identical in both editions.
         for page in self.pages:
             if page['kind'] == 'Effects':
                 self.assertEqual(re.findall(r'\[([a-zA-Z_0-9]+)\] \(',page['body']),
                                  re.findall(r'\[([a-zA-Z_0-9]+)\] \(',fr[page['id']]['body']))
 
-    def test_embedded_illustrations(self):
-        assets = json.loads((MANUAL / 'media/manifest.json').read_text(encoding='utf-8'))
-        self.assertEqual(len(assets),42)
-        self.assertEqual(len({a['resource'] for a in assets}),42)
-        rc = (ROOT/'assets/manual_images.rc').read_text(encoding='utf-8')
-        self.assertIn('#include "manual_images.rc"',(ROOT/'assets/shaderixel.rc').read_text(encoding='utf-8'))
-        for asset in assets:
-            self.assertEqual(hashlib.sha256((MANUAL/asset['path']).read_bytes()).hexdigest(),asset['sha256'])
-            self.assertIn(str(asset['resource'])+' RCDATA',rc)
-            self.assertGreater(asset['width'],0)
-            self.assertGreater(asset['height'],0)
+    def test_translation_acknowledgements_do_not_advance_automatically(self):
+        from cydoc_content import translation_revisions
+        registry=json.loads((MANUAL/'locales/revisions.json').read_text(encoding='utf-8'))
+        en=self.editions['en'][0];fr=self.editions['fr'][0]
+        source,reviewed=translation_revisions(en,fr,registry)
+        self.assertEqual(source,reviewed)
+        changed={**en,'body':en['body']+' English meaning changed.'}
+        new,previous=translation_revisions(changed,fr,registry)
+        self.assertNotEqual(new,previous)
+        self.assertEqual(previous,reviewed)
+        changed_fr={**fr,'body':fr['body']+' Texte modifié sans validation.'}
+        self.assertIsNone(translation_revisions(en,changed_fr,registry)[1])
 
-    def test_html_is_self_contained(self):
-        source = (MANUAL / 'index.html').read_text(encoding='utf-8')
-        doc = Document(source)
-        self.assertEqual(doc.language, 'en')
-        self.assertEqual(doc.articles, sum(map(len,self.editions.values())))
-        self.assertEqual(len(doc.ids), len(set(doc.ids)))
-        self.assertFalse(doc.remote, 'No remote/file assets or links should be needed')
-        for link in doc.links:
-            if link.startswith('#'): self.assertIn(link[1:].replace('/','--',1), doc.ids)
-            else:
-                self.assertTrue(link.startswith('data:application/octet-stream;base64,'))
-                self.assertIn(base64.b64decode(link.split(',',1)[1]),practice_files().values())
-        assets=json.loads((MANUAL/'media/manifest.json').read_text(encoding='utf-8'))
-        expected={a['sha256'] for a in assets}
-        self.assertEqual(len(doc.images),sum(typ=='image' for edition in self.editions.values() for page in edition for typ,_,_ in blocks(page['body'])))
-        for image in doc.images:
-            self.assertTrue(image['alt'])
-            self.assertIn(hashlib.sha256(base64.b64decode(image['src'].split(',',1)[1])).hexdigest(),expected)
-        self.assertIn("connect-src 'none'", source)
-        self.assertNotIn('@@NAVIGATION@@', source)
-        self.assertNotIn('@@ARTICLES@@', source)
+    def test_cydoc_export_and_assets(self):
+        from build_manual import EXPORT
+        manifest=json.loads((EXPORT/'manifest.json').read_text(encoding='utf-8'))
+        self.assertEqual(manifest['defaultLocale'],'en')
+        self.assertEqual({item['code'] for item in manifest['locales']},{'en','fr'})
+        self.assertGreater(len(manifest['pages']),1884)
+        self.assertTrue((EXPORT/'media-image.js').is_file())
+        self.assertTrue((EXPORT/'media-graph.js').is_file())
+        for unused in ('mesh','gif','video','gallery'):
+            self.assertFalse((EXPORT/('media-'+unused+'.js')).exists())
+        self.assertFalse((ROOT/'tools/cydoc/node_modules/three').exists())
+        for edition in self.editions.values():
+            for page in edition:
+                for kind,_,target in blocks(page['body']):
+                    if kind=='image':
+                        self.assertEqual((MANUAL/target).read_bytes(),(EXPORT/'assets/docs/manual'/target).read_bytes())
+        for old in self.by_id:
+            canonical=manifest.get('aliases',{}).get(old,old)
+            self.assertTrue(any(p['id']==canonical for p in manifest['pages']),old)
+
+    def test_common_cydoc_anchors(self):
+        from build_manual import EXPORT
+        manifest=json.loads((EXPORT/'manifest.json').read_text(encoding='utf-8'))
+        records={(p['id'],p['locale']):p for p in manifest['pages']}
+        for old in self.by_id:
+            ident=manifest.get('aliases',{}).get(old,old)
+            en,fr=records[ident,'en'],records[ident,'fr']
+            self.assertEqual({h['id'] for h in en['headings']},{h['id'] for h in fr['headings']},old)
+        self.assertIn('sdk-abi',{p['id'] for p in manifest['pages']})
+        self.assertTrue(any(p['kind']=='source' for p in manifest['pages']))
 
     def test_practice_documents(self):
         practice=practice_files()
@@ -236,11 +219,12 @@ class ManualTests(unittest.TestCase):
             # Compare all copied locale sources and media, not only the top level.
             expected = {p.relative_to(package/'docs/manual').as_posix(): p.read_bytes()
                         for p in (package/'docs/manual').rglob('*') if p.is_file()}
-            self.assertIn('fr/01_getting_started.md',expected)
-            self.assertIn('media/nine_slice_fr.png',expected)
+            self.assertIn('data.js',expected)
+            self.assertIn('assets/docs/manual/media/nine_slice_fr.png',expected)
             self.assertIn('examples/ui_nine_slice.sxl',expected)
             for relative,data in expected.items():
-                self.assertEqual(data,(MANUAL/relative).read_bytes())
+                from build_manual import EXPORT
+                self.assertEqual(data,(EXPORT/relative).read_bytes())
             for destination in (package, installer):
                 actual = {p.relative_to(destination/'docs/manual').as_posix(): p.read_bytes()
                           for p in (destination/'docs/manual').rglob('*') if p.is_file()}
@@ -250,6 +234,33 @@ class ManualTests(unittest.TestCase):
             unrelated.write_text('preserve', encoding='utf-8')
             copy_manual(package)
             self.assertEqual(unrelated.read_text(), 'preserve')
+
+    def test_pages_stages_only_registered_export(self):
+        from stage_documentation import stage_documentation
+        from build_manual import EXPORT, STAMP
+        state=json.loads(STAMP.read_text(encoding='utf-8'))
+        with tempfile.TemporaryDirectory(prefix='shaderixel-pages-') as folder:
+            destination=(Path(folder)/'site').resolve()
+            copied=stage_documentation(destination)
+            expected={str((ROOT/relative).relative_to(EXPORT)):ROOT/relative
+                      for relative in state['outputs'] if (ROOT/relative).is_relative_to(EXPORT)}
+            self.assertEqual({str(p.relative_to(destination)) for p in copied},set(expected))
+            for relative,source in expected.items():
+                self.assertEqual((destination/relative).read_bytes(),source.read_bytes())
+            self.assertTrue((destination/'.nojekyll').is_file())
+            self.assertFalse((destination/'docs').exists())
+            self.assertFalse((destination/'Guide.html').exists())
+            with self.assertRaises(ValueError):stage_documentation(destination)
+
+    def test_readme_links_target_visual_reader_routes(self):
+        from build_manual import EXPORT
+        manifest=json.loads((EXPORT/'manifest.json').read_text(encoding='utf-8'))
+        known={(p['locale'],p['id']) for p in manifest['pages']}
+        for name in ('README.md','unreal/ShaderixelLink/README.md'):
+            text=(ROOT/name).read_text(encoding='utf-8')
+            links=re.findall(r'https://mrmybal.github.io/Shaderixel/#/(en|fr)/([a-z0-9-]+)',text)
+            self.assertTrue(links,name)
+            for route in links:self.assertIn(route,known)
 
     def test_all_builtin_nodes_and_panels(self):
         catalog=node_catalog();self.assertEqual({k:len(v) for k,v in catalog.items()},{'nodes':16,'math':45,'execution':11,'shader':96})

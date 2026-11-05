@@ -292,7 +292,7 @@ void App::DemoTick() {
         if (frameCounter==62) ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,false);
         if (frameCounter==64) {
             check(documentation.open && ui::ManualPages()[documentation.page].id=="tool:shape","F1 from shape tool");
-            documentation.Navigate("ui_textures");documentation.textScale=1.5f;
+            documentation.Navigate("ui_textures");
         }
     }
     if (demoMode == 110) { RasterizeLayerDemoTick(); return; }

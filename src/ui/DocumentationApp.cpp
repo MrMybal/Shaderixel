@@ -2,7 +2,6 @@
 #include <filesystem>
 #include <shellapi.h>
 #include "ui/Lang.h"
-#include <stb_image.h>
 #include <imgui_internal.h>
 
 namespace sx {
@@ -101,63 +100,30 @@ std::string App::DocumentationTopic() {
 }
 
 void App::DrawDocumentation() {
-    if (!documentation.open) return;
-    const auto path = Utf8Path(ExeDir()) / "docs/manual/index.html";
-    auto image = [&](std::string_view name) -> ui::ManualImage {
-        const ui::ManualAsset* asset = nullptr;
-        for (const auto& entry : ui::ManualAssets()) if (entry.path == name) { asset = &entry; break; }
-        if (!asset) return {};
-        auto [it, first] = manualImages.try_emplace(std::string(name));
-        if (first) {
-            HMODULE module = GetModuleHandleW(nullptr);
-            HRSRC resource = FindResourceW(module, MAKEINTRESOURCEW(asset->resource), MAKEINTRESOURCEW(10));
-            HGLOBAL memory = resource ? LoadResource(module, resource) : nullptr;
-            const auto* bytes = memory ? static_cast<const stbi_uc*>(LockResource(memory)) : nullptr;
-            int width=0, height=0, components=0;
-            auto* pixels = bytes ? stbi_load_from_memory(bytes, static_cast<int>(SizeofResource(module,resource)), &width,&height,&components,4) : nullptr;
-            if (pixels) {
-                it->second = gpu::Dev().CreateTexture(width,height,gpu::Format::RGBA8,"ManualIllustration");
-                ctx->Upload(it->second.get(),pixels,width*4);
-                stbi_image_free(pixels);
-                Log("[manual] embedded image %s %dx%d", std::string(name).c_str(), width, height);
-            }
-        }
-        if (!it->second) return {};
-        return {static_cast<ImTextureID>(gpu::Dev().UiTextureId(it->second.get())), asset->width, asset->height};
-    };
-    auto examplePath=[&](std::string_view id) {
-        // Accept only a registered target in the embedded handbook.
-        bool registered=false;
-        for (const auto& page:ui::ManualPages()) for (const auto& block:page.blocks)
-            if (block.kind=="example" && block.target==id) registered=true;
-        return registered ? path.parent_path()/"examples"/(std::string(id)+".sxl") : std::filesystem::path{};
-    };
-    const bool browse=ui::DocumentationWindow(documentation, dpi, std::filesystem::is_regular_file(path), CurrentLanguage(), image,
-        [&](std::string_view id){const auto file=examplePath(id);return !file.empty() && std::filesystem::is_regular_file(file);});
+    const auto path=Utf8Path(ExeDir())/"docs/manual/index.html";
     if (!documentation.exampleRequest.empty()) {
-        const auto file=examplePath(std::exchange(documentation.exampleRequest,{}));
-        if (!file.empty() && std::filesystem::is_regular_file(file) && LoadSxl(Narrow(file.wstring()))) {
-            // Practice documents start as unsaved copies, so Save never overwrites the bundled original.
+        const auto id=std::exchange(documentation.exampleRequest,{});
+        const auto example=path.parent_path()/"examples"/(id+".sxl");
+        if (ui::ManualPracticeAvailable(id) && std::filesystem::is_regular_file(example) && LoadSxl(Narrow(example.wstring()))) {
             if (auto* view=Active()) {view->doc->path.clear();view->doc->dirty=true;}
-            Log("[manual] opened practice copy %s",Narrow(file.filename().wstring()).c_str());
+            Log("[manual] opened practice copy %s",id.c_str());
         }
     }
-    if (browse) {
-        // File URI plus encoded fragment preserves both chapter and language.
-        auto encode=[](const std::string& text,bool pathPart) {
-            static const char hex[]="0123456789ABCDEF"; std::string out;
-            for (unsigned char c:text) {
-                if ((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='-'||c=='_'||c=='.'||c=='~'||(pathPart&&(c=='/'||c==':'))) out+=c;
-                else {out+='%';out+=hex[c>>4];out+=hex[c&15];}
-            }
-            return out;
-        };
-        const auto language=ui::ResolveManualLanguage(documentation.language.empty()?CurrentLanguage():documentation.language);
-        const auto page=ui::ManualPages(language)[documentation.page].id;
-        auto file=Narrow(path.generic_wstring());
-        const auto url=Widen("file:///"+encode(file,true)+"#"+std::string(language)+"/"+encode(std::string(page),false));
-        auto result = ShellExecuteW(hwnd, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-        if (reinterpret_cast<INT_PTR>(result) <= 32) Status("Could not open the offline manual in your browser.");
+    if (!documentation.open || !documentation.focus) return;
+    documentation.focus=false;
+    if (!std::filesystem::is_regular_file(path)) {
+        Status(cyui::tr("Offline documentation is missing. Repair or reinstall Shaderixel."));
+        Log("[cydoc] missing local reader");return;
     }
+    const auto topic=ui::ManualPages()[documentation.page].id;
+    const auto language=documentation.language.empty() ? CurrentLanguage() : documentation.language;
+    const auto url=ui::ManualUrl(path,language,topic,documentation.anchor,documentation.media);
+    if (url.empty()) {Status("Could not construct the local documentation address.");return;}
+    documentation.lastUrl=url;
+    Log("[cydoc] open %s",url.c_str());
+    // Capture exact native routes during automation, without opening browser windows.
+    if (Automated() && getenv("SX_CYDOC_CAPTURE_LINKS")) return;
+    const auto result=ShellExecuteW(hwnd,L"open",Widen(url).c_str(),nullptr,nullptr,SW_SHOWNORMAL);
+    if (reinterpret_cast<INT_PTR>(result)<=32) Status(cyui::tr("Could not open the offline manual in your browser."));
 }
 } // namespace sx

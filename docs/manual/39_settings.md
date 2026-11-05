@@ -4,7 +4,7 @@ Shaderixel keeps document settings, application preferences and library resource
 
 ## Interface and reading
 
-View > Language selects the interface language; a fresh configuration defaults to English. View > Theme selects the palette and comfortable/compact density. The documentation language can follow the interface or use an independent session override. Its Text size changes reading size without changing the editor scale.
+View > Language selects the interface language; a fresh configuration defaults to English. View > Theme selects the palette and comfortable/compact density. Application help links use the interface language. The CyDoc language selector can switch English/French independently, and browser zoom changes reading size without changing the editor scale. Reading positions and bookmarks use local storage when available.
 
 Window controls dockable panels and saved workspaces. Show the Painting group for brushes, 3D for material/render work and AI for provider settings. A panel can be open but hidden behind another tab. Restore the appropriate tab or workspace before assuming it has closed. Panel filters also hide matching controls until cleared.
 

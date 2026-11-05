@@ -32,7 +32,7 @@ Le premier installateur du 2026-11-03 n'a pas de mise à jour intégrée ; insta
 
 Indiquez version, D3D12/Vulkan, GPU/pilote, étapes et projet minimal. Vérifiez les informations privées avant de partager journaux/captures. Dépôt : github.com/MrMybal/Shaderixel.
 
-Le texte et les illustrations sont embarqués dans l'application. Le navigateur utilise docs/manual/index.html et permet de choisir sa langue. L'absence de fichiers HTML n'empêche pas la lecture intégrée.
+Le lecteur CyDoc, les textes, scripts et médias sont distribués ensemble dans docs/manual/. Conservez ce dossier complet près de l’exécutable. Réparez ou réinstallez Shaderixel si les fichiers d’aide manquent. La lecture ne demande aucune connexion Internet.
 
 [Prise en main](#getting_started)
 [IA](#ai)

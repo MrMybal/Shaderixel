@@ -5,7 +5,7 @@ workflow. Effects are written in HLSL/Slang and compiled at runtime.
 
 ## Install (Windows x64)
 
-[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261105/Shaderixel-0.1.0-alpha.20261105-windows-x64-setup.exe)
+[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261105.2/Shaderixel-0.1.0-alpha.20261105.2-windows-x64-setup.exe)
 and run it. Windows 10 version 2004 or later and a D3D12-capable GPU are required;
 the Vulkan executable requires a compatible Vulkan driver.
 
@@ -17,79 +17,55 @@ starts in English; French is also available.
 
 Uninstall from **Windows Settings > Apps**. User-created files and settings are
 retained. The portable ZIP remains available on the
-[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261105).
+[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261105.2).
 
 ## Documentation
 
-Open **Help > Documentation** or press **F1** for the built-in multilingual manual.
-It works offline, including without an open document, and includes full-text
-search across **44 handbook chapters in English and French** and the shipped
-references (**449 effects, 162 functions, 46 toolbar tools, 20 action commands,
-53 programmable brushes and 168 built-in nodes in each edition**): **942 pages per language**.
-The manual follows the interface language automatically; its language selector
-also allows an independent choice without losing the current chapter. Unsupported
-languages fall back to English. French search ignores case and accents.
-The reference lists shader controls, function ports, exposed variables and tool
-events. Its defaults describe the shipped library rather than document overrides
-or user-installed presets.
+[**Documentation**](https://mrmybal.github.io/Shaderixel/#/en/getting-started)
+opens the complete visual manual online: navigation, search, images, diagrams and
+interactive function graphs. [Lire en français](https://mrmybal.github.io/Shaderixel/#/fr/getting-started).
 
-Eight application captures, twelve explanatory diagrams and a brush contact sheet are supplied in both
-languages. Images can be enlarged, and both text and illustrations are embedded
-in the executable, so missing external help files do not prevent reading.
+**Help > Documentation** and **F1** open the bundled **CyDoc** manual through a
+local `file://` URL. Reading requires no web server, Internet connection, or Node.js.
+Keep the complete `docs/manual/` directory beside the executable.
 
-The printable browser edition ([English](docs/manual/index.html#en/getting_started),
-[français](docs/manual/index.html#fr/getting_started)) is also included beside
-the application in `docs/manual/`. **Open in browser** opens it from the manual.
-Use Back/Forward to revisit pages and Ctrl+F to search inside the manual window.
-F1 opens contextual help for the focused panel or selected node. Properties and
-the graph node context menu also offer **Selection help**. Custom or unknown
-content opens the relevant handbook chapter. Both readers include an **In this
-chapter** section selector and **Text size** controls from 85% to 150%.
-The browser edition is self-contained, including its images, and can print one
-chapter or the complete handbook in the chosen language.
+The original **942 pages per language** remain available in English and French:
+44 handbook chapters, 449 effects, 162 functions, 46 tools, 20 recorded commands,
+53 programmable brushes and 168 node references. The export also preserves
+repository guides, code examples, downloadable resources and the public SDK source
+index. Historical roadmaps are marked as historical. Supplementary references that
+have not been translated retain their original language and appear in CyDoc's
+translation report; the original handbook and reference translations are retained.
 
-**Help > Guided projects** includes seven step-by-step exercises: nine-slice UI,
-painting a baked background, PBR inspection/export, color keying, local/AI
-upscaling, photo exposure variants and ComfyUI workflows. Six procedural `.sxl`
-practice documents open directly as unsaved copies in the native reader, or
-download from the offline browser edition. They need no external images and do
-not execute export or AI events when opened. ComfyUI exercises require a separately
-configured server and models.
+The **image** module presents all 42 illustrations with in-window enlargement,
+keyboard controls and annotations. The **graph** module explores actual saved
+function connections without executing tool events. Other readers and Three.js are
+not included. Images, modules, scripts, styles and license notices are local.
 
-**Help > Tool reference** lists every toolbar tool with prerequisites, gestures,
-controls and limits, and explains editing commands such as layer conversion,
-merging, graph freezing and mesh baking. **Tool help** in Options and contextual
-F1 from the canvas/3D view open the active tool's own reference page.
+Contextual F1 and **Selection help**, **Tool help**, **Brush help**, **Command help**
+and **Node help** retain their references. Previous page identifiers resolve through
+aliases, including old `#en/getting_started` and encoded function links. English is
+the default and fallback language; the reader can switch to French independently.
+The page outline, browser zoom, themes, print, bookmarks and reading positions are
+provided by CyDoc. Storage persistence depends on the browser's file-origin policy.
 
-**Help > Action reference** documents recording, JSON import, partial execution
-and folder/open-document batches, including naming and collision behavior. Select
-a step in Action Editor and use F1 or **Command help** for its parameter reference.
-Factory defaults are generated from the command creation code and verified against
-the compiled application.
+**Help > Guided projects** contains seven exercises. Download the six procedural
+`.sxl` projects from the reader, or use **Help > Practice projects** to open an
+unsaved copy in Shaderixel. Opening a graph does not execute exports or AI events.
 
-**Help > Brushes** includes the complete brush index, stroke/tablet workflow and
-rendered examples. **Brush help** or F1 in the Brushes panel opens the selected
-tip's reference, including its shader defaults, spacing, airbrush timing, dynamics,
-flow/pressure behavior and texture inputs. The eraser has its own selected tip.
-Custom code and graph copies open the authoring guide.
+Generation requires Python 3.9+, Node.js 22+ and access to the pinned CyDoc Git
+repository. Set up once, then regenerate after changing content or library metadata:
 
-**Help > Node reference** covers all 96 shader operations, 45 image-graph value
-operations, 11 graph execution actions and 16 structural node kinds. Inputs,
-defaults and outputs come from matching compiled D3D12/Vulkan registries; source
-changes require refreshing the checked reference snapshot. **Node help** in
-Effect Editor and contextual F1 open the selected operation.
+```powershell
+python tools/build_manual.py --bootstrap
+python tools/build_manual.py
+python tools/build_manual.py --check
+```
 
-**Help > Panel directory** covers all 34 registered panels and 68 named panels/dialogs
-in total. **Settings and updates** documents preferences, storage, tablet/history
-budgets and installer/update states. Dedicated delivery, recovery and shader-authoring
-guides complete the workflows. Generation checks catalog coverage, bilingual identity,
-links and resources; `docs/manual/coverage.json` records the verified scope.
-
-English sources are in `docs/manual/*.md`, French sources in `docs/manual/fr/`,
-and translation catalogs in `docs/manual/locales/`. Run `python tools/build_manual.py`
-after editing them or library metadata, and `python tools/build_manual.py --check`
-to detect stale generated content. Both package builders validate and include
-the same offline manual.
+CMake regenerates changed documentation and stages it beside both executables;
+the portable and installer builders validate and copy the same complete export.
+See [CyDoc integration and maintenance](docs/CYDOC_MIGRATION.md) for authoring,
+source indexing, translation tracking, verification and remaining limits.
 
 ## Updates
 

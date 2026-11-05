@@ -6,9 +6,9 @@ Shaderixel is a GPU image editor with a layer stack and an image node graph. The
 
 Help > Documentation or F1 opens this manual without an Internet connection. Search covers the handbook, shipped effects/functions, toolbar tools, brushes, recorded commands and all built-in node operations. User-installed presets may not be listed.
 
-F1 uses the focused panel: a selected effect opens its library reference, while a painting tool or editor opens its handbook chapter. Properties also has Selection help; the graph node context menu offers the same command. Unknown or renamed functions open the libraries chapter, and custom effect overrides open effect authoring. Inside the manual, F1 retains the current article. Help > Documentation resumes the last article.
+F1 uses the focused panel: a selected effect opens its library reference, while a painting tool or editor opens its handbook chapter. Properties also has Selection help; the graph node context menu offers the same command. Unknown or renamed functions open the libraries chapter, and custom effect overrides open effect authoring. Inside the manual, F1 retains the current article. Help > Documentation reopens the last page requested from the application. Use CyDoc history and My space to resume browsing inside the reader.
 
-Use In this chapter to jump to a section and Text size to choose 85–150% reading size. These controls work in both the native and browser editions. Text size and the manual language override last for the session.
+CyDoc opens the complete local manual in your browser, without a server or Internet connection. Use the page outline for sections, the language selector for English/French, and browser zoom for reading size. Image controls enlarge illustrations inside the reader; Escape reduces them. My space and Resume reading retain reading data when local storage is available.
 
 ## Install and launch
 

@@ -2,7 +2,7 @@
 
 Ces exercices utilisent les effets et fonctions livrés. Six documents contiennent des sources procédurales et leurs graphes : ils s'ouvrent sans photo, ressource téléchargée ni serveur IA. Remplacez ensuite la source d'entraînement par votre image. Ouvrir un exemple ne déclenche ni export ni outil IA.
 
-Le lecteur intégré ouvre une copie non enregistrée : utilisez Enregistrer sous pour conserver votre travail. Le navigateur télécharge un fichier .sxl à ouvrir dans Shaderixel. Si un bouton est indisponible, rétablissez docs/manual/examples près de l'exécutable ; textes et illustrations intégrés restent lisibles. Aide > Projets guidés ramène ici. Dans ce chapitre permet de choisir l'exercice.
+Aide > Projets d’exercice ouvre une copie non enregistrée dans Shaderixel ; utilisez Enregistrer sous pour conserver votre travail. La page CyDoc télécharge un fichier .sxl local à ouvrir dans Shaderixel. Conservez le dossier docs/manual complet près de l’exécutable. Aide > Projets guidés ramène ici ; le sommaire de la page permet de choisir l’exercice.
 
 ## 1. Redimensionner un skin sans étirer ses coins
 

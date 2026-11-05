@@ -2,7 +2,7 @@
 
 These exercises use shipped effects and functions. Six practice documents contain procedural sources and their graphs, so they open without photos, downloaded assets or an AI server. Replace a practice source with your own image when you understand the connections. Opening an example does not execute exports or AI tools.
 
-In the native reader, an example opens as an unsaved copy; use Save As to keep your work. The browser downloads a .sxl file to open in Shaderixel. If the native example button is unavailable, restore docs/manual/examples beside the executable; the embedded text and pictures still work. Help > Guided projects returns here. Use In this chapter to choose an exercise.
+Help > Practice projects opens an unsaved copy inside Shaderixel; use Save As to keep your work. The CyDoc practice page downloads a local .sxl file to open in Shaderixel. Keep the complete docs/manual directory beside the executable. Help > Guided projects returns here; the page outline selects an exercise.
 
 ## 1. Resize an interface skin without stretching its corners
 
