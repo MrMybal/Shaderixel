@@ -5,7 +5,7 @@ workflow. Effects are written in HLSL/Slang and compiled at runtime.
 
 ## Install (Windows x64)
 
-[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261105.2/Shaderixel-0.1.0-alpha.20261105.2-windows-x64-setup.exe)
+[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261105.1/Shaderixel-0.1.0-alpha.20261105.1-windows-x64-setup.exe)
 and run it. Windows 10 version 2004 or later and a D3D12-capable GPU are required;
 the Vulkan executable requires a compatible Vulkan driver.
 
@@ -17,7 +17,7 @@ starts in English; French is also available.
 
 Uninstall from **Windows Settings > Apps**. User-created files and settings are
 retained. The portable ZIP remains available on the
-[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261105.2).
+[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261105.1).
 
 ## Documentation
 
