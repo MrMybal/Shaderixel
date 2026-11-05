@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTENT_DIRS = (
     'ai', 'assets', 'functions', 'IA', 'lang', 'layouts', 'licences', 'plugins',
     'scenes', 'SDK', 'shaders', 'smartmaterials', 'swatches', 'templates',
-    'Unreal', 'Exemples',
+    'Unreal', 'Exemples', 'examples',
 )
 BINARIES = ('Shaderixel.exe', 'ShaderixelVk.exe', 'dxcompiler.dll', 'dxil.dll',
             'slang.dll', 'slang-compiler.dll', 'slang-glslang.dll', 'slang-rt.dll')
@@ -88,6 +88,15 @@ def main():
         shutil.copy2(ROOT / filename, stage / filename)
     shutil.copy2(ROOT / 'docs/PRESETS.md', stage / 'PRESETS.md')
     shutil.copytree(ROOT / 'docs/screenshots', stage / 'docs/screenshots')
+    for guide in ('UI_UV_LIBRARY.md', 'UI_TOOLKIT.md'):
+        target = stage / 'docs' / guide
+        text = (ROOT / 'docs' / guide).read_text(encoding='utf-8')
+        text = text.replace('../library/functions/', '../functions/')
+        text = text.replace('../tools/', 'https://github.com/MrMybal/Shaderixel/blob/v' + args.version + '/tools/')
+        target.write_text(text, encoding='utf-8')
+    (stage / 'docs/images').mkdir(parents=True)
+    for image in ('ui_uv_library.png', 'ui_toolkit.png'):
+        shutil.copy2(ROOT / 'docs/images' / image, stage / 'docs/images' / image)
     for dll in crt.glob('*.dll'):
         shutil.copy2(dll, stage / dll.name)
     notice = ('Microsoft Visual C++ Runtime (x64)\n\n'

@@ -1,0 +1,483 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Flipbook Sprite",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Time (seconds) multiplied by FPS drives a constrained sprite-sheet animation. Time is explicit, not an internal clock.",
+  "graph": {
+    "output": 19,
+    "variables": [
+      {
+        "name": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Widget position (document UV)."
+      },
+      {
+        "name": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Playback Atlas columns / rows",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            4.0,
+            4.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 1 to 256. Atlas columns / rows."
+      },
+      {
+        "name": "Playback Cell inset (px per side)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Cell inset (px per side)."
+      },
+      {
+        "name": "Playback Wrap frame index",
+        "value": {
+          "type": "Bool",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Playback Rows start at top",
+        "value": {
+          "type": "Bool",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Playback First frame",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 65535. First frame."
+      },
+      {
+        "name": "Playback Playback frame count (0 = remaining)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 65536. Playback frame count (0 = remaining)."
+      },
+      {
+        "name": "Playback Blend consecutive frames",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Playback Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Sprite Sheet",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Time (seconds)",
+        "port": 1,
+        "value": {
+          "type": "Float",
+          "f": 0
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "name": "Frames Per Second",
+        "port": 2,
+        "value": {
+          "type": "Float",
+          "f": 12
+        }
+      },
+      {
+        "id": 4,
+        "kind": "subinput",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "name": "Widget Size (px)",
+        "port": 3,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            128,
+            128
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "kind": "math",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          2,
+          3
+        ],
+        "op": "mul"
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget Widget position (document UV)"
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget Widget anchor"
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Widget Edge softness (px)"
+      },
+      {
+        "id": 9,
+        "kind": "effect",
+        "pos": [
+          360,
+          220
+        ],
+        "inputs": [
+          4,
+          6,
+          7,
+          8
+        ],
+        "name": "Ui Uv Coordinates",
+        "effect": {
+          "effect": "ui_uv_coordinates",
+          "set": {}
+        },
+        "paramPinNames": [
+          "target_size",
+          "position",
+          "anchor",
+          "softness"
+        ]
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Playback Atlas columns / rows",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Playback Atlas columns / rows"
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Playback Cell inset (px per side)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Playback Cell inset (px per side)"
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Playback Wrap frame index",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Playback Wrap frame index"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Playback Rows start at top",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Playback Rows start at top"
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Playback First frame",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Playback First frame"
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Playback Playback frame count (0 = remaining)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Playback Playback frame count (0 = remaining)"
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Playback Blend consecutive frames",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Playback Blend consecutive frames"
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "Playback Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Playback Opacity"
+      },
+      {
+        "id": 18,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          1,
+          9,
+          5,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "name": "Ui Sprite Flipbook",
+        "effect": {
+          "effect": "ui_sprite_flipbook",
+          "set": {}
+        },
+        "paramPinNames": [
+          "frame",
+          "grid",
+          "gutter",
+          "wrap",
+          "top_down",
+          "first_frame",
+          "frame_count",
+          "interpolate",
+          "opacity"
+        ]
+      },
+      {
+        "id": 19,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          18
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 20,
+        "kind": "suboutput",
+        "pos": [
+          720,
+          220
+        ],
+        "inputs": [
+          9
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 21,
+        "kind": "effect",
+        "pos": [
+          720,
+          440
+        ],
+        "inputs": [
+          9
+        ],
+        "name": "Ui Uv Field View",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 22,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          220
+        ],
+        "inputs": [
+          21
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}

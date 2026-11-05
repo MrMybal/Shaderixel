@@ -4429,5 +4429,20 @@
  "îlots": "islands",
  "▲ Graphe / Calques": "▲ Graph / Layers",
  "◀ Bibliothèque": "◀ Library",
- "★ Favoris ({n})": "★ Favorites ({n})"
+ "★ Favoris ({n})": "★ Favorites ({n})",
+ "Unités": "Units",
+ "Pourcentage (%)": "Percentage (%)",
+ "Pixels (px)": "Pixels (px)",
+ "Hauteur (%)": "Height (%)",
+ "Largeur (%)": "Width (%)",
+ "Saisie décimale : point ou virgule. Les dimensions en pixels conservent les miroirs existants.": "Decimal input: dot or comma. Pixel dimensions preserve existing flips.",
+ "100 % = dimensions initiales de la zone transformée.": "100% = the initial dimensions of the transformed area.",
+ "100 % = largeur et hauteur du document.": "100% = the document width and height.",
+ "100 % = dimensions de la source du calque, avant transformation.": "100% = the layer source dimensions before transformation.",
+ "Dimensions du cadre de la forme, avant rotation, contour et filtres de calque.": "Shape frame dimensions before rotation, stroke and layer filters.",
+ "Dimensions avant rotation du calque, hors contour et effets.": "Dimensions before layer rotation, excluding stroke and effects.",
+ "Dimensions de la forme": "Shape dimensions",
+ "Position de la forme": "Shape position",
+ "Dimensions du calque": "Layer dimensions",
+ "Dimensions du composant": "Component dimensions"
 }

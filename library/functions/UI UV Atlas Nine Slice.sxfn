@@ -1,0 +1,815 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Atlas Nine Slice",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Nine-slice a selected atlas cell. Set logical source size to the cell pixel dimensions; source margins belong to that cell.",
+  "graph": {
+    "output": 31,
+    "variables": [
+      {
+        "name": "Slice Source margin units",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Fraction, Pixels. Indices start at zero."
+      },
+      {
+        "name": "Slice Left source margin",
+        "value": {
+          "type": "Float",
+          "f": 0.25
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Left source margin."
+      },
+      {
+        "name": "Slice Top source margin",
+        "value": {
+          "type": "Float",
+          "f": 0.25
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Top source margin."
+      },
+      {
+        "name": "Slice Right source margin",
+        "value": {
+          "type": "Float",
+          "f": 0.25
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Right source margin."
+      },
+      {
+        "name": "Slice Bottom source margin",
+        "value": {
+          "type": "Float",
+          "f": 0.25
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Bottom source margin."
+      },
+      {
+        "name": "Slice Widget position (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Widget position (document UV)."
+      },
+      {
+        "name": "Slice Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Slice Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Slice Border scale",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 64. Border scale."
+      },
+      {
+        "name": "Slice Center mode",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Stretch, Tile, Mirror tile, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Slice Edge mode",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Stretch, Tile, Mirror tile. Indices start at zero."
+      },
+      {
+        "name": "Slice Tile scale (target pixels per source pixel)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 100. Tile scale (target pixels per source pixel)."
+      },
+      {
+        "name": "Slice Tile phase (cycles)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -1000 to 1000. Tile phase (cycles)."
+      },
+      {
+        "name": "Slice Tile fitting",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Natural partial tiles, Round to whole tiles. Indices start at zero."
+      },
+      {
+        "name": "Atlas Atlas columns / rows",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            4.0,
+            4.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 1 to 256. Atlas columns / rows."
+      },
+      {
+        "name": "Atlas Cell inset (px per side)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Cell inset (px per side)."
+      },
+      {
+        "name": "Atlas Wrap frame index",
+        "value": {
+          "type": "Bool",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Atlas Rows start at top",
+        "value": {
+          "type": "Bool",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Indices start at zero."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Atlas Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Frame Index",
+        "port": 1,
+        "value": {
+          "type": "Int",
+          "f": 0
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "name": "Widget Size (px)",
+        "port": 2,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            400,
+            140
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "kind": "subinput",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "name": "Cell Logical Size (px)",
+        "port": 3,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            64,
+            64
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Slice Source margin units",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Slice Source margin units"
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Slice Left source margin",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Left source margin"
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Slice Top source margin",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Top source margin"
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Slice Right source margin",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Right source margin"
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Slice Bottom source margin",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Bottom source margin"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Slice Widget position (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Widget position (document UV)"
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Slice Widget anchor",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Widget anchor"
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Slice Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Edge softness (px)"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Slice Border scale",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Border scale"
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Slice Center mode",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Slice Center mode"
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "Slice Edge mode",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Slice Edge mode"
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "pos": [
+          0,
+          1350
+        ],
+        "inputs": [],
+        "op": "Slice Tile scale (target pixels per source pixel)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Tile scale (target pixels per source pixel)"
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "pos": [
+          0,
+          1440
+        ],
+        "inputs": [],
+        "op": "Slice Tile phase (cycles)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Tile phase (cycles)"
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "pos": [
+          0,
+          1530
+        ],
+        "inputs": [],
+        "op": "Slice Tile fitting",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Slice Tile fitting"
+      },
+      {
+        "id": 19,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "name": "Ui Uv Nine Slice",
+        "effect": {
+          "effect": "ui_uv_nine_slice",
+          "set": {
+            "source_origin": [
+              0,
+              0
+            ],
+            "source_extent": [
+              1,
+              1
+            ],
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "target_size",
+          "source_size",
+          "margin_units",
+          "left",
+          "top",
+          "right",
+          "bottom",
+          "position",
+          "anchor",
+          "softness",
+          "border_scale",
+          "center_mode",
+          "edge_mode",
+          "tile_scale",
+          "phase",
+          "tile_fit"
+        ]
+      },
+      {
+        "id": 20,
+        "kind": "varget",
+        "pos": [
+          0,
+          1620
+        ],
+        "inputs": [],
+        "op": "Atlas Atlas columns / rows",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Atlas Atlas columns / rows"
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "pos": [
+          0,
+          1710
+        ],
+        "inputs": [],
+        "op": "Atlas Cell inset (px per side)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Atlas Cell inset (px per side)"
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "pos": [
+          0,
+          1800
+        ],
+        "inputs": [],
+        "op": "Atlas Wrap frame index",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Atlas Wrap frame index"
+      },
+      {
+        "id": 23,
+        "kind": "varget",
+        "pos": [
+          0,
+          1890
+        ],
+        "inputs": [],
+        "op": "Atlas Rows start at top",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Atlas Rows start at top"
+      },
+      {
+        "id": 24,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          19,
+          2,
+          20,
+          21,
+          22,
+          23
+        ],
+        "name": "Ui Uv Atlas",
+        "effect": {
+          "effect": "ui_uv_atlas",
+          "set": {}
+        },
+        "paramPinNames": [
+          "frame",
+          "grid",
+          "gutter",
+          "wrap",
+          "top_down"
+        ]
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "pos": [
+          0,
+          1980
+        ],
+        "inputs": [],
+        "op": "Sample U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample U addressing"
+      },
+      {
+        "id": 26,
+        "kind": "varget",
+        "pos": [
+          0,
+          2070
+        ],
+        "inputs": [],
+        "op": "Sample V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample V addressing"
+      },
+      {
+        "id": 27,
+        "kind": "varget",
+        "pos": [
+          0,
+          2160
+        ],
+        "inputs": [],
+        "op": "Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample Texture filtering"
+      },
+      {
+        "id": 28,
+        "kind": "varget",
+        "pos": [
+          0,
+          2250
+        ],
+        "inputs": [],
+        "op": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Sample Tint (linear RGBA)"
+      },
+      {
+        "id": 29,
+        "kind": "varget",
+        "pos": [
+          0,
+          2340
+        ],
+        "inputs": [],
+        "op": "Sample Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Sample Opacity"
+      },
+      {
+        "id": 30,
+        "kind": "effect",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          1,
+          24,
+          0,
+          25,
+          26,
+          27,
+          28,
+          29
+        ],
+        "name": "Ui Uv Sample",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 31,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          0
+        ],
+        "inputs": [
+          30
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 32,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          220
+        ],
+        "inputs": [
+          24
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 33,
+        "kind": "effect",
+        "pos": [
+          1080,
+          440
+        ],
+        "inputs": [
+          24
+        ],
+        "name": "Ui Uv Field View",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 34,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          220
+        ],
+        "inputs": [
+          33
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}

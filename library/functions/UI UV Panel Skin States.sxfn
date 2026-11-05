@@ -1,0 +1,1358 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Panel Skin States",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Slice a texture skin once, then derive normal, hover, pressed and disabled image outputs from the shared sample.",
+  "graph": {
+    "output": 27,
+    "variables": [
+      {
+        "name": "Slice Source region origin (UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Source region origin (UV)."
+      },
+      {
+        "name": "Slice Source region size (UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 1e-05 to 1. Source region size (UV)."
+      },
+      {
+        "name": "Slice Logical source size (px; 0 = region texels)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Logical source size (px; 0 = region texels)."
+      },
+      {
+        "name": "Slice Source margin units",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Fraction, Pixels. Indices start at zero."
+      },
+      {
+        "name": "Slice Left source margin",
+        "value": {
+          "type": "Float",
+          "f": 0.25
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Left source margin."
+      },
+      {
+        "name": "Slice Top source margin",
+        "value": {
+          "type": "Float",
+          "f": 0.25
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Top source margin."
+      },
+      {
+        "name": "Slice Right source margin",
+        "value": {
+          "type": "Float",
+          "f": 0.25
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Right source margin."
+      },
+      {
+        "name": "Slice Bottom source margin",
+        "value": {
+          "type": "Float",
+          "f": 0.25
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Bottom source margin."
+      },
+      {
+        "name": "Slice Widget position (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Widget position (document UV)."
+      },
+      {
+        "name": "Slice Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Slice Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Slice Border scale",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 64. Border scale."
+      },
+      {
+        "name": "Slice Center mode",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Stretch, Tile, Mirror tile, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Slice Edge mode",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Stretch, Tile, Mirror tile. Indices start at zero."
+      },
+      {
+        "name": "Slice Tile scale (target pixels per source pixel)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 100. Tile scale (target pixels per source pixel)."
+      },
+      {
+        "name": "Slice Tile phase (cycles)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -1000 to 1000. Tile phase (cycles)."
+      },
+      {
+        "name": "Slice Tile fitting",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Natural partial tiles, Round to whole tiles. Indices start at zero."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Indices start at zero."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      },
+      {
+        "name": "Hover Pressed amount",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Pressed amount."
+      },
+      {
+        "name": "Hover Disabled amount",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled amount."
+      },
+      {
+        "name": "Hover Hover tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.2,
+            1.35,
+            1.5,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Hover Pressed tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.65,
+            0.7,
+            0.8,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Hover Disabled saturation",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled saturation."
+      },
+      {
+        "name": "Hover Disabled opacity",
+        "value": {
+          "type": "Float",
+          "f": 0.45
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled opacity."
+      },
+      {
+        "name": "Hover Overall opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Overall opacity."
+      },
+      {
+        "name": "Pressed Hover amount",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Hover amount."
+      },
+      {
+        "name": "Pressed Disabled amount",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled amount."
+      },
+      {
+        "name": "Pressed Hover tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.2,
+            1.35,
+            1.5,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Pressed Pressed tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.65,
+            0.7,
+            0.8,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Pressed Disabled saturation",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled saturation."
+      },
+      {
+        "name": "Pressed Disabled opacity",
+        "value": {
+          "type": "Float",
+          "f": 0.45
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled opacity."
+      },
+      {
+        "name": "Pressed Overall opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Overall opacity."
+      },
+      {
+        "name": "Disabled Hover amount",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Hover amount."
+      },
+      {
+        "name": "Disabled Pressed amount",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Pressed amount."
+      },
+      {
+        "name": "Disabled Hover tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.2,
+            1.35,
+            1.5,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Disabled Pressed tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.65,
+            0.7,
+            0.8,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Disabled Disabled saturation",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled saturation."
+      },
+      {
+        "name": "Disabled Disabled opacity",
+        "value": {
+          "type": "Float",
+          "f": 0.45
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled opacity."
+      },
+      {
+        "name": "Disabled Overall opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Overall opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Skin Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Widget Size (px)",
+        "port": 1,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            320,
+            100
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "kind": "varget",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "op": "Slice Source region origin (UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Source region origin (UV)"
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "op": "Slice Source region size (UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Source region size (UV)"
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Slice Logical source size (px; 0 = region texels)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Logical source size (px; 0 = region texels)"
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Slice Source margin units",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Slice Source margin units"
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Slice Left source margin",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Left source margin"
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Slice Top source margin",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Top source margin"
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Slice Right source margin",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Right source margin"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Slice Bottom source margin",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Bottom source margin"
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Slice Widget position (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Widget position (document UV)"
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Slice Widget anchor",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Widget anchor"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Slice Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Edge softness (px)"
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Slice Border scale",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Slice Border scale"
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "Slice Center mode",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Slice Center mode"
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "pos": [
+          0,
+          1350
+        ],
+        "inputs": [],
+        "op": "Slice Edge mode",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Slice Edge mode"
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "pos": [
+          0,
+          1440
+        ],
+        "inputs": [],
+        "op": "Slice Tile scale (target pixels per source pixel)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Tile scale (target pixels per source pixel)"
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "pos": [
+          0,
+          1530
+        ],
+        "inputs": [],
+        "op": "Slice Tile phase (cycles)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Slice Tile phase (cycles)"
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "pos": [
+          0,
+          1620
+        ],
+        "inputs": [],
+        "op": "Slice Tile fitting",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Slice Tile fitting"
+      },
+      {
+        "id": 20,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "name": "Ui Uv Nine Slice",
+        "effect": {
+          "effect": "ui_uv_nine_slice",
+          "set": {
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "target_size",
+          "source_origin",
+          "source_extent",
+          "source_size",
+          "margin_units",
+          "left",
+          "top",
+          "right",
+          "bottom",
+          "position",
+          "anchor",
+          "softness",
+          "border_scale",
+          "center_mode",
+          "edge_mode",
+          "tile_scale",
+          "phase",
+          "tile_fit"
+        ]
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "pos": [
+          0,
+          1710
+        ],
+        "inputs": [],
+        "op": "Sample U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample U addressing"
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "pos": [
+          0,
+          1800
+        ],
+        "inputs": [],
+        "op": "Sample V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample V addressing"
+      },
+      {
+        "id": 23,
+        "kind": "varget",
+        "pos": [
+          0,
+          1890
+        ],
+        "inputs": [],
+        "op": "Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample Texture filtering"
+      },
+      {
+        "id": 24,
+        "kind": "varget",
+        "pos": [
+          0,
+          1980
+        ],
+        "inputs": [],
+        "op": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Sample Tint (linear RGBA)"
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "pos": [
+          0,
+          2070
+        ],
+        "inputs": [],
+        "op": "Sample Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Sample Opacity"
+      },
+      {
+        "id": 26,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          1,
+          20,
+          0,
+          21,
+          22,
+          23,
+          24,
+          25
+        ],
+        "name": "Ui Uv Sample",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 27,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          26
+        ],
+        "name": "Normal",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 28,
+        "kind": "varget",
+        "pos": [
+          0,
+          2160
+        ],
+        "inputs": [],
+        "op": "Hover Pressed amount",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Hover Pressed amount"
+      },
+      {
+        "id": 29,
+        "kind": "varget",
+        "pos": [
+          0,
+          2250
+        ],
+        "inputs": [],
+        "op": "Hover Disabled amount",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Hover Disabled amount"
+      },
+      {
+        "id": 30,
+        "kind": "varget",
+        "pos": [
+          0,
+          2340
+        ],
+        "inputs": [],
+        "op": "Hover Hover tint",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Hover Hover tint"
+      },
+      {
+        "id": 31,
+        "kind": "varget",
+        "pos": [
+          0,
+          2430
+        ],
+        "inputs": [],
+        "op": "Hover Pressed tint",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Hover Pressed tint"
+      },
+      {
+        "id": 32,
+        "kind": "varget",
+        "pos": [
+          0,
+          2520
+        ],
+        "inputs": [],
+        "op": "Hover Disabled saturation",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Hover Disabled saturation"
+      },
+      {
+        "id": 33,
+        "kind": "varget",
+        "pos": [
+          0,
+          2610
+        ],
+        "inputs": [],
+        "op": "Hover Disabled opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Hover Disabled opacity"
+      },
+      {
+        "id": 34,
+        "kind": "varget",
+        "pos": [
+          0,
+          2700
+        ],
+        "inputs": [],
+        "op": "Hover Overall opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Hover Overall opacity"
+      },
+      {
+        "id": 35,
+        "kind": "effect",
+        "pos": [
+          1080,
+          220
+        ],
+        "inputs": [
+          26,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34
+        ],
+        "name": "Ui Effect State",
+        "effect": {
+          "effect": "ui_effect_state",
+          "set": {
+            "hover": 1
+          }
+        },
+        "paramPinNames": [
+          "pressed",
+          "disabled",
+          "hover_tint",
+          "pressed_tint",
+          "disabled_saturation",
+          "disabled_opacity",
+          "opacity"
+        ]
+      },
+      {
+        "id": 36,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          0
+        ],
+        "inputs": [
+          35
+        ],
+        "name": "Hover",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 37,
+        "kind": "varget",
+        "pos": [
+          0,
+          2790
+        ],
+        "inputs": [],
+        "op": "Pressed Hover amount",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Pressed Hover amount"
+      },
+      {
+        "id": 38,
+        "kind": "varget",
+        "pos": [
+          0,
+          2880
+        ],
+        "inputs": [],
+        "op": "Pressed Disabled amount",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Pressed Disabled amount"
+      },
+      {
+        "id": 39,
+        "kind": "varget",
+        "pos": [
+          0,
+          2970
+        ],
+        "inputs": [],
+        "op": "Pressed Hover tint",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Pressed Hover tint"
+      },
+      {
+        "id": 40,
+        "kind": "varget",
+        "pos": [
+          0,
+          3060
+        ],
+        "inputs": [],
+        "op": "Pressed Pressed tint",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Pressed Pressed tint"
+      },
+      {
+        "id": 41,
+        "kind": "varget",
+        "pos": [
+          0,
+          3150
+        ],
+        "inputs": [],
+        "op": "Pressed Disabled saturation",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Pressed Disabled saturation"
+      },
+      {
+        "id": 42,
+        "kind": "varget",
+        "pos": [
+          0,
+          3240
+        ],
+        "inputs": [],
+        "op": "Pressed Disabled opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Pressed Disabled opacity"
+      },
+      {
+        "id": 43,
+        "kind": "varget",
+        "pos": [
+          0,
+          3330
+        ],
+        "inputs": [],
+        "op": "Pressed Overall opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Pressed Overall opacity"
+      },
+      {
+        "id": 44,
+        "kind": "effect",
+        "pos": [
+          1080,
+          440
+        ],
+        "inputs": [
+          26,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43
+        ],
+        "name": "Ui Effect State",
+        "effect": {
+          "effect": "ui_effect_state",
+          "set": {
+            "pressed": 1
+          }
+        },
+        "paramPinNames": [
+          "hover",
+          "disabled",
+          "hover_tint",
+          "pressed_tint",
+          "disabled_saturation",
+          "disabled_opacity",
+          "opacity"
+        ]
+      },
+      {
+        "id": 45,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          220
+        ],
+        "inputs": [
+          44
+        ],
+        "name": "Pressed",
+        "port": 2,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 46,
+        "kind": "varget",
+        "pos": [
+          0,
+          3420
+        ],
+        "inputs": [],
+        "op": "Disabled Hover amount",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Disabled Hover amount"
+      },
+      {
+        "id": 47,
+        "kind": "varget",
+        "pos": [
+          0,
+          3510
+        ],
+        "inputs": [],
+        "op": "Disabled Pressed amount",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Disabled Pressed amount"
+      },
+      {
+        "id": 48,
+        "kind": "varget",
+        "pos": [
+          0,
+          3600
+        ],
+        "inputs": [],
+        "op": "Disabled Hover tint",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Disabled Hover tint"
+      },
+      {
+        "id": 49,
+        "kind": "varget",
+        "pos": [
+          0,
+          3690
+        ],
+        "inputs": [],
+        "op": "Disabled Pressed tint",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Disabled Pressed tint"
+      },
+      {
+        "id": 50,
+        "kind": "varget",
+        "pos": [
+          0,
+          3780
+        ],
+        "inputs": [],
+        "op": "Disabled Disabled saturation",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Disabled Disabled saturation"
+      },
+      {
+        "id": 51,
+        "kind": "varget",
+        "pos": [
+          0,
+          3870
+        ],
+        "inputs": [],
+        "op": "Disabled Disabled opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Disabled Disabled opacity"
+      },
+      {
+        "id": 52,
+        "kind": "varget",
+        "pos": [
+          0,
+          3960
+        ],
+        "inputs": [],
+        "op": "Disabled Overall opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Disabled Overall opacity"
+      },
+      {
+        "id": 53,
+        "kind": "effect",
+        "pos": [
+          1080,
+          660
+        ],
+        "inputs": [
+          26,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52
+        ],
+        "name": "Ui Effect State",
+        "effect": {
+          "effect": "ui_effect_state",
+          "set": {
+            "disabled": 1
+          }
+        },
+        "paramPinNames": [
+          "hover",
+          "pressed",
+          "hover_tint",
+          "pressed_tint",
+          "disabled_saturation",
+          "disabled_opacity",
+          "opacity"
+        ]
+      },
+      {
+        "id": 54,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          440
+        ],
+        "inputs": [
+          53
+        ],
+        "name": "Disabled",
+        "port": 3,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 55,
+        "kind": "suboutput",
+        "pos": [
+          720,
+          220
+        ],
+        "inputs": [
+          20
+        ],
+        "name": "UV Map",
+        "port": 4,
+        "value": {
+          "type": "Image"
+        }
+      }
+    ]
+  }
+}

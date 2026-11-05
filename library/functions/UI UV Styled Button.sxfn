@@ -1,0 +1,677 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Styled Button",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Procedural rounded panel with gradient, border, bevel, shadow, glow and exposed interaction states.",
+  "graph": {
+    "output": 27,
+    "variables": [
+      {
+        "name": "Panel Panel center (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Panel center (document UV)."
+      },
+      {
+        "name": "Panel Corner radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 18.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Corner radius (px)."
+      },
+      {
+        "name": "Panel Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Panel Gradient start color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.035,
+            0.12,
+            0.24,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Panel Gradient end color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.01,
+            0.035,
+            0.08,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Panel Gradient angle (degrees)",
+        "value": {
+          "type": "Float",
+          "f": 90.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Gradient angle (degrees)."
+      },
+      {
+        "name": "Panel Border width (px)",
+        "value": {
+          "type": "Float",
+          "f": 2.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Border width (px)."
+      },
+      {
+        "name": "Panel Border color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.08,
+            0.45,
+            0.8,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Panel Bevel width (px)",
+        "value": {
+          "type": "Float",
+          "f": 2.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Bevel width (px)."
+      },
+      {
+        "name": "Panel Bevel light strength",
+        "value": {
+          "type": "Float",
+          "f": 0.18
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 2. Bevel light strength."
+      },
+      {
+        "name": "Panel Shadow offset (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            6.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4096 to 4096. Shadow offset (px)."
+      },
+      {
+        "name": "Panel Shadow softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 10.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Shadow softness (px)."
+      },
+      {
+        "name": "Panel Shadow color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.0,
+            0.0,
+            0.0,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Panel Outer glow size (px)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Outer glow size (px)."
+      },
+      {
+        "name": "Panel Outer glow color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.02,
+            0.3,
+            1.0,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "State Hover tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.2,
+            1.35,
+            1.5,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "State Pressed tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.65,
+            0.7,
+            0.8,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "State Disabled saturation",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled saturation."
+      },
+      {
+        "name": "State Disabled opacity",
+        "value": {
+          "type": "Float",
+          "f": 0.45
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled opacity."
+      },
+      {
+        "name": "State Overall opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Overall opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Button Size (px)",
+        "port": 0,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            320,
+            100
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Hover",
+        "port": 1,
+        "value": {
+          "type": "Float",
+          "f": 0
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "name": "Pressed",
+        "port": 2,
+        "value": {
+          "type": "Float",
+          "f": 0
+        }
+      },
+      {
+        "id": 4,
+        "kind": "subinput",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "name": "Disabled",
+        "port": 3,
+        "value": {
+          "type": "Float",
+          "f": 0
+        }
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Panel Panel center (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Panel Panel center (document UV)"
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Panel Corner radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Panel Corner radius (px)"
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Panel Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Panel Edge softness (px)"
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Panel Gradient start color",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Panel Gradient start color"
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Panel Gradient end color",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Panel Gradient end color"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Panel Gradient angle (degrees)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Panel Gradient angle (degrees)"
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Panel Border width (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Panel Border width (px)"
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Panel Border color",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Panel Border color"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Panel Bevel width (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Panel Bevel width (px)"
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Panel Bevel light strength",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Panel Bevel light strength"
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "Panel Shadow offset (px)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Panel Shadow offset (px)"
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "pos": [
+          0,
+          1350
+        ],
+        "inputs": [],
+        "op": "Panel Shadow softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Panel Shadow softness (px)"
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "pos": [
+          0,
+          1440
+        ],
+        "inputs": [],
+        "op": "Panel Shadow color",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Panel Shadow color"
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "pos": [
+          0,
+          1530
+        ],
+        "inputs": [],
+        "op": "Panel Outer glow size (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Panel Outer glow size (px)"
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "pos": [
+          0,
+          1620
+        ],
+        "inputs": [],
+        "op": "Panel Outer glow color",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Panel Outer glow color"
+      },
+      {
+        "id": 20,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          1,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "name": "Ui Draw Panel",
+        "effect": {
+          "effect": "ui_draw_panel",
+          "set": {}
+        },
+        "paramPinNames": [
+          "size",
+          "position",
+          "radius",
+          "softness",
+          "color_top",
+          "color_bottom",
+          "angle",
+          "border",
+          "border_color",
+          "bevel",
+          "bevel_strength",
+          "shadow_offset",
+          "shadow_softness",
+          "shadow_color",
+          "glow_size",
+          "glow_color"
+        ]
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "pos": [
+          0,
+          1710
+        ],
+        "inputs": [],
+        "op": "State Hover tint",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get State Hover tint"
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "pos": [
+          0,
+          1800
+        ],
+        "inputs": [],
+        "op": "State Pressed tint",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get State Pressed tint"
+      },
+      {
+        "id": 23,
+        "kind": "varget",
+        "pos": [
+          0,
+          1890
+        ],
+        "inputs": [],
+        "op": "State Disabled saturation",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get State Disabled saturation"
+      },
+      {
+        "id": 24,
+        "kind": "varget",
+        "pos": [
+          0,
+          1980
+        ],
+        "inputs": [],
+        "op": "State Disabled opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get State Disabled opacity"
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "pos": [
+          0,
+          2070
+        ],
+        "inputs": [],
+        "op": "State Overall opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get State Overall opacity"
+      },
+      {
+        "id": 26,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          20,
+          2,
+          3,
+          4,
+          21,
+          22,
+          23,
+          24,
+          25
+        ],
+        "name": "Ui Effect State",
+        "effect": {
+          "effect": "ui_effect_state",
+          "set": {}
+        },
+        "paramPinNames": [
+          "hover",
+          "pressed",
+          "disabled",
+          "hover_tint",
+          "pressed_tint",
+          "disabled_saturation",
+          "disabled_opacity",
+          "opacity"
+        ]
+      },
+      {
+        "id": 27,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          26
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      }
+    ]
+  }
+}

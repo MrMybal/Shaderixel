@@ -1,3 +1,4 @@
+#include "ui/Dimensions.h"
 // Scripted demo scene used for automated visual checks (--demo [nodes]).
 #include "io/PsdImport.h"
 #include "doc/ShapePaths.h"
@@ -42,6 +43,43 @@ void CompareReadbacks(const char* what, const gpu::Readback& a, const gpu::Readb
 }  // namespace
 
 void App::DemoTick() {
+    // Native UI fixtures: no operating-system input, only the same dimension math.
+    if (const char* sizeTest = getenv("SX_DIMENSIONS_TEST"); sizeTest && frameCounter == 70 && Active()) {
+        auto& view = *Active(); auto& document = *view.doc;
+        if (std::string(sizeTest) == "shape") {
+            for (auto& layer : document.S().layers) if (layer.kind == LayerKind::Shape) {
+                document.S().activeLayer = layer.id;
+                float2 size{layer.shape.rect.z-layer.shape.rect.x, layer.shape.rect.w-layer.shape.rect.y};
+                size = *ui::ResizeDimension(size, {(float)document.Width(),(float)document.Height()}, true, 0, 375.5f, false);
+                size = *ui::ResizeDimension(size, {(float)document.Width(),(float)document.Height()}, true, 1, 75.25f, false);
+                layer.shape.rect.z=layer.shape.rect.x+size.x;layer.shape.rect.w=layer.shape.rect.y+size.y;
+                break;
+            }
+            shapeSizePixels=true; shapeSizeLock=false;
+            panelOpen["Propriétés"].open=true;ShowSideTab(0);FocusPanel("Propriétés");
+        } else if (std::string(sizeTest) == "layer") {
+            for (auto& layer : document.S().layers) if (layer.kind == LayerKind::Pixel) {document.S().activeLayer=layer.id;break;}
+            ConvertToSmartObject(view);
+            if (auto* layer=document.ActiveLayer(); layer && layer->kind==LayerKind::Smart) {
+                layer->smartCorners[0]={100,100};layer->smartCorners[1]={475.5f,100};
+                layer->smartCorners[2]={475.5f,175.25f};layer->smartCorners[3]={100,175.25f};
+            }
+            transformSizePixels=true;lxf.lockAspect=false;
+            panelOpen["Propriétés"].open=true;ShowSideTab(0);FocusPanel("Propriétés");
+        } else if (std::string(sizeTest) == "free" && xf.active && !xf.boundsRb) {
+            xf.w=375.5f;xf.h=75.25f;TransformUpdateCorners();xf.dirty=true;
+            transformSizePixels=true;transformSizeLock=false;
+            panelOpen["Options"].open=true;ShowSideTab(1);FocusPanel("Options");
+        }
+    }
+    if (const char* sizeTest=getenv("SX_DIMENSIONS_TEST"); sizeTest && frameCounter==95 && Active()) {
+        auto* layer=Active()->doc->ActiveLayer();
+        if (std::string(sizeTest)=="shape" && layer && layer->kind==LayerKind::Shape)
+            Log("[dimensions] shape %.4f x %.4f",std::abs(layer->shape.rect.z-layer->shape.rect.x),std::abs(layer->shape.rect.w-layer->shape.rect.y));
+        else if (std::string(sizeTest)=="layer" && layer && layer->kind==LayerKind::Smart)
+            Log("[dimensions] layer %.4f x %.4f",Length(layer->smartCorners[1]-layer->smartCorners[0]),Length(layer->smartCorners[3]-layer->smartCorners[0]));
+        else if (std::string(sizeTest)=="free" && xf.active) Log("[dimensions] free %.4f x %.4f",std::abs(xf.w),std::abs(xf.h));
+    }
     if (frameCounter==70) {
         if (const char* focus=getenv("SX_UI_FOCUS")) {
             const bool gradient=std::string(focus)=="gradient";

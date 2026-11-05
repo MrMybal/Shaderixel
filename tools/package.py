@@ -18,6 +18,7 @@ import struct
 import subprocess
 import sys
 import zipfile
+from pathlib import Path
 
 # Demo captures start minimized without taking the focus (the PC stays usable meanwhile).
 _run = subprocess.run
@@ -419,6 +420,21 @@ def main():
             shutil.copy2(os.path.join(BUILD, f), dist)
     shutil.copy2(os.path.join(ROOT, 'README.md'), os.path.join(dist, 'README.md'))
     shutil.copytree(os.path.join(ROOT, 'docs', 'screenshots'), os.path.join(dist, 'docs', 'screenshots'))
+    # Reviewed UI guides and self-contained documents, with package-relative links.
+    for guide in ('UI_UV_LIBRARY.md', 'UI_TOOLKIT.md'):
+        source = os.path.join(ROOT, 'docs', guide)
+        with open(source, encoding='utf-8') as handle:
+            text = handle.read().replace('../library/functions/', '../functions/')
+            version = (Path(ROOT) / 'VERSION').read_text(encoding='ascii').strip()
+            text = text.replace('../tools/', 'https://github.com/MrMybal/Shaderixel/blob/v' + version + '/tools/')
+        with open(os.path.join(dist, 'docs', guide), 'w', encoding='utf-8') as handle:
+            handle.write(text)
+    os.makedirs(os.path.join(dist, 'docs', 'images'))
+    for image in ('ui_uv_library.png', 'ui_toolkit.png'):
+        shutil.copy2(os.path.join(ROOT, 'docs', 'images', image), os.path.join(dist, 'docs', 'images', image))
+    os.makedirs(os.path.join(dist, 'examples'))
+    for document in ('ui_uv_library_demo.sxl', 'ui_toolkit_demo.sxl'):
+        shutil.copy2(os.path.join(ROOT, 'examples', document), os.path.join(dist, 'examples', document))
     shutil.copy2(os.path.join(ROOT, 'LICENSE'), os.path.join(dist, 'LICENSE'))
     shutil.copytree(os.path.join(ROOT, 'shaders'), os.path.join(dist, 'shaders'))
     # Function library (sub-graphs and tools, .sxfn), listed in the node menu > Bibliothèque.
@@ -567,7 +583,10 @@ def main():
         for base, _, files in os.walk(dist):
             for f in files:
                 p = os.path.join(base, f)
-                zf.write(p, os.path.join(name, os.path.relpath(p, dist)))
+                relative = os.path.relpath(p, dist)
+                if relative == 'Guide.html' or relative.split(os.sep)[0] == 'Guide_images':
+                    continue
+                zf.write(p, os.path.join(name, relative))
     size = sum(os.path.getsize(os.path.join(b, f)) for b, _, fs in os.walk(dist) for f in fs)
     print(f'Package: {dist} ({size / 1e6:.0f} MB), zip: {z} ({os.path.getsize(z) / 1e6:.0f} MB)')
 

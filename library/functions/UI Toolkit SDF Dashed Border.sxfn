@@ -1,0 +1,635 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI Toolkit SDF Dashed Border",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Contour-following stroke from a connected SDF field, with editable offset, width, phase, alignment and pixel antialiasing.",
+  "graph": {
+    "output": 24,
+    "variables": [
+      {
+        "name": "Field Grow / shrink (px)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -4096 to 4096. Grow / shrink (px)."
+      },
+      {
+        "name": "Field Make hollow shell",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Field Shell thickness (px)",
+        "value": {
+          "type": "Float",
+          "f": 8.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 4096. Shell thickness (px)."
+      },
+      {
+        "name": "Field Invert inside / outside",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Stroke Stroke alignment",
+        "value": {
+          "type": "Int",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Options: Inside, Centered, Outside. Zero-based index."
+      },
+      {
+        "name": "Stroke Double line gap (px)",
+        "value": {
+          "type": "Float",
+          "f": 4.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 4096. Double line gap (px)."
+      },
+      {
+        "name": "Stroke Dash length / dot period base (px)",
+        "value": {
+          "type": "Float",
+          "f": 12.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 4096. Dash length / dot period base (px)."
+      },
+      {
+        "name": "Stroke Dash / dot gap (px)",
+        "value": {
+          "type": "Float",
+          "f": 8.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 4096. Dash / dot gap (px)."
+      },
+      {
+        "name": "Stroke Dash phase (px)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -100000 to 100000. Dash phase (px)."
+      },
+      {
+        "name": "Stroke Fit whole periods around contour",
+        "value": {
+          "type": "Bool",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Stroke Dash caps",
+        "value": {
+          "type": "Int",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Options: Butt, Round. Zero-based index."
+      },
+      {
+        "name": "Stroke Dash coordinate mode",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Contour, Angular, Projected. Zero-based index."
+      },
+      {
+        "name": "Stroke Angular / projected origin (UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Angular / projected origin (UV)."
+      },
+      {
+        "name": "Stroke Projection angle (degrees)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Projection angle (degrees)."
+      },
+      {
+        "name": "Stroke Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 64. Edge softness (px)."
+      },
+      {
+        "name": "Stroke Stroke start color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.1,
+            0.65,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Stroke Stroke end color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.65,
+            0.2,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Stroke Gradient along contour",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Stroke Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          0
+        ],
+        "name": "SDF Field",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          130
+        ],
+        "name": "Line Width (px)",
+        "port": 1,
+        "value": {
+          "type": "Float",
+          "f": 3
+        }
+      },
+      {
+        "id": 3,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          260
+        ],
+        "op": "Field Grow / shrink (px)",
+        "name": "Get Field Grow / shrink (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          390
+        ],
+        "op": "Field Make hollow shell",
+        "name": "Get Field Make hollow shell",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          520
+        ],
+        "op": "Field Shell thickness (px)",
+        "name": "Get Field Shell thickness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          650
+        ],
+        "op": "Field Invert inside / outside",
+        "name": "Get Field Invert inside / outside",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 7,
+        "kind": "effect",
+        "inputs": [
+          1,
+          3,
+          4,
+          5,
+          6
+        ],
+        "pos": [
+          360,
+          0
+        ],
+        "name": "UI SDF Modify",
+        "effect": {
+          "effect": "ui_sdf_modify",
+          "set": {}
+        },
+        "paramPinNames": [
+          "grow",
+          "shell",
+          "thickness",
+          "invert"
+        ]
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          780
+        ],
+        "op": "Stroke Stroke alignment",
+        "name": "Get Stroke Stroke alignment",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          910
+        ],
+        "op": "Stroke Double line gap (px)",
+        "name": "Get Stroke Double line gap (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1040
+        ],
+        "op": "Stroke Dash length / dot period base (px)",
+        "name": "Get Stroke Dash length / dot period base (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1170
+        ],
+        "op": "Stroke Dash / dot gap (px)",
+        "name": "Get Stroke Dash / dot gap (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1300
+        ],
+        "op": "Stroke Dash phase (px)",
+        "name": "Get Stroke Dash phase (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1430
+        ],
+        "op": "Stroke Fit whole periods around contour",
+        "name": "Get Stroke Fit whole periods around contour",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1560
+        ],
+        "op": "Stroke Dash caps",
+        "name": "Get Stroke Dash caps",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1690
+        ],
+        "op": "Stroke Dash coordinate mode",
+        "name": "Get Stroke Dash coordinate mode",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1820
+        ],
+        "op": "Stroke Angular / projected origin (UV)",
+        "name": "Get Stroke Angular / projected origin (UV)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1950
+        ],
+        "op": "Stroke Projection angle (degrees)",
+        "name": "Get Stroke Projection angle (degrees)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2080
+        ],
+        "op": "Stroke Edge softness (px)",
+        "name": "Get Stroke Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2210
+        ],
+        "op": "Stroke Stroke start color",
+        "name": "Get Stroke Stroke start color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 20,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2340
+        ],
+        "op": "Stroke Stroke end color",
+        "name": "Get Stroke Stroke end color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2470
+        ],
+        "op": "Stroke Gradient along contour",
+        "name": "Get Stroke Gradient along contour",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2600
+        ],
+        "op": "Stroke Opacity",
+        "name": "Get Stroke Opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 23,
+        "kind": "effect",
+        "inputs": [
+          7,
+          2,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22
+        ],
+        "pos": [
+          720,
+          0
+        ],
+        "name": "UI SDF Border and Stroke",
+        "effect": {
+          "effect": "ui_sdf_stroke",
+          "set": {
+            "pattern": 1,
+            "double_line": 0
+          }
+        },
+        "paramPinNames": [
+          "width",
+          "alignment",
+          "double_gap",
+          "dash",
+          "gap",
+          "phase",
+          "fit",
+          "caps",
+          "path_mode",
+          "center",
+          "angle",
+          "softness",
+          "color_a",
+          "color_b",
+          "gradient",
+          "opacity"
+        ]
+      },
+      {
+        "id": 24,
+        "kind": "suboutput",
+        "inputs": [
+          23
+        ],
+        "pos": [
+          1080,
+          0
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 25,
+        "kind": "split",
+        "inputs": [
+          23
+        ],
+        "pos": [
+          1080,
+          240
+        ],
+        "name": "Split RGBA"
+      },
+      {
+        "id": 26,
+        "kind": "suboutput",
+        "inputs": [
+          25
+        ],
+        "pos": [
+          1440,
+          0
+        ],
+        "name": "Stroke Alpha",
+        "port": 1,
+        "value": {
+          "type": "Canal"
+        },
+        "inputChannels": [
+          4
+        ]
+      },
+      {
+        "id": 27,
+        "kind": "suboutput",
+        "inputs": [
+          7
+        ],
+        "pos": [
+          720,
+          240
+        ],
+        "name": "SDF Field",
+        "port": 2,
+        "value": {
+          "type": "Image"
+        }
+      }
+    ]
+  }
+}

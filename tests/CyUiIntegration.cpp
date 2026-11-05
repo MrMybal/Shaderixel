@@ -1,3 +1,4 @@
+#include "ui/Dimensions.h"
 #include "ui/Theme.h"
 #include "ui/CodeEdit.h"
 #include "ui/ToneCurve.h"
@@ -112,6 +113,52 @@ int main() {
     ImGui::GetIO().AddKeyEvent(ImGuiKey_Escape,false);frame(curve,{190,70},0);
     frame(curve,{170,90});frame(curve,{170,90},1);frame(curve,{170,-60},1);frame(curve,{170,-60},0);
     check(points.size()==2 && commit,"drag-out deletes an interior key and commits once");
+    check(sx::ui::ParseDecimal("375,5")==375.5f,"decimal comma parser");
+    check(sx::ui::ParseDecimal("75.25")==75.25f,"decimal dot parser");
+    check(!sx::ui::ParseDecimal("nan") && !sx::ui::ParseDecimal("1e999") && !sx::ui::ParseDecimal("375,5.2"),"reject invalid or non-finite sizes");
+    auto mirrored=sx::ui::ResizeDimension({-400,200},{400,200},true,0,375.5f,true);
+    check(mirrored && mirrored->x==-375.5f && mirrored->y==187.75f,"pixel resize keeps mirrors and aspect ratio");
+    auto percent=sx::ui::ResizeDimension({400,200},{400,200},false,1,37.625f,false);
+    check(percent && percent->x==400 && std::abs(percent->y-75.25f)<.0001f,"fractional percentages use stable reference");
+    check(!sx::ui::ResizeDimension({400,200},{400,200},true,0,-1,false),"pixel dimensions reject negatives");
+    check(!sx::ui::ResizeDimension({400,200},{0,200},false,0,20,false),"zero percentage reference rejected");
+    sx::float2 dimSize{400,200}; bool dimPixels=true,dimRatio=false;
+    int dimCommits=0,dimApplies=0;
+    auto dimensions=[&]{
+        sx::ui::Dimensions("dimensions",dimSize,{400,200},dimPixels,dimRatio,"Reference",
+            [&](sx::float2 next){dimSize=next;++dimApplies;},[&](bool edited){if(edited && ImGui::IsItemDeactivatedAfterEdit())++dimCommits;});
+    };
+    // Deterministic positions: combo, ratio checkbox, then the two numeric inputs.
+    auto numeric=[&]{sx::ui::DecimalField("numeric",dimSize.x);};
+    frame(numeric);frame(numeric,{100,30},1);frame(numeric,{100,30},0);
+    chord(numeric,ImGuiKey_A);ImGui::GetIO().AddInputCharactersUTF8("375,5");frame(numeric);
+    check(dimSize.x==375.5f,"native field accepts typed decimal comma");
+    frame(numeric,{900,700},1);frame(numeric,{900,700},0);
+    dimSize={400,200};
+    ImVec2 widthCenter,heightCenter;
+    auto fullDimensions=[&]{
+        dimensions();
+        ImGui::Button("Outside dimensions",{140,30});
+    };
+    frame(fullDimensions);
+    // Field positions are derived from the font size, including the common combo and checkbox.
+    float row=ImGui::GetFrameHeightWithSpacing();
+    widthCenter={100,20+2*row+ImGui::GetFrameHeight()*.5f};
+    heightCenter={100,20+3*row+ImGui::GetFrameHeight()*.5f};
+    frame(fullDimensions,widthCenter,1);frame(fullDimensions,widthCenter,0);
+    chord(fullDimensions,ImGuiKey_A);ImGui::GetIO().AddInputCharactersUTF8("375,5");frame(fullDimensions);
+    frame(fullDimensions,heightCenter,1);frame(fullDimensions,heightCenter,0);
+    chord(fullDimensions,ImGuiKey_A);ImGui::GetIO().AddInputCharactersUTF8("75.25");frame(fullDimensions);
+    frame(fullDimensions,{900,700},1);frame(fullDimensions,{900,700},0);
+    check(dimSize.x==375.5f && dimSize.y==75.25f,"unlinked native dimensions accept exact fractional width and height");
+    check(dimCommits==2,"one history transaction per edited dimension");
+    const auto precise=dimSize;dimPixels=false;frame(fullDimensions);dimPixels=true;frame(fullDimensions);
+    check(dimSize.x==precise.x && dimSize.y==precise.y && dimCommits==2,"unit changes do not resize or add history");
+    frame(fullDimensions,widthCenter,1);frame(fullDimensions,widthCenter,0);
+    chord(fullDimensions,ImGuiKey_A);ImGui::GetIO().AddInputCharactersUTF8("999.75");frame(fullDimensions);
+    ImGui::GetIO().AddKeyEvent(ImGuiKey_Escape,true);frame(fullDimensions);
+    ImGui::GetIO().AddKeyEvent(ImGuiKey_Escape,false);frame(fullDimensions);
+    check(dimSize.x==precise.x && dimSize.y==precise.y && dimCommits==2,"Escape restores dimensions without adding history");
     const auto formatted=sx::ui::FormatHlsl("float4 f(){float x=0;float y=1;float z=2;float q=3;return float4(x,y,z,q);}");
     check(formatted.find("return")!=std::string::npos,"host HLSL formatter still works");
     auto* first=ImGui::GetCurrentContext();context("light-grey",false,1.5f);

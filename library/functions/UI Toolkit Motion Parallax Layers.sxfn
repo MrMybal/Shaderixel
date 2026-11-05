@@ -1,0 +1,1125 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI Toolkit Motion Parallax Layers",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Three image planes share a driver and independent depths. Use transparency in the middle and foreground images to reveal the other planes.",
+  "graph": {
+    "output": 45,
+    "variables": [
+      {
+        "name": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Widget position (document UV)."
+      },
+      {
+        "name": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Top left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top left radius (px)."
+      },
+      {
+        "name": "Clip Top right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top right radius (px)."
+      },
+      {
+        "name": "Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom right radius (px)."
+      },
+      {
+        "name": "Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom left radius (px)."
+      },
+      {
+        "name": "Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Hollow border width (px; 0 = filled)."
+      },
+      {
+        "name": "Clip Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Invert clip",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Layer 1 depth",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Signed layer depth; 0 remains fixed when no depth map is connected."
+      },
+      {
+        "name": "Layer 1 Neutral driver position",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Neutral driver position."
+      },
+      {
+        "name": "Layer 1 Parallax travel X / Y (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            24.0,
+            16.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -8192 to 8192. Parallax travel X / Y (px)."
+      },
+      {
+        "name": "Layer 1 Depth map neutral value",
+        "value": {
+          "type": "Float",
+          "f": 0.5
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Depth map neutral value."
+      },
+      {
+        "name": "Layer 1 Depth map influence",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: -8 to 8. Depth map influence."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Zero-based index."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      },
+      {
+        "name": "Layer 2 depth",
+        "value": {
+          "type": "Float",
+          "f": 0.5
+        },
+        "exposed": true,
+        "desc": "Signed layer depth; 0 remains fixed when no depth map is connected."
+      },
+      {
+        "name": "Layer 2 Neutral driver position",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Neutral driver position."
+      },
+      {
+        "name": "Layer 2 Parallax travel X / Y (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            24.0,
+            16.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -8192 to 8192. Parallax travel X / Y (px)."
+      },
+      {
+        "name": "Layer 2 Depth map neutral value",
+        "value": {
+          "type": "Float",
+          "f": 0.5
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Depth map neutral value."
+      },
+      {
+        "name": "Layer 2 Depth map influence",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: -8 to 8. Depth map influence."
+      },
+      {
+        "name": "Layer 3 depth",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Signed layer depth; 0 remains fixed when no depth map is connected."
+      },
+      {
+        "name": "Layer 3 Neutral driver position",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Neutral driver position."
+      },
+      {
+        "name": "Layer 3 Parallax travel X / Y (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            24.0,
+            16.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -8192 to 8192. Parallax travel X / Y (px)."
+      },
+      {
+        "name": "Layer 3 Depth map neutral value",
+        "value": {
+          "type": "Float",
+          "f": 0.5
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Depth map neutral value."
+      },
+      {
+        "name": "Layer 3 Depth map influence",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: -8 to 8. Depth map influence."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          0
+        ],
+        "name": "Background",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          130
+        ],
+        "name": "Middle",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          260
+        ],
+        "name": "Foreground",
+        "port": 2,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 4,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          390
+        ],
+        "name": "Driver Position",
+        "port": 3,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          520
+        ],
+        "name": "Optional Depth",
+        "port": 4,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 6,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          650
+        ],
+        "name": "Widget Size (px)",
+        "port": 5,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            320,
+            180
+          ]
+        }
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          780
+        ],
+        "op": "Widget Widget position (document UV)",
+        "name": "Get Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          910
+        ],
+        "op": "Widget Widget anchor",
+        "name": "Get Widget Widget anchor",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1040
+        ],
+        "op": "Widget Edge softness (px)",
+        "name": "Get Widget Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 10,
+        "kind": "effect",
+        "inputs": [
+          6,
+          7,
+          8,
+          9
+        ],
+        "pos": [
+          360,
+          0
+        ],
+        "name": "UI UV Widget Coordinates",
+        "effect": {
+          "effect": "ui_uv_coordinates",
+          "set": {}
+        },
+        "paramPinNames": [
+          "target_size",
+          "position",
+          "anchor",
+          "softness"
+        ]
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1170
+        ],
+        "op": "Clip Top left radius (px)",
+        "name": "Get Clip Top left radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1300
+        ],
+        "op": "Clip Top right radius (px)",
+        "name": "Get Clip Top right radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1430
+        ],
+        "op": "Clip Bottom right radius (px)",
+        "name": "Get Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1560
+        ],
+        "op": "Clip Bottom left radius (px)",
+        "name": "Get Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1690
+        ],
+        "op": "Clip Hollow border width (px; 0 = filled)",
+        "name": "Get Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1820
+        ],
+        "op": "Clip Edge softness (px)",
+        "name": "Get Clip Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1950
+        ],
+        "op": "Clip Invert clip",
+        "name": "Get Clip Invert clip",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 18,
+        "kind": "effect",
+        "inputs": [
+          10,
+          6,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17
+        ],
+        "pos": [
+          720,
+          0
+        ],
+        "name": "UI UV Rounded Rectangle Clip",
+        "effect": {
+          "effect": "ui_uv_mask_rect",
+          "set": {
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "space_size",
+          "radius_tl",
+          "radius_tr",
+          "radius_br",
+          "radius_bl",
+          "border",
+          "softness",
+          "invert"
+        ]
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2080
+        ],
+        "op": "Layer 1 depth",
+        "name": "Get Layer 1 depth",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 20,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2210
+        ],
+        "op": "Layer 1 Neutral driver position",
+        "name": "Get Layer 1 Neutral driver position",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2340
+        ],
+        "op": "Layer 1 Parallax travel X / Y (px)",
+        "name": "Get Layer 1 Parallax travel X / Y (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2470
+        ],
+        "op": "Layer 1 Depth map neutral value",
+        "name": "Get Layer 1 Depth map neutral value",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 23,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2600
+        ],
+        "op": "Layer 1 Depth map influence",
+        "name": "Get Layer 1 Depth map influence",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 24,
+        "kind": "effect",
+        "inputs": [
+          18,
+          5,
+          0,
+          4,
+          6,
+          19,
+          20,
+          21,
+          22,
+          23
+        ],
+        "pos": [
+          1080,
+          0
+        ],
+        "name": "UI UV Parallax",
+        "effect": {
+          "effect": "ui_uv_parallax",
+          "set": {}
+        },
+        "paramPinNames": [
+          "pointer",
+          "space_size",
+          "plane_depth",
+          "neutral",
+          "strength",
+          "depth_reference",
+          "depth_amount"
+        ]
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2730
+        ],
+        "op": "Sample Texture filtering",
+        "name": "Get Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 26,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2860
+        ],
+        "op": "Sample Tint (linear RGBA)",
+        "name": "Get Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 27,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2990
+        ],
+        "op": "Sample Opacity",
+        "name": "Get Sample Opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 28,
+        "kind": "effect",
+        "inputs": [
+          1,
+          24,
+          0,
+          25,
+          26,
+          27
+        ],
+        "pos": [
+          1440,
+          0
+        ],
+        "name": "UI UV Texture Sampler",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {
+            "address_x": 0,
+            "address_y": 0
+          }
+        },
+        "paramPinNames": [
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 29,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3120
+        ],
+        "op": "Layer 2 depth",
+        "name": "Get Layer 2 depth",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 30,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3250
+        ],
+        "op": "Layer 2 Neutral driver position",
+        "name": "Get Layer 2 Neutral driver position",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 31,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3380
+        ],
+        "op": "Layer 2 Parallax travel X / Y (px)",
+        "name": "Get Layer 2 Parallax travel X / Y (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 32,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3510
+        ],
+        "op": "Layer 2 Depth map neutral value",
+        "name": "Get Layer 2 Depth map neutral value",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 33,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3640
+        ],
+        "op": "Layer 2 Depth map influence",
+        "name": "Get Layer 2 Depth map influence",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 34,
+        "kind": "effect",
+        "inputs": [
+          18,
+          5,
+          0,
+          4,
+          6,
+          29,
+          30,
+          31,
+          32,
+          33
+        ],
+        "pos": [
+          1080,
+          240
+        ],
+        "name": "UI UV Parallax",
+        "effect": {
+          "effect": "ui_uv_parallax",
+          "set": {}
+        },
+        "paramPinNames": [
+          "pointer",
+          "space_size",
+          "plane_depth",
+          "neutral",
+          "strength",
+          "depth_reference",
+          "depth_amount"
+        ]
+      },
+      {
+        "id": 35,
+        "kind": "effect",
+        "inputs": [
+          2,
+          34,
+          0,
+          25,
+          26,
+          27
+        ],
+        "pos": [
+          1440,
+          240
+        ],
+        "name": "UI UV Texture Sampler",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {
+            "address_x": 3,
+            "address_y": 3
+          }
+        },
+        "paramPinNames": [
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 36,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3770
+        ],
+        "op": "Layer 3 depth",
+        "name": "Get Layer 3 depth",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 37,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3900
+        ],
+        "op": "Layer 3 Neutral driver position",
+        "name": "Get Layer 3 Neutral driver position",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 38,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          4030
+        ],
+        "op": "Layer 3 Parallax travel X / Y (px)",
+        "name": "Get Layer 3 Parallax travel X / Y (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 39,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          4160
+        ],
+        "op": "Layer 3 Depth map neutral value",
+        "name": "Get Layer 3 Depth map neutral value",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 40,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          4290
+        ],
+        "op": "Layer 3 Depth map influence",
+        "name": "Get Layer 3 Depth map influence",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 41,
+        "kind": "effect",
+        "inputs": [
+          18,
+          5,
+          0,
+          4,
+          6,
+          36,
+          37,
+          38,
+          39,
+          40
+        ],
+        "pos": [
+          1080,
+          480
+        ],
+        "name": "UI UV Parallax",
+        "effect": {
+          "effect": "ui_uv_parallax",
+          "set": {}
+        },
+        "paramPinNames": [
+          "pointer",
+          "space_size",
+          "plane_depth",
+          "neutral",
+          "strength",
+          "depth_reference",
+          "depth_amount"
+        ]
+      },
+      {
+        "id": 42,
+        "kind": "effect",
+        "inputs": [
+          3,
+          41,
+          0,
+          25,
+          26,
+          27
+        ],
+        "pos": [
+          1440,
+          480
+        ],
+        "name": "UI UV Texture Sampler",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {
+            "address_x": 3,
+            "address_y": 3
+          }
+        },
+        "paramPinNames": [
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 43,
+        "kind": "blend",
+        "inputs": [
+          28,
+          35,
+          0
+        ],
+        "pos": [
+          1800,
+          0
+        ],
+        "blend": 0,
+        "opacity": 1,
+        "name": "Middle Over Background"
+      },
+      {
+        "id": 44,
+        "kind": "blend",
+        "inputs": [
+          43,
+          42,
+          0
+        ],
+        "pos": [
+          2160,
+          0
+        ],
+        "blend": 0,
+        "opacity": 1,
+        "name": "Foreground Over Middle"
+      },
+      {
+        "id": 45,
+        "kind": "suboutput",
+        "inputs": [
+          44
+        ],
+        "pos": [
+          2520,
+          0
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 46,
+        "kind": "suboutput",
+        "inputs": [
+          24
+        ],
+        "pos": [
+          1440,
+          720
+        ],
+        "name": "Layer 1 UV",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 47,
+        "kind": "suboutput",
+        "inputs": [
+          34
+        ],
+        "pos": [
+          1440,
+          960
+        ],
+        "name": "Layer 2 UV",
+        "port": 2,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 48,
+        "kind": "suboutput",
+        "inputs": [
+          41
+        ],
+        "pos": [
+          1440,
+          1200
+        ],
+        "name": "Layer 3 UV",
+        "port": 3,
+        "value": {
+          "type": "Image"
+        }
+      }
+    ]
+  }
+}

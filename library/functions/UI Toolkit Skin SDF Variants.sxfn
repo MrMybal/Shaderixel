@@ -1,0 +1,1139 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI Toolkit Skin SDF Variants",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Coordinated Normal, Hover, Pressed, Disabled and Selected outputs. Style variables are shared; states are data and do not register UI interaction events.",
+  "graph": {
+    "output": 33,
+    "variables": [
+      {
+        "name": "Base Gradient start color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.035,
+            0.18,
+            0.38,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Base Gradient end color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.008,
+            0.045,
+            0.12,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Base Gradient center (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Gradient center (document UV)."
+      },
+      {
+        "name": "Base Gradient angle (degrees)",
+        "value": {
+          "type": "Float",
+          "f": 90.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Gradient angle (degrees)."
+      },
+      {
+        "name": "Base Gradient span (px)",
+        "value": {
+          "type": "Float",
+          "f": 200.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 32768. Gradient span (px)."
+      },
+      {
+        "name": "Base Grow / shrink (px)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -4096 to 4096. Grow / shrink (px)."
+      },
+      {
+        "name": "Base Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 256. Edge softness (px)."
+      },
+      {
+        "name": "Base Inner border width (px)",
+        "value": {
+          "type": "Float",
+          "f": 2.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 4096. Inner border width (px)."
+      },
+      {
+        "name": "Base Border color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.08,
+            0.55,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Base Inner bevel width (px)",
+        "value": {
+          "type": "Float",
+          "f": 3.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 4096. Inner bevel width (px)."
+      },
+      {
+        "name": "Base Bevel light strength",
+        "value": {
+          "type": "Float",
+          "f": 0.15
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 4. Bevel light strength."
+      },
+      {
+        "name": "Base Light angle (degrees)",
+        "value": {
+          "type": "Float",
+          "f": -135.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Light angle (degrees)."
+      },
+      {
+        "name": "Base Shadow offset (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            6.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -8192 to 8192. Shadow offset (px)."
+      },
+      {
+        "name": "Base Shadow softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 10.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 4096. Shadow softness (px)."
+      },
+      {
+        "name": "Base Shadow color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.0,
+            0.0,
+            0.0,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Base Outer glow radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 4096. Outer glow radius (px)."
+      },
+      {
+        "name": "Base Glow color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.02,
+            0.3,
+            1.0,
+            0.65
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Base Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      },
+      {
+        "name": "Style Hover tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.15,
+            1.3,
+            1.5,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Style Pressed tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.7,
+            0.75,
+            0.85,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Style Selected accent color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.05,
+            0.4,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Style Selected color mix",
+        "value": {
+          "type": "Float",
+          "f": 0.35
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Selected color mix."
+      },
+      {
+        "name": "Style Pressed content offset (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4096 to 4096. Pressed content offset (px)."
+      },
+      {
+        "name": "Style Disabled saturation",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled saturation."
+      },
+      {
+        "name": "Style Disabled opacity",
+        "value": {
+          "type": "Float",
+          "f": 0.45
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled opacity."
+      },
+      {
+        "name": "Style Focus ring width (px)",
+        "value": {
+          "type": "Float",
+          "f": 3.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 4096. Focus ring width (px)."
+      },
+      {
+        "name": "Style Focus ring softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 256. Focus ring softness (px)."
+      },
+      {
+        "name": "Style Focus ring color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.08,
+            0.55,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Style Overall opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Overall opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          0
+        ],
+        "name": "SDF Field",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          130
+        ],
+        "op": "Base Gradient start color",
+        "name": "Get Base Gradient start color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 3,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          260
+        ],
+        "op": "Base Gradient end color",
+        "name": "Get Base Gradient end color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          390
+        ],
+        "op": "Base Gradient center (document UV)",
+        "name": "Get Base Gradient center (document UV)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          520
+        ],
+        "op": "Base Gradient angle (degrees)",
+        "name": "Get Base Gradient angle (degrees)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          650
+        ],
+        "op": "Base Gradient span (px)",
+        "name": "Get Base Gradient span (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          780
+        ],
+        "op": "Base Grow / shrink (px)",
+        "name": "Get Base Grow / shrink (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          910
+        ],
+        "op": "Base Edge softness (px)",
+        "name": "Get Base Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1040
+        ],
+        "op": "Base Inner border width (px)",
+        "name": "Get Base Inner border width (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1170
+        ],
+        "op": "Base Border color",
+        "name": "Get Base Border color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1300
+        ],
+        "op": "Base Inner bevel width (px)",
+        "name": "Get Base Inner bevel width (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1430
+        ],
+        "op": "Base Bevel light strength",
+        "name": "Get Base Bevel light strength",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1560
+        ],
+        "op": "Base Light angle (degrees)",
+        "name": "Get Base Light angle (degrees)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1690
+        ],
+        "op": "Base Shadow offset (px)",
+        "name": "Get Base Shadow offset (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1820
+        ],
+        "op": "Base Shadow softness (px)",
+        "name": "Get Base Shadow softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1950
+        ],
+        "op": "Base Shadow color",
+        "name": "Get Base Shadow color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2080
+        ],
+        "op": "Base Outer glow radius (px)",
+        "name": "Get Base Outer glow radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2210
+        ],
+        "op": "Base Glow color",
+        "name": "Get Base Glow color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2340
+        ],
+        "op": "Base Opacity",
+        "name": "Get Base Opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 20,
+        "kind": "effect",
+        "inputs": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "pos": [
+          360,
+          0
+        ],
+        "name": "UI SDF Styled Fill",
+        "effect": {
+          "effect": "ui_sdf_render",
+          "set": {}
+        },
+        "paramPinNames": [
+          "color_a",
+          "color_b",
+          "gradient_center",
+          "gradient_angle",
+          "gradient_span",
+          "grow",
+          "softness",
+          "border",
+          "border_color",
+          "bevel",
+          "bevel_strength",
+          "light_angle",
+          "shadow_offset",
+          "shadow_softness",
+          "shadow_color",
+          "glow_radius",
+          "glow_color",
+          "opacity"
+        ]
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2470
+        ],
+        "op": "Style Hover tint",
+        "name": "Get Style Hover tint",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2600
+        ],
+        "op": "Style Pressed tint",
+        "name": "Get Style Pressed tint",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 23,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2730
+        ],
+        "op": "Style Selected accent color",
+        "name": "Get Style Selected accent color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 24,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2860
+        ],
+        "op": "Style Selected color mix",
+        "name": "Get Style Selected color mix",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2990
+        ],
+        "op": "Style Pressed content offset (px)",
+        "name": "Get Style Pressed content offset (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 26,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3120
+        ],
+        "op": "Style Disabled saturation",
+        "name": "Get Style Disabled saturation",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 27,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3250
+        ],
+        "op": "Style Disabled opacity",
+        "name": "Get Style Disabled opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 28,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3380
+        ],
+        "op": "Style Focus ring width (px)",
+        "name": "Get Style Focus ring width (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 29,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3510
+        ],
+        "op": "Style Focus ring softness (px)",
+        "name": "Get Style Focus ring softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 30,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3640
+        ],
+        "op": "Style Focus ring color",
+        "name": "Get Style Focus ring color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 31,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3770
+        ],
+        "op": "Style Overall opacity",
+        "name": "Get Style Overall opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 32,
+        "kind": "effect",
+        "inputs": [
+          20,
+          1,
+          0,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ],
+        "pos": [
+          720,
+          0
+        ],
+        "name": "UI Skin Interaction State",
+        "effect": {
+          "effect": "ui_skin_state",
+          "set": {
+            "hover": 0,
+            "pressed": 0,
+            "selected": 0,
+            "disabled": 0,
+            "focus": 0
+          }
+        },
+        "paramPinNames": [
+          "hover_tint",
+          "pressed_tint",
+          "selected_color",
+          "selected_mix",
+          "pressed_offset",
+          "disabled_saturation",
+          "disabled_opacity",
+          "focus_width",
+          "focus_softness",
+          "focus_color",
+          "opacity"
+        ]
+      },
+      {
+        "id": 33,
+        "kind": "suboutput",
+        "inputs": [
+          32
+        ],
+        "pos": [
+          1080,
+          0
+        ],
+        "name": "Normal",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 34,
+        "kind": "effect",
+        "inputs": [
+          20,
+          1,
+          0,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ],
+        "pos": [
+          720,
+          240
+        ],
+        "name": "UI Skin Interaction State",
+        "effect": {
+          "effect": "ui_skin_state",
+          "set": {
+            "hover": 1,
+            "pressed": 0,
+            "selected": 0,
+            "disabled": 0,
+            "focus": 0
+          }
+        },
+        "paramPinNames": [
+          "hover_tint",
+          "pressed_tint",
+          "selected_color",
+          "selected_mix",
+          "pressed_offset",
+          "disabled_saturation",
+          "disabled_opacity",
+          "focus_width",
+          "focus_softness",
+          "focus_color",
+          "opacity"
+        ]
+      },
+      {
+        "id": 35,
+        "kind": "suboutput",
+        "inputs": [
+          34
+        ],
+        "pos": [
+          1080,
+          240
+        ],
+        "name": "Hover",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 36,
+        "kind": "effect",
+        "inputs": [
+          20,
+          1,
+          0,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ],
+        "pos": [
+          720,
+          480
+        ],
+        "name": "UI Skin Interaction State",
+        "effect": {
+          "effect": "ui_skin_state",
+          "set": {
+            "hover": 0,
+            "pressed": 1,
+            "selected": 0,
+            "disabled": 0,
+            "focus": 0
+          }
+        },
+        "paramPinNames": [
+          "hover_tint",
+          "pressed_tint",
+          "selected_color",
+          "selected_mix",
+          "pressed_offset",
+          "disabled_saturation",
+          "disabled_opacity",
+          "focus_width",
+          "focus_softness",
+          "focus_color",
+          "opacity"
+        ]
+      },
+      {
+        "id": 37,
+        "kind": "suboutput",
+        "inputs": [
+          36
+        ],
+        "pos": [
+          1080,
+          480
+        ],
+        "name": "Pressed",
+        "port": 2,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 38,
+        "kind": "effect",
+        "inputs": [
+          20,
+          1,
+          0,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ],
+        "pos": [
+          720,
+          720
+        ],
+        "name": "UI Skin Interaction State",
+        "effect": {
+          "effect": "ui_skin_state",
+          "set": {
+            "hover": 0,
+            "pressed": 0,
+            "selected": 0,
+            "disabled": 1,
+            "focus": 0
+          }
+        },
+        "paramPinNames": [
+          "hover_tint",
+          "pressed_tint",
+          "selected_color",
+          "selected_mix",
+          "pressed_offset",
+          "disabled_saturation",
+          "disabled_opacity",
+          "focus_width",
+          "focus_softness",
+          "focus_color",
+          "opacity"
+        ]
+      },
+      {
+        "id": 39,
+        "kind": "suboutput",
+        "inputs": [
+          38
+        ],
+        "pos": [
+          1080,
+          720
+        ],
+        "name": "Disabled",
+        "port": 3,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 40,
+        "kind": "effect",
+        "inputs": [
+          20,
+          1,
+          0,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31
+        ],
+        "pos": [
+          720,
+          960
+        ],
+        "name": "UI Skin Interaction State",
+        "effect": {
+          "effect": "ui_skin_state",
+          "set": {
+            "hover": 0,
+            "pressed": 0,
+            "selected": 1,
+            "disabled": 0,
+            "focus": 1
+          }
+        },
+        "paramPinNames": [
+          "hover_tint",
+          "pressed_tint",
+          "selected_color",
+          "selected_mix",
+          "pressed_offset",
+          "disabled_saturation",
+          "disabled_opacity",
+          "focus_width",
+          "focus_softness",
+          "focus_color",
+          "opacity"
+        ]
+      },
+      {
+        "id": 41,
+        "kind": "suboutput",
+        "inputs": [
+          40
+        ],
+        "pos": [
+          1080,
+          960
+        ],
+        "name": "Selected",
+        "port": 4,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 42,
+        "kind": "suboutput",
+        "inputs": [
+          1
+        ],
+        "pos": [
+          360,
+          240
+        ],
+        "name": "SDF Field",
+        "port": 5,
+        "value": {
+          "type": "Image"
+        }
+      }
+    ]
+  }
+}

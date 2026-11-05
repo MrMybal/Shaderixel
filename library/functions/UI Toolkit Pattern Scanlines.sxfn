@@ -1,0 +1,1028 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI Toolkit Pattern Scanlines",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Pixel-sized procedural pattern clipped to a positioned rounded widget. Explicit Time drives offset; pitch remains in widget pixels.",
+  "graph": {
+    "output": 42,
+    "variables": [
+      {
+        "name": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Widget position (document UV)."
+      },
+      {
+        "name": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Top left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top left radius (px)."
+      },
+      {
+        "name": "Clip Top right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top right radius (px)."
+      },
+      {
+        "name": "Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom right radius (px)."
+      },
+      {
+        "name": "Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom left radius (px)."
+      },
+      {
+        "name": "Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Hollow border width (px; 0 = filled)."
+      },
+      {
+        "name": "Clip Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Invert clip",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Scroll Initial offset (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0,
+            0
+          ]
+        },
+        "exposed": true,
+        "desc": "Scroll Initial offset (px)."
+      },
+      {
+        "name": "Scroll X speed (px per second)",
+        "value": {
+          "type": "Float",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Scroll X speed (px per second)."
+      },
+      {
+        "name": "Scroll Y speed (px per second)",
+        "value": {
+          "type": "Float",
+          "f": 20
+        },
+        "exposed": true,
+        "desc": "Scroll Y speed (px per second)."
+      },
+      {
+        "name": "Pattern Pattern pitch X / Y (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            32.0,
+            32.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 8192. Pattern pitch X / Y (px)."
+      },
+      {
+        "name": "Pattern Rotation (degrees)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Rotation (degrees)."
+      },
+      {
+        "name": "Pattern Line / dot width (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.5
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 1024. Line / dot width (px)."
+      },
+      {
+        "name": "Pattern Panel corner radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 6.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 4096. Panel corner radius (px)."
+      },
+      {
+        "name": "Pattern Major grid interval",
+        "value": {
+          "type": "Float",
+          "f": 4.0
+        },
+        "exposed": true,
+        "desc": "Range: 1 to 128. Major grid interval."
+      },
+      {
+        "name": "Pattern Major grid width (px)",
+        "value": {
+          "type": "Float",
+          "f": 3.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Major grid width (px)."
+      },
+      {
+        "name": "Pattern Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 64. Edge softness (px)."
+      },
+      {
+        "name": "Pattern Background color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Pattern Major grid color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.3,
+            0.65,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Pattern Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Zero-based index."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Zero-based index."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Zero-based index."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          0
+        ],
+        "name": "Widget Size (px)",
+        "port": 0,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            320,
+            180
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          130
+        ],
+        "name": "Time (seconds)",
+        "port": 1,
+        "value": {
+          "type": "Float",
+          "f": 0
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          260
+        ],
+        "name": "Foreground Color",
+        "port": 2,
+        "value": {
+          "type": "Color",
+          "f": [
+            0.06,
+            0.4,
+            0.9,
+            0.85
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          390
+        ],
+        "op": "Widget Widget position (document UV)",
+        "name": "Get Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          520
+        ],
+        "op": "Widget Widget anchor",
+        "name": "Get Widget Widget anchor",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          650
+        ],
+        "op": "Widget Edge softness (px)",
+        "name": "Get Widget Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 7,
+        "kind": "effect",
+        "inputs": [
+          1,
+          4,
+          5,
+          6
+        ],
+        "pos": [
+          360,
+          0
+        ],
+        "name": "UI UV Widget Coordinates",
+        "effect": {
+          "effect": "ui_uv_coordinates",
+          "set": {}
+        },
+        "paramPinNames": [
+          "target_size",
+          "position",
+          "anchor",
+          "softness"
+        ]
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          780
+        ],
+        "op": "Clip Top left radius (px)",
+        "name": "Get Clip Top left radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          910
+        ],
+        "op": "Clip Top right radius (px)",
+        "name": "Get Clip Top right radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1040
+        ],
+        "op": "Clip Bottom right radius (px)",
+        "name": "Get Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1170
+        ],
+        "op": "Clip Bottom left radius (px)",
+        "name": "Get Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1300
+        ],
+        "op": "Clip Hollow border width (px; 0 = filled)",
+        "name": "Get Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1430
+        ],
+        "op": "Clip Edge softness (px)",
+        "name": "Get Clip Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1560
+        ],
+        "op": "Clip Invert clip",
+        "name": "Get Clip Invert clip",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 15,
+        "kind": "effect",
+        "inputs": [
+          7,
+          1,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14
+        ],
+        "pos": [
+          720,
+          0
+        ],
+        "name": "UI UV Rounded Rectangle Clip",
+        "effect": {
+          "effect": "ui_uv_mask_rect",
+          "set": {
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "space_size",
+          "radius_tl",
+          "radius_tr",
+          "radius_br",
+          "radius_bl",
+          "border",
+          "softness",
+          "invert"
+        ]
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1690
+        ],
+        "op": "Scroll Initial offset (px)",
+        "name": "Get Scroll Initial offset (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 17,
+        "kind": "math",
+        "inputs": [
+          16
+        ],
+        "pos": [
+          360,
+          240
+        ],
+        "op": "break_vec2",
+        "name": "Break_Vec2"
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1820
+        ],
+        "op": "Scroll X speed (px per second)",
+        "name": "Get Scroll X speed (px per second)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1950
+        ],
+        "op": "Scroll Y speed (px per second)",
+        "name": "Get Scroll Y speed (px per second)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 20,
+        "kind": "math",
+        "inputs": [
+          2,
+          18
+        ],
+        "pos": [
+          360,
+          480
+        ],
+        "op": "mul",
+        "name": "Mul"
+      },
+      {
+        "id": 21,
+        "kind": "math",
+        "inputs": [
+          17,
+          20
+        ],
+        "pos": [
+          720,
+          240
+        ],
+        "op": "add",
+        "name": "Add"
+      },
+      {
+        "id": 22,
+        "kind": "math",
+        "inputs": [
+          2,
+          19
+        ],
+        "pos": [
+          360,
+          720
+        ],
+        "op": "mul",
+        "name": "Mul"
+      },
+      {
+        "id": 23,
+        "kind": "math",
+        "inputs": [
+          17,
+          22
+        ],
+        "pos": [
+          720,
+          480
+        ],
+        "op": "add",
+        "name": "Add",
+        "inputChannels": [
+          8,
+          0
+        ]
+      },
+      {
+        "id": 24,
+        "kind": "math",
+        "inputs": [
+          21,
+          23
+        ],
+        "pos": [
+          1080,
+          0
+        ],
+        "op": "vec2",
+        "name": "Vec2"
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2080
+        ],
+        "op": "Pattern Pattern pitch X / Y (px)",
+        "name": "Get Pattern Pattern pitch X / Y (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 26,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2210
+        ],
+        "op": "Pattern Rotation (degrees)",
+        "name": "Get Pattern Rotation (degrees)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 27,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2340
+        ],
+        "op": "Pattern Line / dot width (px)",
+        "name": "Get Pattern Line / dot width (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 28,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2470
+        ],
+        "op": "Pattern Panel corner radius (px)",
+        "name": "Get Pattern Panel corner radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 29,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2600
+        ],
+        "op": "Pattern Major grid interval",
+        "name": "Get Pattern Major grid interval",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 30,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2730
+        ],
+        "op": "Pattern Major grid width (px)",
+        "name": "Get Pattern Major grid width (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 31,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2860
+        ],
+        "op": "Pattern Edge softness (px)",
+        "name": "Get Pattern Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 32,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2990
+        ],
+        "op": "Pattern Background color",
+        "name": "Get Pattern Background color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 33,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3120
+        ],
+        "op": "Pattern Major grid color",
+        "name": "Get Pattern Major grid color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 34,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3250
+        ],
+        "op": "Pattern Opacity",
+        "name": "Get Pattern Opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 35,
+        "kind": "effect",
+        "inputs": [
+          1,
+          3,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34
+        ],
+        "pos": [
+          1440,
+          0
+        ],
+        "name": "UI Draw Interface Pattern",
+        "effect": {
+          "effect": "ui_draw_interface_pattern",
+          "set": {
+            "pattern": 6
+          }
+        },
+        "paramPinNames": [
+          "space_size",
+          "foreground",
+          "offset",
+          "pitch",
+          "angle",
+          "width",
+          "radius",
+          "major_step",
+          "major_width",
+          "softness",
+          "background",
+          "major_color",
+          "opacity"
+        ]
+      },
+      {
+        "id": 36,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3380
+        ],
+        "op": "Sample U addressing",
+        "name": "Get Sample U addressing",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 37,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3510
+        ],
+        "op": "Sample V addressing",
+        "name": "Get Sample V addressing",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 38,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3640
+        ],
+        "op": "Sample Texture filtering",
+        "name": "Get Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 39,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3770
+        ],
+        "op": "Sample Tint (linear RGBA)",
+        "name": "Get Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 40,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          3900
+        ],
+        "op": "Sample Opacity",
+        "name": "Get Sample Opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 41,
+        "kind": "effect",
+        "inputs": [
+          35,
+          15,
+          0,
+          36,
+          37,
+          38,
+          39,
+          40
+        ],
+        "pos": [
+          1800,
+          0
+        ],
+        "name": "UI UV Texture Sampler",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 42,
+        "kind": "suboutput",
+        "inputs": [
+          41
+        ],
+        "pos": [
+          2160,
+          0
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 43,
+        "kind": "suboutput",
+        "inputs": [
+          15
+        ],
+        "pos": [
+          1080,
+          240
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 44,
+        "kind": "effect",
+        "inputs": [
+          15
+        ],
+        "pos": [
+          1080,
+          480
+        ],
+        "name": "UI UV Field Preview",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 45,
+        "kind": "suboutput",
+        "inputs": [
+          44
+        ],
+        "pos": [
+          1440,
+          240
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}

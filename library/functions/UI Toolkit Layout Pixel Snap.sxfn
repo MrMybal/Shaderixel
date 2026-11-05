@@ -1,0 +1,1188 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI Toolkit Layout Pixel Snap",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Value node: quantize widget position and size to an integer or fractional pixel grid. Provide the actual canvas size; outputs remain typed Vec2 values.",
+  "graph": {
+    "output": 76,
+    "variables": [
+      {
+        "name": "Position grid origin (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0,
+            0
+          ]
+        },
+        "exposed": true,
+        "desc": "Position origin in canvas pixels. Grid may be fractional, e.g. 0.25."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          0
+        ],
+        "name": "Position (UV)",
+        "port": 0,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          130
+        ],
+        "name": "Size (px)",
+        "port": 1,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            375.5,
+            75.25
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          260
+        ],
+        "name": "Canvas Size (px)",
+        "port": 2,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            768,
+            512
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          390
+        ],
+        "name": "Grid (px)",
+        "port": 3,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            1,
+            1
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          520
+        ],
+        "name": "Snap Mode",
+        "port": 4,
+        "value": {
+          "type": "Int",
+          "f": 0
+        }
+      },
+      {
+        "id": 6,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          650
+        ],
+        "name": "Snap Amount",
+        "port": 5,
+        "value": {
+          "type": "Float",
+          "f": 1
+        }
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          780
+        ],
+        "op": "Position grid origin (px)",
+        "name": "Get Position grid origin (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 8,
+        "kind": "math",
+        "inputs": [
+          1
+        ],
+        "pos": [
+          360,
+          0
+        ],
+        "op": "break_vec2",
+        "name": "Break_Vec2"
+      },
+      {
+        "id": 9,
+        "kind": "math",
+        "inputs": [
+          2
+        ],
+        "pos": [
+          360,
+          240
+        ],
+        "op": "break_vec2",
+        "name": "Break_Vec2"
+      },
+      {
+        "id": 10,
+        "kind": "math",
+        "inputs": [
+          3
+        ],
+        "pos": [
+          360,
+          480
+        ],
+        "op": "break_vec2",
+        "name": "Break_Vec2"
+      },
+      {
+        "id": 11,
+        "kind": "math",
+        "inputs": [
+          4
+        ],
+        "pos": [
+          360,
+          720
+        ],
+        "op": "break_vec2",
+        "name": "Break_Vec2"
+      },
+      {
+        "id": 12,
+        "kind": "math",
+        "inputs": [
+          7
+        ],
+        "pos": [
+          360,
+          960
+        ],
+        "op": "break_vec2",
+        "name": "Break_Vec2"
+      },
+      {
+        "id": 13,
+        "kind": "value",
+        "inputs": [],
+        "pos": [
+          0,
+          910
+        ],
+        "value": {
+          "type": "Float",
+          "f": 1
+        }
+      },
+      {
+        "id": 14,
+        "kind": "value",
+        "inputs": [],
+        "pos": [
+          0,
+          1040
+        ],
+        "value": {
+          "type": "Float",
+          "f": 2
+        }
+      },
+      {
+        "id": 15,
+        "kind": "value",
+        "inputs": [],
+        "pos": [
+          0,
+          1170
+        ],
+        "value": {
+          "type": "Float",
+          "f": 1e-05
+        }
+      },
+      {
+        "id": 16,
+        "kind": "value",
+        "inputs": [],
+        "pos": [
+          0,
+          1300
+        ],
+        "value": {
+          "type": "Float",
+          "f": 0
+        }
+      },
+      {
+        "id": 17,
+        "kind": "math",
+        "inputs": [
+          5,
+          13
+        ],
+        "pos": [
+          360,
+          1200
+        ],
+        "op": "equal",
+        "name": "Equal"
+      },
+      {
+        "id": 18,
+        "kind": "math",
+        "inputs": [
+          5,
+          14
+        ],
+        "pos": [
+          360,
+          1440
+        ],
+        "op": "equal",
+        "name": "Equal"
+      },
+      {
+        "id": 19,
+        "kind": "math",
+        "inputs": [
+          10,
+          15
+        ],
+        "pos": [
+          720,
+          0
+        ],
+        "op": "max",
+        "name": "Max"
+      },
+      {
+        "id": 20,
+        "kind": "math",
+        "inputs": [
+          10,
+          15
+        ],
+        "pos": [
+          720,
+          240
+        ],
+        "op": "max",
+        "name": "Max",
+        "inputChannels": [
+          8,
+          0
+        ]
+      },
+      {
+        "id": 21,
+        "kind": "math",
+        "inputs": [
+          8,
+          19
+        ],
+        "pos": [
+          1080,
+          0
+        ],
+        "op": "mul",
+        "name": "Mul"
+      },
+      {
+        "id": 22,
+        "kind": "math",
+        "inputs": [
+          8,
+          20
+        ],
+        "pos": [
+          1080,
+          240
+        ],
+        "op": "mul",
+        "name": "Mul",
+        "inputChannels": [
+          8,
+          0
+        ]
+      },
+      {
+        "id": 23,
+        "kind": "math",
+        "inputs": [
+          11
+        ],
+        "pos": [
+          720,
+          480
+        ],
+        "op": "abs",
+        "name": "Abs"
+      },
+      {
+        "id": 24,
+        "kind": "math",
+        "inputs": [
+          23,
+          15
+        ],
+        "pos": [
+          1080,
+          480
+        ],
+        "op": "max",
+        "name": "Max"
+      },
+      {
+        "id": 25,
+        "kind": "math",
+        "inputs": [
+          21,
+          12
+        ],
+        "pos": [
+          1440,
+          0
+        ],
+        "op": "sub",
+        "name": "Sub"
+      },
+      {
+        "id": 26,
+        "kind": "math",
+        "inputs": [
+          25,
+          24
+        ],
+        "pos": [
+          1800,
+          0
+        ],
+        "op": "div",
+        "name": "Div"
+      },
+      {
+        "id": 27,
+        "kind": "math",
+        "inputs": [
+          26
+        ],
+        "pos": [
+          2160,
+          0
+        ],
+        "op": "round",
+        "name": "Round"
+      },
+      {
+        "id": 28,
+        "kind": "math",
+        "inputs": [
+          26
+        ],
+        "pos": [
+          2160,
+          240
+        ],
+        "op": "floor",
+        "name": "Floor"
+      },
+      {
+        "id": 29,
+        "kind": "math",
+        "inputs": [
+          26
+        ],
+        "pos": [
+          2160,
+          480
+        ],
+        "op": "ceil",
+        "name": "Ceil"
+      },
+      {
+        "id": 30,
+        "kind": "math",
+        "inputs": [
+          18,
+          29,
+          27
+        ],
+        "pos": [
+          2520,
+          0
+        ],
+        "op": "select",
+        "name": "Select"
+      },
+      {
+        "id": 31,
+        "kind": "math",
+        "inputs": [
+          17,
+          28,
+          30
+        ],
+        "pos": [
+          2880,
+          0
+        ],
+        "op": "select",
+        "name": "Select"
+      },
+      {
+        "id": 32,
+        "kind": "math",
+        "inputs": [
+          31,
+          24
+        ],
+        "pos": [
+          3240,
+          0
+        ],
+        "op": "mul",
+        "name": "Mul"
+      },
+      {
+        "id": 33,
+        "kind": "math",
+        "inputs": [
+          32,
+          12
+        ],
+        "pos": [
+          3600,
+          0
+        ],
+        "op": "add",
+        "name": "Add"
+      },
+      {
+        "id": 34,
+        "kind": "math",
+        "inputs": [
+          21,
+          33,
+          6
+        ],
+        "pos": [
+          3960,
+          0
+        ],
+        "op": "lerp",
+        "name": "Lerp"
+      },
+      {
+        "id": 35,
+        "kind": "math",
+        "inputs": [
+          11
+        ],
+        "pos": [
+          720,
+          720
+        ],
+        "op": "abs",
+        "name": "Abs",
+        "inputChannels": [
+          8
+        ]
+      },
+      {
+        "id": 36,
+        "kind": "math",
+        "inputs": [
+          35,
+          15
+        ],
+        "pos": [
+          1080,
+          720
+        ],
+        "op": "max",
+        "name": "Max"
+      },
+      {
+        "id": 37,
+        "kind": "math",
+        "inputs": [
+          22,
+          12
+        ],
+        "pos": [
+          1440,
+          240
+        ],
+        "op": "sub",
+        "name": "Sub",
+        "inputChannels": [
+          0,
+          8
+        ]
+      },
+      {
+        "id": 38,
+        "kind": "math",
+        "inputs": [
+          37,
+          36
+        ],
+        "pos": [
+          1800,
+          240
+        ],
+        "op": "div",
+        "name": "Div"
+      },
+      {
+        "id": 39,
+        "kind": "math",
+        "inputs": [
+          38
+        ],
+        "pos": [
+          2160,
+          720
+        ],
+        "op": "round",
+        "name": "Round"
+      },
+      {
+        "id": 40,
+        "kind": "math",
+        "inputs": [
+          38
+        ],
+        "pos": [
+          2160,
+          960
+        ],
+        "op": "floor",
+        "name": "Floor"
+      },
+      {
+        "id": 41,
+        "kind": "math",
+        "inputs": [
+          38
+        ],
+        "pos": [
+          2160,
+          1200
+        ],
+        "op": "ceil",
+        "name": "Ceil"
+      },
+      {
+        "id": 42,
+        "kind": "math",
+        "inputs": [
+          18,
+          41,
+          39
+        ],
+        "pos": [
+          2520,
+          240
+        ],
+        "op": "select",
+        "name": "Select"
+      },
+      {
+        "id": 43,
+        "kind": "math",
+        "inputs": [
+          17,
+          40,
+          42
+        ],
+        "pos": [
+          2880,
+          240
+        ],
+        "op": "select",
+        "name": "Select"
+      },
+      {
+        "id": 44,
+        "kind": "math",
+        "inputs": [
+          43,
+          36
+        ],
+        "pos": [
+          3240,
+          240
+        ],
+        "op": "mul",
+        "name": "Mul"
+      },
+      {
+        "id": 45,
+        "kind": "math",
+        "inputs": [
+          44,
+          12
+        ],
+        "pos": [
+          3600,
+          240
+        ],
+        "op": "add",
+        "name": "Add",
+        "inputChannels": [
+          0,
+          8
+        ]
+      },
+      {
+        "id": 46,
+        "kind": "math",
+        "inputs": [
+          22,
+          45,
+          6
+        ],
+        "pos": [
+          3960,
+          240
+        ],
+        "op": "lerp",
+        "name": "Lerp"
+      },
+      {
+        "id": 47,
+        "kind": "math",
+        "inputs": [
+          11
+        ],
+        "pos": [
+          720,
+          960
+        ],
+        "op": "abs",
+        "name": "Abs"
+      },
+      {
+        "id": 48,
+        "kind": "math",
+        "inputs": [
+          47,
+          15
+        ],
+        "pos": [
+          1080,
+          960
+        ],
+        "op": "max",
+        "name": "Max"
+      },
+      {
+        "id": 49,
+        "kind": "math",
+        "inputs": [
+          9,
+          16
+        ],
+        "pos": [
+          720,
+          1200
+        ],
+        "op": "sub",
+        "name": "Sub"
+      },
+      {
+        "id": 50,
+        "kind": "math",
+        "inputs": [
+          49,
+          48
+        ],
+        "pos": [
+          1440,
+          480
+        ],
+        "op": "div",
+        "name": "Div"
+      },
+      {
+        "id": 51,
+        "kind": "math",
+        "inputs": [
+          50
+        ],
+        "pos": [
+          1800,
+          480
+        ],
+        "op": "round",
+        "name": "Round"
+      },
+      {
+        "id": 52,
+        "kind": "math",
+        "inputs": [
+          50
+        ],
+        "pos": [
+          1800,
+          720
+        ],
+        "op": "floor",
+        "name": "Floor"
+      },
+      {
+        "id": 53,
+        "kind": "math",
+        "inputs": [
+          50
+        ],
+        "pos": [
+          1800,
+          960
+        ],
+        "op": "ceil",
+        "name": "Ceil"
+      },
+      {
+        "id": 54,
+        "kind": "math",
+        "inputs": [
+          18,
+          53,
+          51
+        ],
+        "pos": [
+          2160,
+          1440
+        ],
+        "op": "select",
+        "name": "Select"
+      },
+      {
+        "id": 55,
+        "kind": "math",
+        "inputs": [
+          17,
+          52,
+          54
+        ],
+        "pos": [
+          2520,
+          480
+        ],
+        "op": "select",
+        "name": "Select"
+      },
+      {
+        "id": 56,
+        "kind": "math",
+        "inputs": [
+          55,
+          48
+        ],
+        "pos": [
+          2880,
+          480
+        ],
+        "op": "mul",
+        "name": "Mul"
+      },
+      {
+        "id": 57,
+        "kind": "math",
+        "inputs": [
+          56,
+          16
+        ],
+        "pos": [
+          3240,
+          480
+        ],
+        "op": "add",
+        "name": "Add"
+      },
+      {
+        "id": 58,
+        "kind": "math",
+        "inputs": [
+          9,
+          57,
+          6
+        ],
+        "pos": [
+          3600,
+          480
+        ],
+        "op": "lerp",
+        "name": "Lerp"
+      },
+      {
+        "id": 59,
+        "kind": "math",
+        "inputs": [
+          58,
+          15
+        ],
+        "pos": [
+          3960,
+          480
+        ],
+        "op": "max",
+        "name": "Max"
+      },
+      {
+        "id": 60,
+        "kind": "math",
+        "inputs": [
+          11
+        ],
+        "pos": [
+          720,
+          1440
+        ],
+        "op": "abs",
+        "name": "Abs",
+        "inputChannels": [
+          8
+        ]
+      },
+      {
+        "id": 61,
+        "kind": "math",
+        "inputs": [
+          60,
+          15
+        ],
+        "pos": [
+          1080,
+          1200
+        ],
+        "op": "max",
+        "name": "Max"
+      },
+      {
+        "id": 62,
+        "kind": "math",
+        "inputs": [
+          9,
+          16
+        ],
+        "pos": [
+          720,
+          1680
+        ],
+        "op": "sub",
+        "name": "Sub",
+        "inputChannels": [
+          8,
+          0
+        ]
+      },
+      {
+        "id": 63,
+        "kind": "math",
+        "inputs": [
+          62,
+          61
+        ],
+        "pos": [
+          1440,
+          720
+        ],
+        "op": "div",
+        "name": "Div"
+      },
+      {
+        "id": 64,
+        "kind": "math",
+        "inputs": [
+          63
+        ],
+        "pos": [
+          1800,
+          1200
+        ],
+        "op": "round",
+        "name": "Round"
+      },
+      {
+        "id": 65,
+        "kind": "math",
+        "inputs": [
+          63
+        ],
+        "pos": [
+          1800,
+          1440
+        ],
+        "op": "floor",
+        "name": "Floor"
+      },
+      {
+        "id": 66,
+        "kind": "math",
+        "inputs": [
+          63
+        ],
+        "pos": [
+          1800,
+          1680
+        ],
+        "op": "ceil",
+        "name": "Ceil"
+      },
+      {
+        "id": 67,
+        "kind": "math",
+        "inputs": [
+          18,
+          66,
+          64
+        ],
+        "pos": [
+          2160,
+          1680
+        ],
+        "op": "select",
+        "name": "Select"
+      },
+      {
+        "id": 68,
+        "kind": "math",
+        "inputs": [
+          17,
+          65,
+          67
+        ],
+        "pos": [
+          2520,
+          720
+        ],
+        "op": "select",
+        "name": "Select"
+      },
+      {
+        "id": 69,
+        "kind": "math",
+        "inputs": [
+          68,
+          61
+        ],
+        "pos": [
+          2880,
+          720
+        ],
+        "op": "mul",
+        "name": "Mul"
+      },
+      {
+        "id": 70,
+        "kind": "math",
+        "inputs": [
+          69,
+          16
+        ],
+        "pos": [
+          3240,
+          720
+        ],
+        "op": "add",
+        "name": "Add"
+      },
+      {
+        "id": 71,
+        "kind": "math",
+        "inputs": [
+          9,
+          70,
+          6
+        ],
+        "pos": [
+          3600,
+          720
+        ],
+        "op": "lerp",
+        "name": "Lerp",
+        "inputChannels": [
+          8,
+          0,
+          0
+        ]
+      },
+      {
+        "id": 72,
+        "kind": "math",
+        "inputs": [
+          71,
+          15
+        ],
+        "pos": [
+          3960,
+          720
+        ],
+        "op": "max",
+        "name": "Max"
+      },
+      {
+        "id": 73,
+        "kind": "math",
+        "inputs": [
+          34,
+          19
+        ],
+        "pos": [
+          4320,
+          0
+        ],
+        "op": "div",
+        "name": "Div"
+      },
+      {
+        "id": 74,
+        "kind": "math",
+        "inputs": [
+          46,
+          20
+        ],
+        "pos": [
+          4320,
+          240
+        ],
+        "op": "div",
+        "name": "Div"
+      },
+      {
+        "id": 75,
+        "kind": "math",
+        "inputs": [
+          73,
+          74
+        ],
+        "pos": [
+          4680,
+          0
+        ],
+        "op": "vec2",
+        "name": "Vec2"
+      },
+      {
+        "id": 76,
+        "kind": "suboutput",
+        "inputs": [
+          75
+        ],
+        "pos": [
+          5040,
+          0
+        ],
+        "name": "Position (UV)",
+        "port": 0,
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 77,
+        "kind": "math",
+        "inputs": [
+          59,
+          72
+        ],
+        "pos": [
+          4320,
+          480
+        ],
+        "op": "vec2",
+        "name": "Vec2"
+      },
+      {
+        "id": 78,
+        "kind": "suboutput",
+        "inputs": [
+          77
+        ],
+        "pos": [
+          4680,
+          240
+        ],
+        "name": "Size (px)",
+        "port": 1,
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 79,
+        "kind": "math",
+        "inputs": [
+          34,
+          46
+        ],
+        "pos": [
+          4320,
+          720
+        ],
+        "op": "vec2",
+        "name": "Vec2"
+      },
+      {
+        "id": 80,
+        "kind": "suboutput",
+        "inputs": [
+          79
+        ],
+        "pos": [
+          4680,
+          480
+        ],
+        "name": "Position (px)",
+        "port": 2,
+        "value": {
+          "type": "Vec2"
+        }
+      }
+    ]
+  }
+}

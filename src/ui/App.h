@@ -1124,6 +1124,8 @@ private:
         ImVec2 barMin, barMax;        // settings bar (last frame): not a canvas click
         ImVec2 canvasMin;             // view origin (last frame), for scripted tests
     } lxf;
+    bool transformSizePixels = false, transformSizeLock = false;
+    bool shapeSizePixels = true, shapeSizeLock = false;
     // What the transform tool acts on: a smart layer (Image: whole image kept), or a "Transformation"
     // effect (Draw layers: fill / text / shape filter; node mode: the Transform node).
     struct LayerXfTarget {

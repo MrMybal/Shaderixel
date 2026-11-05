@@ -1,3 +1,4 @@
+#include "ui/Dimensions.h"
 // Layer transform tool (A): move / rotate / scale / pivot of image layers, as in CyTexture and
 // Photoshop's free transform, with Unreal-style snapping grids. Image layers are smart objects:
 // the whole image is kept (what goes past the document is shown dimmed outside it), and the
@@ -541,37 +542,22 @@ void App::LayerImagePropertiesUI(DocView& v, Layer& l) {
     else if (xfx) p = FxGet(*xfx, W, H);
     else p.pos = {d.Width() * 0.5f, d.Height() * 0.5f};
     XfP n = p;
-    bool edit = false;
-    float scalePct[2] = {p.scale.x * 100, p.scale.y * 100};
-    float deg = p.rot * kDeg;
-    edit |= ImGui::DragFloat2("Position (px)", &n.pos.x, 0.5f, -100000, 100000, "%.1f");
-    TrackUndo("Position du calque");
-    if (ImGui::DragFloat2("Échelle (%)", scalePct, 0.25f, -10000, 10000, "%.2f")) {
-        if (lxf.lockAspect) {
-            float k = scalePct[0] / std::max(std::abs(p.scale.x * 100), 1e-4f) * (p.scale.x < 0 ? -1.0f : 1.0f);
-            if (scalePct[1] != p.scale.y * 100) k = scalePct[1] / std::max(std::abs(p.scale.y * 100), 1e-4f) * (p.scale.y < 0 ? -1.0f : 1.0f);
-            scalePct[0] = p.scale.x * 100 * k;
-            scalePct[1] = p.scale.y * 100 * k;
-        }
-        n.scale = {scalePct[0] / 100, scalePct[1] / 100};
-        edit = true;
+    float2 pixelBase{W, H};
+    if (l.kind == LayerKind::Shape) {
+        float2 low{1e30f, 1e30f}, high{-1e30f, -1e30f};
+        auto include = [&](const float4& rect, float degrees) {
+            float a = degrees / kDeg, c = std::abs(std::cos(a)), sn = std::abs(std::sin(a));
+            float w = std::abs(rect.z - rect.x), h = std::abs(rect.w - rect.y);
+            float2 half{(w * c + h * sn) * .5f, (w * sn + h * c) * .5f};
+            float2 center{(rect.x + rect.z) * .5f, (rect.y + rect.w) * .5f};
+            low = {std::min(low.x, center.x - half.x), std::min(low.y, center.y - half.y)};
+            high = {std::max(high.x, center.x + half.x), std::max(high.y, center.y + half.y)};
+        };
+        include(l.shape.rect, l.shape.type == 2 ? 0.f : l.shape.rotation);
+        for (const auto& part : l.shape.parts) if (part.op == 0 || part.op == 3) include(part.rect, part.rotation);
+        pixelBase = {std::max(high.x - low.x, 1e-6f), std::max(high.y - low.y, 1e-6f)};
+        if (l.shape.type == 2) { pixelBase.x += std::max(l.shape.strokeWidth, 1.f); pixelBase.y += std::max(l.shape.strokeWidth, 1.f); }
     }
-    TrackUndo("Échelle du calque");
-    ImGui::SameLine();
-    ImGui::Checkbox("##ratio", &lxf.lockAspect);
-    ui::HelpTooltip("Proportions verrouillées");
-    if (ImGui::DragFloat("Rotation (°)", &deg, 0.25f, -3600, 3600, "%.2f")) {
-        n.rot = deg / kDeg;
-        edit = true;
-    }
-    TrackUndo("Rotation du calque");
-    if (ImGui::DragFloat2("Pivot", &n.pivot.x, 0.005f, -2, 3, "%.3f")) {
-        // Moving the pivot keeps the layer in place.
-        n.pos = Local(p, W, H, n.pivot.x, n.pivot.y);
-        edit = true;
-    }
-    TrackUndo("Pivot du calque");
-    ui::HelpTooltip("Point de rotation / d'échelle, dans l'image (0,0 coin haut gauche, 1,1 coin bas droit)");
     auto apply = [&](const XfP& np, const char* label) {
         DocState before = d.S();
         LayerXfTarget t;
@@ -588,7 +574,27 @@ void App::LayerImagePropertiesUI(DocView& v, Layer& l) {
         d.dirty = true;
         if (label) v.history.PushState(label, before, d.S());
     };
-    if (edit) apply(n, nullptr);
+    float deg = p.rot * kDeg;
+    if (ImGui::DragFloat2("Position (px)", &n.pos.x, 0.5f, -100000, 100000, "%.3f")) apply(n, nullptr);
+    TrackUndo("Position du calque");
+    float2 size{p.scale.x * pixelBase.x, p.scale.y * pixelBase.y};
+    ui::Dimensions("layer-transform-size", size, pixelBase, transformSizePixels, lxf.lockAspect,
+                   "100 % = dimensions de la source du calque, avant transformation.",
+                   [&](float2 next) { n.scale = {next.x / pixelBase.x, next.y / pixelBase.y}; apply(n, nullptr); },
+                   [&](bool edited) { if (!edited && ImGui::IsItemDeactivated()) editBefore.reset(); else TrackUndo("Dimensions du calque"); });
+    if (transformSizePixels) ui::HelpTooltip("Dimensions avant rotation du calque, hors contour et effets.");
+    if (ImGui::DragFloat("Rotation (°)", &deg, 0.25f, -3600, 3600, "%.2f")) {
+        n.rot = deg / kDeg;
+        apply(n, nullptr);
+    }
+    TrackUndo("Rotation du calque");
+    if (ImGui::DragFloat2("Pivot", &n.pivot.x, 0.005f, -2, 3, "%.3f")) {
+        // Moving the pivot keeps the layer in place.
+        n.pos = Local(p, W, H, n.pivot.x, n.pivot.y);
+        apply(n, nullptr);
+    }
+    TrackUndo("Pivot du calque");
+    ui::HelpTooltip("Point de rotation / d'échelle, dans l'image (0,0 coin haut gauche, 1,1 coin bas droit)");
     auto button = [&](const char* label) {
         bool r = ImGui::SmallButton(label);
         ImGui::SameLine();

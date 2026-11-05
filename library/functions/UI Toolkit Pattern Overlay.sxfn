@@ -1,0 +1,725 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI Toolkit Pattern Overlay",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Animated technical pattern composited over an image, with optional alpha clipping, mask, blend mode and independent opacity.",
+  "graph": {
+    "output": 32,
+    "variables": [
+      {
+        "name": "Scroll Initial offset (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0,
+            0
+          ]
+        },
+        "exposed": true,
+        "desc": "Scroll Initial offset (px)."
+      },
+      {
+        "name": "Scroll X speed (px per second)",
+        "value": {
+          "type": "Float",
+          "f": 8
+        },
+        "exposed": true,
+        "desc": "Scroll X speed (px per second)."
+      },
+      {
+        "name": "Scroll Y speed (px per second)",
+        "value": {
+          "type": "Float",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Scroll Y speed (px per second)."
+      },
+      {
+        "name": "Pattern Pattern",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Hatch, Chevrons, Dots, Technical grid, Hex grid, Panel lines, Scanlines, Crosshairs. Zero-based index."
+      },
+      {
+        "name": "Pattern Pattern space size (px; 0 = canvas)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Pattern space size (px; 0 = canvas)."
+      },
+      {
+        "name": "Pattern Pattern pitch X / Y (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            32.0,
+            32.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 8192. Pattern pitch X / Y (px)."
+      },
+      {
+        "name": "Pattern Rotation (degrees)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Rotation (degrees)."
+      },
+      {
+        "name": "Pattern Line / dot width (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.5
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 1024. Line / dot width (px)."
+      },
+      {
+        "name": "Pattern Panel corner radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 6.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 4096. Panel corner radius (px)."
+      },
+      {
+        "name": "Pattern Major grid interval",
+        "value": {
+          "type": "Float",
+          "f": 4.0
+        },
+        "exposed": true,
+        "desc": "Range: 1 to 128. Major grid interval."
+      },
+      {
+        "name": "Pattern Major grid width (px)",
+        "value": {
+          "type": "Float",
+          "f": 3.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Major grid width (px)."
+      },
+      {
+        "name": "Pattern Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 64. Edge softness (px)."
+      },
+      {
+        "name": "Pattern Foreground color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.06,
+            0.4,
+            0.9,
+            0.85
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Pattern Background color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Pattern Major grid color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.3,
+            0.65,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Pattern Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      },
+      {
+        "name": "Composite Clip to background alpha",
+        "value": {
+          "type": "Bool",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Composite Invert mask",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Composite Blend mode",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Normal, Add, Multiply, Screen. Zero-based index."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          0
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          130
+        ],
+        "name": "Optional Mask",
+        "port": 1,
+        "value": {
+          "type": "Canal"
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          260
+        ],
+        "name": "Time (seconds)",
+        "port": 2,
+        "value": {
+          "type": "Float",
+          "f": 0
+        }
+      },
+      {
+        "id": 4,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          390
+        ],
+        "name": "Overlay Opacity",
+        "port": 3,
+        "value": {
+          "type": "Float",
+          "f": 0.35
+        }
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          520
+        ],
+        "op": "Scroll Initial offset (px)",
+        "name": "Get Scroll Initial offset (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 6,
+        "kind": "math",
+        "inputs": [
+          5
+        ],
+        "pos": [
+          360,
+          0
+        ],
+        "op": "break_vec2",
+        "name": "Break_Vec2"
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          650
+        ],
+        "op": "Scroll X speed (px per second)",
+        "name": "Get Scroll X speed (px per second)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          780
+        ],
+        "op": "Scroll Y speed (px per second)",
+        "name": "Get Scroll Y speed (px per second)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 9,
+        "kind": "math",
+        "inputs": [
+          3,
+          7
+        ],
+        "pos": [
+          360,
+          240
+        ],
+        "op": "mul",
+        "name": "Mul"
+      },
+      {
+        "id": 10,
+        "kind": "math",
+        "inputs": [
+          6,
+          9
+        ],
+        "pos": [
+          720,
+          0
+        ],
+        "op": "add",
+        "name": "Add"
+      },
+      {
+        "id": 11,
+        "kind": "math",
+        "inputs": [
+          3,
+          8
+        ],
+        "pos": [
+          360,
+          480
+        ],
+        "op": "mul",
+        "name": "Mul"
+      },
+      {
+        "id": 12,
+        "kind": "math",
+        "inputs": [
+          6,
+          11
+        ],
+        "pos": [
+          720,
+          240
+        ],
+        "op": "add",
+        "name": "Add",
+        "inputChannels": [
+          8,
+          0
+        ]
+      },
+      {
+        "id": 13,
+        "kind": "math",
+        "inputs": [
+          10,
+          12
+        ],
+        "pos": [
+          1080,
+          0
+        ],
+        "op": "vec2",
+        "name": "Vec2"
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          910
+        ],
+        "op": "Pattern Pattern",
+        "name": "Get Pattern Pattern",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1040
+        ],
+        "op": "Pattern Pattern space size (px; 0 = canvas)",
+        "name": "Get Pattern Pattern space size (px; 0 = canvas)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1170
+        ],
+        "op": "Pattern Pattern pitch X / Y (px)",
+        "name": "Get Pattern Pattern pitch X / Y (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1300
+        ],
+        "op": "Pattern Rotation (degrees)",
+        "name": "Get Pattern Rotation (degrees)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1430
+        ],
+        "op": "Pattern Line / dot width (px)",
+        "name": "Get Pattern Line / dot width (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1560
+        ],
+        "op": "Pattern Panel corner radius (px)",
+        "name": "Get Pattern Panel corner radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 20,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1690
+        ],
+        "op": "Pattern Major grid interval",
+        "name": "Get Pattern Major grid interval",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1820
+        ],
+        "op": "Pattern Major grid width (px)",
+        "name": "Get Pattern Major grid width (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1950
+        ],
+        "op": "Pattern Edge softness (px)",
+        "name": "Get Pattern Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 23,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2080
+        ],
+        "op": "Pattern Foreground color",
+        "name": "Get Pattern Foreground color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 24,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2210
+        ],
+        "op": "Pattern Background color",
+        "name": "Get Pattern Background color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2340
+        ],
+        "op": "Pattern Major grid color",
+        "name": "Get Pattern Major grid color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 26,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2470
+        ],
+        "op": "Pattern Opacity",
+        "name": "Get Pattern Opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 27,
+        "kind": "effect",
+        "inputs": [
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26
+        ],
+        "pos": [
+          1440,
+          0
+        ],
+        "name": "UI Draw Interface Pattern",
+        "effect": {
+          "effect": "ui_draw_interface_pattern",
+          "set": {}
+        },
+        "paramPinNames": [
+          "offset",
+          "pattern",
+          "space_size",
+          "pitch",
+          "angle",
+          "width",
+          "radius",
+          "major_step",
+          "major_width",
+          "softness",
+          "foreground",
+          "background",
+          "major_color",
+          "opacity"
+        ]
+      },
+      {
+        "id": 28,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2600
+        ],
+        "op": "Composite Clip to background alpha",
+        "name": "Get Composite Clip to background alpha",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 29,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2730
+        ],
+        "op": "Composite Invert mask",
+        "name": "Get Composite Invert mask",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 30,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2860
+        ],
+        "op": "Composite Blend mode",
+        "name": "Get Composite Blend mode",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 31,
+        "kind": "effect",
+        "inputs": [
+          1,
+          27,
+          2,
+          4,
+          28,
+          29,
+          30
+        ],
+        "pos": [
+          1800,
+          0
+        ],
+        "name": "UI Blend Clipped Layer",
+        "effect": {
+          "effect": "ui_blend_clip",
+          "set": {}
+        },
+        "paramPinNames": [
+          "opacity",
+          "clip_to_background",
+          "invert_mask",
+          "mode"
+        ]
+      },
+      {
+        "id": 32,
+        "kind": "suboutput",
+        "inputs": [
+          31
+        ],
+        "pos": [
+          2160,
+          0
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 33,
+        "kind": "suboutput",
+        "inputs": [
+          27
+        ],
+        "pos": [
+          1800,
+          240
+        ],
+        "name": "Pattern",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      }
+    ]
+  }
+}

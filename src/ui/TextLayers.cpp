@@ -1,3 +1,4 @@
+#include "ui/Dimensions.h"
 // Text layers: rasterization sync, text tool, move, properties.
 #include "ui/App.h"
 #include "ui/Theme.h"
@@ -403,8 +404,19 @@ void App::ShapePropertiesUI(DocView& v, Layer& l) {
         ImGui::TextDisabled("Forme : %s", s.customName.empty() ? "?" : s.customName.c_str());
         if (ShapePicker(s, &v)) v.history.PushState("Forme personnalisée", frameBefore, d.S());
     }
-    if (ImGui::DragFloat4("Cadre", &s.rect.x, 1.0f, -100000, 100000, "%.0f")) d.dirty = true;
-    TrackUndo("Cadre de la forme");
+    float2 position{s.rect.x, s.rect.y};
+    if (ImGui::DragFloat2("Position (px)", &position.x, 1.f, -100000, 100000, "%.3f")) {
+        float2 delta = position - float2{s.rect.x, s.rect.y};
+        s.rect.x += delta.x; s.rect.z += delta.x; s.rect.y += delta.y; s.rect.w += delta.y;
+        d.dirty = true;
+    }
+    TrackUndo("Position de la forme");
+    float2 size{s.rect.z - s.rect.x, s.rect.w - s.rect.y};
+    ui::Dimensions("shape-size", size, {(float)d.Width(), (float)d.Height()}, shapeSizePixels, shapeSizeLock,
+                   "100 % = largeur et hauteur du document.",
+                   [&](float2 next) { s.rect.z = s.rect.x + next.x; s.rect.w = s.rect.y + next.y; d.dirty = true; },
+                   [&](bool edited) { if (!edited && ImGui::IsItemDeactivated()) editBefore.reset(); else TrackUndo("Dimensions de la forme"); });
+    ui::HelpTooltip("Dimensions du cadre de la forme, avant rotation, contour et filtres de calque.");
     if (s.type == 0) { ImGui::SliderFloat("Rayon des coins", &s.radius, 0, 1000, "%.0f px"); TrackUndo("Rayon"); }
     if (s.type == 3 || s.type == 4) { ImGui::SliderInt("Côtés / branches", &s.sides, 3, 32); TrackUndo("Côtés"); }
     if (s.type == 4) { ImGui::SliderFloat("Creux", &s.radius, 0.05f, 0.95f, "%.2f"); TrackUndo("Creux"); }
@@ -436,8 +448,18 @@ void App::ShapePropertiesUI(DocView& v, Layer& l) {
         if (ImGui::Combo("##type", &p.type, "Rectangle\0Ellipse\0Ligne\0Polygone\0Étoile\0")) v.history.PushState("Type de composant", frameBefore, d.S());
         ImGui::SameLine();
         if (ImGui::SmallButton("x")) remove = i;
-        ImGui::DragFloat4("Cadre", &p.rect.x, 1.0f, -100000, 100000, "%.0f");
+        float2 partPosition{p.rect.x, p.rect.y};
+        if (ImGui::DragFloat2("Position (px)", &partPosition.x, 1.f, -100000, 100000, "%.3f")) {
+            float2 delta = partPosition - float2{p.rect.x, p.rect.y};
+            p.rect.x += delta.x; p.rect.z += delta.x; p.rect.y += delta.y; p.rect.w += delta.y;
+            d.dirty = true;
+        }
         TrackUndo("Cadre du composant");
+        float2 partSize{p.rect.z - p.rect.x, p.rect.w - p.rect.y};
+        ui::Dimensions("shape-component-size", partSize, {(float)d.Width(), (float)d.Height()}, shapeSizePixels, shapeSizeLock,
+                       "100 % = largeur et hauteur du document.",
+                       [&](float2 next) { p.rect.z = p.rect.x + next.x; p.rect.w = p.rect.y + next.y; d.dirty = true; },
+                       [&](bool edited) { if (!edited && ImGui::IsItemDeactivated()) editBefore.reset(); else TrackUndo("Dimensions du composant"); });
         if (p.type == 0) { ImGui::SliderFloat("Rayon", &p.radius, 0, 1000, "%.0f px"); TrackUndo("Rayon"); }
         if (p.type >= 3) { ImGui::SliderInt("Côtés", &p.sides, 3, 32); TrackUndo("Côtés"); }
         if (p.type != 2) { ImGui::SliderFloat("Rotation", &p.rotation, -180, 180, "%.1f°"); TrackUndo("Rotation"); }

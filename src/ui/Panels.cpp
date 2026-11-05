@@ -1,3 +1,4 @@
+#include "ui/Dimensions.h"
 // Layers, properties, color and brush panels.
 #include "ui/App.h"
 #include "ui/Filter.h"
@@ -1244,9 +1245,11 @@ void App::DrawBrush() {
         } else if (!xf.moveOnly) {
             bool changed = false;
             if (!xf.freeCorners) {
-                float wp = xf.w / xf.src.Width() * 100.0f, hp = xf.h / xf.src.Height() * 100.0f;
-                if (ImGui::DragFloat("Largeur %", &wp, 0.25f, -1000, 1000, "%.1f")) { xf.w = wp / 100.0f * xf.src.Width(); changed = true; }
-                if (ImGui::DragFloat("Hauteur %", &hp, 0.25f, -1000, 1000, "%.1f")) { xf.h = hp / 100.0f * xf.src.Height(); changed = true; }
+                float2 size{xf.w, xf.h};
+                if (ui::Dimensions("free-transform-size", size, {(float)xf.src.Width(), (float)xf.src.Height()},
+                                   transformSizePixels, transformSizeLock, "100 % = dimensions initiales de la zone transformée.")) {
+                    xf.w = size.x; xf.h = size.y; changed = true;
+                }
                 float deg = xf.angle * 180.0f / 3.14159265f;
                 if (ImGui::DragFloat("Angle", &deg, 0.25f, -360, 360, "%.1f°")) { xf.angle = deg * 3.14159265f / 180.0f; changed = true; }
                 if (ImGui::DragFloat2("Centre", &xf.center.x, 1.0f, -100000, 100000, "%.1f")) changed = true;

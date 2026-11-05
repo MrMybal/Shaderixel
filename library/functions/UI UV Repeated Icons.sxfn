@@ -1,0 +1,567 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Repeated Icons",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Pixel-sized icon grid with gaps, alternate-row stagger, mirror controls and explicit pixel scrolling.",
+  "graph": {
+    "output": 21,
+    "variables": [
+      {
+        "name": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Widget position (document UV)."
+      },
+      {
+        "name": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Grid Tile size (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            48.0,
+            48.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 32768. Tile size (px)."
+      },
+      {
+        "name": "Grid Gap (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            8.0,
+            8.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Gap (px)."
+      },
+      {
+        "name": "Grid Scroll offset (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -32768 to 32768. Scroll offset (px)."
+      },
+      {
+        "name": "Grid Alternate row stagger (tiles)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -1 to 1. Alternate row stagger (tiles)."
+      },
+      {
+        "name": "Grid Mirror alternate columns",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Grid Mirror alternate rows",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Grid Tile edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Tile edge softness (px)."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Indices start at zero."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Icon Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Widget Size (px)",
+        "port": 1,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            480,
+            160
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "kind": "varget",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "op": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget Widget position (document UV)"
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "op": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget Widget anchor"
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Widget Edge softness (px)"
+      },
+      {
+        "id": 6,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "name": "Ui Uv Coordinates",
+        "effect": {
+          "effect": "ui_uv_coordinates",
+          "set": {}
+        },
+        "paramPinNames": [
+          "target_size",
+          "position",
+          "anchor",
+          "softness"
+        ]
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Grid Tile size (px)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Grid Tile size (px)"
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Grid Gap (px)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Grid Gap (px)"
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Grid Scroll offset (px)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Grid Scroll offset (px)"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Grid Alternate row stagger (tiles)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Grid Alternate row stagger (tiles)"
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Grid Mirror alternate columns",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Grid Mirror alternate columns"
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Grid Mirror alternate rows",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Grid Mirror alternate rows"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Grid Tile edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Grid Tile edge softness (px)"
+      },
+      {
+        "id": 14,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          6,
+          2,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ],
+        "name": "Ui Uv Repeat Grid",
+        "effect": {
+          "effect": "ui_uv_repeat_grid",
+          "set": {}
+        },
+        "paramPinNames": [
+          "space_size",
+          "tile_size",
+          "gap",
+          "offset",
+          "stagger",
+          "mirror_x",
+          "mirror_y",
+          "softness"
+        ]
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Sample U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample U addressing"
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Sample V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample V addressing"
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample Texture filtering"
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "pos": [
+          0,
+          1350
+        ],
+        "inputs": [],
+        "op": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Sample Tint (linear RGBA)"
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "pos": [
+          0,
+          1440
+        ],
+        "inputs": [],
+        "op": "Sample Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Sample Opacity"
+      },
+      {
+        "id": 20,
+        "kind": "effect",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          1,
+          14,
+          0,
+          15,
+          16,
+          17,
+          18,
+          19
+        ],
+        "name": "Ui Uv Sample",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 21,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          0
+        ],
+        "inputs": [
+          20
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 22,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          220
+        ],
+        "inputs": [
+          14
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 23,
+        "kind": "effect",
+        "pos": [
+          1080,
+          440
+        ],
+        "inputs": [
+          14
+        ],
+        "name": "Ui Uv Field View",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 24,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          220
+        ],
+        "inputs": [
+          23
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}

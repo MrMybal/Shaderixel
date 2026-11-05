@@ -1,0 +1,627 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Perspective Card",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Perspective-correct four-corner card with continuous hover, pressed and disabled skin controls.",
+  "graph": {
+    "output": 23,
+    "variables": [
+      {
+        "name": "Quad Top left (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.15,
+            0.2
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Top left (document UV)."
+      },
+      {
+        "name": "Quad Top right (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.85,
+            0.1
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Top right (document UV)."
+      },
+      {
+        "name": "Quad Bottom right (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.8,
+            0.85
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Bottom right (document UV)."
+      },
+      {
+        "name": "Quad Bottom left (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.2,
+            0.8
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Bottom left (document UV)."
+      },
+      {
+        "name": "Quad Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Indices start at zero."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      },
+      {
+        "name": "State Hover amount",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Hover amount."
+      },
+      {
+        "name": "State Pressed amount",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Pressed amount."
+      },
+      {
+        "name": "State Disabled amount",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled amount."
+      },
+      {
+        "name": "State Hover tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.2,
+            1.35,
+            1.5,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "State Pressed tint",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.65,
+            0.7,
+            0.8,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "State Disabled saturation",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled saturation."
+      },
+      {
+        "name": "State Disabled opacity",
+        "value": {
+          "type": "Float",
+          "f": 0.45
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Disabled opacity."
+      },
+      {
+        "name": "State Overall opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Overall opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Card Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "varget",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "op": "Quad Top left (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Quad Top left (document UV)"
+      },
+      {
+        "id": 3,
+        "kind": "varget",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "op": "Quad Top right (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Quad Top right (document UV)"
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "op": "Quad Bottom right (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Quad Bottom right (document UV)"
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Quad Bottom left (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Quad Bottom left (document UV)"
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Quad Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Quad Edge softness (px)"
+      },
+      {
+        "id": 7,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "name": "Ui Uv Projective",
+        "effect": {
+          "effect": "ui_uv_projective",
+          "set": {}
+        },
+        "paramPinNames": [
+          "top_left",
+          "top_right",
+          "bottom_right",
+          "bottom_left",
+          "softness"
+        ]
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Sample U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample U addressing"
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Sample V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample V addressing"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample Texture filtering"
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Sample Tint (linear RGBA)"
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Sample Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Sample Opacity"
+      },
+      {
+        "id": 13,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          1,
+          7,
+          0,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "name": "Ui Uv Sample",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "State Hover amount",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get State Hover amount"
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "State Pressed amount",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get State Pressed amount"
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "State Disabled amount",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get State Disabled amount"
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "State Hover tint",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get State Hover tint"
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "pos": [
+          0,
+          1350
+        ],
+        "inputs": [],
+        "op": "State Pressed tint",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get State Pressed tint"
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "pos": [
+          0,
+          1440
+        ],
+        "inputs": [],
+        "op": "State Disabled saturation",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get State Disabled saturation"
+      },
+      {
+        "id": 20,
+        "kind": "varget",
+        "pos": [
+          0,
+          1530
+        ],
+        "inputs": [],
+        "op": "State Disabled opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get State Disabled opacity"
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "pos": [
+          0,
+          1620
+        ],
+        "inputs": [],
+        "op": "State Overall opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get State Overall opacity"
+      },
+      {
+        "id": 22,
+        "kind": "effect",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21
+        ],
+        "name": "Ui Effect State",
+        "effect": {
+          "effect": "ui_effect_state",
+          "set": {}
+        },
+        "paramPinNames": [
+          "hover",
+          "pressed",
+          "disabled",
+          "hover_tint",
+          "pressed_tint",
+          "disabled_saturation",
+          "disabled_opacity",
+          "opacity"
+        ]
+      },
+      {
+        "id": 23,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          0
+        ],
+        "inputs": [
+          22
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 24,
+        "kind": "suboutput",
+        "pos": [
+          720,
+          220
+        ],
+        "inputs": [
+          7
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 25,
+        "kind": "effect",
+        "pos": [
+          720,
+          440
+        ],
+        "inputs": [
+          7
+        ],
+        "name": "Ui Uv Field View",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 26,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          220
+        ],
+        "inputs": [
+          25
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}

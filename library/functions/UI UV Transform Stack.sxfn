@@ -1,0 +1,482 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Transform Stack",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Composable optional coordinate input, affine transform, independent addressing and one texture lookup. Leave UV Map disconnected for document coordinates.",
+  "graph": {
+    "output": 18,
+    "variables": [
+      {
+        "name": "Transform UV offset",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -1000 to 1000. UV offset."
+      },
+      {
+        "name": "Transform UV scale / repeat",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -1000 to 1000. UV scale / repeat."
+      },
+      {
+        "name": "Transform Pivot (local UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Pivot (local UV)."
+      },
+      {
+        "name": "Transform Rotation (degrees)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Rotation (degrees)."
+      },
+      {
+        "name": "Transform Shear X / Y",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -10 to 10. Shear X / Y."
+      },
+      {
+        "name": "Address U addressing",
+        "value": {
+          "type": "Int",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Address V addressing",
+        "value": {
+          "type": "Int",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Indices start at zero."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Optional UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 3,
+        "kind": "varget",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "op": "Transform UV offset",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Transform UV offset"
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "op": "Transform UV scale / repeat",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Transform UV scale / repeat"
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Transform Pivot (local UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Transform Pivot (local UV)"
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Transform Rotation (degrees)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Transform Rotation (degrees)"
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Transform Shear X / Y",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Transform Shear X / Y"
+      },
+      {
+        "id": 8,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "name": "Ui Uv Affine",
+        "effect": {
+          "effect": "ui_uv_affine",
+          "set": {}
+        },
+        "paramPinNames": [
+          "offset",
+          "repeat",
+          "pivot",
+          "rotation",
+          "shear"
+        ]
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Address U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Address U addressing"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Address V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Address V addressing"
+      },
+      {
+        "id": 11,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          8,
+          9,
+          10
+        ],
+        "name": "Ui Uv Address",
+        "effect": {
+          "effect": "ui_uv_address",
+          "set": {}
+        },
+        "paramPinNames": [
+          "mode_x",
+          "mode_y"
+        ]
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Sample U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample U addressing"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Sample V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample V addressing"
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample Texture filtering"
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Sample Tint (linear RGBA)"
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Sample Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Sample Opacity"
+      },
+      {
+        "id": 17,
+        "kind": "effect",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          1,
+          11,
+          0,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "name": "Ui Uv Sample",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 18,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          0
+        ],
+        "inputs": [
+          17
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 19,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          220
+        ],
+        "inputs": [
+          11
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 20,
+        "kind": "effect",
+        "pos": [
+          1080,
+          440
+        ],
+        "inputs": [
+          11
+        ],
+        "name": "Ui Uv Field View",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 21,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          220
+        ],
+        "inputs": [
+          20
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}

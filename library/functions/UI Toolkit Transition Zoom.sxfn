@@ -1,0 +1,709 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI Toolkit Transition Zoom",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Two-image transition inside a fixed viewport, with exact Progress 0 / 1 endpoints, optional region mask and a transition-mask output.",
+  "graph": {
+    "output": 27,
+    "variables": [
+      {
+        "name": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Widget position (document UV)."
+      },
+      {
+        "name": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Top left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top left radius (px)."
+      },
+      {
+        "name": "Clip Top right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top right radius (px)."
+      },
+      {
+        "name": "Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom right radius (px)."
+      },
+      {
+        "name": "Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom left radius (px)."
+      },
+      {
+        "name": "Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Hollow border width (px; 0 = filled)."
+      },
+      {
+        "name": "Clip Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Invert clip",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Transition Direction angle (degrees)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Direction angle (degrees)."
+      },
+      {
+        "name": "Transition Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 2.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Edge softness (px)."
+      },
+      {
+        "name": "Transition Iris / zoom center (local UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Iris / zoom center (local UV)."
+      },
+      {
+        "name": "Transition Dissolve block size (px)",
+        "value": {
+          "type": "Float",
+          "f": 8.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.25 to 4096. Dissolve block size (px)."
+      },
+      {
+        "name": "Transition Dissolve seed",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -100000 to 100000. Dissolve seed."
+      },
+      {
+        "name": "Transition Zoom travel",
+        "value": {
+          "type": "Float",
+          "f": 0.4
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 8. Zoom travel."
+      },
+      {
+        "name": "Transition Incoming minimum scale",
+        "value": {
+          "type": "Float",
+          "f": 0.2
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 1. Incoming minimum scale."
+      },
+      {
+        "name": "Transition Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          0
+        ],
+        "name": "Image A",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          130
+        ],
+        "name": "Image B",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          260
+        ],
+        "name": "Progress",
+        "port": 2,
+        "value": {
+          "type": "Float",
+          "f": 0.5
+        }
+      },
+      {
+        "id": 4,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          390
+        ],
+        "name": "Widget Size (px)",
+        "port": 3,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            320,
+            180
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          520
+        ],
+        "name": "Optional Mask",
+        "port": 4,
+        "value": {
+          "type": "Canal"
+        }
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          650
+        ],
+        "op": "Widget Widget position (document UV)",
+        "name": "Get Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          780
+        ],
+        "op": "Widget Widget anchor",
+        "name": "Get Widget Widget anchor",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          910
+        ],
+        "op": "Widget Edge softness (px)",
+        "name": "Get Widget Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 9,
+        "kind": "effect",
+        "inputs": [
+          4,
+          6,
+          7,
+          8
+        ],
+        "pos": [
+          360,
+          0
+        ],
+        "name": "UI UV Widget Coordinates",
+        "effect": {
+          "effect": "ui_uv_coordinates",
+          "set": {}
+        },
+        "paramPinNames": [
+          "target_size",
+          "position",
+          "anchor",
+          "softness"
+        ]
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1040
+        ],
+        "op": "Clip Top left radius (px)",
+        "name": "Get Clip Top left radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1170
+        ],
+        "op": "Clip Top right radius (px)",
+        "name": "Get Clip Top right radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1300
+        ],
+        "op": "Clip Bottom right radius (px)",
+        "name": "Get Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1430
+        ],
+        "op": "Clip Bottom left radius (px)",
+        "name": "Get Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1560
+        ],
+        "op": "Clip Hollow border width (px; 0 = filled)",
+        "name": "Get Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1690
+        ],
+        "op": "Clip Edge softness (px)",
+        "name": "Get Clip Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1820
+        ],
+        "op": "Clip Invert clip",
+        "name": "Get Clip Invert clip",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 17,
+        "kind": "effect",
+        "inputs": [
+          9,
+          4,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "pos": [
+          720,
+          0
+        ],
+        "name": "UI UV Rounded Rectangle Clip",
+        "effect": {
+          "effect": "ui_uv_mask_rect",
+          "set": {
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "space_size",
+          "radius_tl",
+          "radius_tr",
+          "radius_br",
+          "radius_bl",
+          "border",
+          "softness",
+          "invert"
+        ]
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1950
+        ],
+        "op": "Transition Direction angle (degrees)",
+        "name": "Get Transition Direction angle (degrees)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2080
+        ],
+        "op": "Transition Edge softness (px)",
+        "name": "Get Transition Edge softness (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 20,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2210
+        ],
+        "op": "Transition Iris / zoom center (local UV)",
+        "name": "Get Transition Iris / zoom center (local UV)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2340
+        ],
+        "op": "Transition Dissolve block size (px)",
+        "name": "Get Transition Dissolve block size (px)",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2470
+        ],
+        "op": "Transition Dissolve seed",
+        "name": "Get Transition Dissolve seed",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 23,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2600
+        ],
+        "op": "Transition Zoom travel",
+        "name": "Get Transition Zoom travel",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 24,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2730
+        ],
+        "op": "Transition Incoming minimum scale",
+        "name": "Get Transition Incoming minimum scale",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2860
+        ],
+        "op": "Transition Opacity",
+        "name": "Get Transition Opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 26,
+        "kind": "effect",
+        "inputs": [
+          1,
+          2,
+          5,
+          17,
+          3,
+          4,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25
+        ],
+        "pos": [
+          1080,
+          0
+        ],
+        "name": "UI Transition",
+        "effect": {
+          "effect": "ui_motion_transition",
+          "set": {
+            "mode": 5,
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "progress",
+          "space_size",
+          "angle",
+          "softness",
+          "center",
+          "block_size",
+          "seed",
+          "zoom",
+          "min_scale",
+          "opacity"
+        ]
+      },
+      {
+        "id": 27,
+        "kind": "suboutput",
+        "inputs": [
+          26
+        ],
+        "pos": [
+          1440,
+          0
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 28,
+        "kind": "effect",
+        "inputs": [
+          1,
+          2,
+          5,
+          17,
+          3,
+          4,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25
+        ],
+        "pos": [
+          1080,
+          240
+        ],
+        "name": "UI Transition",
+        "effect": {
+          "effect": "ui_motion_transition",
+          "set": {
+            "mode": 5,
+            "output_mode": 1
+          }
+        },
+        "paramPinNames": [
+          "progress",
+          "space_size",
+          "angle",
+          "softness",
+          "center",
+          "block_size",
+          "seed",
+          "zoom",
+          "min_scale",
+          "opacity"
+        ]
+      },
+      {
+        "id": 29,
+        "kind": "suboutput",
+        "inputs": [
+          28
+        ],
+        "pos": [
+          1440,
+          240
+        ],
+        "name": "Transition Mask",
+        "port": 1,
+        "value": {
+          "type": "Canal"
+        }
+      },
+      {
+        "id": 30,
+        "kind": "suboutput",
+        "inputs": [
+          17
+        ],
+        "pos": [
+          1080,
+          480
+        ],
+        "name": "UV Map",
+        "port": 2,
+        "value": {
+          "type": "Image"
+        }
+      }
+    ]
+  }
+}

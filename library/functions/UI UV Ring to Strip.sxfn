@@ -1,0 +1,731 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Ring to Strip",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Unwrap an existing source ring into a positioned rectangular strip, with a rounded output clip.",
+  "graph": {
+    "output": 28,
+    "variables": [
+      {
+        "name": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Widget position (document UV)."
+      },
+      {
+        "name": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Top left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top left radius (px)."
+      },
+      {
+        "name": "Clip Top right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top right radius (px)."
+      },
+      {
+        "name": "Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom right radius (px)."
+      },
+      {
+        "name": "Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom left radius (px)."
+      },
+      {
+        "name": "Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Hollow border width (px; 0 = filled)."
+      },
+      {
+        "name": "Clip Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Invert clip",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Source Ring Source ring center (UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Source ring center (UV)."
+      },
+      {
+        "name": "Source Ring Source outer radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 128.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 32768. Source outer radius (px)."
+      },
+      {
+        "name": "Source Ring Source inner / outer radius",
+        "value": {
+          "type": "Float",
+          "f": 0.65
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Source inner / outer radius."
+      },
+      {
+        "name": "Source Ring Start angle (degrees)",
+        "value": {
+          "type": "Float",
+          "f": -90.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Start angle (degrees)."
+      },
+      {
+        "name": "Source Ring Arc span (degrees)",
+        "value": {
+          "type": "Float",
+          "f": 360.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 360. Arc span (degrees)."
+      },
+      {
+        "name": "Source Ring Clockwise",
+        "value": {
+          "type": "Bool",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Indices start at zero."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Ring Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Strip Size (px)",
+        "port": 1,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            480,
+            64
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "kind": "varget",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "op": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget Widget position (document UV)"
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "op": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget Widget anchor"
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Widget Edge softness (px)"
+      },
+      {
+        "id": 6,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          2,
+          3,
+          4,
+          5
+        ],
+        "name": "Ui Uv Coordinates",
+        "effect": {
+          "effect": "ui_uv_coordinates",
+          "set": {}
+        },
+        "paramPinNames": [
+          "target_size",
+          "position",
+          "anchor",
+          "softness"
+        ]
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Clip Top left radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Top left radius (px)"
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Clip Top right radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Top right radius (px)"
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Bottom right radius (px)"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Bottom left radius (px)"
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Hollow border width (px; 0 = filled)"
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Clip Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Edge softness (px)"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Clip Invert clip",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Clip Invert clip"
+      },
+      {
+        "id": 14,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          6,
+          2,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13
+        ],
+        "name": "Ui Uv Mask Rect",
+        "effect": {
+          "effect": "ui_uv_mask_rect",
+          "set": {
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "space_size",
+          "radius_tl",
+          "radius_tr",
+          "radius_br",
+          "radius_bl",
+          "border",
+          "softness",
+          "invert"
+        ]
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Source Ring Source ring center (UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Source Ring Source ring center (UV)"
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Source Ring Source outer radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Source Ring Source outer radius (px)"
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "Source Ring Source inner / outer radius",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Source Ring Source inner / outer radius"
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "pos": [
+          0,
+          1350
+        ],
+        "inputs": [],
+        "op": "Source Ring Start angle (degrees)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Source Ring Start angle (degrees)"
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "pos": [
+          0,
+          1440
+        ],
+        "inputs": [],
+        "op": "Source Ring Arc span (degrees)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Source Ring Arc span (degrees)"
+      },
+      {
+        "id": 20,
+        "kind": "varget",
+        "pos": [
+          0,
+          1530
+        ],
+        "inputs": [],
+        "op": "Source Ring Clockwise",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Source Ring Clockwise"
+      },
+      {
+        "id": 21,
+        "kind": "effect",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "name": "Ui Uv Unwrap",
+        "effect": {
+          "effect": "ui_uv_unwrap",
+          "set": {}
+        },
+        "paramPinNames": [
+          "center",
+          "outer_radius",
+          "inner_ratio",
+          "start_angle",
+          "span",
+          "clockwise"
+        ]
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "pos": [
+          0,
+          1620
+        ],
+        "inputs": [],
+        "op": "Sample U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample U addressing"
+      },
+      {
+        "id": 23,
+        "kind": "varget",
+        "pos": [
+          0,
+          1710
+        ],
+        "inputs": [],
+        "op": "Sample V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample V addressing"
+      },
+      {
+        "id": 24,
+        "kind": "varget",
+        "pos": [
+          0,
+          1800
+        ],
+        "inputs": [],
+        "op": "Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample Texture filtering"
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "pos": [
+          0,
+          1890
+        ],
+        "inputs": [],
+        "op": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Sample Tint (linear RGBA)"
+      },
+      {
+        "id": 26,
+        "kind": "varget",
+        "pos": [
+          0,
+          1980
+        ],
+        "inputs": [],
+        "op": "Sample Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Sample Opacity"
+      },
+      {
+        "id": 27,
+        "kind": "effect",
+        "pos": [
+          1440,
+          0
+        ],
+        "inputs": [
+          1,
+          21,
+          0,
+          22,
+          23,
+          24,
+          25,
+          26
+        ],
+        "name": "Ui Uv Sample",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 28,
+        "kind": "suboutput",
+        "pos": [
+          1800,
+          0
+        ],
+        "inputs": [
+          27
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 29,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          220
+        ],
+        "inputs": [
+          21
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 30,
+        "kind": "effect",
+        "pos": [
+          1440,
+          440
+        ],
+        "inputs": [
+          21
+        ],
+        "name": "Ui Uv Field View",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 31,
+        "kind": "suboutput",
+        "pos": [
+          1800,
+          220
+        ],
+        "inputs": [
+          30
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}

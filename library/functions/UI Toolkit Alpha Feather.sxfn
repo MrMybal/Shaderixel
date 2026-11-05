@@ -1,0 +1,646 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI Toolkit Alpha Feather",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Refine alpha, derive a distance field, adjust its boundary and extend RGB for sprite export. Distance fields require float32 documents.",
+  "graph": {
+    "output": 25,
+    "variables": [
+      {
+        "name": "Refine Alpha black point",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Alpha black point."
+      },
+      {
+        "name": "Refine Alpha white point",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Alpha white point."
+      },
+      {
+        "name": "Refine Alpha gamma",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 16. Alpha gamma."
+      },
+      {
+        "name": "Refine Alpha contrast",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Alpha contrast."
+      },
+      {
+        "name": "Refine Invert alpha",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Refine Matte color",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Refine Matte removal amount",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Matte removal amount."
+      },
+      {
+        "name": "Refine Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      },
+      {
+        "name": "Distance Source channel",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Alpha, Red, Luminance. Zero-based index."
+      },
+      {
+        "name": "Distance Inside threshold",
+        "value": {
+          "type": "Float",
+          "f": 0.5
+        },
+        "exposed": true,
+        "desc": "Range: 0.0001 to 0.9999. Inside threshold."
+      },
+      {
+        "name": "Distance Invert source",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Boundary Alpha combination",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Rebuild alpha, Union with original, Intersect with original. Zero-based index."
+      },
+      {
+        "name": "Boundary Extend nearest interior RGB",
+        "value": {
+          "type": "Bool",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Toggle this option."
+      },
+      {
+        "name": "Boundary Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      },
+      {
+        "name": "Export Padding Radius (px)",
+        "value": {
+          "type": "Int",
+          "f": 8.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32. Padding Radius (px)."
+      },
+      {
+        "name": "Export Minimum Source Alpha",
+        "value": {
+          "type": "Float",
+          "f": 0.1
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 1. Minimum Source Alpha."
+      },
+      {
+        "name": "Export RGB Carrier Alpha",
+        "value": {
+          "type": "Float",
+          "f": 0.0001
+        },
+        "exposed": true,
+        "desc": "Range: 0.000002 to 0.001. RGB Carrier Alpha."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          0
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          130
+        ],
+        "name": "Grow / Shrink (px)",
+        "port": 1,
+        "value": {
+          "type": "Float",
+          "f": 0
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          260
+        ],
+        "name": "Feather Width (px)",
+        "port": 2,
+        "value": {
+          "type": "Float",
+          "f": 4
+        }
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          390
+        ],
+        "op": "Refine Alpha black point",
+        "name": "Get Refine Alpha black point",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          520
+        ],
+        "op": "Refine Alpha white point",
+        "name": "Get Refine Alpha white point",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          650
+        ],
+        "op": "Refine Alpha gamma",
+        "name": "Get Refine Alpha gamma",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          780
+        ],
+        "op": "Refine Alpha contrast",
+        "name": "Get Refine Alpha contrast",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          910
+        ],
+        "op": "Refine Invert alpha",
+        "name": "Get Refine Invert alpha",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1040
+        ],
+        "op": "Refine Matte color",
+        "name": "Get Refine Matte color",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1170
+        ],
+        "op": "Refine Matte removal amount",
+        "name": "Get Refine Matte removal amount",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1300
+        ],
+        "op": "Refine Opacity",
+        "name": "Get Refine Opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 12,
+        "kind": "effect",
+        "inputs": [
+          1,
+          0,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11
+        ],
+        "pos": [
+          360,
+          0
+        ],
+        "name": "UI Alpha Refine and Matte Removal",
+        "effect": {
+          "effect": "ui_alpha_refine",
+          "set": {}
+        },
+        "paramPinNames": [
+          "low",
+          "high",
+          "gamma",
+          "contrast",
+          "invert",
+          "matte",
+          "remove_matte",
+          "opacity"
+        ]
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1430
+        ],
+        "op": "Distance Source channel",
+        "name": "Get Distance Source channel",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1560
+        ],
+        "op": "Distance Inside threshold",
+        "name": "Get Distance Inside threshold",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1690
+        ],
+        "op": "Distance Invert source",
+        "name": "Get Distance Invert source",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 16,
+        "kind": "effect",
+        "inputs": [
+          12,
+          13,
+          14,
+          15
+        ],
+        "pos": [
+          720,
+          0
+        ],
+        "name": "UI SDF From Alpha",
+        "effect": {
+          "effect": "ui_sdf_from_alpha",
+          "set": {}
+        },
+        "paramPinNames": [
+          "channel",
+          "threshold",
+          "invert"
+        ]
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1820
+        ],
+        "op": "Boundary Alpha combination",
+        "name": "Get Boundary Alpha combination",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1950
+        ],
+        "op": "Boundary Extend nearest interior RGB",
+        "name": "Get Boundary Extend nearest interior RGB",
+        "value": {
+          "type": "Bool"
+        }
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2080
+        ],
+        "op": "Boundary Opacity",
+        "name": "Get Boundary Opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 20,
+        "kind": "effect",
+        "inputs": [
+          12,
+          16,
+          0,
+          2,
+          3,
+          17,
+          18,
+          19
+        ],
+        "pos": [
+          1080,
+          0
+        ],
+        "name": "UI Alpha Grow Shrink and Feather",
+        "effect": {
+          "effect": "ui_alpha_apply_sdf",
+          "set": {}
+        },
+        "paramPinNames": [
+          "grow",
+          "softness",
+          "combine",
+          "extend_rgb",
+          "opacity"
+        ]
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2210
+        ],
+        "op": "Export Padding Radius (px)",
+        "name": "Get Export Padding Radius (px)",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2340
+        ],
+        "op": "Export Minimum Source Alpha",
+        "name": "Get Export Minimum Source Alpha",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 23,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          2470
+        ],
+        "op": "Export RGB Carrier Alpha",
+        "name": "Get Export RGB Carrier Alpha",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 24,
+        "kind": "effect",
+        "inputs": [
+          20,
+          21,
+          22,
+          23
+        ],
+        "pos": [
+          1440,
+          0
+        ],
+        "name": "Alpha Edge Padding",
+        "effect": {
+          "effect": "texture_alpha_edge_padding",
+          "set": {}
+        },
+        "paramPinNames": [
+          "radius",
+          "source_alpha",
+          "carrier_alpha"
+        ]
+      },
+      {
+        "id": 25,
+        "kind": "suboutput",
+        "inputs": [
+          24
+        ],
+        "pos": [
+          1800,
+          0
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 26,
+        "kind": "split",
+        "inputs": [
+          24
+        ],
+        "pos": [
+          1800,
+          240
+        ],
+        "name": "Split RGBA"
+      },
+      {
+        "id": 27,
+        "kind": "suboutput",
+        "inputs": [
+          26
+        ],
+        "pos": [
+          2160,
+          0
+        ],
+        "name": "Alpha",
+        "port": 1,
+        "value": {
+          "type": "Canal"
+        },
+        "inputChannels": [
+          4
+        ]
+      },
+      {
+        "id": 28,
+        "kind": "suboutput",
+        "inputs": [
+          16
+        ],
+        "pos": [
+          1080,
+          240
+        ],
+        "name": "SDF Field",
+        "port": 2,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 29,
+        "kind": "suboutput",
+        "inputs": [
+          12
+        ],
+        "pos": [
+          720,
+          240
+        ],
+        "name": "Refined Source",
+        "port": 3,
+        "value": {
+          "type": "Image"
+        }
+      }
+    ]
+  }
+}

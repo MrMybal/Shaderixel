@@ -1,0 +1,624 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Three Slice Vertical",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Fixed end caps and a stretch, repeat or mirror middle; pixel-sized bars and buttons.",
+  "graph": {
+    "output": 23,
+    "variables": [
+      {
+        "name": "Start cap (source px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Start cap (source px)."
+      },
+      {
+        "name": "End cap (source px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. End cap (source px)."
+      },
+      {
+        "name": "Logical source size (px; 0 = region texels)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Logical source size (px; 0 = region texels)."
+      },
+      {
+        "name": "Source region origin (UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Source region origin (UV)."
+      },
+      {
+        "name": "Source region size (UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 1e-05 to 1. Source region size (UV)."
+      },
+      {
+        "name": "Widget position (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Widget position (document UV)."
+      },
+      {
+        "name": "Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Cap scale",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 64. Cap scale."
+      },
+      {
+        "name": "Middle mode",
+        "value": {
+          "type": "Int",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Options: Stretch, Tile, Mirror tile. Indices start at zero."
+      },
+      {
+        "name": "Middle tile scale",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 100. Middle tile scale."
+      },
+      {
+        "name": "Tile phase (cycles)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -1000 to 1000. Tile phase (cycles)."
+      },
+      {
+        "name": "Tile fitting",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Natural partial tiles, Round to whole tiles. Indices start at zero."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Indices start at zero."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Bar Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Widget Size (px)",
+        "port": 1,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            64,
+            480
+          ]
+        }
+      },
+      {
+        "id": 3,
+        "kind": "varget",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "op": "Start cap (source px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Start cap (source px)"
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "op": "End cap (source px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get End cap (source px)"
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Logical source size (px; 0 = region texels)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Logical source size (px; 0 = region texels)"
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Source region origin (UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Source region origin (UV)"
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Source region size (UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Source region size (UV)"
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Widget position (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget position (document UV)"
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Widget anchor",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget anchor"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Edge softness (px)"
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Cap scale",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Cap scale"
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Middle mode",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Middle mode"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Middle tile scale",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Middle tile scale"
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Tile phase (cycles)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Tile phase (cycles)"
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "Tile fitting",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Tile fitting"
+      },
+      {
+        "id": 16,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "name": "Ui Uv Three Slice",
+        "effect": {
+          "effect": "ui_uv_three_slice",
+          "set": {
+            "axis": 1
+          }
+        },
+        "paramPinNames": [
+          "target_size",
+          "start_cap",
+          "end_cap",
+          "source_size",
+          "source_origin",
+          "source_extent",
+          "position",
+          "anchor",
+          "softness",
+          "border_scale",
+          "center_mode",
+          "tile_scale",
+          "phase",
+          "tile_fit"
+        ]
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "pos": [
+          0,
+          1350
+        ],
+        "inputs": [],
+        "op": "Sample U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample U addressing"
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "pos": [
+          0,
+          1440
+        ],
+        "inputs": [],
+        "op": "Sample V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample V addressing"
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "pos": [
+          0,
+          1530
+        ],
+        "inputs": [],
+        "op": "Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample Texture filtering"
+      },
+      {
+        "id": 20,
+        "kind": "varget",
+        "pos": [
+          0,
+          1620
+        ],
+        "inputs": [],
+        "op": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Sample Tint (linear RGBA)"
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "pos": [
+          0,
+          1710
+        ],
+        "inputs": [],
+        "op": "Sample Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Sample Opacity"
+      },
+      {
+        "id": 22,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          1,
+          16,
+          0,
+          17,
+          18,
+          19,
+          20,
+          21
+        ],
+        "name": "Ui Uv Sample",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 23,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          22
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 24,
+        "kind": "suboutput",
+        "pos": [
+          720,
+          220
+        ],
+        "inputs": [
+          16
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 25,
+        "kind": "effect",
+        "pos": [
+          720,
+          440
+        ],
+        "inputs": [
+          16
+        ],
+        "name": "Ui Uv Field View",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 26,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          220
+        ],
+        "inputs": [
+          25
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}

@@ -5,7 +5,7 @@ workflow. Effects are written in HLSL/Slang and compiled at runtime.
 
 ## Install (Windows x64)
 
-[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261104/Shaderixel-0.1.0-alpha.20261104-windows-x64-setup.exe)
+[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261105/Shaderixel-0.1.0-alpha.20261105-windows-x64-setup.exe)
 and run it. Windows 10 version 2004 or later and a D3D12-capable GPU are required;
 the Vulkan executable requires a compatible Vulkan driver.
 
@@ -17,7 +17,7 @@ starts in English; French is also available.
 
 Uninstall from **Windows Settings > Apps**. User-created files and settings are
 retained. The portable ZIP remains available on the
-[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261104).
+[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261105).
 
 ## Updates
 
@@ -33,10 +33,42 @@ setup wizard preserves the installed folder and the current D3D12/Vulkan backend
 A failed or offline check leaves the editor usable and can be retried manually.
 
 The first installer dated 2026-11-03 has no built-in updater. Install the
-2026-11-04 alpha once to enable subsequent checks. No GitHub account is required
+2026-11-04 alpha or a newer version once to enable subsequent checks. No GitHub account is required
 for this public release channel. Development capture/effect-test runs skip the
 startup check; `--updates` opens the panel and `--check-updates` explicitly runs a
 check, including during an automated capture.
+
+## Precise layer and shape dimensions
+
+Layer transformation properties and the Free Transform options support
+**Percentage (%)** and **Pixels (px)**. Shape properties expose position, width
+and height directly, including boolean components. Disable **Constrain proportions**
+to enter independent dimensions such as **375.5 × 75.25 px**. Decimal input accepts
+either a dot or a comma; switching units does not resize the object.
+
+Layer percentages use the source dimensions; shape-frame percentages use the
+document width and height. Shape-frame dimensions precede rotation, stroke and
+layer filters. Pixel dimensions preserve existing flips; negative percentages
+can still mirror a transform.
+
+## UI texture and widget libraries
+
+**37 effects and 65 reusable graphs** cover nine-slice and tiled-center panels,
+eight-slice borders, sprite atlases, flipbooks, UV transforms, progress indicators,
+SDF shapes and Boolean operations, styled borders, flow maps, parallax,
+transitions, interface patterns, pixel snapping, alpha cleanup and skin states.
+Inputs and variables expose the main controls, including fractional pixel sizes.
+
+Open the graph node menu > **Library > UI UV ...** or **UI Toolkit ...** to add a
+function. See the [UI UV guide](docs/UI_UV_LIBRARY.md) and
+[UI Toolkit guide](docs/UI_TOOLKIT.md) for field formats, controls and examples.
+The installer and portable package include both libraries and the self-contained
+[UI UV demo](examples/ui_uv_library_demo.sxl) and
+[UI Toolkit demo](examples/ui_toolkit_demo.sxl). Open these documents with
+**File > Open** or drop them on the canvas. Use a **32-bit float document** for UV
+coordinate and signed-distance fields.
+
+![UI Toolkit shapes, borders, motion, patterns and coordinated skin states](docs/images/ui_toolkit.png)
 
 ## Screenshots
 
@@ -82,8 +114,8 @@ Install [Inno Setup 7](https://jrsoftware.org/isdl.php), then generate the examp
 package and compile the setup executable with the Visual Studio x64 CRT:
 
 ```bat
-python tools/package.py --source-only-unreal --name Shaderixel-0.1.0-alpha.20261104-windows-x64
-python tools/build_installer.py --package dist/Shaderixel-0.1.0-alpha.20261104-windows-x64 --version 0.1.0-alpha.20261104 --iscc "C:\Program Files\Inno Setup 7\ISCC.exe"
+python tools/package.py --source-only-unreal --name Shaderixel-0.1.0-alpha.20261105-windows-x64
+python tools/build_installer.py --package dist/Shaderixel-0.1.0-alpha.20261105-windows-x64 --version 0.1.0-alpha.20261105 --iscc "C:\Program Files\Inno Setup 7\ISCC.exe"
 ```
 
 Use a fresh version/package name for each build. The installer tool rebuilds both

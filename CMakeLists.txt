@@ -251,7 +251,7 @@ option(SX_BUILD_UI_TESTS "Build Shaderixel's CyUI integration tests" OFF)
 if(SX_BUILD_UI_TESTS)
     enable_testing()
     add_executable(ShaderixelUiTests tests/CyUiIntegration.cpp
-        src/ui/CodeEdit.cpp src/ui/Theme.cpp src/ui/ToneCurve.cpp)
+        src/ui/CodeEdit.cpp src/ui/Theme.cpp src/ui/ToneCurve.cpp src/ui/Dimensions.cpp)
     target_include_directories(ShaderixelUiTests PRIVATE ${CMAKE_SOURCE_DIR}/src)
     target_compile_definitions(ShaderixelUiTests PRIVATE NOMINMAX IMGUI_DEFINE_MATH_OPERATORS)
     target_link_libraries(ShaderixelUiTests PRIVATE CyUI::Core CyUI::CodeEditor CyUI::Images CyUI::Nodes CyUI::Curves CyUI::Plots)

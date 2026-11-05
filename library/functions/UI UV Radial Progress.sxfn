@@ -1,0 +1,747 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Radial Progress",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Map a texture strip around a ring or arc, then clip angular U by progress. Segments follow the arc; all controls are explicit.",
+  "graph": {
+    "output": 24,
+    "variables": [
+      {
+        "name": "Ring Ring center (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Ring center (document UV)."
+      },
+      {
+        "name": "Ring Outer radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 128.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 32768. Outer radius (px)."
+      },
+      {
+        "name": "Ring Inner / outer radius",
+        "value": {
+          "type": "Float",
+          "f": 0.65
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 0.9999. Inner / outer radius."
+      },
+      {
+        "name": "Ring Start angle (degrees)",
+        "value": {
+          "type": "Float",
+          "f": -90.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Start angle (degrees)."
+      },
+      {
+        "name": "Ring Arc span (degrees)",
+        "value": {
+          "type": "Float",
+          "f": 360.0
+        },
+        "exposed": true,
+        "desc": "Range: 0.001 to 360. Arc span (degrees)."
+      },
+      {
+        "name": "Ring Clockwise",
+        "value": {
+          "type": "Bool",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Ring Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Ring Angular UV offset",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: -1000 to 1000. Angular UV offset."
+      },
+      {
+        "name": "Fill Reverse fill",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Fill Radial start angle (degrees)",
+        "value": {
+          "type": "Float",
+          "f": -90.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Radial start angle (degrees)."
+      },
+      {
+        "name": "Fill Segment count",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 1 to 512. Segment count."
+      },
+      {
+        "name": "Fill Gap fraction per segment",
+        "value": {
+          "type": "Float",
+          "f": 0.15
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 0.99. Gap fraction per segment."
+      },
+      {
+        "name": "Fill Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Indices start at zero."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Strip Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Progress",
+        "port": 1,
+        "value": {
+          "type": "Float",
+          "f": 0.7
+        }
+      },
+      {
+        "id": 3,
+        "kind": "varget",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "op": "Ring Ring center (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Ring Ring center (document UV)"
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "op": "Ring Outer radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Ring Outer radius (px)"
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Ring Inner / outer radius",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Ring Inner / outer radius"
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Ring Start angle (degrees)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Ring Start angle (degrees)"
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Ring Arc span (degrees)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Ring Arc span (degrees)"
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Ring Clockwise",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Ring Clockwise"
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Ring Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Ring Edge softness (px)"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Ring Angular UV offset",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Ring Angular UV offset"
+      },
+      {
+        "id": 11,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "name": "Ui Uv Polar",
+        "effect": {
+          "effect": "ui_uv_polar",
+          "set": {}
+        },
+        "paramPinNames": [
+          "center",
+          "outer_radius",
+          "inner_ratio",
+          "start_angle",
+          "span",
+          "clockwise",
+          "softness",
+          "phase"
+        ]
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Fill Reverse fill",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Fill Reverse fill"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Fill Radial start angle (degrees)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Fill Radial start angle (degrees)"
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Fill Segment count",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Fill Segment count"
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Fill Gap fraction per segment",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Fill Gap fraction per segment"
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "Fill Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Fill Edge softness (px)"
+      },
+      {
+        "id": 17,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          11,
+          2,
+          12,
+          13,
+          14,
+          15,
+          16,
+          37
+        ],
+        "name": "Ui Uv Mask Progress",
+        "effect": {
+          "effect": "ui_uv_mask_progress",
+          "set": {
+            "direction": 0,
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "progress",
+          "reverse",
+          "start_angle",
+          "segments",
+          "gap",
+          "softness",
+          "space_size"
+        ]
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "pos": [
+          0,
+          1350
+        ],
+        "inputs": [],
+        "op": "Sample U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample U addressing"
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "pos": [
+          0,
+          1440
+        ],
+        "inputs": [],
+        "op": "Sample V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample V addressing"
+      },
+      {
+        "id": 20,
+        "kind": "varget",
+        "pos": [
+          0,
+          1530
+        ],
+        "inputs": [],
+        "op": "Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample Texture filtering"
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "pos": [
+          0,
+          1620
+        ],
+        "inputs": [],
+        "op": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Sample Tint (linear RGBA)"
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "pos": [
+          0,
+          1710
+        ],
+        "inputs": [],
+        "op": "Sample Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Sample Opacity"
+      },
+      {
+        "id": 23,
+        "kind": "effect",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          1,
+          17,
+          0,
+          18,
+          19,
+          20,
+          21,
+          22
+        ],
+        "name": "Ui Uv Sample",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 24,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          0
+        ],
+        "inputs": [
+          23
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 25,
+        "kind": "suboutput",
+        "pos": [
+          1080,
+          220
+        ],
+        "inputs": [
+          17
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 26,
+        "kind": "effect",
+        "pos": [
+          1080,
+          440
+        ],
+        "inputs": [
+          17
+        ],
+        "name": "Ui Uv Field View",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 27,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          220
+        ],
+        "inputs": [
+          26
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      },
+      {
+        "id": 28,
+        "kind": "value",
+        "inputs": [],
+        "pos": [
+          1000,
+          1530
+        ],
+        "value": {
+          "type": "Float",
+          "f": 1
+        }
+      },
+      {
+        "id": 29,
+        "kind": "value",
+        "inputs": [],
+        "pos": [
+          1280,
+          1530
+        ],
+        "value": {
+          "type": "Float",
+          "f": 0.008726646259971648
+        }
+      },
+      {
+        "id": 31,
+        "kind": "math",
+        "inputs": [
+          28,
+          5
+        ],
+        "pos": [
+          1000,
+          1600
+        ],
+        "op": "add"
+      },
+      {
+        "id": 32,
+        "kind": "math",
+        "inputs": [
+          4,
+          31
+        ],
+        "pos": [
+          1280,
+          1600
+        ],
+        "op": "mul"
+      },
+      {
+        "id": 33,
+        "kind": "math",
+        "inputs": [
+          7,
+          29
+        ],
+        "pos": [
+          720,
+          1670
+        ],
+        "op": "mul"
+      },
+      {
+        "id": 34,
+        "kind": "math",
+        "inputs": [
+          32,
+          33
+        ],
+        "pos": [
+          1000,
+          1670
+        ],
+        "op": "mul"
+      },
+      {
+        "id": 35,
+        "kind": "math",
+        "inputs": [
+          28,
+          5
+        ],
+        "pos": [
+          1280,
+          1670
+        ],
+        "op": "sub"
+      },
+      {
+        "id": 36,
+        "kind": "math",
+        "inputs": [
+          4,
+          35
+        ],
+        "pos": [
+          720,
+          1740
+        ],
+        "op": "mul"
+      },
+      {
+        "id": 37,
+        "kind": "math",
+        "inputs": [
+          34,
+          36
+        ],
+        "pos": [
+          1000,
+          1740
+        ],
+        "op": "vec2"
+      }
+    ]
+  }
+}

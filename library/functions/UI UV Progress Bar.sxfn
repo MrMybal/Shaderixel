@@ -1,0 +1,1118 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Progress Bar",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Rounded background panel plus textured foreground clipped by progress; the empty track stays visible.",
+  "graph": {
+    "output": 43,
+    "variables": [
+      {
+        "name": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Top left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top left radius (px)."
+      },
+      {
+        "name": "Clip Top right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top right radius (px)."
+      },
+      {
+        "name": "Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom right radius (px)."
+      },
+      {
+        "name": "Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom left radius (px)."
+      },
+      {
+        "name": "Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Hollow border width (px; 0 = filled)."
+      },
+      {
+        "name": "Clip Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Invert clip",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Segment Count",
+        "value": {
+          "type": "Int",
+          "f": 1
+        },
+        "exposed": true,
+        "desc": "Integer segment count from 1 to 512; 1 disables segment gaps."
+      },
+      {
+        "name": "Fill Fill direction",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Horizontal, Vertical, Radial. Indices start at zero."
+      },
+      {
+        "name": "Fill Reverse fill",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Fill Radial start angle (degrees)",
+        "value": {
+          "type": "Float",
+          "f": -90.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Radial start angle (degrees)."
+      },
+      {
+        "name": "Fill Gap fraction per segment",
+        "value": {
+          "type": "Float",
+          "f": 0.15
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 0.99. Gap fraction per segment."
+      },
+      {
+        "name": "Fill Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Indices start at zero."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      },
+      {
+        "name": "Track Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Track Gradient angle (degrees)",
+        "value": {
+          "type": "Float",
+          "f": 90.0
+        },
+        "exposed": true,
+        "desc": "Range: -3600 to 3600. Gradient angle (degrees)."
+      },
+      {
+        "name": "Track Border color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.08,
+            0.45,
+            0.8,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Track Bevel light strength",
+        "value": {
+          "type": "Float",
+          "f": 0.18
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 2. Bevel light strength."
+      },
+      {
+        "name": "Track Shadow offset (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            6.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4096 to 4096. Shadow offset (px)."
+      },
+      {
+        "name": "Track Shadow softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 10.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Shadow softness (px)."
+      },
+      {
+        "name": "Track Shadow color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.0,
+            0.0,
+            0.0,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Track Outer glow size (px)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1024. Outer glow size (px)."
+      },
+      {
+        "name": "Track Outer glow color",
+        "value": {
+          "type": "Color",
+          "f": [
+            0.02,
+            0.3,
+            1.0,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Composite Foreground opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Foreground opacity."
+      },
+      {
+        "name": "Composite Invert mask",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Composite Blend mode",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Normal, Add, Multiply, Screen. Indices start at zero."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Fill Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Progress",
+        "port": 1,
+        "value": {
+          "type": "Float",
+          "f": 0.65
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "name": "Widget Size (px)",
+        "port": 2,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            480,
+            56
+          ]
+        }
+      },
+      {
+        "id": 4,
+        "kind": "subinput",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "name": "Widget Position (UV)",
+        "port": 3,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget Widget anchor"
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Widget Edge softness (px)"
+      },
+      {
+        "id": 7,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "name": "Ui Uv Coordinates",
+        "effect": {
+          "effect": "ui_uv_coordinates",
+          "set": {}
+        },
+        "paramPinNames": [
+          "target_size",
+          "position",
+          "anchor",
+          "softness"
+        ]
+      },
+      {
+        "id": 8,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Clip Top left radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Top left radius (px)"
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Clip Top right radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Top right radius (px)"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Bottom right radius (px)"
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Bottom left radius (px)"
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Hollow border width (px; 0 = filled)"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Clip Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Edge softness (px)"
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Clip Invert clip",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Clip Invert clip"
+      },
+      {
+        "id": 15,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          7,
+          3,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14
+        ],
+        "name": "Ui Uv Mask Rect",
+        "effect": {
+          "effect": "ui_uv_mask_rect",
+          "set": {
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "space_size",
+          "radius_tl",
+          "radius_tr",
+          "radius_br",
+          "radius_bl",
+          "border",
+          "softness",
+          "invert"
+        ]
+      },
+      {
+        "id": 16,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Segment Count",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Segment Count"
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "Fill Fill direction",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Fill Fill direction"
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "pos": [
+          0,
+          1350
+        ],
+        "inputs": [],
+        "op": "Fill Reverse fill",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Fill Reverse fill"
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "pos": [
+          0,
+          1440
+        ],
+        "inputs": [],
+        "op": "Fill Radial start angle (degrees)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Fill Radial start angle (degrees)"
+      },
+      {
+        "id": 20,
+        "kind": "varget",
+        "pos": [
+          0,
+          1530
+        ],
+        "inputs": [],
+        "op": "Fill Gap fraction per segment",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Fill Gap fraction per segment"
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "pos": [
+          0,
+          1620
+        ],
+        "inputs": [],
+        "op": "Fill Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Fill Edge softness (px)"
+      },
+      {
+        "id": 22,
+        "kind": "effect",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          15,
+          2,
+          3,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21
+        ],
+        "name": "Ui Uv Mask Progress",
+        "effect": {
+          "effect": "ui_uv_mask_progress",
+          "set": {
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "progress",
+          "space_size",
+          "segments",
+          "direction",
+          "reverse",
+          "start_angle",
+          "gap",
+          "softness"
+        ]
+      },
+      {
+        "id": 23,
+        "kind": "varget",
+        "pos": [
+          0,
+          1710
+        ],
+        "inputs": [],
+        "op": "Sample U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample U addressing"
+      },
+      {
+        "id": 24,
+        "kind": "varget",
+        "pos": [
+          0,
+          1800
+        ],
+        "inputs": [],
+        "op": "Sample V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample V addressing"
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "pos": [
+          0,
+          1890
+        ],
+        "inputs": [],
+        "op": "Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample Texture filtering"
+      },
+      {
+        "id": 26,
+        "kind": "varget",
+        "pos": [
+          0,
+          1980
+        ],
+        "inputs": [],
+        "op": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Sample Tint (linear RGBA)"
+      },
+      {
+        "id": 27,
+        "kind": "varget",
+        "pos": [
+          0,
+          2070
+        ],
+        "inputs": [],
+        "op": "Sample Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Sample Opacity"
+      },
+      {
+        "id": 28,
+        "kind": "effect",
+        "pos": [
+          1440,
+          0
+        ],
+        "inputs": [
+          1,
+          22,
+          0,
+          23,
+          24,
+          25,
+          26,
+          27
+        ],
+        "name": "Ui Uv Sample",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 29,
+        "kind": "varget",
+        "pos": [
+          0,
+          2160
+        ],
+        "inputs": [],
+        "op": "Track Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Track Edge softness (px)"
+      },
+      {
+        "id": 30,
+        "kind": "varget",
+        "pos": [
+          0,
+          2250
+        ],
+        "inputs": [],
+        "op": "Track Gradient angle (degrees)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Track Gradient angle (degrees)"
+      },
+      {
+        "id": 31,
+        "kind": "varget",
+        "pos": [
+          0,
+          2340
+        ],
+        "inputs": [],
+        "op": "Track Border color",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Track Border color"
+      },
+      {
+        "id": 32,
+        "kind": "varget",
+        "pos": [
+          0,
+          2430
+        ],
+        "inputs": [],
+        "op": "Track Bevel light strength",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Track Bevel light strength"
+      },
+      {
+        "id": 33,
+        "kind": "varget",
+        "pos": [
+          0,
+          2520
+        ],
+        "inputs": [],
+        "op": "Track Shadow offset (px)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Track Shadow offset (px)"
+      },
+      {
+        "id": 34,
+        "kind": "varget",
+        "pos": [
+          0,
+          2610
+        ],
+        "inputs": [],
+        "op": "Track Shadow softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Track Shadow softness (px)"
+      },
+      {
+        "id": 35,
+        "kind": "varget",
+        "pos": [
+          0,
+          2700
+        ],
+        "inputs": [],
+        "op": "Track Shadow color",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Track Shadow color"
+      },
+      {
+        "id": 36,
+        "kind": "varget",
+        "pos": [
+          0,
+          2790
+        ],
+        "inputs": [],
+        "op": "Track Outer glow size (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Track Outer glow size (px)"
+      },
+      {
+        "id": 37,
+        "kind": "varget",
+        "pos": [
+          0,
+          2880
+        ],
+        "inputs": [],
+        "op": "Track Outer glow color",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Track Outer glow color"
+      },
+      {
+        "id": 38,
+        "kind": "effect",
+        "pos": [
+          360,
+          220
+        ],
+        "inputs": [
+          3,
+          4,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37
+        ],
+        "name": "Ui Draw Panel",
+        "effect": {
+          "effect": "ui_draw_panel",
+          "set": {
+            "radius": 16,
+            "border": 1,
+            "bevel": 0,
+            "color_top": [
+              0.012,
+              0.02,
+              0.04,
+              1
+            ],
+            "color_bottom": [
+              0.006,
+              0.01,
+              0.02,
+              1
+            ]
+          }
+        },
+        "paramPinNames": [
+          "size",
+          "position",
+          "softness",
+          "angle",
+          "border_color",
+          "bevel_strength",
+          "shadow_offset",
+          "shadow_softness",
+          "shadow_color",
+          "glow_size",
+          "glow_color"
+        ]
+      },
+      {
+        "id": 39,
+        "kind": "varget",
+        "pos": [
+          0,
+          2970
+        ],
+        "inputs": [],
+        "op": "Composite Foreground opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Composite Foreground opacity"
+      },
+      {
+        "id": 40,
+        "kind": "varget",
+        "pos": [
+          0,
+          3060
+        ],
+        "inputs": [],
+        "op": "Composite Invert mask",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Composite Invert mask"
+      },
+      {
+        "id": 41,
+        "kind": "varget",
+        "pos": [
+          0,
+          3150
+        ],
+        "inputs": [],
+        "op": "Composite Blend mode",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Composite Blend mode"
+      },
+      {
+        "id": 42,
+        "kind": "effect",
+        "pos": [
+          1800,
+          0
+        ],
+        "inputs": [
+          38,
+          28,
+          0,
+          39,
+          40,
+          41
+        ],
+        "name": "Ui Blend Clip",
+        "effect": {
+          "effect": "ui_blend_clip",
+          "set": {
+            "clip_to_background": 1
+          }
+        },
+        "paramPinNames": [
+          "opacity",
+          "invert_mask",
+          "mode"
+        ]
+      },
+      {
+        "id": 43,
+        "kind": "suboutput",
+        "pos": [
+          2160,
+          0
+        ],
+        "inputs": [
+          42
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 44,
+        "kind": "suboutput",
+        "pos": [
+          1440,
+          220
+        ],
+        "inputs": [
+          22
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 45,
+        "kind": "effect",
+        "pos": [
+          1440,
+          440
+        ],
+        "inputs": [
+          22
+        ],
+        "name": "Ui Uv Field View",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 46,
+        "kind": "suboutput",
+        "pos": [
+          1800,
+          220
+        ],
+        "inputs": [
+          45
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}

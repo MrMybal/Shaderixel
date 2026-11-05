@@ -1,0 +1,388 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI Toolkit Layout Pixel Art Sampling",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Quantize source UVs to texel centers or a fractional grid, then sample with nearest filtering. Coverage stays attached to the original field.",
+  "graph": {
+    "output": 14,
+    "variables": [
+      {
+        "name": "Snap Reference size (px; 0 = canvas)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.0,
+            0.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 32768. Reference size (px; 0 = canvas)."
+      },
+      {
+        "name": "Snap Snap grid X / Y (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 1e-05 to 8192. Snap grid X / Y (px)."
+      },
+      {
+        "name": "Snap Grid origin (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -8192 to 8192. Grid origin (px)."
+      },
+      {
+        "name": "Snap Snap mode",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Nearest, Floor, Ceil. Zero-based index."
+      },
+      {
+        "name": "Snap Snap amount",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Snap amount."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Zero-based index."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Zero-based index."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          0
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "inputs": [],
+        "pos": [
+          0,
+          130
+        ],
+        "name": "Optional UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 3,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          260
+        ],
+        "op": "Snap Reference size (px; 0 = canvas)",
+        "name": "Get Snap Reference size (px; 0 = canvas)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 4,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          390
+        ],
+        "op": "Snap Snap grid X / Y (px)",
+        "name": "Get Snap Snap grid X / Y (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          520
+        ],
+        "op": "Snap Grid origin (px)",
+        "name": "Get Snap Grid origin (px)",
+        "value": {
+          "type": "Vec2"
+        }
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          650
+        ],
+        "op": "Snap Snap mode",
+        "name": "Get Snap Snap mode",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          780
+        ],
+        "op": "Snap Snap amount",
+        "name": "Get Snap Snap amount",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 8,
+        "kind": "effect",
+        "inputs": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "pos": [
+          360,
+          0
+        ],
+        "name": "UI UV Pixel Snap",
+        "effect": {
+          "effect": "ui_uv_pixel_snap",
+          "set": {}
+        },
+        "paramPinNames": [
+          "space_size",
+          "grid",
+          "origin",
+          "mode",
+          "amount"
+        ]
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          910
+        ],
+        "op": "Sample U addressing",
+        "name": "Get Sample U addressing",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1040
+        ],
+        "op": "Sample V addressing",
+        "name": "Get Sample V addressing",
+        "value": {
+          "type": "Int"
+        }
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1170
+        ],
+        "op": "Sample Tint (linear RGBA)",
+        "name": "Get Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        }
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "inputs": [],
+        "pos": [
+          0,
+          1300
+        ],
+        "op": "Sample Opacity",
+        "name": "Get Sample Opacity",
+        "value": {
+          "type": "Float"
+        }
+      },
+      {
+        "id": 13,
+        "kind": "effect",
+        "inputs": [
+          1,
+          8,
+          0,
+          9,
+          10,
+          11,
+          12
+        ],
+        "pos": [
+          720,
+          0
+        ],
+        "name": "UI UV Texture Sampler",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {
+            "filter": 1
+          }
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 14,
+        "kind": "suboutput",
+        "inputs": [
+          13
+        ],
+        "pos": [
+          1080,
+          0
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 15,
+        "kind": "suboutput",
+        "inputs": [
+          8
+        ],
+        "pos": [
+          720,
+          240
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 16,
+        "kind": "effect",
+        "inputs": [
+          8
+        ],
+        "pos": [
+          720,
+          480
+        ],
+        "name": "UI UV Field Preview",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 17,
+        "kind": "suboutput",
+        "inputs": [
+          16
+        ],
+        "pos": [
+          1080,
+          240
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}

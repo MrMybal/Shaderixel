@@ -1,0 +1,759 @@
+{
+  "format": "shaderixel-function",
+  "name": "UI UV Displaced Image",
+  "kind": "subgraph",
+  "applyMode": false,
+  "description": "Rounded viewport, masked RG displacement, explicit addressing and a single final image lookup.",
+  "graph": {
+    "output": 30,
+    "variables": [
+      {
+        "name": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4 to 4. Widget position (document UV)."
+      },
+      {
+        "name": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Widget anchor."
+      },
+      {
+        "name": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Top left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top left radius (px)."
+      },
+      {
+        "name": "Clip Top right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Top right radius (px)."
+      },
+      {
+        "name": "Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom right radius (px)."
+      },
+      {
+        "name": "Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float",
+          "f": 16.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Bottom left radius (px)."
+      },
+      {
+        "name": "Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16384. Hollow border width (px; 0 = filled)."
+      },
+      {
+        "name": "Clip Edge softness (px)",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 16. Edge softness (px)."
+      },
+      {
+        "name": "Clip Invert clip",
+        "value": {
+          "type": "Bool",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Enable or disable this option."
+      },
+      {
+        "name": "Displace Displacement X / Y (px)",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            16.0,
+            16.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: -4096 to 4096. Displacement X / Y (px)."
+      },
+      {
+        "name": "Displace Neutral displacement RG",
+        "value": {
+          "type": "Vec2",
+          "f": [
+            0.5,
+            0.5
+          ]
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Neutral displacement RG."
+      },
+      {
+        "name": "Displace Displacement lookup",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Document space, Mapped UV space. Indices start at zero."
+      },
+      {
+        "name": "Address U addressing",
+        "value": {
+          "type": "Int",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Address V addressing",
+        "value": {
+          "type": "Int",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample U addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample V addressing",
+        "value": {
+          "type": "Int",
+          "f": 0
+        },
+        "exposed": true,
+        "desc": "Options: Clamp, Repeat, Mirror, Transparent. Indices start at zero."
+      },
+      {
+        "name": "Sample Texture filtering",
+        "value": {
+          "type": "Int",
+          "f": 0.0
+        },
+        "exposed": true,
+        "desc": "Options: Bilinear, Nearest. Indices start at zero."
+      },
+      {
+        "name": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color",
+          "f": [
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "exposed": true,
+        "desc": "Linear RGBA color; alpha controls opacity."
+      },
+      {
+        "name": "Sample Opacity",
+        "value": {
+          "type": "Float",
+          "f": 1.0
+        },
+        "exposed": true,
+        "desc": "Range: 0 to 1. Opacity."
+      }
+    ],
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "subinput",
+        "pos": [
+          0,
+          0
+        ],
+        "inputs": [],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 2,
+        "kind": "subinput",
+        "pos": [
+          0,
+          90
+        ],
+        "inputs": [],
+        "name": "Displacement",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 3,
+        "kind": "subinput",
+        "pos": [
+          0,
+          180
+        ],
+        "inputs": [],
+        "name": "Optional Mask",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      },
+      {
+        "id": 4,
+        "kind": "subinput",
+        "pos": [
+          0,
+          270
+        ],
+        "inputs": [],
+        "name": "Widget Size (px)",
+        "port": 3,
+        "value": {
+          "type": "Vec2",
+          "f": [
+            400,
+            200
+          ]
+        }
+      },
+      {
+        "id": 5,
+        "kind": "varget",
+        "pos": [
+          0,
+          360
+        ],
+        "inputs": [],
+        "op": "Widget Widget position (document UV)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget Widget position (document UV)"
+      },
+      {
+        "id": 6,
+        "kind": "varget",
+        "pos": [
+          0,
+          450
+        ],
+        "inputs": [],
+        "op": "Widget Widget anchor",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Widget Widget anchor"
+      },
+      {
+        "id": 7,
+        "kind": "varget",
+        "pos": [
+          0,
+          540
+        ],
+        "inputs": [],
+        "op": "Widget Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Widget Edge softness (px)"
+      },
+      {
+        "id": 8,
+        "kind": "effect",
+        "pos": [
+          360,
+          0
+        ],
+        "inputs": [
+          4,
+          5,
+          6,
+          7
+        ],
+        "name": "Ui Uv Coordinates",
+        "effect": {
+          "effect": "ui_uv_coordinates",
+          "set": {}
+        },
+        "paramPinNames": [
+          "target_size",
+          "position",
+          "anchor",
+          "softness"
+        ]
+      },
+      {
+        "id": 9,
+        "kind": "varget",
+        "pos": [
+          0,
+          630
+        ],
+        "inputs": [],
+        "op": "Clip Top left radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Top left radius (px)"
+      },
+      {
+        "id": 10,
+        "kind": "varget",
+        "pos": [
+          0,
+          720
+        ],
+        "inputs": [],
+        "op": "Clip Top right radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Top right radius (px)"
+      },
+      {
+        "id": 11,
+        "kind": "varget",
+        "pos": [
+          0,
+          810
+        ],
+        "inputs": [],
+        "op": "Clip Bottom right radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Bottom right radius (px)"
+      },
+      {
+        "id": 12,
+        "kind": "varget",
+        "pos": [
+          0,
+          900
+        ],
+        "inputs": [],
+        "op": "Clip Bottom left radius (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Bottom left radius (px)"
+      },
+      {
+        "id": 13,
+        "kind": "varget",
+        "pos": [
+          0,
+          990
+        ],
+        "inputs": [],
+        "op": "Clip Hollow border width (px; 0 = filled)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Hollow border width (px; 0 = filled)"
+      },
+      {
+        "id": 14,
+        "kind": "varget",
+        "pos": [
+          0,
+          1080
+        ],
+        "inputs": [],
+        "op": "Clip Edge softness (px)",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Clip Edge softness (px)"
+      },
+      {
+        "id": 15,
+        "kind": "varget",
+        "pos": [
+          0,
+          1170
+        ],
+        "inputs": [],
+        "op": "Clip Invert clip",
+        "value": {
+          "type": "Bool"
+        },
+        "name": "Get Clip Invert clip"
+      },
+      {
+        "id": 16,
+        "kind": "effect",
+        "pos": [
+          720,
+          0
+        ],
+        "inputs": [
+          8,
+          4,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "name": "Ui Uv Mask Rect",
+        "effect": {
+          "effect": "ui_uv_mask_rect",
+          "set": {
+            "output_mode": 0
+          }
+        },
+        "paramPinNames": [
+          "space_size",
+          "radius_tl",
+          "radius_tr",
+          "radius_br",
+          "radius_bl",
+          "border",
+          "softness",
+          "invert"
+        ]
+      },
+      {
+        "id": 17,
+        "kind": "varget",
+        "pos": [
+          0,
+          1260
+        ],
+        "inputs": [],
+        "op": "Displace Displacement X / Y (px)",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Displace Displacement X / Y (px)"
+      },
+      {
+        "id": 18,
+        "kind": "varget",
+        "pos": [
+          0,
+          1350
+        ],
+        "inputs": [],
+        "op": "Displace Neutral displacement RG",
+        "value": {
+          "type": "Vec2"
+        },
+        "name": "Get Displace Neutral displacement RG"
+      },
+      {
+        "id": 19,
+        "kind": "varget",
+        "pos": [
+          0,
+          1440
+        ],
+        "inputs": [],
+        "op": "Displace Displacement lookup",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Displace Displacement lookup"
+      },
+      {
+        "id": 20,
+        "kind": "effect",
+        "pos": [
+          1080,
+          0
+        ],
+        "inputs": [
+          16,
+          2,
+          3,
+          4,
+          17,
+          18,
+          19
+        ],
+        "name": "Ui Uv Displace",
+        "effect": {
+          "effect": "ui_uv_displace",
+          "set": {}
+        },
+        "paramPinNames": [
+          "space_size",
+          "strength",
+          "neutral",
+          "sampling"
+        ]
+      },
+      {
+        "id": 21,
+        "kind": "varget",
+        "pos": [
+          0,
+          1530
+        ],
+        "inputs": [],
+        "op": "Address U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Address U addressing"
+      },
+      {
+        "id": 22,
+        "kind": "varget",
+        "pos": [
+          0,
+          1620
+        ],
+        "inputs": [],
+        "op": "Address V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Address V addressing"
+      },
+      {
+        "id": 23,
+        "kind": "effect",
+        "pos": [
+          1440,
+          0
+        ],
+        "inputs": [
+          20,
+          21,
+          22
+        ],
+        "name": "Ui Uv Address",
+        "effect": {
+          "effect": "ui_uv_address",
+          "set": {}
+        },
+        "paramPinNames": [
+          "mode_x",
+          "mode_y"
+        ]
+      },
+      {
+        "id": 24,
+        "kind": "varget",
+        "pos": [
+          0,
+          1710
+        ],
+        "inputs": [],
+        "op": "Sample U addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample U addressing"
+      },
+      {
+        "id": 25,
+        "kind": "varget",
+        "pos": [
+          0,
+          1800
+        ],
+        "inputs": [],
+        "op": "Sample V addressing",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample V addressing"
+      },
+      {
+        "id": 26,
+        "kind": "varget",
+        "pos": [
+          0,
+          1890
+        ],
+        "inputs": [],
+        "op": "Sample Texture filtering",
+        "value": {
+          "type": "Int"
+        },
+        "name": "Get Sample Texture filtering"
+      },
+      {
+        "id": 27,
+        "kind": "varget",
+        "pos": [
+          0,
+          1980
+        ],
+        "inputs": [],
+        "op": "Sample Tint (linear RGBA)",
+        "value": {
+          "type": "Color"
+        },
+        "name": "Get Sample Tint (linear RGBA)"
+      },
+      {
+        "id": 28,
+        "kind": "varget",
+        "pos": [
+          0,
+          2070
+        ],
+        "inputs": [],
+        "op": "Sample Opacity",
+        "value": {
+          "type": "Float"
+        },
+        "name": "Get Sample Opacity"
+      },
+      {
+        "id": 29,
+        "kind": "effect",
+        "pos": [
+          1800,
+          0
+        ],
+        "inputs": [
+          1,
+          23,
+          0,
+          24,
+          25,
+          26,
+          27,
+          28
+        ],
+        "name": "Ui Uv Sample",
+        "effect": {
+          "effect": "ui_uv_sample",
+          "set": {}
+        },
+        "paramPinNames": [
+          "address_x",
+          "address_y",
+          "filter",
+          "tint",
+          "opacity"
+        ]
+      },
+      {
+        "id": 30,
+        "kind": "suboutput",
+        "pos": [
+          2160,
+          0
+        ],
+        "inputs": [
+          29
+        ],
+        "name": "Image",
+        "port": 0,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 31,
+        "kind": "suboutput",
+        "pos": [
+          1800,
+          220
+        ],
+        "inputs": [
+          23
+        ],
+        "name": "UV Map",
+        "port": 1,
+        "value": {
+          "type": "Image"
+        }
+      },
+      {
+        "id": 32,
+        "kind": "effect",
+        "pos": [
+          1800,
+          440
+        ],
+        "inputs": [
+          23
+        ],
+        "name": "Ui Uv Field View",
+        "effect": {
+          "effect": "ui_uv_field_view",
+          "set": {
+            "view": 0
+          }
+        },
+        "paramPinNames": []
+      },
+      {
+        "id": 33,
+        "kind": "suboutput",
+        "pos": [
+          2160,
+          220
+        ],
+        "inputs": [
+          32
+        ],
+        "name": "Coverage",
+        "port": 2,
+        "value": {
+          "type": "Canal"
+        }
+      }
+    ]
+  }
+}
