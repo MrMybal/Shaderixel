@@ -5,6 +5,7 @@
 #include "ui/App.h"
 #include "ui/Filter.h"
 #include "ui/Theme.h"
+#include "ui/Lang.h"
 #include "doc/Effects.h"
 
 #include <imgui_internal.h>
@@ -36,6 +37,8 @@ bool InputStr(const char* label, Json& p, const char* key) {
 }  // namespace
 
 void App::DrawActionInspector(ActionStep& s, bool readOnly) {
+    if (ImGui::SmallButton(ui::ManualText(CurrentLanguage(),"Command help")))
+        documentation.Navigate(ui::ManualReferenceTopic("command",s.cmd,"actions"));
     Json& p = s.params;
     if (!p.IsObject()) p = Json::Object();
     const Json& cp = p;

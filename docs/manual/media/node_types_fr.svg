@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="#bac5dc"/></marker><pattern id="tiles" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="#244d57"/><path d="M0 0 H36 V36 H0 Z" fill="none" stroke="#51818b" stroke-width="1"/></pattern></defs>
+<rect width="1200" height="640" rx="18" fill="#191e2a"/>
+<text x="600" y="57" text-anchor="middle" fill="#eef1fa" font-size="32" font-family="Arial,sans-serif">Choisir l’échelle du calcul</text>
+<path d="M200 250 L200 380" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M600 250 L600 380" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M850 195 L750 195" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M850 435 L750 435" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="50" y="140" width="300" height="110" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="200.0" y="187.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Valeur Float / Color</text>
+<text x="200.0" y="218.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Une valeur par nœud</text>
+<rect x="450" y="140" width="300" height="110" rx="12" fill="#244d57" stroke="#8394b3" stroke-width="2"/>
+<text x="600.0" y="187.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Image / canal</text>
+<text x="600.0" y="218.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Une valeur par pixel</text>
+<rect x="850" y="140" width="300" height="110" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="1000.0" y="187.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Graphe de shader</text>
+<text x="1000.0" y="218.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Calcul par pixel</text>
+<rect x="50" y="380" width="300" height="110" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="200.0" y="427.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Broche de paramètre</text>
+<text x="200.0" y="458.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Graphe image principal</text>
+<rect x="450" y="380" width="300" height="110" rx="12" fill="#244d57" stroke="#8394b3" stroke-width="2"/>
+<text x="600.0" y="427.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Effet image</text>
+<text x="600.0" y="458.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Lire + traiter</text>
+<rect x="850" y="380" width="300" height="110" rx="12" fill="#714d33" stroke="#8394b3" stroke-width="2"/>
+<text x="1000.0" y="427.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Événement Exec</text>
+<text x="1000.0" y="458.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Bake / IA / export</text>
+<text x="600" y="601" text-anchor="middle" fill="#c3cee4" font-size="21" font-family="Arial,sans-serif">Angles Math : degrés dans le graphe image ; radians dans le shader.</text>
+</svg>

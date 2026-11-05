@@ -3,6 +3,7 @@
 #include "ui/Theme.h"
 #include "ui/CodeEdit.h"
 #include "ui/Filter.h"
+#include "ui/Lang.h"
 #include "doc/Brushes.h"
 #include "doc/HlslImport.h"
 
@@ -577,6 +578,10 @@ void App::DrawEffectEditor() {
     const EGNode* selNode = g.Find(ed.selected);
     float panelW = (selNode && selNode->op == "custom" ? 400.0f : 270.0f) * dpi;  // custom nodes: pins + code need room
     ImGui::BeginChild("##efdetails", ImVec2(panelW, 0), ImGuiChildFlags_Borders, 0);
+    if (ImGui::SmallButton(ui::ManualText(CurrentLanguage(),"Node help"))) {
+        const auto* node=g.Find(ed.selected);
+        documentation.Navigate(node ? ui::ManualReferenceTopic("shader",node->op,"effect_editor") : "effect_editor");
+    }
     ImGui::TextDisabled("Édition : %s", where.c_str());
     if (!ed.funcPath.empty()) {
         // Inside a function: where, and the way back.

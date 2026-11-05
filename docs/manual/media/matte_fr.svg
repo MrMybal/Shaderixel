@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="#bac5dc"/></marker><pattern id="tiles" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="#244d57"/><path d="M0 0 H36 V36 H0 Z" fill="none" stroke="#51818b" stroke-width="1"/></pattern></defs>
+<rect width="1200" height="640" rx="18" fill="#191e2a"/>
+<text x="600" y="57" text-anchor="middle" fill="#eef1fa" font-size="32" font-family="Arial,sans-serif">Examinez la couverture avant d’exporter le sujet</text>
+<path d="M355 200 L440 200" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M750 200 L835 200" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M595 250 L595 370" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M750 225 L795 225" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M795 225 L795 425" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M795 425 L835 425" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="45" y="150" width="310" height="100" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="200.0" y="208.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Source opaque sur vert</text>
+<rect x="440" y="150" width="310" height="100" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="595.0" y="208.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Color Key + Despill</text>
+<rect x="835" y="150" width="320" height="100" rx="12" fill="#244d57" stroke="#8394b3" stroke-width="2"/>
+<text x="995.0" y="192.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Foreground → PNG</text>
+<text x="995.0" y="223.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Alpha déjà appliqué</text>
+<rect x="440" y="370" width="310" height="115" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="595.0" y="420.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Coverage Mask</text>
+<text x="595.0" y="451.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Blanc garde · noir retire</text>
+<rect x="835" y="370" width="320" height="115" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="995.0" y="420.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Checker Preview</text>
+<text x="995.0" y="451.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Inspection seulement</text>
+<text x="600" y="601" text-anchor="middle" fill="#c3cee4" font-size="21" font-family="Arial,sans-serif">Ne multipliez pas deux fois le même matte dans un alpha déjà détouré.</text>
+</svg>

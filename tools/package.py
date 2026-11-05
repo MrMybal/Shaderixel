@@ -19,6 +19,7 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+from build_manual import copy_manual, validate_generated
 
 # Demo captures start minimized without taking the focus (the PC stays usable meanwhile).
 _run = subprocess.run
@@ -390,6 +391,7 @@ def main():
     parser.add_argument('--name', help='New package name, for example Shaderixel-0.1.0-alpha.20261025-windows-x64')
     parser.add_argument('--source-only-unreal', action='store_true', help='Include Unreal plugin sources without engine-specific prebuilt binaries')
     args = parser.parse_args()
+    validate_generated()
     date = datetime.date.today().strftime('%Y%m%d')
     name = args.name or 'Shaderixel-' + date
     if not re.fullmatch(r'Shaderixel-[A-Za-z0-9][A-Za-z0-9._-]*', name):
@@ -419,6 +421,7 @@ def main():
         if f.lower().endswith(('.exe', '.dll')):
             shutil.copy2(os.path.join(BUILD, f), dist)
     shutil.copy2(os.path.join(ROOT, 'README.md'), os.path.join(dist, 'README.md'))
+    copy_manual(dist)
     shutil.copytree(os.path.join(ROOT, 'docs', 'screenshots'), os.path.join(dist, 'docs', 'screenshots'))
     # Reviewed UI guides and self-contained documents, with package-relative links.
     for guide in ('UI_UV_LIBRARY.md', 'UI_TOOLKIT.md'):

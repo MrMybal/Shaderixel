@@ -31,6 +31,7 @@ const char* kCmds[][2] = {
     {"filter", "Filtre"},
     {"new_layer", "Nouveau calque"},
     {"duplicate_layer", "Dupliquer le calque"},
+    {"rasterize_layer", "Convertir en calque de pixels"},
     {"merge_down", "Fusionner vers le bas"},
     {"merge_visible", "Fusionner les calques visibles"},
     {"flatten", "Aplatir l'image"},
@@ -204,6 +205,7 @@ std::string ActionStepDescription(const ActionStep& s) {
     }
     if (c == "new_layer") return "Ajoute un calque de pixels vide" + (p["name"].S().empty() ? std::string() : " nommé « " + p["name"].S() + " »") + " au-dessus du calque actif.";
     if (c == "duplicate_layer") return "Duplique le calque actif (la copie est placée au-dessus et devient active).";
+    if (c == "rasterize_layer") return "Intègre le contenu et les filtres du calque actif dans des pixels modifiables au pinceau ; conserve son masque et sa fusion.";
     if (c == "merge_down") return "Fusionne le calque actif avec le calque situé juste en dessous.";
     if (c == "merge_visible") return "Fusionne tous les calques visibles en un seul ; les calques masqués sont conservés.";
     if (c == "flatten") return "Aplatit l'image : tous les calques sont fusionnés en un seul (rien ne change s'il n'y en a qu'un).";
@@ -587,6 +589,13 @@ int App::ExecActionStep(DocView& v, const ActionStep& s) {
         d.DuplicateLayer(d.S().activeLayer);
         e.Commit();
         return 0;
+    }
+    if (s.cmd == "rasterize_layer") {
+        auto result = RasterizeLayerNow(v, d.S().activeLayer);
+        if (result == LayerBakeResult::Done) return 0;
+        if (result == LayerBakeResult::Pending && ++R.retries < 600) return 1;
+        R.error = "Impossible de convertir ce calque en pixels";
+        return 2;
     }
     if (s.cmd == "merge_down") { MergeDown(v); return 0; }
     if (s.cmd == "merge_visible") { MergeVisible(v, false); return 0; }

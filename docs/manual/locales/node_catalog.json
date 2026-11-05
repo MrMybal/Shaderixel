@@ -1,0 +1,4989 @@
+{
+  "sources": {
+    "src/doc/EffectGraph.cpp": "b802a380007b819fde7c5c0abece889afa065bcd4d64b90741ad217f4031ffee",
+    "src/doc/EffectGraph.h": "b5cddf27c41e0fd7dcc86358511167f2d9816b3d03c77708933d674db2718f11",
+    "src/doc/GraphTypes.cpp": "f098ce2cbce5b5f0bf4a08270b7c45a78a635193c4b96fadc13e2b6b390a94fe",
+    "src/doc/GraphTypes.h": "eb48b7d38444497cba8407162ad3eab00c8df3e80196c4fa1565d647bcba120b",
+    "src/doc/Document.h": "3de75c62c6e70fef9124ce9ea7ccaf3d1847f95d166c3f10c0eab1971ce74661",
+    "src/ui/ManualCatalog.cpp": "ef0b1c2e862eed6c6384bc94ee971e9a52dbf2e5faeaebd73b0af16a83b5dc1b"
+  },
+  "catalog": {
+    "execution": [
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          }
+        ],
+        "id": "sequence",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          }
+        ],
+        "keywords": "sequence then puis",
+        "label": "Séquence",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Puis 1",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Puis 2",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Puis 3",
+            "type": "Exec"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Bool"
+          }
+        ],
+        "id": "branch",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Condition",
+            "type": "Bool"
+          }
+        ],
+        "keywords": "branch if condition",
+        "label": "Branche (si)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Vrai",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Faux",
+            "type": "Exec"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Int"
+          },
+          {
+            "f": [
+              3,
+              0,
+              0,
+              0
+            ],
+            "type": "Int"
+          }
+        ],
+        "id": "for_range",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Début",
+            "type": "Int"
+          },
+          {
+            "array": false,
+            "name": "Fin",
+            "type": "Int"
+          }
+        ],
+        "keywords": "for loop range boucle",
+        "label": "Pour (de ... à)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Corps",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Index",
+            "type": "Int"
+          },
+          {
+            "array": false,
+            "name": "Terminé",
+            "type": "Exec"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "array": true,
+            "items": [],
+            "type": "Float"
+          }
+        ],
+        "id": "foreach",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": true,
+            "name": "Tableau",
+            "type": "Float"
+          }
+        ],
+        "keywords": "foreach for each array loop boucle tableau",
+        "label": "Pour chaque (nombres)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Corps",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Élément",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Index",
+            "type": "Int"
+          },
+          {
+            "array": false,
+            "name": "Terminé",
+            "type": "Exec"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "array": true,
+            "items": [],
+            "type": "Texte"
+          }
+        ],
+        "id": "foreach_text",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": true,
+            "name": "Tableau",
+            "type": "Texte"
+          }
+        ],
+        "keywords": "foreach for each array string loop",
+        "label": "Pour chaque (textes)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Corps",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Élément",
+            "type": "Texte"
+          },
+          {
+            "array": false,
+            "name": "Index",
+            "type": "Int"
+          },
+          {
+            "array": false,
+            "name": "Terminé",
+            "type": "Exec"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          }
+        ],
+        "id": "bake",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Image",
+            "type": "Image"
+          }
+        ],
+        "keywords": "bake figer pixels store",
+        "label": "Bake",
+        "outputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "f": [
+              2,
+              0,
+              0,
+              0
+            ],
+            "type": "Int"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Bool"
+          },
+          {
+            "s": "4x-UltraSharp.pth",
+            "type": "Nom"
+          }
+        ],
+        "id": "upscale",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Image",
+            "type": "Image"
+          },
+          {
+            "array": false,
+            "name": "Facteur",
+            "type": "Int"
+          },
+          {
+            "array": false,
+            "name": "IA (ComfyUI)",
+            "type": "Bool"
+          },
+          {
+            "array": false,
+            "name": "Modèle",
+            "type": "Nom"
+          }
+        ],
+        "keywords": "upscale agrandir esrgan",
+        "label": "Upscale",
+        "outputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "s": "",
+            "type": "Texte"
+          },
+          {
+            "f": [
+              0.5,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "s": "",
+            "type": "Texte"
+          }
+        ],
+        "id": "comfyui",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Image",
+            "type": "Image"
+          },
+          {
+            "array": false,
+            "name": "Prompt",
+            "type": "Texte"
+          },
+          {
+            "array": false,
+            "name": "Denoise",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Workflow",
+            "type": "Texte"
+          }
+        ],
+        "keywords": "comfyui ia ai stable diffusion img2img workflow",
+        "label": "ComfyUI",
+        "outputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "s": "",
+            "type": "Texte"
+          }
+        ],
+        "id": "export_png",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Image",
+            "type": "Image"
+          },
+          {
+            "array": false,
+            "name": "Fichier",
+            "type": "Texte"
+          }
+        ],
+        "keywords": "export save png fichier",
+        "label": "Exporter en PNG",
+        "outputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "s": "",
+            "type": "Nom"
+          },
+          {
+            "s": "",
+            "type": "Nom"
+          }
+        ],
+        "id": "call",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Fonction",
+            "type": "Nom"
+          },
+          {
+            "array": false,
+            "name": "Événement",
+            "type": "Nom"
+          }
+        ],
+        "keywords": "call appeler fonction event evenement run",
+        "label": "Appeler une fonction",
+        "outputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Image"
+          },
+          {
+            "s": "Bonjour",
+            "type": "Texte"
+          }
+        ],
+        "id": "print",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Message",
+            "type": "Texte"
+          }
+        ],
+        "keywords": "print log message status",
+        "label": "Message",
+        "outputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          }
+        ]
+      }
+    ],
+    "math": [
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "add",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "add plus +",
+        "label": "Additionner",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "sub",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "subtract minus -",
+        "label": "Soustraire",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "mul",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "multiply times *",
+        "label": "Multiplier",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "div",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "divide /",
+        "label": "Diviser",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "min",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "min",
+        "label": "Minimum",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "max",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "max",
+        "label": "Maximum",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              2,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "pow",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "power pow exp",
+        "label": "Puissance",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "mod",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "mod fmod reste",
+        "label": "Modulo",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "abs",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          }
+        ],
+        "keywords": "abs",
+        "label": "Valeur absolue",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "neg",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          }
+        ],
+        "keywords": "negate -",
+        "label": "Opposé",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "floor",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          }
+        ],
+        "keywords": "floor",
+        "label": "Arrondi inférieur",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "ceil",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          }
+        ],
+        "keywords": "ceil",
+        "label": "Arrondi supérieur",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "round",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          }
+        ],
+        "keywords": "round",
+        "label": "Arrondi",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "sqrt",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          }
+        ],
+        "keywords": "sqrt",
+        "label": "Racine carrée",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "sin",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          }
+        ],
+        "keywords": "sin",
+        "label": "Sinus (degrés)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "cos",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          }
+        ],
+        "keywords": "cos",
+        "label": "Cosinus (degrés)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "clamp",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Min",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Max",
+            "type": "Float"
+          }
+        ],
+        "keywords": "clamp borner",
+        "label": "Limiter",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0.5,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "lerp",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "T",
+            "type": "Float"
+          }
+        ],
+        "keywords": "lerp mix",
+        "label": "Interpoler",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              100,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "remap",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "De min",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "De max",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Vers min",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Vers max",
+            "type": "Float"
+          }
+        ],
+        "keywords": "remap range plage",
+        "label": "Remapper",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Int"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "random",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Graine",
+            "type": "Int"
+          },
+          {
+            "array": false,
+            "name": "Min",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Max",
+            "type": "Float"
+          }
+        ],
+        "keywords": "random rand seed alea",
+        "label": "Aléatoire (graine)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "greater",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "greater >",
+        "label": "Plus grand (A > B)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Bool"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "less",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "less <",
+        "label": "Plus petit (A < B)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Bool"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "equal",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          }
+        ],
+        "keywords": "equal ==",
+        "label": "Égal (A = B)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Bool"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Bool"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Bool"
+          }
+        ],
+        "id": "and",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Bool"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Bool"
+          }
+        ],
+        "keywords": "and &&",
+        "label": "Et",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Bool"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Bool"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Bool"
+          }
+        ],
+        "id": "or",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Bool"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Bool"
+          }
+        ],
+        "keywords": "or ||",
+        "label": "Ou",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Bool"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Bool"
+          }
+        ],
+        "id": "not",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Bool"
+          }
+        ],
+        "keywords": "not !",
+        "label": "Non",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Bool"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Bool"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "select",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Condition",
+            "type": "Bool"
+          },
+          {
+            "array": false,
+            "name": "Si vrai",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Si faux",
+            "type": "Float"
+          }
+        ],
+        "keywords": "select if ternary choose",
+        "label": "Choisir (si)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Résultat",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "vec2",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Y",
+            "type": "Float"
+          }
+        ],
+        "keywords": "make vector2 vec2",
+        "label": "Vec2 (X, Y)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Vec2",
+            "type": "Vec2"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Vec2"
+          }
+        ],
+        "id": "break_vec2",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Vec2",
+            "type": "Vec2"
+          }
+        ],
+        "keywords": "break split vector2",
+        "label": "Séparer Vec2",
+        "outputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Y",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "color",
+        "inputs": [
+          {
+            "array": false,
+            "name": "R",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "V",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          }
+        ],
+        "keywords": "make color rgba couleur",
+        "label": "Couleur (R, V, B, A)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Couleur",
+            "type": "Couleur"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              1,
+              1,
+              1,
+              1
+            ],
+            "type": "Couleur"
+          }
+        ],
+        "id": "break_color",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Couleur",
+            "type": "Couleur"
+          }
+        ],
+        "keywords": "break split color rgba",
+        "label": "Séparer couleur",
+        "outputs": [
+          {
+            "array": false,
+            "name": "R",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "V",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "A",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "hsv",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Teinte",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Saturation",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Valeur",
+            "type": "Float"
+          }
+        ],
+        "keywords": "hsv hsb teinte hue",
+        "label": "Couleur TSV (teinte 0-1)",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Couleur",
+            "type": "Couleur"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              1
+            ],
+            "type": "Couleur"
+          },
+          {
+            "f": [
+              1,
+              1,
+              1,
+              1
+            ],
+            "type": "Couleur"
+          },
+          {
+            "f": [
+              0.5,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "mix_color",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Couleur"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Couleur"
+          },
+          {
+            "array": false,
+            "name": "T",
+            "type": "Float"
+          }
+        ],
+        "keywords": "mix lerp color",
+        "label": "Mélanger couleurs",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Couleur",
+            "type": "Couleur"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "s": "",
+            "type": "Texte"
+          },
+          {
+            "s": "",
+            "type": "Texte"
+          }
+        ],
+        "id": "concat",
+        "inputs": [
+          {
+            "array": false,
+            "name": "A",
+            "type": "Texte"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Texte"
+          }
+        ],
+        "keywords": "concat append join string",
+        "label": "Concaténer",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Texte",
+            "type": "Texte"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "to_string",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          }
+        ],
+        "keywords": "to string format number",
+        "label": "Nombre en texte",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Texte",
+            "type": "Texte"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "s": "",
+            "type": "Texte"
+          }
+        ],
+        "id": "to_name",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Texte",
+            "type": "Texte"
+          }
+        ],
+        "keywords": "name fname",
+        "label": "Texte en nom",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Nom",
+            "type": "Nom"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "s": "",
+            "type": "Texte"
+          }
+        ],
+        "id": "text_length",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Texte",
+            "type": "Texte"
+          }
+        ],
+        "keywords": "length len",
+        "label": "Longueur du texte",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Longueur",
+            "type": "Int"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "to_int",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Float"
+          }
+        ],
+        "keywords": "int truncate",
+        "label": "En entier",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Int",
+            "type": "Int"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Int"
+          }
+        ],
+        "id": "to_float",
+        "inputs": [
+          {
+            "array": false,
+            "name": "X",
+            "type": "Int"
+          }
+        ],
+        "keywords": "float",
+        "label": "En float",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Float",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "array": true,
+            "items": [],
+            "type": "Float"
+          }
+        ],
+        "id": "array_length",
+        "inputs": [
+          {
+            "array": true,
+            "name": "Tableau",
+            "type": "Float"
+          }
+        ],
+        "keywords": "array length count size",
+        "label": "Taille du tableau",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Taille",
+            "type": "Int"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "array": true,
+            "items": [],
+            "type": "Float"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Int"
+          }
+        ],
+        "id": "array_get",
+        "inputs": [
+          {
+            "array": true,
+            "name": "Tableau",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Index",
+            "type": "Int"
+          }
+        ],
+        "keywords": "array get index element",
+        "label": "Élément du tableau",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Élément",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "array": true,
+            "items": [],
+            "type": "Couleur"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Int"
+          }
+        ],
+        "id": "array_get_color",
+        "inputs": [
+          {
+            "array": true,
+            "name": "Tableau",
+            "type": "Couleur"
+          },
+          {
+            "array": false,
+            "name": "Index",
+            "type": "Int"
+          }
+        ],
+        "keywords": "array get color index",
+        "label": "Couleur du tableau",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Couleur",
+            "type": "Couleur"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "array": true,
+            "items": [],
+            "type": "Texte"
+          },
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Int"
+          }
+        ],
+        "id": "array_get_text",
+        "inputs": [
+          {
+            "array": true,
+            "name": "Tableau",
+            "type": "Texte"
+          },
+          {
+            "array": false,
+            "name": "Index",
+            "type": "Int"
+          }
+        ],
+        "keywords": "array get string index",
+        "label": "Texte du tableau",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Texte",
+            "type": "Texte"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "f": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          },
+          {
+            "f": [
+              4,
+              0,
+              0,
+              0
+            ],
+            "type": "Int"
+          },
+          {
+            "f": [
+              1,
+              0,
+              0,
+              0
+            ],
+            "type": "Float"
+          }
+        ],
+        "id": "range",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Début",
+            "type": "Float"
+          },
+          {
+            "array": false,
+            "name": "Nombre",
+            "type": "Int"
+          },
+          {
+            "array": false,
+            "name": "Pas",
+            "type": "Float"
+          }
+        ],
+        "keywords": "range sequence linspace",
+        "label": "Suite de nombres",
+        "outputs": [
+          {
+            "array": true,
+            "name": "Tableau",
+            "type": "Float"
+          }
+        ]
+      },
+      {
+        "defaults": [
+          {
+            "array": true,
+            "items": [],
+            "type": "Float"
+          }
+        ],
+        "id": "array_sum",
+        "inputs": [
+          {
+            "array": true,
+            "name": "Tableau",
+            "type": "Float"
+          }
+        ],
+        "keywords": "array sum total",
+        "label": "Somme du tableau",
+        "outputs": [
+          {
+            "array": false,
+            "name": "Somme",
+            "type": "Float"
+          }
+        ]
+      }
+    ],
+    "nodes": [
+      {
+        "id": "Output",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Image",
+            "type": "Image"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "id": "Surface",
+        "inputs": [],
+        "outputs": [
+          {
+            "array": false,
+            "name": "RGBA",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "id": "Effect",
+        "inputs": [],
+        "outputs": [
+          {
+            "array": false,
+            "name": "RGBA",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "id": "Blend",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Fond",
+            "type": "Image"
+          },
+          {
+            "array": false,
+            "name": "Calque",
+            "type": "Image"
+          },
+          {
+            "array": false,
+            "name": "Masque",
+            "type": "Canal"
+          }
+        ],
+        "outputs": [
+          {
+            "array": false,
+            "name": "RGBA",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "id": "Split",
+        "inputs": [
+          {
+            "array": false,
+            "name": "RGBA",
+            "type": "Image"
+          }
+        ],
+        "outputs": [
+          {
+            "array": false,
+            "name": "R",
+            "type": "Canal"
+          },
+          {
+            "array": false,
+            "name": "V",
+            "type": "Canal"
+          },
+          {
+            "array": false,
+            "name": "B",
+            "type": "Canal"
+          },
+          {
+            "array": false,
+            "name": "A",
+            "type": "Canal"
+          }
+        ]
+      },
+      {
+        "id": "Tool",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Entrée",
+            "type": "Image"
+          }
+        ],
+        "outputs": [
+          {
+            "array": false,
+            "name": "RGBA",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "id": "Function",
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "id": "SubInput",
+        "inputs": [],
+        "outputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "id": "SubOutput",
+        "inputs": [
+          {
+            "array": false,
+            "name": "Image",
+            "type": "Image"
+          }
+        ],
+        "outputs": []
+      },
+      {
+        "id": "Value",
+        "inputs": [],
+        "outputs": [
+          {
+            "array": false,
+            "name": "Valeur",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "id": "Math",
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "id": "VarGet",
+        "inputs": [],
+        "outputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "id": "VarSet",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Valeur",
+            "type": "Image"
+          }
+        ],
+        "outputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Exec"
+          },
+          {
+            "array": false,
+            "name": "Valeur",
+            "type": "Image"
+          }
+        ]
+      },
+      {
+        "id": "Event",
+        "inputs": [],
+        "outputs": [
+          {
+            "array": false,
+            "name": "Exécuter",
+            "type": "Exec"
+          }
+        ]
+      },
+      {
+        "id": "Action",
+        "inputs": [],
+        "outputs": []
+      },
+      {
+        "id": "Reroute",
+        "inputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Image"
+          }
+        ],
+        "outputs": [
+          {
+            "array": false,
+            "name": "",
+            "type": "Image"
+          }
+        ]
+      }
+    ],
+    "shader": [
+      {
+        "category": "Entrées",
+        "hasValue": false,
+        "id": "input",
+        "inputs": [],
+        "kinds": [
+          0,
+          1
+        ],
+        "label": "Image d'entrée",
+        "outputSize": 4,
+        "outputs": [
+          "RGBA",
+          "RGB",
+          "R",
+          "G",
+          "B",
+          "A"
+        ]
+      },
+      {
+        "category": "Entrées",
+        "hasValue": false,
+        "id": "sample",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          }
+        ],
+        "kinds": [
+          0,
+          1
+        ],
+        "label": "Échantillonner l'entrée (UV)",
+        "outputSize": 4,
+        "outputs": [
+          "RGBA",
+          "RGB",
+          "R",
+          "G",
+          "B",
+          "A"
+        ]
+      },
+      {
+        "category": "Entrées",
+        "hasValue": false,
+        "id": "uv",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Coordonnées UV",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Entrées",
+        "hasValue": true,
+        "id": "texture",
+        "inputs": [],
+        "kinds": [
+          0,
+          1
+        ],
+        "label": "Texture d'entrée",
+        "outputSize": 5,
+        "outputs": [
+          "Texture"
+        ]
+      },
+      {
+        "category": "Entrées",
+        "hasValue": false,
+        "id": "canvassize",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Taille du canevas (float4)",
+        "outputSize": 4,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Entrées",
+        "hasValue": false,
+        "id": "pixel",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Position du pixel",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Entrées",
+        "hasValue": false,
+        "id": "size",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Taille de l'image",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Entrées",
+        "hasValue": false,
+        "id": "sampleoffset",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Décalage"
+          }
+        ],
+        "kinds": [
+          0,
+          1
+        ],
+        "label": "Échantillonner décalé (pixels)",
+        "outputSize": 4,
+        "outputs": [
+          "RGBA",
+          "RGB",
+          "R",
+          "G",
+          "B",
+          "A"
+        ]
+      },
+      {
+        "category": "Entrées",
+        "hasValue": false,
+        "id": "blur",
+        "inputs": [
+          {
+            "default": 4,
+            "name": "Rayon (px)"
+          }
+        ],
+        "kinds": [
+          0,
+          1
+        ],
+        "label": "Flou de l'entrée",
+        "outputSize": 4,
+        "outputs": [
+          "RGBA",
+          "RGB",
+          "R",
+          "G",
+          "B",
+          "A"
+        ]
+      },
+      {
+        "category": "Entrées",
+        "hasValue": false,
+        "id": "edges",
+        "inputs": [
+          {
+            "default": 1,
+            "name": "Épaisseur (px)"
+          }
+        ],
+        "kinds": [
+          0,
+          1
+        ],
+        "label": "Contours de l'entrée (Sobel)",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Entrées",
+        "hasValue": false,
+        "id": "normalheight",
+        "inputs": [
+          {
+            "default": 2,
+            "name": "Force"
+          },
+          {
+            "default": 1,
+            "name": "Distance (px)"
+          }
+        ],
+        "kinds": [
+          0,
+          1
+        ],
+        "label": "Normale depuis la hauteur (entrée)",
+        "outputSize": 4,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Constantes",
+        "hasValue": true,
+        "id": "const",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Constante",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Constantes",
+        "hasValue": true,
+        "id": "const2",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Constante 2D",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Constantes",
+        "hasValue": true,
+        "id": "color",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Couleur",
+        "outputSize": 4,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Constantes",
+        "hasValue": false,
+        "id": "pi",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Pi",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Paramètres",
+        "hasValue": true,
+        "id": "param",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Paramètre (réel)",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Paramètres",
+        "hasValue": true,
+        "id": "paramswitch",
+        "inputs": [
+          {
+            "default": 1,
+            "name": "Si coché"
+          },
+          {
+            "default": 0,
+            "name": "Sinon"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Interrupteur (paramètre)",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Paramètres",
+        "hasValue": true,
+        "id": "paramcolor",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Paramètre (couleur)",
+        "outputSize": 4,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Paramètres",
+        "hasValue": true,
+        "id": "param2",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Paramètre (2D)",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "add",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Ajouter",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "sub",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Soustraire",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "mul",
+        "inputs": [
+          {
+            "default": 1,
+            "name": "A"
+          },
+          {
+            "default": 1,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Multiplier",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "div",
+        "inputs": [
+          {
+            "default": 1,
+            "name": "A"
+          },
+          {
+            "default": 1,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Diviser",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "min",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Minimum",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "max",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Maximum",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "pow",
+        "inputs": [
+          {
+            "default": 1,
+            "name": "Base"
+          },
+          {
+            "default": 1,
+            "name": "Exp"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Puissance",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "lerp",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 1,
+            "name": "B"
+          },
+          {
+            "default": 0.5,
+            "name": "Alpha"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Interpolation (lerp)",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "clamp",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Valeur"
+          },
+          {
+            "default": 0,
+            "name": "Min"
+          },
+          {
+            "default": 1,
+            "name": "Max"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Limiter (clamp)",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "smoothstep",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Min"
+          },
+          {
+            "default": 1,
+            "name": "Max"
+          },
+          {
+            "default": 0,
+            "name": "Valeur"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Smoothstep",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "step",
+        "inputs": [
+          {
+            "default": 0.5,
+            "name": "Seuil"
+          },
+          {
+            "default": 0,
+            "name": "Valeur"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Seuil (step)",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "oneminus",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "1 - x",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "abs",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Valeur absolue",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "negate",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Opposé",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "saturate",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Saturer (0-1)",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "frac",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Partie fractionnaire",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "floor",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Arrondi inférieur",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "ceil",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Arrondi supérieur",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "sqrt",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Racine carrée",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "sin",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Sinus",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "cos",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Cosinus",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "exp2",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Exp2",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "log2",
+        "inputs": [
+          {
+            "default": 1,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Log2",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "if",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          },
+          {
+            "default": 1,
+            "name": "A > B"
+          },
+          {
+            "default": 0,
+            "name": "A <= B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Si (A > B)",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "tan",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Tangente",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "atan2",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Y"
+          },
+          {
+            "default": 1,
+            "name": "X"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Arc tangente (Y, X)",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "fmod",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 1,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Modulo",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "round",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Arrondi",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "sign",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Signe",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "remap",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          },
+          {
+            "default": 0,
+            "name": "De min"
+          },
+          {
+            "default": 1,
+            "name": "De max"
+          },
+          {
+            "default": 0,
+            "name": "Vers min"
+          },
+          {
+            "default": 1,
+            "name": "Vers max"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Remapper",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Maths",
+        "hasValue": false,
+        "id": "posterize",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          },
+          {
+            "default": 4,
+            "name": "Niveaux"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Postériser",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": false,
+        "id": "dot",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Produit scalaire",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": false,
+        "id": "length",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Longueur",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": false,
+        "id": "distance",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Distance",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": false,
+        "id": "normalize",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "x"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Normaliser",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": false,
+        "id": "cross",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Produit vectoriel",
+        "outputSize": 3,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": false,
+        "id": "split",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Entrée"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Séparer (R G B A)",
+        "outputSize": 1,
+        "outputs": [
+          "R",
+          "G",
+          "B",
+          "A"
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": false,
+        "id": "append",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Concaténer",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": false,
+        "id": "make4",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "R"
+          },
+          {
+            "default": 0,
+            "name": "G"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          },
+          {
+            "default": 1,
+            "name": "A"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Composer RGBA",
+        "outputSize": 4,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": false,
+        "id": "make3",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "R"
+          },
+          {
+            "default": 0,
+            "name": "G"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Composer RGB",
+        "outputSize": 3,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": false,
+        "id": "make2",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "X"
+          },
+          {
+            "default": 0,
+            "name": "Y"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Composer vecteur 2",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Vecteurs",
+        "hasValue": true,
+        "id": "mask",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Entrée"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Masque de composantes",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Couleur",
+        "hasValue": false,
+        "id": "luma",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Couleur"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Luminance",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Couleur",
+        "hasValue": false,
+        "id": "desaturate",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Couleur"
+          },
+          {
+            "default": 1,
+            "name": "Quantité"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Désaturer",
+        "outputSize": 3,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Couleur",
+        "hasValue": false,
+        "id": "rgb2hsv",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "RVB"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "RVB vers TSV",
+        "outputSize": 3,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Couleur",
+        "hasValue": false,
+        "id": "hsv2rgb",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "TSV"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "TSV vers RVB",
+        "outputSize": 3,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Couleur",
+        "hasValue": false,
+        "id": "tosrgb",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Couleur"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Linéaire vers sRGB",
+        "outputSize": 3,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Couleur",
+        "hasValue": false,
+        "id": "tolinear",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Couleur"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "sRGB vers linéaire",
+        "outputSize": 3,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Couleur",
+        "hasValue": false,
+        "id": "contrast",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Couleur"
+          },
+          {
+            "default": 1,
+            "name": "Contraste"
+          },
+          {
+            "default": 0.5,
+            "name": "Pivot"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Contraste",
+        "outputSize": 3,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Couleur",
+        "hasValue": false,
+        "id": "colorramp",
+        "inputs": [
+          {
+            "default": 0.5,
+            "name": "Valeur"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Rampe de couleurs",
+        "outputSize": 4,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Couleur",
+        "hasValue": false,
+        "id": "hueshift",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Couleur"
+          },
+          {
+            "default": 0,
+            "name": "Décalage (tours)"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Décaler la teinte",
+        "outputSize": 3,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Couleur",
+        "hasValue": false,
+        "id": "invert",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Couleur"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Inverser les couleurs",
+        "outputSize": 4,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "noise",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 8,
+            "name": "Échelle"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Bruit",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "checker",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 8,
+            "name": "Cases"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Damier",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "rotateuv",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 0,
+            "name": "Angle"
+          },
+          {
+            "default": 0.5,
+            "name": "Centre"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Rotation UV",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "offsetuv",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 0,
+            "name": "Décalage"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Décaler les UV",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "twirl",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 3,
+            "name": "Force"
+          },
+          {
+            "default": 0.5,
+            "name": "Centre"
+          },
+          {
+            "default": 0.5,
+            "name": "Rayon"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Tourbillon (UV)",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "voronoi",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 8,
+            "name": "Échelle"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Voronoï (cellules)",
+        "outputSize": 1,
+        "outputs": [
+          "Distance",
+          "Cellule"
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "fbm",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 4,
+            "name": "Échelle"
+          },
+          {
+            "default": 5,
+            "name": "Octaves"
+          },
+          {
+            "default": 0.5,
+            "name": "Rugosité"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Bruit fractal",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "radial",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 0.5,
+            "name": "Centre"
+          },
+          {
+            "default": 0.5,
+            "name": "Rayon"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Dégradé radial",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "lineargrad",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 0,
+            "name": "Angle"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Dégradé linéaire",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "polar",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 0.5,
+            "name": "Centre"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Coordonnées polaires",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "tiling",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 2,
+            "name": "Répétitions"
+          },
+          {
+            "default": 0,
+            "name": "Décalage"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Répéter les UV",
+        "outputSize": 2,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "circle",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 0.5,
+            "name": "Centre"
+          },
+          {
+            "default": 0.300000012,
+            "name": "Rayon"
+          },
+          {
+            "default": 0.00999999978,
+            "name": "Douceur"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Cercle",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Procédural",
+        "hasValue": false,
+        "id": "rect",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          },
+          {
+            "default": 0.5,
+            "name": "Centre"
+          },
+          {
+            "default": 0.5,
+            "name": "Taille"
+          },
+          {
+            "default": 0.00999999978,
+            "name": "Douceur"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Rectangle",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Fusion",
+        "hasValue": false,
+        "id": "opacity",
+        "inputs": [],
+        "kinds": [
+          1
+        ],
+        "label": "Opacité du calque",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Fusion",
+        "hasValue": false,
+        "id": "blendover",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A (dessous)"
+          },
+          {
+            "default": 0,
+            "name": "B (calque)"
+          },
+          {
+            "default": 0,
+            "name": "Mélange RGB"
+          },
+          {
+            "default": 1,
+            "name": "Masque"
+          },
+          {
+            "default": -2,
+            "name": "Opacité"
+          }
+        ],
+        "kinds": [
+          1
+        ],
+        "label": "Composer la fusion",
+        "outputSize": 4,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Pinceau",
+        "hasValue": false,
+        "id": "brush",
+        "inputs": [],
+        "kinds": [
+          2
+        ],
+        "label": "Touche du pinceau",
+        "outputSize": 0,
+        "outputs": [
+          "Position locale",
+          "UV",
+          "Pixel",
+          "Pression",
+          "Couleur",
+          "Dureté",
+          "Flux",
+          "Rayon",
+          "Graine",
+          "Temps",
+          "Distance",
+          "Direction",
+          "Inclinaison",
+          "Rotation stylet",
+          "Vitesse"
+        ]
+      },
+      {
+        "category": "Pinceau",
+        "hasValue": true,
+        "id": "brushtex",
+        "inputs": [
+          {
+            "default": -1,
+            "name": "UV"
+          }
+        ],
+        "kinds": [
+          2
+        ],
+        "label": "Texture du pinceau",
+        "outputSize": 4,
+        "outputs": [
+          "RGBA",
+          "RGB",
+          "R",
+          "G",
+          "B",
+          "A"
+        ]
+      },
+      {
+        "category": "Pinceau",
+        "hasValue": false,
+        "id": "roundtip",
+        "inputs": [
+          {
+            "default": -3,
+            "name": "Position locale"
+          },
+          {
+            "default": -4,
+            "name": "Dureté"
+          }
+        ],
+        "kinds": [
+          2
+        ],
+        "label": "Pointe ronde",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Pinceau",
+        "hasValue": false,
+        "id": "random",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Canal"
+          }
+        ],
+        "kinds": [
+          2
+        ],
+        "label": "Aléatoire par touche",
+        "outputSize": 1,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Personnalisé",
+        "hasValue": true,
+        "id": "custom",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "A"
+          },
+          {
+            "default": 0,
+            "name": "B"
+          },
+          {
+            "default": 0,
+            "name": "C"
+          },
+          {
+            "default": 0,
+            "name": "D"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "HLSL personnalisé",
+        "outputSize": 4,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Organisation",
+        "hasValue": false,
+        "id": "reroute",
+        "inputs": [
+          {
+            "default": 0,
+            "name": ""
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Reroutage",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Fonction",
+        "hasValue": true,
+        "id": "funcin",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Entrée de fonction",
+        "outputSize": 4,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Fonction",
+        "hasValue": false,
+        "id": "funcout",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "Valeur"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Sortie de fonction",
+        "outputSize": 0,
+        "outputs": [
+          ""
+        ]
+      },
+      {
+        "category": "Fonction (appel)",
+        "hasValue": false,
+        "id": "function",
+        "inputs": [],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Fonction",
+        "outputSize": 0,
+        "outputs": []
+      },
+      {
+        "category": "Sortie",
+        "hasValue": false,
+        "id": "output",
+        "inputs": [
+          {
+            "default": 0,
+            "name": "RGBA"
+          },
+          {
+            "default": 0,
+            "name": "RGB"
+          },
+          {
+            "default": 1,
+            "name": "Alpha"
+          }
+        ],
+        "kinds": [
+          0,
+          1,
+          2
+        ],
+        "label": "Sortie",
+        "outputSize": 0,
+        "outputs": []
+      }
+    ]
+  }
+}

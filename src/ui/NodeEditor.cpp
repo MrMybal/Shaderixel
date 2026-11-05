@@ -1,5 +1,6 @@
 // Node graph editor (custom ImDrawList widget): pan/zoom, links, live thumbnails.
 #include "ui/App.h"
+#include "ui/Lang.h"
 #include <cyui/modules/Nodes.h>
 #include <unordered_set>
 #include "ui/Theme.h"
@@ -1257,6 +1258,7 @@ void App::DrawNodeEditor() {
         Node* n = g.Find(d.S().activeNode);
         if (n) {
             ImGui::TextDisabled("%s%s", n->name.c_str(), ed.selection.size() > 1 ? "  (+ sélection)" : "");
+            if (ImGui::MenuItem(ui::ManualText(CurrentLanguage(), "Selection help"), "F1")) documentation.Navigate(SelectedDocumentationTopic());
             if (editable && n->kind != NodeKind::Output) {
                 if (ImGui::MenuItem("Désactiver (bypass)", nullptr, n->bypass)) {
                     DocState before = d.S();

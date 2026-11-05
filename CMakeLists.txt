@@ -93,6 +93,19 @@ if(SX_IMGUI_FILTER_PATCHED EQUAL -1)
     endif()
 endif()
 
+# Shared numeric input for every slider/drag, including vertical/vector controls.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/tools/patches/imgui_numeric_entry.patch")
+file(READ ${IMGUI_DIR}/imgui_widgets.cpp SX_IMGUI_WIDGETS)
+string(FIND "${SX_IMGUI_WIDGETS}" "SXManualNumericEntryV1" SX_IMGUI_NUMERIC_PATCHED)
+if(SX_IMGUI_NUMERIC_PATCHED EQUAL -1)
+    execute_process(COMMAND git apply --ignore-whitespace ${CMAKE_SOURCE_DIR}/tools/patches/imgui_numeric_entry.patch
+                    WORKING_DIRECTORY ${IMGUI_DIR} RESULT_VARIABLE SX_IMGUI_NUMERIC_RESULT)
+    if(NOT SX_IMGUI_NUMERIC_RESULT EQUAL 0)
+        message(FATAL_ERROR "Could not apply tools/patches/imgui_numeric_entry.patch to ${IMGUI_DIR}")
+    endif()
+endif()
+
 add_library(imgui STATIC
     ${IMGUI_DIR}/imgui.cpp
     ${IMGUI_DIR}/imgui_draw.cpp
@@ -172,6 +185,12 @@ add_custom_target(ShaderixelLanguages ALL
         ${CMAKE_SOURCE_DIR}/library/lang ${CMAKE_BINARY_DIR}/lang
     COMMENT "Copying interface dictionaries")
 
+# The compiled manual always works offline; ship the matching printable edition too.
+add_custom_target(ShaderixelDocumentation ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/docs/manual ${CMAKE_BINARY_DIR}/docs/manual
+    COMMENT "Copying offline documentation")
+
 function(sx_app target)
     add_executable(${target} WIN32 ${SX_SOURCES} ${ARGN} ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc)
     target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/sdk/include ${EXT}/stb)
@@ -186,12 +205,18 @@ function(sx_app target)
             ${SLANG_DIR}/bin/slang.dll ${SLANG_DIR}/bin/slang-compiler.dll
             ${SLANG_DIR}/bin/slang-glslang.dll ${SLANG_DIR}/bin/slang-rt.dll
             $<TARGET_FILE_DIR:${target}>)
-    add_dependencies(${target} ShaderixelExamplePlugin ShaderixelPalettePlugin ShaderixelScriptPlugins ShaderixelLanguages)
+    add_dependencies(${target} ShaderixelExamplePlugin ShaderixelPalettePlugin ShaderixelScriptPlugins ShaderixelLanguages ShaderixelDocumentation)
     if(SX_HAVE_LIBRAW)
         target_link_libraries(${target} PRIVATE libraw)
         target_compile_definitions(${target} PRIVATE SX_LIBRAW=1)
     endif()
 endfunction()
+
+# RC dependency scanning does not reliably include RCDATA files or nested .rc
+# includes. Rebuild both resource objects when a manual illustration is replaced.
+file(GLOB SX_MANUAL_IMAGES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/docs/manual/media/*.png)
+set_property(SOURCE ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc APPEND PROPERTY OBJECT_DEPENDS
+    ${CMAKE_SOURCE_DIR}/assets/manual_images.rc ${SX_MANUAL_IMAGES})
 
 # Example plugin (sdk/examples): built into <exe dir>/plugins/Exemple with its manifest.
 add_library(ShaderixelExamplePlugin SHARED ${CMAKE_SOURCE_DIR}/sdk/examples/example_plugin/example_plugin.cpp)
@@ -251,7 +276,8 @@ option(SX_BUILD_UI_TESTS "Build Shaderixel's CyUI integration tests" OFF)
 if(SX_BUILD_UI_TESTS)
     enable_testing()
     add_executable(ShaderixelUiTests tests/CyUiIntegration.cpp
-        src/ui/CodeEdit.cpp src/ui/Theme.cpp src/ui/ToneCurve.cpp src/ui/Dimensions.cpp)
+        src/ui/CodeEdit.cpp src/ui/Theme.cpp src/ui/ToneCurve.cpp src/ui/Dimensions.cpp src/ui/BlendIf.cpp
+        tests/NumericEntry.cpp tests/Documentation.cpp src/ui/Documentation.cpp)
     target_include_directories(ShaderixelUiTests PRIVATE ${CMAKE_SOURCE_DIR}/src)
     target_compile_definitions(ShaderixelUiTests PRIVATE NOMINMAX IMGUI_DEFINE_MATH_OPERATORS)
     target_link_libraries(ShaderixelUiTests PRIVATE CyUI::Core CyUI::CodeEditor CyUI::Images CyUI::Nodes CyUI::Curves CyUI::Plots)

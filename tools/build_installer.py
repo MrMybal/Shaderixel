@@ -11,6 +11,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+from build_manual import copy_manual, validate_generated
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTENT_DIRS = (
@@ -48,6 +49,7 @@ def main():
     parser.add_argument('--iscc', type=Path, help='Path to Inno Setup 7 ISCC.exe; otherwise use PATH')
     parser.add_argument('--crt-dir', type=Path, help='Visual Studio x64 Microsoft.VC143.CRT folder')
     args = parser.parse_args()
+    validate_generated()
     if not re.fullmatch(r'\d+\.\d+\.\d+-alpha\.[A-Za-z0-9._-]+', args.version):
         parser.error('Expected an alpha version such as 0.1.0-alpha.20261103')
     if args.version != (ROOT / "VERSION").read_text(encoding="ascii").strip():
@@ -87,6 +89,7 @@ def main():
     for filename in ('README.md', 'LICENSE'):
         shutil.copy2(ROOT / filename, stage / filename)
     shutil.copy2(ROOT / 'docs/PRESETS.md', stage / 'PRESETS.md')
+    copy_manual(stage)
     shutil.copytree(ROOT / 'docs/screenshots', stage / 'docs/screenshots')
     for guide in ('UI_UV_LIBRARY.md', 'UI_TOOLKIT.md'):
         target = stage / 'docs' / guide

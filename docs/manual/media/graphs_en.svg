@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="#bac5dc"/></marker><pattern id="tiles" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="#244d57"/><path d="M0 0 H36 V36 H0 Z" fill="none" stroke="#51818b" stroke-width="1"/></pattern></defs>
+<rect width="1200" height="640" rx="18" fill="#191e2a"/>
+<text x="600" y="57" text-anchor="middle" fill="#eef1fa" font-size="32" font-family="Arial,sans-serif">Two graphs, two scales of calculation</text>
+<path d="M285 185 L340 185" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M580 185 L635 185" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M875 185 L930 185" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M285 415 L340 415" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M580 415 L635 415" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M875 415 L930 415" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="45" y="135" width="240" height="100" rx="12" fill="#244d57" stroke="#8394b3" stroke-width="2"/>
+<text x="165.0" y="193.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Source image</text>
+<rect x="340" y="135" width="240" height="100" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="460.0" y="193.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Image effect</text>
+<rect x="635" y="135" width="240" height="100" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="755.0" y="193.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Blend / function</text>
+<rect x="930" y="135" width="220" height="100" rx="12" fill="#244d57" stroke="#8394b3" stroke-width="2"/>
+<text x="1040.0" y="193.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Output image</text>
+<rect x="45" y="365" width="240" height="100" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="165.0" y="423.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">UV / XY</text>
+<rect x="340" y="365" width="240" height="100" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="460.0" y="423.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Math + sampling</text>
+<rect x="635" y="365" width="240" height="100" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="755.0" y="423.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Color / alpha</text>
+<rect x="930" y="365" width="220" height="100" rx="12" fill="#244d57" stroke="#8394b3" stroke-width="2"/>
+<text x="1040.0" y="423.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">One shader</text>
+<text x="600" y="601" text-anchor="middle" fill="#c3cee4" font-size="21" font-family="Arial,sans-serif">Top: main image graph. Bottom: per-pixel effect graph.</text>
+</svg>

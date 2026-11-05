@@ -110,7 +110,7 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : m == "drop" ? 69 : m == "uassetconv" ? 70 : m == "layerxf" ? 71 : m == "graphtools" ? 72 : m == "functions" ? 73 : m == "typed" ? 74 : m == "library" ? 75 : m == "trims" ? 76 : m == "nodeui" ? 77 : m == "maketemplates" ? 78 : m == "makescenes" ? 79 : m == "comments" ? 80 : m == "execjoin" ? 81 : m == "call" ? 82 : m == "inpaint" ? 83 : m == "explorer" ? 84 : m == "actioneditor" ? 85 : m == "popout" ? 86 : m == "paint3dtools" ? 87 : m == "smartmat" ? 88 : m == "bake" ? 89 : m == "simulation" ? 90 : m == "projection" ? 91 : m == "smartthumbs" ? 93 : m == "plugins" ? 94 : m == "search" ? 95 : m == "cameraraw" ? 96 : m == "view3d" ? 97 : m == "nodesel" ? 98 : m == "filter" ? 99 : m == "sidetabs" ? 100 : m == "analysis" ? 101 : m == "customshapes" ? 102 : m == "psdadjust" ? 103 : m == "undoram" ? 104 : m == "fluid" ? 105 : m == "multimat" ? 106 : m == "carve" ? 107 : m == "anim" ? 108 : m == "perspcrop" ? 109 : 1;
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : m == "drop" ? 69 : m == "uassetconv" ? 70 : m == "layerxf" ? 71 : m == "graphtools" ? 72 : m == "functions" ? 73 : m == "typed" ? 74 : m == "library" ? 75 : m == "trims" ? 76 : m == "nodeui" ? 77 : m == "maketemplates" ? 78 : m == "makescenes" ? 79 : m == "comments" ? 80 : m == "execjoin" ? 81 : m == "call" ? 82 : m == "inpaint" ? 83 : m == "explorer" ? 84 : m == "actioneditor" ? 85 : m == "popout" ? 86 : m == "paint3dtools" ? 87 : m == "smartmat" ? 88 : m == "bake" ? 89 : m == "simulation" ? 90 : m == "projection" ? 91 : m == "smartthumbs" ? 93 : m == "plugins" ? 94 : m == "search" ? 95 : m == "cameraraw" ? 96 : m == "view3d" ? 97 : m == "nodesel" ? 98 : m == "filter" ? 99 : m == "sidetabs" ? 100 : m == "analysis" ? 101 : m == "customshapes" ? 102 : m == "psdadjust" ? 103 : m == "undoram" ? 104 : m == "fluid" ? 105 : m == "multimat" ? 106 : m == "carve" ? 107 : m == "anim" ? 108 : m == "perspcrop" ? 109 : m == "rasterize" ? 110 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--format-library" && i + 1 < argc) {
@@ -122,6 +122,11 @@ void App::ParseCommandLine() {
         else if (a == "--capture" && i + 1 < argc) capturePath = Narrow(argv[++i]);
         else if (a == "--focus" && i + 1 < argc) focusAtStart.push_back(Narrow(argv[++i]));  // panel to bring forward (captures)
         else if (a == "--about") aboutAtStart = true;
+        else if (a == "--documentation") documentation.Navigate("getting_started");
+        else if (a == "--documentation-language" && i + 1 < argc) documentation.language=Narrow(argv[++i]);
+        else if (a == "--documentation-page" && i + 1 < argc) {
+            if (!documentation.Navigate(Narrow(argv[++i]))) documentation.Navigate("getting_started");
+        }
         else if (a == "--updates") showUpdates = true;
         else if (a == "--check-updates") { showUpdates = true; updateCheckRequested = true; }
         else if (a == "--multiwindow") multiWindowTest = true;  // screenshot of the About box
@@ -427,6 +432,8 @@ bool App::Init() {
     }
     UpdateWindow(hwnd);
     InitUpdates();
+    cyui::registerTranslations("fr", {{"Documentation", "Documentation"}, {"Getting started", "Prise en main"},
+        {"Keyboard shortcuts", "Raccourcis clavier"}, {"Troubleshooting", "Dépannage"}, {"Guided projects", "Projets guidés"}, {"Tool reference", "Référence des outils"}, {"Action reference", "Référence des actions"}});
     // No document at launch: the canvas shows the welcome screen (logo, new/open, recent files).
     return true;
 }
@@ -616,6 +623,7 @@ void App::Frame() {
 
     DrawMenuBar();
     DrawAbout();
+    DrawDocumentation();
     DrawStatusBar();
     ImGuiID dock = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     if (!layoutBuilt || resetLayout) {
@@ -699,6 +707,7 @@ void App::Frame() {
     UpdateSmartChildren();
     UpdateSelectSubject();
     UpdateContentAwareFill();
+    UpdateLayerBakes();
     UpdateActionRun();
     UpdateColorJobs();
     UpdatePhotoJob();
@@ -1517,9 +1526,17 @@ void App::DrawMenuBar() {
     DrawPluginsMenu();
     if (ImGui::BeginMenu("Aide")) {
         ui::MenuFilter();
-        std::wstring guide = Utf8Path(ExeDir()).wstring() + L"\\Guide.html";
-        if (ImGui::MenuItem("Guide de test", nullptr, false, std::filesystem::exists(guide)))
-            ShellExecuteW(nullptr, L"open", guide.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        if (ImGui::MenuItem(cyui::trLabel("Documentation").c_str(), "F1")) documentation.open = documentation.focus = true;
+        if (ImGui::MenuItem(cyui::trLabel("Getting started").c_str())) documentation.Navigate("getting_started");
+        if (ImGui::MenuItem(cyui::trLabel("Guided projects").c_str())) documentation.Navigate("tutorials");
+        if (ImGui::MenuItem(cyui::trLabel("Tool reference").c_str())) documentation.Navigate("tools");
+        if (ImGui::MenuItem(cyui::trLabel("Action reference").c_str())) documentation.Navigate("actions");
+        if (ImGui::MenuItem(ui::ManualText(CurrentLanguage(),"Brushes"))) documentation.Navigate("brushes_tablet");
+        if (ImGui::MenuItem(ui::ManualText(CurrentLanguage(),"Node reference"))) documentation.Navigate("builtin_nodes");
+        if (ImGui::MenuItem(ui::ManualText(CurrentLanguage(),"Panel directory"))) documentation.Navigate("panels");
+        if (ImGui::MenuItem(ui::ManualText(CurrentLanguage(),"Settings and updates"))) documentation.Navigate("settings");
+        if (ImGui::MenuItem(cyui::trLabel("Keyboard shortcuts").c_str())) documentation.Navigate("shortcuts");
+        if (ImGui::MenuItem(cyui::trLabel("Troubleshooting").c_str())) documentation.Navigate("troubleshooting");
         ImGui::Separator();
         if (ImGui::MenuItem(cyui::trLabel("Check for updates...").c_str())) { showUpdates = true; updateClient.CheckNow(updateIncludePrereleases); }
         if (ImGui::MenuItem("À propos de Shaderixel")) showAbout = true;
@@ -1619,6 +1636,12 @@ void App::LayerMenuItems() {
             d.S().layerSel.clear();
             e.Commit();
         }
+        l = d.ActiveLayer();  // earlier menu commands can replace or remove the selected layer
+        std::string rasterizeWhy;
+        if (ImGui::MenuItem("Convertir en calque de pixels", nullptr, false, CanRasterizeLayer(d, l, &rasterizeWhy)))
+            RequestRasterizeLayer(*v, l->id);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", cyui::tr(rasterizeWhy.empty() ? "Intègre le contenu et les filtres dans des pixels modifiables au pinceau. Le masque, l'opacité et la fusion restent éditables. Ctrl+Z pour annuler." : rasterizeWhy.c_str()).c_str());
         if (ImGui::MenuItem("Fusionner vers le bas", "Ctrl+E", false, l != nullptr)) MergeDown(*v);
         if (ImGui::MenuItem("Fusionner les calques visibles", "Ctrl+Maj+E")) MergeVisible(*v, false);
         if (ImGui::MenuItem("Aplatir l'image")) MergeVisible(*v, true);
@@ -1714,6 +1737,8 @@ void App::EffectMenu(const std::function<void(const std::string&)>& onPick, bool
 }
 
 void App::HandleShortcuts() {
+    if (ImGui::IsKeyPressed(ImGuiKey_F1,false)) ui::DocumentationShortcut(documentation, DocumentationTopic());
+    if (documentation.open && ui::DocumentationFocused()) { spaceHeld = false; return; }
     ImGuiIO& io = ImGui::GetIO();
     spaceHeld = !io.WantTextInput && ImGui::IsKeyDown(ImGuiKey_Space);
     if (io.WantTextInput || ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel)) return;

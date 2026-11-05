@@ -1,0 +1,830 @@
+{
+  "Move": {
+    "chapter": "dimensions",
+    "target": "layer",
+    "en": [
+      "Move",
+      "Reposition the active layer or selected pixels.",
+      "Drag the intended content; use arrow keys for 1 px or Shift+arrows for 10 px.",
+      "Check the active layer and selection. Ctrl+T starts a separate Free Transform session.",
+      "An active selection changes the target. Moving the view instead requires Hand."
+    ],
+    "fr": [
+      "Déplacement",
+      "Repositionner le calque actif ou les pixels sélectionnés.",
+      "Glissez le contenu voulu ; utilisez les flèches pour 1 px ou Maj+flèches pour 10 px.",
+      "Vérifiez calque actif et sélection. Ctrl+T démarre une session distincte de transformation manuelle.",
+      "Une sélection active change la cible. Pour déplacer la vue, utilisez Main."
+    ]
+  },
+  "RectSelect": {
+    "chapter": "masks",
+    "target": "selection",
+    "en": [
+      "Rectangular Selection",
+      "Limit subsequent operations to a rectangular region.",
+      "Drag a rectangle on the canvas. Choose New, Add, Subtract or Intersect in Options.",
+      "Feather and antialiasing affect the boundary. Shift adds, Alt subtracts and Shift+Alt intersects.",
+      "The selection does not delete pixels by itself. Ctrl+D removes the restriction."
+    ],
+    "fr": [
+      "Sélection rectangulaire",
+      "Limiter les opérations suivantes à une région rectangulaire.",
+      "Tracez un rectangle sur le canevas. Choisissez Nouvelle, Ajouter, Soustraire ou Intersection dans Options.",
+      "Contour progressif et lissage agissent sur les bords. Maj ajoute, Alt soustrait et Maj+Alt intersecte.",
+      "La sélection ne supprime pas les pixels à elle seule. Ctrl+D retire la restriction."
+    ]
+  },
+  "EllipseSelect": {
+    "chapter": "masks",
+    "target": "selection",
+    "en": [
+      "Elliptical Selection",
+      "Create an elliptical coverage region for subsequent edits.",
+      "Choose Elliptical Selection from the selection group, then drag its frame.",
+      "Use selection combination, feather and antialiasing controls in Options.",
+      "Its frame is not an editable shape layer. Create a Shape when you need retained geometry."
+    ],
+    "fr": [
+      "Sélection elliptique",
+      "Créer une couverture elliptique pour les modifications suivantes.",
+      "Choisissez l'ellipse dans le groupe de sélection puis tracez son cadre.",
+      "Réglez combinaison, contour progressif et lissage dans Options.",
+      "Ce cadre n'est pas un calque de forme éditable. Utilisez Forme pour conserver une géométrie."
+    ]
+  },
+  "Lasso": {
+    "chapter": "masks",
+    "target": "selection",
+    "en": [
+      "Lasso",
+      "Draw a freehand selection boundary.",
+      "Drag around the region, release, then inspect the resulting coverage before editing.",
+      "Selection combination and feather controls refine how the new region joins the current selection.",
+      "A rough hand-drawn outline may need refinement. A path is preferable for reusable smooth geometry."
+    ],
+    "fr": [
+      "Lasso",
+      "Tracer une limite de sélection à main levée.",
+      "Entourez la région, relâchez puis examinez la couverture avant modification.",
+      "La combinaison et le contour progressif règlent l'ajout à la sélection actuelle.",
+      "Un contour manuel peut demander une retouche. Un tracé convient mieux à une géométrie lisse réutilisable."
+    ]
+  },
+  "PolyLasso": {
+    "chapter": "masks",
+    "target": "selection",
+    "en": [
+      "Polygonal Lasso",
+      "Build a selection with straight segments.",
+      "Click successive vertices. Double-click or Enter closes the outline; Backspace removes the latest point.",
+      "Set combination and feathering in Options; Escape cancels an unfinished outline.",
+      "This creates a pixel selection rather than a retained vector polygon."
+    ],
+    "fr": [
+      "Lasso polygonal",
+      "Construire une sélection par segments droits.",
+      "Cliquez les sommets successifs. Double-clic ou Entrée ferme le contour ; Retour arrière retire le dernier point.",
+      "Réglez combinaison et contour progressif dans Options ; Échap annule le contour inachevé.",
+      "Le résultat est une sélection de pixels, pas un polygone vectoriel conservé."
+    ]
+  },
+  "Wand": {
+    "chapter": "masks",
+    "target": "selection",
+    "en": [
+      "Magic Wand",
+      "Select pixels similar to a clicked color.",
+      "Click a representative area and inspect the selection before filling or deleting.",
+      "Tolerance, Contiguous Pixels and Sample All Layers control the sampled region.",
+      "Similar subject/background colors can select together. Increase tolerance gradually."
+    ],
+    "fr": [
+      "Baguette magique",
+      "Sélectionner les pixels proches d'une couleur cliquée.",
+      "Cliquez une zone représentative et examinez la sélection avant remplissage ou suppression.",
+      "Tolérance, Pixels contigus et Échantillonner tous les calques contrôlent la région.",
+      "Des couleurs proches du sujet et du fond peuvent être sélectionnées ensemble. Augmentez progressivement la tolérance."
+    ]
+  },
+  "Brush": {
+    "chapter": "brushes_tablet",
+    "target": "pixels",
+    "en": [
+      "Brush",
+      "Deposit the foreground color through the selected brush tip.",
+      "Choose a brush, size and opacity, then make a short stroke on the intended image or mask target.",
+      "Brushes/Options expose tip parameters and dynamics; [ and ] change size, X swaps foreground/background colors.",
+      "A generator is not directly paintable. Add a pixel layer or use Bake to Pixel Layer."
+    ],
+    "fr": [
+      "Pinceau",
+      "Déposer la couleur de premier plan avec la pointe choisie.",
+      "Choisissez pinceau, taille et opacité puis faites un trait court sur la cible image ou masque.",
+      "Pinceaux/Options exposent pointe et dynamiques ; [ et ] changent la taille, X échange les couleurs.",
+      "Un générateur n'est pas directement peignable. Ajoutez un calque de pixels ou convertissez-le en pixels."
+    ]
+  },
+  "Eraser": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Eraser",
+      "Reduce coverage on the paint target using a brush tip.",
+      "Select the image thumbnail and erase with a suitable size and opacity.",
+      "Tip, spacing and dynamics affect edge quality just as for the painting brush.",
+      "Erasing a layer mask edits that mask. A non-destructive layer mask is often preferable to removing image coverage."
+    ],
+    "fr": [
+      "Gomme",
+      "Réduire la couverture de la cible avec une pointe de pinceau.",
+      "Sélectionnez la vignette image puis gommez avec taille et opacité adaptées.",
+      "Pointe, espacement et dynamiques déterminent le bord comme pour le pinceau.",
+      "Sur la vignette d'un masque, la gomme modifie le masque. Un masque de calque peut éviter une suppression de couverture image."
+    ]
+  },
+  "Clone": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Clone Stamp",
+      "Copy image detail from a chosen source position.",
+      "Alt+click to set the source, then paint the destination. Reset the source when the sampled region is unsuitable.",
+      "Aligned preserves a consistent sampling offset. Brush size/opacity affect the copied stroke; the displayed Strength control is unused for Clone.",
+      "Repeated features can reveal the copy. Sampling cannot reconstruct detail absent from the source."
+    ],
+    "fr": [
+      "Tampon de duplication",
+      "Copier des détails depuis une position source choisie.",
+      "Alt+cliquez pour définir la source puis peignez la destination. Changez de source si la zone copiée ne convient pas.",
+      "Aligné conserve un décalage d'échantillonnage cohérent. Taille/opacité agissent sur le trait ; le contrôle Intensité affiché est inutilisé pour ce tampon.",
+      "Des motifs répétés peuvent révéler la copie. Le tampon ne reconstruit pas des détails absents de la source."
+    ]
+  },
+  "Heal": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Healing Brush",
+      "Transfer source detail while adapting it to the destination neighborhood.",
+      "Alt+click a suitable source and paint over a small defect.",
+      "Choose brush size and Aligned behavior. The displayed Strength control is unused for Healing.",
+      "Strong edges or very different source texture can produce visible seams. Inspect at 100% and undo if needed."
+    ],
+    "fr": [
+      "Correcteur",
+      "Transférer des détails source en les adaptant au voisinage de destination.",
+      "Alt+cliquez une source appropriée puis peignez un petit défaut.",
+      "Réglez taille et comportement Aligné. Le contrôle Intensité affiché est inutilisé pour le correcteur.",
+      "Des contours forts ou une texture source différente peuvent laisser un raccord. Examinez à 100 % et annulez si nécessaire."
+    ]
+  },
+  "Gradient": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Gradient",
+      "Paint a gradient with editable stops along a dragged direction.",
+      "Set the stops, drag from start to end on the canvas, then release to apply.",
+      "Options offers Linear, Radial, Angle, Reflected and Diamond styles plus opacity. Hold Shift for 45-degree directions.",
+      "This paints the target. A gradient Draw/fill layer keeps generator parameters editable instead."
+    ],
+    "fr": [
+      "Dégradé",
+      "Peindre un dégradé à arrêts réglables suivant une direction tracée.",
+      "Réglez les arrêts, tracez du départ à l'arrivée puis relâchez pour appliquer.",
+      "Options propose Linéaire, Radial, Angle, Réfléchi, Losange et opacité. Maj contraint aux directions de 45 degrés.",
+      "Cet outil peint la cible. Un calque de remplissage Dégradé conserve plutôt les paramètres du générateur."
+    ]
+  },
+  "Bucket": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Paint Bucket",
+      "Fill a color-matched region with the foreground color.",
+      "Choose a foreground color and click inside the intended region.",
+      "Use tolerance, contiguous/all-layer sampling options and the current selection to control the fill.",
+      "Sampling the composite does not change the destination layer. Check thin gaps that can let a contiguous fill spread."
+    ],
+    "fr": [
+      "Pot de peinture",
+      "Remplir une région de couleur proche avec le premier plan.",
+      "Choisissez une couleur puis cliquez dans la région voulue.",
+      "Tolérance, pixels contigus, échantillonnage et sélection actuelle délimitent le remplissage.",
+      "Échantillonner la composition ne change pas le calque destinataire. Vérifiez les petites ouvertures qui peuvent laisser le remplissage s'étendre."
+    ]
+  },
+  "Blur": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Blur Brush",
+      "Soften local image detail with painted strokes.",
+      "Use a moderate size and strength, paint briefly, then compare with undo.",
+      "Strength and brush footprint determine the local softening.",
+      "Repeated strokes remove detail. A blur filter is preferable when you need an editable radius for the whole layer."
+    ],
+    "fr": [
+      "Goutte — flou",
+      "Adoucir localement les détails par touches peintes.",
+      "Choisissez taille et intensité modérées, peignez brièvement puis comparez avec l'annulation.",
+      "Intensité et empreinte du pinceau déterminent l'adoucissement.",
+      "Des passages répétés suppriment du détail. Un filtre convient mieux à un rayon global éditable."
+    ]
+  },
+  "Sharpen": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Sharpen Brush",
+      "Increase local contrast around painted detail.",
+      "Paint short strokes at 100% zoom and compare the edges before adding more strength.",
+      "Brush size and Strength control the affected area and amount.",
+      "Sharpening can amplify noise and create halos; it does not add measured source detail."
+    ],
+    "fr": [
+      "Pinceau de netteté",
+      "Augmenter le contraste local des détails peints.",
+      "Peignez de courts traits à 100 % et comparez les contours avant d'augmenter l'intensité.",
+      "Taille et Intensité contrôlent zone et quantité.",
+      "La netteté peut amplifier le bruit et créer des halos ; elle n'ajoute pas de détails mesurés."
+    ]
+  },
+  "Smudge": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Smudge",
+      "Drag existing colors along the stroke.",
+      "Start within painted content and drag toward the desired direction.",
+      "Use brush size and Strength to control the amount of pulled color.",
+      "Large repeated drags can destroy texture. Mixer Brush offers a different model with explicit wetness and load."
+    ],
+    "fr": [
+      "Doigt",
+      "Entraîner les couleurs existantes le long du trait.",
+      "Partez du contenu peint et glissez dans la direction voulue.",
+      "Taille et Intensité contrôlent la quantité de couleur entraînée.",
+      "De grands passages répétés peuvent détruire la texture. Le pinceau mélangeur propose humidité et charge explicites."
+    ]
+  },
+  "Dodge": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Dodge",
+      "Lighten chosen tonal regions with a brush.",
+      "Select the tonal range, then build the correction using short, low-strength strokes.",
+      "Range selects shadows, midtones or highlights; Strength controls the effect.",
+      "Heavy lightening can clip highlights. For a reversible global adjustment use a layer filter or adjustment layer."
+    ],
+    "fr": [
+      "Densité moins",
+      "Éclaircir des plages tonales au pinceau.",
+      "Choisissez la plage puis construisez la correction par touches courtes et faibles.",
+      "Plage vise tons foncés, moyens ou clairs ; Intensité règle l'effet.",
+      "Un éclaircissement fort peut écrêter les hautes lumières. Un filtre ou calque de réglage convient à une correction globale réversible."
+    ]
+  },
+  "Burn": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Burn",
+      "Darken chosen tonal regions with a brush.",
+      "Choose the tonal range, paint a light pass and inspect shadow detail.",
+      "Range and Strength control which tones change and by how much.",
+      "Repeated strokes can crush shadows. Keep an editable copy for extensive tonal work."
+    ],
+    "fr": [
+      "Densité plus",
+      "Assombrir des plages tonales au pinceau.",
+      "Choisissez la plage, peignez légèrement et examinez les détails sombres.",
+      "Plage et Intensité contrôlent tons affectés et quantité.",
+      "Les passages répétés peuvent boucher les ombres. Gardez une copie éditable pour des corrections étendues."
+    ]
+  },
+  "Sponge": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Sponge",
+      "Raise or lower saturation locally.",
+      "Choose Saturate or Desaturate and paint a restrained pass.",
+      "Mode, Strength and brush size control the local color change.",
+      "High saturation can expose noisy colors. The tool does not isolate a subject automatically."
+    ],
+    "fr": [
+      "Éponge",
+      "Augmenter ou réduire localement la saturation.",
+      "Choisissez Saturer ou Désaturer et peignez un passage mesuré.",
+      "Mode, Intensité et taille contrôlent la modification locale.",
+      "Une forte saturation peut révéler du bruit coloré. L'outil n'isole pas automatiquement un sujet."
+    ]
+  },
+  "Liquify": {
+    "chapter": "dimensions",
+    "target": "pixels",
+    "en": [
+      "Liquify",
+      "Deform image sampling with a brush rather than moving a whole layer.",
+      "Choose a deformation mode and apply a short stroke; use Reconstruction when correcting a deformation.",
+      "Modes include forward warp, clockwise/counterclockwise twirl, contraction, expansion and reconstruction.",
+      "Each stroke reconstructs from its original image to avoid cumulative blur within that stroke. Extreme warps still distort detail."
+    ],
+    "fr": [
+      "Fluidité",
+      "Déformer l'échantillonnage au pinceau plutôt que déplacer tout un calque.",
+      "Choisissez un mode et faites un trait court ; utilisez Reconstruction pour corriger une déformation.",
+      "Les modes comprennent déformation avant, tourbillons horaire/antihoraire, contraction, dilatation et reconstruction.",
+      "Chaque trait se reconstruit depuis son image initiale pour éviter un flou cumulé pendant ce trait. Les déformations extrêmes altèrent les détails."
+    ]
+  },
+  "Picker": {
+    "chapter": "photo",
+    "target": "view",
+    "en": [
+      "Eyedropper",
+      "Read a visible image color into the foreground swatch.",
+      "Click or drag over the image. Shift+click adds a persistent sampler for Image Analysis > Pixel.",
+      "At most four persistent samplers are kept. Alt temporarily samples while using Brush, Gradient or Bucket.",
+      "The displayed image/view can affect what you inspect. Sampled color is not a material measurement."
+    ],
+    "fr": [
+      "Pipette",
+      "Lire une couleur visible dans la couleur de premier plan.",
+      "Cliquez ou glissez sur l'image. Maj+clic ajoute un point de mesure dans Analyse d'image > Pixel.",
+      "Quatre points au maximum sont conservés. Alt prélève temporairement avec Pinceau, Dégradé ou Pot de peinture.",
+      "L'image et le mode de vue influencent l'inspection. Une couleur prélevée n'est pas une mesure de matériau."
+    ]
+  },
+  "Hand": {
+    "chapter": "workspace",
+    "target": "view",
+    "en": [
+      "Hand",
+      "Pan the image view without moving its pixels.",
+      "Drag the canvas with Hand, or hold Space while not typing.",
+      "Ctrl+0 fits the image and Ctrl+1 restores 100% zoom.",
+      "Panning changes only the view; exported position and dimensions stay the same."
+    ],
+    "fr": [
+      "Main",
+      "Déplacer la vue sans déplacer les pixels.",
+      "Glissez avec Main ou maintenez Espace hors saisie de texte.",
+      "Ctrl+0 adapte l'image et Ctrl+1 rétablit le zoom à 100 %.",
+      "Le déplacement ne concerne que la vue ; position et dimensions exportées restent identiques."
+    ]
+  },
+  "Zoom": {
+    "chapter": "workspace",
+    "target": "view",
+    "en": [
+      "Zoom",
+      "Change the view scale around a chosen point.",
+      "Click to zoom in; Alt+click zooms out on the canvas.",
+      "Use Ctrl+0 to fit or Ctrl+1 for 100% when judging pixel detail.",
+      "Zooming does not resample the document. Use Image Size or an upscale tool to change delivered pixel dimensions."
+    ],
+    "fr": [
+      "Zoom",
+      "Changer l'échelle de vue autour d'un point.",
+      "Cliquez pour agrandir ; Alt+clic réduit la vue sur le canevas.",
+      "Ctrl+0 adapte et Ctrl+1 affiche à 100 % pour juger les détails de pixels.",
+      "Le zoom ne rééchantillonne pas le document. Taille de l'image ou un outil d'agrandissement change les dimensions livrées."
+    ]
+  },
+  "Crop": {
+    "chapter": "dimensions",
+    "target": "document",
+    "en": [
+      "Crop",
+      "Set document framing and remove or reframe its outer region.",
+      "Draw the crop frame, refine it in Options and confirm with Enter; Escape cancels the session.",
+      "Check framing and available crop modes before committing. Save an editable copy when exploring crops.",
+      "Cropping is a document operation, not a layer transform or a viewport zoom."
+    ],
+    "fr": [
+      "Recadrage",
+      "Définir le cadrage du document et sa région extérieure.",
+      "Tracez le cadre, affinez dans Options puis validez avec Entrée ; Échap annule la session.",
+      "Vérifiez cadre et modes proposés avant validation. Gardez une copie éditable pour essayer plusieurs cadrages.",
+      "Le recadrage agit sur le document ; ce n'est ni une transformation de calque ni un zoom de vue."
+    ]
+  },
+  "Text": {
+    "chapter": "text_shapes",
+    "target": "document",
+    "en": [
+      "Text",
+      "Create or edit a retained text layer.",
+      "Click to create text, enter content in Properties and adjust its font and layout. Click existing text with this tool to edit it.",
+      "Font, size, color, alignment and line spacing define the text; layer transforms handle placement.",
+      "Fonts must be available for reproducible editing elsewhere. Baking the layer replaces editable glyphs with pixels."
+    ],
+    "fr": [
+      "Texte",
+      "Créer ou modifier un calque de texte conservé.",
+      "Cliquez pour créer le texte, saisissez-le dans Propriétés puis réglez police et disposition. Cliquez un texte existant avec l'outil pour l'éditer.",
+      "Police, taille, couleur, alignement et interligne définissent le texte ; la transformation du calque règle son placement.",
+      "Les polices doivent être disponibles pour l'édition sur un autre poste. La conversion remplace les glyphes éditables par des pixels."
+    ]
+  },
+  "Shape": {
+    "chapter": "text_shapes",
+    "target": "document",
+    "en": [
+      "Shape",
+      "Create a retained shape with fill, stroke and geometric controls.",
+      "Drag its frame, then use Properties to choose the shape type and edit its dimensions or Boolean components.",
+      "Width/height support pixels and percentages with optional constrained proportions and decimal values.",
+      "Dimensions describe the frame before rotation, stroke and filters; visible bounds can be larger."
+    ],
+    "fr": [
+      "Forme",
+      "Créer une forme conservée avec remplissage, contour et géométrie.",
+      "Tracez son cadre puis choisissez type, dimensions et composants booléens dans Propriétés.",
+      "Largeur/hauteur acceptent pixels, pourcentages, proportions liées et décimales.",
+      "Les dimensions décrivent le cadre avant rotation, contour et filtres ; l'encombrement visible peut être plus grand."
+    ]
+  },
+  "QuickSelect": {
+    "chapter": "masks",
+    "target": "selection",
+    "en": [
+      "Quick Selection",
+      "Grow a painted selection toward image boundaries.",
+      "Paint inside the desired region; hold Alt to subtract from the selection.",
+      "Size, Tolerance and Sample All Layers affect the detected region. [ and ] change size.",
+      "Low-contrast boundaries need refinement. Inspect coverage before applying a destructive edit."
+    ],
+    "fr": [
+      "Sélection rapide",
+      "Étendre une sélection peinte jusqu'aux limites de l'image.",
+      "Peignez dans la région voulue ; maintenez Alt pour soustraire.",
+      "Taille, Tolérance et Échantillonner tous les calques affectent la détection. [ et ] changent la taille.",
+      "Les limites peu contrastées demandent un affinage. Examinez la couverture avant une modification destructive."
+    ]
+  },
+  "Pen": {
+    "chapter": "masks",
+    "target": "document",
+    "en": [
+      "Pen",
+      "Build reusable paths rather than painting image pixels.",
+      "Create and edit a path on the canvas, then use Paths to fill, stroke or convert it to a selection.",
+      "Keep the original path when refining geometry or making several output selections.",
+      "A path is distinct from a shape layer, selection and painted mask; converting it does not make those targets interchangeable."
+    ],
+    "fr": [
+      "Plume",
+      "Construire des tracés réutilisables plutôt que peindre des pixels.",
+      "Créez et éditez un tracé puis utilisez Tracés pour remplir, contourer ou convertir en sélection.",
+      "Gardez le tracé original pour affiner la géométrie ou produire plusieurs sélections.",
+      "Un tracé diffère d'un calque de forme, d'une sélection et d'un masque peint ; une conversion ne rend pas ces cibles interchangeables."
+    ]
+  },
+  "MagneticLasso": {
+    "chapter": "masks",
+    "target": "selection",
+    "en": [
+      "Magnetic Lasso",
+      "Follow image edges while placing a selection outline.",
+      "Click to anchor and follow the edge. Double-click, Enter or clicking the start closes it; Backspace removes the last point, Escape cancels.",
+      "Point Frequency sets the spacing of automatic anchors.",
+      "Weak edges and busy texture can pull the outline away. Use explicit anchors and inspect the closed selection."
+    ],
+    "fr": [
+      "Lasso magnétique",
+      "Suivre les contours de l'image pour définir une sélection.",
+      "Cliquez pour ancrer et suivez le bord. Double-clic, Entrée ou clic au départ ferme ; Retour arrière retire le dernier point, Échap annule.",
+      "Fréquence des points règle l'espacement des ancrages automatiques.",
+      "Contours faibles et textures chargées peuvent détourner le tracé. Ajoutez des ancrages et examinez la sélection fermée."
+    ]
+  },
+  "Patch": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Patch",
+      "Replace a selected defect using another region and blend its edges.",
+      "Outline the area to correct, then drag that selected area over the texture that should replace it.",
+      "Edge Blend controls the transition. Check that the desired pixel layer is active.",
+      "Source and destination need compatible texture. This is a healed replacement, not a general layer move."
+    ],
+    "fr": [
+      "Pièce",
+      "Remplacer un défaut sélectionné depuis une autre région en fondant les bords.",
+      "Entourez la zone à corriger puis glissez cette sélection sur la texture qui doit la remplacer.",
+      "Fondu des bords règle la transition. Vérifiez le calque de pixels actif.",
+      "Source et destination doivent avoir des textures compatibles. Il s'agit d'un remplacement corrigé, pas d'un déplacement de calque."
+    ]
+  },
+  "ContentMove": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Content-Aware Move",
+      "Move selected content and reconstruct its former location.",
+      "Outline the object and drag it to the desired destination, then wait for reconstruction.",
+      "Edge Blend affects how the moved content joins its new surroundings.",
+      "The vacated area is inferred from neighboring content. Complex backgrounds can need manual repair."
+    ],
+    "fr": [
+      "Déplacement basé sur le contenu",
+      "Déplacer un contenu sélectionné et reconstruire son ancienne place.",
+      "Entourez l'objet et glissez-le à destination puis attendez la reconstruction.",
+      "Fondu des bords influence son raccord au nouveau voisinage.",
+      "L'ancienne place est estimée depuis les alentours. Un fond complexe peut demander une correction manuelle."
+    ]
+  },
+  "RedEye": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Red Eye",
+      "Reduce red coloration in a clicked pupil region.",
+      "Set a suitable Pupil Size and click each affected pupil.",
+      "Darkening controls the correction strength.",
+      "This is a localized red-eye correction, not a general eye recoloring or portrait reconstruction tool."
+    ],
+    "fr": [
+      "Yeux rouges",
+      "Réduire la coloration rouge d'une pupille cliquée.",
+      "Réglez Taille de la pupille puis cliquez chaque pupille affectée.",
+      "Obscurcissement contrôle la correction.",
+      "C'est une correction localisée des yeux rouges, pas un outil général de recoloration ou reconstruction de portrait."
+    ]
+  },
+  "MagicEraser": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Magic Eraser",
+      "Erase neighboring pixels with a similar color after one click.",
+      "Click an unwanted background region and inspect the resulting transparency.",
+      "Tolerance changes the accepted color difference.",
+      "Color similarity can remove subject pixels too. A mask is preferable when you need to refine coverage later."
+    ],
+    "fr": [
+      "Gomme magique",
+      "Effacer les pixels voisins de couleur proche en un clic.",
+      "Cliquez une région de fond indésirable et examinez la transparence.",
+      "Tolérance règle l'écart de couleur accepté.",
+      "Une couleur proche peut aussi effacer le sujet. Préférez un masque pour affiner ensuite la couverture."
+    ]
+  },
+  "BackgroundEraser": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Background Eraser",
+      "Erase colors similar to the sample under the brush center.",
+      "Keep the brush center on the unwanted background while passing its edge near the subject.",
+      "Tolerance controls which colors are removed.",
+      "Crossing onto a similarly colored subject can erase it. Work on a duplicate or use a mask for recoverable coverage edits."
+    ],
+    "fr": [
+      "Gomme d'arrière-plan",
+      "Effacer les couleurs proches de l'échantillon au centre du pinceau.",
+      "Gardez le centre sur le fond indésirable en passant le bord près du sujet.",
+      "Tolérance contrôle les couleurs supprimées.",
+      "Un passage sur un sujet de couleur proche peut l'effacer. Travaillez sur une copie ou utilisez un masque pour garder une couverture récupérable."
+    ]
+  },
+  "HistoryBrush": {
+    "chapter": "layers",
+    "target": "pixels",
+    "en": [
+      "History Brush",
+      "Paint content back from the layer snapshot used as history source.",
+      "Use New Snapshot in History to capture the current paint target, then paint the area to restore. Without a chosen snapshot, the source is the target before its first retouch.",
+      "Brush size and opacity control the restored footprint.",
+      "This per-target history-brush source is distinct from whole-document snapshots. A source of a different size is recaptured after resizing/cropping."
+    ],
+    "fr": [
+      "Forme d'historique",
+      "Repeindre depuis l'instantané de calque utilisé comme source d'historique.",
+      "Utilisez Nouvel instantané dans Historique pour capturer la cible actuelle puis peignez la région à restaurer. Sans instantané choisi, la source est la cible avant sa première retouche.",
+      "Taille et opacité contrôlent l'empreinte restaurée.",
+      "Cette source par cible diffère des instantanés de document entier. Une source de taille différente est recapturée après redimensionnement ou recadrage."
+    ]
+  },
+  "PatternStamp": {
+    "chapter": "resources",
+    "target": "pixels",
+    "en": [
+      "Pattern Stamp",
+      "Paint a selected pattern aligned with document coordinates.",
+      "Choose a pattern in Options or Patterns, then paint the target.",
+      "Pattern Scale changes the repeat size; the pattern is aligned to the document.",
+      "Changing brush size does not replace the Pattern Scale control. A non-tileable source still shows seams."
+    ],
+    "fr": [
+      "Tampon de motif",
+      "Peindre un motif aligné sur les coordonnées du document.",
+      "Choisissez le motif dans Options ou Motifs puis peignez la cible.",
+      "Échelle du motif change la taille de répétition ; le motif reste aligné au document.",
+      "La taille du pinceau ne remplace pas l'échelle du motif. Une source non raccordable montre toujours des raccords."
+    ]
+  },
+  "Projection": {
+    "chapter": "projection_fluid",
+    "target": "3d",
+    "en": [
+      "Projection",
+      "Project an image or pattern onto a model from the working view.",
+      "Choose Image or Pattern in projection controls, frame the source and apply it to the intended model/material channels.",
+      "Inspect scale, placement and the affected channels before covering a large area.",
+      "A view projection can stretch on side faces and does not create a seamless global UV unwrap."
+    ],
+    "fr": [
+      "Projection",
+      "Projeter une image ou un motif sur le modèle depuis la vue de travail.",
+      "Choisissez Image ou Motif, cadrez la source puis appliquez-la au modèle et aux canaux voulus.",
+      "Vérifiez échelle, placement et canaux avant de couvrir une grande région.",
+      "La projection peut s'étirer sur les faces latérales et ne crée pas un dépliage UV global sans raccord."
+    ]
+  },
+  "LayerTransform": {
+    "chapter": "dimensions",
+    "target": "layer",
+    "en": [
+      "Layer Transform",
+      "Edit layer placement, rotation, scale and pivot with dedicated modes.",
+      "Choose the layer, then use Move (W), Rotate (E), Scale (R) or Pivot (P) while this tool is active.",
+      "Use Properties for typed dimensions in pixels or percentages, decimals and constrained proportions.",
+      "W/E/R/P select transform modes in this context. Rotation, stroke and filters can make visible bounds larger than the entered frame."
+    ],
+    "fr": [
+      "Transformation de calque",
+      "Modifier placement, rotation, échelle et pivot par modes dédiés.",
+      "Choisissez le calque puis Déplacer (W), Rotation (E), Échelle (R) ou Pivot (P) quand l'outil est actif.",
+      "Propriétés propose dimensions saisies en pixels ou pourcentages, décimales et proportions liées.",
+      "W/E/R/P choisissent ici les modes de transformation. Rotation, contour et filtres peuvent dépasser le cadre saisi."
+    ]
+  },
+  "Trim": {
+    "chapter": "trims",
+    "target": "document",
+    "en": [
+      "Trim Sheet",
+      "Create or adjust named texture regions for a trim-sheet layout.",
+      "Use the Trim Sheet panel to create strips or a layout, then refine regions with the Trim tool.",
+      "Region coordinates, dimensions and padding define the layout; export its JSON when handing it to another tool.",
+      "A layout is metadata around texture regions. It does not automatically generate a complete mesh UV layout."
+    ],
+    "fr": [
+      "Trim sheet",
+      "Créer ou ajuster des régions nommées d'une texture de trims.",
+      "Créez des bandes ou une disposition dans Trim sheet puis affinez les régions avec l'outil.",
+      "Coordonnées, dimensions et marges définissent la disposition ; exportez son JSON pour un autre outil.",
+      "La disposition décrit les régions de texture. Elle ne génère pas automatiquement tous les UV d'un maillage."
+    ]
+  },
+  "PolyFill": {
+    "chapter": "paint3d",
+    "target": "3d",
+    "en": [
+      "Polygon Fill",
+      "Fill model regions through the 3D painting workflow.",
+      "Choose the fill mode and active material channels, then click the intended model region.",
+      "The available region modes and brush material determine which texels/channels receive the fill.",
+      "The model needs a paintable UV/material target. Inspect UV seams and the active channel instead of judging only the shaded viewport."
+    ],
+    "fr": [
+      "Remplissage par polygone",
+      "Remplir des régions du modèle par la peinture 3D.",
+      "Choisissez mode de remplissage et canaux du matériau puis cliquez la région voulue.",
+      "Les modes de région et le matériau du pinceau déterminent texels et canaux remplis.",
+      "Le modèle exige une cible UV/matériau peignable. Examinez raccords UV et canal actif en plus de la vue ombrée."
+    ]
+  },
+  "Particles": {
+    "chapter": "projection_fluid",
+    "target": "3d",
+    "en": [
+      "Paint Particles",
+      "Simulate deposits such as drips, dust and splashes on a model.",
+      "Choose a simulation preset and brush material, run a small test on the model and inspect the deposited paint.",
+      "Simulation controls and material channels determine the particle behavior and written surface data.",
+      "This is an artistic simulation. Geometry scale, UV layout and the active material affect the result."
+    ],
+    "fr": [
+      "Particules de peinture",
+      "Simuler coulures, poussière ou éclaboussures sur le modèle.",
+      "Choisissez simulation et matériau du pinceau, faites un essai limité et examinez la peinture déposée.",
+      "Contrôles de simulation et canaux du matériau déterminent comportement et données écrites.",
+      "Il s'agit d'une simulation artistique. Échelle géométrique, UV et matériau actif influencent le résultat."
+    ]
+  },
+  "Fluid": {
+    "chapter": "projection_fluid",
+    "target": "fluid",
+    "en": [
+      "Fluid Paint",
+      "Simulate a moving paint film on the canvas or Paint 3D target.",
+      "Choose paint amount and viscosity, start a small stroke and pause to inspect. Enter freezes/commits; Escape cancels the session.",
+      "Viscosity, retained film, drying, absorption and gravity/view direction control the flow.",
+      "Run Active Layer affects the selected target's existing content. Simulation resolution and UV boundaries can change detail and cost."
+    ],
+    "fr": [
+      "Peinture liquide",
+      "Simuler un film de peinture mobile sur canevas ou cible Paint 3D.",
+      "Réglez quantité et viscosité, faites un trait limité et mettez en pause pour examiner. Entrée fige/valide ; Échap annule la session.",
+      "Viscosité, film retenu, séchage, absorption et direction de gravité/vue règlent l'écoulement.",
+      "Lancer le calque actif agit sur son contenu existant. Résolution et limites UV changent détail et coût."
+    ]
+  },
+  "Plugin": {
+    "chapter": "plugins_bridge",
+    "target": "plugin",
+    "en": [
+      "Plugin Tool",
+      "Use a painting or interaction tool supplied by a loaded plugin.",
+      "Choose the named plugin tool from its toolbar entry or Plugins > Tools, then read its supplied help before applying it.",
+      "Controls and supported canvas/3D behavior depend on that plugin.",
+      "This generic entry does not guarantee that every plugin supports every target. Keep the plugin and its dependencies with a reproducible workflow."
+    ],
+    "fr": [
+      "Outil de plugin",
+      "Utiliser un outil de peinture ou d'interaction fourni par un plugin chargé.",
+      "Choisissez son entrée nommée dans la barre ou Plugins > Outils puis consultez son aide avant application.",
+      "Contrôles et compatibilité canevas/3D dépendent du plugin.",
+      "Cette fiche générale ne garantit pas toutes les cibles pour chaque plugin. Conservez plugin et dépendances pour reproduire le travail."
+    ]
+  },
+  "Mixer": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Mixer Brush",
+      "Mix foreground paint with existing canvas colors.",
+      "Start with a preset, then paint across a color boundary to observe pickup and deposition.",
+      "Wetness controls canvas pickup, Load replenishes foreground paint, Flow controls deposition and Clean resets the brush between strokes.",
+      "A very low load can mostly smear existing color. This is not the same as selecting a layer blend mode."
+    ],
+    "fr": [
+      "Pinceau mélangeur",
+      "Mêler la peinture de premier plan aux couleurs du canevas.",
+      "Partez d'un préréglage puis traversez une limite de couleur pour observer prélèvement et dépôt.",
+      "Humidité prélève la toile, Charge recharge le premier plan, Débit règle le dépôt et Nettoyer réinitialise entre traits.",
+      "Une faible charge peut surtout étaler la couleur existante. Ce mécanisme diffère d'un mode de fusion de calque."
+    ]
+  },
+  "Ruler": {
+    "chapter": "dimensions",
+    "target": "view",
+    "en": [
+      "Ruler",
+      "Measure a distance/angle and optionally straighten the document along that line.",
+      "Drag a line; drag either endpoint to refine it. Shift constrains the angle to multiples of 45 degrees.",
+      "Options displays length, angle and endpoint deltas. Choose Keep Size, Crop or Enlarge before Straighten Image.",
+      "Measurement alone changes only the overlay. Straighten Image performs a document rotation and can change its bounds."
+    ],
+    "fr": [
+      "Règle",
+      "Mesurer distance/angle puis éventuellement redresser le document suivant cette ligne.",
+      "Tracez une ligne puis glissez ses extrémités pour l'affiner. Maj contraint par multiples de 45 degrés.",
+      "Options affiche longueur, angle et écarts. Choisissez Garder la taille, Recadrer ou Agrandir avant Redresser l'image.",
+      "La mesure seule ne change que la surimpression. Redresser applique une rotation du document et peut changer ses limites."
+    ]
+  },
+  "SpotHeal": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Spot Healing",
+      "Reconstruct a painted defect from nearby content without a chosen clone source.",
+      "Paint over the defect and release; wait while the correction is calculated.",
+      "Size controls the painted footprint; [ and ] change it. Start with a small defect and include enough surrounding texture.",
+      "The reconstruction is inferred. Large objects or repeated structures can need several passes or a chosen-source Healing/Patch workflow."
+    ],
+    "fr": [
+      "Correcteur localisé",
+      "Reconstruire un défaut peint depuis les alentours sans source de duplication choisie.",
+      "Peignez le défaut puis relâchez ; attendez le calcul de la correction.",
+      "Taille règle l'empreinte ; [ et ] la changent. Commencez par un petit défaut avec assez de texture voisine.",
+      "La reconstruction est estimée. Grands objets et structures répétées peuvent demander plusieurs passes ou un correcteur/Pièce à source choisie."
+    ]
+  },
+  "ColorReplace": {
+    "chapter": "painting",
+    "target": "pixels",
+    "en": [
+      "Color Replacement",
+      "Apply the foreground color to tones similar to the sample under the brush center.",
+      "Choose a foreground color, keep the brush center on the target tone and paint a short stroke.",
+      "Mode chooses Hue, Saturation, Color or Luminosity; Tolerance sets the accepted difference. Color mode preserves luminosity.",
+      "This is color similarity, not object recognition. Similar tones elsewhere under the brush can change too."
+    ],
+    "fr": [
+      "Remplacement de couleur",
+      "Appliquer le premier plan aux tons proches de l'échantillon sous le centre du pinceau.",
+      "Choisissez une couleur, gardez le centre sur le ton visé et peignez un trait court.",
+      "Mode choisit Teinte, Saturation, Couleur ou Luminosité ; Tolérance règle l'écart accepté. Couleur conserve la luminosité.",
+      "C'est une comparaison de couleurs, pas une reconnaissance d'objet. Des tons proches sous le pinceau peuvent aussi changer."
+    ]
+  }
+}

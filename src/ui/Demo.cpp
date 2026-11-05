@@ -16,6 +16,7 @@
 #include "doc/Brushes.h"
 #include <imgui_internal.h>
 #include <limits>
+#include <climits>
 
 #include <fstream>
 #include <stb_image_write.h>
@@ -25,6 +26,7 @@
 namespace sx {
 
 void GraphFrozenNodes(const Graph& g, std::unordered_set<Id>& frozen);  // GraphTools.cpp
+Json DocumentationRuntimeCatalog(); // ManualCatalog.cpp
 
 namespace {
 // Compare two RGBA8 readbacks: max channel difference and pixels differing by more than `tol`.
@@ -43,6 +45,257 @@ void CompareReadbacks(const char* what, const gpu::Readback& a, const gpu::Readb
 }  // namespace
 
 void App::DemoTick() {
+    if (const char* illustration=getenv("SX_MANUAL_ILLUSTRATION");illustration && frameCounter==35) {
+        // Clean, procedural documentation captures: hide unrelated floating
+        // panels and the browser so no personal folder inventory is included.
+        for (const char* panel:{"Ressources","Analyse d'image","Trim sheet","Inpainting IA","Assistant IA","Génération IA"}) panelOpen[panel].open=false;
+        const std::string name=illustration;
+        if (name=="render_view" && Active() && Active()->doc->kind==1) {
+            auto& render=RenderStateFor(*Active());render.settings.viewSize=false;
+            render.settings.width=960;render.settings.height=600;render.settings.maxSamples=48;
+            panelOpen["Rendu"].open=true;panelOpen["Scène de rendu"].open=true;ShowSideTab(5);FocusPanel("Rendu");
+        }
+        if (name=="photo_view" && Active()) OpenCameraRaw(*Active());
+        Log("[manual-illustration] prepared %s",illustration);
+    }
+    if (getenv("SX_MANUAL_NODES_TEST")) {
+        auto check=[](bool ok,const char* message){Log("[manual-nodes] %s %s",ok?"PASS":"FAIL",message);};
+        if (frameCounter==30 && Active()) {
+            const auto catalog=DocumentationRuntimeCatalog();
+            std::ofstream("manual-runtime-catalog.json",std::ios::binary)<<catalog.Dump(2);
+            auto& graph=Active()->doc->S().graph;const auto saved=Active()->doc->S().activeNode;
+            Node temporary;temporary.id=0x3fffff;graph.nodes.push_back(temporary);Active()->doc->S().activeNode=temporary.id;
+            for (const auto& op:MathOps()) {
+                graph.nodes.back().kind=NodeKind::Math;graph.nodes.back().op=op.id;
+                check(SelectedDocumentationTopic()=="math:"+op.id,op.id.c_str());
+            }
+            for (const auto& op:ExecActions()) {
+                graph.nodes.back().kind=NodeKind::Action;graph.nodes.back().op=op.id;
+                check(SelectedDocumentationTopic()=="exec:"+op.id,op.id.c_str());
+            }
+            graph.nodes.pop_back();Active()->doc->S().activeNode=saved;
+            Value angle=MakeValue(PinType::Float);angle.f.x=90;
+            check(std::abs(FindMathOp("sin")->fn({angle})[0].f.x-1)<0.00001f,"CPU sine degrees");
+            Value text=MakeValue(PinType::String);text.s="é";
+            check(FindMathOp("text_length")->fn({text})[0].f.x==2,"UTF-8 length counts bytes");
+        }
+        if (frameCounter==45) {
+            documentation.open=false;efEd.browse=false;efEd.libCode=false;FocusPanel("Éditeur d'effets");
+            EGNode temp;temp.id=0x3fffff;efEd.graph.nodes.push_back(temp);efEd.selected=temp.id;
+            for (const auto& op:EffectGraphOps()) {
+                efEd.graph.nodes.back().op=op.op;
+                check(DocumentationTopic()==std::string("shader:")+op.op,op.op);
+            }
+            efEd.graph.nodes.back().op="mul";
+        }
+        if (frameCounter==50) {FocusPanel("Éditeur d'effets");ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,true);}
+        if (frameCounter==52) ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,false);
+        if (frameCounter==56) check(documentation.open && ui::ManualPages()[documentation.page].id=="shader:mul","shader node F1");
+        if (frameCounter==60 && Active()) {
+            if (auto* effect=EditedEffect(*Active(),nullptr)) {
+                const auto graph=std::exchange(effect->graph,{}),code=std::exchange(effect->customCode,"custom");
+                FocusPanel("Éditeur d'effets");
+                check(DocumentationTopic()=="effect_editor","code view rejects stale graph selection");
+                effect->graph=graph;effect->customCode=code;
+            } else check(false,"code view target");
+            documentation.focus=true;
+        }
+    }
+    if (getenv("SX_MANUAL_CATALOG_EXPORT") && frameCounter==6) {
+        const auto catalog=DocumentationRuntimeCatalog();
+        std::ofstream("manual-runtime-catalog.json",std::ios::binary)<<catalog.Dump(2);
+        Log("[manual-catalog] exported compiled node registries");
+    }
+    if (getenv("SX_MANUAL_BRUSHES_TEST")) {
+        static size_t index=0;
+        static gpu::ReadbackPtr readback;
+        static Json defaults=Json::Object();
+        auto check=[](bool ok,const char* message){Log("[manual-brushes] %s %s",ok?"PASS":"FAIL",message);};
+        if (frameCounter==6) {
+            panelOpen["Pinceaux"].open=true;ShowSideTab(4);FocusPanel("Pinceaux");tool=Tool::Brush;
+            for (const auto& entry:Brushes().All()) {
+                SelectTip(brush,entry->id);
+                check(DocumentationTopic()==std::string("brush:")+entry->id,entry->id.c_str());
+                Json meta=Json::Object();meta["spacing"]=entry->spacing;meta["airbrush"]=entry->airbrush;
+                meta["extent"]=entry->extent;meta["selfFlow"]=entry->selfFlow;meta["dynamics"]=entry->dynamics;
+                Json values=Json::Array();
+                for (const auto& value:entry->def->DefaultParams()) {
+                    Json v=Json::Array();v.Push(value.x);v.Push(value.y);v.Push(value.z);v.Push(value.w);values.Push(v);
+                }
+                meta["params"]=values;defaults[entry->id]=meta;
+            }
+            std::ofstream("manual-brush-defaults.json",std::ios::binary)<<defaults.Dump(2);
+            SelectTip(brush,"");check(DocumentationTopic()=="brushes_tablet","standard round fallback");
+            brush.tipId="not_shipped";check(DocumentationTopic()=="brushes_tablet","unknown preset fallback");
+            brush.tipId="cy_texture";brush.tipCode="edited";check(DocumentationTopic()=="authoring","edited brush fallback");
+            brush.tipCode.clear();brush.tipGraph="edited";check(DocumentationTopic()=="authoring","graph brush fallback");
+            SelectTip(brush,"cy_texture");SelectTip(eraser,"cy_ring");tool=Tool::Eraser;
+            check(DocumentationTopic()=="brush:cy_ring","eraser has independent tip");tool=Tool::Brush;
+        }
+        if (frameCounter==45) {documentation.open=false;ShowSideTab(4);FocusPanel("Pinceaux");}
+        if (frameCounter==50) {ImGui::FocusWindow(ImGui::FindWindowByName("Pinceaux"));ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,true);}
+        if (frameCounter==52) ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,false);
+        if (frameCounter==56) check(documentation.open && ui::ManualPages()[documentation.page].id=="brush:cy_texture","selected brush F1");
+        if (frameCounter>=20 && Active() && index<Brushes().All().size()) {
+            auto entry=Brushes().All()[index];
+            if (readback) {
+                if (readback->ready) {
+                    bool covered=false;
+                    for (size_t i=3;i<readback->data.size();i+=4) if (readback->data[i]) {covered=true;break;}
+                    const auto file="brush-"+entry->id+".png";
+                    check(covered && stbi_write_png(file.c_str(),readback->width,readback->height,4,readback->data.data(),readback->width*4),
+                          ("render "+entry->id).c_str());
+                    readback.reset();++index;
+                    if (index==Brushes().All().size()) captureFrame=std::min(captureFrame,static_cast<int>(frameCounter)+4);
+                }
+            } else {
+                std::string error;
+                auto& renderer=Active()->renderer;
+                if (renderer.BrushPipeline(*entry,&error)) {
+                    BrushSettings settings=brush;SelectTip(settings,entry->id);BindTipTextures(settings,*entry);
+                    settings.size=110;settings.hardness=0.7f;settings.flow=0.8f;settings.opacity=1;
+                    settings.pressureSize=true;settings.pressureOpacity=true;
+                    EffectInstance tip;tip.params=settings.tipParams;
+                    if (auto* preview=renderer.BrushPreview(*ctx,*entry,tip,settings,{0.25f,0.65f,1,1},480,160,&error))
+                        readback=renderer.ExportRGBA8(*ctx,preview);
+                }
+                if (!error.empty()) {check(false,("compile "+entry->id+": "+error).c_str());++index;}
+            }
+        }
+    }
+    if (getenv("SX_MANUAL_COMMANDS_TEST")) {
+        auto check=[](bool ok,const char* message){Log("[manual-commands] %s %s",ok?"PASS":"FAIL",message);};
+        auto params=[](const char* text){Json value;Json::Parse(text,value);return value;};
+        static int phase=0;
+        if (frameCounter==6) {
+            Json defaults=Json::Object();Action reference{"Manual command reference",{}};
+            for (int i=0;i<ActionCmdCount();++i) {
+                const std::string id=ActionCmdId(i);defaults[id]=ActionDefaultParams(id);
+                reference.steps.push_back({id,ActionDefaultParams(id),true});
+            }
+            std::ofstream("manual-command-defaults.json",std::ios::binary)<<defaults.Dump(2);
+            check(ActionCmdCount()==20,"command defaults");
+            actions.push_back(reference);actionSel=static_cast<int>(actions.size())-1;builtinSel=-1;
+            actionStepSel=0;*PanelFlag("Éditeur d'actions")=true;FocusPanel("Éditeur d'actions");
+        }
+        if (frameCounter==10) {
+            ImGui::FocusWindow(ImGui::FindWindowByName("Éditeur d'actions"));
+            for (int i=0;i<ActionCmdCount();++i) {
+                actionStepSel=i;
+                check(DocumentationTopic()==std::string("command:")+ActionCmdId(i),ActionCmdId(i));
+            }
+            for (int i=0;i<ActionCmdCount();++i) if (std::string(ActionCmdId(i))=="export") actionStepSel=i;
+        }
+        if (frameCounter==12) {FocusPanel("Éditeur d'actions");ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,true);}
+        if (frameCounter==14) ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,false);
+        if (frameCounter==17) check(documentation.open && ui::ManualPages()[documentation.page].id=="command:export","selected step F1");
+        if (frameCounter>=20 && phase==0) {
+            NewDocument(96,64,Precision::Half16,DocMode::Layers,0,"Action practice");phase=1;
+            std::vector<ActionStep> steps={{"image_size",params(R"({"mode":"percent","pct":50})"),false},
+                {"canvas_size",params(R"({"w":16,"h":16,"relative":true,"anchor":4})"),true}};
+            StartActionSteps(*Active(),"Manual skip test",steps,0,INT_MAX,"",[this,check](bool ok){
+                check(ok && Active()->doc->Width()==112 && Active()->doc->Height()==80,"disabled step skipped");phase=2;});
+        }
+        if (frameCounter>=40 && phase==2) {
+            phase=3;std::vector<ActionStep> steps={{"image_size",params(R"({"mode":"percent","pct":50})"),false}};
+            StartActionSteps(*Active(),"Manual single step",steps,0,0,"",[this,check](bool ok){
+                check(ok && Active()->doc->Width()==56 && Active()->doc->Height()==40,"disabled single step runs");phase=4;});
+        }
+        if (frameCounter>=60 && phase==4) {
+            phase=5;std::vector<ActionStep> steps={{"image_size",params(R"({"mode":"pixels","w":32,"h":16})"),true},
+                {"manual_invalid_command",Json::Object(),true},{"canvas_size",params(R"({"w":100,"h":100})"),true}};
+            StartActionSteps(*Active(),"Manual failure test",steps,0,INT_MAX,"",[this,check](bool ok){
+                check(!ok && Active()->doc->Width()==32 && Active()->doc->Height()==16,"error stops without rollback");phase=6;});
+        }
+        if (frameCounter>=80 && phase==6) {
+            phase=7;Json out=params(R"({"format":"png","suffix":"_proof"})");out["folder"]=Narrow(std::filesystem::current_path().wstring());
+            std::vector<ActionStep> steps={{"fit_crop",params(R"({"w":32,"h":32,"interp":2})"),true},{"export",out,true}};
+            StartActionSteps(*Active(),"Manual export test",steps,0,INT_MAX,"",[this,check](bool ok){
+                const bool written=ok && std::filesystem::exists(L"Action practice_proof.png");
+                check(written,"export completed");phase=written?8:10;});
+        }
+        if (phase==8 && !actionRun.active) {
+            phase=9;const auto root=std::filesystem::current_path();
+            std::filesystem::create_directories(root/"batch-input");std::filesystem::create_directories(root/"batch-output");
+            std::filesystem::copy_file(root/L"Action practice_proof.png",root/"batch-input/sample.png");
+            std::filesystem::copy_file(root/L"Action practice_proof.png",root/"batch-output/sample_001_16x8.png");
+            Action action{"Manual batch fit",{{"image_size",params(R"({"mode":"pixels","w":16,"h":8})"),true}}};
+            actions.push_back(action);batch.chain={"u:Manual batch fit"};batch.sourceKind=0;
+            batch.source=Narrow((root/"batch-input").wstring());batch.dest=Narrow((root/"batch-output").wstring());
+            batch.pattern="{nom}_{n3}_{l}x{h}";batch.extFilter="png";batch.format=1;batch.conflict=2;batch.subfolders=false;
+            StartBatch();
+        }
+        if (phase==9 && !batch.running) {
+            check(batch.done==1 && batch.errors.empty() && std::filesystem::exists(L"batch-output/sample_001_16x8 (2).png"),"batch names and numbered copy");
+            phase=10;documentation.focus=true;
+        }
+    }
+    if (const char* expected=getenv("SX_MANUAL_TOOLS_TEST");expected && frameCounter==70) {
+        auto* canvas=ImGui::FindWindowByName("Canevas");
+        ImGui::FocusWindow(canvas);
+        const auto savedTool=tool;
+        for (int i=0;i<static_cast<int>(Tool::Count);++i) {
+            tool=static_cast<Tool>(i);
+            Log("[manual-tools] %s context %d",DocumentationTopic()==ui::ManualToolTopic(i)?"PASS":"FAIL",i);
+        }
+        tool=savedTool;
+        Log("[manual-tools] %s reader page",ui::ManualPages()[documentation.page].id==expected?"PASS":"FAIL");
+        documentation.focus=true;
+    }
+    if (getenv("SX_MANUAL_EXAMPLES_TEST")) {
+        static size_t originalDocuments=0;
+        const char* names[]={"ui_nine_slice","color_key","pbr_maps","upscale","photo_variants","bake_background"};
+        if (frameCounter==8) {originalDocuments=docs.size();documentation.Navigate("tutorials");}
+        for (int i=0;i<6;++i) {
+            if (frameCounter==10+i*10) documentation.exampleRequest=names[i];
+            if (frameCounter==14+i*10) {
+                auto* view=Active();
+                const bool ok=docs.size()==originalDocuments+i+1 && view && view->doc->path.empty() && view->doc->dirty;
+                Log("[manual-practice] %s unsaved copy %s",ok?"PASS":"FAIL",names[i]);
+            }
+        }
+        if (frameCounter==70) documentation.exampleRequest="../not_an_example";
+        if (frameCounter==74) Log("[manual-practice] %s unknown target rejected",docs.size()==originalDocuments+6?"PASS":"FAIL");
+    }
+    if (getenv("SX_MANUAL_CONTEXT_TEST")) {
+        auto check=[](bool ok,const char* message) {Log("[manual-context] %s %s",ok?"PASS":"FAIL",message);};
+        if (frameCounter==45) {
+            documentation.open=false;
+            NewDocument(256,256,Precision::Half16,DocMode::Nodes,3,"Manual context");
+            auto& doc=*Active()->doc;
+            auto& node=doc.AddEffectNode("ui_uv_nine_slice","",{60,60});
+            doc.S().activeNode=node.id;
+            check(SelectedDocumentationTopic()=="effect:ui_uv_nine_slice","shipped effect");
+            node.fx.customCode="custom";
+            check(SelectedDocumentationTopic()=="authoring","document effect override");
+            node.fx.customCode.clear();node.kind=NodeKind::Function;node.name="UI UV Nine Slice Panel";
+            check(SelectedDocumentationTopic()=="function:UI UV Nine Slice Panel","shipped function");
+            node.name="User function";
+            check(SelectedDocumentationTopic()=="libraries","user function fallback");
+            node.kind=NodeKind::Tool;node.tool="comfyui";
+            check(SelectedDocumentationTopic()=="ai","AI tool");
+            node.kind=NodeKind::Effect;node.name="Nine Slice";node.tool.clear();
+            panelOpen["Graphe"].open=true;FocusPanel("Graphe");
+        }
+        if (frameCounter==50) {FocusPanel("Graphe");ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,true);}
+        if (frameCounter==52) ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,false);
+        if (frameCounter==54) {
+            check(documentation.open && ui::ManualPages()[documentation.page].id=="effect:ui_uv_nine_slice","F1 from graph");
+            ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,true);
+        }
+        if (frameCounter==56) ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,false);
+        if (frameCounter==58) {
+            check(ui::ManualPages()[documentation.page].id=="effect:ui_uv_nine_slice","F1 retains reader article");
+            documentation.open=false;tool=Tool::Shape;FocusPanel("Canevas");
+        }
+        if (frameCounter==60) {FocusPanel("Canevas");ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,true);}
+        if (frameCounter==62) ImGui::GetIO().AddKeyEvent(ImGuiKey_F1,false);
+        if (frameCounter==64) {
+            check(documentation.open && ui::ManualPages()[documentation.page].id=="tool:shape","F1 from shape tool");
+            documentation.Navigate("ui_textures");documentation.textScale=1.5f;
+        }
+    }
+    if (demoMode == 110) { RasterizeLayerDemoTick(); return; }
     // Native UI fixtures: no operating-system input, only the same dimension math.
     if (const char* sizeTest = getenv("SX_DIMENSIONS_TEST"); sizeTest && frameCounter == 70 && Active()) {
         auto& view = *Active(); auto& document = *view.doc;
@@ -6451,6 +6704,7 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
 }
 
 void App::RunDemo() {
+    if (demoMode == 110) { RunRasterizeLayerDemo(); return; }
     for (const char* s : {"composite.slang", "display.slang", "brush.slang", "clear.slang", "clear_r.slang", "gradient.slang"})
         gpu::Shaders().CompileNow(s, gpu::Shaders().File(s));
 

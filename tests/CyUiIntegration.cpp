@@ -55,7 +55,12 @@ float evaluate(const sx::CurvePoints& points,float x) {
     return points.back().y;
 }
 }
+int RunNumericEntryTests();
+int RunDocumentationTests();
+
 int main() {
+    failures += RunNumericEntryTests();
+    failures += RunDocumentationTests();
     for(const auto* theme:{"mid-grey","light-grey","amber-night","violet","navy"})
         for(bool comfortable:{false,true}) for(float dpi:{1.f,1.5f}) {
             context(theme,comfortable,dpi);

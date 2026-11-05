@@ -1,0 +1,137 @@
+--- a/imgui_widgets.cpp
++++ b/imgui_widgets.cpp
+@@ -2802,6 +2802,13 @@
+ 
+ // Note: p_data, p_min and p_max are _pointers_ to a memory address holding the data. For a Drag widget, p_min and p_max are optional.
+ // Read code of e.g. DragFloat(), DragInt() etc. or examples in 'Demo->Widgets->Data Types' to understand how to use this function directly.
++// Shaderixel numeric entry gesture; does not submit an item or break undo tracking.
++static void SXNumericEntryHint(bool allowed, bool hovered)
++{
++    if (allowed && hovered && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) && !ImGui::IsItemActive())
++        ImGui::SetTooltip("Double-cliquez ou Ctrl+cliquez pour saisir une valeur. Entrée pour valider, Échap pour annuler.");
++}
++
+ bool ImGui::DragScalar(const char* label, ImGuiDataType data_type, void* p_data, float v_speed, const void* p_min, const void* p_max, const char* format, ImGuiSliderFlags flags)
+ {
+     ImGuiWindow* window = GetCurrentWindow();
+@@ -2871,6 +2878,8 @@
+         const bool clamp_enabled = TempInputIsClampEnabled(flags, data_type, p_min, p_max);
+         return TempInputScalar(frame_bb, id, label, data_type, p_data, format, clamp_enabled ? p_min : NULL, clamp_enabled ? p_max : NULL);
+     }
++
++    SXNumericEntryHint(temp_input_allowed, hovered);
+ 
+     // Draw frame
+     const ImU32 frame_col = GetColorU32(g.ActiveId == id ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
+@@ -3452,13 +3461,14 @@
+     bool temp_input_is_active = temp_input_allowed && TempInputIsActive(id);
+     if (!temp_input_is_active)
+     {
+-        // Tabbing or Ctrl+Click on Slider turns it into an input box
++        // SXManualNumericEntryV1: double-click, Ctrl+click or keyboard input.
+         const bool clicked = hovered && IsMouseClicked(0, ImGuiInputFlags_None, id);
+-        const bool make_active = (clicked || g.NavActivateId == id);
+-        if (make_active && clicked)
++        const bool double_clicked = hovered && g.IO.MouseClickedCount[0] == 2 && TestKeyOwner(ImGuiKey_MouseLeft, id);
++        const bool make_active = (clicked || double_clicked || g.NavActivateId == id);
++        if (make_active && (clicked || double_clicked))
+             SetKeyOwner(ImGuiKey_MouseLeft, id);
+         if (make_active && temp_input_allowed)
+-            if ((clicked && g.IO.KeyCtrl) || (g.NavActivateId == id && (g.NavActivateFlags & ImGuiActivateFlags_PreferInput)))
++            if ((clicked && g.IO.KeyCtrl) || double_clicked || (g.NavActivateId == id && (g.NavActivateFlags & ImGuiActivateFlags_PreferInput)))
+                 temp_input_is_active = true;
+ 
+         // Store initial value (not used by main lib but available as a convenience but some mods e.g. to revert)
+@@ -3480,6 +3490,8 @@
+         const bool clamp_enabled = (flags & ImGuiSliderFlags_ClampOnInput) != 0; // Don't use TempInputIsClampEnabled()
+         return TempInputScalar(frame_bb, id, label, data_type, p_data, format, clamp_enabled ? p_min : NULL, clamp_enabled ? p_max : NULL);
+     }
++
++    SXNumericEntryHint(temp_input_allowed, hovered);
+ 
+     // Draw frame
+     const ImU32 frame_col = GetColorU32(g.ActiveId == id ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
+@@ -3624,8 +3636,9 @@
+     const ImRect frame_bb(window->DC.CursorPos, window->DC.CursorPos + size);
+     const ImRect bb(frame_bb.Min, frame_bb.Max + ImVec2(label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f, 0.0f));
+ 
++    const bool temp_input_allowed = (flags & ImGuiSliderFlags_NoInput) == 0;
+     ItemSize(bb, style.FramePadding.y);
+-    if (!ItemAdd(frame_bb, id))
++    if (!ItemAdd(frame_bb, id, &frame_bb, temp_input_allowed ? ImGuiItemFlags_Inputable : 0))
+         return false;
+ 
+     // Default format string when passing NULL
+@@ -3633,16 +3646,35 @@
+         format = DataTypeGetInfo(data_type)->PrintFmt;
+ 
+     const bool hovered = ItemHoverable(frame_bb, id, g.LastItemData.ItemFlags);
+-    const bool clicked = hovered && IsMouseClicked(0, ImGuiInputFlags_None, id);
+-    if (clicked || g.NavActivateId == id)
+-    {
+-        if (clicked)
++    bool temp_input_is_active = temp_input_allowed && TempInputIsActive(id);
++    if (!temp_input_is_active)
++    {
++        const bool clicked = hovered && IsMouseClicked(0, ImGuiInputFlags_None, id);
++        const bool double_clicked = hovered && g.IO.MouseClickedCount[0] == 2 && TestKeyOwner(ImGuiKey_MouseLeft, id);
++        const bool make_active = clicked || double_clicked || g.NavActivateId == id;
++        if (make_active && (clicked || double_clicked))
+             SetKeyOwner(ImGuiKey_MouseLeft, id);
+-        SetActiveID(id, window);
+-        SetFocusID(id, window);
+-        FocusWindow(window);
+-        g.ActiveIdUsingNavDirMask |= (1 << ImGuiDir_Up) | (1 << ImGuiDir_Down);
+-    }
++        if (make_active)
++        {
++            memcpy(&g.ActiveIdValueOnActivation, p_data, DataTypeGetInfo(data_type)->Size);
++            if (temp_input_allowed && ((clicked && g.IO.KeyCtrl) || double_clicked ||
++                (g.NavActivateId == id && (g.NavActivateFlags & ImGuiActivateFlags_PreferInput))))
++                temp_input_is_active = true;
++            else
++            {
++                SetActiveID(id, window);
++                SetFocusID(id, window);
++                FocusWindow(window);
++                g.ActiveIdUsingNavDirMask |= (1 << ImGuiDir_Up) | (1 << ImGuiDir_Down);
++            }
++        }
++    }
++    if (temp_input_is_active)
++    {
++        const bool clamp_enabled = (flags & ImGuiSliderFlags_ClampOnInput) != 0;
++        return TempInputScalar(frame_bb, id, label, data_type, p_data, format, clamp_enabled ? p_min : NULL, clamp_enabled ? p_max : NULL);
++    }
++    SXNumericEntryHint(temp_input_allowed, hovered);
+ 
+     // Draw frame
+     const ImU32 frame_col = GetColorU32(g.ActiveId == id ? ImGuiCol_FrameBgActive : hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
+@@ -3877,10 +3909,15 @@
+     ImGuiContext& g = *GImGui;
+     const ImGuiDataTypeInfo* type_info = DataTypeGetInfo(data_type);
+     char fmt_buf[32];
+-    char data_buf[32];
++    char data_buf[128];
+     format = ImParseFormatTrimDecorations(format, fmt_buf, IM_COUNTOF(fmt_buf));
+     if (format[0] == 0)
+         format = type_info->PrintFmt;
++    // Entry preserves the real value even when the slider displays rounded units.
++    if (data_type == ImGuiDataType_Float)
++        format = "%.9g";
++    else if (data_type == ImGuiDataType_Double)
++        format = "%.17g";
+     DataTypeFormatString(data_buf, IM_COUNTOF(data_buf), data_type, p_data, format);
+     ImStrTrimBlanks(data_buf);
+ 
+@@ -3897,6 +3934,10 @@
+ 
+     // Apply new value (or operations) then clamp
+     DataTypeApplyFromText(data_buf, data_type, p_data, format, NULL);
++    // Reject NaN/infinity, including paste and overflow, before values reach shaders.
++    if ((data_type == ImGuiDataType_Float && !(*(float*)p_data >= -FLT_MAX && *(float*)p_data <= FLT_MAX)) ||
++        (data_type == ImGuiDataType_Double && !(*(double*)p_data >= -DBL_MAX && *(double*)p_data <= DBL_MAX)))
++        memcpy(p_data, &data_backup, data_type_size);
+     if (p_clamp_min || p_clamp_max)
+     {
+         if (p_clamp_min && p_clamp_max && DataTypeCompare(data_type, p_clamp_min, p_clamp_max) > 0)

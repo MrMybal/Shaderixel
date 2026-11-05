@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="#bac5dc"/></marker><pattern id="tiles" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="#244d57"/><path d="M0 0 H36 V36 H0 Z" fill="none" stroke="#51818b" stroke-width="1"/></pattern></defs>
+<rect width="1200" height="640" rx="18" fill="#191e2a"/>
+<text x="600" y="57" text-anchor="middle" fill="#eef1fa" font-size="32" font-family="Arial,sans-serif">UV mapping is data until the final sample</text>
+<path d="M270 232 L335 232" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M565 232 L630 232" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M860 232 L925 232" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M745 290 L745 400" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M1040 290 L1040 400" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="40" y="175" width="230" height="115" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="155.0" y="225.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Coordinates</text>
+<text x="155.0" y="256.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">R=U · G=V</text>
+<rect x="335" y="175" width="230" height="115" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="450.0" y="240.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Slice / transform</text>
+<rect x="630" y="175" width="230" height="115" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="745.0" y="240.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Address + mask</text>
+<rect x="925" y="175" width="230" height="115" rx="12" fill="#244d57" stroke="#8394b3" stroke-width="2"/>
+<text x="1040.0" y="240.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Sample image</text>
+<rect x="630" y="400" width="230" height="100" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="745.0" y="442.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Coverage</text>
+<text x="745.0" y="473.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">B</text>
+<rect x="925" y="400" width="230" height="100" rx="12" fill="#244d57" stroke="#8394b3" stroke-width="2"/>
+<text x="1040.0" y="442.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Visible skin</text>
+<text x="1040.0" y="473.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">RGBA</text>
+<text x="600" y="601" text-anchor="middle" fill="#c3cee4" font-size="21" font-family="Arial,sans-serif">Use float32. Do not color-grade or export coordinate fields as ordinary artwork.</text>
+</svg>

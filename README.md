@@ -19,6 +19,78 @@ Uninstall from **Windows Settings > Apps**. User-created files and settings are
 retained. The portable ZIP remains available on the
 [release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261105).
 
+## Documentation
+
+Open **Help > Documentation** or press **F1** for the built-in multilingual manual.
+It works offline, including without an open document, and includes full-text
+search across **44 handbook chapters in English and French** and the shipped
+references (**449 effects, 162 functions, 46 toolbar tools, 20 action commands,
+53 programmable brushes and 168 built-in nodes in each edition**): **942 pages per language**.
+The manual follows the interface language automatically; its language selector
+also allows an independent choice without losing the current chapter. Unsupported
+languages fall back to English. French search ignores case and accents.
+The reference lists shader controls, function ports, exposed variables and tool
+events. Its defaults describe the shipped library rather than document overrides
+or user-installed presets.
+
+Eight application captures, twelve explanatory diagrams and a brush contact sheet are supplied in both
+languages. Images can be enlarged, and both text and illustrations are embedded
+in the executable, so missing external help files do not prevent reading.
+
+The printable browser edition ([English](docs/manual/index.html#en/getting_started),
+[français](docs/manual/index.html#fr/getting_started)) is also included beside
+the application in `docs/manual/`. **Open in browser** opens it from the manual.
+Use Back/Forward to revisit pages and Ctrl+F to search inside the manual window.
+F1 opens contextual help for the focused panel or selected node. Properties and
+the graph node context menu also offer **Selection help**. Custom or unknown
+content opens the relevant handbook chapter. Both readers include an **In this
+chapter** section selector and **Text size** controls from 85% to 150%.
+The browser edition is self-contained, including its images, and can print one
+chapter or the complete handbook in the chosen language.
+
+**Help > Guided projects** includes seven step-by-step exercises: nine-slice UI,
+painting a baked background, PBR inspection/export, color keying, local/AI
+upscaling, photo exposure variants and ComfyUI workflows. Six procedural `.sxl`
+practice documents open directly as unsaved copies in the native reader, or
+download from the offline browser edition. They need no external images and do
+not execute export or AI events when opened. ComfyUI exercises require a separately
+configured server and models.
+
+**Help > Tool reference** lists every toolbar tool with prerequisites, gestures,
+controls and limits, and explains editing commands such as layer conversion,
+merging, graph freezing and mesh baking. **Tool help** in Options and contextual
+F1 from the canvas/3D view open the active tool's own reference page.
+
+**Help > Action reference** documents recording, JSON import, partial execution
+and folder/open-document batches, including naming and collision behavior. Select
+a step in Action Editor and use F1 or **Command help** for its parameter reference.
+Factory defaults are generated from the command creation code and verified against
+the compiled application.
+
+**Help > Brushes** includes the complete brush index, stroke/tablet workflow and
+rendered examples. **Brush help** or F1 in the Brushes panel opens the selected
+tip's reference, including its shader defaults, spacing, airbrush timing, dynamics,
+flow/pressure behavior and texture inputs. The eraser has its own selected tip.
+Custom code and graph copies open the authoring guide.
+
+**Help > Node reference** covers all 96 shader operations, 45 image-graph value
+operations, 11 graph execution actions and 16 structural node kinds. Inputs,
+defaults and outputs come from matching compiled D3D12/Vulkan registries; source
+changes require refreshing the checked reference snapshot. **Node help** in
+Effect Editor and contextual F1 open the selected operation.
+
+**Help > Panel directory** covers all 34 registered panels and 68 named panels/dialogs
+in total. **Settings and updates** documents preferences, storage, tablet/history
+budgets and installer/update states. Dedicated delivery, recovery and shader-authoring
+guides complete the workflows. Generation checks catalog coverage, bilingual identity,
+links and resources; `docs/manual/coverage.json` records the verified scope.
+
+English sources are in `docs/manual/*.md`, French sources in `docs/manual/fr/`,
+and translation catalogs in `docs/manual/locales/`. Run `python tools/build_manual.py`
+after editing them or library metadata, and `python tools/build_manual.py --check`
+to detect stale generated content. Both package builders validate and include
+the same offline manual.
+
 ## Updates
 
 Shaderixel checks GitHub releases in the background at startup. Open
@@ -38,6 +110,19 @@ for this public release channel. Development capture/effect-test runs skip the
 startup check; `--updates` opens the panel and `--check-updates` explicitly runs a
 check, including during an automated capture.
 
+## Type values in sliders
+
+**Double-click a slider or drag field** to type its value; **Ctrl+click** works
+too. Press **Enter** to confirm, **Escape** to cancel, or **Tab** to move on.
+Floating-point controls accept a decimal dot or comma. The text field keeps the
+actual precision even when the normal display rounds values or adds units.
+
+This shared behavior covers numeric controls throughout the application,
+including effect parameters, brush settings, transforms, vector components,
+logarithmic sliders and vertical sliders. Blend If also exposes four numeric
+threshold fields below each bar; their values remain ordered within 0–255.
+Integer parameters remain integers.
+
 ## Precise layer and shape dimensions
 
 Layer transformation properties and the Free Transform options support
@@ -50,6 +135,22 @@ Layer percentages use the source dimensions; shape-frame percentages use the
 document width and height. Shape-frame dimensions precede rotation, stroke and
 layer filters. Pixel dimensions preserve existing flips; negative percentages
 can still mirror a transform.
+
+## Bake a layer to editable pixels
+
+Select a layer and click **Bake to Pixel Layer** in **Properties**, or choose
+**Layer > Bake to Pixel Layer** (also available from the layer's context menu).
+This replaces a fill/generator, text, shape or smart-object layer with a pixel
+layer at the document size. Existing layer filters and transforms are baked into
+the pixels, so you can paint on the result immediately without merging another
+layer. A pixel layer with filters can be baked in the same way.
+
+The layer keeps its name, position in the stack, visibility, mask, opacity,
+clipping and blending settings. Text, shape, smart-object and filter controls are
+replaced by the rendered pixels; **Ctrl+Z** restores the original editable layer.
+Linked smart-object instances keep their original content. Unlock a locked layer
+first. Groups and adjustment layers use the existing merge commands instead.
+The action can also be recorded and replayed in **Actions**.
 
 ## UI texture and widget libraries
 

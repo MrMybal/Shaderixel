@@ -1,0 +1,40 @@
+{
+  "en": {
+    "Nodes":"Nodes", "Node reference":"Node reference", "Panel directory":"Panel directory", "Settings and updates":"Settings and updates", "Node help":"Node help",
+    "Brushes":"Brushes", "Brush help":"Brush help",
+    "Commands":"Commands", "Command help":"Command help",
+    "Tools":"Tools", "Tool help":"Tool help",
+    "Open example":"Open example",
+    "Download example hint":"Download this SXL file, then open it in Shaderixel. Tools run only when their event is triggered.",
+    "Open example hint":"Opens an unsaved practice copy. Tools run only when their event is triggered.",
+    "Example files missing":"The practice files are missing. Reinstall the documentation folder to open examples.",
+    "Selection help":"Selection help", "In this chapter":"In this chapter", "Text size":"Text size",
+    "Documentation":"Documentation", "Back":"Back", "Forward":"Forward", "Contents":"Contents", "Open in browser":"Open in browser",
+    "Automatic":"Interface language (automatic)", "Language":"Language", "Offline":"Offline", "All documentation":"All documentation", "Handbook":"Handbook", "Effects":"Effects", "Functions":"Functions",
+    "Search documentation (Ctrl+F)...":"Search documentation (Ctrl+F)...", "matching pages":"matching pages", "No results. Clear the search or choose another category.":"No results. Clear the search or choose another category.",
+    "Browser edition is missing. The embedded manual remains available.":"Browser edition is missing. The embedded manual remains available.",
+    "Reference describes shipped defaults. User presets may differ.":"Reference describes shipped defaults. User presets may differ.",
+    "Image unavailable":"Image unavailable", "Click to enlarge":"Click to enlarge", "Close":"Close", "Illustration":"Illustration",
+    "Print chapter":"Print chapter", "Print handbook":"Print handbook", "Search all documentation":"Search all documentation", "Show":"Show", "Search hint":"Try nine slice, roughness, bake…",
+    "Subtitle":"Offline handbook and shipped library reference", "Fallback":"This interface language is not available; showing English.", "Getting started":"Getting started", "Keyboard shortcuts":"Keyboard shortcuts", "Troubleshooting":"Troubleshooting"
+  },
+  "fr": {
+    "Nodes":"Nœuds", "Node reference":"Référence des nœuds", "Panel directory":"Répertoire des panneaux", "Settings and updates":"Réglages et mises à jour", "Node help":"Aide du nœud",
+    "Brushes":"Pinceaux", "Brush help":"Aide du pinceau",
+    "Commands":"Commandes", "Command help":"Aide de la commande",
+    "Tools":"Outils", "Tool help":"Aide de l’outil",
+    "Open example":"Ouvrir l’exemple",
+    "Download example hint":"Téléchargez ce fichier SXL puis ouvrez-le dans Shaderixel. Les outils ne s’exécutent que sur leur événement.",
+    "Open example hint":"Ouvre une copie d’exercice non enregistrée. Les outils ne s’exécutent que sur leur événement.",
+    "Example files missing":"Les fichiers d’exercice sont absents. Réinstallez le dossier de documentation pour ouvrir les exemples.",
+    "Selection help":"Aide sur la sélection", "In this chapter":"Dans ce chapitre", "Text size":"Taille du texte",
+    "Documentation":"Documentation", "Back":"Précédent", "Forward":"Suivant", "Contents":"Sommaire", "Open in browser":"Ouvrir dans le navigateur",
+    "Automatic":"Langue de l’interface (automatique)", "Language":"Langue", "Offline":"Hors ligne", "All documentation":"Toute la documentation", "Handbook":"Guide utilisateur", "Effects":"Effets", "Functions":"Fonctions",
+    "Search documentation (Ctrl+F)...":"Rechercher dans le manuel (Ctrl+F)...", "matching pages":"pages correspondantes", "No results. Clear the search or choose another category.":"Aucun résultat. Effacez la recherche ou changez de catégorie.",
+    "Browser edition is missing. The embedded manual remains available.":"La version navigateur est absente. Le manuel intégré reste disponible.",
+    "Reference describes shipped defaults. User presets may differ.":"La référence décrit les valeurs livrées. Les presets utilisateur peuvent différer.",
+    "Image unavailable":"Illustration indisponible", "Click to enlarge":"Cliquer pour agrandir", "Close":"Fermer", "Illustration":"Illustration",
+    "Print chapter":"Imprimer le chapitre", "Print handbook":"Imprimer le guide", "Search all documentation":"Rechercher dans toute la documentation", "Show":"Afficher", "Search hint":"Essayez découpe, rugosité, conversion…",
+    "Subtitle":"Guide hors ligne et référence de la bibliothèque livrée", "Fallback":"Cette langue n’est pas disponible ; le manuel est affiché en anglais.", "Getting started":"Prise en main", "Keyboard shortcuts":"Raccourcis clavier", "Troubleshooting":"Dépannage"
+  }
+}

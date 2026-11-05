@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="#bac5dc"/></marker><pattern id="tiles" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="#244d57"/><path d="M0 0 H36 V36 H0 Z" fill="none" stroke="#51818b" stroke-width="1"/></pattern></defs>
+<rect width="1200" height="640" rx="18" fill="#191e2a"/>
+<text x="600" y="57" text-anchor="middle" fill="#eef1fa" font-size="32" font-family="Arial,sans-serif">Nine-slice: preserve corners, repeat the center</text>
+<path d="M380 310 L490 310" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="65" y="190" width="56" height="56" rx="12" fill="#624d83" stroke="#8394b3" stroke-width="2"/>
+<text x="93.0" y="226.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">1</text>
+<rect x="125" y="190" width="176" height="56" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="213.0" y="226.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">2</text>
+<rect x="305" y="190" width="56" height="56" rx="12" fill="#624d83" stroke="#8394b3" stroke-width="2"/>
+<text x="333.0" y="226.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">3</text>
+<rect x="65" y="250" width="56" height="116" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="93.0" y="316.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">4</text>
+<rect x="125" y="250" width="176" height="116" rx="12" fill="url(#tiles)" stroke="#8394b3" stroke-width="2"/>
+<text x="213.0" y="316.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Tile</text>
+<rect x="305" y="250" width="56" height="116" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="333.0" y="316.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">6</text>
+<rect x="65" y="370" width="56" height="56" rx="12" fill="#624d83" stroke="#8394b3" stroke-width="2"/>
+<text x="93.0" y="406.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">7</text>
+<rect x="125" y="370" width="176" height="56" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="213.0" y="406.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">8</text>
+<rect x="305" y="370" width="56" height="56" rx="12" fill="#624d83" stroke="#8394b3" stroke-width="2"/>
+<text x="333.0" y="406.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">9</text>
+<rect x="515" y="150" width="56" height="56" rx="12" fill="#624d83" stroke="#8394b3" stroke-width="2"/>
+<text x="543.0" y="186.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">1</text>
+<rect x="575" y="150" width="496" height="56" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="823.0" y="186.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">2</text>
+<rect x="1075" y="150" width="56" height="56" rx="12" fill="#624d83" stroke="#8394b3" stroke-width="2"/>
+<text x="1103.0" y="186.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">3</text>
+<rect x="515" y="210" width="56" height="226" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="543.0" y="331.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">4</text>
+<rect x="575" y="210" width="496" height="226" rx="12" fill="url(#tiles)" stroke="#8394b3" stroke-width="2"/>
+<text x="823.0" y="331.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Tile</text>
+<rect x="1075" y="210" width="56" height="226" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="1103.0" y="331.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">6</text>
+<rect x="515" y="440" width="56" height="56" rx="12" fill="#624d83" stroke="#8394b3" stroke-width="2"/>
+<text x="543.0" y="476.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">7</text>
+<rect x="575" y="440" width="496" height="56" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="823.0" y="476.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">8</text>
+<rect x="1075" y="440" width="56" height="56" rx="12" fill="#624d83" stroke="#8394b3" stroke-width="2"/>
+<text x="1103.0" y="476.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">9</text>
+<text x="600" y="601" text-anchor="middle" fill="#c3cee4" font-size="21" font-family="Arial,sans-serif">Source margins define corners. Transparent center creates an eight-slice border.</text>
+</svg>

@@ -1,0 +1,4 @@
+[
+  {"code":"en","name":"English","directory":".","required":true},
+  {"code":"fr","name":"Français","directory":"fr","required":true}
+]

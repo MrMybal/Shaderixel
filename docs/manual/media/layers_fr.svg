@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="#bac5dc"/></marker><pattern id="tiles" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="#244d57"/><path d="M0 0 H36 V36 H0 Z" fill="none" stroke="#51818b" stroke-width="1"/></pattern></defs>
+<rect width="1200" height="640" rx="18" fill="#191e2a"/>
+<text x="600" y="57" text-anchor="middle" fill="#eef1fa" font-size="32" font-family="Arial,sans-serif">Le calque sépare contenu et composition</text>
+<path d="M235 198 L235 228" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M235 306 L235 336" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M400 375 L500 375" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M500 375 L500 226" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M500 226 L530 226" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<path d="M810 279 L810 350" stroke="#bac5dc" stroke-width="3" marker-end="url(#arrow)"/>
+<rect x="70" y="120" width="330" height="78" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="235.0" y="167.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Texte / forme / pixels</text>
+<rect x="70" y="228" width="330" height="78" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="235.0" y="275.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Transformation + filtres</text>
+<rect x="70" y="336" width="330" height="78" rx="12" fill="#454178" stroke="#8394b3" stroke-width="2"/>
+<text x="235.0" y="383.0" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Contenu rendu</text>
+<rect x="530" y="175" width="560" height="104" rx="12" fill="#244d57" stroke="#8394b3" stroke-width="2"/>
+<text x="810.0" y="219.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Convertir en calque de pixels</text>
+<text x="810.0" y="250.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Pixels indépendants et peignables</text>
+<rect x="530" y="350" width="560" height="122" rx="12" fill="#39485e" stroke="#8394b3" stroke-width="2"/>
+<text x="810.0" y="403.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Masque · opacité · fusion</text>
+<text x="810.0" y="434.5" text-anchor="middle" fill="#eef1fa" font-size="22" font-family="Arial,sans-serif">Restent éditables après conversion</text>
+<text x="600" y="601" text-anchor="middle" fill="#c3cee4" font-size="21" font-family="Arial,sans-serif">Annuler restaure le calque original. Fusion et cuisson de maillage sont distinctes.</text>
+</svg>

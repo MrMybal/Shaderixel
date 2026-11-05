@@ -25,6 +25,7 @@
 #include "shaderixel_plugin.h"
 #include "ui/Search.h"
 #include "ui/CodeEdit.h"
+#include "ui/Documentation.h"
 #include "doc/ShapePaths.h"
 
 #include <mutex>
@@ -552,6 +553,15 @@ private:
     void ExportImage(const std::string& path, DocView* target = nullptr);
     void ExportPsd(const std::string& path, int depth = 8, DocView* target = nullptr);
     void MergeDown(DocView& v);
+    // Bake one layer's own content and filters; compositing properties stay editable.
+    enum class LayerBakeResult { Done, Pending, Failed };
+    bool CanRasterizeLayer(const Document& d, const Layer* layer, std::string* why = nullptr) const;
+    LayerBakeResult RasterizeLayerNow(DocView& v, Id layer);
+    void RequestRasterizeLayer(DocView& v, Id layer);
+    void UpdateLayerBakes();
+    void RasterizeLayerUI(DocView& v, Layer& layer);
+    struct LayerBakeRequest { DocView* view; Id layer; double deadline; };
+    std::vector<LayerBakeRequest> layerBakes;
     // PBR material channels (Material.cpp)
     Id FindChannelGroup(Document& d, PbrChannel c);
     gpu::Texture* ChannelTexture(DocView& v, PbrChannel c);
@@ -807,6 +817,8 @@ private:
     void ParseCommandLine();
     void RunDemo();
     void DemoTick();
+    void RunRasterizeLayerDemo();
+    void RasterizeLayerDemoTick();
     bool testEffects = false;
     bool aiTest = false;  // --ai-test: start the companion and allow writes (automation)
     void RunDemo16k();
@@ -2110,6 +2122,11 @@ private:
     // dialogs / panels
     bool showNewDoc = false;
     bool showAbout = false, aboutAtStart = false;
+    ui::DocumentationState documentation;
+    std::unordered_map<std::string, gpu::TexturePtr> manualImages;
+    void DrawDocumentation();
+    std::string SelectedDocumentationTopic();
+    std::string DocumentationTopic();
     updates::Client updateClient;
     bool updateCheckAtStartup = true, updateIncludePrereleases = true;
     bool showUpdates = false, updateNotified = false, updateCheckRequested = false;

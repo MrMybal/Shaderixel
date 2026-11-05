@@ -6,6 +6,7 @@
 #include "doc/Brushes.h"
 #include "gpu/ShaderSystem.h"
 #include "doc/EffectGraph.h"
+#include "ui/Lang.h"
 
 #include <imgui_stdlib.h>
 
@@ -275,6 +276,10 @@ void App::DrawBrushPanel() {
     PopOutCorner("Pinceaux");
     BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
     auto td = TipDef(b);
+    if (ImGui::Button(ui::ManualText(CurrentLanguage(),"Brush help"))) {
+        documentation.Navigate(!b.tipCode.empty() || !b.tipGraph.empty() ? "authoring" :
+            ui::ManualReferenceTopic("brush",b.tipId,"brushes_tablet"));
+    }
     DocView* v = Active();
     // Wide (bottom zone): list | preview + code. Narrow (side tab): stacked.
     const bool wide = ImGui::GetContentRegionAvail().x > 640 * dpi;

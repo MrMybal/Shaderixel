@@ -1,0 +1,650 @@
+{
+  "Bake et export PNG": {
+    "source": "Bouton « Exporter » : fige l'image reçue (les nœuds avant ne sont plus calculés) et l'écrit en PNG.",
+    "text": "Bouton « Exporter » : fige l'image reçue (les nœuds avant ne sont plus calculés) et l'écrit en PNG."
+  },
+  "ComfyUI Depth to Surface Maps": {
+    "source": "Requires a depth API workflow installed in ComfyUI with its models and nodes, LoadImage and a single depth SaveImage. Empty path: show a message without running AI. Adapt scene depth into height, normals, occlusion and curvature; depth does not measure surface microrelief. Outputs preview the input before execution.",
+    "text": "Exige un workflow API de profondeur installé avec ses modèles et nœuds, LoadImage et un seul SaveImage. Sans chemin, affiche un message sans lancer l'IA. Transforme la profondeur de scène en hauteur, normales, occlusion et courbure ; ce n'est pas un microrelief mesuré. Avant exécution, la sortie montre l'entrée."
+  },
+  "ComfyUI PBR Map Workflow": {
+    "source": "Run a supplied API workflow for one PBR map: normal, roughness, albedo, etc. Requires LoadImage and a single SaveImage for the required map. Shaderixel retrieves only the first output image; use one instance per map. Empty path: show a message without running image-to-image. Output previews the photo before execution.",
+    "text": "Exécute un workflow API fourni pour une carte PBR. Exige LoadImage et un seul SaveImage. Seule la première image est récupérée : utilisez une instance par carte. Sans chemin, affiche un message sans lancer l'IA. L'aperçu initial est la photo."
+  },
+  "ComfyUI Texture Image to Image": {
+    "source": "Process Texture runs ComfyUI image-to-image, then light denoise and tiled inspection. Empty workflow: built-in pipeline using the AI settings checkpoint. Optional API workflow: only documented Shaderixel substitutions apply; denoise remains the value saved in that workflow.",
+    "text": "Process Texture lance l'image-vers-image, un léger débruitage et l'inspection répétée. Sans workflow, utilise la chaîne intégrée et le checkpoint IA. Un workflow API n'applique que les substitutions prises en charge ; son débruitage peut rester celui enregistré."
+  },
+  "Creative Blend Depth Transition": {
+    "source": "Reveal the foreground from low to high depth, with explicit numeric PNG decoding and endpoint control.",
+    "text": "Révèle le premier plan des faibles aux fortes profondeurs, avec décodage explicite du PNG numérique et extrémités de transition contrôlées."
+  },
+  "Creative Blend Detail Transfer": {
+    "source": "Transfer source high-frequency luminance or color detail while retaining background alpha and broad tone.",
+    "text": "Transfère les détails haute fréquence de luminance ou de couleur tout en gardant alpha et tonalité générale du fond."
+  },
+  "Creative Blend Edge Reveal": {
+    "source": "Reveal inward from a mask contour using bounded eight-direction distance approximation; progress one reveals the full mask.",
+    "text": "Révèle depuis le contour d'un masque avec une approximation de distance bornée à huit directions. Une progression de un révèle tout le masque."
+  },
+  "Creative Blend Noise Dissolve": {
+    "source": "Progressive procedural noise reveal with optional linear coverage mask and exact transition endpoints.",
+    "text": "Révélation progressive par bruit procédural, masque de couverture linéaire optionnel et extrémités exactes."
+  },
+  "Creative Blend Protected Highlights": {
+    "source": "Alpha-correct foreground compositing with independent soft highlight and shadow protection.",
+    "text": "Composition correcte de l'alpha avec protections progressives indépendantes des ombres et hautes lumières."
+  },
+  "Creative Draw Flow Lines": {
+    "source": "Curved contours of a smooth directional field with gradient-corrected stroke width.",
+    "text": "Courbes d'un champ directionnel lisse, avec épaisseur de trait corrigée selon le gradient."
+  },
+  "Creative Draw Isometric Tiles": {
+    "source": "Isometric diamond or three-face cube tiling with independent palette, border and pixel offset.",
+    "text": "Pavage isométrique de losanges ou de cubes à trois faces, avec palette, bordure et décalage indépendants."
+  },
+  "Creative Draw Terrazzo": {
+    "source": "Deterministic convex polygon chips with three palette colors, density and size variation.",
+    "text": "Éclats polygonaux convexes déterministes, trois couleurs, densité et variation de taille."
+  },
+  "Creative Draw Topographic Lines": {
+    "source": "Procedural terrain contours with pixel-sized lines and emphasized major contours.",
+    "text": "Courbes de niveau d'un terrain procédural, épaisseur en pixels et lignes majeures accentuées."
+  },
+  "Creative Draw Torn Paper": {
+    "source": "Rotatable paper cutout with multiscale torn edges, fine grain and transparent surroundings.",
+    "text": "Découpe de papier orientable, déchirures multi-échelles, grain fin et extérieur transparent."
+  },
+  "Creative Engraved Illustration": {
+    "source": "Crosshatching and colored source contours printed on textured paper. Hatching and transparent edge ink are separate editable outputs.",
+    "text": "Hachures croisées et contours colorés imprimés sur papier texturé. Les hachures et l'encre des contours transparents restent des sorties éditables séparées."
+  },
+  "Creative Filter Alpha Edge Padding": {
+    "source": "Extend nearest nontransparent RGB into empty alpha; tiny carrier alpha quantizes to zero in 8-bit PNG.",
+    "text": "Étend le RVB non transparent le plus proche dans les zones vides. Le très faible alpha porteur devient zéro en PNG 8 bits."
+  },
+  "Creative Filter Crosshatch Shading": {
+    "source": "Convert image shadows into up to four directional hatch layers while preserving source alpha.",
+    "text": "Transforme les ombres en jusqu'à quatre couches de hachures tout en préservant l'alpha."
+  },
+  "Creative Filter Ink Bleed": {
+    "source": "Spread colored alpha ink into irregular absorbent edges; opaque scans should first become ink on transparency.",
+    "text": "Étale une encre colorée sur transparence avec des bords absorbants irréguliers. Extrayez d'abord l'encre d'un scan opaque."
+  },
+  "Creative Filter Screen Print Wear": {
+    "source": "Remove ink alpha with deterministic holes and elongated scratches, optionally restricted by a linear coverage mask.",
+    "text": "Retire de l'encre par trous déterministes et rayures allongées, avec masque de couverture linéaire optionnel."
+  },
+  "Creative Filter Selective Detail": {
+    "source": "Sparse alpha-weighted high-pass detail with luminance gating and a flat-region threshold.",
+    "text": "Détails passe-haut pondérés par l'alpha, limités par luminance et seuil des régions uniformes."
+  },
+  "Creative Filter Topographic Lines from Height": {
+    "source": "Extract styled contours from an existing grayscale height map; PNG numeric decoding is on by default.",
+    "text": "Courbes de niveau stylisées depuis une carte de hauteur. Décodage des valeurs numériques PNG activé par défaut."
+  },
+  "Creative Paper Collage": {
+    "source": "Two torn paper pieces over a paper background. An optional image is clipped onto the front piece; the back piece carries terrazzo chips. Outputs retain reusable piece transparency.",
+    "text": "Deux papiers déchirés sur un fond papier. L'image optionnelle est écrêtée sur la pièce avant ; des éclats terrazzo décorent l'arrière. Les pièces gardent leur transparence réutilisable."
+  },
+  "Creative Procedural Map Background": {
+    "source": "Terrain contour generator with a secondary flow-line layer and a soft noise reveal. All intermediate layers remain separate outputs.",
+    "text": "Terrain en courbes de niveau avec lignes de flux secondaires et révélation par bruit doux. Les couches intermédiaires restent disponibles séparément."
+  },
+  "Creative Worn Screen Print": {
+    "source": "Halftone colored ink, irregular spread and mask-controlled missing ink over procedural paper. Outputs include transparent ink for reuse.",
+    "text": "Encre tramée colorée, diffusion irrégulière et usure masquée sur papier procédural. Une sortie fournit l'encre transparente réutilisable."
+  },
+  "Fondu AB": {
+    "source": "Mélange deux images (et un masque optionnel) avec un facteur réglable sur le nœud.",
+    "text": "Mélange deux images (et un masque optionnel) avec un facteur réglable sur le nœud."
+  },
+  "Game Art Four Color Recolor": {
+    "source": "Map visible pixels to the nearest of four exposed palette colors, with optional ordered dither and strength. RGB distance is evaluated in display space. Palette alpha can intentionally fade a mapped color.",
+    "text": "Associe les pixels visibles à la plus proche de quatre couleurs en espace d'affichage, avec tramage et force. L'alpha de palette peut atténuer volontairement une couleur."
+  },
+  "Game Art Hit Flash Export": {
+    "source": "Export Hit Flash Variants bakes and exports one PNG for each flash strength in the input array. Default strengths are 0, 0.35, 0.65 and 1. Filenames use array indices. Preserves sprite alpha. Output and Flash Strength variable retain the last variant.",
+    "text": "Cuit et exporte un PNG par force de flash du tableau, par défaut 0, 0.35, 0.65 et 1. Les noms utilisent les indices. Préserve l'alpha ; la dernière variante reste dans la sortie et la variable."
+  },
+  "Game Art Outline and Shadow": {
+    "source": "Add an integer-width outline and pixel-aligned drop shadow to a transparent sprite. Separate shadow color and offset are exposed. Keep transparent document padding to avoid clipping the outline or shadow.",
+    "text": "Contour d'épaisseur entière et ombre alignée sur les pixels pour un sprite transparent. Couleur/décalage sont exposés. Gardez des marges pour éviter la coupe."
+  },
+  "Game Art Pixel Sprite Pipeline": {
+    "source": "Sample an integer pixel grid, apply a four-color palette with ordered dither, then add an outline. Outputs pixel sprite, outlined sprite and checker preview. This changes appearance without resizing the document; leave transparent padding around the sprite.",
+    "text": "Échantillonne une grille entière, applique quatre couleurs et un tramage ordonné, puis un contour. Sorties sprite, contour et damier. Change l'apparence sans redimensionner ; prévoyez des marges."
+  },
+  "Game Art Sprite States": {
+    "source": "Prepare live original, hit-flash, silhouette and outline states from one sprite. These are separate image outputs, not an animation timeline. Colors and flash strength are exposed.",
+    "text": "États directs original, flash, silhouette et contour depuis un sprite. Ce sont des images séparées, pas une chronologie d'animation. Couleurs et force sont exposées."
+  },
+  "Game Art Transparency Inspection": {
+    "source": "Preview a sprite over checker, light and dark backgrounds and extract its exact alpha as linear coverage. Preview backgrounds are composited with normal source-over; the source sprite remains a separate output.",
+    "text": "Examine un sprite sur damier, fond clair et sombre, et extrait son alpha exact comme couverture linéaire. Le sprite original reste séparé."
+  },
+  "Graph Effects Color Wash": {
+    "source": "Linear color wash with optional luminance preservation and original alpha. Optional mask defaults to full coverage; Strength blends against the original in premultiplied linear light. The underlying effect carries its editable native-node visual graph.",
+    "text": "Voile coloré linéaire avec préservation optionnelle de luminance et alpha. Masque non branché = couverture totale ; Strength mélange en linéaire prémultiplié. Le shader conserve son graphe visuel."
+  },
+  "Graph Effects Directional Relief": {
+    "source": "Directional luminance relief from offset samples, preserving source alpha and float-range detail. Optional mask defaults to full coverage; Strength blends against the original in premultiplied linear light. The underlying effect carries its editable native-node visual graph.",
+    "text": "Relief directionnel par différences de luminance décalées, avec alpha et plage flottante préservés. Masque optionnel complet, mélange linéaire prémultiplié et graphe shader éditable."
+  },
+  "Graph Effects Dithered Posterize": {
+    "source": "Perceptual RGB quantization with deterministic pixel dithering and original alpha. Optional mask defaults to full coverage; Strength blends against the original in premultiplied linear light. The underlying effect carries its editable native-node visual graph.",
+    "text": "Quantification perceptuelle RVB avec tramage déterministe et alpha préservé. Masque optionnel complet, force en linéaire prémultiplié et graphe shader éditable."
+  },
+  "Graph Effects Gradient Map": {
+    "source": "Two-color perceptual luminance mapping with curve and strength, preserving source alpha. Optional mask defaults to full coverage; Strength blends against the original in premultiplied linear light. The underlying effect carries its editable native-node visual graph.",
+    "text": "Remappage de luminance entre deux couleurs, courbe et force, alpha préservé. Masque optionnel complet et mélange linéaire prémultiplié. Le shader garde son graphe."
+  },
+  "Graph Effects Graphic Color Stack": {
+    "source": "Editable main graph chaining perceptual levels, dithered RGB posterization and a two-color gradient map. Strength and optional mask mix the full stack with the original; intermediate stages are separate outputs.",
+    "text": "Assemble niveaux perceptuels, postérisation tramée et dégradé bicolore. Force/masque mélangent avec l'original ; les étapes restent des sorties séparées."
+  },
+  "Graph Effects Perceptual Levels": {
+    "source": "Display-space levels and gamma with source alpha preservation and strength. Optional mask defaults to full coverage; Strength blends against the original in premultiplied linear light. The underlying effect carries its editable native-node visual graph.",
+    "text": "Niveaux et gamma en espace d'affichage, alpha préservé. Masque optionnel complet, force en linéaire prémultiplié et graphe shader éditable."
+  },
+  "Graph Effects RGB Channel Shift": {
+    "source": "Opposing red/blue sampling offsets with central green and alpha; boundaries clamp. Optional mask defaults to full coverage; Strength blends against the original in premultiplied linear light. The underlying effect carries its editable native-node visual graph.",
+    "text": "Décale rouge/bleu en sens opposés avec vert/alpha centraux ; les limites sont bloquées au bord. Masque optionnel complet et mélange prémultiplié. Graphe shader éditable."
+  },
+  "Graph Effects Soft Luminance Mask": {
+    "source": "Bright-pixel selection into opaque linear coverage, including source alpha once. Output RGB is linear mask coverage with opaque alpha. The underlying effect carries its editable native-node visual graph.",
+    "text": "Sélection lumineuse en couverture linéaire opaque, en tenant compte de l'alpha source une seule fois. Le shader conserve son graphe visuel."
+  },
+  "Graph Effects Wave Warp": {
+    "source": "Pixel-scale sinusoidal image displacement with direction and phase; boundaries clamp. Optional mask defaults to full coverage; Strength blends against the original in premultiplied linear light. The underlying effect carries its editable native-node visual graph.",
+    "text": "Déplacement sinusoïdal en pixels, direction et phase, avec bords bloqués. Masque optionnel complet, force prémultipliée et graphe shader éditable."
+  },
+  "Graph Layers Dot Grid": {
+    "source": "Repeating antialiased dots in document pixels with phase and transparent background. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+    "text": "Points répétés anticrénelés en pixels, phase et fond transparent. Sans image d'entrée ; autres réglages exposés et graphe shader éditable."
+  },
+  "Graph Layers Glow Disc": {
+    "source": "Soft radial colored disc on transparency, with center, pixel radius and falloff. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+    "text": "Disque coloré radial doux sur transparence, centre, rayon en pixels et atténuation. Sans entrée image ; réglages exposés et graphe éditable."
+  },
+  "Graph Layers Glowing Panel": {
+    "source": "Rounded panel generator with adjustable border and Gaussian glow behind it. Face and bordered face remain separate outputs. Half Size is in pixels; leave document padding for border and glow.",
+    "text": "Panneau arrondi avec bordure et lueur gaussienne. Face et face bordée restent séparées. Half Size est en pixels ; gardez des marges pour la lueur."
+  },
+  "Graph Layers Gradient": {
+    "source": "Aspect-aware directional color and alpha gradient, assembled from native graph nodes. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+    "text": "Dégradé directionnel couleur/alpha respectant les proportions. Sans entrée image ; contrôles exposés et graphe visuel de nœuds natifs."
+  },
+  "Graph Layers Patterned Background": {
+    "source": "Editable main-graph assembly of aspect-aware gradient, soft noise and transparent dot layer. Outputs expose each layer separately. Each generator also contains its native-node visual graph.",
+    "text": "Assemble dégradé respectant les proportions, bruit doux et points transparents. Chaque couche reste une sortie ; chaque générateur garde son graphe natif."
+  },
+  "Graph Layers Rings": {
+    "source": "Concentric pixel-scale rings with transparent background and native-node distance controls. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+    "text": "Anneaux concentriques en pixels sur transparence, avec distance calculée en nœuds natifs. Sans entrée image ; réglages exposés et graphe éditable."
+  },
+  "Graph Layers Rounded Panel": {
+    "source": "Native-node rounded rectangle signed distance with pixel dimensions and transparent edges. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+    "text": "Distance signée d'un rectangle arrondi en nœuds natifs, dimensions en pixels et bords transparents. Sans entrée image ; réglages exposés."
+  },
+  "Graph Layers Soft Noise": {
+    "source": "Smooth deterministic value noise with pixel scale, offset, color ramp and contrast. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+    "text": "Bruit de valeur lisse déterministe avec échelle en pixels, décalage, rampe de couleur et contraste. Sans entrée image ; réglages exposés et graphe éditable."
+  },
+  "Graph Layers Stripes": {
+    "source": "Rotatable pixel-scale stripes with coverage and phase, assembled from native nodes. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+    "text": "Rayures orientables en pixels avec couverture et phase, en nœuds natifs. Sans entrée image ; réglages exposés."
+  },
+  "Graph Layers Textured Stripes": {
+    "source": "Graph assembly blending stripe and value-noise layers, then adding directional relief. Separate stripe and noise outputs remain accessible. Artistic surface pattern; not a physically calibrated PBR material.",
+    "text": "Mélange rayures et bruit puis relief directionnel ; sorties rayures/bruit séparées. Motif artistique, sans étalonnage PBR physique."
+  },
+  "Graph Layers Woven Pattern": {
+    "source": "Alternating woven tiles with cosine thread shading, created entirely with native nodes. No image input is required. All remaining controls are exposed as variables; the underlying effect carries its editable visual graph.",
+    "text": "Tissage alterné avec ombrage cosinus des fils, en nœuds natifs. Sans entrée image ; réglages exposés et graphe éditable."
+  },
+  "Logo Chrome and Bevel": {
+    "source": "Procedural metallic reflection bands, alpha-based bevel and dark outline. Reflection coordinates span the document; phase shifts the highlight. Transparent input supplies the shape.",
+    "text": "Bandes de réflexion métalliques procédurales, biseau selon l'alpha et contour sombre. Les réflexions couvrent le document ; la phase déplace la lumière. L'alpha source fournit la forme."
+  },
+  "Logo Chrome PNG Export": {
+    "source": "Bake the chrome-and-bevel logo and export one transparent PNG at document resolution. The baked output is retained until results are cleared. Existing output filenames may be overwritten.",
+    "text": "Cuit le logo chromé/biseauté et exporte un PNG transparent à la taille du document. Le résultat reste conservé jusqu'à effacement. Un fichier existant peut être remplacé."
+  },
+  "Logo Embossed Badge": {
+    "source": "Gradient face, directional alpha bevel and soft offset shadow. The input alpha defines the badge or text; this preset does not create glyphs or geometry.",
+    "text": "Face en dégradé, biseau directionnel selon l'alpha et ombre douce. L'alpha d'entrée définit badge/texte ; aucun glyphe ou géométrie n'est créé."
+  },
+  "Logo Gradient Extrusion": {
+    "source": "Gradient fill, alpha-based bevel and long extrusion behind a transparent logo or rasterized text. Colors preserve original face alpha. Leave document padding for the extrusion.",
+    "text": "Dégradé, biseau alpha et extrusion longue derrière un logo/texte transparent. L'alpha de face est préservé ; gardez des marges pour l'extrusion."
+  },
+  "Logo Neon Glow": {
+    "source": "Bright face and colored soft tube outline with Gaussian glow behind the logo. Transparent alpha is required for the silhouette. Leave padding of about three glow radii; radius zero disables glow.",
+    "text": "Face lumineuse et contour de tube coloré avec lueur gaussienne. Nécessite une silhouette transparente. Prévoyez environ trois rayons de marge ; zéro désactive la lueur."
+  },
+  "Logo Sticker Border": {
+    "source": "Two nested square outlines preserving soft alpha, followed by a drop shadow. Supports rasterized text, logos and cutouts; leave document padding for borders and shadow.",
+    "text": "Deux contours carrés imbriqués préservant l'alpha doux, puis ombre portée. Pour texte rastérisé, logo ou découpe ; prévoyez les marges."
+  },
+  "Masks Alpha Extraction and Cleanup": {
+    "source": "Extract exact image alpha as opaque linear coverage, optionally expand/contract and feather it, then replace image alpha with the cleaned matte. Transparent source RGB cannot be reconstructed. Defaults preserve existing alpha exactly.",
+    "text": "Extrait l'alpha exact comme couverture opaque, ajuste expansion/contraction et flou puis remplace l'alpha. Ne reconstruit pas le RVB absent. Par défaut conserve exactement l'alpha."
+  },
+  "Masks Color Key and Despill": {
+    "source": "Select a background color, invert it into foreground coverage, optionally contract/feather the matte, apply alpha and suppress spill. This is a color key, not semantic background removal. Outputs cutout, matte and checker preview.",
+    "text": "Sélectionne une couleur de fond, inverse en couverture de premier plan, affine le masque et supprime la contamination. Détourage colorimétrique, sans sémantique. Sorties découpe, masque et damier."
+  },
+  "Masks Composite with Matte": {
+    "source": "Refine a required linear coverage matte, multiply foreground alpha by it, then composite over the background using normal source-over. Outputs composite, isolated foreground and refined matte. Connect a white matte to retain the complete foreground.",
+    "text": "Affine un masque linéaire obligatoire, multiplie l'alpha du premier plan puis compose sur le fond. Sorties composition, premier plan isolé et masque. Un masque blanc conserve tout le premier plan."
+  },
+  "Masks Imported Matte to Coverage": {
+    "source": "Convert a numeric grayscale or channel PNG imported through Shaderixel color-image import into linear mask coverage. This compensates sRGB decoding so a PNG byte value 128 becomes about 0.5 coverage. Alpha is always read directly. Do not enable PNG decoding for an existing linear coverage mask.",
+    "text": "Convertit un PNG numérique importé comme couleur en couverture linéaire. Compense le décodage sRGB : l'octet 128 devient environ 0.5. L'alpha se lit directement. Désactivez ce décodage pour un masque déjà linéaire."
+  },
+  "Masks Luminance Selection": {
+    "source": "Select a perceptual luminance band and output its linear coverage plus the masked image. Useful for shadows, highlights and selective effects. Generated masks respect source alpha once; cutout replaces alpha with the resulting coverage.",
+    "text": "Sélectionne une bande de luminance perceptuelle ; sort couverture linéaire et image masquée. L'alpha source n'est appliqué qu'une fois ; la découpe remplace l'alpha par cette couverture."
+  },
+  "Masks Matte Cleanup": {
+    "source": "Expand or contract a linear coverage mask, then feather and remap levels. Outputs refined coverage and its inverse. For imported numeric grayscale PNG masks, convert first with Masks Imported Matte to Coverage.",
+    "text": "Étend/réduit un masque linéaire, adoucit puis remappe les niveaux. Sorties masque affiné et inverse. Convertissez d'abord un PNG numérique avec Masks Imported Matte to Coverage."
+  },
+  "Netteté réglable": {
+    "source": "Netteté (masque flou) dont le gain est une entrée Float du nœud.",
+    "text": "Netteté (masque flou) dont le gain est une entrée Float du nœud."
+  },
+  "Ombre colorée": {
+    "source": "Ombre portée dont la couleur et la distance sont des entrées du nœud.",
+    "text": "Ombre portée dont la couleur et la distance sont des entrées du nœud."
+  },
+  "PBR Channel Packing": {
+    "source": "Pack occlusion, roughness and metalness into ORM, RMA or MRA. Optional height in alpha makes the map appear transparent. Missing inputs use occlusion 1, adjustable roughness and adjustable metalness.",
+    "text": "Empaquette occlusion, rugosité et métallicité en ORM, RMA ou MRA. La hauteur optionnelle en alpha rend l'aperçu transparent. Entrées absentes : occlusion 1, rugosité/métallicité réglables."
+  },
+  "PBR Data Map Adjustment": {
+    "source": "Adjust levels and curve for a channel: height, depth, roughness, occlusion or metalness mask. Also extract channels from packed maps. Output is opaque grayscale.",
+    "text": "Niveaux et courbe pour hauteur, profondeur, rugosité, occlusion ou métallicité. Extrait aussi les canaux empaquetés. Sortie grise opaque."
+  },
+  "PBR Height to Surface Maps": {
+    "source": "Convert a grayscale height or depth map into adjusted height, OpenGL or DirectX normals, estimated occlusion and signed curvature. Map values correspond to the imported/exported PNG values.",
+    "text": "Transforme hauteur/profondeur en hauteur ajustée, normales OpenGL/DirectX, occlusion estimée et courbure signée. Les valeurs suivent le PNG numérique importé/exporté."
+  },
+  "PBR Normal Blend and Conversion": {
+    "source": "Blend two normal maps using the same convention with reorientation, optional mask and detail strength. Flip output green to convert OpenGL / DirectX. PNG data maps; avoid color adjustments on normals.",
+    "text": "Mélange deux normales de même convention par réorientation, masque et force de détail. Inverser le vert convertit OpenGL/DirectX. Évitez les réglages couleur sur ces données."
+  },
+  "PBR Photo to Maps and PNG Export": {
+    "source": "Extract and Export estimates, bakes and exports albedo, height, normals, occlusion, roughness, manual metalness and ORM. File prefix without extension. PNG is 8-bit; disable sRGB for data maps in the 3D engine. For precise height, use a 16-bit document export that keeps sRGB encoding.",
+    "text": "Estime, cuit et exporte albédo, hauteur, normales, occlusion, rugosité, métallicité manuelle et ORM. Préfixe sans extension ; PNG 8 bits. Dans le moteur, désactivez sRGB pour les données. Pour la hauteur précise, préférez un export 16 bits conservant l'encodage adapté."
+  },
+  "PBR Photo to Maps": {
+    "source": "Estimate seven maps from a photo: albedo, height, normals, occlusion, roughness, manually chosen metalness and ORM. Shading and color can be confused with surface relief. Data maps preserve numeric values through Shaderixel sRGB PNG export; disable sRGB in the 3D engine for all maps except albedo.",
+    "text": "Estime sept cartes depuis une photo : albédo, hauteur, normales, occlusion, rugosité, métallicité choisie et ORM. Couleur/éclairage peuvent se confondre avec le relief. Le PNG préserve les valeurs numériques ; désactivez sRGB dans le moteur sauf pour l'albédo."
+  },
+  "PBR Procedural Microrelief": {
+    "source": "Generate periodic multi-octave height, normals and occlusion. Seed and density are exposed. No source image required. Height is tileable; normal derivatives use clamped document edges.",
+    "text": "Hauteur périodique multi-octaves, normales et occlusion ; graine/densité exposées, sans image source. La hauteur se répète ; les dérivées des normales bloquent les bords."
+  },
+  "PBR Roughness and Glossiness": {
+    "source": "Estimate roughness from photo detail and luminance, then output complementary glossiness. Base roughness remains an artistic and physical choice.",
+    "text": "Estime la rugosité depuis détail/luminance et fournit son complément brillant. La base reste un choix artistique et physique."
+  },
+  "Photo Essentials Develop": {
+    "source": "White balance, exposure, shadows/highlights, vibrance, local contrast and light sharpening with optional coverage mask. Strength crossfades against the original in linear light. Tonal controls do not reconstruct clipped source detail.",
+    "text": "Balance des blancs, exposition, ombres/lumières, vibrance, contraste local et netteté légère avec masque. Strength mélange en linéaire ; ne restaure pas les détails écrêtés."
+  },
+  "Photo Essentials Exposure Bracket Export": {
+    "source": "Export Exposure Bracket bakes and saves one PNG for each exposure offset in the input array. Default offsets are -1, 0 and +1 stops. Filenames use array indices. The output keeps the last baked variant; the Exposure Offset variable ends at the last value.",
+    "text": "Cuit et exporte un PNG par décalage du tableau, par défaut -1, 0 et +1 diaphragme. Les noms utilisent les indices ; sortie et variable gardent la dernière variante."
+  },
+  "Photo Essentials Grain and Vignette": {
+    "source": "Add deterministic grain and an aspect-aware vignette with optional coverage mask. A fixed seed keeps the grain stable while editing.",
+    "text": "Grain déterministe et vignette respectant les proportions, avec masque optionnel. La graine fixe stabilise le grain pendant l'édition."
+  },
+  "Photo Essentials Local Contrast and Sharpen": {
+    "source": "Combine midtone local contrast and fine sharpening with optional coverage mask. Separate radii let you enhance structure without using the same scale for fine detail.",
+    "text": "Contraste local des tons moyens et netteté fine avec masque. Des rayons distincts séparent structure et petits détails."
+  },
+  "Photo Essentials Shadows and Highlights": {
+    "source": "Adjust shadows and highlights with optional mask. Also output shadow/highlight selection masks as linear coverage for subsequent selective processing. No reconstruction of clipped detail.",
+    "text": "Règle ombres/lumières et fournit leurs masques en couverture linéaire pour d'autres traitements. Ne reconstruit pas les détails écrêtés."
+  },
+  "Photo Essentials Split Tone Look": {
+    "source": "Apply independently colored shadows and highlights, then optional grain and vignette. An optional coverage mask and overall strength control the complete look.",
+    "text": "Teintes indépendantes des ombres/lumières, grain et vignette optionnels. Masque et force règlent l'ensemble."
+  },
+  "Print Artwork on Aged Paper": {
+    "source": "Multiply artwork onto deterministic paper with fine grain, fibers and broad mottling. White artwork acts as unprinted paper; output includes paper alpha.",
+    "text": "Multiplie un dessin sur papier déterministe à grain, fibres et marbrures. Le blanc représente le papier non imprimé ; l'alpha du papier est inclus."
+  },
+  "Print Duotone Look": {
+    "source": "Two-color perceptual duotone with adjustable strength and tone curve. Preserves source alpha; fill color alpha is ignored.",
+    "text": "Bichromie perceptuelle avec force et courbe. Alpha source préservé ; alpha des couleurs ignoré."
+  },
+  "Print Halftone Studio": {
+    "source": "Pixel-scale dots, lines or crosshatch with screen angle, ink color, density curve and optional transparent paper. Tone is evaluated per pixel; large dots do not average a cell.",
+    "text": "Points, lignes ou hachures en pixels avec angle, encre, courbe et papier transparent optionnel. Le ton est calculé par pixel, sans moyenne par cellule."
+  },
+  "Print Halftone Variants Export": {
+    "source": "Export one PNG per cell spacing. Default spacings 4, 8 and 12 pixels; suffixes use array indices. The last result and current spacing are retained. Existing output filenames may be overwritten.",
+    "text": "Un PNG par espacement, par défaut 4, 8 et 12 px. Suffixes par indice ; dernier résultat/espacement conservés. Peut remplacer les fichiers existants."
+  },
+  "Print Ink Overprint": {
+    "source": "Alpha-correct multiply for transparent ink plates, with optional linear coverage mask and adjustable opacity. An unconnected mask means full coverage.",
+    "text": "Produit avec alpha correct pour encres transparentes ; masque linéaire et opacité. Sans masque, couverture complète."
+  },
+  "Print Two Ink Risograph": {
+    "source": "Two complementary RGB absorption plates over procedural paper, with optional misregistration. Artistic overprint approximation; no color-managed CMYK separation.",
+    "text": "Deux plaques d'absorption RVB complémentaires sur papier, avec décalage d'impression optionnel. Approximation artistique, sans séparation CMJN colorimétrique."
+  },
+  "Scan Adaptive Ink Extraction": {
+    "source": "Local paper threshold for uneven lighting. Adaptive radius and bias control stroke extraction; use a radius larger than stroke width. Preserves source coverage once.",
+    "text": "Seuil local pour papier éclairé irrégulièrement. Rayon/biais règlent les traits ; utilisez un rayon supérieur à leur largeur. Couverture source appliquée une fois."
+  },
+  "Scan Extract Transparent Ink": {
+    "source": "Clean a paper scan, threshold dark strokes, refine coverage and colorize them on transparency. Additional outputs expose linear coverage and a paper preview. This is tonal extraction, not OCR or vector tracing.",
+    "text": "Nettoie le scan, extrait les traits sombres, affine leur couverture et les colore sur transparence. Sorties masque et papier. Extraction tonale, sans OCR ni vectorisation."
+  },
+  "Scan Line Art PNG Export": {
+    "source": "Clean and extract strokes, then bake and export prefix_ink.png with transparency and prefix_paper.png with procedural paper. Existing output filenames may be overwritten.",
+    "text": "Nettoie/extrait les traits puis cuit prefix_ink.png transparent et prefix_paper.png sur papier procédural. Peut remplacer les fichiers."
+  },
+  "Scan Paper Cleanup": {
+    "source": "Denoise and normalize uneven paper brightness, then remap black and white points. Use a paper radius larger than the strokes; dense dark regions may need lower correction.",
+    "text": "Débruite et normalise le papier puis remappe noir/blanc. Rayon supérieur aux traits ; réduisez la correction dans les grandes zones sombres."
+  },
+  "Scan Photo to Edge Line Art": {
+    "source": "Sobel gradients converted into transparent colored edge strokes, with width and feather controls. Extracts tonal boundaries; does not infer semantic outlines or perform vector tracing.",
+    "text": "Gradients Sobel en traits colorés transparents, avec épaisseur et adoucissement. Limites tonales, sans reconnaissance sémantique ni vectorisation."
+  },
+  "Scan Recolor Transparent Line Art": {
+    "source": "Extract existing alpha, optionally expand or feather it, and replace the ink color. Input must already have transparent paper; opaque scans require ink extraction first.",
+    "text": "Extrait l'alpha existant, l'étend/adoucit puis change la couleur de l'encre. Exige du papier déjà transparent ; extrayez d'abord les scans opaques."
+  },
+  "Textures Cleanup and Albedo": {
+    "source": "Edge-preserving denoise, approximate removal of large-scale lighting variations, then adjustable sharpening. Outputs cleaned photo and corrected albedo.",
+    "text": "Débruitage préservant les contours, retrait approximatif de l'éclairage large puis netteté. Sorties photo nettoyée et albédo corrigé."
+  },
+  "Textures Detail and High Pass": {
+    "source": "Separate high frequencies using Gaussian blur. Outputs adjustable sharpening and a high-pass map centered on gray 0.5. For color textures, not normal renormalization.",
+    "text": "Sépare les hautes fréquences par flou gaussien. Sorties netteté et passe-haut centré sur le gris 0.5. Pour couleur, sans renormalisation des normales."
+  },
+  "Textures Seam Blending and Inspection": {
+    "source": "Blend opposite texture edges, output a wrapped offset for seam inspection and a tiled preview. At strength 1, opposite edge pixels match; patterns may still need retouching. Apply before generating normals.",
+    "text": "Mélange les bords opposés ; sort décalage bouclé et aperçu répété. À force 1, les pixels de bord coïncident ; le motif peut nécessiter des retouches. À faire avant les normales."
+  },
+  "Textures Upscale and Export": {
+    "source": "Upscale and Export uses local bicubic or a ComfyUI AI model, then exports PNG at full enlarged resolution. Graph output is fitted to document size. Scale factor 1 to 8; install the selected model in ComfyUI when AI is enabled.",
+    "text": "Agrandissement bicubique local ou IA ComfyUI, export PNG à pleine résolution et aperçu ajusté au document. Facteur 1 à 8 ; installez le modèle choisi si l'IA est activée."
+  },
+  "UI Toolkit Alpha Feather": {
+    "source": "Refine alpha, derive a distance field, adjust its boundary and extend RGB for sprite export. Distance fields require float32 documents.",
+    "text": "Affine l'alpha, calcule sa distance signée, ajuste le contour et étend le RVB pour le sprite. Exige un document 32 bits flottants."
+  },
+  "UI Toolkit Alpha Grow": {
+    "source": "Refine alpha, derive a distance field, adjust its boundary and extend RGB for sprite export. Distance fields require float32 documents.",
+    "text": "Affine l'alpha, calcule sa distance signée, ajuste le contour et étend le RVB pour le sprite. Exige un document 32 bits flottants."
+  },
+  "UI Toolkit Alpha Remove Matte": {
+    "source": "Remove a specified matte color from partially transparent pixels, then add export padding. Matte removal defaults on in this specialized preset.",
+    "text": "Retire une couleur de matte des pixels partiellement transparents puis ajoute une marge RVB. Le retrait est activé par défaut."
+  },
+  "UI Toolkit Alpha Shrink": {
+    "source": "Refine alpha, derive a distance field, adjust its boundary and extend RGB for sprite export. Distance fields require float32 documents.",
+    "text": "Affine l'alpha, calcule sa distance signée, ajuste le contour et étend le RVB pour le sprite. Exige un document 32 bits flottants."
+  },
+  "UI Toolkit Alpha Sprite Cleanup": {
+    "source": "Refine alpha, derive a distance field, adjust its boundary and extend RGB for sprite export. Distance fields require float32 documents.",
+    "text": "Affine l'alpha, calcule sa distance signée, ajuste le contour et étend le RVB pour le sprite. Exige un document 32 bits flottants."
+  },
+  "UI Toolkit Export Skin Set": {
+    "source": "Export five coordinated PNG files through Export All States. Prefix may contain a directory; output dimensions match the document canvas.",
+    "text": "Exporte cinq PNG coordonnés par Export All States. Le préfixe peut contenir un dossier ; la taille reste celle du canevas."
+  },
+  "UI Toolkit Layout Pixel Art Sampling": {
+    "source": "Quantize source UVs to texel centers or a fractional grid, then sample with nearest filtering. Coverage stays attached to the original field.",
+    "text": "Quantifie les UV aux centres de texels ou à une grille fractionnaire puis échantillonne au plus proche. La couverture reste liée au champ initial."
+  },
+  "UI Toolkit Layout Pixel Snap": {
+    "source": "Value node: quantize widget position and size to an integer or fractional pixel grid. Provide the actual canvas size; outputs remain typed Vec2 values.",
+    "text": "Nœud de valeurs : cale position/taille sur une grille entière ou fractionnaire. Fournissez la taille réelle du canevas ; les sorties restent Vec2."
+  },
+  "UI Toolkit Layout Snapped Widget": {
+    "source": "Compose the typed Layout Pixel Snap value node with widget coordinates, rounded clipping and texture sampling.",
+    "text": "Assemble le nœud de calage, les coordonnées du widget, le masque arrondi et l'échantillonnage."
+  },
+  "UI Toolkit Motion Flow Map": {
+    "source": "Two-phase flow animation inside a rounded widget, with explicit Time and reusable phase UV / blend-weight outputs.",
+    "text": "Animation de flux à deux phases dans un widget arrondi, avec Time explicite et sorties UV/poids réutilisables."
+  },
+  "UI Toolkit Motion Parallax Card": {
+    "source": "Depth-weighted image parallax inside a fixed rounded viewport. Driver Position is an explicit normalized input, not a mouse event.",
+    "text": "Parallaxe pondérée par profondeur dans une zone arrondie fixe. Driver Position est une valeur normalisée explicite, pas un événement souris."
+  },
+  "UI Toolkit Motion Parallax Layers": {
+    "source": "Three image planes share a driver and independent depths. Use transparency in the middle and foreground images to reveal the other planes.",
+    "text": "Trois plans partagent une commande et des profondeurs indépendantes. Les images intermédiaire/avant doivent être transparentes pour révéler les autres."
+  },
+  "UI Toolkit Pattern Chevrons": {
+    "source": "Pixel-sized procedural pattern clipped to a positioned rounded widget. Explicit Time drives offset; pitch remains in widget pixels.",
+    "text": "Motif procédural en pixels découpé dans un widget arrondi positionné. Time pilote le décalage ; le pas reste en pixels du widget."
+  },
+  "UI Toolkit Pattern Crosshairs": {
+    "source": "Pixel-sized procedural pattern clipped to a positioned rounded widget. Explicit Time drives offset; pitch remains in widget pixels.",
+    "text": "Motif procédural en pixels découpé dans un widget arrondi positionné. Time pilote le décalage ; le pas reste en pixels du widget."
+  },
+  "UI Toolkit Pattern Dots": {
+    "source": "Pixel-sized procedural pattern clipped to a positioned rounded widget. Explicit Time drives offset; pitch remains in widget pixels.",
+    "text": "Motif procédural en pixels découpé dans un widget arrondi positionné. Time pilote le décalage ; le pas reste en pixels du widget."
+  },
+  "UI Toolkit Pattern Hatch": {
+    "source": "Pixel-sized procedural pattern clipped to a positioned rounded widget. Explicit Time drives offset; pitch remains in widget pixels.",
+    "text": "Motif procédural en pixels découpé dans un widget arrondi positionné. Time pilote le décalage ; le pas reste en pixels du widget."
+  },
+  "UI Toolkit Pattern Hex Grid": {
+    "source": "Pixel-sized procedural pattern clipped to a positioned rounded widget. Explicit Time drives offset; pitch remains in widget pixels.",
+    "text": "Motif procédural en pixels découpé dans un widget arrondi positionné. Time pilote le décalage ; le pas reste en pixels du widget."
+  },
+  "UI Toolkit Pattern Overlay": {
+    "source": "Animated technical pattern composited over an image, with optional alpha clipping, mask, blend mode and independent opacity.",
+    "text": "Motif technique animé composé sur une image, avec écrêtage alpha optionnel, masque, fusion et opacité indépendants."
+  },
+  "UI Toolkit Pattern Panel Lines": {
+    "source": "Pixel-sized procedural pattern clipped to a positioned rounded widget. Explicit Time drives offset; pitch remains in widget pixels.",
+    "text": "Motif procédural en pixels découpé dans un widget arrondi positionné. Time pilote le décalage ; le pas reste en pixels du widget."
+  },
+  "UI Toolkit Pattern Scanlines": {
+    "source": "Pixel-sized procedural pattern clipped to a positioned rounded widget. Explicit Time drives offset; pitch remains in widget pixels.",
+    "text": "Motif procédural en pixels découpé dans un widget arrondi positionné. Time pilote le décalage ; le pas reste en pixels du widget."
+  },
+  "UI Toolkit Pattern Technical Grid": {
+    "source": "Pixel-sized procedural pattern clipped to a positioned rounded widget. Explicit Time drives offset; pitch remains in widget pixels.",
+    "text": "Motif procédural en pixels découpé dans un widget arrondi positionné. Time pilote le décalage ; le pas reste en pixels du widget."
+  },
+  "UI Toolkit SDF Arrow": {
+    "source": "Procedural shape layer: styled image, reusable signed distance field and fill mask. Sizes and strokes accept fractional pixels.",
+    "text": "Forme procédurale : image stylisée, distance signée réutilisable et masque de remplissage. Dimensions et contours acceptent les fractions de pixel."
+  },
+  "UI Toolkit SDF Boolean Badge": {
+    "source": "Compose two independent shape fields, then style the result. Contour phase stays local to the contributing source boundary.",
+    "text": "Combine deux champs de forme indépendants puis stylise. La phase du contour reste locale à la limite source contributrice."
+  },
+  "UI Toolkit SDF Capsule": {
+    "source": "Procedural shape layer: styled image, reusable signed distance field and fill mask. Sizes and strokes accept fractional pixels.",
+    "text": "Forme procédurale : image stylisée, distance signée réutilisable et masque de remplissage. Dimensions et contours acceptent les fractions de pixel."
+  },
+  "UI Toolkit SDF Circle": {
+    "source": "Procedural shape layer: styled image, reusable signed distance field and fill mask. Sizes and strokes accept fractional pixels.",
+    "text": "Forme procédurale : image stylisée, distance signée réutilisable et masque de remplissage. Dimensions et contours acceptent les fractions de pixel."
+  },
+  "UI Toolkit SDF Dashed Border": {
+    "source": "Contour-following stroke from a connected SDF field, with editable offset, width, phase, alignment and pixel antialiasing.",
+    "text": "Contour suivant un champ SDF connecté, avec décalage, épaisseur, phase, alignement et anticrénelage en pixels."
+  },
+  "UI Toolkit SDF Dotted Border": {
+    "source": "Contour-following stroke from a connected SDF field, with editable offset, width, phase, alignment and pixel antialiasing.",
+    "text": "Contour suivant un champ SDF connecté, avec décalage, épaisseur, phase, alignement et anticrénelage en pixels."
+  },
+  "UI Toolkit SDF Double Border": {
+    "source": "Contour-following stroke from a connected SDF field, with editable offset, width, phase, alignment and pixel antialiasing.",
+    "text": "Contour suivant un champ SDF connecté, avec décalage, épaisseur, phase, alignement et anticrénelage en pixels."
+  },
+  "UI Toolkit SDF Polygon": {
+    "source": "Procedural shape layer: styled image, reusable signed distance field and fill mask. Sizes and strokes accept fractional pixels.",
+    "text": "Forme procédurale : image stylisée, distance signée réutilisable et masque de remplissage. Dimensions et contours acceptent les fractions de pixel."
+  },
+  "UI Toolkit SDF Rounded Panel": {
+    "source": "Procedural shape layer: styled image, reusable signed distance field and fill mask. Sizes and strokes accept fractional pixels.",
+    "text": "Forme procédurale : image stylisée, distance signée réutilisable et masque de remplissage. Dimensions et contours acceptent les fractions de pixel."
+  },
+  "UI Toolkit SDF Smooth Union": {
+    "source": "Compose two independent shape fields, then style the result. Contour phase stays local to the contributing source boundary.",
+    "text": "Combine deux champs de forme indépendants puis stylise. La phase du contour reste locale à la limite source contributrice."
+  },
+  "UI Toolkit SDF Star": {
+    "source": "Procedural shape layer: styled image, reusable signed distance field and fill mask. Sizes and strokes accept fractional pixels.",
+    "text": "Forme procédurale : image stylisée, distance signée réutilisable et masque de remplissage. Dimensions et contours acceptent les fractions de pixel."
+  },
+  "UI Toolkit SDF Triangle": {
+    "source": "Procedural shape layer: styled image, reusable signed distance field and fill mask. Sizes and strokes accept fractional pixels.",
+    "text": "Forme procédurale : image stylisée, distance signée réutilisable et masque de remplissage. Dimensions et contours acceptent les fractions de pixel."
+  },
+  "UI Toolkit Skin Image Variants": {
+    "source": "Coordinated Normal, Hover, Pressed, Disabled and Selected outputs. Style variables are shared; states are data and do not register UI interaction events.",
+    "text": "Sorties coordonnées Normal, Hover, Pressed, Disabled et Selected. Variables de style partagées ; les états sont des données, pas des événements d'interface."
+  },
+  "UI Toolkit Skin SDF Variants": {
+    "source": "Coordinated Normal, Hover, Pressed, Disabled and Selected outputs. Style variables are shared; states are data and do not register UI interaction events.",
+    "text": "Sorties coordonnées Normal, Hover, Pressed, Disabled et Selected. Variables de style partagées ; les états sont des données, pas des événements d'interface."
+  },
+  "UI Toolkit Transition Crossfade": {
+    "source": "Two-image transition inside a fixed viewport, with exact Progress 0 / 1 endpoints, optional region mask and a transition-mask output.",
+    "text": "Transition de deux images dans une zone fixe, progression 0/1 exacte, masque de région optionnel et sortie de masque de transition."
+  },
+  "UI Toolkit Transition Dissolve": {
+    "source": "Two-image transition inside a fixed viewport, with exact Progress 0 / 1 endpoints, optional region mask and a transition-mask output.",
+    "text": "Transition de deux images dans une zone fixe, progression 0/1 exacte, masque de région optionnel et sortie de masque de transition."
+  },
+  "UI Toolkit Transition Iris": {
+    "source": "Two-image transition inside a fixed viewport, with exact Progress 0 / 1 endpoints, optional region mask and a transition-mask output.",
+    "text": "Transition de deux images dans une zone fixe, progression 0/1 exacte, masque de région optionnel et sortie de masque de transition."
+  },
+  "UI Toolkit Transition Slide": {
+    "source": "Two-image transition inside a fixed viewport, with exact Progress 0 / 1 endpoints, optional region mask and a transition-mask output.",
+    "text": "Transition de deux images dans une zone fixe, progression 0/1 exacte, masque de région optionnel et sortie de masque de transition."
+  },
+  "UI Toolkit Transition Wipe": {
+    "source": "Two-image transition inside a fixed viewport, with exact Progress 0 / 1 endpoints, optional region mask and a transition-mask output.",
+    "text": "Transition de deux images dans une zone fixe, progression 0/1 exacte, masque de région optionnel et sortie de masque de transition."
+  },
+  "UI Toolkit Transition Zoom": {
+    "source": "Two-image transition inside a fixed viewport, with exact Progress 0 / 1 endpoints, optional region mask and a transition-mask output.",
+    "text": "Transition de deux images dans une zone fixe, progression 0/1 exacte, masque de région optionnel et sortie de masque de transition."
+  },
+  "UI UV Atlas Icon": {
+    "source": "Extract a padded atlas cell into a rounded, pixel-sized icon; frame indexing is zero based.",
+    "text": "Extrait une cellule d'atlas avec marge dans une icône arrondie en pixels. Les indices commencent à zéro."
+  },
+  "UI UV Atlas Nine Slice": {
+    "source": "Nine-slice a selected atlas cell. Set logical source size to the cell pixel dimensions; source margins belong to that cell.",
+    "text": "Nine-slice d'une cellule d'atlas. Réglez la taille logique aux dimensions de cellule ; les marges appartiennent à celle-ci."
+  },
+  "UI UV Bake Skin PNG": {
+    "source": "Bake and export a sliced UI skin through the Export PNG button. Exports the document canvas; match canvas and widget dimensions for tight export.",
+    "text": "Cuit et exporte un skin découpé via Export PNG. Exporte le canevas entier ; adaptez document et widget pour un export serré."
+  },
+  "UI UV Displaced Image": {
+    "source": "Rounded viewport, masked RG displacement, explicit addressing and a single final image lookup.",
+    "text": "Zone arrondie, déplacement RG masqué, adressage explicite puis une seule lecture finale de l'image."
+  },
+  "UI UV Eight Slice Border": {
+    "source": "Cap-preserving UI skin with independent edge and center modes. Image + UV Map + Coverage outputs; all sizes accept decimals.",
+    "text": "Skin préservant les coins, modes bords/centre indépendants. Sorties Image, UV Map et Coverage ; dimensions décimales acceptées."
+  },
+  "UI UV Flipbook Sprite": {
+    "source": "Time (seconds) multiplied by FPS drives a constrained sprite-sheet animation. Time is explicit, not an internal clock.",
+    "text": "Time en secondes multiplié par FPS pilote l'atlas d'animation borné. Le temps est explicite, pas une horloge interne."
+  },
+  "UI UV Image Fit": {
+    "source": "Contain, cover or stretch an image inside a positioned, independently sized rounded widget.",
+    "text": "Contient, couvre ou étire l'image dans un widget arrondi de position/taille indépendantes."
+  },
+  "UI UV Nine Slice Panel": {
+    "source": "Cap-preserving UI skin with independent edge and center modes. Image + UV Map + Coverage outputs; all sizes accept decimals.",
+    "text": "Skin préservant les coins, modes bords/centre indépendants. Sorties Image, UV Map et Coverage ; dimensions décimales acceptées."
+  },
+  "UI UV Panel Skin States": {
+    "source": "Slice a texture skin once, then derive normal, hover, pressed and disabled image outputs from the shared sample.",
+    "text": "Échantillonne le skin découpé une fois puis produit normal, survol, pressé et désactivé depuis la même source."
+  },
+  "UI UV Perspective Card": {
+    "source": "Perspective-correct four-corner card with continuous hover, pressed and disabled skin controls.",
+    "text": "Carte à quatre coins corrigée en perspective avec contrôles continus de survol, pression et désactivation."
+  },
+  "UI UV Pixel Margin Panel": {
+    "source": "Cap-preserving UI skin with independent edge and center modes. Image + UV Map + Coverage outputs; all sizes accept decimals.",
+    "text": "Skin préservant les coins, modes bords/centre indépendants. Sorties Image, UV Map et Coverage ; dimensions décimales acceptées."
+  },
+  "UI UV Progress Bar": {
+    "source": "Rounded background panel plus textured foreground clipped by progress; the empty track stays visible.",
+    "text": "Fond arrondi et premier plan texturé découpé par la progression ; la piste vide reste visible."
+  },
+  "UI UV Radial Progress": {
+    "source": "Map a texture strip around a ring or arc, then clip angular U by progress. Segments follow the arc; all controls are explicit.",
+    "text": "Enroule une bande sur anneau/arc puis découpe U selon la progression. Les segments suivent l'arc ; tous les réglages sont explicites."
+  },
+  "UI UV Repeated Icons": {
+    "source": "Pixel-sized icon grid with gaps, alternate-row stagger, mirror controls and explicit pixel scrolling.",
+    "text": "Grille d'icônes en pixels avec espaces, décalage des lignes alternées, symétries et défilement explicite."
+  },
+  "UI UV Ring to Strip": {
+    "source": "Unwrap an existing source ring into a positioned rectangular strip, with a rounded output clip.",
+    "text": "Déroule un anneau source en bande rectangulaire positionnée avec masque arrondi."
+  },
+  "UI UV Rounded Image": {
+    "source": "Local widget coordinates, per-corner pixel clipping and one final image sample.",
+    "text": "Coordonnées locales, découpe par coin en pixels et une seule lecture finale de l'image."
+  },
+  "UI UV Scrolling Pattern": {
+    "source": "Scroll and rotate a repeating texture inside a fixed rounded widget. Time is in seconds; UV movement is in cycles.",
+    "text": "Défilement/rotation d'une texture répétée dans un widget fixe. Time est en secondes ; le mouvement UV en cycles."
+  },
+  "UI UV Segmented Progress": {
+    "source": "Rounded background panel plus textured foreground clipped by progress; the empty track stays visible.",
+    "text": "Fond arrondi et premier plan texturé découpé par la progression ; la piste vide reste visible."
+  },
+  "UI UV Styled Button": {
+    "source": "Procedural rounded panel with gradient, border, bevel, shadow, glow and exposed interaction states.",
+    "text": "Panneau arrondi procédural avec dégradé, bordure, biseau, ombre, lueur et états exposés."
+  },
+  "UI UV Three Slice Horizontal": {
+    "source": "Fixed end caps and a stretch, repeat or mirror middle; pixel-sized bars and buttons.",
+    "text": "Extrémités fixes et centre étiré/répété/miroir pour barres et boutons en pixels."
+  },
+  "UI UV Three Slice Vertical": {
+    "source": "Fixed end caps and a stretch, repeat or mirror middle; pixel-sized bars and buttons.",
+    "text": "Extrémités fixes et centre étiré/répété/miroir pour barres et boutons en pixels."
+  },
+  "UI UV Tiled Center Panel": {
+    "source": "Cap-preserving UI skin with independent edge and center modes. Image + UV Map + Coverage outputs; all sizes accept decimals.",
+    "text": "Skin préservant les coins, modes bords/centre indépendants. Sorties Image, UV Map et Coverage ; dimensions décimales acceptées."
+  },
+  "UI UV Transform Stack": {
+    "source": "Composable optional coordinate input, affine transform, independent addressing and one texture lookup. Leave UV Map disconnected for document coordinates.",
+    "text": "Entrée de coordonnées optionnelle, transformation affine, adressage indépendant et un échantillonnage. UV Map vide utilise les coordonnées du document."
+  },
+  "UI UV Wavy Banner": {
+    "source": "A sine-warped image sampled once inside a fixed rounded viewport. Time drives wave phase; amplitudes are pixels.",
+    "text": "Image déformée par sinusoïde puis lue une fois dans une zone arrondie fixe. Time pilote la phase ; amplitudes en pixels."
+  },
+  "Upscale IA x4": {
+    "source": "Bouton « Upscaler » : agrandit l'image x4 avec un modèle d'upscale de ComfyUI (Modèle = fichier de models/upscale_models).",
+    "text": "Bouton « Upscaler » : agrandit l'image x4 avec un modèle d'upscale de ComfyUI (Modèle = fichier de models/upscale_models)."
+  },
+  "Variantes de teinte": {
+    "source": "Bouton « Exporter les variantes » : pour chaque teinte du tableau, règle la variable Teinte et exporte variante_<index>.png.",
+    "text": "Bouton « Exporter les variantes » : pour chaque teinte du tableau, règle la variable Teinte et exporte variante_<index>.png."
+  }
+}
