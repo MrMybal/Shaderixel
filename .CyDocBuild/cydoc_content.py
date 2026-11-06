@@ -323,7 +323,7 @@ def prepare():
     ROUTES.write_text(header(data,mapping),encoding='utf-8')
     CONFIG.write_text(json.dumps(config,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     coverage={'reader':'CyDoc','revision':'6ddf9a582defb2f11fbb3f992afef6f98dcadc93','languages':['en','fr'],'pagesPerLanguage':len(data['en']),
-              'catalogs':{kind:sum(p['kind']==kind for p in data['en']) for kind in {p['kind'] for p in data['en']}},
+              'catalogs':{kind:sum(p['kind']==kind for p in data['en']) for kind in sorted({p['kind'] for p in data['en']})},
               'illustrations':len(media_assets(data)),'practiceDocuments':len(practice_files()),
               'panelsAndDialogs':len(panel_catalog()),'modules':config['modules']}
     (WORK/'internal/coverage.json').write_text(json.dumps(coverage,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')

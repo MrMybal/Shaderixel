@@ -9,6 +9,7 @@ import image from 'cydoc/modules/image';
 import gallery from 'cydoc/modules/gallery';
 import graph from 'cydoc/modules/graph';
 import { bindDownloads } from './resources.mjs';
+import { createRouteMediaFocus } from './media_route.mjs';
 
 const data=JSON.parse(await readFile(new URL('../Documentation/DocData/manifest.json',import.meta.url),'utf8'));
 const resources=JSON.parse(await readFile(new URL('.cache/resources.json',import.meta.url),'utf8'));
@@ -25,6 +26,19 @@ function fixture(t) {
   return {window,host,dispose:fn=>disposals.push(fn),context:{locale:'en',storageKey:'shaderixel-fixture',signal:abort.signal,assetUrl:src=>'DocData/'+src}};
 }
 const settle=()=>new Promise(resolve=>setImmediate(resolve));
+
+test('a media route focuses after lazy mount and preserves subsequent user scrolling',async t=>{
+  const {host,window,dispose}=fixture(t);const focus=createRouteMediaFocus(host);dispose(()=>focus.destroy());
+  const target=window.document.createElement('div');target.dataset.cydocId='function-graph';host.append(target);
+  const calls=[];target.scrollIntoView=options=>calls.push(options.block);
+  const route={locale:'en',pageId:'function-ui-uv-nine-slice-panel',anchor:'graph',state:{media:'function-graph'}};
+  focus.update(route);assert.deepEqual(calls,[]);
+  target.className='cy-media cy-graph';focus.update(route);
+  await new Promise(resolve=>window.requestAnimationFrame(resolve));assert.deepEqual(calls,['center']);
+  focus.update(route);await new Promise(resolve=>window.requestAnimationFrame(resolve));assert.equal(calls.length,1);
+  focus.update({locale:'en',pageId:'getting-started'});focus.update(route);
+  focus.destroy();await new Promise(resolve=>window.requestAnimationFrame(resolve));assert.equal(calls.length,1);
+});
 function config(id,module,locale='en') {
   const page=core.resolve(id,locale).page;
   const match=page.html.match(new RegExp('data-cydoc-module="'+module+'"[^>]+data-config="([^"]+)"'));

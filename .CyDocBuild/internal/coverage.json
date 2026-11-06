@@ -8,12 +8,12 @@
   "pagesPerLanguage": 942,
   "catalogs": {
     "Brushes": 53,
-    "Effects": 449,
-    "Nodes": 168,
-    "Functions": 162,
-    "Tools": 46,
     "Commands": 20,
-    "Handbook": 44
+    "Effects": 449,
+    "Functions": 162,
+    "Handbook": 44,
+    "Nodes": 168,
+    "Tools": 46
   },
   "illustrations": 42,
   "practiceDocuments": 6,

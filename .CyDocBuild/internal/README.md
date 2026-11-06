@@ -24,8 +24,9 @@ none of these tools.
 The current public viewer supplies navigation, top search, keyboard/touch media,
 tooltips, themes and reading positions. The small application bootstrap uses
 `mountViewer` and the exported module/packed-asset providers. Its only additions
-are legacy bare-hash handling, F1 suppression and reviewed local project/license
-download links. It is bundled from owned sources with esbuild on each generation.
+are legacy bare-hash handling, F1 suppression, media targeting after lazy mounting
+and reviewed local project/license download links. It is bundled from owned
+sources with esbuild on each generation.
 Do not edit `Documentation/` by hand.
 
 Modules: `image` for the 42 bilingual illustrations, `gallery` plus its image

@@ -2,6 +2,7 @@
 import { mountViewer } from 'cydoc/viewer';
 import { parseLink } from 'cydoc';
 import { bindDownloads } from './resources.mjs';
+import { createRouteMediaFocus } from './media_route.mjs';
 
 const options=globalThis.CYDOC_OPTIONS;
 const pending=new Map();
@@ -28,12 +29,14 @@ if(location.hash && !location.hash.includes('/')) {
 }
 const root=document.querySelector('#app');
 const reader=mountViewer(root,globalThis.CYDOC_DATA,{homePage:options.homePage,initialTheme:theme||'midnight',storageId:'shaderixel-help',assetBase:'DocData/',modules,loadAsset});
+const mediaFocus=createRouteMediaFocus(root);
 function localDownloads() {
   const route=reader.canonicalRoute(parseLink(location.hash,'en',options.homePage));
   const entries=globalThis.SHADERIXEL_RESOURCES[route.locale+':'+route.pageId]||[];
   bindDownloads(root,entries);
+  mediaFocus.update(route);
 }
 const observer=new MutationObserver(localDownloads);observer.observe(root,{childList:true,subtree:true});localDownloads();
 addEventListener('hashchange',localDownloads);
 addEventListener('keydown',event=>{if(event.key==='F1')event.preventDefault();});
-addEventListener('pagehide',event=>{if(!event.persisted){observer.disconnect();reader.destroy();}});
+addEventListener('pagehide',event=>{if(!event.persisted){observer.disconnect();mediaFocus.destroy();reader.destroy();}});
