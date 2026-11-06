@@ -1,0 +1,8 @@
+/DocumentationNative/
+/BrowserChecks/
+/DistributionChecks/
+*.log
+*-results.json
+*-inventory.json
+/label-terms.json
+/missing-label-terms.json

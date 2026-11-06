@@ -1,0 +1,15 @@
+{
+  "name": "shaderixel-documentation-build",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "cydoc": "file:.cache/packages/cydoc-0.1.0.tgz"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12",
+    "happy-dom": "21.0.4"
+  }
+}

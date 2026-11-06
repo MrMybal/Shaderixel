@@ -1,0 +1,48 @@
+---
+id: workspace
+title: Workspace and navigation
+description: The canvas displays the document result.
+section: Handbook
+order: 1
+parent: getting-started
+revision: c59728de2eab8d0c
+---
+
+The canvas displays the document result. Layers describes the stack; Graph shows image connections. Properties edits the selected layer or node. Effects contains filters and generators, and Blend contains blending controls. Effect Editor builds effect internals in a separate graph.
+
+## Find and arrange panels {#find-and-arrange-panels}
+
+Use Window to show panels. The right column groups General, Tools, Effects, Blend, Painting, 3D and AI. Alt+1 through Alt+7 selects these groups. Tab hides or restores the bottom area; Shift+Tab does the same for the right column when no text field is being edited.
+
+Panels can be docked, moved into extra windows and saved with the workspace controls. F11 expands the hovered panel into its own window. If a panel appears missing, check Window and restore the workspace layout before changing the document.
+
+## Inspect the image {#inspect-the-image}
+
+Ctrl+0 fits the image to the canvas. Ctrl+1 shows 100% zoom. Use Hand (H) or hold Space to pan while not typing. Zooming does not change exported dimensions.
+
+View > View Mode switches between the final composite, the selected layer alone and the result up to that layer. Return to Final Image before judging the complete composition.
+
+## Controls and language {#controls-and-language}
+
+Most panels have a filter field; Ctrl+F focuses it when that panel supports filtering. Clear it when controls seem to disappear.
+
+Double-click a numeric slider or drag field, or Ctrl+click it, to type. Enter confirms, Escape cancels and Tab moves on. Decimal controls accept a dot or comma. Integer controls remain integers. Disabled controls cannot be edited.
+
+View > Language changes the interface language; English is the default on a fresh installation. This handbook uses English labels.
+
+F1 opens help for the focused panel or selected graph node. Properties > Selection help and a graph node's context menu open the same reference. Use Help > Documentation to reopen the local manual, the CyDoc page outline to jump between sections, and browser zoom to enlarge the article without changing the editor scale.
+
+With Canvas, 3D View, the toolbar or Options focused, F1 opens the active tool's individual reference. Options > Tool help and Help > Tool reference provide direct access as well.
+
+[Numeric values and dimensions](doc:dimensions)
+[Keyboard shortcuts](doc:shortcuts)
+[Tool reference and editing commands](doc:tools)
+
+
+## Compare the workspaces {#workspace-gallery}
+
+The image graph assembles layers; the effect graph defines a per-pixel calculation. Select a capture to identify the surface you need.
+
+```gallery
+{"id": "workspace-gallery", "title": "Shaderixel workspaces", "controls": "minimal", "items": [{"type": "image", "id": "layers_view", "src": "assets/manual/layers_view_en.png", "title": "Layer workflow", "alt": "Edit the composite and selected layer properties.", "description": "Edit the composite and selected layer properties.", "label": "Layer workflow", "controls": "minimal"}, {"type": "image", "id": "effect_graph", "src": "assets/manual/effect_graph_en.png", "title": "Visual effect graph", "alt": "Build the calculation inside a single effect.", "description": "Build the calculation inside a single effect.", "label": "Visual effect graph", "controls": "minimal"}, {"type": "image", "id": "shader_editor", "src": "assets/manual/shader_editor_en.png", "title": "Shader source editor", "alt": "Edit shader code and its exposed parameters.", "description": "Edit shader code and its exposed parameters.", "label": "Shader source editor", "controls": "minimal"}]}
+```

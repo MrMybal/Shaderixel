@@ -1,0 +1,8 @@
+node_modules/
+.cache/
+__pycache__/
+api/native-*.json
+manual/en/reference-*.md
+manual/fr/reference-*.md
+manual/en/generated-*.md
+manual/fr/generated-*.md

@@ -1,0 +1,14 @@
+[
+  {
+    "code": "en",
+    "name": "English",
+    "directory": "en",
+    "required": true
+  },
+  {
+    "code": "fr",
+    "name": "Français",
+    "directory": "fr",
+    "required": true
+  }
+]

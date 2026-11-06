@@ -100,10 +100,10 @@ std::string App::DocumentationTopic() {
 }
 
 void App::DrawDocumentation() {
-    const auto path=Utf8Path(ExeDir())/"docs/manual/index.html";
+    const auto path=Utf8Path(ExeDir())/"Documentation/Documentation.html";
     if (!documentation.exampleRequest.empty()) {
         const auto id=std::exchange(documentation.exampleRequest,{});
-        const auto example=path.parent_path()/"examples"/(id+".sxl");
+        const auto example=path.parent_path()/"DocData/assets/examples"/(id+".sxl");
         if (ui::ManualPracticeAvailable(id) && std::filesystem::is_regular_file(example) && LoadSxl(Narrow(example.wstring()))) {
             if (auto* view=Active()) {view->doc->path.clear();view->doc->dirty=true;}
             Log("[manual] opened practice copy %s",id.c_str());

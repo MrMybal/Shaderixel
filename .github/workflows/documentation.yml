@@ -26,18 +26,34 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22.17.1'
+      - name: Read the locked CyDoc revision
+        id: cydoc
+        shell: pwsh
+        run: |
+          $dependency = (Get-Content cmake/dependencies.json -Raw | ConvertFrom-Json).cydoc
+          "revision=$($dependency.revision)" >> $env:GITHUB_OUTPUT
+      - name: Check out the documentation dependency
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: MrMybal/CyDoc
+          ref: ${{ steps.cydoc.outputs.revision }}
+          path: .CyDocBuild/.cache/cydoc
+          token: ${{ secrets.CYDOC_READ_TOKEN || github.token }}
+          persist-credentials: false
       - name: Set up locked documentation dependencies
         shell: pwsh
         run: |
           npm install --global npm@11.4.2
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/build_manual.py --bootstrap
+          python .CyDocBuild/build_manual.py --bootstrap
           exit $LASTEXITCODE
       - name: Validate content and local resources
         run: |
-          python tools/build_manual.py --check
+          python .CyDocBuild/build_manual.py --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python tools/test_manual.py
+          python .CyDocBuild/test_manual.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test .CyDocBuild/test_reader_dom.mjs
           exit $LASTEXITCODE
       - name: Set up browser verification
         run: |
@@ -48,10 +64,10 @@ jobs:
       - name: Verify the offline visual reader
         run: |
           $env:NODE_PATH = Join-Path $pwd 'build/pages-tests/node_modules'
-          node tools/test_manual_browser.cjs
+          node .CyDocBuild/test_manual_browser.cjs
           exit $LASTEXITCODE
       - name: Stage the complete export only
-        run: python tools/stage_documentation.py --output build/pages-site
+        run: python .CyDocBuild/stage_documentation.py --output build/pages-site
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: build/pages-site

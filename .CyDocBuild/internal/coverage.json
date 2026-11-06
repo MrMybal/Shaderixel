@@ -1,0 +1,26 @@
+{
+  "reader": "CyDoc",
+  "revision": "6ddf9a582defb2f11fbb3f992afef6f98dcadc93",
+  "languages": [
+    "en",
+    "fr"
+  ],
+  "pagesPerLanguage": 942,
+  "catalogs": {
+    "Brushes": 53,
+    "Effects": 449,
+    "Nodes": 168,
+    "Functions": 162,
+    "Tools": 46,
+    "Commands": 20,
+    "Handbook": 44
+  },
+  "illustrations": 42,
+  "practiceDocuments": 6,
+  "panelsAndDialogs": 68,
+  "modules": [
+    "image",
+    "gallery",
+    "graph"
+  ]
+}

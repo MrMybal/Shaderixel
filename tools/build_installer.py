@@ -11,6 +11,8 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'.CyDocBuild'))
 from build_manual import copy_manual, validate_generated
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,12 +93,6 @@ def main():
     shutil.copy2(ROOT / 'docs/PRESETS.md', stage / 'PRESETS.md')
     copy_manual(stage)
     shutil.copytree(ROOT / 'docs/screenshots', stage / 'docs/screenshots')
-    for guide in ('UI_UV_LIBRARY.md', 'UI_TOOLKIT.md'):
-        target = stage / 'docs' / guide
-        text = (ROOT / 'docs' / guide).read_text(encoding='utf-8')
-        text = text.replace('../library/functions/', '../functions/')
-        text = text.replace('../tools/', 'https://github.com/MrMybal/Shaderixel/blob/v' + args.version + '/tools/')
-        target.write_text(text, encoding='utf-8')
     (stage / 'docs/images').mkdir(parents=True)
     for image in ('ui_uv_library.png', 'ui_toolkit.png'):
         shutil.copy2(ROOT / 'docs/images' / image, stage / 'docs/images' / image)

@@ -1,0 +1,10 @@
+import { build } from 'esbuild';
+import { readFile, writeFile, copyFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+const work=dirname(fileURLToPath(import.meta.url));
+const output=resolve(work,'../Documentation');
+const resources=JSON.parse(await readFile(join(work,'.cache/resources.json'),'utf8'));
+await build({entryPoints:[join(work,'reader.mjs')],bundle:true,format:'iife',minify:true,target:'es2020',outfile:join(output,'DocData/viewer.js'),legalComments:'eof'});
+await writeFile(join(output,'DocData/application-resources.js'),'globalThis.SHADERIXEL_RESOURCES='+JSON.stringify(resources).replaceAll('<','\\u003c')+';\n');
+await copyFile(join(work,'reader.html'),join(output,'Documentation.html'));

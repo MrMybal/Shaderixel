@@ -1,0 +1,3770 @@
+{
+  "getting_started": {
+    "source": "1b867e0fd375fb13",
+    "target": "a031e514f2f6589e"
+  },
+  "workspace": {
+    "source": "c59728de2eab8d0c",
+    "target": "55666c7bbb89d74f"
+  },
+  "documents": {
+    "source": "68f1807994532397",
+    "target": "4887bc6f115bad80"
+  },
+  "layers": {
+    "source": "bd823e511906b3db",
+    "target": "a34ecfd4d0725e8a"
+  },
+  "masks": {
+    "source": "7d0d484943cf6b02",
+    "target": "914a672f4e2b4666"
+  },
+  "painting": {
+    "source": "95ef2bfcca26c7b8",
+    "target": "f80534672bffc18c"
+  },
+  "dimensions": {
+    "source": "52fcb05f9b5152a4",
+    "target": "558bca010d9acf02"
+  },
+  "blending": {
+    "source": "7372ef77f531eeee",
+    "target": "7badaac1091f0251"
+  },
+  "image_graph": {
+    "source": "fec167db155fe163",
+    "target": "01c4267b820bc8c0"
+  },
+  "effect_editor": {
+    "source": "108441099abb1e76",
+    "target": "789f0f4f1a61adbe"
+  },
+  "libraries": {
+    "source": "ac541bb957af6384",
+    "target": "f5b792c794ccb67f"
+  },
+  "pbr": {
+    "source": "f3a2b1d625fa36cc",
+    "target": "9179588f7d6d8533"
+  },
+  "ui_textures": {
+    "source": "0efd2dbf1fc264ca",
+    "target": "73b1382827c592d2"
+  },
+  "paint3d": {
+    "source": "4a1c74328845712d",
+    "target": "05899a125290ba5a"
+  },
+  "ai": {
+    "source": "50d1c6d3a42b1b99",
+    "target": "4132f9b54f7608ed"
+  },
+  "export": {
+    "source": "1d81da314fcf2b2e",
+    "target": "1864b11665f03946"
+  },
+  "automation": {
+    "source": "adb6ec6d49bacb8f",
+    "target": "856499a8476365cf"
+  },
+  "color": {
+    "source": "20f44dcba8abc77c",
+    "target": "b30d7f9d2f8786af"
+  },
+  "layout": {
+    "source": "1ca80db41dc23dba",
+    "target": "50c8d3e97412df08"
+  },
+  "smart_objects": {
+    "source": "39d2045db7712cf9",
+    "target": "dbd2bb12b47642dd"
+  },
+  "photo": {
+    "source": "79e7ce2cf3f63229",
+    "target": "cdb4c2a5b65c8117"
+  },
+  "authoring": {
+    "source": "39222f681dd674a9",
+    "target": "2d5e39438fe27d83"
+  },
+  "shortcuts": {
+    "source": "8b774561acc1d5fc",
+    "target": "ab10397d67aa6d58"
+  },
+  "troubleshooting": {
+    "source": "8e50c9e964ebb507",
+    "target": "c31d2d1ff593dd28"
+  },
+  "text_shapes": {
+    "source": "7b75f4ecbc5653d9",
+    "target": "6969d10888074b88"
+  },
+  "brushes_tablet": {
+    "source": "5ffd39fa291ebe8f",
+    "target": "5aca50aef2810336"
+  },
+  "resources": {
+    "source": "7c2e9ef6d08a11f6",
+    "target": "c876e203906b11f7"
+  },
+  "animation": {
+    "source": "13db4a142f93fe4c",
+    "target": "713a8b2f55a44375"
+  },
+  "rendering": {
+    "source": "704d804db56a55f0",
+    "target": "e39d2139d79aeaf5"
+  },
+  "uv_baker": {
+    "source": "e495861f42c89acb",
+    "target": "bccb4979f1d69703"
+  },
+  "projection_fluid": {
+    "source": "9359540ad14e73dd",
+    "target": "30dd8048abdd6090"
+  },
+  "trims": {
+    "source": "61ff0f003c73eab1",
+    "target": "bfffc25a7e28d6da"
+  },
+  "plugins_bridge": {
+    "source": "f874ad773198fa6d",
+    "target": "b68f3ec6ea82e5b2"
+  },
+  "formats": {
+    "source": "d0cd817d8a21e208",
+    "target": "d74b84f3b8014a6f"
+  },
+  "tutorials": {
+    "source": "a55fb344bc80fd7f",
+    "target": "29f38c642be00a52"
+  },
+  "glossary": {
+    "source": "fa315b3fba00d769",
+    "target": "0619c8c6b4aac205"
+  },
+  "tools": {
+    "source": "0b6a6c617e175f2c",
+    "target": "f39ba5ed951cd3dc"
+  },
+  "actions": {
+    "source": "05aafc94eb521ecb",
+    "target": "2575b5f743a2d01a"
+  },
+  "settings": {
+    "source": "bc86d68f47360d71",
+    "target": "f2543462065785bf"
+  },
+  "builtin_nodes": {
+    "source": "cbdf44d1624f2587",
+    "target": "17e804251d336721"
+  },
+  "shader_authoring": {
+    "source": "d2d918f8263b28e1",
+    "target": "4d79c22569fa36fa"
+  },
+  "delivery": {
+    "source": "840eb5f6e6ce6c7a",
+    "target": "711f14b1fbad4b4e"
+  },
+  "recovery": {
+    "source": "24d1f4d8bc1febe1",
+    "target": "594d0447d2400db4"
+  },
+  "panels": {
+    "source": "0c5d1a28c8ce267a",
+    "target": "52b55d4e55a708e6"
+  },
+  "effect:art_crosshatch_shading": {
+    "source": "24d97c8ed326c619",
+    "target": "7f933f767fa62f37"
+  },
+  "effect:art_ink_bleed": {
+    "source": "2a005b30cdc7f676",
+    "target": "8f783b8cba9231dc"
+  },
+  "effect:art_screen_print_wear": {
+    "source": "b38d0383642fb3a9",
+    "target": "8a36180367798cee"
+  },
+  "effect:art_topographic_from_height": {
+    "source": "b6e9fc1a9074abfa",
+    "target": "a31613e314ae469e"
+  },
+  "effect:basic_image": {
+    "source": "c31793f73f6a3286",
+    "target": "d68cb0a1b4ee69d2"
+  },
+  "effect:black_white": {
+    "source": "040741d1a6df508c",
+    "target": "87b1d83b8e4d463c"
+  },
+  "effect:blend_depth_transition": {
+    "source": "37ce3c3b262b8689",
+    "target": "97498904e86c1daf"
+  },
+  "effect:blend_detail_transfer": {
+    "source": "8bdbb85ef972b4b1",
+    "target": "83055fe619ae5de0"
+  },
+  "effect:blend_edge_reveal": {
+    "source": "92fc8d6ad9491134",
+    "target": "68a1f4e21bebe20b"
+  },
+  "effect:blend_noise_dissolve": {
+    "source": "bc53af0562a21878",
+    "target": "e9cb45583a0350d1"
+  },
+  "effect:blend_protected_highlights": {
+    "source": "6c7df1d2cb2ecd6e",
+    "target": "3253f47ece8794c9"
+  },
+  "effect:blur_iris": {
+    "source": "cb6a5e27e19ce3df",
+    "target": "6245f65b231fdff7"
+  },
+  "effect:blur_lens_depth": {
+    "source": "4127c6c31ac8fdc1",
+    "target": "ca974b8f1f9d7234"
+  },
+  "effect:blur_tilt_shift": {
+    "source": "a29b44f18f404ec3",
+    "target": "5ff3f19a7ce71a88"
+  },
+  "effect:brightness_contrast": {
+    "source": "eef8aea3180cef16",
+    "target": "5223b367bb553247"
+  },
+  "effect:camera_raw": {
+    "source": "99b6ae688a833c87",
+    "target": "8e7ffa44e7fc110d"
+  },
+  "effect:channel_mixer": {
+    "source": "e86303053158a749",
+    "target": "b00a724c77346346"
+  },
+  "effect:checker": {
+    "source": "89f9f6cbffbd8fe7",
+    "target": "8e205c9ce25c17f9"
+  },
+  "effect:color_balance": {
+    "source": "1c935074dbffb218",
+    "target": "706aac4d548340f2"
+  },
+  "effect:color_lookup": {
+    "source": "06852bb8a43ecef7",
+    "target": "19b5b0a5a4858d0c"
+  },
+  "effect:combine_rgba": {
+    "source": "f6b97c300de7dd52",
+    "target": "25d1ec7435f198a0"
+  },
+  "effect:curves": {
+    "source": "1b8a6abf2e57fdd0",
+    "target": "c9093c047c90a7b1"
+  },
+  "effect:cy_blend_add": {
+    "source": "1b0e164b3637f6f7",
+    "target": "acca4c5a9af576a7"
+  },
+  "effect:cy_blend_alpha_erase": {
+    "source": "617a7ed6beb5b660",
+    "target": "2b3a8bba4da2ffcf"
+  },
+  "effect:cy_blend_average": {
+    "source": "05dd9ac2bff15dc2",
+    "target": "9740694ba765e3e1"
+  },
+  "effect:cy_blend_channel_replace": {
+    "source": "3add54cf5f5a7cca",
+    "target": "c62b542a53feca98"
+  },
+  "effect:cy_blend_color": {
+    "source": "6a5ecde5f404cbd5",
+    "target": "1861e06d30bff3f3"
+  },
+  "effect:cy_blend_color_burn": {
+    "source": "d56d141e8270d19d",
+    "target": "fabcfee1671c4682"
+  },
+  "effect:cy_blend_color_dodge": {
+    "source": "e55b4913a92ecaaa",
+    "target": "b15332619e175271"
+  },
+  "effect:cy_blend_darken": {
+    "source": "830901611078dcb9",
+    "target": "4e176b32632043c5"
+  },
+  "effect:cy_blend_darker_color": {
+    "source": "f5f5717f156a1e7b",
+    "target": "989e923e9531678b"
+  },
+  "effect:cy_blend_difference": {
+    "source": "2de032b4703e36b0",
+    "target": "be6283b47767e801"
+  },
+  "effect:cy_blend_dissolve": {
+    "source": "ba7946aa7920dcf7",
+    "target": "584a32a8f67af0a7"
+  },
+  "effect:cy_blend_divide": {
+    "source": "85ee7532a81369cd",
+    "target": "4fa5558a49955ea5"
+  },
+  "effect:cy_blend_exclusion": {
+    "source": "bacb51d3c86d53b9",
+    "target": "db07efb57565140b"
+  },
+  "effect:cy_blend_freeze": {
+    "source": "a1684cee94815da0",
+    "target": "097bb6a97d041ea5"
+  },
+  "effect:cy_blend_glow": {
+    "source": "b200098675a58d2c",
+    "target": "6e8e86317b939eef"
+  },
+  "effect:cy_blend_grain_extract": {
+    "source": "2c59899a8b4f54e6",
+    "target": "c839a40572231fba"
+  },
+  "effect:cy_blend_grain_merge": {
+    "source": "62de3ee9c48e1fa8",
+    "target": "8cd3f4389aaf408e"
+  },
+  "effect:cy_blend_hard_light": {
+    "source": "0bca300b754829a7",
+    "target": "abd7240ba2002e57"
+  },
+  "effect:cy_blend_hard_mix": {
+    "source": "6f57a7c6164b35ee",
+    "target": "4c14eb0065dc481a"
+  },
+  "effect:cy_blend_hdr_soft_add": {
+    "source": "1df1fa5a612d0ea3",
+    "target": "94f08ae5ab1b52e5"
+  },
+  "effect:cy_blend_height_blend": {
+    "source": "726e1a0760e2bead",
+    "target": "d0080adac99395f3"
+  },
+  "effect:cy_blend_height_max": {
+    "source": "0d4d09015039d95c",
+    "target": "d1bfa0828b8b9556"
+  },
+  "effect:cy_blend_hue": {
+    "source": "8bd22518e2e25c9c",
+    "target": "6f97d7b8fbd4dda4"
+  },
+  "effect:cy_blend_lighten": {
+    "source": "e95c51d04f2f0dd6",
+    "target": "630dc0964ff4e172"
+  },
+  "effect:cy_blend_lighter_color": {
+    "source": "abefc695025e29e6",
+    "target": "868fa142d2b75cc9"
+  },
+  "effect:cy_blend_linear_burn": {
+    "source": "63eb4751e1e49ae9",
+    "target": "f4dfbbc9da08ede1"
+  },
+  "effect:cy_blend_linear_light": {
+    "source": "29c5bc11961ff725",
+    "target": "898d328d4d19e252"
+  },
+  "effect:cy_blend_luminosity": {
+    "source": "851d82abdd10bad0",
+    "target": "c9a2d17c20de89ab"
+  },
+  "effect:cy_blend_micro_detail_overlay": {
+    "source": "22ce88fb4f108424",
+    "target": "d54541bae3f04a82"
+  },
+  "effect:cy_blend_multiply": {
+    "source": "53ff5d3be82db75e",
+    "target": "b5220b5a15489ddd"
+  },
+  "effect:cy_blend_negation": {
+    "source": "ffb8c5a7a2240935",
+    "target": "50cb77b7bdd0511c"
+  },
+  "effect:cy_blend_normal": {
+    "source": "06cd1cc3ba37ea7b",
+    "target": "ce6f89266c31508e"
+  },
+  "effect:cy_blend_normal_udn": {
+    "source": "38a80a8178e56656",
+    "target": "ac1b9c85061ba7e3"
+  },
+  "effect:cy_blend_normal_whiteout": {
+    "source": "1e192149f8d8ff8c",
+    "target": "685fbff2c24f0886"
+  },
+  "effect:cy_blend_overlay": {
+    "source": "cec0aa0af48de394",
+    "target": "33d0c4f3545a82bd"
+  },
+  "effect:cy_blend_pbr_channel_merge": {
+    "source": "47c2f311796dd19d",
+    "target": "2c992ce854db3d6d"
+  },
+  "effect:cy_blend_phoenix": {
+    "source": "fee8c8b9f835820e",
+    "target": "298baf82bb5a865d"
+  },
+  "effect:cy_blend_pin_light": {
+    "source": "5ba16eaaa453daa0",
+    "target": "b5681aa84b2b60bc"
+  },
+  "effect:cy_blend_reflect": {
+    "source": "c00401c7358f571c",
+    "target": "f2276d44e736601b"
+  },
+  "effect:cy_blend_rnm_normal": {
+    "source": "2f88b72f15e00a57",
+    "target": "b1d4613e33a60002"
+  },
+  "effect:cy_blend_roughness_energy": {
+    "source": "3337f4948bc50246",
+    "target": "1c797e3b1f7f315f"
+  },
+  "effect:cy_blend_saturation": {
+    "source": "d71e53e2a187ca78",
+    "target": "7a6665a7e95cc6e8"
+  },
+  "effect:cy_blend_screen": {
+    "source": "3a830533a5a29a66",
+    "target": "e902ce6441a5552d"
+  },
+  "effect:cy_blend_signed_detail": {
+    "source": "95351d0eb547bcd3",
+    "target": "268123be354c69e4"
+  },
+  "effect:cy_blend_soft_light": {
+    "source": "ebc40a42c8bdbd76",
+    "target": "bba79755db033a51"
+  },
+  "effect:cy_blend_subtract": {
+    "source": "904ebc150adea243",
+    "target": "1209b0a6a3d47532"
+  },
+  "effect:cy_blend_vivid_light": {
+    "source": "02aa0dc59067dd61",
+    "target": "944f5ec3d78c04e2"
+  },
+  "effect:cy_draw_advanced_abstract01": {
+    "source": "9ee3b7d57e361c68",
+    "target": "381c6c016cb296cf"
+  },
+  "effect:cy_draw_advanced_abstract_flare": {
+    "source": "04b277bb934a2928",
+    "target": "5a42a9448a43addd"
+  },
+  "effect:cy_draw_advanced_abstract_flare02": {
+    "source": "77ffd7ede40296ba",
+    "target": "8c633a4cfcb03bb7"
+  },
+  "effect:cy_draw_advanced_abstract_flare03": {
+    "source": "0386cfd521113af3",
+    "target": "e22c38c9b1cadfec"
+  },
+  "effect:cy_draw_advanced_anamorph": {
+    "source": "eb8d3b0a1be38094",
+    "target": "1ff989c153641262"
+  },
+  "effect:cy_draw_advanced_basic_flare": {
+    "source": "0dea0f2e83872d0a",
+    "target": "c62f80ac279e67f5"
+  },
+  "effect:cy_draw_advanced_cir_flare": {
+    "source": "fb6a27b271b185f2",
+    "target": "ac091976f11cf6f8"
+  },
+  "effect:cy_draw_advanced_cir_flare_tri": {
+    "source": "541ec7a17d2d65a7",
+    "target": "b3a0ab3f2229fbcb"
+  },
+  "effect:cy_draw_advanced_circle": {
+    "source": "8e86e225515cbebf",
+    "target": "e3424f3d7bd19e9d"
+  },
+  "effect:cy_draw_advanced_circular": {
+    "source": "e64cfb0a54db1f88",
+    "target": "bd67329c07e5caf1"
+  },
+  "effect:cy_draw_advanced_circular_no_gradient": {
+    "source": "3e94e3fb4224730b",
+    "target": "cd67042097999fb5"
+  },
+  "effect:cy_draw_advanced_corona": {
+    "source": "5c9ccda848e632c9",
+    "target": "7d192e28c48a5735"
+  },
+  "effect:cy_draw_advanced_corona2": {
+    "source": "9766f8fae1847a80",
+    "target": "0115dee34d0a8c32"
+  },
+  "effect:cy_draw_advanced_flare2": {
+    "source": "28d5679a0626e8dd",
+    "target": "70fb32b3a5c82eb2"
+  },
+  "effect:cy_draw_advanced_gradient_color": {
+    "source": "38608845968789eb",
+    "target": "db6d098b7c8c21e1"
+  },
+  "effect:cy_draw_advanced_noise_gradient_com": {
+    "source": "ef6d9d5a26d4bbc4",
+    "target": "60e7706953d29f92"
+  },
+  "effect:cy_draw_advanced_noise_gradient_com_variant": {
+    "source": "814b999b81763555",
+    "target": "7919051b40fc1057"
+  },
+  "effect:cy_draw_advanced_noise_gradient_tex": {
+    "source": "5fcce02b7c498ba2",
+    "target": "a991fa8144a3d209"
+  },
+  "effect:cy_draw_advanced_noise_simplex": {
+    "source": "ad8dc6a8fe601564",
+    "target": "9dc85853cbbc6fae"
+  },
+  "effect:cy_draw_advanced_noise_value_com": {
+    "source": "53a37a2180664131",
+    "target": "fa8b771b96c68ced"
+  },
+  "effect:cy_draw_advanced_noise_voronoi": {
+    "source": "e2f09d677cb80d17",
+    "target": "ad7e30600166fde7"
+  },
+  "effect:cy_draw_advanced_shape_lens": {
+    "source": "87a00f14982bb424",
+    "target": "c541af0181d3a73d"
+  },
+  "effect:cy_draw_advanced_shape_lens_variant": {
+    "source": "d5dbb5878eaee6ee",
+    "target": "5a1ab9545412abce"
+  },
+  "effect:cy_draw_anamorphic_lens_flare": {
+    "source": "1c8f6584eca6ef03",
+    "target": "d724bf13931b457e"
+  },
+  "effect:cy_draw_aurora_bands": {
+    "source": "a7dcb23a5c191293",
+    "target": "768bc49ac8cadfb1"
+  },
+  "effect:cy_draw_bokeh_rings": {
+    "source": "be9212bd62354956",
+    "target": "aab4871bfd700cc3"
+  },
+  "effect:cy_draw_brick_bond": {
+    "source": "cbf205e05ec724ca",
+    "target": "b80165b3686f6012"
+  },
+  "effect:cy_draw_camouflage": {
+    "source": "134aff6857c9020b",
+    "target": "d1c4a6e5b8a6ec8f"
+  },
+  "effect:cy_draw_caustics": {
+    "source": "72f3a89ed312dad0",
+    "target": "24c7331041f5c13d"
+  },
+  "effect:cy_draw_checker": {
+    "source": "bad68e969b810e78",
+    "target": "945ce579508baab8"
+  },
+  "effect:cy_draw_circle": {
+    "source": "79a853a81dcc07df",
+    "target": "90633284d87ee74f"
+  },
+  "effect:cy_draw_circuit_board": {
+    "source": "2536f3696588bca1",
+    "target": "24cafcf22289925e"
+  },
+  "effect:cy_draw_cracks": {
+    "source": "37d07208f5c29bb2",
+    "target": "c94e0c3a0ab3c0ee"
+  },
+  "effect:cy_draw_crosshatch": {
+    "source": "cfa8327edf5ed0b1",
+    "target": "1a4418b2666fa59e"
+  },
+  "effect:cy_draw_fabric_weave": {
+    "source": "ca96178f9d75b034",
+    "target": "cd0df6a8e3b3cfea"
+  },
+  "effect:cy_draw_fractal_noise": {
+    "source": "a11105db38d0539f",
+    "target": "d80fce0bf6248d3e"
+  },
+  "effect:cy_draw_grid": {
+    "source": "a09fe83d7c8fe5ce",
+    "target": "87c3741252e7483b"
+  },
+  "effect:cy_draw_hex_grid": {
+    "source": "276a8e424c7469f7",
+    "target": "b7e1efd6dcec5d7e"
+  },
+  "effect:cy_draw_lens_flare": {
+    "source": "a10ecbc126f4ea65",
+    "target": "93d780502faadc34"
+  },
+  "effect:cy_draw_linear_gradient": {
+    "source": "3125f88b9aa338f9",
+    "target": "e8eeb71e11fa3632"
+  },
+  "effect:cy_draw_marble_veins": {
+    "source": "1e2a88cf992753a0",
+    "target": "202613928e8041b5"
+  },
+  "effect:cy_draw_procedural_noise": {
+    "source": "e391383522d558eb",
+    "target": "8be98bfb9a3717e9"
+  },
+  "effect:cy_draw_radial_gradient": {
+    "source": "4fa951b3c74a9926",
+    "target": "05f840e821a9e181"
+  },
+  "effect:cy_draw_rounded_rectangle": {
+    "source": "65b639d92c040a52",
+    "target": "b82f705e25354352"
+  },
+  "effect:cy_draw_rust_patches": {
+    "source": "46b058e893f11e7d",
+    "target": "d856657c1272e69b"
+  },
+  "effect:cy_draw_scratches": {
+    "source": "f7b2dc78e8f85519",
+    "target": "b3375ca28cc2673e"
+  },
+  "effect:cy_draw_sdf_arc": {
+    "source": "9966e6186cdcd1c7",
+    "target": "a2e3ac4249c335a1"
+  },
+  "effect:cy_draw_solid_color": {
+    "source": "f40fbeaa4db32e39",
+    "target": "e91e539107d09a31"
+  },
+  "effect:cy_draw_star": {
+    "source": "80fdd6b0adf9ca60",
+    "target": "5fbb4f3101c5fec4"
+  },
+  "effect:cy_draw_starfield": {
+    "source": "ce0357d6001997ae",
+    "target": "ad18c3adf211b742"
+  },
+  "effect:cy_draw_stripes": {
+    "source": "1a63b4ee11f19b7d",
+    "target": "b3d5d43844a42343"
+  },
+  "effect:cy_draw_truchet_tiles": {
+    "source": "6e507fa25860476e",
+    "target": "f2c4c6da49193253"
+  },
+  "effect:cy_draw_voronoi": {
+    "source": "6f206ad173d13a4b",
+    "target": "70a94b4829f66105"
+  },
+  "effect:cy_draw_wood_grain": {
+    "source": "f9a2e6f6eee386e4",
+    "target": "0f1ea06814d371e8"
+  },
+  "effect:cy_effect_advanced_aberration_hlsl_blur": {
+    "source": "798cd2d87daa4b4e",
+    "target": "516068c37bacbcf1"
+  },
+  "effect:cy_effect_advanced_base_chroma": {
+    "source": "3cb76fe932f17a67",
+    "target": "1eb73c864004a6d2"
+  },
+  "effect:cy_effect_advanced_blur_poly3": {
+    "source": "472ebd0d0550c561",
+    "target": "ee5e0755ff79be3a"
+  },
+  "effect:cy_effect_advanced_blur_poly3_variant": {
+    "source": "3d6e15b203edd5d3",
+    "target": "acbf931ccbfdf6fb"
+  },
+  "effect:cy_effect_advanced_box_blur": {
+    "source": "9db3c5f9a0240c3c",
+    "target": "3a593f7159e254a6"
+  },
+  "effect:cy_effect_advanced_box_blur_variant": {
+    "source": "ba8ccd210a7e5de8",
+    "target": "4e55a757b7664452"
+  },
+  "effect:cy_effect_advanced_chroma_hlsl_blur2": {
+    "source": "817a52570742ea9d",
+    "target": "1ddaabe3fe4e4f7d"
+  },
+  "effect:cy_effect_advanced_circular_blur": {
+    "source": "b9a38b07d76f3178",
+    "target": "deeb9798926091e7"
+  },
+  "effect:cy_effect_advanced_circular_blur_variant": {
+    "source": "140feabe5a103a59",
+    "target": "16c5c4bf5966773c"
+  },
+  "effect:cy_effect_advanced_cubic_uv": {
+    "source": "d0f6801c0a2b77ac",
+    "target": "a440b7992d0a14dc"
+  },
+  "effect:cy_effect_advanced_curve3_utilities": {
+    "source": "53cf1794b9b11878",
+    "target": "c08cb9739818cbe6"
+  },
+  "effect:cy_effect_advanced_desaturation_color": {
+    "source": "2d605037077c529d",
+    "target": "9589663243322dab"
+  },
+  "effect:cy_effect_advanced_dia_gra_mask": {
+    "source": "f568881bd05dcebc",
+    "target": "fe12e3926bf29473"
+  },
+  "effect:cy_effect_advanced_gradient_grad": {
+    "source": "89a7d0e02529ebdf",
+    "target": "ef11334510eeb8e3"
+  },
+  "effect:cy_effect_advanced_hlsl_sharpen": {
+    "source": "0a986d73867eda80",
+    "target": "7f3d4d1234789ec7"
+  },
+  "effect:cy_effect_advanced_hlsl_sharpen_variant": {
+    "source": "79f06e8014d501b4",
+    "target": "eacbd22c1b5a69d3"
+  },
+  "effect:cy_effect_advanced_hue_utilities": {
+    "source": "416e41e2769d9686",
+    "target": "3756499023037a3b"
+  },
+  "effect:cy_effect_advanced_invert_utilities": {
+    "source": "67159222b2390c11",
+    "target": "c5ab1b8189344e13"
+  },
+  "effect:cy_effect_advanced_kaleidoscope2_uv": {
+    "source": "cea15d22505a9f26",
+    "target": "ee9b0ad8b4195a8d"
+  },
+  "effect:cy_effect_advanced_kaleidoscope_uv": {
+    "source": "c90e92e6cec0b9c5",
+    "target": "405371adc5426c41"
+  },
+  "effect:cy_effect_advanced_level_color": {
+    "source": "023455b3e87f0be9",
+    "target": "12a5629a32c123f9"
+  },
+  "effect:cy_effect_advanced_luma_contrast_utilities": {
+    "source": "04ed383f6325948b",
+    "target": "664507dbec330c65"
+  },
+  "effect:cy_effect_advanced_mirrored": {
+    "source": "cabbe099b0a01be4",
+    "target": "12fb7ef2b39b89ac"
+  },
+  "effect:cy_effect_advanced_mixer_rgb_color": {
+    "source": "d59ca89e9b544590",
+    "target": "502555d533244698"
+  },
+  "effect:cy_effect_advanced_mul_utilities": {
+    "source": "00af586cf17f3d1b",
+    "target": "b0258015521797a8"
+  },
+  "effect:cy_effect_advanced_poly3": {
+    "source": "4896bace9b9d12b0",
+    "target": "7d8aedf1b08a6cd2"
+  },
+  "effect:cy_effect_advanced_poly3_variant": {
+    "source": "3caa0df5ccfa535c",
+    "target": "85533cfc8f559840"
+  },
+  "effect:cy_effect_advanced_poly3lensflare": {
+    "source": "a48201c00562c353",
+    "target": "1d73781942090827"
+  },
+  "effect:cy_effect_advanced_poly3lensflare_variant": {
+    "source": "6a4d875e308234d8",
+    "target": "764bffbc4e523b0c"
+  },
+  "effect:cy_effect_advanced_poly6": {
+    "source": "7d25776b7f99087f",
+    "target": "f8626411683c6397"
+  },
+  "effect:cy_effect_advanced_poly6_variant": {
+    "source": "875621377e343c48",
+    "target": "7ecbbaf24ba30dfe"
+  },
+  "effect:cy_effect_advanced_poly_expo": {
+    "source": "13fb462f5d0e17e7",
+    "target": "6f4b82e4e3f17431"
+  },
+  "effect:cy_effect_advanced_poly_expo_variant": {
+    "source": "fea68eaf260d4628",
+    "target": "54e152d36c821964"
+  },
+  "effect:cy_effect_advanced_power_utilities": {
+    "source": "282901ae69f3ed45",
+    "target": "1dce22d27fc9802d"
+  },
+  "effect:cy_effect_advanced_r_gexp_mask": {
+    "source": "ed1b26dd5bd64e4b",
+    "target": "dfbd3628e9dea17a"
+  },
+  "effect:cy_effect_advanced_rad_grad_distortion": {
+    "source": "9ce6436d137ab6c5",
+    "target": "014f903f5aba5df2"
+  },
+  "effect:cy_effect_advanced_rad_grad_distortion2": {
+    "source": "e04dec9346da2e6f",
+    "target": "dfa369ce37356ee9"
+  },
+  "effect:cy_effect_advanced_radial_blur": {
+    "source": "06c9cfcac73ba6bc",
+    "target": "8149ee507bc07341"
+  },
+  "effect:cy_effect_advanced_radial_blur_chroma": {
+    "source": "9475d7cc33f2885f",
+    "target": "90be618e85c3317d"
+  },
+  "effect:cy_effect_advanced_radial_blur_chroma_variant": {
+    "source": "cedb8e21d05c4db8",
+    "target": "cfef33bb0947df74"
+  },
+  "effect:cy_effect_advanced_radial_blur_variant": {
+    "source": "a4d2a9413cb073ce",
+    "target": "ba4249b8b3077241"
+  },
+  "effect:cy_effect_advanced_radial_hlsl_blur": {
+    "source": "3cb9fb69a3000a41",
+    "target": "473778f73322ec89"
+  },
+  "effect:cy_effect_advanced_radial_hlsl_blur2": {
+    "source": "7f40ef82c9726b2a",
+    "target": "dae9f8cf077e4d1f"
+  },
+  "effect:cy_effect_advanced_radial_hlsl_chroma": {
+    "source": "9a941cde6041689a",
+    "target": "71d01d21b78ae9f5"
+  },
+  "effect:cy_effect_advanced_range_selector_color": {
+    "source": "2ffe9b0ddf2414d3",
+    "target": "43797ace68088ddd"
+  },
+  "effect:cy_effect_advanced_re_range_color_color": {
+    "source": "a6fbfee7ca0c302e",
+    "target": "f386a836a7af9d92"
+  },
+  "effect:cy_effect_advanced_rotate_blur": {
+    "source": "cf8467e1d3a78a31",
+    "target": "a7636b06b75a6814"
+  },
+  "effect:cy_effect_advanced_rotate_blur2": {
+    "source": "c1ce54d724b349e7",
+    "target": "ee6b1e8cd9071f3b"
+  },
+  "effect:cy_effect_advanced_rotate_blur2_variant": {
+    "source": "00d235bfaf493ee4",
+    "target": "6ff78979d36136db"
+  },
+  "effect:cy_effect_advanced_rotate_blur_chroma_p_pm1": {
+    "source": "a619dfb388676cb3",
+    "target": "b0056410ad7b03a3"
+  },
+  "effect:cy_effect_advanced_rotate_blur_chroma_p_pm1_variant": {
+    "source": "335501d88be3164f",
+    "target": "27922f56292cda6e"
+  },
+  "effect:cy_effect_advanced_sharpen": {
+    "source": "55c3c5af89fc36ae",
+    "target": "09a098fd368957a9"
+  },
+  "effect:cy_effect_advanced_sharpen_depth_ppm2": {
+    "source": "5302224d161a1795",
+    "target": "995a18b46a0b3324"
+  },
+  "effect:cy_effect_advanced_sharpen_depth_ppm2_variant": {
+    "source": "3293f7fdbaabef6a",
+    "target": "3b5a827ffe285fa6"
+  },
+  "effect:cy_effect_advanced_sharpen_variant": {
+    "source": "69e7eee8a662e462",
+    "target": "5177cc9e4bbee6ca"
+  },
+  "effect:cy_effect_advanced_sine_chroma": {
+    "source": "0bf3f4ee9557d37b",
+    "target": "b251207c5062519e"
+  },
+  "effect:cy_effect_advanced_sine_shift_chroma1": {
+    "source": "d068f6c600032ed3",
+    "target": "1fbb5525611f84cd"
+  },
+  "effect:cy_effect_advanced_smooth_curve_utilities": {
+    "source": "fd30d4dc6757595a",
+    "target": "b6c5c544295b33d7"
+  },
+  "effect:cy_effect_advanced_spiral_blur": {
+    "source": "7be4878d44b409e4",
+    "target": "95e0d6c285f2b8a2"
+  },
+  "effect:cy_effect_advanced_spiral_blur_variant": {
+    "source": "203385caede9640e",
+    "target": "f30cb2b3f7939914"
+  },
+  "effect:cy_effect_advanced_spiral_blurchroma_p_pm2": {
+    "source": "791c8ec026989821",
+    "target": "237606d7c9f4da09"
+  },
+  "effect:cy_effect_advanced_spiral_blurchroma_p_pm2_variant": {
+    "source": "dafae4ab952aabfe",
+    "target": "bb6f87edd9407734"
+  },
+  "effect:cy_effect_advanced_spiral_hlsl_blur": {
+    "source": "c724a6f728101aa0",
+    "target": "b03296b4e4d2809d"
+  },
+  "effect:cy_effect_advanced_split_rgba_utilities": {
+    "source": "784eb66cb5700c02",
+    "target": "57885f51b9a20b47"
+  },
+  "effect:cy_effect_advanced_switch_rgba_utilities": {
+    "source": "f90e298ccdf9145b",
+    "target": "03583c6d05be45f7"
+  },
+  "effect:cy_effect_advanced_test": {
+    "source": "80c0dbc5a4b04d22",
+    "target": "75dc85d038f8a353"
+  },
+  "effect:cy_effect_advanced_test_variant": {
+    "source": "d54c90707c47ca6b",
+    "target": "6951787645f709c3"
+  },
+  "effect:cy_effect_advanced_tiling_uv": {
+    "source": "6f796339d7e73a18",
+    "target": "9dea1e2b0da33996"
+  },
+  "effect:cy_effect_advanced_tint_color": {
+    "source": "3b0721ef8934921a",
+    "target": "0e787c4300d53a0c"
+  },
+  "effect:cy_effect_advanced_tint_utilities": {
+    "source": "ba4c0092e10f1fbe",
+    "target": "5f83f48d95378d93"
+  },
+  "effect:cy_effect_alpha_remap": {
+    "source": "441a0a63e732e756",
+    "target": "14d84e9872d6889e"
+  },
+  "effect:cy_effect_anamorphic_bloom": {
+    "source": "238cb65439d5a4e4",
+    "target": "fd75e30fbd54e8c9"
+  },
+  "effect:cy_effect_ao_from_height": {
+    "source": "87953fec5560c49e",
+    "target": "8c10efa3c455fb2a"
+  },
+  "effect:cy_effect_bilateral_blur": {
+    "source": "f3f9207a538a5a0e",
+    "target": "0bc889c53fe78b1a"
+  },
+  "effect:cy_effect_black_white": {
+    "source": "e06d227cd20dbd08",
+    "target": "b9b9c1d6f1e7cc43"
+  },
+  "effect:cy_effect_bloom": {
+    "source": "cd8f7946491c89ca",
+    "target": "289c11579a677fb0"
+  },
+  "effect:cy_effect_bokeh_blur": {
+    "source": "acf80eb1f1292a59",
+    "target": "c90a3615c924366d"
+  },
+  "effect:cy_effect_box_blur": {
+    "source": "884d4abdbc6726a2",
+    "target": "f2a18c276213cc38"
+  },
+  "effect:cy_effect_brightness_contrast": {
+    "source": "cb8bac3411244b6f",
+    "target": "82c25ef8c2b83ad1"
+  },
+  "effect:cy_effect_channel_mixer": {
+    "source": "6d49eaaf7c562b5e",
+    "target": "5c41e535e3de7424"
+  },
+  "effect:cy_effect_channel_normalize": {
+    "source": "80a750c75a90c29f",
+    "target": "d777fcc4e2409f52"
+  },
+  "effect:cy_effect_chroma_key": {
+    "source": "0d7e89c2c80d3f38",
+    "target": "c49054bb2ebb5a06"
+  },
+  "effect:cy_effect_chromatic_aberration": {
+    "source": "8444ed69feae09c5",
+    "target": "3679fd73c2e87dde"
+  },
+  "effect:cy_effect_clamp_range": {
+    "source": "52a1e6e7d9f804a8",
+    "target": "7487357e36088ed5"
+  },
+  "effect:cy_effect_color_balance": {
+    "source": "d2456c851f5720ee",
+    "target": "383612842bec50fd"
+  },
+  "effect:cy_effect_color_grading": {
+    "source": "e1d75cd261036861",
+    "target": "d42b8fe9c2c78059"
+  },
+  "effect:cy_effect_color_lookup": {
+    "source": "889b3acc20442818",
+    "target": "804aeb921de74475"
+  },
+  "effect:cy_effect_colorize": {
+    "source": "5dc72eeaa168f615",
+    "target": "8a7cafc252ae0df0"
+  },
+  "effect:cy_effect_crt_display": {
+    "source": "1de144315ddfca26",
+    "target": "37e01c6623be4e51"
+  },
+  "effect:cy_effect_curvature_from_normal": {
+    "source": "a07c572754165337",
+    "target": "92c4cf1d897c8e51"
+  },
+  "effect:cy_effect_dehaze": {
+    "source": "7edaf0459ca66b10",
+    "target": "2fd753c25daaac00"
+  },
+  "effect:cy_effect_despill": {
+    "source": "e15bf6b169571c68",
+    "target": "7228257f5c9e0cfb"
+  },
+  "effect:cy_effect_directional_blur": {
+    "source": "b6313946405eabf7",
+    "target": "7f6ffa965d0f3d90"
+  },
+  "effect:cy_effect_dither": {
+    "source": "292bf52be0e0bbd7",
+    "target": "a510e5d8237d5b8e"
+  },
+  "effect:cy_effect_drop_shadow": {
+    "source": "b03dbeda9e6bfdc7",
+    "target": "925af39b1f31d93f"
+  },
+  "effect:cy_effect_edge_detect": {
+    "source": "8f71a02750b0e366",
+    "target": "3e62dde9e7364d58"
+  },
+  "effect:cy_effect_edge_wear": {
+    "source": "9555024a173589e4",
+    "target": "cb2521b7b8badd2e"
+  },
+  "effect:cy_effect_emboss": {
+    "source": "7e0c2b0b27c093b7",
+    "target": "c46c918d7b46373d"
+  },
+  "effect:cy_effect_equalize": {
+    "source": "a402f9f57ec20202",
+    "target": "70dc27e424f04bd2"
+  },
+  "effect:cy_effect_exposure": {
+    "source": "dc1838b5f75db515",
+    "target": "acfe62d32d30a9cc"
+  },
+  "effect:cy_effect_film_grain": {
+    "source": "5e6796a9e588027a",
+    "target": "87194575d70718b7"
+  },
+  "effect:cy_effect_filmic_tone_map": {
+    "source": "5d2050ffd0904a1a",
+    "target": "05539e05c0e62613"
+  },
+  "effect:cy_effect_gamma": {
+    "source": "0fb25695943a57d5",
+    "target": "e97fa871cca8cf26"
+  },
+  "effect:cy_effect_gaussian_blur": {
+    "source": "83bb0d57652ec1cb",
+    "target": "7f1381bfbeb05e87"
+  },
+  "effect:cy_effect_gradient_map": {
+    "source": "af21084e4802e7c6",
+    "target": "3398ac0e9c4e1b71"
+  },
+  "effect:cy_effect_grayscale": {
+    "source": "e90401037e330932",
+    "target": "6f7f5136c8f3c11b"
+  },
+  "effect:cy_effect_halftone": {
+    "source": "0174945c8f729d0c",
+    "target": "810d46cb13c10237"
+  },
+  "effect:cy_effect_hdr_toning": {
+    "source": "48e617a6184e000f",
+    "target": "2c63944df071ccb9"
+  },
+  "effect:cy_effect_heat_haze": {
+    "source": "a773f2e4c8921bba",
+    "target": "a052461e763c5ad6"
+  },
+  "effect:cy_effect_height_erosion": {
+    "source": "2027fe59c66eef3e",
+    "target": "a5f231e595a932e1"
+  },
+  "effect:cy_effect_high_pass": {
+    "source": "586914463fac9ec2",
+    "target": "82a8a300c001d672"
+  },
+  "effect:cy_effect_hue_saturation": {
+    "source": "807db2a38ce091ae",
+    "target": "6916cf9b84cc359c"
+  },
+  "effect:cy_effect_impulse_denoise": {
+    "source": "54ec4f5c67d8a061",
+    "target": "d14dcd889e9621e5"
+  },
+  "effect:cy_effect_invert": {
+    "source": "e68106facb78d9a7",
+    "target": "a5b684105e42face"
+  },
+  "effect:cy_effect_kaleidoscope": {
+    "source": "039679232b562685",
+    "target": "9f4085f925e66f05"
+  },
+  "effect:cy_effect_kuwahara": {
+    "source": "f8c0e10153ea85b5",
+    "target": "a4787a327bf0773e"
+  },
+  "effect:cy_effect_lens_distortion": {
+    "source": "59bcadfa964eb80e",
+    "target": "bcaaadd87e837877"
+  },
+  "effect:cy_effect_lens_flare_ghosts": {
+    "source": "99fb00cbfb9564e3",
+    "target": "0b196caf6d5c017c"
+  },
+  "effect:cy_effect_levels": {
+    "source": "1e7d1fd905b4509f",
+    "target": "94c25cc5266bfc60"
+  },
+  "effect:cy_effect_local_contrast": {
+    "source": "2617e230fbf54c1b",
+    "target": "bc7720436797743b"
+  },
+  "effect:cy_effect_luminance_curve": {
+    "source": "beae7ba2bcd77141",
+    "target": "adf08f9c56387689"
+  },
+  "effect:cy_effect_lut": {
+    "source": "49fd069b84e6e58e",
+    "target": "f6d27f201cf70e61"
+  },
+  "effect:cy_effect_match_color": {
+    "source": "b4a8c3327546c12a",
+    "target": "b4f4e95c65a03a5e"
+  },
+  "effect:cy_effect_morphology": {
+    "source": "b0848b3e48074cb0",
+    "target": "735bf925540dfe24"
+  },
+  "effect:cy_effect_mosaic_glass": {
+    "source": "d79c674f44d71a01",
+    "target": "a0083816b52d3dc7"
+  },
+  "effect:cy_effect_motion_blur": {
+    "source": "3b94c5213ef76f8e",
+    "target": "1cd0babf2fc95193"
+  },
+  "effect:cy_effect_normal_detail": {
+    "source": "490c01940e6ad588",
+    "target": "a288a489f6929d24"
+  },
+  "effect:cy_effect_normal_from_height": {
+    "source": "bd4d3b69c74d16b9",
+    "target": "1e7c0cc634992dfe"
+  },
+  "effect:cy_effect_normal_strength": {
+    "source": "ba12f6a41f40e09d",
+    "target": "ec27f2472abce5a5"
+  },
+  "effect:cy_effect_normalize_range": {
+    "source": "e72561433f849dde",
+    "target": "65bde3fb4f1ddfef"
+  },
+  "effect:cy_effect_orton_glow": {
+    "source": "49464944f12a988e",
+    "target": "e4ad1ba6fcbb071a"
+  },
+  "effect:cy_effect_outline": {
+    "source": "12082feb1bda148a",
+    "target": "49e4c0b62b28d9db"
+  },
+  "effect:cy_effect_pbr_clamp": {
+    "source": "66e6135063f8bb4b",
+    "target": "381823836225a364"
+  },
+  "effect:cy_effect_pencil_sketch": {
+    "source": "6aa609502d47a69d",
+    "target": "f2a174e4c821cbbc"
+  },
+  "effect:cy_effect_photo_filter": {
+    "source": "597b92df404c2bbc",
+    "target": "2f1a20dd6b144f8c"
+  },
+  "effect:cy_effect_pixelate": {
+    "source": "bb07ce60728299a5",
+    "target": "9bf0e058a73af2a8"
+  },
+  "effect:cy_effect_polar_transform": {
+    "source": "36d7d473d8a65c2a",
+    "target": "96cf869f9d80df89"
+  },
+  "effect:cy_effect_posterize": {
+    "source": "5e7728df1838fe12",
+    "target": "0befa73489581a30"
+  },
+  "effect:cy_effect_premultiply_alpha": {
+    "source": "5e767c09dad67057",
+    "target": "8dfeaac32efe92f9"
+  },
+  "effect:cy_effect_radial_blur": {
+    "source": "b912fe9a9e0d47a8",
+    "target": "0797962cbfcde766"
+  },
+  "effect:cy_effect_replace_color": {
+    "source": "7da280783eb0f37a",
+    "target": "c1ffc4d015d4a577"
+  },
+  "effect:cy_effect_roughness_remap": {
+    "source": "545573cd8594c94e",
+    "target": "7d2438900e6568e6"
+  },
+  "effect:cy_effect_scanlines": {
+    "source": "4ddab6bf18195295",
+    "target": "a7d72cf156c56f67"
+  },
+  "effect:cy_effect_seamless_offset": {
+    "source": "3c1f1e5ef303cc1c",
+    "target": "beb06f0d373226ed"
+  },
+  "effect:cy_effect_selective_color": {
+    "source": "7f48d4e050b4612a",
+    "target": "008f0038aeb67bb3"
+  },
+  "effect:cy_effect_sepia": {
+    "source": "133d2b94f1411589",
+    "target": "faaa90ca7adbe2c4"
+  },
+  "effect:cy_effect_shadows_highlights": {
+    "source": "f098ab6036b5bee2",
+    "target": "4a4c4633d4805e97"
+  },
+  "effect:cy_effect_sharpen": {
+    "source": "875986c0323530dc",
+    "target": "9418418e8971abc4"
+  },
+  "effect:cy_effect_solarize": {
+    "source": "552251683c69957e",
+    "target": "01390ce12978827a"
+  },
+  "effect:cy_effect_spin_blur": {
+    "source": "7038ba2615f1618f",
+    "target": "285f1dcd1770ffc0"
+  },
+  "effect:cy_effect_spiral_blur": {
+    "source": "e45d6d9fe072e0c8",
+    "target": "9c099a15aa665759"
+  },
+  "effect:cy_effect_threshold": {
+    "source": "becb48f545c3605c",
+    "target": "1236a5c69e108783"
+  },
+  "effect:cy_effect_tilt_shift_blur": {
+    "source": "b3df23e29ef19dd8",
+    "target": "139d98d54ea9cb77"
+  },
+  "effect:cy_effect_tint": {
+    "source": "23c41e001d32f35c",
+    "target": "133e24b37fa08f3e"
+  },
+  "effect:cy_effect_unpremultiply_alpha": {
+    "source": "305f0b484fe881c1",
+    "target": "388c33320bcd292c"
+  },
+  "effect:cy_effect_unsharp_mask": {
+    "source": "8fd61276ac990487",
+    "target": "cb389c8f3a6b5085"
+  },
+  "effect:cy_effect_uv_transform": {
+    "source": "7e588267a1df7dd0",
+    "target": "356a022201cf7848"
+  },
+  "effect:cy_effect_vhs_glitch": {
+    "source": "a3ab21add53ee79d",
+    "target": "3bf849ca19a1be61"
+  },
+  "effect:cy_effect_vibrance": {
+    "source": "55b2353e3fb47ee0",
+    "target": "a957ed2527351be3"
+  },
+  "effect:cy_effect_vignette": {
+    "source": "b94c1ee7bf6c0bc5",
+    "target": "b9f369e666297517"
+  },
+  "effect:cy_effect_wave_distortion": {
+    "source": "fcbe68cd5f584934",
+    "target": "773225cdb2369849"
+  },
+  "effect:cy_effect_white_balance": {
+    "source": "7dcdc3a857ba5b17",
+    "target": "895c64c735c56a5b"
+  },
+  "effect:cy_mask_alpha": {
+    "source": "9d3591d4af04c90f",
+    "target": "826dfb4d56e42771"
+  },
+  "effect:cy_mask_alpha_feather": {
+    "source": "16cb0cec92217490",
+    "target": "a1e9d79b93fdfe2a"
+  },
+  "effect:cy_mask_blue_channel": {
+    "source": "20341189d25008a7",
+    "target": "0b97e5b5666072dc"
+  },
+  "effect:cy_mask_checker": {
+    "source": "ce8084884aaa3da6",
+    "target": "bbbc6448cefa66e6"
+  },
+  "effect:cy_mask_edge": {
+    "source": "2ec68d36045763ba",
+    "target": "4007c0aa78fcbb79"
+  },
+  "effect:cy_mask_green_channel": {
+    "source": "edb29bee1924a790",
+    "target": "c8e2067dc739857c"
+  },
+  "effect:cy_mask_luminance": {
+    "source": "22864ceac840278e",
+    "target": "d11ba00ca406efb2"
+  },
+  "effect:cy_mask_noise": {
+    "source": "6dd19cb935fe947f",
+    "target": "9e2fc766d0fe9010"
+  },
+  "effect:cy_mask_radial": {
+    "source": "f8904b54cd1ba789",
+    "target": "90862e7ffa68393c"
+  },
+  "effect:cy_mask_range": {
+    "source": "85455654c313781e",
+    "target": "c27d513dd9dcc78e"
+  },
+  "effect:cy_mask_red_channel": {
+    "source": "52031d3361a61196",
+    "target": "cb893b48338ccf4a"
+  },
+  "effect:cy_mask_threshold": {
+    "source": "f8f8087bb9a32bcf",
+    "target": "b0183cb73a08efee"
+  },
+  "effect:draw_flow_lines": {
+    "source": "c1a0875a15e474c0",
+    "target": "fafb348e9b0e6256"
+  },
+  "effect:draw_isometric_tiles": {
+    "source": "27490e07715a0445",
+    "target": "19c369ac6e9b56f8"
+  },
+  "effect:draw_terrazzo": {
+    "source": "962c3b4e1ee35c6e",
+    "target": "b662994918ad5cec"
+  },
+  "effect:draw_topographic_lines": {
+    "source": "3867941a68cc99b0",
+    "target": "32112c8c57eb83d9"
+  },
+  "effect:draw_torn_paper": {
+    "source": "a1f3182d60a029d7",
+    "target": "4c12ba11dac39c2b"
+  },
+  "effect:edge_detect": {
+    "source": "930f09ba896a17aa",
+    "target": "81cbb3b4c699e2c9"
+  },
+  "effect:emboss": {
+    "source": "fa9e2d0aa8f2a687",
+    "target": "d7bf312f1b487425"
+  },
+  "effect:exposure": {
+    "source": "15c6b7ce63a73e40",
+    "target": "f60547b935a22d29"
+  },
+  "effect:focus_area": {
+    "source": "0d9f90f20f0e2a32",
+    "target": "0e6aa05993ce8c49"
+  },
+  "effect:freq_high": {
+    "source": "eca027ef38bffc3f",
+    "target": "e6e2dd650eaa8dd6"
+  },
+  "effect:gaussian_blur": {
+    "source": "43a56f18f471d55b",
+    "target": "7a7a074b4fb18a74"
+  },
+  "effect:gradient_fill": {
+    "source": "5961a9a677f674e1",
+    "target": "8c77d78ea667e85f"
+  },
+  "effect:gradient_map": {
+    "source": "6e7fc5289cf5eb77",
+    "target": "2772e870182b9368"
+  },
+  "effect:graph_draw_dot_grid": {
+    "source": "a826813a72c97de0",
+    "target": "4fb1376439ff454a"
+  },
+  "effect:graph_draw_glow_disc": {
+    "source": "fa09f93cb99ea642",
+    "target": "8a12e9116c7e4b8f"
+  },
+  "effect:graph_draw_gradient": {
+    "source": "f80784496d6246d7",
+    "target": "57cb8b6f8570670e"
+  },
+  "effect:graph_draw_rings": {
+    "source": "466de9c9578fa627",
+    "target": "c9f7910bb059e13a"
+  },
+  "effect:graph_draw_rounded_panel": {
+    "source": "d677d14db846cc08",
+    "target": "85e46d2e2f40fa75"
+  },
+  "effect:graph_draw_soft_noise": {
+    "source": "fffbd40c05345554",
+    "target": "a9cb6bf62b994c4e"
+  },
+  "effect:graph_draw_stripes": {
+    "source": "0e113b7a33978672",
+    "target": "dcba73ba805ef8b1"
+  },
+  "effect:graph_draw_woven_pattern": {
+    "source": "f7a4e177c6dc95c9",
+    "target": "7de87eace4eb7a7e"
+  },
+  "effect:graph_effect_channel_shift": {
+    "source": "4ec48beef8b69c12",
+    "target": "3ac4482d00495d29"
+  },
+  "effect:graph_effect_color_wash": {
+    "source": "688b2bc909b2549f",
+    "target": "785b4182096a5306"
+  },
+  "effect:graph_effect_gradient_map": {
+    "source": "a699522569fa3ea6",
+    "target": "cdc7c2a393b3bb78"
+  },
+  "effect:graph_effect_levels": {
+    "source": "279ab9eb6f1443e1",
+    "target": "8ecfdbbc2d203e90"
+  },
+  "effect:graph_effect_luminance_mask": {
+    "source": "dbd07ebd4fc8a017",
+    "target": "bed9bb98f0b52077"
+  },
+  "effect:graph_effect_posterize": {
+    "source": "f4d188e574c15ade",
+    "target": "f71f93de10057745"
+  },
+  "effect:graph_effect_relief": {
+    "source": "48f9ad9861fb3823",
+    "target": "cbfc30d1f661878e"
+  },
+  "effect:graph_effect_wave_warp": {
+    "source": "75f25385921268c5",
+    "target": "f7a7c5d2344116f8"
+  },
+  "effect:hue_saturation": {
+    "source": "0e3693effcc628f9",
+    "target": "239f4d3c3d54f438"
+  },
+  "effect:invert": {
+    "source": "fcc7d82325c51c74",
+    "target": "4ecb283e94487ab0"
+  },
+  "effect:lab_adjust": {
+    "source": "9dde997d3f5e6e66",
+    "target": "c058a6dfee6e4830"
+  },
+  "effect:lens_blur": {
+    "source": "65eafa17f02c39ab",
+    "target": "26eeab8f93da7483"
+  },
+  "effect:lens_profile": {
+    "source": "dba469b6cc90a957",
+    "target": "5983bc7c11b7450c"
+  },
+  "effect:levels": {
+    "source": "e338379608bf8402",
+    "target": "30d834606a32bf66"
+  },
+  "effect:lighting_effects": {
+    "source": "c37cdee4c75afb94",
+    "target": "6de66be5560345c8"
+  },
+  "effect:logo_alpha_bevel": {
+    "source": "1cef189d6e682811",
+    "target": "7b681ac6cf6056d2"
+  },
+  "effect:logo_chrome_fill": {
+    "source": "0afe757a344a9d30",
+    "target": "180f1bb3f8bc532a"
+  },
+  "effect:logo_gradient_fill": {
+    "source": "47705ead6e8abfab",
+    "target": "1975e634cfde8b5f"
+  },
+  "effect:logo_long_extrusion": {
+    "source": "7ec5de6aed44247d",
+    "target": "ae2b9336d9a67421"
+  },
+  "effect:logo_soft_glow": {
+    "source": "a3936da7d4729405",
+    "target": "22ca50bd62ac7e5a"
+  },
+  "effect:logo_soft_outline": {
+    "source": "a84664d5eeb40184",
+    "target": "997e5b13cf494640"
+  },
+  "effect:luminance_mask": {
+    "source": "c466de672d4a2d70",
+    "target": "98582b5eab7b6a05"
+  },
+  "effect:mask_apply_coverage": {
+    "source": "53f9c0ff590b01c6",
+    "target": "09688445fa8c4177"
+  },
+  "effect:mask_channel_selection": {
+    "source": "188994107906c7d8",
+    "target": "d49053f7f991d3a2"
+  },
+  "effect:mask_color_selection": {
+    "source": "3b355c460238382a",
+    "target": "b45749ce0fdc46cc"
+  },
+  "effect:mask_edge_despill": {
+    "source": "e62e7aeba81429e2",
+    "target": "17082a883e01c961"
+  },
+  "effect:mask_feather_levels": {
+    "source": "20d6a3db04bc2812",
+    "target": "fcd390edbdc67be9"
+  },
+  "effect:mask_luminance_selection": {
+    "source": "e4ad0f1ce97d93b8",
+    "target": "76b21ccf66693469"
+  },
+  "effect:mask_morphology": {
+    "source": "394a65c437c383dd",
+    "target": "193408fa397b198f"
+  },
+  "effect:mix": {
+    "source": "efe2b0e1b869f25d",
+    "target": "59c51c8c0d0bcdbb"
+  },
+  "effect:motion_blur": {
+    "source": "5da81c4a3296cbb1",
+    "target": "c5f0fc8434458d4d"
+  },
+  "effect:noise": {
+    "source": "599934c45c29b924",
+    "target": "8097799e02776320"
+  },
+  "effect:photo_film_finish": {
+    "source": "1bc105a153d8701d",
+    "target": "454d67b118526a24"
+  },
+  "effect:photo_filter": {
+    "source": "0fccdb41321ac881",
+    "target": "75d15e7749a88f0c"
+  },
+  "effect:photo_local_contrast": {
+    "source": "2de37279d4985e08",
+    "target": "e090841e96d5955e"
+  },
+  "effect:photo_masked_mix": {
+    "source": "d6ea8ef8c2adba96",
+    "target": "9e00efb6cc231291"
+  },
+  "effect:photo_raw_geometry": {
+    "source": "f4fcc1588cffe0a3",
+    "target": "89303afa0e225d44"
+  },
+  "effect:photo_raw_local": {
+    "source": "0b457782e66824dc",
+    "target": "a4a7a6cdc06defc5"
+  },
+  "effect:photo_split_tone": {
+    "source": "d609d175dd34e867",
+    "target": "fa3a3b1bc87cda58"
+  },
+  "effect:photo_tone_balance": {
+    "source": "eab39f686b3924eb",
+    "target": "41d47ee98694b037"
+  },
+  "effect:photo_white_balance": {
+    "source": "6cfbf56688b34e34",
+    "target": "ce308a7b37e73497"
+  },
+  "effect:pixelate": {
+    "source": "49ac5b01376c49a6",
+    "target": "d8c6b8d96e7ae074"
+  },
+  "effect:posterize": {
+    "source": "5e956560d77d5fd8",
+    "target": "b2371ff4b63e1567"
+  },
+  "effect:print_blend_ink": {
+    "source": "afddc195c819b0f1",
+    "target": "ebb02bd9cdcd23a3"
+  },
+  "effect:print_draw_paper": {
+    "source": "10ef1ddaf9bb58ee",
+    "target": "1c37414d73b20c2e"
+  },
+  "effect:print_duotone": {
+    "source": "70392ef2d300ec1d",
+    "target": "9daaab44a641c67f"
+  },
+  "effect:print_halftone_screen": {
+    "source": "28df755ed50b2888",
+    "target": "785324743b9609a3"
+  },
+  "effect:print_ink_plate": {
+    "source": "8ab54677868399c2",
+    "target": "41378cb16936e549"
+  },
+  "effect:scan_colorize_ink": {
+    "source": "75caf917787335bd",
+    "target": "b8ad4511bba7447d"
+  },
+  "effect:scan_edge_coverage": {
+    "source": "7d4c635c78f67b2b",
+    "target": "f17a751e5fcbb33e"
+  },
+  "effect:scan_ink_threshold": {
+    "source": "d745cef35765b916",
+    "target": "fa47b1977ce6d1d8"
+  },
+  "effect:scan_paper_normalize": {
+    "source": "07eba3bbd7761187",
+    "target": "5f39ebab2c25aae8"
+  },
+  "effect:selective_color": {
+    "source": "cc5229cdf00c4778",
+    "target": "da3015ef94a1e9a8"
+  },
+  "effect:sharpen": {
+    "source": "152309172c801126",
+    "target": "b3e6d53a8cef23c4"
+  },
+  "effect:solid_color": {
+    "source": "d40e422bb67dac54",
+    "target": "2e65468dcddc45dc"
+  },
+  "effect:sprite_draw_checker": {
+    "source": "6a8150396d7580df",
+    "target": "4b4a88a19959bbc9"
+  },
+  "effect:sprite_drop_shadow": {
+    "source": "b8a76e5dc6d2cf28",
+    "target": "ad8fae8bb1470827"
+  },
+  "effect:sprite_hit_flash": {
+    "source": "4a363ae857e5b777",
+    "target": "41ad7e509646931f"
+  },
+  "effect:sprite_outline": {
+    "source": "968c2409978b4b69",
+    "target": "11718380bb900f17"
+  },
+  "effect:sprite_palette_four": {
+    "source": "51f0981f304c1fc5",
+    "target": "dde6c9fb1a3b32a8"
+  },
+  "effect:sprite_pixel_grid": {
+    "source": "ef51ccc797fd04b2",
+    "target": "05c3fb514696c844"
+  },
+  "effect:sprite_silhouette": {
+    "source": "3b52b95537bb4e38",
+    "target": "2eb811fa5f2ba834"
+  },
+  "effect:style_bevel": {
+    "source": "19c1eddd66b9ae4a",
+    "target": "a95d2472c008bc93"
+  },
+  "effect:style_color_overlay": {
+    "source": "8f7f5ac511413e4a",
+    "target": "c4502b5d350795c2"
+  },
+  "effect:style_drop_shadow": {
+    "source": "77f4966e3bf0fcab",
+    "target": "dd65afb5e66906f8"
+  },
+  "effect:style_gradient_overlay": {
+    "source": "7263c94d27fc8b91",
+    "target": "585ac81e2250a56d"
+  },
+  "effect:style_inner_shadow": {
+    "source": "4f037ca9146494df",
+    "target": "c19d15ae39e19f48"
+  },
+  "effect:style_outer_glow": {
+    "source": "bbafa0381698486f",
+    "target": "49cb068a8d2622a3"
+  },
+  "effect:style_stroke": {
+    "source": "8f9455da1cf15c4a",
+    "target": "820bd72432e93ae0"
+  },
+  "effect:texture_albedo_photo": {
+    "source": "6d83601a320e411f",
+    "target": "18f660ad53c97ae6"
+  },
+  "effect:texture_alpha_edge_padding": {
+    "source": "19948a1abdac8211",
+    "target": "026d94002221b568"
+  },
+  "effect:texture_ao_hauteur": {
+    "source": "7142e52d91928948",
+    "target": "a9672fbb716fb0d6"
+  },
+  "effect:texture_apercu_repetition": {
+    "source": "6e090308c99d7931",
+    "target": "e66d687193b72754"
+  },
+  "effect:texture_carte_reglage": {
+    "source": "5534a0d8d70b61de",
+    "target": "877beec80acd2481"
+  },
+  "effect:texture_courbure_hauteur": {
+    "source": "52623a979a071cb1",
+    "target": "fe0034414e12cfd6"
+  },
+  "effect:texture_debruitage": {
+    "source": "a28a8a360bbe765e",
+    "target": "ae6705100719f9d3"
+  },
+  "effect:texture_decalage_boucle": {
+    "source": "979da69a2739aa38",
+    "target": "1cf0c93b91e7e26e"
+  },
+  "effect:texture_details": {
+    "source": "8576595500e31ee9",
+    "target": "49d90b76ff1f2c2b"
+  },
+  "effect:texture_draw_carte_constante": {
+    "source": "236a8a3fed508db1",
+    "target": "606e9b840f97de61"
+  },
+  "effect:texture_draw_microrelief": {
+    "source": "fbac96669f374b72",
+    "target": "2813a55123216064"
+  },
+  "effect:texture_empaquetage_pbr": {
+    "source": "c19f68667e1b2677",
+    "target": "d4fffc27c94a7057"
+  },
+  "effect:texture_fusion_normales": {
+    "source": "5227a729e573c24c",
+    "target": "c19876590a0b1e64"
+  },
+  "effect:texture_hauteur_photo": {
+    "source": "39f243887351bae4",
+    "target": "d4479e0c7e021db2"
+  },
+  "effect:texture_normales_hauteur": {
+    "source": "a0b74107be811965",
+    "target": "ab9387dc4bcf822a"
+  },
+  "effect:texture_normales_reglage": {
+    "source": "63440fd69acfd428",
+    "target": "5a0378f18a263c7b"
+  },
+  "effect:texture_raccord_bords": {
+    "source": "1f455b11c94e0f6a",
+    "target": "bfc3bff7956e04d3"
+  },
+  "effect:texture_rugosite_photo": {
+    "source": "7831383e6155b400",
+    "target": "f0fa25e051d9968d"
+  },
+  "effect:texture_selective_detail": {
+    "source": "2da0b02e7aaffbcd",
+    "target": "941ab62ac8f0f34d"
+  },
+  "effect:threshold": {
+    "source": "2ea6daa035f97eca",
+    "target": "1a8039ac98bee736"
+  },
+  "effect:transform_2d": {
+    "source": "3a05693a14e03e6f",
+    "target": "e7cf895577e71855"
+  },
+  "effect:trim_seamless": {
+    "source": "0ae751e53cc21d7d",
+    "target": "a5dc27575ef89476"
+  },
+  "effect:twirl": {
+    "source": "cd422f193556c461",
+    "target": "5535b9ff0c4b97b1"
+  },
+  "effect:ui_alpha_apply_sdf": {
+    "source": "ba8ecf8d6c75ec89",
+    "target": "bbefa54758133626"
+  },
+  "effect:ui_alpha_refine": {
+    "source": "c454eff1799127f6",
+    "target": "98ea29ab36702515"
+  },
+  "effect:ui_blend_clip": {
+    "source": "030817174dcbfe2a",
+    "target": "ee7950712fa2889f"
+  },
+  "effect:ui_draw_interface_pattern": {
+    "source": "03ec008d8acfba77",
+    "target": "79258de7d36fb16a"
+  },
+  "effect:ui_draw_panel": {
+    "source": "b5fe1d7cc2c8e070",
+    "target": "a00489381638bd57"
+  },
+  "effect:ui_draw_slice_test": {
+    "source": "ce9cf536b5a07f88",
+    "target": "3130e689b06aef83"
+  },
+  "effect:ui_effect_state": {
+    "source": "11da41cae8ba49e1",
+    "target": "bd5b0029e01cc258"
+  },
+  "effect:ui_motion_flow": {
+    "source": "3ba779e880e1b074",
+    "target": "c0f6789ccb3561d3"
+  },
+  "effect:ui_motion_transition": {
+    "source": "ee95d70c21c0f91c",
+    "target": "0c269f2f4173e501"
+  },
+  "effect:ui_sdf_boolean": {
+    "source": "af19b7fd00760001",
+    "target": "d082d6eb2114b970"
+  },
+  "effect:ui_sdf_from_alpha": {
+    "source": "bca92fb81ce2a149",
+    "target": "718889328dd86a46"
+  },
+  "effect:ui_sdf_mask": {
+    "source": "595065e0b652b812",
+    "target": "79a35d6517e8883f"
+  },
+  "effect:ui_sdf_modify": {
+    "source": "fd8171868e941896",
+    "target": "d39732967b2beb04"
+  },
+  "effect:ui_sdf_render": {
+    "source": "3176edff6696a263",
+    "target": "155c3f5439b77598"
+  },
+  "effect:ui_sdf_shape": {
+    "source": "342548645264b467",
+    "target": "8218d816a50b4839"
+  },
+  "effect:ui_sdf_stroke": {
+    "source": "b525581f22dfc3a0",
+    "target": "373838480d06e94f"
+  },
+  "effect:ui_skin_state": {
+    "source": "7acaa4eb9ccdf83f",
+    "target": "59226068e1a45928"
+  },
+  "effect:ui_sprite_flipbook": {
+    "source": "1fb19be730c1c27a",
+    "target": "e9443b5a581202e6"
+  },
+  "effect:ui_uv_address": {
+    "source": "d214eda72cfc26cd",
+    "target": "23b74aa3c8aaf7f8"
+  },
+  "effect:ui_uv_affine": {
+    "source": "a6fb13bd20682b4d",
+    "target": "305e19e7c5bd65ca"
+  },
+  "effect:ui_uv_atlas": {
+    "source": "3a31a56de3178783",
+    "target": "2d5b9bdf50e8de1e"
+  },
+  "effect:ui_uv_coordinates": {
+    "source": "27a4938d6e68c025",
+    "target": "8a892eab50299ff8"
+  },
+  "effect:ui_uv_displace": {
+    "source": "9d0a1431c321d141",
+    "target": "ef5f13574a785d17"
+  },
+  "effect:ui_uv_field_view": {
+    "source": "4ab92df0cd3a0a63",
+    "target": "53e8f26c1a8e7f0b"
+  },
+  "effect:ui_uv_fit": {
+    "source": "5b784f4c7790c1b6",
+    "target": "b4bab14559f40d6d"
+  },
+  "effect:ui_uv_mask_progress": {
+    "source": "d06d4c6d889aa5d7",
+    "target": "a6d81c44c090955c"
+  },
+  "effect:ui_uv_mask_rect": {
+    "source": "8ce27354594824c3",
+    "target": "f00653afd3d0ffde"
+  },
+  "effect:ui_uv_nine_slice": {
+    "source": "c778f320cb89ed83",
+    "target": "71d031591de4f42b"
+  },
+  "effect:ui_uv_parallax": {
+    "source": "9392b49b1b2a4381",
+    "target": "d73a280d85abdb0d"
+  },
+  "effect:ui_uv_pixel_snap": {
+    "source": "f6a0df91a130f6ee",
+    "target": "1c95fe9d7cd34adf"
+  },
+  "effect:ui_uv_polar": {
+    "source": "ec811be0bb171c20",
+    "target": "a15e63eef0668d72"
+  },
+  "effect:ui_uv_projective": {
+    "source": "12a5a7fab99e8abf",
+    "target": "812ef36acb0954b7"
+  },
+  "effect:ui_uv_repeat_grid": {
+    "source": "80e27fabb5aa0e73",
+    "target": "d7fa29f13b8ada7e"
+  },
+  "effect:ui_uv_sample": {
+    "source": "ecd6d863901d41a9",
+    "target": "b1974a2c8be2fb51"
+  },
+  "effect:ui_uv_three_slice": {
+    "source": "f1a7eedab6bc713f",
+    "target": "ec2711a68da04c81"
+  },
+  "effect:ui_uv_unwrap": {
+    "source": "1b11beebee03bf71",
+    "target": "00cbd26c28533e8a"
+  },
+  "effect:ui_uv_wave": {
+    "source": "a5a91304b7fa8426",
+    "target": "afc3c33fb890b06d"
+  },
+  "effect:vibrance": {
+    "source": "ea2c2478ab0736fa",
+    "target": "3ac8f263f2de4206"
+  },
+  "effect:wave": {
+    "source": "ef5961ae83da4cae",
+    "target": "8c89c1d8de76ab11"
+  },
+  "function:Bake et export PNG": {
+    "source": "5f48a03abd5cae23",
+    "target": "50f613ff1b6fe638"
+  },
+  "function:ComfyUI Depth to Surface Maps": {
+    "source": "b086ffe6c82b7a4c",
+    "target": "4d80039328ed1b7f"
+  },
+  "function:ComfyUI PBR Map Workflow": {
+    "source": "e0bdbe5664fe68ff",
+    "target": "08ca34897c046102"
+  },
+  "function:ComfyUI Texture Image to Image": {
+    "source": "bd1061177920d478",
+    "target": "6a08f712eb454c6e"
+  },
+  "function:Creative Blend Depth Transition": {
+    "source": "57585c9c6e8041d3",
+    "target": "f00314fc2915edc8"
+  },
+  "function:Creative Blend Detail Transfer": {
+    "source": "c4e5ca82c94d9475",
+    "target": "0f72d6a460f07bab"
+  },
+  "function:Creative Blend Edge Reveal": {
+    "source": "1b9607f9a49d3d3c",
+    "target": "a054fad8eb31b0c3"
+  },
+  "function:Creative Blend Noise Dissolve": {
+    "source": "116c0fb1db1890ea",
+    "target": "23da8611b8a77aeb"
+  },
+  "function:Creative Blend Protected Highlights": {
+    "source": "7c9df82644145ea2",
+    "target": "cde8c3c6b7275f14"
+  },
+  "function:Creative Draw Flow Lines": {
+    "source": "b633d40b56b65ecc",
+    "target": "5a6ab2dfe2b155ff"
+  },
+  "function:Creative Draw Isometric Tiles": {
+    "source": "9cdc802d4011f607",
+    "target": "9c6774ab1da61301"
+  },
+  "function:Creative Draw Terrazzo": {
+    "source": "007768fc211862ef",
+    "target": "865d51909ed77476"
+  },
+  "function:Creative Draw Topographic Lines": {
+    "source": "db48ed9e3ac9a3e9",
+    "target": "b5e297eccc27621b"
+  },
+  "function:Creative Draw Torn Paper": {
+    "source": "b848a5bdc8ae0ad1",
+    "target": "3198a13a3f7411ff"
+  },
+  "function:Creative Engraved Illustration": {
+    "source": "76e7475a2f79b5a5",
+    "target": "b6666bdf1b428bfc"
+  },
+  "function:Creative Filter Alpha Edge Padding": {
+    "source": "f5000c2d580dae25",
+    "target": "451b59a9a37fdf8f"
+  },
+  "function:Creative Filter Crosshatch Shading": {
+    "source": "1c30215a9904a9c4",
+    "target": "9fdeac27bdb909c0"
+  },
+  "function:Creative Filter Ink Bleed": {
+    "source": "9347c659815b7c34",
+    "target": "f1888d625e675a3b"
+  },
+  "function:Creative Filter Screen Print Wear": {
+    "source": "a81d768c3871db2a",
+    "target": "137de7399097a5d6"
+  },
+  "function:Creative Filter Selective Detail": {
+    "source": "30aa783f8d471456",
+    "target": "648b613551dcda7b"
+  },
+  "function:Creative Filter Topographic Lines from Height": {
+    "source": "302a74ae81f0e672",
+    "target": "df50b022ff80bfce"
+  },
+  "function:Creative Paper Collage": {
+    "source": "7abdd986992ed32d",
+    "target": "08a1244c572cbc06"
+  },
+  "function:Creative Procedural Map Background": {
+    "source": "dd443c80ae222b21",
+    "target": "e2d3c88442b6a730"
+  },
+  "function:Creative Worn Screen Print": {
+    "source": "5594b100b50d1418",
+    "target": "540a47270283a689"
+  },
+  "function:Fondu AB": {
+    "source": "67c4a76043d63414",
+    "target": "79d812220270177b"
+  },
+  "function:Game Art Four Color Recolor": {
+    "source": "69502a39a21427c7",
+    "target": "481c729328384199"
+  },
+  "function:Game Art Hit Flash Export": {
+    "source": "24fc01927bfee680",
+    "target": "ac3a44961d361649"
+  },
+  "function:Game Art Outline and Shadow": {
+    "source": "959edb7f348c36d2",
+    "target": "4fe2620255f236d2"
+  },
+  "function:Game Art Pixel Sprite Pipeline": {
+    "source": "f67c9fe98ad0a2d7",
+    "target": "f7d000ac9af3fa96"
+  },
+  "function:Game Art Sprite States": {
+    "source": "cd8b7ff0936d8cc3",
+    "target": "c9323c2868713f33"
+  },
+  "function:Game Art Transparency Inspection": {
+    "source": "f14fa8fbef713112",
+    "target": "fff2df474422de74"
+  },
+  "function:Graph Effects Color Wash": {
+    "source": "c57668e21d5f011a",
+    "target": "1e3b7352e951136e"
+  },
+  "function:Graph Effects Directional Relief": {
+    "source": "e65d7ccec754b3fb",
+    "target": "95869f8d192b7dbf"
+  },
+  "function:Graph Effects Dithered Posterize": {
+    "source": "237df667ddfaef40",
+    "target": "80543849dbcfb43a"
+  },
+  "function:Graph Effects Gradient Map": {
+    "source": "c96d818b27ef4c49",
+    "target": "fea686531b824850"
+  },
+  "function:Graph Effects Graphic Color Stack": {
+    "source": "8a89ff7904cc0d62",
+    "target": "37e2d81c4b81e9cb"
+  },
+  "function:Graph Effects Perceptual Levels": {
+    "source": "8147352c130f12a4",
+    "target": "f85a139975bd29ce"
+  },
+  "function:Graph Effects RGB Channel Shift": {
+    "source": "d817a74f742702ea",
+    "target": "75728f55cee537ba"
+  },
+  "function:Graph Effects Soft Luminance Mask": {
+    "source": "bc8cc320fcdfb395",
+    "target": "8e1ff9ecbc6305c0"
+  },
+  "function:Graph Effects Wave Warp": {
+    "source": "74b0ab619b7c54b2",
+    "target": "3da0e9defc2d4ddd"
+  },
+  "function:Graph Layers Dot Grid": {
+    "source": "f86aae0200f6bee6",
+    "target": "a2a693682a4bd46c"
+  },
+  "function:Graph Layers Glow Disc": {
+    "source": "4ac832783ed59eab",
+    "target": "487df771f9c9e49f"
+  },
+  "function:Graph Layers Glowing Panel": {
+    "source": "a587a7ce17e80b71",
+    "target": "95a90694e97e56b9"
+  },
+  "function:Graph Layers Gradient": {
+    "source": "5392b6855ad9fd9b",
+    "target": "53c0d35fd3148910"
+  },
+  "function:Graph Layers Patterned Background": {
+    "source": "812f6447b5fe7fe6",
+    "target": "1e54a53f34d6b3be"
+  },
+  "function:Graph Layers Rings": {
+    "source": "5ae6c33d4a1702d9",
+    "target": "6e42d4b56c59879b"
+  },
+  "function:Graph Layers Rounded Panel": {
+    "source": "8080334875c9be79",
+    "target": "6855f6e7bf48bfb2"
+  },
+  "function:Graph Layers Soft Noise": {
+    "source": "ac8643b7e8bd0c6d",
+    "target": "ebe07ea867a9898c"
+  },
+  "function:Graph Layers Stripes": {
+    "source": "6eb395e6287bb993",
+    "target": "a5dcd1dddf4e2a9e"
+  },
+  "function:Graph Layers Textured Stripes": {
+    "source": "9782e9c2f9c69bb2",
+    "target": "2fc2d4623070fbcc"
+  },
+  "function:Graph Layers Woven Pattern": {
+    "source": "470ab71d9fe26d4f",
+    "target": "97ef6d284a019d84"
+  },
+  "function:Logo Chrome and Bevel": {
+    "source": "436c57f7dce9c773",
+    "target": "62885b6c768b4c55"
+  },
+  "function:Logo Chrome PNG Export": {
+    "source": "1a15924bf4f37e25",
+    "target": "79e67942692bc603"
+  },
+  "function:Logo Embossed Badge": {
+    "source": "899ce0ddfb79365a",
+    "target": "a855525aaf55cb58"
+  },
+  "function:Logo Gradient Extrusion": {
+    "source": "c618bdedce7c4d63",
+    "target": "8b616347fcfb94ee"
+  },
+  "function:Logo Neon Glow": {
+    "source": "f2621276a5f2be87",
+    "target": "64e05c2eb4fc6c3f"
+  },
+  "function:Logo Sticker Border": {
+    "source": "dfd8c337e118c75f",
+    "target": "5f2f343005e2bd26"
+  },
+  "function:Masks Alpha Extraction and Cleanup": {
+    "source": "5f497ed87f5de557",
+    "target": "0eb7d490577a0763"
+  },
+  "function:Masks Color Key and Despill": {
+    "source": "2fb7ae819ba22883",
+    "target": "8a5710ff87db4470"
+  },
+  "function:Masks Composite with Matte": {
+    "source": "1ca90a1dc9e46a39",
+    "target": "55d877b5feec2c19"
+  },
+  "function:Masks Imported Matte to Coverage": {
+    "source": "a19b990907d522c2",
+    "target": "23243863cbe58e11"
+  },
+  "function:Masks Luminance Selection": {
+    "source": "5f85c3f8aa2d29a6",
+    "target": "861cb3e65f91b4f1"
+  },
+  "function:Masks Matte Cleanup": {
+    "source": "9b9bd89ee9f1fd02",
+    "target": "a66716e9fd26ffdc"
+  },
+  "function:Netteté réglable": {
+    "source": "bf2852618f76a6eb",
+    "target": "ad3753c4010737a6"
+  },
+  "function:Ombre colorée": {
+    "source": "8e51141cddb3ee37",
+    "target": "b6c209f5d9dc6b43"
+  },
+  "function:PBR Channel Packing": {
+    "source": "ed574d9aac3ca6fe",
+    "target": "b4bf79c5d4c04384"
+  },
+  "function:PBR Data Map Adjustment": {
+    "source": "c467c4daeaa262c3",
+    "target": "2f89a4b543c2d6ca"
+  },
+  "function:PBR Height to Surface Maps": {
+    "source": "dabe8cdb7058f54e",
+    "target": "26e5d1e48572c7d7"
+  },
+  "function:PBR Normal Blend and Conversion": {
+    "source": "f4d7b79058ad4cbf",
+    "target": "4154539cf059c1fc"
+  },
+  "function:PBR Photo to Maps and PNG Export": {
+    "source": "c8365833990682af",
+    "target": "de15806bf2f01411"
+  },
+  "function:PBR Photo to Maps": {
+    "source": "c67c30504d8ad825",
+    "target": "7e9a3d13a98b951f"
+  },
+  "function:PBR Procedural Microrelief": {
+    "source": "0cc4ca70c01fdc3b",
+    "target": "c98a417833cd161d"
+  },
+  "function:PBR Roughness and Glossiness": {
+    "source": "93d0d32f18ee33b8",
+    "target": "c449412752c05b26"
+  },
+  "function:Photo Essentials Develop": {
+    "source": "642a8011903b3118",
+    "target": "e16df38729cd51db"
+  },
+  "function:Photo Essentials Exposure Bracket Export": {
+    "source": "d95eb62130f972e7",
+    "target": "d0d9e4c8fbd748fc"
+  },
+  "function:Photo Essentials Grain and Vignette": {
+    "source": "b189b65cbb02f578",
+    "target": "ed2ff88bdc87f400"
+  },
+  "function:Photo Essentials Local Contrast and Sharpen": {
+    "source": "df516a616eadef9d",
+    "target": "4e9a1aa5a8bebc66"
+  },
+  "function:Photo Essentials Shadows and Highlights": {
+    "source": "3bd6efea6bb26868",
+    "target": "d5f361d3c8404dc0"
+  },
+  "function:Photo Essentials Split Tone Look": {
+    "source": "4e036c494ab4772d",
+    "target": "289e46429f85accb"
+  },
+  "function:Print Artwork on Aged Paper": {
+    "source": "0fa27cc6034bd1ef",
+    "target": "55009096e3324805"
+  },
+  "function:Print Duotone Look": {
+    "source": "88586782268627f3",
+    "target": "7ec6397d96d813d9"
+  },
+  "function:Print Halftone Studio": {
+    "source": "86a8fdd75686ec59",
+    "target": "e46e0ffe6e72074d"
+  },
+  "function:Print Halftone Variants Export": {
+    "source": "469d9e5a17d58753",
+    "target": "6a787a96e0defbb9"
+  },
+  "function:Print Ink Overprint": {
+    "source": "798dee612fc7fbbd",
+    "target": "9e521ac133414518"
+  },
+  "function:Print Two Ink Risograph": {
+    "source": "5bfd83fa6eed9d6f",
+    "target": "a0870769996793ed"
+  },
+  "function:Scan Adaptive Ink Extraction": {
+    "source": "2a95ddc78bcd7676",
+    "target": "eb4fe671fa33da76"
+  },
+  "function:Scan Extract Transparent Ink": {
+    "source": "32cfd2528ea113dd",
+    "target": "8b96c7583dc6f5dc"
+  },
+  "function:Scan Line Art PNG Export": {
+    "source": "d0b1e12be1ac960b",
+    "target": "23480e0dcbc3bc43"
+  },
+  "function:Scan Paper Cleanup": {
+    "source": "75591e2e8452fe13",
+    "target": "db4c4894b81f890f"
+  },
+  "function:Scan Photo to Edge Line Art": {
+    "source": "e9da04f13214c18c",
+    "target": "296665a1691f7dff"
+  },
+  "function:Scan Recolor Transparent Line Art": {
+    "source": "239f4d2a691bafae",
+    "target": "7a1df695760501a8"
+  },
+  "function:Textures Cleanup and Albedo": {
+    "source": "60b9e165accb1df3",
+    "target": "dc2b80989ea45b00"
+  },
+  "function:Textures Detail and High Pass": {
+    "source": "49d0f4561b1a6c09",
+    "target": "3ac22e9eba514d30"
+  },
+  "function:Textures Seam Blending and Inspection": {
+    "source": "2358e16ed95647ef",
+    "target": "bb5baac2a66b71ce"
+  },
+  "function:Textures Upscale and Export": {
+    "source": "b3bc0873a9a8b883",
+    "target": "74880284c495a635"
+  },
+  "function:UI Toolkit Alpha Feather": {
+    "source": "9ae5e416087792d7",
+    "target": "60bea5f8981254be"
+  },
+  "function:UI Toolkit Alpha Grow": {
+    "source": "11f44832c69252ea",
+    "target": "4d93d3949cdd7ced"
+  },
+  "function:UI Toolkit Alpha Remove Matte": {
+    "source": "537c8fdade9a23f0",
+    "target": "16fa903db07f426c"
+  },
+  "function:UI Toolkit Alpha Shrink": {
+    "source": "67641678c9ea8fd0",
+    "target": "6724e0c6f517daf8"
+  },
+  "function:UI Toolkit Alpha Sprite Cleanup": {
+    "source": "adfbcae0e9ed4f02",
+    "target": "006f162cd5beda31"
+  },
+  "function:UI Toolkit Export Skin Set": {
+    "source": "c357654bf881b642",
+    "target": "10daa84fd70d660e"
+  },
+  "function:UI Toolkit Layout Pixel Art Sampling": {
+    "source": "d04f811d09719102",
+    "target": "69d79b0ec397aba6"
+  },
+  "function:UI Toolkit Layout Pixel Snap": {
+    "source": "199694cf24e57724",
+    "target": "c304ccbf6b3fb892"
+  },
+  "function:UI Toolkit Layout Snapped Widget": {
+    "source": "c29a7b9dc437b42f",
+    "target": "dea485d7abc56659"
+  },
+  "function:UI Toolkit Motion Flow Map": {
+    "source": "780b08adf99f0e94",
+    "target": "c1c75710fddc7f65"
+  },
+  "function:UI Toolkit Motion Parallax Card": {
+    "source": "9684d2c6e465b733",
+    "target": "438c8c8e3e5c6230"
+  },
+  "function:UI Toolkit Motion Parallax Layers": {
+    "source": "4f2cdbaad4c7bb57",
+    "target": "8e574660e3c161c4"
+  },
+  "function:UI Toolkit Pattern Chevrons": {
+    "source": "c482fa020e1707b8",
+    "target": "feffcfebcb4f6f0b"
+  },
+  "function:UI Toolkit Pattern Crosshairs": {
+    "source": "8d617e879d7d00d5",
+    "target": "356da2ece5579498"
+  },
+  "function:UI Toolkit Pattern Dots": {
+    "source": "1e5321ba094e769c",
+    "target": "eef987576e99b888"
+  },
+  "function:UI Toolkit Pattern Hatch": {
+    "source": "f9b0fa61d8075498",
+    "target": "502a102681dc90ac"
+  },
+  "function:UI Toolkit Pattern Hex Grid": {
+    "source": "80dd2f61fe0bac5d",
+    "target": "488b2b2eb1767957"
+  },
+  "function:UI Toolkit Pattern Overlay": {
+    "source": "364a791068b465f7",
+    "target": "f97ffe6dc65e9ca2"
+  },
+  "function:UI Toolkit Pattern Panel Lines": {
+    "source": "29eb807cd10f8d45",
+    "target": "a8e1a9f9bfec0aec"
+  },
+  "function:UI Toolkit Pattern Scanlines": {
+    "source": "376e0098fbc474e8",
+    "target": "6a7b08258c305ab5"
+  },
+  "function:UI Toolkit Pattern Technical Grid": {
+    "source": "71ed015f8d0fa7d6",
+    "target": "bc53ca278e513baf"
+  },
+  "function:UI Toolkit SDF Arrow": {
+    "source": "44f7b2f4665858ce",
+    "target": "3425860f2f5d72d9"
+  },
+  "function:UI Toolkit SDF Boolean Badge": {
+    "source": "9250e5fe4e1ef823",
+    "target": "5961eb429f9bbba7"
+  },
+  "function:UI Toolkit SDF Capsule": {
+    "source": "db6d42f87b917e1a",
+    "target": "0306e1f41b3ecea2"
+  },
+  "function:UI Toolkit SDF Circle": {
+    "source": "3531d755ec7d9fdb",
+    "target": "e8935d4b07e4d84d"
+  },
+  "function:UI Toolkit SDF Dashed Border": {
+    "source": "8f92bfc6da0527e1",
+    "target": "2acb3cc662996591"
+  },
+  "function:UI Toolkit SDF Dotted Border": {
+    "source": "5dc88aaa18281956",
+    "target": "a7a5c3ddfcce1193"
+  },
+  "function:UI Toolkit SDF Double Border": {
+    "source": "db3298c5cc46cc9a",
+    "target": "fe10afe3fc371a9f"
+  },
+  "function:UI Toolkit SDF Polygon": {
+    "source": "3391c27cc35af569",
+    "target": "e1ba5d30139b6822"
+  },
+  "function:UI Toolkit SDF Rounded Panel": {
+    "source": "4fae32be96fab2f6",
+    "target": "dababc1a51468559"
+  },
+  "function:UI Toolkit SDF Smooth Union": {
+    "source": "8ca21dc9c527ac2f",
+    "target": "c6f6f4aa3e699203"
+  },
+  "function:UI Toolkit SDF Star": {
+    "source": "cbdbe68eed200b53",
+    "target": "e3b17b2e944ee516"
+  },
+  "function:UI Toolkit SDF Triangle": {
+    "source": "1bd7274e6689dc35",
+    "target": "46460ff3d69f7169"
+  },
+  "function:UI Toolkit Skin Image Variants": {
+    "source": "d7ed2f34e5758b5a",
+    "target": "9d2095eb822d6b12"
+  },
+  "function:UI Toolkit Skin SDF Variants": {
+    "source": "d148f3db8e2f797c",
+    "target": "c61cfae2eb741ceb"
+  },
+  "function:UI Toolkit Transition Crossfade": {
+    "source": "3efa53952c9f591c",
+    "target": "81d406d2192f9b66"
+  },
+  "function:UI Toolkit Transition Dissolve": {
+    "source": "a8c3d39943caa273",
+    "target": "7e27094212958741"
+  },
+  "function:UI Toolkit Transition Iris": {
+    "source": "50d5f02376d7a404",
+    "target": "24c35a807dc28544"
+  },
+  "function:UI Toolkit Transition Slide": {
+    "source": "4de6f632f932bdca",
+    "target": "1fd3c5708f79da7a"
+  },
+  "function:UI Toolkit Transition Wipe": {
+    "source": "01ddf470bcb7a9c3",
+    "target": "667e88ab4fd87b17"
+  },
+  "function:UI Toolkit Transition Zoom": {
+    "source": "daf01aa01dc6117a",
+    "target": "096dbd2b2c32fcf3"
+  },
+  "function:UI UV Atlas Icon": {
+    "source": "d2d3f674ee0dbb0b",
+    "target": "19d8d7126a40a4ee"
+  },
+  "function:UI UV Atlas Nine Slice": {
+    "source": "d1f02d2d60f242c9",
+    "target": "c4209b3af6ba91b9"
+  },
+  "function:UI UV Bake Skin PNG": {
+    "source": "f885e1145dad7b2e",
+    "target": "aa15f388763d43cf"
+  },
+  "function:UI UV Displaced Image": {
+    "source": "8fd13086b04c74c3",
+    "target": "742bf700dad192cc"
+  },
+  "function:UI UV Eight Slice Border": {
+    "source": "85570a7b07ed725a",
+    "target": "e9ffb6e684ffc5b8"
+  },
+  "function:UI UV Flipbook Sprite": {
+    "source": "3fa4c9b322f33c35",
+    "target": "9585624e1328f8b9"
+  },
+  "function:UI UV Image Fit": {
+    "source": "252b9458591ccdd5",
+    "target": "68c13b1ef563e642"
+  },
+  "function:UI UV Nine Slice Panel": {
+    "source": "94ec5cebf2503484",
+    "target": "1324716ef1943109"
+  },
+  "function:UI UV Panel Skin States": {
+    "source": "27786874dd2c30bc",
+    "target": "9c9465c1a8c83a28"
+  },
+  "function:UI UV Perspective Card": {
+    "source": "2cd858f833436165",
+    "target": "30a18f5d735a1de8"
+  },
+  "function:UI UV Pixel Margin Panel": {
+    "source": "3387ede36b3a89db",
+    "target": "50a92fe891439494"
+  },
+  "function:UI UV Progress Bar": {
+    "source": "443cc1d58f1a6732",
+    "target": "fb16d23fceed6938"
+  },
+  "function:UI UV Radial Progress": {
+    "source": "4d36b95f70d97280",
+    "target": "0ca095a4cbb0649b"
+  },
+  "function:UI UV Repeated Icons": {
+    "source": "e66a77e1f9df4b08",
+    "target": "2731b342b35af3fa"
+  },
+  "function:UI UV Ring to Strip": {
+    "source": "edaa47080c743281",
+    "target": "82a917ef8b0d7c0a"
+  },
+  "function:UI UV Rounded Image": {
+    "source": "44333b89f5b71619",
+    "target": "3e59506a10ffc474"
+  },
+  "function:UI UV Scrolling Pattern": {
+    "source": "26906818c8c0bd38",
+    "target": "b738aba48133d43d"
+  },
+  "function:UI UV Segmented Progress": {
+    "source": "9b344e1fb7b615e4",
+    "target": "cf13c96a783887c2"
+  },
+  "function:UI UV Styled Button": {
+    "source": "5ba2acb720e0f135",
+    "target": "8f261541bcfbb45f"
+  },
+  "function:UI UV Three Slice Horizontal": {
+    "source": "67643a052db2139c",
+    "target": "299d2a30b1dc2ee7"
+  },
+  "function:UI UV Three Slice Vertical": {
+    "source": "e9122d89d51b7b5c",
+    "target": "97b5a9dd0284e721"
+  },
+  "function:UI UV Tiled Center Panel": {
+    "source": "2eeeec18b0d11abe",
+    "target": "a6ba64318f477c0b"
+  },
+  "function:UI UV Transform Stack": {
+    "source": "6641534a2ddf4ccd",
+    "target": "b3eff9f51f4799a3"
+  },
+  "function:UI UV Wavy Banner": {
+    "source": "fabfc0fb978175bf",
+    "target": "a65f6e8ac086de38"
+  },
+  "function:Upscale IA x4": {
+    "source": "0bd6da14488f0974",
+    "target": "d4e621165a07ca29"
+  },
+  "function:Variantes de teinte": {
+    "source": "3f188f65ab555c9d",
+    "target": "6d4b2f5a11f7856a"
+  },
+  "tool:move": {
+    "source": "c0c92d0dc7fa830e",
+    "target": "fc2676f69177d985"
+  },
+  "tool:rect_select": {
+    "source": "80cd3107d3a983ac",
+    "target": "0afa53d69e88b532"
+  },
+  "tool:ellipse_select": {
+    "source": "bbf6423fb371aeda",
+    "target": "11a4899fa9cc16e1"
+  },
+  "tool:lasso": {
+    "source": "78e0a8ae38ae4104",
+    "target": "21629bc5aee10807"
+  },
+  "tool:poly_lasso": {
+    "source": "e1bca634875fb0e9",
+    "target": "67f2a9a0d6ac8b35"
+  },
+  "tool:wand": {
+    "source": "a4b223442f46df1c",
+    "target": "50aed43f18700f19"
+  },
+  "tool:brush": {
+    "source": "63d48ddbf5de84e6",
+    "target": "c745e354188b77ac"
+  },
+  "tool:eraser": {
+    "source": "9658b08617ad5189",
+    "target": "e4bb23d3ec36dcd4"
+  },
+  "tool:clone": {
+    "source": "b402021f3b76d81b",
+    "target": "076172f569807430"
+  },
+  "tool:heal": {
+    "source": "3bc571362eaef392",
+    "target": "8024a055009b3d90"
+  },
+  "tool:gradient": {
+    "source": "6a323c467b27e41c",
+    "target": "a54919faf1731a36"
+  },
+  "tool:bucket": {
+    "source": "15b704ac9bf5c565",
+    "target": "37ec1f447e7ec1a2"
+  },
+  "tool:blur": {
+    "source": "585e6cfb57e2b373",
+    "target": "12148fb1d15e537a"
+  },
+  "tool:sharpen": {
+    "source": "b2711b83bb8b172a",
+    "target": "11c1f3c91798d24a"
+  },
+  "tool:smudge": {
+    "source": "fb227e381ad51404",
+    "target": "fa36423ed062a721"
+  },
+  "tool:dodge": {
+    "source": "ac23b3c77c716748",
+    "target": "7b9b1ec9fce91012"
+  },
+  "tool:burn": {
+    "source": "0524e3d8b0f2a8d0",
+    "target": "3c30433cd257eb6a"
+  },
+  "tool:sponge": {
+    "source": "814a498b9715daad",
+    "target": "55057b23898c2e47"
+  },
+  "tool:liquify": {
+    "source": "db912eea660d4727",
+    "target": "19fd716c3bd36d03"
+  },
+  "tool:picker": {
+    "source": "7f5aeae9c8dac22b",
+    "target": "bc1057a0653479fe"
+  },
+  "tool:hand": {
+    "source": "dcd0b0c17b014535",
+    "target": "b01ed841b1d33c9b"
+  },
+  "tool:zoom": {
+    "source": "084826ec46850a69",
+    "target": "75d9ba02f0584004"
+  },
+  "tool:crop": {
+    "source": "b5304fe7ebd8287e",
+    "target": "fdf32d51b9acbba4"
+  },
+  "tool:text": {
+    "source": "ea971f56dae9b3ef",
+    "target": "94416c467f86e3a6"
+  },
+  "tool:shape": {
+    "source": "f3a50e5f7dee89c7",
+    "target": "f1ec537232aab5ee"
+  },
+  "tool:quick_select": {
+    "source": "18a8c965ccde8223",
+    "target": "57073893c923c4f9"
+  },
+  "tool:pen": {
+    "source": "08f1db900d01deae",
+    "target": "11c23d5b9650ab0b"
+  },
+  "tool:magnetic_lasso": {
+    "source": "f5fbd7264ffe7a91",
+    "target": "608c3d0dff9416ed"
+  },
+  "tool:patch": {
+    "source": "516a447093f05e3f",
+    "target": "b09965f5052d090f"
+  },
+  "tool:content_move": {
+    "source": "27aa59fb38610ac9",
+    "target": "1798bd8a1788ab16"
+  },
+  "tool:red_eye": {
+    "source": "795aa3848b39de74",
+    "target": "17d418a3e4aa1911"
+  },
+  "tool:magic_eraser": {
+    "source": "bf30a5850977a45a",
+    "target": "71a3b3ef62b80cde"
+  },
+  "tool:background_eraser": {
+    "source": "ece31aff1876607b",
+    "target": "ad5fe0f940c9b22d"
+  },
+  "tool:history_brush": {
+    "source": "0634a34c6b37c1af",
+    "target": "36fafdc70b922ff2"
+  },
+  "tool:pattern_stamp": {
+    "source": "87864701e1d520c8",
+    "target": "e79ee953a1d95d3b"
+  },
+  "tool:projection": {
+    "source": "97aa3a817d9d6c52",
+    "target": "9a03761234800a11"
+  },
+  "tool:layer_transform": {
+    "source": "73397452b3869c55",
+    "target": "d7c96e4eda142062"
+  },
+  "tool:trim": {
+    "source": "d8d93fd5f53c4d21",
+    "target": "89c8cd2ced9043d4"
+  },
+  "tool:poly_fill": {
+    "source": "764ead1a5439b759",
+    "target": "05dfb0ca4ac9f092"
+  },
+  "tool:particles": {
+    "source": "bb73650f51071de4",
+    "target": "0394b556bd79ef3e"
+  },
+  "tool:fluid": {
+    "source": "8fff61cbaa5d6143",
+    "target": "1c56f0fd2e5923b9"
+  },
+  "tool:plugin": {
+    "source": "a945ce0ef42fe9e7",
+    "target": "056770190e1bdc4a"
+  },
+  "tool:mixer": {
+    "source": "73c7e1e67f3728fc",
+    "target": "8347b41a1735dcee"
+  },
+  "tool:ruler": {
+    "source": "14287318a1879761",
+    "target": "b6065b2cd81d517b"
+  },
+  "tool:spot_heal": {
+    "source": "c4db9e568bf0e31a",
+    "target": "0444682130884be8"
+  },
+  "tool:color_replace": {
+    "source": "0c824de01fc5c80c",
+    "target": "6a6f87916c0fd1a4"
+  },
+  "command:image_size": {
+    "source": "4651cee1ceca8312",
+    "target": "14c01730903a63ec"
+  },
+  "command:fit_crop": {
+    "source": "5fc60c9d69c99423",
+    "target": "e95fe9180394e75c"
+  },
+  "command:canvas_size": {
+    "source": "733c4c02c22f6ca2",
+    "target": "b3d2d20476658932"
+  },
+  "command:rotate": {
+    "source": "e42f890498f22a2f",
+    "target": "0eb3589588011e1b"
+  },
+  "command:rotate_arbitrary": {
+    "source": "841a0d2879df9770",
+    "target": "059eab0dcbcbb902"
+  },
+  "command:crop_selection": {
+    "source": "97435faf3d4c11b9",
+    "target": "e98dc19f0901ac43"
+  },
+  "command:filter": {
+    "source": "7012860ecd2096bb",
+    "target": "036bfee5ec569fde"
+  },
+  "command:new_layer": {
+    "source": "0d6939f931e83222",
+    "target": "469bd527141c0a34"
+  },
+  "command:duplicate_layer": {
+    "source": "0eed19ed1fc48b5e",
+    "target": "8335a396a04163cb"
+  },
+  "command:rasterize_layer": {
+    "source": "b2861f9cc4bd5745",
+    "target": "060d929ea3063229"
+  },
+  "command:merge_down": {
+    "source": "207e437ef00a96e2",
+    "target": "c106648b83408c20"
+  },
+  "command:merge_visible": {
+    "source": "3b9e6765416a85b5",
+    "target": "a935e464e4b5fd91"
+  },
+  "command:flatten": {
+    "source": "60430902160ef9ec",
+    "target": "e5f6d66f7b25c111"
+  },
+  "command:select": {
+    "source": "ab0759f4f2d3563e",
+    "target": "02700ebab85d05d7"
+  },
+  "command:fill": {
+    "source": "e545c0a69a4adfe4",
+    "target": "f03da3c44dd30c5d"
+  },
+  "command:erase": {
+    "source": "f5eab13ac2532deb",
+    "target": "e0fa8e870cfb5e8a"
+  },
+  "command:layer_props": {
+    "source": "3c1ec69f4d66ce8f",
+    "target": "ed472af5607a6a9f"
+  },
+  "command:export": {
+    "source": "44e15015adc9ab9b",
+    "target": "978285c340605bed"
+  },
+  "command:photo_raw": {
+    "source": "5bea0454c2527f4c",
+    "target": "fe634b4330fbd4ce"
+  },
+  "command:op": {
+    "source": "122e9f1d8f5df3af",
+    "target": "5a8c74b1cfcca3d8"
+  },
+  "brush:airbrush": {
+    "source": "ffe0a504d0016484",
+    "target": "128c870a595e6231"
+  },
+  "brush:calligraphy": {
+    "source": "598ab877a77003ea",
+    "target": "cd4687e2ed141e28"
+  },
+  "brush:charcoal": {
+    "source": "4db06670484661fc",
+    "target": "5da8541c9f541378"
+  },
+  "brush:cy_bristle": {
+    "source": "093271de3c4526bc",
+    "target": "3bab4de99a0fa951"
+  },
+  "brush:cy_calligraphy": {
+    "source": "a09fa7048980e9de",
+    "target": "7069e147fa02ad5a"
+  },
+  "brush:cy_chain": {
+    "source": "3106a1de7da585d6",
+    "target": "5a32d479f1738d92"
+  },
+  "brush:cy_chalk": {
+    "source": "7494c1bf8ba94535",
+    "target": "819b0179369f48d2"
+  },
+  "brush:cy_charcoal": {
+    "source": "bf3d7b7d999824e8",
+    "target": "74bb49948b70f5c9"
+  },
+  "brush:cy_cloud": {
+    "source": "5f19c32424e1ae06",
+    "target": "70d2071b6e9671fb"
+  },
+  "brush:cy_crack": {
+    "source": "3f2690b871c3eb74",
+    "target": "39b496e4f8ed644e"
+  },
+  "brush:cy_cross": {
+    "source": "b1cc4a7cdc38dce7",
+    "target": "67d89598c5142c74"
+  },
+  "brush:cy_diamond": {
+    "source": "082448e533936b14",
+    "target": "4ce7f4b1e0c60ca7"
+  },
+  "brush:cy_dry_media": {
+    "source": "633763224571ffa8",
+    "target": "d463251264ebf21e"
+  },
+  "brush:cy_ellipse": {
+    "source": "efaaa776964d181c",
+    "target": "ae84cd4a90adbd63"
+  },
+  "brush:cy_fingerprint": {
+    "source": "6b8dd23c25e7a6fb",
+    "target": "030dd52207a56c8c"
+  },
+  "brush:cy_fur": {
+    "source": "4dd76f7ee850b506",
+    "target": "165950054458eefc"
+  },
+  "brush:cy_grass": {
+    "source": "85244ebcf1e22412",
+    "target": "cbb6910d70c387e1"
+  },
+  "brush:cy_halftone": {
+    "source": "3ee2bcddf7ea4a72",
+    "target": "93f89f43ff02889e"
+  },
+  "brush:cy_hexagon": {
+    "source": "de857aa9ce00bc55",
+    "target": "707bec42f041a73d"
+  },
+  "brush:cy_ink_bleed": {
+    "source": "bde97e0dd55fb91a",
+    "target": "9d4e80ec3aa474c4"
+  },
+  "brush:cy_leaf": {
+    "source": "05b992fe4d2f3244",
+    "target": "6061bcf0b7dde252"
+  },
+  "brush:cy_noise": {
+    "source": "97d3902a260d0ee4",
+    "target": "1ef7f0071a39c804"
+  },
+  "brush:cy_rake": {
+    "source": "0187356232b72013",
+    "target": "0721c1b43bb1ab58"
+  },
+  "brush:cy_ring": {
+    "source": "c59ccb79409d5318",
+    "target": "c83c346421fcab50"
+  },
+  "brush:cy_round": {
+    "source": "9fd62b76b51212bf",
+    "target": "bda0b4eea5aeba8a"
+  },
+  "brush:cy_scratch": {
+    "source": "6830fad26a5878cd",
+    "target": "c30ba1ca47b8d455"
+  },
+  "brush:cy_smoke": {
+    "source": "33321e21bf769542",
+    "target": "a4c4647b15edf93d"
+  },
+  "brush:cy_soft_square": {
+    "source": "8bfc8fb8b4554414",
+    "target": "de1278981bc2e9c8"
+  },
+  "brush:cy_sparkle": {
+    "source": "968d5a39eedf7636",
+    "target": "106b744c0171158f"
+  },
+  "brush:cy_sponge": {
+    "source": "38d660c64f8aabd8",
+    "target": "351f3b47cb3a7582"
+  },
+  "brush:cy_spray": {
+    "source": "6b6021b2df181a3a",
+    "target": "a3cd777aad1115de"
+  },
+  "brush:cy_square": {
+    "source": "c6f4cffbd44bb9db",
+    "target": "66d19c464809696b"
+  },
+  "brush:cy_star": {
+    "source": "927b26be1bd7006b",
+    "target": "1c9f577c058665e8"
+  },
+  "brush:cy_stitch": {
+    "source": "2e5fea80f854037b",
+    "target": "0642f01ad41692b9"
+  },
+  "brush:cy_texture": {
+    "source": "a41888a7033e430e",
+    "target": "7f61191c2d92c08a"
+  },
+  "brush:cy_triangle": {
+    "source": "ca8b2a25a87b6190",
+    "target": "7e69acaa77060e93"
+  },
+  "brush:cy_watercolor": {
+    "source": "282df4f58ece113b",
+    "target": "8c670c9a292e0789"
+  },
+  "brush:star_scatter": {
+    "source": "c6f0c0219c4f2682",
+    "target": "fe21f4c72bd5fa9f"
+  },
+  "brush:sx3d_coulures": {
+    "source": "9f51bbd35831978d",
+    "target": "8c02b18ff19f493d"
+  },
+  "brush:sx3d_couture": {
+    "source": "b5d824024ca5ac2c",
+    "target": "0809618bc5ec5999"
+  },
+  "brush:sx3d_ecailles": {
+    "source": "98a8c11fb9a35b7e",
+    "target": "f7e06729a850bcb9"
+  },
+  "brush:sx3d_eclaboussures": {
+    "source": "55c2dc701423d09f",
+    "target": "7baff482d5ad2ca6"
+  },
+  "brush:sx3d_fissures": {
+    "source": "98dca2fa53a22345",
+    "target": "e0776825a8e706e4"
+  },
+  "brush:sx3d_grain_bruit": {
+    "source": "c91d483bc563d303",
+    "target": "68bd600fe3548f7d"
+  },
+  "brush:sx3d_nuage_doux": {
+    "source": "e1e4b18becfc7a84",
+    "target": "75fbc1f5aca64285"
+  },
+  "brush:sx3d_pinceau_sec": {
+    "source": "88146720b42fc8e8",
+    "target": "0d4673970c676b10"
+  },
+  "brush:sx3d_points": {
+    "source": "88ec1abc1122cb74",
+    "target": "10ab0ed265497c90"
+  },
+  "brush:sx3d_rayures_fines": {
+    "source": "5d8025557ad4df92",
+    "target": "3884acf14a0d5c42"
+  },
+  "brush:sx3d_rivets": {
+    "source": "d9c7a71cef324db4",
+    "target": "0669e32a3b1f3418"
+  },
+  "brush:sx3d_salete": {
+    "source": "5fac1b150acb1a7a",
+    "target": "406c744bdc8d0f1b"
+  },
+  "brush:sx3d_taches_rouille": {
+    "source": "c43f6e0cd23d005e",
+    "target": "0dea6ada7257d534"
+  },
+  "brush:sx3d_trait_net": {
+    "source": "b54e45d8e570737f",
+    "target": "2ea35e508a3dad1a"
+  },
+  "brush:sx3d_usure_ecaille": {
+    "source": "87626ae759daee33",
+    "target": "39bb68140e2e7dd0"
+  },
+  "exec:sequence": {
+    "source": "ff89b7ac5a011f0d",
+    "target": "a8c8436ca2fd9692"
+  },
+  "exec:branch": {
+    "source": "92a08af3edad631c",
+    "target": "785c80240b1da8c3"
+  },
+  "exec:for_range": {
+    "source": "59f3bef334f0f193",
+    "target": "f473ace76b1bef26"
+  },
+  "exec:foreach": {
+    "source": "477c0d4a86c44deb",
+    "target": "7795fb947780ac6e"
+  },
+  "exec:foreach_text": {
+    "source": "838e8f26a2c675b5",
+    "target": "56fe48ae975b6107"
+  },
+  "exec:bake": {
+    "source": "3345a62798ec9c4e",
+    "target": "33d9784346668d8b"
+  },
+  "exec:upscale": {
+    "source": "3e395003a05c249a",
+    "target": "b04ca169db37f1c7"
+  },
+  "exec:comfyui": {
+    "source": "a639e7a68d690639",
+    "target": "a8a9c9bb77862e21"
+  },
+  "exec:export_png": {
+    "source": "8149af31f0919a3b",
+    "target": "bbca195024349e93"
+  },
+  "exec:call": {
+    "source": "e41b1a2490ce6de0",
+    "target": "27b077233c2343a1"
+  },
+  "exec:print": {
+    "source": "fbd8b1b19a2ff343",
+    "target": "b5ed5cfb75297934"
+  },
+  "math:add": {
+    "source": "cf0c3072c216ce40",
+    "target": "10ee4aa37d72a366"
+  },
+  "math:sub": {
+    "source": "bcb01dda72b62f22",
+    "target": "991768cea54bdd72"
+  },
+  "math:mul": {
+    "source": "2ed574092b8b28c1",
+    "target": "35d9110b8b4845ff"
+  },
+  "math:div": {
+    "source": "f96c7fe42190acb0",
+    "target": "d93e84db403c6059"
+  },
+  "math:min": {
+    "source": "9f692f8587d3895d",
+    "target": "134f874abe33a74b"
+  },
+  "math:max": {
+    "source": "fc650907a9b3d41a",
+    "target": "2496b225e1ec6e83"
+  },
+  "math:pow": {
+    "source": "549fa02e79e8669b",
+    "target": "7b882b040a2c999c"
+  },
+  "math:mod": {
+    "source": "c55966b40dde21c2",
+    "target": "486ab2d0e8290fca"
+  },
+  "math:abs": {
+    "source": "708230f127badf98",
+    "target": "2f7414c1410401d9"
+  },
+  "math:neg": {
+    "source": "8d30456fdbf8969c",
+    "target": "6ed8731b0dc27cbd"
+  },
+  "math:floor": {
+    "source": "6e214c7e233a4ef1",
+    "target": "00e6dd7f5ede311f"
+  },
+  "math:ceil": {
+    "source": "4bf68166a346176d",
+    "target": "5a4925f62132e04d"
+  },
+  "math:round": {
+    "source": "9404c03100130020",
+    "target": "5ef9aa2a43b63b4b"
+  },
+  "math:sqrt": {
+    "source": "92cf385ec36b57c9",
+    "target": "3fe3188063b8e314"
+  },
+  "math:sin": {
+    "source": "bf3533383d385d7b",
+    "target": "1cc982c6c5da5195"
+  },
+  "math:cos": {
+    "source": "36ba37f706ea0b41",
+    "target": "fdf9e97e6e602f99"
+  },
+  "math:clamp": {
+    "source": "8d87eae87304dc22",
+    "target": "325457bb337190ce"
+  },
+  "math:lerp": {
+    "source": "dae1c196a41be303",
+    "target": "9e6b0a898f38ddc0"
+  },
+  "math:remap": {
+    "source": "e2cd00c924c5424f",
+    "target": "a893604dbd21cca6"
+  },
+  "math:random": {
+    "source": "b51265d575b273aa",
+    "target": "215a2484348711f3"
+  },
+  "math:greater": {
+    "source": "82194e6a9adaaa8b",
+    "target": "bef080479aee82ef"
+  },
+  "math:less": {
+    "source": "e357673c1f14bc7d",
+    "target": "302a9ad44b6ce98f"
+  },
+  "math:equal": {
+    "source": "1d0d644120a35a5e",
+    "target": "c451a2dcdfbc3daf"
+  },
+  "math:and": {
+    "source": "015b20f7b4d36fad",
+    "target": "6f4c18930cfab84b"
+  },
+  "math:or": {
+    "source": "a8cfd7d7db717bbc",
+    "target": "113359cceb708f35"
+  },
+  "math:not": {
+    "source": "65fda99144d2f857",
+    "target": "a884697811443dfc"
+  },
+  "math:select": {
+    "source": "52e620474373ebfe",
+    "target": "4285f8effa834c82"
+  },
+  "math:vec2": {
+    "source": "d75fdef89992304d",
+    "target": "6fe7b54781e820d7"
+  },
+  "math:break_vec2": {
+    "source": "37287d1bd8bd117a",
+    "target": "53bf78ce9646d75f"
+  },
+  "math:color": {
+    "source": "3b1690ce71cff050",
+    "target": "7c1a0dae16d8dec2"
+  },
+  "math:break_color": {
+    "source": "827d34f786f585f0",
+    "target": "66dcdd8bace7c26a"
+  },
+  "math:hsv": {
+    "source": "326c4a1b2f043d29",
+    "target": "a388d79bfce1ba21"
+  },
+  "math:mix_color": {
+    "source": "6520b69d2843b136",
+    "target": "501d9b4184920f95"
+  },
+  "math:concat": {
+    "source": "5d2124b45512ba26",
+    "target": "efa19a5605baf0d9"
+  },
+  "math:to_string": {
+    "source": "9ef196c505905587",
+    "target": "1ed9d268fff3499b"
+  },
+  "math:to_name": {
+    "source": "480d7eec38b0aac5",
+    "target": "48fd70dc5afcffa7"
+  },
+  "math:text_length": {
+    "source": "1043bd4a60bf7b8d",
+    "target": "46ffd137118492ce"
+  },
+  "math:to_int": {
+    "source": "5384f17a38fd9b37",
+    "target": "f2babafaa1b328a3"
+  },
+  "math:to_float": {
+    "source": "3b7b7ba5064bbfc8",
+    "target": "23ef213bcdbe58cf"
+  },
+  "math:array_length": {
+    "source": "be2bb73c43f2b6b0",
+    "target": "6f62886c84c3d1b6"
+  },
+  "math:array_get": {
+    "source": "d3d652d64d75f4dd",
+    "target": "64f2a833979f9cc4"
+  },
+  "math:array_get_color": {
+    "source": "d1dbbb22a326f21e",
+    "target": "16f745fb638c00d0"
+  },
+  "math:array_get_text": {
+    "source": "e875ef2ee156c076",
+    "target": "6d664598692cb7c4"
+  },
+  "math:range": {
+    "source": "3949563ddaf0c1de",
+    "target": "205eab128e07a99c"
+  },
+  "math:array_sum": {
+    "source": "93403ba6a93f93b5",
+    "target": "f0ca49fb50470184"
+  },
+  "node:output": {
+    "source": "d0e1058d191cf10f",
+    "target": "8b788f97e24690af"
+  },
+  "node:surface": {
+    "source": "910a5afcddc928e9",
+    "target": "cff7ab7e1aeea8c7"
+  },
+  "node:effect": {
+    "source": "39914b2efa5b3968",
+    "target": "f0cbe417c3203bdb"
+  },
+  "node:blend": {
+    "source": "5e44d9773fc24a8f",
+    "target": "b34f11b32f699842"
+  },
+  "node:split": {
+    "source": "5c905c48ae29a60f",
+    "target": "106846606ad83799"
+  },
+  "node:tool": {
+    "source": "3395946bca610f89",
+    "target": "b708ac65fe616646"
+  },
+  "node:function": {
+    "source": "3a68934e6d653286",
+    "target": "b64ef43c35e97532"
+  },
+  "node:subinput": {
+    "source": "8be2c5a745607516",
+    "target": "c3f3173f452224ae"
+  },
+  "node:suboutput": {
+    "source": "5f17eb5bf0231934",
+    "target": "453a8ce337f34a03"
+  },
+  "node:value": {
+    "source": "12442d5f1f600f65",
+    "target": "ac9532d60a70e230"
+  },
+  "node:math": {
+    "source": "305012b186d3f880",
+    "target": "30d8d669d1d0ff90"
+  },
+  "node:varget": {
+    "source": "e0cddbd636757065",
+    "target": "bf5821a6cb097429"
+  },
+  "node:varset": {
+    "source": "7860954158475bdd",
+    "target": "07becef40b41bb3c"
+  },
+  "node:event": {
+    "source": "f4aaf51951337f97",
+    "target": "bf0c9912597b0481"
+  },
+  "node:action": {
+    "source": "21181c2c186ea5f0",
+    "target": "fce151120d13592b"
+  },
+  "node:reroute": {
+    "source": "1f4314198d79ee3c",
+    "target": "2cdc110b0e473015"
+  },
+  "shader:input": {
+    "source": "840a4c2db1ab0468",
+    "target": "c0efeacb98a5a12c"
+  },
+  "shader:sample": {
+    "source": "9ed009ce84fd656d",
+    "target": "d4fc53400dfe3993"
+  },
+  "shader:uv": {
+    "source": "e735a53ee3c91ab4",
+    "target": "ef04fc30bf697583"
+  },
+  "shader:texture": {
+    "source": "25d42d5215f92a7a",
+    "target": "6721a63b2ad5853d"
+  },
+  "shader:canvassize": {
+    "source": "6fa179b9ddf239e2",
+    "target": "d51c0fb0e4d5bb52"
+  },
+  "shader:pixel": {
+    "source": "04ddd6adfd7c06ec",
+    "target": "910786e3f2438728"
+  },
+  "shader:size": {
+    "source": "1e2302db842b3725",
+    "target": "909589616b21d781"
+  },
+  "shader:sampleoffset": {
+    "source": "9484ebbd6051aed3",
+    "target": "23b8717e00924026"
+  },
+  "shader:blur": {
+    "source": "edff12439cc9dfd2",
+    "target": "142ab1aadb7520ae"
+  },
+  "shader:edges": {
+    "source": "770d4e4f204be825",
+    "target": "895f8cd60b957328"
+  },
+  "shader:normalheight": {
+    "source": "635be38e85395a37",
+    "target": "000407a2aab7e744"
+  },
+  "shader:const": {
+    "source": "9bbd1dcaf42fd9ef",
+    "target": "7e53b257375c678d"
+  },
+  "shader:const2": {
+    "source": "65e44f2a34472e3e",
+    "target": "3a01f7e8430e28d9"
+  },
+  "shader:color": {
+    "source": "b00c646af6e27adc",
+    "target": "6343619e3f594409"
+  },
+  "shader:pi": {
+    "source": "7804dcb4692efbf5",
+    "target": "32e737eafa64c7bc"
+  },
+  "shader:param": {
+    "source": "a836ce971c75e85a",
+    "target": "717dca585b79d79c"
+  },
+  "shader:paramswitch": {
+    "source": "8703fd4c5a89368f",
+    "target": "307725a1d4570d1a"
+  },
+  "shader:paramcolor": {
+    "source": "45c577fafc2d7f26",
+    "target": "23b9162e1fc5a8b3"
+  },
+  "shader:param2": {
+    "source": "6895825b00badf85",
+    "target": "e5b025df644e5e3c"
+  },
+  "shader:add": {
+    "source": "235b9af3a75023e9",
+    "target": "3628cf8f5cc72f08"
+  },
+  "shader:sub": {
+    "source": "b1d5a195fc1930b9",
+    "target": "653e80d8fcea6f07"
+  },
+  "shader:mul": {
+    "source": "d8cd55502a40a52a",
+    "target": "115af234c71ed35d"
+  },
+  "shader:div": {
+    "source": "4dfd6c6e5dd9280d",
+    "target": "f4447ebc87c10446"
+  },
+  "shader:min": {
+    "source": "f48800c1fa4903f3",
+    "target": "9c711da4c1f35a81"
+  },
+  "shader:max": {
+    "source": "c738f2358bc744d9",
+    "target": "fbc089b1522f05c6"
+  },
+  "shader:pow": {
+    "source": "a6301e68b342361a",
+    "target": "bac813d97d9a640c"
+  },
+  "shader:lerp": {
+    "source": "4f9039ca55f91e63",
+    "target": "1edf75b2672a0617"
+  },
+  "shader:clamp": {
+    "source": "415cd889b1b9ac02",
+    "target": "227f0091a77074d3"
+  },
+  "shader:smoothstep": {
+    "source": "cf685b2078f82ebc",
+    "target": "67df08d3d0c74058"
+  },
+  "shader:step": {
+    "source": "b85b165040cdc0e2",
+    "target": "3e414c53f52a69c3"
+  },
+  "shader:oneminus": {
+    "source": "f4f147840df01f24",
+    "target": "17c22892bc0e4614"
+  },
+  "shader:abs": {
+    "source": "1c9834cfdf81ecfb",
+    "target": "e106a4999c4bf9f5"
+  },
+  "shader:negate": {
+    "source": "e7e5d500d9475352",
+    "target": "ba72c1298c532dde"
+  },
+  "shader:saturate": {
+    "source": "a3a27cba545f4bce",
+    "target": "25d4033a9cdf1f89"
+  },
+  "shader:frac": {
+    "source": "e53a706a06b79450",
+    "target": "e1ca1d45d86a2ea5"
+  },
+  "shader:floor": {
+    "source": "d803fc6a38cd3cd8",
+    "target": "0448c0bf648cdfa3"
+  },
+  "shader:ceil": {
+    "source": "f8c2238cb5f170be",
+    "target": "c68b02412b558602"
+  },
+  "shader:sqrt": {
+    "source": "e6837192fa52dfd2",
+    "target": "fc5f6ea3627e498a"
+  },
+  "shader:sin": {
+    "source": "bc4ee184d4c4c160",
+    "target": "82f6d5ec05a67f28"
+  },
+  "shader:cos": {
+    "source": "7271d090821267ac",
+    "target": "6427ab81a2d58bbd"
+  },
+  "shader:exp2": {
+    "source": "241ddef39c0c3a84",
+    "target": "d12fa664a69d8e1e"
+  },
+  "shader:log2": {
+    "source": "303e39eb93d30c69",
+    "target": "9462cb9128b43260"
+  },
+  "shader:if": {
+    "source": "a7b0f8639aebef6f",
+    "target": "5215339db014ed08"
+  },
+  "shader:tan": {
+    "source": "341e1f592fa5f389",
+    "target": "fa58e854fd6dc738"
+  },
+  "shader:atan2": {
+    "source": "ea9e9c892ecfb740",
+    "target": "e4a4ac136f4decd7"
+  },
+  "shader:fmod": {
+    "source": "fda2e02fb6008544",
+    "target": "042bc7e13810c781"
+  },
+  "shader:round": {
+    "source": "1eedae5b61b2d5b8",
+    "target": "7252a842df08fa2c"
+  },
+  "shader:sign": {
+    "source": "d42b84ef62c178e0",
+    "target": "42402b3f457b3b38"
+  },
+  "shader:remap": {
+    "source": "f3ebd8d2e95ed4bf",
+    "target": "21252c395de1727b"
+  },
+  "shader:posterize": {
+    "source": "12d909d182b5da36",
+    "target": "cf0e2b4df5f37a9d"
+  },
+  "shader:dot": {
+    "source": "eb8d8f7b982e8af0",
+    "target": "7617a0a6ef5d40af"
+  },
+  "shader:length": {
+    "source": "5a185d0597320144",
+    "target": "f926d86515262313"
+  },
+  "shader:distance": {
+    "source": "694a4bac0d07e0c7",
+    "target": "4506cc6c0ac4e180"
+  },
+  "shader:normalize": {
+    "source": "87fec6e665729445",
+    "target": "7bc5384368514024"
+  },
+  "shader:cross": {
+    "source": "85223d2ea06a13b4",
+    "target": "48b9e27ad28e78fe"
+  },
+  "shader:split": {
+    "source": "552d33d6d9e00a04",
+    "target": "091185d643130738"
+  },
+  "shader:append": {
+    "source": "6902aad080f80df0",
+    "target": "f84b177a1a94c467"
+  },
+  "shader:make4": {
+    "source": "a57f900511aa3e1d",
+    "target": "c27b9805a8f774d2"
+  },
+  "shader:make3": {
+    "source": "bbf8760d06574781",
+    "target": "4df802af1b823c08"
+  },
+  "shader:make2": {
+    "source": "ae93b138ce472cf0",
+    "target": "cdfea0e352e39a02"
+  },
+  "shader:mask": {
+    "source": "1945756eab0f3980",
+    "target": "bc4ce31df39bfdca"
+  },
+  "shader:luma": {
+    "source": "65abd3629fbabd31",
+    "target": "d0866e0aac47f63b"
+  },
+  "shader:desaturate": {
+    "source": "28d5860e5c2e20b3",
+    "target": "0a942ca26a71eb61"
+  },
+  "shader:rgb2hsv": {
+    "source": "e49950a98ebe099a",
+    "target": "c4a7c421e22de569"
+  },
+  "shader:hsv2rgb": {
+    "source": "621b2f2069567eca",
+    "target": "6e734a4107e74596"
+  },
+  "shader:tosrgb": {
+    "source": "1c696752053e862e",
+    "target": "c34c962ecdd9c204"
+  },
+  "shader:tolinear": {
+    "source": "a052c8b0604813dd",
+    "target": "56110b5e80375084"
+  },
+  "shader:contrast": {
+    "source": "96bda35ea4968715",
+    "target": "78b0f7eac3279ae0"
+  },
+  "shader:colorramp": {
+    "source": "3b6a457ebbfd3af1",
+    "target": "6db4e10da4e69da3"
+  },
+  "shader:hueshift": {
+    "source": "4e9efc0f6766138b",
+    "target": "b5afedbfac317d5e"
+  },
+  "shader:invert": {
+    "source": "ac7791fe63501a1d",
+    "target": "1d623d520622e031"
+  },
+  "shader:noise": {
+    "source": "585f1a8caed788fa",
+    "target": "a5bf0a62b37df1bc"
+  },
+  "shader:checker": {
+    "source": "000e749a43f24c47",
+    "target": "c054d687ad0d6cef"
+  },
+  "shader:rotateuv": {
+    "source": "312a4b8066868545",
+    "target": "ea49ab160790924a"
+  },
+  "shader:offsetuv": {
+    "source": "009fa27c6933185b",
+    "target": "4b42946ae1816d63"
+  },
+  "shader:twirl": {
+    "source": "3d908f11c754086e",
+    "target": "5e2d38a01c1cc0e2"
+  },
+  "shader:voronoi": {
+    "source": "60e28aaa32aba506",
+    "target": "c57cc087382dfeb5"
+  },
+  "shader:fbm": {
+    "source": "72a0c7cbe40dce05",
+    "target": "d71f905bc1bed609"
+  },
+  "shader:radial": {
+    "source": "a0442429066b23b4",
+    "target": "7816be6c0858d402"
+  },
+  "shader:lineargrad": {
+    "source": "0ce209bfe74d1cef",
+    "target": "a938110de71dada7"
+  },
+  "shader:polar": {
+    "source": "1baa47db80e3bc42",
+    "target": "580d8b30aadb6ec4"
+  },
+  "shader:tiling": {
+    "source": "8004c46354ad74ab",
+    "target": "20de12fa70f0fc92"
+  },
+  "shader:circle": {
+    "source": "eef3a3f2861008c6",
+    "target": "56e46434eadc0700"
+  },
+  "shader:rect": {
+    "source": "b2a52e11eb81f708",
+    "target": "c36a7b7c1dbf7f66"
+  },
+  "shader:opacity": {
+    "source": "0259c38e6db6c36a",
+    "target": "921acf9a5f23b11f"
+  },
+  "shader:blendover": {
+    "source": "0f33528338421ebc",
+    "target": "ab916d7bcb14ecea"
+  },
+  "shader:brush": {
+    "source": "4f0eeb743976c490",
+    "target": "cccacaee62115cf4"
+  },
+  "shader:brushtex": {
+    "source": "a389ffcad91cdc05",
+    "target": "c80ef5caf85dbd52"
+  },
+  "shader:roundtip": {
+    "source": "a0a1e69f409db7b7",
+    "target": "7829af0bfe15a757"
+  },
+  "shader:random": {
+    "source": "dc4c878dbca13d5c",
+    "target": "c2b474cf5be438db"
+  },
+  "shader:custom": {
+    "source": "b33cfdbf041fbfe3",
+    "target": "2628aca52cbd9cd7"
+  },
+  "shader:reroute": {
+    "source": "148ab20116c568d8",
+    "target": "0e94d87046acb8d1"
+  },
+  "shader:funcin": {
+    "source": "40f6b540b9c9c6dc",
+    "target": "474321917fdf2061"
+  },
+  "shader:funcout": {
+    "source": "8164b4eedd4f8ff1",
+    "target": "a246b537c3c68a7f"
+  },
+  "shader:function": {
+    "source": "084154903f746b80",
+    "target": "babfd1431d6cc883"
+  },
+  "shader:output": {
+    "source": "1c3c83e9c24af6df",
+    "target": "eaf991665c967382"
+  }
+}

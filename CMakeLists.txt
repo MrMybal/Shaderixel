@@ -188,7 +188,7 @@ add_custom_target(ShaderixelLanguages ALL
 # Generate the pinned CyDoc reader and copy the complete offline export.
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_custom_target(ShaderixelDocumentation ALL
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/build_manual.py
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/.CyDocBuild/build_manual.py
         --ensure --output-dir ${CMAKE_BINARY_DIR}
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Generating and staging local CyDoc documentation")

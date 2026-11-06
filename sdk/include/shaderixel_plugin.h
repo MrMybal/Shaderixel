@@ -13,9 +13,25 @@
  * run on the main thread; use the supplied host functions to access documents.
  *
  * ## Examples {#examples}
- * The indexed example and palette plugins show the shipped callback signatures.
- * See the actual header below for structs, ownership comments and available fields.
- * This index is lexical documentation, not a C++ compiler or ABI verifier.
+ * Include `shaderixel_plugin.h` from the installed SDK. Use the host API to register
+ * commands, panels, tools and operations. Strings are UTF-8; strings returned by
+ * the host remain valid until the next host call. Pixel callback buffers remain
+ * valid only during the callback. [Host API](doc:sdk-host) and [UI API](doc:sdk-ui)
+ * describe the public function signatures.
+ *
+ * ```c
+ * #include "shaderixel_plugin.h"
+ * SX_PLUGIN_EXPORT int sx_plugin_load(const SxHost* host, SxPlugin* plugin) {
+ *     if (host->api_version < SX_PLUGIN_API_VERSION) return 0;
+ *     host->status("Plugin ready");
+ *     return 1;
+ * }
+ * ```
+ *
+ * ## Includes and formats {#includes}
+ * `SxUi` is the UI function table; `SxHost` supplies editor operations and data;
+ * `SxPlugin` holds optional unload data. `SX_PIXELS_RGBA8` is straight sRGB;
+ * `SX_PIXELS_RGBA32F` is linear premultiplied RGBA. Overlay colors use 0xAABBGGRR.
  */
 /**
  * @doc sdk-abi
@@ -32,9 +48,26 @@
  * d’interface s’exécutent sur le thread principal ; utilisez les fonctions hôte pour les documents.
  *
  * ## Exemples {#examples}
- * Les plugins exemple et palette indexés montrent les signatures réellement livrées.
- * Le fichier source décrit structures, propriété des données et champs disponibles.
- * Cet index lexical n’est ni un compilateur C++ ni un vérificateur ABI.
+ * Incluez `shaderixel_plugin.h` depuis le SDK installé. Utilisez l’API hôte pour
+ * enregistrer commandes, panneaux, outils et opérations. Les chaînes sont en UTF-8 ;
+ * celles renvoyées par l’hôte restent valides jusqu’au prochain appel hôte. Les
+ * tampons de pixels ne restent valides que pendant leur rappel. L’[API hôte](doc:sdk-host)
+ * et l’[API d’interface](doc:sdk-ui) décrivent les signatures des fonctions publiques.
+ *
+ * ```c
+ * #include "shaderixel_plugin.h"
+ * SX_PLUGIN_EXPORT int sx_plugin_load(const SxHost* host, SxPlugin* plugin) {
+ *     if (host->api_version < SX_PLUGIN_API_VERSION) return 0;
+ *     host->status("Plugin prêt");
+ *     return 1;
+ * }
+ * ```
+ *
+ * ## Includes et formats {#includes}
+ * `SxUi` fournit les fonctions d’interface ; `SxHost`, les opérations et données
+ * de l’éditeur ; `SxPlugin`, les données facultatives de déchargement.
+ * `SX_PIXELS_RGBA8` désigne du RVBA sRGB non prémultiplié ; `SX_PIXELS_RGBA32F`,
+ * du RVBA linéaire prémultiplié. Les couleurs d’aperçu utilisent 0xAABBGGRR.
  */
 /*
  * Shaderixel plugin SDK (C ABI, any compiler able to build a Windows x64 DLL).

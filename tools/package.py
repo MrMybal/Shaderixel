@@ -19,6 +19,7 @@ import subprocess
 import sys
 import zipfile
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'.CyDocBuild'))
 from build_manual import copy_manual, validate_generated
 
 # Demo captures start minimized without taking the focus (the PC stays usable meanwhile).
@@ -424,14 +425,6 @@ def main():
     copy_manual(dist)
     shutil.copytree(os.path.join(ROOT, 'docs', 'screenshots'), os.path.join(dist, 'docs', 'screenshots'))
     # Reviewed UI guides and self-contained documents, with package-relative links.
-    for guide in ('UI_UV_LIBRARY.md', 'UI_TOOLKIT.md'):
-        source = os.path.join(ROOT, 'docs', guide)
-        with open(source, encoding='utf-8') as handle:
-            text = handle.read().replace('../library/functions/', '../functions/')
-            version = (Path(ROOT) / 'VERSION').read_text(encoding='ascii').strip()
-            text = text.replace('../tools/', 'https://github.com/MrMybal/Shaderixel/blob/v' + version + '/tools/')
-        with open(os.path.join(dist, 'docs', guide), 'w', encoding='utf-8') as handle:
-            handle.write(text)
     os.makedirs(os.path.join(dist, 'docs', 'images'))
     for image in ('ui_uv_library.png', 'ui_toolkit.png'):
         shutil.copy2(os.path.join(ROOT, 'docs', 'images', image), os.path.join(dist, 'docs', 'images', image))

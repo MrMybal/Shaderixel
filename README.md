@@ -5,7 +5,7 @@ workflow. Effects are written in HLSL/Slang and compiled at runtime.
 
 ## Install (Windows x64)
 
-[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261105.1/Shaderixel-0.1.0-alpha.20261105.1-windows-x64-setup.exe)
+[Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261106/Shaderixel-0.1.0-alpha.20261106-windows-x64-setup.exe)
 and run it. Windows 10 version 2004 or later and a D3D12-capable GPU are required;
 the Vulkan executable requires a compatible Vulkan driver.
 
@@ -17,7 +17,7 @@ starts in English; French is also available.
 
 Uninstall from **Windows Settings > Apps**. User-created files and settings are
 retained. The portable ZIP remains available on the
-[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261105.1).
+[release page](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261106).
 
 ## Documentation
 
@@ -25,47 +25,30 @@ retained. The portable ZIP remains available on the
 opens the complete visual manual online: navigation, search, images, diagrams and
 interactive function graphs. [Lire en français](https://mrmybal.github.io/Shaderixel/#/fr/getting-started).
 
-**Help > Documentation** and **F1** open the bundled **CyDoc** manual through a
-local `file://` URL. Reading requires no web server, Internet connection, or Node.js.
-Keep the complete `docs/manual/` directory beside the executable.
+**Help > Documentation** and **F1** open `Documentation/Documentation.html` through
+a local `file://` URL. Keep the complete `Documentation/` directory beside the
+executable. The reader needs no web server, Internet connection or Node.js.
 
-The original **942 pages per language** remain available in English and French:
-44 handbook chapters, 449 effects, 162 functions, 46 tools, 20 recorded commands,
-53 programmable brushes and 168 node references. The export also preserves
-repository guides, code examples, downloadable resources and the public SDK source
-index. Historical roadmaps are marked as historical. Supplementary references that
-have not been translated retain their original language and appear in CyDoc's
-translation report; the original handbook and reference translations are retained.
+English is the original and default language; the complete French edition uses
+the same page and section identifiers. Search is at the top, with **Ctrl+K** for
+the search dialog. The navigation tree groups guides, preset families, tools,
+brushes and public API references. Themes, bookmarks, notes and reading positions
+are available in the reader.
 
-The **image** module presents all 42 illustrations with in-window enlargement,
-keyboard controls and annotations. The **graph** module explores actual saved
-function connections without executing tool events. Other readers and Three.js are
-not included. Images, modules, scripts, styles and license notices are local.
+The manual retains 44 handbook chapters and the shipped references: 449 effects,
+162 functions, 46 tools, 20 recorded commands, 53 brushes and 168 built-in node
+entries. Contextual F1 and Selection/Tool/Brush/Command/Node help open the matching
+page. Public C and Python APIs describe signatures and behavior without browsing
+implementation files.
 
-Contextual F1 and **Selection help**, **Tool help**, **Brush help**, **Command help**
-and **Node help** retain their references. Previous page identifiers resolve through
-aliases, including old `#en/getting_started` and encoded function links. English is
-the default and fallback language; the reader can switch to French independently.
-The page outline, browser zoom, themes, print, bookmarks and reading positions are
-provided by CyDoc. Storage persistence depends on the browser's file-origin policy.
+The **image**, **gallery** and **graph** readers provide local illustrations,
+workspace comparisons and saved function connections. Enlargement stays inside
+the documentation window; **Escape** reduces it. Graph views do not execute
+shaders, exports or AI events. **Help > Practice projects** opens one of six
+editable examples as an unsaved copy; their manual pages also offer downloads.
 
-**Help > Guided projects** contains seven exercises. Download the six procedural
-`.sxl` projects from the reader, or use **Help > Practice projects** to open an
-unsaved copy in Shaderixel. Opening a graph does not execute exports or AI events.
-
-Generation requires Python 3.9+, Node.js 22+ and access to the pinned CyDoc Git
-repository. Set up once, then regenerate after changing content or library metadata:
-
-```powershell
-python tools/build_manual.py --bootstrap
-python tools/build_manual.py
-python tools/build_manual.py --check
-```
-
-CMake regenerates changed documentation and stages it beside both executables;
-the portable and installer builders validate and copy the same complete export.
-See [CyDoc integration and maintenance](docs/CYDOC_MIGRATION.md) for authoring,
-source indexing, translation tracking, verification and remaining limits.
+`DocAI.md` is a separate assistant sidecar. Maintainer inputs and working records
+live in `.CyDocBuild/` and are excluded from the installed manual.
 
 ## Updates
 
@@ -137,8 +120,8 @@ transitions, interface patterns, pixel snapping, alpha cleanup and skin states.
 Inputs and variables expose the main controls, including fractional pixel sizes.
 
 Open the graph node menu > **Library > UI UV ...** or **UI Toolkit ...** to add a
-function. See the [UI UV guide](docs/UI_UV_LIBRARY.md) and
-[UI Toolkit guide](docs/UI_TOOLKIT.md) for field formats, controls and examples.
+function. See the [UI UV guide](https://mrmybal.github.io/Shaderixel/#/en/ui-textures) and
+[UI Toolkit guide](https://mrmybal.github.io/Shaderixel/#/en/ui-textures) for field formats, controls and examples.
 The installer and portable package include both libraries and the self-contained
 [UI UV demo](examples/ui_uv_library_demo.sxl) and
 [UI Toolkit demo](examples/ui_toolkit_demo.sxl). Open these documents with
