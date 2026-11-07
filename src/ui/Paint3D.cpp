@@ -481,6 +481,10 @@ void App::DrawLayers3DPanel() {
         }
         ImGui::SetNextItemWidth(120 * dpi);
         ImGui::Combo("Symétrie (pinceau 3D)", &v->renderer.meshSymmetry, "Aucune\0Axe X\0Axe Y\0Axe Z\0");
+        ImGui::Checkbox("Projection selon la normale moyenne", &brush3D.normalProject);
+        ui::HelpTooltip("Chaque touche est posée à plat sur la surface sous le pinceau (la moyenne de ses normales) au lieu d'être\n"
+                        "projetée depuis la caméra : les marques restent rondes sur les surfaces vues de biais.\n"
+                        "Le contour du pinceau montre ce plan. Sans symétrie ni pochoir.");
         ui::HelpTooltip("Chaque trait est aussi peint de l'autre côté du modèle (miroir sur l'axe choisi de l'objet).");
     }
     ImGui::End();

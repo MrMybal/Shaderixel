@@ -7,7 +7,8 @@
 // (object space: a texel is also painted when its mirror image is under a dab),
 // 32 brush tip: the dab's shape is read in a tip atlas (variants side by side),
 // rotated by gDabsEx (cos, sin, variant), 256 world dabs (particle simulation:
-// gDabs = model-space center + radius, gDabsEx = alpha + surface normal; no camera).
+// gDabs = model-space center + radius, gDabsEx = alpha + surface normal; no camera), 2048 projection along the
+// average normal (gFrames from mesh_dab_frame.slang: each dab laid on the plane of the surface under it).
 #include "common.slang"
 
 cbuffer Root : register(b0)
@@ -44,6 +45,7 @@ Texture2D<float> gDepth : register(t3);
 Texture2D<float> gSel : register(t4);
 Texture2D<float4> gDecal : register(t5);
 Texture2D<float> gTipAtlas : register(t6);
+Texture2D<float4> gFrames : register(t7);  // flag 2048: per dab (columns) its center, normal and disc axes
 
 // Stencil: the image fixed on screen, the brush paints through it (outside: unchanged).
 float StencilAt(float2 sp)
@@ -128,6 +130,42 @@ void main(uint3 id : SV_DispatchThreadID)
     float4 pos = gPosMap.Load(int3(px, 0));
     if (pos.a <= 0.0) return;
     if ((gFlags & 1024) && (px.x < gClip.x || px.y < gClip.y || px.x >= gClip.z || px.y >= gClip.w)) return;  // another material
+    if (gFlags & 2048)
+    {
+        // Projection along the average normal: the texel is placed on the plane of the dab (its offset in the
+        // disc's axes, in screen pixels at the dab), so the shape stays round on grazing surfaces. No depth test:
+        // the texels near the plane facing the same way are painted (a thin wall's other side faces away).
+        float mn = gStroke[px];
+        const float beforeN = mn;
+        if ((gFlags & 2) == 0)
+        {
+            const float3 nTex = normalize(gNrmMap.Load(int3(px, 0)).xyz);
+            for (uint i = 0; i < gDabCount; ++i)
+            {
+                const float4 f0 = gFrames.Load(int3(i, 0, 0));
+                if (f0.w <= 0.0) continue;  // (the dab missed the model)
+                const float3 n = gFrames.Load(int3(i, 1, 0)).xyz, t = gFrames.Load(int3(i, 2, 0)).xyz, u = gFrames.Load(int3(i, 3, 0)).xyz;
+                const float4 dab = gDabs[i];
+                const float r = max(dab.z, 0.5);
+                const float3 v = pos.xyz - f0.xyz;
+                if (abs(dot(v, n)) * f0.w > r * 0.75) continue;  // (within three quarters of the radius of the plane)
+                const float fw = saturate((dot(nTex, n) - gFacingMin) * 4.0);
+                if (fw <= 0.0) continue;
+                const float2 rel = float2(dot(v, t), -dot(v, u)) * f0.w;
+                float cov;
+                if (gFlags & 32) cov = TipCoverage(rel, r, gDabsEx[i]);
+                else
+                {
+                    const float d = length(rel), inner = r * saturate(gHardness);
+                    const float soft = r - inner > 1.0 ? 1.0 - smoothstep(inner, r, d) : 1.0;
+                    cov = min(soft, saturate(r - d + 0.5));
+                }
+                mn = mn + (1.0 - mn) * cov * dab.w * fw;
+            }
+        }
+        Composite(px, mn, beforeN, float4(0, 0, 0, 0));
+        return;
+    }
     if (gFlags & 256)
     {
         // World dabs: spheres on the model, on the side the surface faces (no camera, no occlusion test).

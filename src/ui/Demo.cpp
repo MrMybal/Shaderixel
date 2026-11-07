@@ -1431,6 +1431,63 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_NORMALMODE=<.sx3d>[;0]: the mug, the 3D brush (projection along the average normal unless ";0") moved
+        // to a grazing part of the body and a vertical stroke painted there; the painted texels are counted and the
+        // view captured (the oriented outline shows while hovering).
+        char nmFile[512] = "";
+        if (GetEnvironmentVariableA("SX_NORMALMODE", nmFile, sizeof(nmFile)) > 0) {
+            static ImVec2 c;
+            static gpu::ReadbackPtr before, after;
+            static std::vector<Id> targets;
+            ImGuiIO& io = ImGui::GetIO();
+            std::string file = nmFile;
+            const bool on = file.size() < 2 || file.substr(file.size() - 2) != ";0";
+            if (!on) file.resize(file.size() - 2);
+            if (frameCounter == 12) Log("[normalmode] loaded %d, mode %d", LoadSxl(file) ? 1 : 0, on ? 1 : 0);
+            DocView* m = Active();
+            if (!m || !m->mesh) return;
+            if (frameCounter == 20) {
+                FocusPanel("Vue 3D");
+                tool = viewTool[1] = Tool::Brush;
+                brush.size = 70;
+                brush.hardness = 0.8f;
+                brush3D.normalProject = on;
+                brush3D.tip = false;
+                m->mesh->yaw = 0.0f;
+                m->mesh->pitch = 0.0f;
+                m->mesh->distance = 2.2f;
+            }
+            if (frameCounter == 30)
+                if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D")) {
+                    // The right side of the body (seen edge-on).
+                    c = ImVec2(w->InnerRect.Min.x + w->InnerRect.GetWidth() * 0.5f + w->InnerRect.GetHeight() * 0.155f,
+                               w->InnerRect.Min.y + w->InnerRect.GetHeight() * 0.5f);
+                    io.AddMousePosEvent(c.x, c.y);
+                }
+            if (frameCounter == 40) {
+                std::vector<float4> colors;
+                targets = Paint3DTargets(*m, colors);
+                if (!targets.empty())
+                    if (Surface* t = m->doc->GetSurface(targets[0])) before = ctx->ReadbackTexture(t->tex.get());
+                io.AddMouseButtonEvent(0, true);
+            }
+            if (frameCounter > 40 && frameCounter <= 60) io.AddMousePosEvent(c.x, c.y + (frameCounter - 40) * 6.0f);
+            if (frameCounter == 61) io.AddMouseButtonEvent(0, false);
+            if (frameCounter == 66) io.AddMousePosEvent(c.x, c.y - 40);
+            if (frameCounter == 70 && !targets.empty())
+                if (Surface* t = m->doc->GetSurface(targets[0])) after = ctx->ReadbackTexture(t->tex.get());
+            if (before && after && before->ready && after->ready) {
+                size_t changed = 0;
+                const size_t bpp = before->data.size() / std::max<size_t>(1, (size_t)before->width * before->height);
+                for (size_t i = 0; i + bpp <= before->data.size() && i + bpp <= after->data.size(); i += bpp)
+                    changed += memcmp(&before->data[i], &after->data[i], bpp) != 0;
+                Log("[normalmode] mode %d: %zu texels painted, outline frame %s", on ? 1 : 0, changed,
+                    brush3D.cursorFrameValid ? "valid" : "none");
+                before.reset();
+                after.reset();
+            }
+            return;
+        }
         // SX_PAINTPERF=<.sx3d>: a Paint 3D project opened, then a 3D brush stroke drawn in a circle on the model
         // (synthetic mouse) for 60 frames; the frame times while idle and while painting are logged.
         char perfFile[512] = "";

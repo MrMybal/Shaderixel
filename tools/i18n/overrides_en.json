@@ -967,5 +967,7 @@
  "Pinceau dupliqué dans Mes pinceaux :": "Brush duplicated to My brushes:",
  "Dupliquer le pinceau : écriture impossible dans": "Duplicate brush: cannot write in",
  "Pinceau supprimé :": "Brush deleted:",
- "Supprimer le pinceau : impossible": "Delete brush: failed"
+ "Supprimer le pinceau : impossible": "Delete brush: failed",
+ "Projection selon la normale moyenne": "Project along the average normal",
+ "Chaque touche est posée à plat sur la surface sous le pinceau (la moyenne de ses normales) au lieu d'être\nprojetée depuis la caméra : les marques restent rondes sur les surfaces vues de biais.\nLe contour du pinceau montre ce plan. Sans symétrie ni pochoir.": "Each dab is laid flat on the surface under the brush (the average of its normals) instead of being\nprojected from the camera: marks stay round on surfaces seen at an angle.\nThe brush outline shows that plane. No symmetry or stencil."
 }

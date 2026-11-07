@@ -294,6 +294,12 @@ public:
                         float4 colorLinear, bool erase, u32 extraFlags = 0, gpu::Texture* decal = nullptr, const std::vector<float4>* dabEx = nullptr);
     // Multi-channel strokes (3D projects): one coverage, several layers each with its own value.
     bool BeginStrokeMulti(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces);
+    // Paint 3D, projection along the average normal (MeshPaint.cpp): each dab's point, normal and axes on the model,
+    // and the frame under the cursor read back (oriented brush outline).
+    bool meshNormalMode = false;
+    gpu::TexturePtr meshFrames;
+    bool MeshDabFrames(gpu::CommandContext& ctx, MeshScene& s, const std::vector<float4>& dabs);
+    gpu::ReadbackPtr MeshCursorFrame(gpu::CommandContext& ctx, MeshScene& s, float2 p, float r);
     void MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
                              const std::vector<float4>& colorsLinear, bool erase, const std::vector<float4>* dabEx = nullptr);  // dabEx: cos, sin, tip variant
     int meshSymmetry = 0;        // 3D strokes mirrored across the model's axis: 0 none, 1 X, 2 Y, 3 Z

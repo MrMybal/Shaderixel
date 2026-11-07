@@ -346,6 +346,74 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     return out ? out : s.color.get();
 }
 
+namespace {
+// Inverse of a 4x4 row-major matrix (Gauss-Jordan); false when singular.
+bool Inverse4(const float m[16], float out[16]) {
+    double a[4][8];
+    for (int r = 0; r < 4; ++r)
+        for (int c = 0; c < 8; ++c) a[r][c] = c < 4 ? m[r * 4 + c] : (c - 4 == r ? 1.0 : 0.0);
+    for (int c = 0; c < 4; ++c) {
+        int p = c;
+        for (int r = c + 1; r < 4; ++r) if (std::abs(a[r][c]) > std::abs(a[p][c])) p = r;
+        if (std::abs(a[p][c]) < 1e-12) return false;
+        if (p != c) for (int k = 0; k < 8; ++k) std::swap(a[p][k], a[c][k]);
+        const double inv = 1.0 / a[c][c];
+        for (int k = 0; k < 8; ++k) a[c][k] *= inv;
+        for (int r = 0; r < 4; ++r)
+            if (r != c && a[r][c] != 0.0) {
+                const double f = a[r][c];
+                for (int k = 0; k < 8; ++k) a[r][k] -= f * a[c][k];
+            }
+    }
+    for (int r = 0; r < 4; ++r)
+        for (int c = 0; c < 4; ++c) out[r * 4 + c] = (float)a[r][c + 4];
+    return true;
+}
+}  // namespace
+
+bool Renderer::MeshDabFrames(gpu::CommandContext& ctx, MeshScene& s, const std::vector<float4>& dabs) {
+    // Projection along the average normal: each dab's point, normal and disc axes (mesh_dab_frame.slang).
+    auto* k = Kernel("mesh_dab_frame.slang");
+    if (!k || !s.depth || dabs.empty()) return false;
+    Ensure(meshFrames, 1024, 4, gpu::Format::RGBA32F, "MeshDabFrames");
+    struct FrameCB {
+        float inv[16];
+        float4 camPos, camRight, camUp;
+        float4 dabs[1024];
+    };
+    static FrameCB cb;
+    if (!Inverse4(s.viewProj.m[0], cb.inv)) return false;
+    const float3 fwd = Normalize(s.target - s.camPos);
+    float3 right = Normalize(Cross(float3{0, 1, 0}, fwd));
+    if (Length(Cross(float3{0, 1, 0}, fwd)) < 1e-4f) right = {1, 0, 0};
+    const float3 up = Cross(fwd, right);
+    cb.camPos = {s.camPos.x, s.camPos.y, s.camPos.z, 1};
+    cb.camRight = {right.x, right.y, right.z, 0};
+    cb.camUp = {up.x, up.y, up.z, 0};
+    const u32 count = (u32)std::min<size_t>(1024, dabs.size());
+    for (u32 i = 0; i < count; ++i) cb.dabs[i] = dabs[i];
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = s.depth.get();
+    d.uav[0] = meshFrames.get();
+    struct Root { u32 count, vw, vh, pad; } root{count, s.depth->Width(), s.depth->Height(), 0};
+    memcpy(d.constants, &root, sizeof(root));
+    d.numConstants = sizeof(root) / 4;
+    d.cbData = &cb;
+    d.cbSize = offsetof(FrameCB, dabs) + count * sizeof(float4);
+    d.threadsX = count;
+    d.threadsY = 1;
+    ctx.Dispatch(d);
+    return true;
+}
+
+gpu::ReadbackPtr Renderer::MeshCursorFrame(gpu::CommandContext& ctx, MeshScene& s, float2 p, float r) {
+    // The frame of one dab at the cursor (row 0..3 of column 0), for the oriented brush outline.
+    if (!MeshDabFrames(ctx, s, {float4{p.x, p.y, r, 1}})) return nullptr;
+    const Rect col{0, 0, 1, 4};
+    return ctx.ReadbackTexture(meshFrames.get(), &col);
+}
+
 void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
                               float4 color, bool erase, u32 extraFlags, gpu::Texture* decal, const std::vector<float4>* dabEx) {
     if (!strokeSurface || dabs.empty() || !s.posMap || !s.depth) {
@@ -385,11 +453,18 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
         extraFlags |= 1024u;
         cb.clip = {(float)meshClip.x0, (float)meshClip.y0, (float)meshClip.x1, (float)meshClip.y1};
     }
+    // Projection along the average normal (the brush, not decals or simulations; no symmetry, no stencil).
+    const bool normalMode = meshNormalMode && !(extraFlags & (4u | 256u));
+    if (normalMode) extraFlags = (extraFlags & ~(16u | 64u | 128u | 512u)) | 2048u;
     for (size_t start = 0; start < dabs.size(); start += 1024) {
         size_t count = std::min<size_t>(1024, dabs.size() - start);
         for (size_t i = 0; i < count; ++i) {
             cb.dabs[i] = {dabs[start + i].x, dabs[start + i].y, dabs[start + i].radius, dabs[start + i].alpha};
             cb.dabsEx[i] = dabEx && start + i < dabEx->size() ? (*dabEx)[start + i] : float4{1, 0, 0, 0};
+        }
+        if (normalMode && !(extraFlags & 2u)) {
+            std::vector<float4> screen(cb.dabs, cb.dabs + count);
+            if (!MeshDabFrames(ctx, s, screen)) continue;
         }
         gpu::DispatchDesc d;
         d.pipeline = k;
@@ -400,6 +475,7 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
         d.srv[4] = sel ? sel->tex.get() : nullptr;
         d.srv[5] = decal;
         d.srv[6] = useTip ? meshTipAtlas.get() : nullptr;
+        d.srv[7] = normalMode ? meshFrames.get() : nullptr;
         d.uav[0] = sf->tex.get();
         d.uav[1] = strokeMask.get();
         BrushRootM root = {W, H, s.depth->Width(), s.depth->Height(), (u32)count, b.hardness, b.opacity, erase ? 1u : 0u, (sel ? 1u : 0u) | extraFlags,

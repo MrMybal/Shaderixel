@@ -8,6 +8,16 @@
 
 namespace sx {
 
+namespace {
+// A model point in view pixels (`depth` 1e30 behind the camera).
+float2 ViewPoint(const Mat4& vp, float3 p, u32 w, u32 h, float* depth) {
+    float4 c = vp.Transform({p.x, p.y, p.z, 1});
+    if (c.w <= 1e-5f) { if (depth) *depth = 1e30f; return {-1e9f, -1e9f}; }
+    if (depth) *depth = c.z / c.w;
+    return {(c.x / c.w * 0.5f + 0.5f) * w, (0.5f - c.y / c.w * 0.5f) * h};
+}
+}  // namespace
+
 void App::AttachMesh(DocView& v, MeshData data) {
     if (!v.mesh) v.mesh = std::make_unique<MeshScene>();
     v.mesh->data = std::move(data);
@@ -460,6 +470,7 @@ void App::DrawView3D() {
         }
         // Render first so the occlusion test uses this frame's depth.
         v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
+        v->renderer.meshNormalMode = brush3D.normalProject;
         if (!dabs.empty()) v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, dabs, b, meshColors, eraseStroke, &dabEx);
         dabEx.clear();
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || io.KeyShift) {
@@ -560,8 +571,43 @@ void App::DrawView3D() {
     if (hovered && paintTool && !orbit) {
         const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
         float r = std::max(b.size * 0.5f, 1.0f);
-        dl->AddCircle(io.MousePos, r + 1, IM_COL32(0, 0, 0, 150), 0, 1.5f);
-        dl->AddCircle(io.MousePos, r, IM_COL32_WHITE, 0, 1.0f);
+        bool oriented = false;
+        if (brush3D.normalProject) {
+            // The plane under the cursor (read back a frame later): the brush disc drawn on it, and its normal.
+            auto& F = brush3D;
+            if (F.cursorFrame && F.cursorFrame->ready && F.cursorFrame->data.size() >= 64) {
+                memcpy(F.cursorFrameData, F.cursorFrame->data.data(), 64);
+                F.cursorFrameValid = F.cursorFrameData[3] > 0;
+                F.cursorFrame.reset();
+            }
+            if (!F.cursorFrame) F.cursorFrame = v->renderer.MeshCursorFrame(*ctx, s, local(io.MousePos.x, io.MousePos.y), r);
+            if (F.cursorFrameValid) {
+                const float* f = F.cursorFrameData;
+                const float3 c{f[0], f[1], f[2]}, n{f[4], f[5], f[6]}, t{f[8], f[9], f[10]}, u{f[12], f[13], f[14]};
+                const float R = r / f[3];
+                ImVec2 ring[48];
+                bool ok = true;
+                for (int i = 0; i < 48 && ok; ++i) {
+                    const float a = 6.2831853f * i / 48;
+                    float z = 0;
+                    const float2 q = ViewPoint(s.viewProj, c + t * (std::cos(a) * R) + u * (std::sin(a) * R), w, h, &z);
+                    ok = z < 1e29f;
+                    ring[i] = ImVec2(origin.x + q.x, origin.y + q.y);
+                }
+                float zc = 0, zn = 0;
+                const float2 sc = ViewPoint(s.viewProj, c, w, h, &zc), sn = ViewPoint(s.viewProj, c + n * (R * 0.6f), w, h, &zn);
+                if (ok && zc < 1e29f && zn < 1e29f) {
+                    dl->AddPolyline(ring, 48, IM_COL32(0, 0, 0, 150), ImDrawFlags_Closed, 2.5f);
+                    dl->AddPolyline(ring, 48, IM_COL32(120, 220, 255, 255), ImDrawFlags_Closed, 1.2f);
+                    dl->AddLine(ImVec2(origin.x + sc.x, origin.y + sc.y), ImVec2(origin.x + sn.x, origin.y + sn.y), IM_COL32(120, 220, 255, 255), 1.5f);
+                    oriented = true;
+                }
+            }
+        }
+        if (!oriented) {
+            dl->AddCircle(io.MousePos, r + 1, IM_COL32(0, 0, 0, 150), 0, 1.5f);
+            dl->AddCircle(io.MousePos, r, IM_COL32_WHITE, 0, 1.0f);
+        }
         if (brush3D.lazy > 0 && meshStroking) {
             ImVec2 lz(origin.x + meshLazy.x, origin.y + meshLazy.y);
             dl->AddLine(lz, io.MousePos, IM_COL32(255, 200, 80, 200), 1.5f);
