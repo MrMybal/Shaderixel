@@ -1,4 +1,15 @@
-# Shaderixel
+<p align="center">
+  <a href="https://mrmybal.github.io/Shaderixel/">
+    <img src="assets/logo.png" alt="Shaderixel app icon" width="112" height="112">
+  </a>
+</p>
+
+<h1 align="center">Shaderixel</h1>
+
+<p align="center">
+  <strong><a href="https://mrmybal.github.io/Shaderixel/">Website</a> · <a href="https://mrmybal.github.io/Shaderixel/Documentation.html#/en/getting-started">Documentation</a></strong><br>
+  <a href="https://mrmybal.github.io/Shaderixel/?lang=fr">Site en français</a> · <a href="https://mrmybal.github.io/Shaderixel/Documentation.html#/fr/getting-started">Documentation française</a>
+</p>
 
 GPU image editor with a Photoshop-style **layer** workflow and a **node graph**
 workflow. Effects are written in HLSL/Slang and compiled at runtime.
@@ -21,9 +32,9 @@ retained. The portable ZIP remains available on the
 
 ## Documentation
 
-[**Documentation**](https://mrmybal.github.io/Shaderixel/#/en/getting-started)
+[**Documentation**](https://mrmybal.github.io/Shaderixel/Documentation.html#/en/getting-started)
 opens the complete visual manual online: navigation, search, images, diagrams and
-interactive function graphs. [Lire en français](https://mrmybal.github.io/Shaderixel/#/fr/getting-started).
+interactive function graphs. [Lire en français](https://mrmybal.github.io/Shaderixel/Documentation.html#/fr/getting-started).
 
 **Help > Documentation** and **F1** open `Documentation/Documentation.html` through
 a local `file://` URL. Keep the complete `Documentation/` directory beside the
