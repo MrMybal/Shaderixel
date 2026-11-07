@@ -173,6 +173,14 @@ const std::string* Translate(std::string_view s) {
     if (gDynamic.size() > 20000) gDynamic.clear();
     if (gMiss.size() > 50000) gMiss.clear();
     if (!found) {
+        // Tests (SX_I18N_MISSING=<file>): every text shown without a translation is written down once.
+        static const char* record = getenv("SX_I18N_MISSING");
+        if (record && *record)
+            if (FILE* f = fopen(record, "ab")) {
+                fwrite(key.data(), 1, key.size(), f);
+                fputc('\x1e', f);  // (record separator: texts may hold new lines)
+                fclose(f);
+            }
         gMiss.insert(std::move(key));
         return nullptr;
     }

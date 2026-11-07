@@ -238,7 +238,7 @@ void App::BrushStrokePreview(BrushSettings& b, const BrushDef* td, float h) {
 void App::BrushTipPicker(BrushSettings& b) {
     auto td = TipDef(b);
     std::string name = td && td->def ? td->def->name : "Ronde (standard)";
-    if (ImGui::Button((name + "  \xE2\x96\xBE").c_str(), ImVec2(-FLT_MIN, 0))) ImGui::OpenPopup("##tippick");
+    if (ImGui::Button((Tr(name) + "  \xE2\x96\xBE").c_str(), ImVec2(-FLT_MIN, 0))) ImGui::OpenPopup("##tippick");
     ui::HelpTooltip("Choisir la pointe (pinceaux programmables, pinceaux importés .abr)");
     ImGui::SetNextWindowSizeConstraints(ImVec2(260 * dpi, 120 * dpi), ImVec2(420 * dpi, 520 * dpi));
     if (ImGui::BeginPopup("##tippick")) {

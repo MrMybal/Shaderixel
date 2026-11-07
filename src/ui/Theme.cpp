@@ -42,6 +42,22 @@ void ApplyTheme(float dpi, const char* theme, bool comfortable) {
 
 Fonts LoadFonts(float) {
     cyui::loadFonts();
+    // Symbols the interface fonts lack (small triangles of the menu buttons, stars, arrows): Segoe UI Symbol behind
+    // the regular and the bold fonts (glyphs are loaded on demand, only the missing ones come from it).
+    if (const char* windows = getenv("WINDIR")) {
+        const std::string symbols = std::string(windows) + "\\Fonts\\seguisym.ttf";
+        if (FILE* f = fopen(symbols.c_str(), "rb")) {
+            fclose(f);
+            ImGuiIO& io = ImGui::GetIO();
+            for (ImFont* dst : {cyui::uiFont(), cyui::boldFont()}) {
+                if (!dst || dst->Sources.empty()) continue;
+                ImFontConfig cfg;
+                cfg.MergeMode = true;
+                cfg.DstFont = dst;
+                io.Fonts->AddFontFromFileTTF(symbols.c_str(), dst->Sources[0]->SizePixels, &cfg);
+            }
+        }
+    }
     return GetFonts();
 }
 

@@ -2,6 +2,7 @@
 // small scene (backdrop, primitives, imported meshes, lights, HDRI) on the GPU (any
 // vendor: plain compute shader) or on the CPU, and the "Scène de rendu" panel.
 #include "ui/App.h"
+#include "ui/Lang.h"
 #include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "render/PathTracer.h"
@@ -980,7 +981,7 @@ void App::DrawRenderScenePanel() {
             ImGui::Checkbox("##vis", &r.objects[i].visible);
             ImGui::SameLine();
             char label[160];
-            snprintf(label, sizeof(label), "%s  (%s)", r.objects[i].name.c_str(), kObjectTypes[(int)r.objects[i].type]);
+            snprintf(label, sizeof(label), "%s  (%s)", TrC(r.objects[i].name.c_str()), TrC(kObjectTypes[(int)r.objects[i].type]));
             if (ImGui::Selectable(label, r.selObject == i && r.selLight < 0)) { r.selObject = i; r.selLight = -1; }
             ImGui::PopID();
         }

@@ -2037,7 +2037,7 @@ void App::DrawStatusBar() {
                 ImGui::Separator();
                 ImGui::Text("%u x %u  %s  %s", v->doc->Width(), v->doc->Height(),
                             v->doc->GetPrecision() == Precision::Float32 ? "32 bits" : "16 bits",
-                            v->doc->Mode() == DocMode::Layers ? "Calques" : "Nodal");
+                            TrC(v->doc->Mode() == DocMode::Layers ? "Calques" : "Nodal"));
                 ImGui::Separator();
                 {
                     // View: final image / active layer only / up to the active layer.

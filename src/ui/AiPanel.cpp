@@ -1,5 +1,6 @@
 // AI panels: MCP bridge / companion control, assistant chat, image generation.
 #include "ui/App.h"
+#include "ui/Lang.h"
 #include "ui/Filter.h"
 #include "ai/Comfy.h"
 #include "ui/Theme.h"
@@ -146,8 +147,9 @@ void App::DrawAiPanel() {
         if (bridge.Running()) ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1), "Pont actif : 127.0.0.1:%d", bridge.Port());
         else ImGui::TextColored(ImVec4(1, 0.5f, 0.4f, 1), "Pont arrêté");
         bool comp = bridge.CompanionRunning();
-        ImGui::Text("Compagnon : %s", !comp ? "arrêté" : bridge.ServiceReady() ? "prêt" : "démarrage...");
-        ImGui::Text("Appels servis : %d%s%s", bridge.callsServed.load(), bridge.lastOperation.empty() ? "" : "  (dernier : ", bridge.lastOperation.empty() ? "" : (bridge.lastOperation + ")").c_str());
+        ImGui::Text("%s %s", TrC("Compagnon :"), TrC(!comp ? "arrêté" : bridge.ServiceReady() ? "prêt" : "démarrage..."));
+        ImGui::Text("%s %d%s", TrC("Appels servis :"), bridge.callsServed.load(),
+                    bridge.lastOperation.empty() ? "" : ("  (" + Tr("dernier :") + " " + bridge.lastOperation + ")").c_str());
         bool w = bridge.allowWrites;
         if (ImGui::Checkbox("Autoriser l'IA à modifier le document", &w)) {
             bridge.allowWrites = w;

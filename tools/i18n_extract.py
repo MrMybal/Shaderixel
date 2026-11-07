@@ -33,6 +33,8 @@ def visible(s):
 
 def keep(s):
     s = s.strip('\n')
+    # Labels starting with symbols ("+ Peinture", "- Ajouter", "> Suite"): judged on their words.
+    s = re.sub(r'^[^A-Za-zÀ-ÿ]+', '', s) if re.match(r'^[+\-–•>▶·*]\s*', s) else s
     if len(s) < 2 or not re.search(r'[A-Za-zÀ-ÿ]{2}', s):
         return False
     if re.fullmatch(r'[\w./\\:*?<>|-]+\.(png|jpg|json|slang|hlsl|exe|dll|txt|md|py|cpp|h|bat|ini|sxl|sx3d|obj|fbx|glb|gltf|hdr|zip)', s, re.I):

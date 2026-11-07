@@ -6,6 +6,7 @@
 // Projects have their own workspace layout, a reduced tool set, a decal
 // projection tool and texture exports by template (separate maps, ORM...).
 #include "ui/App.h"
+#include "ui/Lang.h"
 #include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
@@ -383,8 +384,10 @@ void App::DrawLayers3DPanel() {
                 static const char* abbr[] = {"C", "R", "M", "N", "E", "O", "H"};
                 chans += std::string(abbr[(int)c]) + " ";
             }
-        if (folder) ImGui::TextDisabled("Dossier%s", any->mask ? " + masque" : "");
-        else ImGui::TextDisabled("%s  %s%s", paint ? "Peinture" : "Remplissage", chans.c_str(), any->mask ? " + masque" : "");
+        // (assembled: each piece translated)
+        const std::string mask = any->mask ? " " + Tr("+ masque") : std::string();
+        if (folder) ImGui::TextDisabled("%s%s", TrC("Dossier"), mask.c_str());
+        else ImGui::TextDisabled("%s  %s%s", TrC(paint ? "Peinture" : "Remplissage"), chans.c_str(), mask.c_str());
         ImGui::EndGroup();
         ImGui::PopID();
         if (depth) ImGui::Unindent(depth * 18 * dpi);
