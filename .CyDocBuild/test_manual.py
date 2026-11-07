@@ -241,9 +241,10 @@ class ManualTests(unittest.TestCase):
         from build_manual import EXPORT
         manifest=json.loads((EXPORT/'DocData/manifest.json').read_text(encoding='utf-8'))
         known={(p['locale'],p['id']) for p in manifest['pages']}
-        for name in ('README.md','unreal/ShaderixelLink/README.md'):
+        for name in ('README.md','README.fr.md','unreal/ShaderixelLink/README.md'):
             text=(ROOT/name).read_text(encoding='utf-8')
-            links=re.findall(r'https://mrmybal.github.io/Shaderixel/#/(en|fr)/([a-z0-9-]+)',text)
+            # The showcase preserves old root routes; new links target the reader directly.
+            links=re.findall(r'https://mrmybal.github.io/Shaderixel/(?:Documentation\.html)?#/(en|fr)/([a-z0-9-]+)',text)
             self.assertTrue(links,name)
             for locale,ident in links:
                 self.assertTrue((locale,manifest.get('aliases',{}).get(ident,ident).split('#')[0]) in known,(name,ident))
