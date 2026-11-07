@@ -3,6 +3,7 @@
 #include "io/PsdImport.h"
 #include "doc/ShapePaths.h"
 #include "ui/App.h"
+#include "core/SysStats.h"
 #include "ui/AutoTooltips.h"
 #include "ui/Filter.h"
 #include "ui/Search.h"
@@ -1431,6 +1432,91 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_SLOW3D=<.sx3d>: the same in the 3D view (a 120 px brush on the model, 1 pixel per frame): the frames whose
+        // painted layer changed are counted.
+        char slowFile[512] = "";
+        if (GetEnvironmentVariableA("SX_SLOW3D", slowFile, sizeof(slowFile)) > 0) {
+            static gpu::ReadbackPtr pending;
+            static std::vector<u8> last;
+            static int changed = 0, compared = 0;
+            static ImVec2 c;
+            ImGuiIO& io = ImGui::GetIO();
+            if (frameCounter == 12) LoadSxl(slowFile);
+            DocView* m = Active();
+            if (!m || !m->mesh) return;
+            if (frameCounter == 20) {
+                FocusPanel("Vue 3D");
+                tool = viewTool[1] = Tool::Brush;
+                brush.size = 120;
+                brush.spacing = 0.25f;
+                SelectTip(brush, "");
+                if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D")) {
+                    c = ImVec2((w->InnerRect.Min.x + w->InnerRect.Max.x) * 0.5f - 40, w->InnerRect.Min.y + w->InnerRect.GetHeight() * 0.55f);
+                    io.AddMousePosEvent(c.x, c.y);
+                }
+            }
+            if (frameCounter == 26) io.AddMouseButtonEvent(0, true);
+            if (frameCounter > 28 && frameCounter <= 58) io.AddMousePosEvent(c.x + (frameCounter - 28), c.y);
+            if (frameCounter > 28 && frameCounter <= 62) {
+                gpu::Dev().WaitIdle();
+                std::vector<float4> colors;
+                auto targets = Paint3DTargets(*m, colors);
+                if (pending && pending->ready) {
+                    if (!last.empty()) { ++compared; changed += last != pending->data; }
+                    last = pending->data;
+                    pending.reset();
+                }
+                if (!pending && !targets.empty())
+                    if (Surface* t = m->doc->GetSurface(targets[0])) pending = ctx->ReadbackTexture(t->tex.get());
+            }
+            if (frameCounter == 63) {
+                io.AddMouseButtonEvent(0, false);
+                Log("[slow3d] layer changed on %d of %d frames (cursor moved 1 px each frame, brush 120 px)", changed, compared);
+            }
+            return;
+        }
+        // SX_SLOWSTROKE: a 120 px brush dragged slowly on the canvas (1 screen pixel per frame, 30 frames); the frames
+        // whose layer changed are counted (the paint must follow the cursor, not wait for a fraction of the diameter).
+        if (GetEnvironmentVariableA("SX_SLOWSTROKE", nullptr, 0) > 0) {
+            static gpu::ReadbackPtr pending;
+            static std::vector<u8> last;
+            static int changed = 0, compared = 0;
+            ImGuiIO& io = ImGui::GetIO();
+            auto read = [&] {
+                if (Surface* t = d.GetSurface(d.PaintTarget())) pending = ctx->ReadbackTexture(t->tex.get());
+            };
+            if (frameCounter == 10) {
+                Layer& l = d.AddPixelLayer("Trait lent");
+                d.S().activeLayer = l.id;
+                d.SyncGraph();
+                tool = viewTool[0] = Tool::Brush;
+                brush.size = 120;
+                brush.spacing = 0.25f;
+                SelectTip(brush, "");
+                const ImVec2 c(lxf.canvasMin.x + a->pan.x + 500 * a->zoom, lxf.canvasMin.y + a->pan.y + 400 * a->zoom);
+                io.AddMousePosEvent(c.x, c.y);
+            }
+            if (frameCounter == 14) io.AddMouseButtonEvent(0, true);
+            if (frameCounter > 16 && frameCounter <= 46) {
+                const ImVec2 c(lxf.canvasMin.x + a->pan.x + 500 * a->zoom + (frameCounter - 16), lxf.canvasMin.y + a->pan.y + 400 * a->zoom);
+                io.AddMousePosEvent(c.x, c.y);
+            }
+            // One readback per frame, compared with the previous one (a frame late: the GPU's result).
+            if (frameCounter > 16 && frameCounter <= 50) {
+                gpu::Dev().WaitIdle();
+                if (pending && pending->ready) {
+                    if (!last.empty()) { ++compared; changed += last != pending->data; }
+                    last = pending->data;
+                    pending.reset();
+                }
+                if (!pending) read();
+            }
+            if (frameCounter == 51) {
+                io.AddMouseButtonEvent(0, false);
+                Log("[slowstroke] layer changed on %d of %d frames (cursor moved 1 px each frame, brush 120 px, zoom %.2f)", changed, compared, a->zoom);
+            }
+            return;
+        }
         // SX_NORMALMODE=<.sx3d>[;0]: the mug, the 3D brush (projection along the average normal unless ";0") moved
         // to a grazing part of the body and a vertical stroke painted there; the painted texels are counted and the
         // view captured (the oriented outline shows while hovering).
@@ -1495,8 +1581,17 @@ void App::DemoTick() {
             static std::vector<float> idle, paint;
             static ImVec2 c;
             ImGuiIO& io = ImGui::GetIO();
+            // The GPU's work of the previous frame waited for: the frame times include it (a minimized window does
+            // not wait for the display, so the times would otherwise show only the CPU).
+            gpu::Dev().WaitIdle();
             if (frameCounter == 12) Log("[paintperf] loaded %d", LoadSxl(perfFile) ? 1 : 0);
-            if (frameCounter == 30) { FocusPanel("Vue 3D"); tool = viewTool[1] = Tool::Brush; }
+            if (frameCounter == 30) {
+                FocusPanel("Vue 3D");
+                tool = viewTool[1] = Tool::Brush;
+                // (SX_PERFTIP=<brush id>: that programmable tip, the default round one otherwise)
+                char tipId[64] = "";
+                if (GetEnvironmentVariableA("SX_PERFTIP", tipId, sizeof(tipId)) > 0) { SelectTip(brush, tipId); brush3D.tip = true; brush.size = 60; }
+            }
             if (frameCounter == 40)
                 if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D")) {
                     c = ImVec2((w->InnerRect.Min.x + w->InnerRect.Max.x) * 0.5f, w->InnerRect.Min.y + w->InnerRect.GetHeight() * 0.55f);
@@ -1508,6 +1603,7 @@ void App::DemoTick() {
                 const float a = (frameCounter - 80) * 0.12f;
                 io.AddMousePosEvent(c.x + std::cos(a) * 90, c.y + std::sin(a) * 60);
                 if (frameCounter > 85) paint.push_back(io.DeltaTime * 1000);
+                if (frameCounter % 20 == 0) Log("[paintperf] gpu load %.0f %%", sys::CurrentLoad().gpu * 100);
             }
             if (frameCounter == 161) io.AddMouseButtonEvent(0, false);
             if (frameCounter == 170) {

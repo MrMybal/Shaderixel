@@ -772,6 +772,15 @@ void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSa
         float2 d = target - lastDabPos;
         float len = Length(d);
         float spacing = std::max(1.0f, b.size * std::max(tipSpacing, 0.01f) * (b.pressureSize ? std::max(pressure, 0.1f) : 1.0f));
+        // The paint follows the cursor: a continuous brush lays a dab every screen pixel (a fraction of a large
+        // diameter left millimetres unpainted while moving slowly), each dab's flow lowered so the stroke builds up
+        // as with the brush's own spacing. Stamp brushes (spacing over 0.35: stitches, rivets, splatter...) keep it.
+        float flowExponent = 1;
+        if (tipSpacing <= 0.35f) {
+            const float follow = std::min(spacing, 1.0f / std::max(v.zoom, 1e-3f));
+            flowExponent = follow / spacing;
+            spacing = std::max(follow, 0.25f);
+        }
         float t = spacing - dabRemainder;
         if (len > 1e-3f) lastDirAngle = std::atan2(d.y, d.x);
         while (t <= len) {
@@ -780,6 +789,7 @@ void App::PaintSamples(DocView& v, ImVec2 canvasMin, const std::vector<PointerSa
             float pr = lastPressure + (pressure - lastPressure) * k;
             float rad = b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f);
             float alpha = b.flow * (b.pressureOpacity ? pr : 1.0f);
+            if (flowExponent < 1) alpha = 1.0f - std::pow(std::max(0.0f, 1.0f - alpha), flowExponent);  // (denser dabs)
             dabs.push_back({p.x, p.y, rad, alpha});
             extra.push_back({pr, lastDirAngle, now, strokeDist + t});
             extra.push_back(pen);

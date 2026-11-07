@@ -352,11 +352,18 @@ void App::DrawView3D() {
             v->renderer.meshTipOn = v->renderer.BuildMeshTip(*ctx, *td, tip, bound);
         }
     };
+    // The paint follows the cursor: a continuous brush lays a dab every screen pixel (a fraction of a large diameter
+    // left millimetres unpainted while moving slowly), each dab's flow lowered so the stroke builds up as it did
+    // with the brush's own spacing. Stamp brushes (spacing over 0.35: stitches, rivets, splatter...) keep theirs.
+    float flowExponent = 1;  // dab flow f -> 1 - (1 - f)^exponent
     auto spacingOf = [&](const BrushSettings& b) {
         float sp = b.spacing;
         if (brush3D.tip)
             if (auto td = TipDef(b); td && td->spacing > 0) sp = td->spacing;
-        return std::max(1.0f, b.size * std::max(sp, 0.02f));
+        const float px = std::max(1.0f, b.size * std::max(sp, 0.02f));
+        const float used = sp <= 0.35f ? std::min(px, 1.0f) : px;
+        flowExponent = used / px;
+        return used;
     };
     std::vector<float4> dabEx;
     auto rnd = [&] {
@@ -373,7 +380,8 @@ void App::DrawView3D() {
         }
         float angle = B.angle * 0.0174533f + B.jitterAngle * 3.14159265f * (rnd() * 2 - 1);
         if (B.follow && Length(dir) > 1e-4f) angle += std::atan2(dir.y, dir.x);
-        const float alpha = b.flow * (b.pressureOpacity ? pr : 1.0f) * (1.0f - B.jitterFlow * rnd());
+        float alpha = b.flow * (b.pressureOpacity ? pr : 1.0f) * (1.0f - B.jitterFlow * rnd());
+        if (flowExponent < 1) alpha = 1.0f - std::pow(std::max(0.0f, 1.0f - alpha), flowExponent);  // (denser dabs)
         out.push_back({q.x, q.y, rad, alpha});
         dabEx.push_back({std::cos(angle), std::sin(angle), (float)((int)(rnd() * v->renderer.meshTipVariants) % v->renderer.meshTipVariants), 0});
     };
@@ -382,6 +390,7 @@ void App::DrawView3D() {
         else if (v->renderer.BeginStrokeMulti(doc, *ctx, meshTargets)) {
             const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
             setupTip(b);
+            spacingOf(b);  // (the dabs' flow for this brush, the first dab included)
             float2 p = local(io.MousePos.x, io.MousePos.y);
             // Limited to the material under the brush: its UV tile.
             v->renderer.meshClip = {};
