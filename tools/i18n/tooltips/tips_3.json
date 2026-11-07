@@ -1,0 +1,822 @@
+{
+ "SDK et exemples": {
+  "fr": "Ouvre le dossier du SDK de plugins : en-têtes, documentation et exemples à copier.",
+  "en": "Opens the plugin SDK folder: headers, documentation and examples to start from."
+ },
+ "Relancer": {
+  "fr": "Efface l'erreur et relance le programme du panneau de plugin.",
+  "en": "Clears the error and restarts the plugin panel's program."
+ },
+ "Suit la caméra": {
+  "fr": "La lumière garde sa direction par rapport à la caméra quand vous tournez autour du modèle.",
+  "en": "Keeps the light's direction relative to the camera as you orbit the model."
+ },
+ "Vue 3D|Intensité": {
+  "fr": "Puissance de la lumière dans la vue 3D.",
+  "en": "Strength of the light in the 3D view."
+ },
+ "Scène de rendu|Intensité": {
+  "fr": "Puissance de la lumière sélectionnée, ou de l'éclairage de l'environnement HDRI.",
+  "en": "Strength of the selected light, or of the HDRI environment lighting."
+ },
+ "Remplacer": {
+  "fr": "Remplace ce point de vue enregistré par l'angle, le cadrage et la focale actuels.",
+  "en": "Overwrites this saved view with the current angle, framing and focal length."
+ },
+ "Turntable": {
+  "fr": "Exporte une rotation complète du modèle en vidéo MP4, GIF animé ou suite d'images PNG.",
+  "en": "Exports a full rotation of the model as an MP4 video, animated GIF or PNG image sequence."
+ },
+ "Images": {
+  "fr": "Nombre d'images pour un tour complet du modèle.",
+  "en": "Number of frames for one full turn of the model."
+ },
+ "Images / s": {
+  "fr": "Cadence de la vidéo : avec le nombre d'images, elle fixe la durée du tour.",
+  "en": "Video frame rate; together with the frame count it sets the turn's duration."
+ },
+ "Taille de la vue": {
+  "fr": "Rend à la taille actuelle de la vue ; décoché, choisissez une résolution fixe.",
+  "en": "Renders at the current viewport size; when off, pick a fixed resolution."
+ },
+ "Échantillons / image": {
+  "fr": "Échantillons de path tracing calculés pour chaque image : plus il y en a, moins il y a de bruit, mais plus c'est lent.",
+  "en": "Path-tracing samples computed per frame: more samples mean less noise but slower export."
+ },
+ "Vidéo MP4": {
+  "fr": "Enregistre la rotation en vidéo MP4.",
+  "en": "Saves the turn as an MP4 video."
+ },
+ "Images PNG": {
+  "fr": "Enregistre aussi chaque image en PNG, numérotée, à côté de la vidéo.",
+  "en": "Also saves every frame as a numbered PNG next to the video."
+ },
+ "Lancer": {
+  "fr": "Démarre le rendu de la rotation vers les fichiers choisis.",
+  "en": "Starts rendering the turn to the chosen files."
+ },
+ "Arrêter": {
+  "fr": "Interrompt le rendu de la rotation en cours.",
+  "en": "Stops the turntable render in progress."
+ },
+ "Motif...": {
+  "fr": "Choisit un motif du panneau Motifs comme image projetée.",
+  "en": "Picks a pattern from the Patterns panel as the projected image."
+ },
+ "Rugosité depuis l'image": {
+  "fr": "Déduit la rugosité de la luminosité de l'image projetée, entre les valeurs min et max.",
+  "en": "Derives roughness from the projected image's brightness, between the min and max values."
+ },
+ "Clair = lisse": {
+  "fr": "Les zones claires de l'image deviennent lisses et brillantes ; décoché, elles deviennent rugueuses.",
+  "en": "Bright areas of the image become smooth and glossy; when off, they become rough."
+ },
+ "Relief depuis l'image": {
+  "fr": "Déduit un relief (hauteur) de la luminosité de l'image projetée.",
+  "en": "Derives relief (height) from the projected image's brightness."
+ },
+ "Rendu": {
+  "fr": "Rendu photoréaliste par lancer de rayons (path tracing) de la scène 3D.",
+  "en": "Photorealistic path-traced render of the 3D scene."
+ },
+ "Scène de rendu": {
+  "fr": "Objets, lumières, environnement, caméra et réglages du rendu par lancer de rayons.",
+  "en": "Objects, lights, environment, camera and settings for the path-traced render."
+ },
+ "Objets": {
+  "fr": "Objets de la scène de rendu : modèle, sol, fond, primitives et modèles importés.",
+  "en": "Render scene objects: the model, floor, backdrop, primitives and imported models."
+ },
+ "+ Plan": {
+  "fr": "Ajoute un plan horizontal servant de sol.",
+  "en": "Adds a horizontal plane to use as a floor."
+ },
+ "+ Fond": {
+  "fr": "Ajoute un fond de studio incurvé (sol et mur sans arête visible).",
+  "en": "Adds a curved studio backdrop (floor and wall with no visible seam)."
+ },
+ "+ Cube": {
+  "fr": "Ajoute un cube à la scène de rendu.",
+  "en": "Adds a cube to the render scene."
+ },
+ "+ Sphère": {
+  "fr": "Ajoute une sphère à la scène de rendu.",
+  "en": "Adds a sphere to the render scene."
+ },
+ "+ Modèle...": {
+  "fr": "Importe un modèle 3D (OBJ, FBX, glTF, uasset ou projet .sx3d) dans la scène de rendu.",
+  "en": "Imports a 3D model (OBJ, FBX, glTF, uasset or .sx3d project) into the render scene."
+ },
+ "+ Modèle du projet": {
+  "fr": "Ajoute une copie du modèle peint, avec ses textures, à la scène de rendu.",
+  "en": "Adds a copy of the painted model, with its textures, to the render scene."
+ },
+ "Poser au sol": {
+  "fr": "Descend ou monte l'objet pour que son point le plus bas touche le sol.",
+  "en": "Moves the object up or down so its lowest point rests on the floor."
+ },
+ "Scène de rendu|Échelle": {
+  "fr": "Taille de l'objet sélectionné (1 = taille d'origine).",
+  "en": "Size of the selected object (1 = original size)."
+ },
+ "Motifs|Échelle": {
+  "fr": "Taille du motif quand il remplit la sélection ou le calque.",
+  "en": "Pattern size when it fills the selection or layer."
+ },
+ "Partie": {
+  "fr": "Partie du modèle dont le matériau est modifié (un matériau par partie).",
+  "en": "Part of the model whose material you edit (one material per part)."
+ },
+ "Rugosité": {
+  "fr": "0 = surface lisse aux reflets nets, 1 = surface mate aux reflets diffus.",
+  "en": "0 = smooth surface with sharp reflections, 1 = matte surface with diffuse reflections."
+ },
+ "Métal": {
+  "fr": "0 = matière non métallique (plastique, bois), 1 = métal : les reflets prennent la couleur de base.",
+  "en": "0 = non-metal (plastic, wood), 1 = metal: reflections take on the base color."
+ },
+ "Rugosité du vernis": {
+  "fr": "Netteté des reflets de la couche de vernis : 0 = miroir, 1 = satiné.",
+  "en": "Sharpness of the clear coat's reflections: 0 = mirror, 1 = satin."
+ },
+ "Indice (IOR)": {
+  "fr": "Indice de réfraction de la matière transparente : 1,33 eau, 1,5 verre, 2,4 diamant.",
+  "en": "Index of refraction of the transparent material: 1.33 water, 1.5 glass, 2.4 diamond."
+ },
+ "Intensité émission": {
+  "fr": "Puissance de la lumière émise par la surface ; au-delà de 1, l'objet éclaire la scène.",
+  "en": "Strength of the light emitted by the surface; above 1 the object lights up the scene."
+ },
+ "Lumières": {
+  "fr": "Lumières de la scène de rendu : ajout, sélection et réglage de chaque source.",
+  "en": "Render scene lights: add, select and adjust each light source."
+ },
+ "Viser le modèle": {
+  "fr": "Oriente la lumière sélectionnée vers le centre du modèle.",
+  "en": "Points the selected light at the center of the model."
+ },
+ "Environnement (HDRI)": {
+  "fr": "Image d'environnement qui éclaire la scène et peut servir de fond.",
+  "en": "Environment image that lights the scene and can be shown as the background."
+ },
+ "Aucun": {
+  "fr": "Pas d'environnement : seules les lumières éclairent la scène, sur la couleur de fond.",
+  "en": "No environment: only the lights illuminate the scene, over the background color."
+ },
+ "Visible en fond": {
+  "fr": "Affiche l'image HDRI derrière la scène ; décoché, elle éclaire sans être vue.",
+  "en": "Shows the HDRI behind the scene; when off, it lights the scene without being seen."
+ },
+ "Caméra": {
+  "fr": "Projection, champ de vision, profondeur de champ et distance de la caméra du rendu.",
+  "en": "Render camera projection, field of view, depth of field and distance."
+ },
+ "Orthographique": {
+  "fr": "Projection parallèle, sans perspective : les tailles ne changent pas avec la distance.",
+  "en": "Parallel projection with no perspective: sizes do not change with distance."
+ },
+ "Champ de vision": {
+  "fr": "Angle vertical vu par la caméra : petit = téléobjectif, grand = grand-angle.",
+  "en": "Vertical angle seen by the camera: small = telephoto, large = wide angle."
+ },
+ "Mise au point": {
+  "fr": "Distance à laquelle l'image est nette quand l'ouverture crée du flou.",
+  "en": "Distance at which the image is sharp when the aperture adds blur."
+ },
+ "Mise au point sur le modèle": {
+  "fr": "Règle la distance de mise au point sur le modèle visé par la caméra.",
+  "en": "Sets the focus distance to the model the camera is aiming at."
+ },
+ "Distance": {
+  "fr": "Éloignement de la caméra par rapport au point visé.",
+  "en": "Distance from the camera to its target point."
+ },
+ "Réglages du rendu": {
+  "fr": "Processeur de calcul, échantillons, rebonds, résolution et tonalité du rendu.",
+  "en": "Compute device, samples, bounces, resolution and tone mapping of the render."
+ },
+ "Calcul": {
+  "fr": "Calcule le rendu sur la carte graphique (rapide) ou sur le processeur.",
+  "en": "Renders on the graphics card (fast) or on the CPU."
+ },
+ "Échantillons": {
+  "fr": "Nombre de passes accumulées : plus il y en a, moins l'image est bruitée.",
+  "en": "Number of accumulated passes: more passes give a cleaner, less noisy image."
+ },
+ "Rebonds": {
+  "fr": "Nombre de rebonds de la lumière : plus il y en a, plus l'éclairage indirect et le verre sont justes, mais plus c'est lent.",
+  "en": "Number of light bounces: more bounces give more accurate indirect light and glass, but render slower."
+ },
+ "Largeur": {
+  "fr": "Largeur de l'image en pixels.",
+  "en": "Image width in pixels."
+ },
+ "Exposition": {
+  "fr": "Éclaircit ou assombrit l'image, en indices de lumination (IL/EV).",
+  "en": "Brightens or darkens the image, in exposure stops (EV)."
+ },
+ "Courbe": {
+  "fr": "Courbe de tonalité qui ramène les hautes lumières dans l'image affichable (ACES, AgX, PBR Neutral...).",
+  "en": "Tone-mapping curve that brings highlights into the displayable range (ACES, AgX, PBR Neutral...)."
+ },
+ "Débruitage": {
+  "fr": "Lisse le bruit du lancer de rayons en gardant les contours ; 0 = désactivé.",
+  "en": "Smooths path-tracing noise while keeping edges; 0 = off."
+ },
+ "Scène (fichiers, préréglages)": {
+  "fr": "Charge, enregistre et applique des scènes de rendu complètes ou des préréglages d'éclairage.",
+  "en": "Loads, saves and applies complete render scenes or lighting presets."
+ },
+ "Appliquer le préréglage": {
+  "fr": "Applique le préréglage choisi selon le mode : toute la scène, l'éclairage seul ou ses objets en plus.",
+  "en": "Applies the chosen preset using the selected mode: whole scene, lighting only, or adding its objects."
+ },
+ "Charger une scène...": {
+  "fr": "Ouvre un fichier de scène .sxscene et l'applique selon le mode choisi.",
+  "en": "Opens a .sxscene file and applies it using the selected mode."
+ },
+ "Nom du préréglage": {
+  "fr": "Nom sous lequel la scène actuelle apparaîtra dans la liste des préréglages.",
+  "en": "Name under which the current scene will appear in the preset list."
+ },
+ "Description": {
+  "fr": "Courte description affichée avec le préréglage.",
+  "en": "Short description shown with the preset."
+ },
+ "Enregistrer comme préréglage": {
+  "fr": "Ajoute la scène actuelle à vos préréglages, réutilisables dans tous les projets.",
+  "en": "Adds the current scene to your presets, reusable in every project."
+ },
+ "Ressources": {
+  "fr": "Parcourt vos dossiers d'images, de modèles et de fichiers ; glissez-les sur le canevas, les calques ou le graphe.",
+  "en": "Browses your folders of images, models and files; drag them onto the canvas, layers or graph."
+ },
+ "\\xE2\\x86\\x91": {
+  "fr": "Remonte au dossier parent.",
+  "en": "Goes up to the parent folder."
+ },
+ "Ajouter à la scène de rendu": {
+  "fr": "Importe ce modèle comme objet supplémentaire de la scène de rendu.",
+  "en": "Imports this model as an extra object in the render scene."
+ },
+ "Placer comme calque (objet dynamique)": {
+  "fr": "Place l'image comme objet dynamique incorporé : transformable sans perte de qualité.",
+  "en": "Places the image as an embedded smart object that can be transformed without quality loss."
+ },
+ "Placer lié au fichier": {
+  "fr": "Place l'image comme objet dynamique lié : il suit les modifications du fichier d'origine.",
+  "en": "Places the image as a linked smart object that follows changes to the original file."
+ },
+ "Ajouter au graphe (nœud image)": {
+  "fr": "Ajoute un nœud image chargeant ce fichier dans le graphe.",
+  "en": "Adds an image node that loads this file into the graph."
+ },
+ "Afficher dans l'Explorateur Windows": {
+  "fr": "Ouvre le dossier du fichier dans l'Explorateur, le fichier sélectionné.",
+  "en": "Opens the file's folder in File Explorer with the file selected."
+ },
+ "Motifs": {
+  "fr": "Motifs répétables : remplir la sélection, en créer depuis l'image ou importer des .pat Photoshop.",
+  "en": "Repeatable patterns: fill the selection, create them from the image or import Photoshop .pat files."
+ },
+ "Importer .pat...": {
+  "fr": "Importe les motifs d'un fichier Photoshop .pat.",
+  "en": "Imports the patterns of a Photoshop .pat file."
+ },
+ "Nuancier": {
+  "fr": "Couleurs enregistrées : cliquez pour les prendre comme premier plan, chargez des nuanciers .aco, .ase ou .gpl.",
+  "en": "Saved colors: click one to make it the foreground color, load .aco, .ase or .gpl swatch files."
+ },
+ "Charger...": {
+  "fr": "Charge un nuancier Photoshop (.aco, .ase) ou GIMP (.gpl).",
+  "en": "Loads a Photoshop (.aco, .ase) or GIMP (.gpl) swatch file."
+ },
+ "Remplacer par le premier plan": {
+  "fr": "Remplace la couleur de cette nuance par la couleur de premier plan.",
+  "en": "Replaces this swatch's color with the foreground color."
+ },
+ "Redresser l'image": {
+  "fr": "Tourne l'image pour que la ligne mesurée devienne horizontale ou verticale.",
+  "en": "Rotates the image so the measured line becomes horizontal or vertical."
+ },
+ "Effacer la mesure": {
+  "fr": "Supprime la ligne de mesure de la règle.",
+  "en": "Removes the ruler's measurement line."
+ },
+ "Plage de couleurs": {
+  "fr": "Sélectionne les pixels proches des couleurs échantillonnées ou d'une gamme (rouges, tons clairs, tons chair...).",
+  "en": "Selects pixels close to sampled colors or to a range (reds, highlights, skin tones...)."
+ },
+ "+ premier plan": {
+  "fr": "Ajoute la couleur de premier plan aux couleurs échantillonnées (8 au plus).",
+  "en": "Adds the foreground color to the sampled colors (up to 8)."
+ },
+ "Sélectionner et masquer": {
+  "fr": "Affine le contour de la sélection (cheveux, poils, feuillage) puis l'envoie vers une sélection ou un masque.",
+  "en": "Refines the selection edge (hair, fur, foliage) and outputs it as a selection or mask."
+ },
+ "Propriétés|Rayon": {
+  "fr": "Rayon des coins arrondis du rectangle, en pixels.",
+  "en": "Corner radius of the rectangle, in pixels."
+ },
+ "Décaler le contour": {
+  "fr": "Déplace le contour vers l'intérieur (négatif) ou l'extérieur (positif) de la sélection.",
+  "en": "Moves the edge inward (negative) or outward (positive)."
+ },
+ "Vers": {
+  "fr": "Destination du résultat : sélection, masque du calque actif ou nouveau calque avec masque.",
+  "en": "Where the result goes: selection, mask on the active layer, or a new layer with a mask."
+ },
+ "Supprimer cette forme": {
+  "fr": "Retire cette forme personnalisée de la bibliothèque.",
+  "en": "Removes this custom shape from the library."
+ },
+ "Depuis le tracé actif": {
+  "fr": "Enregistre le tracé actif comme forme personnalisée réutilisable.",
+  "en": "Saves the active path as a reusable custom shape."
+ },
+ "Importer un SVG...": {
+  "fr": "Importe les tracés d'un fichier SVG comme forme personnalisée.",
+  "en": "Imports the paths of an SVG file as a custom shape."
+ },
+ "Calque suivi": {
+  "fr": "Calque 3D dont la peinture guide ce masque (dessus, au bord, autour ou ailleurs).",
+  "en": "3D layer whose paint drives this mask (on top, at the edge, around or elsewhere)."
+ },
+ "Modifier le contenu": {
+  "fr": "Ouvre le contenu de l'objet dynamique dans un onglet ; enregistrez-le pour mettre à jour le calque.",
+  "en": "Opens the smart object's contents in a tab; save it to update the layer."
+ },
+ "Remplacer le contenu...": {
+  "fr": "Remplace l'image de l'objet dynamique par un autre fichier, en gardant ses transformations.",
+  "en": "Replaces the smart object's image with another file, keeping its transforms."
+ },
+ "Incorporer": {
+  "fr": "Copie le fichier lié dans le document : l'objet ne dépend plus du fichier d'origine.",
+  "en": "Copies the linked file into the document so the object no longer depends on the original file."
+ },
+ "Transformation (Ctrl+T)": {
+  "fr": "Déplace, redimensionne ou fait pivoter l'objet dynamique sans perte de qualité (Ctrl+T).",
+  "en": "Moves, scales or rotates the smart object without quality loss (Ctrl+T)."
+ },
+ "Nouvel objet par copie": {
+  "fr": "Duplique le calque avec un contenu indépendant, contrairement à Dupliquer qui partage le contenu.",
+  "en": "Duplicates the layer with independent contents, unlike Duplicate which shares them."
+ },
+ "Pixelliser": {
+  "fr": "Convertit l'objet dynamique en calque de pixels ordinaire.",
+  "en": "Converts the smart object into a regular pixel layer."
+ },
+ "Objets dynamiques": {
+  "fr": "Créer, modifier, importer et pixelliser des objets dynamiques.",
+  "en": "Create, edit, import and rasterize smart objects."
+ },
+ "Convertir en objet dynamique": {
+  "fr": "Transforme le calque actif en objet dynamique, transformable sans perte de qualité.",
+  "en": "Turns the active layer into a smart object that can be transformed without quality loss."
+ },
+ "Importer (incorporé)...": {
+  "fr": "Place une image comme objet dynamique incorporé dans le document.",
+  "en": "Places an image as a smart object embedded in the document."
+ },
+ "Importer (lié)...": {
+  "fr": "Place une image comme objet dynamique lié au fichier, mis à jour quand il change.",
+  "en": "Places an image as a smart object linked to its file, updated when the file changes."
+ },
+ "Mettre à jour les objets liés": {
+  "fr": "Recharge tous les objets dynamiques liés depuis leurs fichiers.",
+  "en": "Reloads every linked smart object from its file."
+ },
+ "Modèles": {
+  "fr": "Modèles de documents prêts à l'emploi, classés par catégorie.",
+  "en": "Ready-made document templates, sorted by category."
+ },
+ "Tous": {
+  "fr": "Affiche les modèles de toutes les catégories.",
+  "en": "Shows templates from every category."
+ },
+ "Supprimer le modèle": {
+  "fr": "Supprime le modèle personnel sélectionné (confirmation demandée).",
+  "en": "Deletes the selected personal template (asks for confirmation)."
+ },
+ "Confirmer la suppression": {
+  "fr": "Supprime définitivement ce modèle, son aperçu et sa description.",
+  "en": "Permanently deletes this template, its thumbnail and its description."
+ },
+ "Ouvrir le dossier de mes modèles": {
+  "fr": "Ouvre dans l'Explorateur le dossier où sont rangés vos propres modèles.",
+  "en": "Opens the folder that holds your own templates in File Explorer."
+ },
+ "Document vide": {
+  "fr": "Crée un document vierge de taille, précision et arrière-plan choisis.",
+  "en": "Creates a blank document with the chosen size, precision and background."
+ },
+ "Précision": {
+  "fr": "Profondeur des couleurs du document : 16 bits flottant (plus léger) ou 32 bits flottant (plus précis).",
+  "en": "Document color depth: 16-bit float (lighter) or 32-bit float (more precise)."
+ },
+ "Arrière-plan": {
+  "fr": "Contenu du calque de départ : blanc, transparent, noir ou aucun calque.",
+  "en": "Contents of the starting layer: white, transparent, black, or no layer."
+ },
+ "Interligne": {
+  "fr": "Espacement entre les lignes, en multiple de la taille du texte.",
+  "en": "Spacing between lines, as a multiple of the text size."
+ },
+ "Approche": {
+  "fr": "Espacement uniforme entre les caractères, en millièmes de cadratin.",
+  "en": "Uniform spacing between characters, in thousandths of an em."
+ },
+ "Faux gras": {
+  "fr": "Épaissit artificiellement les caractères quand la police n'a pas de graisse grasse.",
+  "en": "Thickens characters artificially when the font has no bold weight."
+ },
+ "Verticale": {
+  "fr": "Applique la déformation dans le sens vertical plutôt qu'horizontal.",
+  "en": "Applies the warp vertically instead of horizontally."
+ },
+ "Inflexion": {
+  "fr": "Courbure de la déformation du texte, vers le haut ou vers le bas.",
+  "en": "Amount of bend of the text warp, up or down."
+ },
+ "Distorsion horizontale": {
+  "fr": "Effet de perspective horizontal : le texte grossit d'un côté et rétrécit de l'autre.",
+  "en": "Horizontal perspective effect: the text grows on one side and shrinks on the other."
+ },
+ "Distorsion verticale": {
+  "fr": "Effet de perspective vertical : le texte grossit en haut ou en bas.",
+  "en": "Vertical perspective effect: the text grows at the top or at the bottom."
+ },
+ "Propriétés|Décalage": {
+  "fr": "Position de départ du texte le long du tracé, en pixels.",
+  "en": "Starting position of the text along the path, in pixels."
+ },
+ "Trim sheet|Décalage": {
+  "fr": "Décale l'aperçu de répétition pour vérifier les raccords du trim.",
+  "en": "Shifts the tiling preview to check the trim's seams."
+ },
+ "De l'autre côté": {
+  "fr": "Place le texte de l'autre côté du tracé, dans le sens inverse.",
+  "en": "Puts the text on the other side of the path, running the other way."
+ },
+ "Détacher du tracé": {
+  "fr": "Détache le texte du tracé : il redevient un texte normal.",
+  "en": "Detaches the text from the path so it becomes normal text again."
+ },
+ "Placer sur le tracé actif": {
+  "fr": "Fait suivre au texte le tracé actif.",
+  "en": "Makes the text follow the active path."
+ },
+ "Côtés": {
+  "fr": "Nombre de côtés du polygone ou de branches de l'étoile.",
+  "en": "Number of sides of the polygon or points of the star."
+ },
+ "Styles de texte": {
+  "fr": "Styles de caractère et de paragraphe réutilisables, appliqués au texte sélectionné.",
+  "en": "Reusable character and paragraph styles applied to the selected text."
+ },
+ "Retirer": {
+  "fr": "Retire le style du texte ou des paragraphes sélectionnés (tout le texte sans sélection).",
+  "en": "Removes the style from the selected text or paragraphs (all text when nothing is selected)."
+ },
+ "(police du calque)": {
+  "fr": "Le style garde la police du calque de texte.",
+  "en": "The style keeps the text layer's font."
+ },
+ "Décalage de ligne de base": {
+  "fr": "Monte ou descend les caractères par rapport à la ligne, en pixels (exposants, indices).",
+  "en": "Raises or lowers characters relative to the line, in pixels (superscript, subscript)."
+ },
+ "Souligné": {
+  "fr": "Souligne les caractères de ce style.",
+  "en": "Underlines characters in this style."
+ },
+ "Capitales": {
+  "fr": "Affiche le texte de ce style tout en majuscules.",
+  "en": "Displays text in this style in all capitals."
+ },
+ "Supprimer le style": {
+  "fr": "Supprime ce style ; le texte qui l'utilisait reprend la mise en forme du calque.",
+  "en": "Deletes this style; text that used it goes back to the layer's formatting."
+ },
+ "Espace avant": {
+  "fr": "Espace ajouté au-dessus de chaque paragraphe, en pixels.",
+  "en": "Space added above each paragraph, in pixels."
+ },
+ "Retrait gauche": {
+  "fr": "Retrait de tout le paragraphe depuis le bord gauche, en pixels.",
+  "en": "Indent of the whole paragraph from the left edge, in pixels."
+ },
+ "Retrait 1re ligne": {
+  "fr": "Retrait de la première ligne du paragraphe ; une valeur négative crée un retrait suspendu.",
+  "en": "Indent of the paragraph's first line; a negative value makes a hanging indent."
+ },
+ "Style de caractère": {
+  "fr": "Style de caractère appliqué par défaut au texte de ce paragraphe.",
+  "en": "Character style applied by default to text in this paragraph."
+ },
+ "Exporter les textures": {
+  "fr": "Exporte les cartes PBR du modèle (couleur, normale, ORM...) selon un préréglage de moteur.",
+  "en": "Exports the model's PBR maps (color, normal, ORM...) using an engine preset."
+ },
+ "Normale": {
+  "fr": "Convention de la carte de normales : DirectX (Y-, Unreal) ou OpenGL (Y+, Unity, Blender, Godot).",
+  "en": "Normal map convention: DirectX (Y-, Unreal) or OpenGL (Y+, Unity, Blender, Godot)."
+ },
+ "Nom de base": {
+  "fr": "Nom remplaçant {nom} dans les noms de fichiers ; vide, celui du projet.",
+  "en": "Name that replaces {nom} in file names; empty uses the project name."
+ },
+ "Tout sélectionner": {
+  "fr": "Sélectionne toute l'image (Ctrl+A).",
+  "en": "Selects the whole image (Ctrl+A)."
+ },
+ "Désélectionner": {
+  "fr": "Supprime la sélection active (Ctrl+D).",
+  "en": "Removes the active selection (Ctrl+D)."
+ },
+ "Resélectionner": {
+  "fr": "Rétablit la dernière sélection supprimée (Ctrl+Maj+D).",
+  "en": "Restores the last removed selection (Ctrl+Shift+D)."
+ },
+ "Ciel": {
+  "fr": "Sélectionne automatiquement le ciel de la photo avec le modèle de segmentation.",
+  "en": "Automatically selects the sky in the photo using the segmentation model."
+ },
+ "Installer le modèle de sujet (rembg)...": {
+  "fr": "Installe le modèle de segmentation rembg (Python) utilisé par Sujet et Ciel.",
+  "en": "Installs the rembg segmentation model (Python) used by Subject and Sky."
+ },
+ "Plage de couleurs...": {
+  "fr": "Sélectionne les pixels selon des couleurs échantillonnées ou une gamme de tons.",
+  "en": "Selects pixels by sampled colors or by a tonal range."
+ },
+ "Sélectionner et masquer...": {
+  "fr": "Affine le contour de la sélection : cheveux, poils, feuillage (Alt+Ctrl+R).",
+  "en": "Refines the selection edge: hair, fur, foliage (Alt+Ctrl+R)."
+ },
+ "Pixels du calque actif": {
+  "fr": "Sélectionne les pixels non transparents du calque actif.",
+  "en": "Selects the non-transparent pixels of the active layer."
+ },
+ "Modifier": {
+  "fr": "Adoucir, dilater ou contracter le contour de la sélection.",
+  "en": "Feather, expand or contract the selection edge."
+ },
+ "Contour progressif...": {
+  "fr": "Adoucit le bord de la sélection sur un rayon en pixels (Maj+F6).",
+  "en": "Softens the selection edge over a radius in pixels (Shift+F6)."
+ },
+ "Dilater...": {
+  "fr": "Agrandit la sélection d'un nombre de pixels.",
+  "en": "Expands the selection by a number of pixels."
+ },
+ "Contracter...": {
+  "fr": "Rétrécit la sélection d'un nombre de pixels.",
+  "en": "Contracts the selection by a number of pixels."
+ },
+ "Transformer la sélection": {
+  "fr": "Déplace, redimensionne ou fait pivoter le contour de la sélection sans toucher aux pixels.",
+  "en": "Moves, scales or rotates the selection outline without changing the pixels."
+ },
+ "Créer un tracé depuis la sélection": {
+  "fr": "Convertit le contour de la sélection en tracé vectoriel modifiable.",
+  "en": "Converts the selection outline into an editable vector path."
+ },
+ "Mode Masque": {
+  "fr": "Affiche la sélection comme un masque rouge que vous peignez au pinceau (Q).",
+  "en": "Shows the selection as a red overlay you can paint with brushes (Q)."
+ },
+ "Zone de netteté": {
+  "fr": "Sélectionne automatiquement les parties nettes de la photo, d'après le détail local.",
+  "en": "Automatically selects the in-focus parts of the photo based on local detail."
+ },
+ "Rayon d'analyse (px)": {
+  "fr": "Taille de la zone examinée autour de chaque pixel pour mesurer la netteté.",
+  "en": "Size of the area examined around each pixel to measure sharpness."
+ },
+ "Transition": {
+  "fr": "Douceur du passage entre zones sélectionnées et non sélectionnées.",
+  "en": "Softness of the transition between selected and unselected areas."
+ },
+ "Inverser (sélectionner le flou)": {
+  "fr": "Sélectionne les zones floues (arrière-plan) au lieu des zones nettes.",
+  "en": "Selects the blurry areas (background) instead of the sharp ones."
+ },
+ "Épaisseur (px)": {
+  "fr": "Épaisseur du contour tracé autour de la sélection, en pixels.",
+  "en": "Width of the stroke drawn around the selection, in pixels."
+ },
+ "Trim sheet": {
+  "fr": "Découpe une texture en bandes réutilisables (trims) pour la modélisation 3D, avec aperçu et export.",
+  "en": "Splits a texture into reusable strips (trims) for 3D modeling, with preview and export."
+ },
+ "Créer les bandes": {
+  "fr": "Remplace les trims par les bandes définies dans Hauteurs.",
+  "en": "Replaces the trims with the strips defined in Heights."
+ },
+ "Afficher sur le canevas": {
+  "fr": "Dessine les rectangles et noms des trims par-dessus l'image.",
+  "en": "Draws the trim rectangles and names over the image."
+ },
+ "+ Trim": {
+  "fr": "Ajoute un nouveau trim à la liste.",
+  "en": "Adds a new trim to the list."
+ },
+ "Tout effacer": {
+  "fr": "Supprime tous les trims (annulable).",
+  "en": "Deletes all trims (undoable)."
+ },
+ "Sélectionner ses pixels": {
+  "fr": "Sélectionne le rectangle du trim actif sur l'image.",
+  "en": "Selects the active trim's rectangle on the image."
+ },
+ "Fondu du raccord": {
+  "fr": "Largeur du fondu utilisé par Rendre raccordable, en fraction de la largeur du trim.",
+  "en": "Width of the blend used by Make seamless, as a fraction of the trim's width."
+ },
+ "Aperçu 3D": {
+  "fr": "Affiche la trim sheet appliquée sur un modèle dans la vue 3D.",
+  "en": "Shows the trim sheet applied to a model in the 3D view."
+ },
+ "Exporter la disposition (JSON)...": {
+  "fr": "Enregistre les rectangles des trims dans un fichier JSON pour vos outils de modélisation.",
+  "en": "Saves the trim rectangles to a JSON file for your modeling tools."
+ },
+ "Exporter pour Unreal": {
+  "fr": "Exporte le modèle, ses textures et une instance de matériau prêts à importer dans Unreal Engine.",
+  "en": "Exports the model, its textures and a material instance ready to import into Unreal Engine."
+ },
+ "Intensité émissive": {
+  "fr": "Multiplicateur de l'émission dans le matériau Unreal (paramètre EmissiveStrength).",
+  "en": "Emission multiplier in the Unreal material (EmissiveStrength parameter)."
+ },
+ "Double face": {
+  "fr": "Rend les deux faces des polygones dans Unreal (feuillage, tissus, plans fins).",
+  "en": "Renders both sides of polygons in Unreal (foliage, cloth, thin planes)."
+ },
+ "UV automatiques (xatlas)": {
+  "fr": "Calcule un nouveau dépliage UV du modèle avec xatlas, avec aperçu avant application.",
+  "en": "Computes a new UV unwrap of the model with xatlas, previewed before applying."
+ },
+ "Rondeur": {
+  "fr": "Favorise des îlots compacts et arrondis plutôt qu'allongés.",
+  "en": "Favors compact, rounded islands over elongated ones."
+ },
+ "Bords droits": {
+  "fr": "Favorise des îlots aux bords droits, plus faciles à empaqueter.",
+  "en": "Favors islands with straight edges, easier to pack."
+ },
+ "Coutures (UV)": {
+  "fr": "Poids des coutures UV existantes : plus haut, les nouvelles coupes les suivent.",
+  "en": "Weight of existing UV seams: higher makes new cuts follow them."
+ },
+ "Conserver les îlots existants": {
+  "fr": "Garde les îlots UV actuels et ne fait que les réempaqueter.",
+  "en": "Keeps the current UV islands and only repacks them."
+ },
+ "Rotation des îlots": {
+  "fr": "Autorise la rotation des îlots pour mieux remplir l'atlas.",
+  "en": "Allows islands to be rotated to fill the atlas better."
+ },
+ "Recherche exhaustive (lent)": {
+  "fr": "Essaie toutes les positions pour un empaquetage plus serré, au prix d'un calcul bien plus long.",
+  "en": "Tries every position for tighter packing, at the cost of much longer computation."
+ },
+ "Aligner sur des blocs 4x4": {
+  "fr": "Aligne les îlots sur des blocs de 4x4 texels, adaptés à la compression des textures (BC/DXT).",
+  "en": "Aligns islands to 4x4 texel blocks, suited to texture compression (BC/DXT)."
+ },
+ "Calculer l'aperçu": {
+  "fr": "Lance le dépliage avec ces réglages ; le résultat s'affiche avant d'être appliqué.",
+  "en": "Runs the unwrap with these settings; the result is shown before it is applied."
+ },
+ "Reporter la peinture existante sur les nouvelles UV": {
+  "fr": "Transfère les textures déjà peintes sur le nouveau dépliage lors de l'application.",
+  "en": "Transfers the textures already painted onto the new unwrap when applying."
+ },
+ "Abandonner l'aperçu": {
+  "fr": "Annule le dépliage calculé et garde les UV actuelles.",
+  "en": "Discards the computed unwrap and keeps the current UVs."
+ },
+ "Revenir aux UV précédentes": {
+  "fr": "Rétablit les UV d'avant le dernier dépliage appliqué.",
+  "en": "Restores the UVs from before the last applied unwrap."
+ },
+ "Vue 3D": {
+  "fr": "Affiche et peint le modèle 3D, avec éclairage, environnement et réglages de rendu.",
+  "en": "Displays and paints the 3D model, with lighting, environment and render settings."
+ },
+ "Fichier HDR...": {
+  "fr": "Charge une image d'environnement HDR (ou PNG, JPG, EXR) pour éclairer le modèle.",
+  "en": "Loads an HDR environment image (or PNG, JPG, EXR) to light the model."
+ },
+ "Passer en Path tracing": {
+  "fr": "Passe la vue 3D en rendu par lancer de rayons pour régler échantillons, rebonds et profondeur de champ.",
+  "en": "Switches the 3D view to path tracing to adjust samples, bounces and depth of field."
+ },
+ "Sol (ombres portées)": {
+  "fr": "Ajoute un sol invisible sous le modèle qui reçoit ses ombres portées.",
+  "en": "Adds an invisible floor under the model that catches its cast shadows."
+ },
+ "Distance nette": {
+  "fr": "Distance à laquelle l'image est nette avec la profondeur de champ.",
+  "en": "Distance at which the image is in focus with depth of field."
+ },
+ "Choisir sur le modèle": {
+  "fr": "Cliquez ensuite sur le modèle pour y faire la mise au point.",
+  "en": "Then click on the model to focus on that point."
+ },
+ "Soleil (avec HDRI)": {
+  "fr": "Intensité de la lumière directionnelle ajoutée à l'éclairage HDRI.",
+  "en": "Strength of the directional light added on top of the HDRI lighting."
+ },
+ "Ombre": {
+  "fr": "Opacité des ombres de la lumière principale : 0 = sans ombre, 1 = ombres pleines.",
+  "en": "Opacity of the main light's shadows: 0 = no shadow, 1 = full shadows."
+ },
+ "Ombre au sol": {
+  "fr": "Ombre de la lumière principale et ombre de contact sur un sol invisible sous le modèle (Rendu qualité).",
+  "en": "Main light shadow and contact shadow on an invisible floor under the model (Quality render)."
+ },
+ "Effets de caméra": {
+  "fr": "Active les effets de post-traitement : bloom, netteté, aberration, couleur, vignettage, grain.",
+  "en": "Turns on post-processing effects: bloom, sharpening, aberration, color, vignette, grain."
+ },
+ "Bloom": {
+  "fr": "Halo lumineux autour des zones très claires.",
+  "en": "Glow around very bright areas."
+ },
+ "Seuil du bloom": {
+  "fr": "Luminosité à partir de laquelle une zone produit du bloom.",
+  "en": "Brightness above which an area produces bloom."
+ },
+ "Étendue du bloom": {
+  "fr": "Taille du halo de bloom autour des zones claires.",
+  "en": "Size of the bloom glow around bright areas."
+ },
+ "Netteté": {
+  "fr": "Renforce les contours et les détails fins de l'image.",
+  "en": "Enhances edges and fine detail in the image."
+ },
+ "Aberration chromatique": {
+  "fr": "Décale les canaux de couleur vers les bords de l'image, comme un objectif réel.",
+  "en": "Offsets the color channels toward the image edges, like a real lens."
+ },
+ "Température": {
+  "fr": "Réchauffe (vers l'orange) ou refroidit (vers le bleu) les couleurs.",
+  "en": "Warms (toward orange) or cools (toward blue) the colors."
+ },
+ "Vignettage": {
+  "fr": "Assombrit les coins de l'image.",
+  "en": "Darkens the corners of the image."
+ },
+ "Douceur du vignettage": {
+  "fr": "Progressivité du passage entre le centre et les coins assombris.",
+  "en": "How gradually the center fades into the darkened corners."
+ },
+ "Grain": {
+  "fr": "Ajoute un grain de film à l'image.",
+  "en": "Adds film grain to the image."
+ },
+ "Panneaux": {
+  "fr": "Affiche ou masque chacun des panneaux de l'interface.",
+  "en": "Shows or hides each panel of the interface."
+ },
+ "Tout réafficher": {
+  "fr": "Rouvre tous les panneaux fermés.",
+  "en": "Reopens every closed panel."
+ },
+ "Ouvrir en grand": {
+  "fr": "Ouvre un panneau dans sa propre fenêtre, pour l'agrandir ou le mettre sur un autre écran.",
+  "en": "Opens a panel in its own window, to enlarge it or move it to another screen."
+ },
+ "Fenêtre": {
+  "fr": "Panneaux, fenêtres supplémentaires et dispositions de l'interface.",
+  "en": "Panels, extra windows and interface layouts."
+ },
+ "Nouvelle fenêtre": {
+  "fr": "Ouvre une fenêtre supplémentaire de l'application, par exemple pour un second écran.",
+  "en": "Opens an extra application window, for example for a second screen."
+ },
+ "Masquer la zone graphe": {
+  "fr": "Replie la zone du graphe en bas pour agrandir le canevas (Tab).",
+  "en": "Collapses the bottom graph area to enlarge the canvas (Tab)."
+ },
+ "Masquer la colonne de droite": {
+  "fr": "Masque la colonne des panneaux de droite (Maj+Tab).",
+  "en": "Hides the right-hand panel column (Shift+Tab)."
+ },
+ "Dispositions": {
+  "fr": "Charge, enregistre ou supprime des agencements de panneaux.",
+  "en": "Loads, saves or deletes panel arrangements."
+ },
+ "Enregistrer la disposition...": {
+  "fr": "Enregistre l'agencement actuel des panneaux sous un nom.",
+  "en": "Saves the current panel arrangement under a name."
+ },
+ "Réinitialiser la disposition": {
+  "fr": "Remet les panneaux à leur place par défaut.",
+  "en": "Puts the panels back in their default places."
+ }
+}

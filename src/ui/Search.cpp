@@ -1,4 +1,5 @@
 #include "ui/Search.h"
+#include "ui/AutoTooltips.h"
 #include "ui/Lang.h"
 
 #include <imgui_internal.h>
@@ -18,6 +19,7 @@ void ImGuiTestEngineHook_ItemAdd(ImGuiContext* ctx, ImGuiID id, const ImRect& bb
 }
 void ImGuiTestEngineHook_ItemInfo(ImGuiContext* ctx, ImGuiID id, const char* label, ImGuiItemStatusFlags flags) {
     sx::GlobalSearch::Get().OnItemInfo(ctx, id, label, (int)flags);
+    sx::autotips::OnItemInfo(ctx, id, label, (int)flags);
 }
 void ImGuiTestEngineHook_Log(ImGuiContext*, const char*, ...) {}
 const char* ImGuiTestEngine_FindItemDebugLabel(ImGuiContext*, ImGuiID) { return nullptr; }

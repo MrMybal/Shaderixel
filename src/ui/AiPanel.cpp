@@ -61,6 +61,7 @@ void App::LoadAiSettings() {
         uiLanguage = j["ui"]["language"].S("en");
         uiTheme = j["ui"]["theme"].S("violet");
         uiComfortable = j["ui"]["comfortable"].B(true);
+        tooltipDelay = std::clamp(j["ui"]["tooltipDelay"].F(0.15f), 0.0f, 2.0f);
         updateCheckAtStartup = j["updates"]["checkAtStartup"].B(true);
         updateIncludePrereleases = j["updates"]["includePrereleases"].B(std::string(updates::Version).find('-') != std::string::npos);
         histGpuMB = j["history"]["gpuMB"].I(0);
@@ -96,6 +97,7 @@ void App::SaveAiSettings() {
     ui["language"] = uiLanguage;
     ui["theme"] = uiTheme;
     ui["comfortable"] = uiComfortable;
+    ui["tooltipDelay"] = tooltipDelay;
     j["ui"] = ui;
     j["updates"]["checkAtStartup"] = updateCheckAtStartup;
     j["updates"]["includePrereleases"] = updateIncludePrereleases;

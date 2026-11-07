@@ -3,6 +3,7 @@
 #include "ui/Filter.h"
 #include "doc/Brushes.h"
 #include "ui/Theme.h"
+#include "ui/Lang.h"
 #include "render/MeshPaint.h"
 
 namespace sx {
@@ -56,10 +57,16 @@ void App::DrawView3D() {
         flow(ImGui::CalcTextSize(label).x + ImGui::GetStyle().FramePadding.x * 2);
         return ImGui::SmallButton(label);
     };
-    if (button("Sphère")) AttachMesh(*v, MakeSphere());
-    if (button("Cube")) AttachMesh(*v, MakeCube());
-    if (button("Plan")) AttachMesh(*v, MakePlane());
-    if (button("Ouvrir un maillage...")) {
+    // The simple actions as icons (their name in the tooltip); combos and sliders keep their text.
+    const float ib = ImGui::GetFrameHeight();
+    auto icon = [&](const char* id, int glyph, const char* tip, bool on = false) {
+        flow(ib);
+        return ui::IconButton(id, glyph, on, ib, tip);
+    };
+    if (icon("sphere", ui::IconSphere, "Sphère : remplace le modèle par une sphère")) AttachMesh(*v, MakeSphere());
+    if (icon("cube", ui::IconCube, "Cube : remplace le modèle par un cube")) AttachMesh(*v, MakeCube());
+    if (icon("plane", ui::IconPlane, "Plan : remplace le modèle par un plan")) AttachMesh(*v, MakePlane());
+    if (icon("openmesh", ui::IconOpenMesh, "Ouvrir un maillage... (OBJ, FBX, glTF, GLB, uasset)")) {
         std::string path = platform::OpenFileDialog(hwnd, L"Maillages (*.obj, *.fbx, *.gltf, *.glb, *.uasset)\0*.obj;*.fbx;*.gltf;*.glb;*.uasset\0");
         if (!path.empty() && Narrow(Utf8Path(path).extension().wstring()) == ".uasset") {
             DocView* target = v;
@@ -87,15 +94,14 @@ void App::DrawView3D() {
         }
     }
     if (v->mesh) {
-        if (button("UV automatiques...")) uvTool.open = true;
-        ui::HelpTooltip("Dépliage UV automatique (xatlas) avec options et aperçu avant d'appliquer.");
+        if (icon("uvs", ui::IconUV, "UV automatiques...\nDépliage UV automatique (xatlas) avec options et aperçu avant d'appliquer.")) uvTool.open = true;
         if (v->mesh->data.materials.size() > 1 && v->mesh->data.uvTiles.empty() && v->mesh->data.udims.empty() &&
             v->mesh->data.triMaterial.size() * 3 == v->mesh->data.indices.size()) {
             if (button("Une tuile par matériau")) RetileMaterials(*v);
             ui::HelpTooltip("Chaque matériau du modèle reçoit sa propre zone de la texture (la peinture déjà faite suit) ;\n"
                             "les exports écrivent ensuite un jeu de textures par matériau.");
         }
-        if (button("Recentrer")) {
+        if (icon("recenter", ui::IconRecenter, "Recentrer la vue sur le modèle")) {
             v->mesh->yaw = 0.7f;
             v->mesh->pitch = 0.35f;
             v->mesh->distance = 2.8f;
@@ -106,23 +112,23 @@ void App::DrawView3D() {
         bool hasChannels = FindChannelGroup(doc, PbrChannel::Roughness) != 0;
         if (doc.kind == 1) {
             // Project: channels chosen at creation, exports by template.
-            if (button("Cuire...")) baker.open = true;
-            ui::HelpTooltip("Baker : normale, occlusion ambiante, courbure, épaisseur... depuis le modèle ou un modèle haute définition.");
+            if (icon("bake", ui::IconBake, "Cuire...\nBaker : normale, occlusion ambiante, courbure, épaisseur... depuis le modèle ou un modèle haute définition.")) baker.open = true;
             if (button("Unreal...")) unrealDialog = true;
             ui::HelpTooltip("Exporter pour Unreal : modèle, textures et matériau prêt à l'emploi,\nimportés d'un coup par le plugin Shaderixel Link.");
-            if (button("Exporter les textures...")) {
+            if (icon("exporttex", ui::IconExport, "Exporter les textures...\nModèles d'export (Unreal, Unity, glTF / Blender, Godot, séparées), 8 / 16 bits, taille, normale, marge.")) {
                 texExport.open = true;
                 texExport.preset = doc.exportTemplate == 1 ? 0 : doc.exportTemplate == 2 ? 1 : 5;
             }
-            ui::HelpTooltip("Modèles d'export (Unreal, Unity, glTF / Blender, Godot, séparées), 8 / 16 bits, taille, normale, marge.");
         } else {
             if (missing && button(hasChannels ? "Compléter les canaux PBR" : "Créer les canaux PBR")) CreatePbrChannels(*v);
             if (hasChannels && button("Exporter les textures PBR..."))
                 ExportPbrTextures(*v, platform::SaveFileDialog(hwnd, L"Nom de base des textures (*.png)\0*.png\0", L"png"));
         }
-        const std::string envLabel = v->mesh->envAtlas || !v->mesh->envPixels.empty() ? v->mesh->envName + " \xE2\x96\xBE" : std::string("HDRI \xE2\x96\xBE");
-        if (button(envLabel.c_str())) ImGui::OpenPopup("##envmenu");
-        ui::HelpTooltip("Environnement : intégré (studio, ciel couvert, plein soleil, coucher de soleil, néons) ou fichier HDR.");
+        {
+            const std::string tip = Tr("Environnement (HDRI) : intégré (studio, ciel couvert, plein soleil, coucher de soleil, néons) ou fichier HDR.") +
+                                    (v->mesh->envAtlas || !v->mesh->envPixels.empty() ? "\n" + Tr("Actuel :") + " " + v->mesh->envName : std::string());
+            if (icon("env", ui::IconEnvironment, tip.c_str(), v->mesh->envAtlas != nullptr)) ImGui::OpenPopup("##envmenu");
+        }
         if (ImGui::BeginPopup("##envmenu")) {
             for (auto& [id, label] : ProceduralEnvironments())
                 if (ImGui::Selectable(label.c_str(), v->mesh->envAtlas && v->mesh->envPath == id)) {
@@ -176,20 +182,17 @@ void App::DrawView3D() {
                 flow(ImGui::CalcTextSize(rt).x + 8 * dpi);
                 ImGui::TextDisabled("%s", rt);
             }
-            if (button("Rendu et caméra...")) ImGui::OpenPopup("##view3drender");
-            if (button("Turntable...")) turntable.open = true;
-            ui::HelpTooltip("Exporter une vidéo (MP4) ou des images du modèle qui tourne sur lui-même.");
+            if (icon("rendercam", ui::IconRenderSettings, "Rendu et caméra... (lumières, post-traitement, focale)")) ImGui::OpenPopup("##view3drender");
+            if (icon("turntable", ui::IconTurntable, "Turntable...\nExporter une vidéo (MP4) ou des images du modèle qui tourne sur lui-même.")) turntable.open = true;
             if (ImGui::BeginPopup("##view3drender")) {
                 DrawView3DRenderSettings(*v->mesh);
                 ImGui::EndPopup();
             }
-            flow(ImGui::GetFrameHeight() + ImGui::CalcTextSize("Fil de fer").x + 12 * dpi);
-            ImGui::Checkbox("Fil de fer", &v->mesh->wireframe);
-            flow(ImGui::GetFrameHeight() + ImGui::CalcTextSize("Ortho").x + 12 * dpi);
-            ImGui::Checkbox("Ortho", &v->mesh->ortho);
-            ui::HelpTooltip("Vue orthographique (projection parallèle), aussi en path tracing. Pavé numérique 5.");
-            if (button("Vues \xE2\x96\xBE")) ImGui::OpenPopup("##views3d");
-            ui::HelpTooltip("Vues de face, de côté, de dessus (orthographiques)\nPavé numérique : 1 face, 3 droite, 7 dessus (Ctrl : opposé), 5 perspective / ortho");
+            if (icon("wire", ui::IconWireframe, "Fil de fer : afficher les arêtes des triangles", v->mesh->wireframe)) v->mesh->wireframe = !v->mesh->wireframe;
+            if (icon("ortho", ui::IconOrtho, "Vue orthographique (projection parallèle), aussi en path tracing. Pavé numérique 5.", v->mesh->ortho))
+                v->mesh->ortho = !v->mesh->ortho;
+            if (icon("views", ui::IconViews, "Vues de face, de côté, de dessus (orthographiques)\nPavé numérique : 1 face, 3 droite, 7 dessus (Ctrl : opposé), 5 perspective / ortho"))
+                ImGui::OpenPopup("##views3d");
             if (ImGui::BeginPopup("##views3d")) {
                 static const char* names[] = {"Face", "Arrière", "Gauche", "Droite", "Dessus", "Dessous"};
                 for (int k = 0; k < 6; ++k)
@@ -609,9 +612,9 @@ void App::DrawView3DRenderSettings(MeshScene& s) {
     else ImGui::SliderFloat("Intensité", &s.lightIntensity, 0, 8, "%.2f");
     ImGui::SliderFloat("Ombre", &s.shadowStrength, 0, 1, "%.2f");
     ImGui::Checkbox("Ombre au sol", &s.groundShadow);
+    ui::HelpTooltip("Rendu qualité : l'ombre de la lumière principale et une ombre de contact sur un sol invisible sous le modèle.");
     ImGui::SliderFloat("Occlusion d'écran", &s.ssao, 0, 2, s.ssao > 0 ? "%.2f" : "désactivée");
     ui::HelpTooltip("Rendu qualité : assombrit les creux et les contacts en temps réel (SSAO), sans cuisson.");
-    ui::HelpTooltip("Rendu qualité : l'ombre de la lumière principale et une ombre de contact sur un sol invisible sous le modèle.");
     ImGui::SliderFloat("Occlusion cuite", &s.aoStrength, 0, 1, "%.2f");
     ui::HelpTooltip("Occlusion ambiante cuite du modèle (Cuisson ou masques intelligents) dans la vue, en Rendu qualité.");
     ImGui::PopItemWidth();

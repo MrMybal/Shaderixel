@@ -3,6 +3,7 @@
 #include "io/PsdImport.h"
 #include "doc/ShapePaths.h"
 #include "ui/App.h"
+#include "ui/AutoTooltips.h"
 #include "ui/Filter.h"
 #include "ui/Search.h"
 #include "doc/GraphTypes.h"
@@ -1430,6 +1431,26 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_TIPTEST=<label>: a test window with a button of that label, the (synthetic) mouse left on it; the automatic
+        // tooltip shown after the delay is logged (its text) and captured.
+        char tipLabel[160] = "";
+        if (GetEnvironmentVariableA("SX_TIPTEST", tipLabel, sizeof(tipLabel)) > 0) {
+            ImGui::SetNextWindowPos(ImVec2(400, 300));
+            ImGui::SetNextWindowSize(ImVec2(300, 120));
+            ImGui::Begin("Test des infobulles", nullptr, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking);
+            ImGui::Button(tipLabel);
+            const ImVec2 c = (ImGui::GetItemRectMin() + ImGui::GetItemRectMax()) * 0.5f;
+            ImGui::End();
+            if (frameCounter == 20) ImGui::GetIO().AddMousePosEvent(c.x, c.y);
+            if (frameCounter == 60) {
+                const std::string* t = autotips::Find("", tipLabel);
+                bool shown = false;
+                for (ImGuiWindow* w : ImGui::GetCurrentContext()->Windows)
+                    shown |= (w->Flags & ImGuiWindowFlags_Tooltip) && w->LastFrameActive >= ImGui::GetFrameCount() - 1;
+                Log("[tiptest] '%s': description %s, tooltip window %s", tipLabel, t ? t->c_str() : "(none)", shown ? "shown" : "not shown");
+            }
+            return;
+        }
         // SX_OPEN3D=<file>: a Paint 3D project opened from the image document (workspace switch), logged.
         char open3d[512] = "";
         if (GetEnvironmentVariableA("SX_OPEN3D", open3d, sizeof(open3d)) > 0) {
@@ -1437,6 +1458,9 @@ void App::DemoTick() {
                 const bool ok = LoadSxl(open3d);
                 Log("[open3d] loaded %d, layout kind %d", ok ? 1 : 0, layoutKind);
             }
+            // (SX_TAB=<side tab>: that tab and the 3D view in front, for the captures)
+            char tab[8] = "";
+            if (frameCounter == 70 && GetEnvironmentVariableA("SX_TAB", tab, sizeof(tab)) > 0) { ShowSideTab(atoi(tab)); FocusPanel("Vue 3D"); }
             if (frameCounter == 60) {
                 std::string where;
                 for (const char* n : {"Canevas", "Vue 3D", "Calques", "Graphe", "Matériaux", "Panneaux", "Outils", "Aperçu du calque", "Navigateur", "Calques 3D"}) {

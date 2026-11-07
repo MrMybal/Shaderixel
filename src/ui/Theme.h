@@ -20,6 +20,9 @@ void HelpTooltip(const char* text);
 enum Icon { IconBrush, IconEraser, IconPicker, IconHand, IconZoom, IconGradient, IconBucket, IconEye, IconEyeOff,
             IconPlus, IconTrash, IconUp, IconDown, IconMask, IconCopy, IconLock, IconFx, IconSwap,
             IconMove, IconRectSel, IconEllipseSel, IconLasso, IconPolyLasso, IconWand,
-            IconStamp, IconHeal, IconDrop, IconSharpen, IconFinger, IconDodge, IconBurn, IconSponge, IconFolder, IconCrop, IconText, IconShape, IconLiquify, IconQuickSelect, IconPen, IconTransform, IconTrim, IconParticles, IconPolyFill, IconFluid, IconLink };
+            IconStamp, IconHeal, IconDrop, IconSharpen, IconFinger, IconDodge, IconBurn, IconSponge, IconFolder, IconCrop, IconText, IconShape, IconLiquify, IconQuickSelect, IconPen, IconTransform, IconTrim, IconParticles, IconPolyFill, IconFluid, IconLink,
+            // 3D view header
+            IconSphere, IconCube, IconPlane, IconOpenMesh, IconUV, IconRecenter, IconBake, IconExport, IconEnvironment,
+            IconRenderSettings, IconTurntable, IconWireframe, IconOrtho, IconViews };
 
 }  // namespace sx::ui

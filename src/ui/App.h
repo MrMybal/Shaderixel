@@ -473,9 +473,12 @@ public:
     struct PanelOpenFlag { bool open = true; };
     std::map<std::string, PanelOpenFlag> panelOpen;  // closed panels (tab cross)
     // 6: layouts saved before it may hold panels left floating by the incomplete default workspaces (repaired once).
-    static constexpr int kLayoutMigration = 6;
+    // 7: the 3D brush (Paint 3D) moved to the Paint tab, the swatches closed by default.
+    static constexpr int kLayoutMigration = 7;
     int layoutMigration = 0, layoutMigrationFrames = 0;  // saved layouts from older versions start at 0
-    int layoutRepairFrames = 0;  // frames before MigrateLayout docks the panels left floating
+    int layoutRepairFrames = 0;
+    float tooltipDelay = 0.15f;      // seconds of hover before a tooltip (View menu, saved)
+    bool tooltipDelaySave = false;  // frames before MigrateLayout docks the panels left floating
     int layoutKind = 0;  // workspace currently built for: 0 image documents, 1 Paint 3D projects
     std::vector<std::string> focusAfterLayout;
 
@@ -1020,6 +1023,7 @@ private:
         Id thumbs = 0, names = 0;  // its layers
     } contactSheet;
     void DrawContactSheetDialog();
+    void DrawExamplesMenu();  // File > Examples (App.cpp)
     void StartContactSheet();
     void ContactSheetTick();
     void CropPhotosTick();
@@ -2075,6 +2079,8 @@ private:
     struct {
         std::string search, buffer, bufferKey, errors;
         std::string saveName, saveCategory = "Mes pinceaux";
+        std::unordered_map<std::string, u64> thumbHash;  // the library's stroke thumbnails: source hash drawn
+        std::unordered_map<std::string, int> thumbTries;  // times drawn for that source
     } brushEd;
     bool haveStrokeEnd = false;
     bool gradientDrag = false;

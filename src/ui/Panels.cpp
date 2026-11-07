@@ -14,6 +14,15 @@
 
 namespace sx {
 
+namespace {
+// Red, green, blue, alpha as one letter each, in the interface's language (French "V" for vert).
+const char* const* ChannelLetters() {
+    static const char* fr[] = {"R", "V", "B", "A"};
+    static const char* en[] = {"R", "G", "B", "A"};
+    return CurrentLanguage() == "fr" ? fr : en;
+}
+}  // namespace
+
 
 void App::TrackUndo(const char* label) {
     DocView* v = Active();
@@ -722,7 +731,7 @@ void App::DrawProperties() {
             if (l->kind != LayerKind::Group || !l->passThrough) {
                 // Channel mask (Photoshop "Canaux" in the blending options, plus alpha).
                 ImGui::TextUnformatted("Canaux");
-                static const char* kCh[] = {"R", "V", "B", "A"};
+                const char* const* kCh = ChannelLetters();
                 for (int c = 0; c < 4; ++c) {
                     ImGui::SameLine();
                     bool on = !(l->channelOff & (1 << c));
@@ -858,7 +867,7 @@ void App::DrawProperties() {
                     TrackUndo("Bypass");
                     ImGui::TextUnformatted("Canaux");
                     for (int c = 0; c < 4; ++c) {
-                        static const char* kCh[] = {"R", "V", "B", "A"};
+                        const char* const* kCh = ChannelLetters();
                         ImGui::SameLine();
                         bool on = !(n->channelOff & (1 << c));
                         if (ImGui::Checkbox(kCh[c], &on)) {
@@ -1108,14 +1117,14 @@ void App::ColorPickerBody() {
             }
         } else if (colorSliderMode == 0) {
             int rgb[3] = {(int)std::lround(c.x * 255), (int)std::lround(c.y * 255), (int)std::lround(c.z * 255)};
-            const char* names[] = {"R", "V", "B"};
+            const char* const* names = ChannelLetters();
             for (int i = 0; i < 3; ++i) {
                 if (ImGui::SliderInt(names[i], &rgb[i], 0, 255)) c = {rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f, 1};
                 if (ImGui::IsItemDeactivatedAfterEdit()) released = true;
             }
         } else {
             float hsv[3] = {hue * 360.0f, sat * 100.0f, val * 100.0f};
-            bool ch = ImGui::SliderFloat("T", &hsv[0], 0, 359.9f, "%.0f°");
+            bool ch = ImGui::SliderFloat(CurrentLanguage() == "fr" ? "T" : "H", &hsv[0], 0, 359.9f, "%.0f°");
             released |= ImGui::IsItemDeactivatedAfterEdit();
             ch |= ImGui::SliderFloat("S", &hsv[1], 0, 100, "%.0f %%");
             released |= ImGui::IsItemDeactivatedAfterEdit();

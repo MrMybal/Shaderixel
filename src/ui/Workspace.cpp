@@ -132,6 +132,7 @@ void App::BuildDockLayout(ImGuiID dock) {
     ImGui::DockBuilderFinish(dock);
     panelOpen.clear();  // the default layout shows every panel (but the action editor, opened on demand)
     panelOpen["Éditeur d'actions"].open = false;
+    panelOpen["Nuancier"].open = false;  // (swatches on demand: Window > Panels)
     layoutRepairFrames = 3;  // (every panel is placed above; one created later still goes to its place)
     // Tabs in front once the windows exist (next frames).
     focusAfterLayout = {p3d ? "Matériaux" : "Graphe", p3d ? "Vue 3D" : "Canevas"};
@@ -172,19 +173,18 @@ void App::BuildDockLayout(ImGuiID dock) {
             case 3:  // Fusion
                 ImGui::DockBuilderDockWindow("Fusions", id);
                 break;
-            case 4:  // Peinture
+            case 4:  // Peinture: the color and the 3D brush (Paint 3D), the brushes and patterns below
                 two(0.42f);
                 ImGui::DockBuilderDockWindow("Couleur", top);
-                ImGui::DockBuilderDockWindow("Nuancier", top);
+                ImGui::DockBuilderDockWindow("Matériau du pinceau", top);
+                ImGui::DockBuilderDockWindow("Nuancier", top);  // (closed by default, Window > Panels)
                 ImGui::DockBuilderDockWindow("Pinceaux", low);
                 ImGui::DockBuilderDockWindow("Motifs", low);
                 break;
-            case 5:  // 3D: project layers and brush material (+ the materials shelf for image documents)
-                two(0.55f);
-                ImGui::DockBuilderDockWindow("Calques 3D", top);
-                ImGui::DockBuilderDockWindow("Scène de rendu", top);
-                ImGui::DockBuilderDockWindow("Matériau du pinceau", low);
-                if (!p3d) ImGui::DockBuilderDockWindow("Matériaux", top);
+            case 5:  // 3D: project layers, render scene (+ the materials shelf for image documents)
+                ImGui::DockBuilderDockWindow("Calques 3D", id);
+                ImGui::DockBuilderDockWindow("Scène de rendu", id);
+                if (!p3d) ImGui::DockBuilderDockWindow("Matériaux", id);
                 break;
             case 6:  // IA
                 ImGui::DockBuilderDockWindow("Assistant IA", id);
@@ -199,9 +199,9 @@ void App::BuildDockLayout(ImGuiID dock) {
         };
         if (i == 1) front(id, "Options");
         if (i == 2) front(id, "Effets");
-        if (i == 4) { front(top, "Couleur"); front(low, "Pinceaux"); }
+        if (i == 4) { front(top, p3d ? "Matériau du pinceau" : "Couleur"); front(low, "Pinceaux"); }
         if (i == 0) front(low, "Propriétés");
-        if (i == 5) front(top, "Calques 3D");
+        if (i == 5) front(id, "Calques 3D");
     }
     // Extra windows start empty.
     for (size_t i = 0; i < extraWindows.size(); ++i) {
@@ -307,13 +307,21 @@ void App::MigrateLayout() {
         {"Options", 1, false}, {"Tracés", 1, false}, {"Actions", 1, false}, {"Compositions de calques", 1, false}, {"Styles de texte", 1, false},
         {"Trim sheet", 1, false}, {"Effets", 2, false}, {"Palette de nœuds", 2, false}, {"Fusions", 3, false}, {"Couleur", 4, false},
         {"Nuancier", 4, false}, {"Pinceaux", 4, true}, {"Motifs", 4, true}, {"Calques 3D", 5, false}, {"Scène de rendu", 5, false},
-        {"Matériau du pinceau", 5, true}, {"Assistant IA", 6, false}, {"Génération IA", 6, false}, {"Inpainting IA", 6, false}};
+        {"Matériau du pinceau", 4, false}, {"Assistant IA", 6, false}, {"Génération IA", 6, false}, {"Inpainting IA", 6, false}};
     auto nodeOf = [](const char* window) -> ImGuiID {
         ImGuiWindow* w = ImGui::FindWindowByName(window);
         return w && w->DockId && ImGui::DockBuilderGetNode(w->DockId) ? w->DockId : 0;
     };
     const ImGuiID center = nodeOf("Canevas") ? nodeOf("Canevas") : nodeOf("Vue 3D");
     const ImGuiID bottom = nodeOf("Graphe") ? nodeOf("Graphe") : nodeOf("Calques");
+    if (layoutMigration < 7) {
+        if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(SideTabDock(4))) {
+            while (n->IsSplitNode()) n = n->ChildNodes[0] ? n->ChildNodes[0] : n->ChildNodes[1];
+            if (ImGuiWindow* w = ImGui::FindWindowByName("Matériau du pinceau"); w && !IsPoppedOut("Matériau du pinceau"))
+                ImGui::DockBuilderDockWindow("Matériau du pinceau", n->ID);
+        }
+        panelOpen["Nuancier"].open = false;
+    }
     // Docked means in a node of a dockspace (the main one, a side tab, an extra window); a group of tabs torn off
     // into a floating node of its own counts as floating.
     auto docked = [](ImGuiWindow* w) {

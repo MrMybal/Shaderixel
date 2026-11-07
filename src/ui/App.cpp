@@ -3,6 +3,7 @@
 #include "io/UAsset.h"
 #include "ui/Filter.h"
 #include "ui/Lang.h"
+#include "ui/AutoTooltips.h"
 #include "ui/Search.h"
 #include "io/ColorMgmt.h"
 #include "io/WicLoad.h"
@@ -616,6 +617,13 @@ void App::Frame() {
     UpdateRelativeDrag();  // before NewFrame: feeds the cursor motion of slider drags
     SwitchWorkspaceKind();
     ApplyPendingLayout();
+    {
+        // Tooltip delay (View > Tooltip delay): every tooltip, the theme's own delays replaced.
+        ImGuiStyle& st = ImGui::GetStyle();
+        st.HoverDelayShort = tooltipDelay;
+        st.HoverDelayNormal = tooltipDelay + 0.3f;
+        st.HoverStationaryDelay = std::min(0.15f, tooltipDelay);
+    }
     ImGui::NewFrame();
     GlobalSearch::Get().BeginFrame();
     frameSamples = platform::TakeSamples();
@@ -784,7 +792,7 @@ void App::Frame() {
     if (Shown("Inpainting IA")) DrawInpaintPanel();
     if (!ImGui::FindWindowByName("Trim sheet")) DockNewPanel(1, true);
     if (Shown("Trim sheet")) DrawTrimPanel();
-    if (!ImGui::FindWindowByName("Matériau du pinceau")) DockNewPanel(5, true);
+    if (!ImGui::FindWindowByName("Matériau du pinceau")) DockNewPanel(4, false);
     if (Shown("Matériau du pinceau")) DrawBrushMaterialPanel();
     DrawBatchWindow();
     DrawUnrealExportDialog();
@@ -962,6 +970,7 @@ void App::Frame() {
         pickReadback.reset();
     }
 
+    autotips::EndFrame();  // (after every window: the hovered item is known)
     GlobalSearch::Get().EndFrame();
     cyui::renderNotifications();
     ImGui::Render();
@@ -1241,6 +1250,55 @@ void KeepLayerChoice(Document& d, const std::vector<Id>& chosen) {
 }
 }  // namespace
 
+void App::DrawExamplesMenu() {
+    // File > Examples: built from the Exemples folder next to the program (one submenu per subfolder: 2D, 3D), read
+    // each time the menu opens. Documents, Paint 3D projects and PSD files open; models, skies and LUTs are assets.
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    fs::path root;
+    for (const char* rel : {"/Exemples", "/../../dist/Exemples"})
+        if (fs::is_directory(Utf8Path(ExeDir() + rel), ec)) { root = Utf8Path(ExeDir() + rel); break; }
+    if (!ImGui::BeginMenu("Exemples", !root.empty())) return;
+    auto pretty = [](const fs::path& p) {
+        // "01_Calques_et_effets" -> "Calques et effets" (translated like any label).
+        std::string s = Narrow(p.stem().wstring());
+        size_t i = 0;
+        while (i < s.size() && (isdigit((unsigned char)s[i]) || s[i] == '_')) ++i;
+        s = s.substr(i);
+        for (auto& c : s) if (c == '_') c = ' ';
+        return Tr(s);
+    };
+    auto opens = [](const fs::path& p) {
+        std::string e = Narrow(p.extension().wstring());
+        for (auto& c : e) c = (char)tolower((unsigned char)c);
+        return e == ".sxl" || e == ".sx3d" || e == ".psd";
+    };
+    std::string open;
+    auto listFiles = [&](const fs::path& dir) {
+        std::vector<fs::path> files;
+        for (auto& e : fs::directory_iterator(dir, ec)) if (e.is_regular_file() && opens(e.path())) files.push_back(e.path());
+        std::sort(files.begin(), files.end());
+        for (auto& f : files) {
+            if (ImGui::MenuItem((pretty(f) + "##" + Narrow(f.wstring())).c_str())) open = Narrow(f.wstring());
+            ImGui::SetItemTooltip("%s", Narrow(f.filename().wstring()).c_str());
+        }
+        return !files.empty();
+    };
+    std::vector<fs::path> dirs;
+    for (auto& e : fs::directory_iterator(root, ec)) if (e.is_directory()) dirs.push_back(e.path());
+    std::sort(dirs.begin(), dirs.end());
+    for (auto& d : dirs)
+        if (ImGui::BeginMenu(Narrow(d.filename().wstring()).c_str())) {
+            if (!listFiles(d)) ImGui::TextDisabled("%s", TrC("(vide)"));
+            ImGui::EndMenu();
+        }
+    listFiles(root);  // (files at the top level, if any)
+    ImGui::Separator();
+    if (ImGui::MenuItem("Ouvrir le dossier des exemples")) ShellExecuteW(hwnd, L"open", root.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    ImGui::EndMenu();
+    if (!open.empty()) OpenImage(open, false);
+}
+
 void App::Undo() {
     DocView* v = Active();
     if (!v || stroking) return;
@@ -1315,6 +1373,7 @@ void App::DrawMenuBar() {
             ImGui::EndMenu();
             if (!open.empty()) OpenImage(open, false);
         }
+        DrawExamplesMenu();
         ImGui::Separator();
         if (ImGui::MenuItem("Enregistrer", "Ctrl+S", false, v != nullptr)) SaveCurrent(false);
         if (ImGui::MenuItem("Enregistrer sous...", "Ctrl+Maj+S", false, v != nullptr)) SaveCurrent(true);
@@ -1478,6 +1537,10 @@ void App::DrawMenuBar() {
             }
             ImGui::EndMenu();
         }
+        ImGui::SetNextItemWidth(160 * dpi);
+        if (ImGui::SliderFloat("Délai des infobulles", &tooltipDelay, 0.0f, 2.0f, "%.2f s")) tooltipDelaySave = true;
+        if (tooltipDelaySave && !ImGui::IsItemActive()) { tooltipDelaySave = false; SaveAiSettings(); }
+        ImGui::SetItemTooltip("Temps de survol avant l'affichage des infobulles (0 : immédiat)");
         if (ImGui::BeginMenu("Langue / Language")) {
             for (auto& lang : AvailableLanguages())
                 if (ImGui::MenuItem((lang.name + "##lang" + lang.code).c_str(), nullptr, CurrentLanguage() == lang.code)) {
@@ -1585,8 +1648,8 @@ void App::LayerMenuItems() {
     bool layerMode = d.Mode() == DocMode::Layers;
     if (layerMode) {
         if (ImGui::MenuItem("Nouveau plan de travail")) NewArtboard(*v);
-        if (ImGui::MenuItem("Nouveau ton direct...")) spotDialog = true;
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Le premier plan de travail reprend la zone de travail et ses calques ;\nles suivants s'ajoutent à droite (la zone de travail s'agrandit).");
+        if (ImGui::MenuItem("Nouveau ton direct...")) spotDialog = true;
         if (ImGui::MenuItem("Nouveau calque", "Ctrl+Maj+N")) {
             RecordAction("new_layer");
             Edit e(d, v->history, "Nouveau calque");

@@ -1,0 +1,966 @@
+{
+ "Conserver la transparence": {
+  "fr": "Applique l'image seulement là où le calque cible a déjà des pixels opaques ; les zones transparentes restent vides.",
+  "en": "Applies the image only where the target layer already has opaque pixels; transparent areas stay empty."
+ },
+ "Scène de rendu|Appliquer": {
+  "fr": "Ce que le préréglage de scène remplace : toute la scène, seulement l'éclairage et l'environnement, ou ajoute ses objets à la scène actuelle.",
+  "en": "What the scene preset replaces: the whole scene, only lighting and environment, or adds its objects to the current scene."
+ },
+ "Cuisson des cartes (baker)": {
+  "fr": "Cuit les cartes du modèle (normale, occlusion, courbure, épaisseur, hauteur, ID...) dans ses UV, depuis le modèle lui-même ou un modèle haute définition.",
+  "en": "Bakes mesh maps (normal, occlusion, curvature, thickness, height, ID...) into the model's UVs, from the model itself or a high-poly mesh."
+ },
+ "Cage : au-dessus": {
+  "fr": "Distance cherchée au-dessus de la surface basse définition pour trouver le modèle haute définition, en pourcentage de la taille du modèle.",
+  "en": "Search distance above the low-poly surface when looking for the high-poly mesh, as a percentage of the model size."
+ },
+ "Normale (espace tangent)": {
+  "fr": "Cuit une carte de normales en espace tangent qui reporte le détail du modèle haute définition (nécessite un modèle haute définition).",
+  "en": "Bakes a tangent-space normal map carrying the high-poly detail (requires a high-poly mesh)."
+ },
+ "Occlusion ambiante": {
+  "fr": "Cuit une carte d'occlusion ambiante : les creux et zones peu exposées à la lumière s'assombrissent.",
+  "en": "Bakes an ambient occlusion map: crevices and areas hidden from light get darker."
+ },
+ "Courbure": {
+  "fr": "Cuit une carte de courbure : arêtes vives claires, creux sombres ; utilisée par les masques intelligents pour l'usure.",
+  "en": "Bakes a curvature map: sharp edges bright, cavities dark; used by smart masks for edge wear."
+ },
+ "Cuisson des cartes (baker)|Épaisseur": {
+  "fr": "Cuit une carte d'épaisseur : les parties fines du modèle sont claires (utile pour la diffusion sous la surface).",
+  "en": "Bakes a thickness map: thin parts of the model are bright (useful for subsurface scattering)."
+ },
+ "Options|Épaisseur": {
+  "fr": "Épaisseur du contour de la forme dessinée, en pixels.",
+  "en": "Stroke width of the shape being drawn, in pixels."
+ },
+ "Propriétés|Épaisseur": {
+  "fr": "Épaisseur du contour du calque de forme, en pixels.",
+  "en": "Stroke width of the shape layer's outline, in pixels."
+ },
+ "Cuisson des cartes (baker)|Hauteur": {
+  "fr": "Cuit une carte de hauteur : l'écart entre le modèle haute définition et le modèle basse définition.",
+  "en": "Bakes a height map: the offset between the high-poly and low-poly surfaces."
+ },
+ "Vue 3D|Hauteur": {
+  "fr": "Hauteur de la lumière au-dessus de l'horizon, en degrés.",
+  "en": "Light elevation above the horizon, in degrees."
+ },
+ "Scène de rendu|Hauteur": {
+  "fr": "Hauteur de l'image rendue, en pixels.",
+  "en": "Height of the rendered image, in pixels."
+ },
+ "Nouveau document|Hauteur": {
+  "fr": "Hauteur du nouveau document, en pixels.",
+  "en": "Height of the new document, in pixels."
+ },
+ "Cuisson des cartes (baker)|Position": {
+  "fr": "Cuit une carte de position : les coordonnées 3D de chaque texel, utiles pour les dégradés et masques dans l'espace.",
+  "en": "Bakes a position map: the 3D coordinates of each texel, useful for spatial gradients and masks."
+ },
+ "Éditeur d'effets|Position": {
+  "fr": "Place de l'arrêt sélectionné le long de la rampe, de 0 (gauche) à 1 (droite).",
+  "en": "Location of the selected stop along the ramp, from 0 (left) to 1 (right)."
+ },
+ "Options|Position": {
+  "fr": "Place de l'arrêt sélectionné le long du dégradé, de 0 (début) à 1 (fin).",
+  "en": "Location of the selected stop along the gradient, from 0 (start) to 1 (end)."
+ },
+ "Scène de rendu|Position": {
+  "fr": "Position de l'objet ou de la lumière sélectionnée dans la scène (X, Y, Z).",
+  "en": "Position of the selected object or light in the scene (X, Y, Z)."
+ },
+ "Propriétés|Position": {
+  "fr": "Position du texte dans le document, en pixels (X, Y).",
+  "en": "Position of the text in the document, in pixels (X, Y)."
+ },
+ "Position": {
+  "fr": "Place du contour par rapport au bord de la sélection : à l'intérieur, centré ou à l'extérieur.",
+  "en": "Where the stroke sits relative to the selection edge: inside, centered or outside."
+ },
+ "Normale monde": {
+  "fr": "Cuit une carte des normales en espace monde, utile pour les masques selon l'orientation (dessus, côtés).",
+  "en": "Bakes a world-space normal map, useful for orientation-based masks (top, sides)."
+ },
+ "ID couleur": {
+  "fr": "Cuit une carte d'ID : une couleur unie par matériau, objet ou îlot UV, pour sélectionner des zones rapidement.",
+  "en": "Bakes an ID map: a flat color per material, object or UV island, for quick area selection."
+ },
+ "Cuisson des cartes (baker)|Résolution": {
+  "fr": "Taille des cartes cuites, en pixels.",
+  "en": "Size of the baked maps, in pixels."
+ },
+ "Nouveau projet Paint 3D|Résolution": {
+  "fr": "Taille des textures du projet pour chaque canal, en pixels.",
+  "en": "Texture size of each project channel, in pixels."
+ },
+ "UV automatiques (xatlas)|Résolution": {
+  "fr": "Taille de texture visée pour l'empaquetage des îlots ; elle règle la marge et la précision du placement.",
+  "en": "Target texture size for island packing; it sets padding and placement precision."
+ },
+ "Rayons d'occlusion": {
+  "fr": "Nombre de rayons lancés par texel pour l'occlusion : plus il y en a, moins il y a de bruit, mais la cuisson est plus lente.",
+  "en": "Number of rays cast per texel for occlusion: more rays mean less noise but a slower bake."
+ },
+ "Portée de l'occlusion": {
+  "fr": "Distance maximale à laquelle une géométrie assombrit un point, en pourcentage de la taille du modèle.",
+  "en": "Maximum distance at which geometry occludes a point, as a percentage of the model size."
+ },
+ "Hauteur dans le canal Hauteur": {
+  "fr": "Place aussi la carte de hauteur cuite dans le canal Hauteur du projet.",
+  "en": "Also puts the baked height map into the project's Height channel."
+ },
+ "Exporter en PNG": {
+  "fr": "Enregistre aussi chaque carte cuite en fichier PNG dans le dossier indiqué.",
+  "en": "Also saves each baked map as a PNG file in the given folder."
+ },
+ "Cuire": {
+  "fr": "Lance la cuisson des cartes cochées avec ces réglages.",
+  "en": "Starts baking the checked maps with these settings."
+ },
+ "Fusions": {
+  "fr": "Modes de fusion des calques : choisissez-en un pour le calque actif, ou créez-en un en code ou en graphe.",
+  "en": "Layer blend modes: pick one for the active layer, or create your own in code or as a graph."
+ },
+ "Éditer en graphe (sur le calque actif)": {
+  "fr": "Applique ce mode de fusion au calque actif sous forme de graphe modifiable dans l'éditeur visuel.",
+  "en": "Applies this blend mode to the active layer as a graph you can edit in the visual editor."
+ },
+ "Éditer le graphe": {
+  "fr": "Ouvre le graphe de fusion du calque actif dans l'Éditeur d'effets.",
+  "en": "Opens the active layer's blend graph in the Effect Editor."
+ },
+ "Image...": {
+  "fr": "Choisit une image sur le disque (PNG, JPG, TGA, BMP).",
+  "en": "Picks an image file from disk (PNG, JPG, TGA, BMP)."
+ },
+ "Bibliothèque": {
+  "fr": "Choisit une image parmi les textures fournies avec les pinceaux.",
+  "en": "Picks an image from the textures shipped with the brushes."
+ },
+ "Pinceaux|Défaut": {
+  "fr": "Revient à l'image par défaut prévue par le pinceau.",
+  "en": "Reverts to the brush's default image."
+ },
+ "Options|Défaut": {
+  "fr": "Revient à l'image par défaut prévue par le pinceau.",
+  "en": "Reverts to the brush's default image."
+ },
+ "Éditeur d'effets|Défaut": {
+  "fr": "Valeur par défaut du paramètre, utilisée tant que rien n'est relié ; le petit bouton remet la valeur par défaut.",
+  "en": "Default value of the parameter, used while nothing is connected; the small button resets to the default."
+ },
+ "Ronde (standard)": {
+  "fr": "Pointe ronde classique, sans forme ni texture particulière.",
+  "en": "Classic round tip, with no special shape or texture."
+ },
+ "Pinceaux": {
+  "fr": "Bibliothèque des pinceaux : choisissez une pointe, réglez-la ou créez-en une en code ou en graphe.",
+  "en": "Brush library: choose a tip, tweak it, or create your own in code or as a graph."
+ },
+ "Nouveau (graphe)": {
+  "fr": "Crée un nouveau pinceau construit en nœuds dans l'Éditeur d'effets.",
+  "en": "Creates a new node-based brush in the Effect Editor."
+ },
+ "Calculs": {
+  "fr": "Combine des couches de documents (rouge, vert, bleu, alpha...) avec un mode de fusion pour créer une sélection, un calque ou un document.",
+  "en": "Combines channels from documents (red, green, blue, alpha...) with a blend mode into a selection, layer or document."
+ },
+ "Document": {
+  "fr": "Document dont la couche source est lue (parmi les documents de même taille).",
+  "en": "Document the source channel is read from (among documents of the same size)."
+ },
+ "Résultat": {
+  "fr": "Où placer le résultat du calcul : nouvelle sélection, nouveau calque ou nouveau document.",
+  "en": "Where to put the result: a new selection, a new layer or a new document."
+ },
+ "Page de téléchargement": {
+  "fr": "Ouvre dans le navigateur la page de la base lensfun pour télécharger les profils d'objectifs.",
+  "en": "Opens the lensfun database page in your browser to download lens profiles."
+ },
+ "Ouvrir le dossier": {
+  "fr": "Ouvre dans l'Explorateur le dossier où placer les fichiers de la base lensfun.",
+  "en": "Opens the folder for lensfun database files in Explorer."
+ },
+ "Photo RAW|Recharger": {
+  "fr": "Relit la base de profils d'objectifs lensfun depuis le disque.",
+  "en": "Reloads the lensfun lens profile database from disk."
+ },
+ "Propriétés|Recharger": {
+  "fr": "Relit la base de profils d'objectifs lensfun depuis le disque.",
+  "en": "Reloads the lensfun lens profile database from disk."
+ },
+ "Plugins|Recharger": {
+  "fr": "Décharge puis recharge la DLL du plugin, par exemple après l'avoir recompilée.",
+  "en": "Unloads and reloads the plugin DLL, for example after rebuilding it."
+ },
+ "Choisir un autre dossier...": {
+  "fr": "Choisit un fichier XML de la base lensfun : son dossier devient la source des profils d'objectifs.",
+  "en": "Picks an XML file of the lensfun database; its folder becomes the lens profile source."
+ },
+ "Focale (mm)": {
+  "fr": "Focale utilisée pour la photo, en millimètres ; les corrections du profil en dépendent.",
+  "en": "Focal length used for the photo, in millimeters; profile corrections depend on it."
+ },
+ "Ouverture (f/)": {
+  "fr": "Ouverture du diaphragme lors de la prise de vue ; elle influence surtout la correction du vignetage.",
+  "en": "Aperture used for the shot; it mainly affects vignetting correction."
+ },
+ "Distance (m)": {
+  "fr": "Distance de mise au point, en mètres ; certains profils en tiennent compte pour la distorsion.",
+  "en": "Focus distance, in meters; some profiles use it for distortion correction."
+ },
+ "Distorsion": {
+  "fr": "Corrige la distorsion géométrique de l'objectif (barillet ou coussinet).",
+  "en": "Corrects the lens's geometric distortion (barrel or pincushion)."
+ },
+ "Aberrations chromatiques": {
+  "fr": "Corrige les franges colorées latérales sur les bords contrastés.",
+  "en": "Corrects lateral color fringing on high-contrast edges."
+ },
+ "Vignetage": {
+  "fr": "Corrige l'assombrissement des coins de l'image dû à l'objectif.",
+  "en": "Corrects the corner darkening caused by the lens."
+ },
+ "Appliquer le profil": {
+  "fr": "Applique les corrections du profil d'objectif choisi avec les réglages ci-dessus.",
+  "en": "Applies the selected lens profile corrections with the settings above."
+ },
+ "Supprimer ce préréglage": {
+  "fr": "Supprime définitivement ce préréglage utilisateur du disque.",
+  "en": "Permanently deletes this user preset from disk."
+ },
+ "Enregistrer...": {
+  "fr": "Enregistre les réglages actuels comme nouveau préréglage Photo RAW.",
+  "en": "Saves the current settings as a new Photo RAW preset."
+ },
+ "Traiter un dossier de RAW avec ces réglages...": {
+  "fr": "Crée une action avec ces réglages et ouvre le traitement par lots pour l'appliquer à un dossier de photos RAW.",
+  "en": "Creates an action with these settings and opens batch processing to apply it to a folder of RAW photos."
+ },
+ "Enregistrer comme action": {
+  "fr": "Enregistre ces réglages Photo RAW comme une action rejouable sur d'autres images.",
+  "en": "Saves these Photo RAW settings as an action you can replay on other images."
+ },
+ "Inclure la balance des blancs et l'exposition": {
+  "fr": "Le préréglage enregistre aussi la température, la teinte et l'exposition (souvent propres à chaque photo).",
+  "en": "The preset also stores temperature, tint and exposure (often specific to each photo)."
+ },
+ "+ Filtre gradué": {
+  "fr": "Ajoute un filtre gradué : des réglages limités à une zone en dégradé (ciel, premier plan).",
+  "en": "Adds a graduated filter: adjustments limited to a gradient area (sky, foreground)."
+ },
+ "+ Filtre radial": {
+  "fr": "Ajoute un filtre radial : des réglages limités à une ellipse (visage, sujet).",
+  "en": "Adds a radial filter: adjustments limited to an ellipse (face, subject)."
+ },
+ "Avant (P)": {
+  "fr": "Affiche la photo avant les réglages pour comparer (raccourci P).",
+  "en": "Shows the photo before adjustments for comparison (shortcut P)."
+ },
+ "Zoom": {
+  "fr": "Niveau de zoom de l'aperçu ; double-clic dans l'image pour basculer entre la taille réelle et adapter.",
+  "en": "Preview zoom level; double-click the image to toggle between actual size and fit."
+ },
+ "Balance auto": {
+  "fr": "Calcule automatiquement la balance des blancs d'après le contenu de la photo.",
+  "en": "Automatically computes the white balance from the photo content."
+ },
+ "Tel quel": {
+  "fr": "Revient à la balance des blancs enregistrée par l'appareil (température et teinte à zéro).",
+  "en": "Reverts to the white balance recorded by the camera (temperature and tint at zero)."
+ },
+ "Photo RAW|Teinte": {
+  "fr": "Décale la teinte de chaque gamme de couleurs (rouges, oranges, jaunes...).",
+  "en": "Shifts the hue of each color range (reds, oranges, yellows...)."
+ },
+ "Vue 3D|Teinte": {
+  "fr": "Décale la balance des couleurs du rendu entre vert et magenta.",
+  "en": "Shifts the render's color balance between green and magenta."
+ },
+ "Photo RAW|Saturation": {
+  "fr": "Règle la saturation de chaque gamme de couleurs séparément.",
+  "en": "Adjusts the saturation of each color range separately."
+ },
+ "Vue 3D|Saturation": {
+  "fr": "Saturation des couleurs du rendu : 0 en noir et blanc, 1 inchangée, au-delà plus vives.",
+  "en": "Color saturation of the render: 0 is grayscale, 1 unchanged, higher is more vivid."
+ },
+ "Luminance": {
+  "fr": "Éclaircit ou assombrit chaque gamme de couleurs séparément.",
+  "en": "Brightens or darkens each color range separately."
+ },
+ "Activer les corrections de profil (lensfun)": {
+  "fr": "Corrige distorsion, aberrations chromatiques et vignetage d'après le profil lensfun de l'objectif.",
+  "en": "Corrects distortion, chromatic aberration and vignetting from the lens's lensfun profile."
+ },
+ "Redresser / corriger la perspective": {
+  "fr": "Active la correction géométrique : rotation, redressement des verticales et de la perspective.",
+  "en": "Enables geometry correction: rotation, straightening verticals and perspective."
+ },
+ "Photo RAW|Réinitialiser": {
+  "fr": "Remet tous les réglages Photo RAW à leurs valeurs par défaut.",
+  "en": "Resets all Photo RAW settings to their defaults."
+ },
+ "Options|Réinitialiser": {
+  "fr": "Remet la grille de déformation dans sa forme de départ.",
+  "en": "Resets the warp grid to its initial shape."
+ },
+ "Propriétés|Réinitialiser": {
+  "fr": "Remet les plages « Fusion si » à leurs valeurs par défaut (aucune limite).",
+  "en": "Resets the Blend If ranges to their defaults (no limits)."
+ },
+ "Outils": {
+  "fr": "Boîte à outils : choisissez l'outil de dessin, de sélection ou de retouche à utiliser.",
+  "en": "Toolbox: choose the painting, selection or retouching tool to use."
+ },
+ "Canevas": {
+  "fr": "Zone de travail où le document est affiché et peint.",
+  "en": "Work area where the document is displayed and painted."
+ },
+ "Segments": {
+  "fr": "Nombre de répétitions autour du centre pour la symétrie radiale ou mandala.",
+  "en": "Number of repetitions around the center for radial or mandala symmetry."
+ },
+ "Angle des axes": {
+  "fr": "Fait tourner les axes de symétrie autour du centre, en degrés.",
+  "en": "Rotates the symmetry axes around the center, in degrees."
+ },
+ "Centre": {
+  "fr": "Point central en pixels : centre de la symétrie du pinceau ou centre de rotation de la transformation.",
+  "en": "Center point in pixels: the brush symmetry center or the transform's rotation pivot."
+ },
+ "Centre du document": {
+  "fr": "Replace le centre de symétrie au milieu du document.",
+  "en": "Moves the symmetry center back to the middle of the document."
+ },
+ "Activé par défaut": {
+  "fr": "Valeur initiale de ce paramètre booléen : coché quand l'effet est appliqué.",
+  "en": "Initial value of this boolean parameter: checked when the effect is applied."
+ },
+ "Compiler (Ctrl+Entrée)": {
+  "fr": "Compile le code et met à jour le résultat ; les erreurs sont signalées en rouge (Ctrl+Entrée).",
+  "en": "Compiles the code and updates the result; errors are marked in red (Ctrl+Enter)."
+ },
+ "Enregistrer dans la bibliothèque...": {
+  "fr": "Enregistre cet élément dans la bibliothèque sous un nom et une catégorie, pour le réutiliser dans d'autres projets.",
+  "en": "Saves this item to the library under a name and category, to reuse it in other projects."
+ },
+ "Épreuvage": {
+  "fr": "Simule à l'écran le rendu sur un autre support (imprimante CMJN...) et choisit le profil d'épreuve.",
+  "en": "Simulates on screen how the image will look on another device (CMYK printer...) and sets the proof profile."
+ },
+ "Couleurs d'épreuve": {
+  "fr": "Affiche le document tel qu'il sera rendu avec le profil d'épreuve (Ctrl+Alt+Y).",
+  "en": "Displays the document as it will be reproduced with the proof profile (Ctrl+Alt+Y)."
+ },
+ "CMJN du document": {
+  "fr": "Utilise le profil CMJN du document comme profil d'épreuve.",
+  "en": "Uses the document's CMYK profile as the proof profile."
+ },
+ "Mode de rendu": {
+  "fr": "Méthode de conversion des couleurs hors gamut : perceptif, colorimétrie relative, saturation ou colorimétrie absolue.",
+  "en": "How out-of-gamut colors are converted: perceptual, relative colorimetric, saturation or absolute colorimetric."
+ },
+ "Attribuer un profil...": {
+  "fr": "Change le profil colorimétrique du document sans toucher aux pixels : l'apparence change.",
+  "en": "Changes the document's color profile without touching pixels: the appearance changes."
+ },
+ "Convertir en profil...": {
+  "fr": "Convertit les pixels vers un autre profil colorimétrique en conservant l'apparence.",
+  "en": "Converts pixels to another color profile while keeping their appearance."
+ },
+ "Couleurs RVB": {
+  "fr": "Passe le document en mode couleurs RVB.",
+  "en": "Switches the document to RGB color mode."
+ },
+ "Couleurs Lab": {
+  "fr": "Passe le document en mode Lab (luminosité séparée de la couleur).",
+  "en": "Switches the document to Lab color mode (lightness separate from color)."
+ },
+ "Nom de l'encre": {
+  "fr": "Nom de l'encre d'accompagnement (ton direct), repris dans le nom du calque.",
+  "en": "Name of the spot color ink, used in the layer name."
+ },
+ "Solidité": {
+  "fr": "Opacité simulée de l'encre à l'écran : 0 transparente, 1 couvre complètement.",
+  "en": "Simulated on-screen ink opacity: 0 transparent, 1 fully covering."
+ },
+ "Planche contact": {
+  "fr": "Assemble les images d'un dossier en grille sur une ou plusieurs pages.",
+  "en": "Lays out the images of a folder in a grid on one or more pages."
+ },
+ "Parcourir...": {
+  "fr": "Choisit le dossier des images en sélectionnant un de ses fichiers.",
+  "en": "Picks the image folder by selecting one of its files."
+ },
+ "Planche contact|Largeur (px)": {
+  "fr": "Largeur de chaque page de la planche, en pixels.",
+  "en": "Width of each contact sheet page, in pixels."
+ },
+ "Largeur (px)": {
+  "fr": "Nouvelle largeur de l'image, en pixels.",
+  "en": "New image width, in pixels."
+ },
+ "Planche contact|Hauteur (px)": {
+  "fr": "Hauteur de chaque page de la planche, en pixels.",
+  "en": "Height of each contact sheet page, in pixels."
+ },
+ "Hauteur (px)": {
+  "fr": "Nouvelle hauteur de l'image, en pixels.",
+  "en": "New image height, in pixels."
+ },
+ "A4 300 ppp": {
+  "fr": "Page A4 portrait à 300 ppp (2480 x 3508 px).",
+  "en": "A4 portrait page at 300 ppi (2480 x 3508 px)."
+ },
+ "A4 paysage": {
+  "fr": "Page A4 paysage à 300 ppp (3508 x 2480 px).",
+  "en": "A4 landscape page at 300 ppi (3508 x 2480 px)."
+ },
+ "Écran 1920 x 1080": {
+  "fr": "Page au format d'un écran Full HD (1920 x 1080 px).",
+  "en": "Page sized for a Full HD screen (1920 x 1080 px)."
+ },
+ "Colonnes": {
+  "fr": "Nombre d'images par ligne sur chaque page.",
+  "en": "Number of images per row on each page."
+ },
+ "Lignes": {
+  "fr": "Nombre de lignes d'images par page ; les images en trop vont sur de nouvelles pages.",
+  "en": "Number of image rows per page; extra images go on new pages."
+ },
+ "Planche contact|Marge (px)": {
+  "fr": "Espace laissé vide autour du bord de chaque page, en pixels.",
+  "en": "Empty space around the edge of each page, in pixels."
+ },
+ "Trim sheet|Marge (px)": {
+  "fr": "Espace entre les bandes de la trim sheet, en pixels.",
+  "en": "Space between trim sheet strips, in pixels."
+ },
+ "Espacement (px)": {
+  "fr": "Espace entre les images de la grille, en pixels.",
+  "en": "Space between images in the grid, in pixels."
+ },
+ "Nom du fichier sous chaque image": {
+  "fr": "Écrit le nom du fichier sous chaque vignette.",
+  "en": "Writes the file name under each thumbnail."
+ },
+ "Planche contact|Taille": {
+  "fr": "Taille du texte des noms de fichiers, en pixels.",
+  "en": "Font size of the file names, in pixels."
+ },
+ "Matériau du pinceau|Taille": {
+  "fr": "Taille du pinceau ou du décalque projeté sur le modèle.",
+  "en": "Size of the brush or of the decal projected onto the model."
+ },
+ "Options|Taille": {
+  "fr": "Diamètre de l'outil actif en pixels (pinceau, correcteur, sélection rapide) ou taille du texte ; [ et ] la changent.",
+  "en": "Active tool diameter in pixels (brush, healing, quick selection) or text size; [ and ] change it."
+ },
+ "Turntable|Taille": {
+  "fr": "Dimensions de la vidéo de présentation, en pixels.",
+  "en": "Dimensions of the turntable video, in pixels."
+ },
+ "Propriétés|Taille": {
+  "fr": "Taille du texte du calque, en pixels.",
+  "en": "Font size of the text layer, in pixels."
+ },
+ "Styles de texte|Taille": {
+  "fr": "Taille du texte imposée par le style ; au minimum, la taille du calque est gardée.",
+  "en": "Text size set by the style; at the minimum, the layer's own size is kept."
+ },
+ "Exporter les textures|Taille": {
+  "fr": "Taille des textures exportées : celle du document, une fraction, ou une taille fixe.",
+  "en": "Size of the exported textures: the document size, a fraction of it, or a fixed size."
+ },
+ "Aplatir chaque page": {
+  "fr": "Fusionne chaque page en un seul calque au lieu d'un calque par image.",
+  "en": "Flattens each page into a single layer instead of one layer per image."
+ },
+ "Planche contact|Créer": {
+  "fr": "Crée la planche contact avec les images du dossier.",
+  "en": "Builds the contact sheet from the folder's images."
+ },
+ "Nouveau projet Paint 3D|Créer": {
+  "fr": "Crée le projet Paint 3D avec le modèle, la résolution et les canaux choisis.",
+  "en": "Creates the Paint 3D project with the chosen model, resolution and channels."
+ },
+ "Plugins|Créer": {
+  "fr": "Crée le squelette d'un nouveau plugin du type choisi, prêt à modifier.",
+  "en": "Creates a skeleton for a new plugin of the chosen kind, ready to edit."
+ },
+ "Nouveau document|Créer": {
+  "fr": "Crée le nouveau document avec ces réglages ou le modèle choisi.",
+  "en": "Creates the new document with these settings or the chosen template."
+ },
+ "Interrompre": {
+  "fr": "Arrête le calcul en cours.",
+  "en": "Stops the running computation."
+ },
+ "Unités": {
+  "fr": "Saisit les dimensions en pourcentage ou en pixels.",
+  "en": "Enters dimensions as a percentage or in pixels."
+ },
+ "Conserver les proportions": {
+  "fr": "Garde le rapport largeur / hauteur : changer une dimension ajuste l'autre.",
+  "en": "Keeps the width-to-height ratio: changing one dimension adjusts the other."
+ },
+ "Effets": {
+  "fr": "Bibliothèque des effets et filtres, avec aperçus : appliquez-les en calque de réglage, en nœud ou directement aux pixels.",
+  "en": "Library of effects and filters with previews: apply them as adjustment layers, nodes or directly to pixels."
+ },
+ "Effets|Choisir une image...": {
+  "fr": "Choisit l'image utilisée pour les aperçus des effets.",
+  "en": "Picks the image used for effect previews."
+ },
+ "Matériau du pinceau|Choisir une image...": {
+  "fr": "Choisit l'image du décalque à projeter sur le modèle.",
+  "en": "Picks the decal image to project onto the model."
+ },
+ "Toutes les familles": {
+  "fr": "Affiche les effets de toutes les familles.",
+  "en": "Shows effects from every family."
+ },
+ "Favoris": {
+  "fr": "Affiche seulement les effets marqués comme favoris.",
+  "en": "Shows only effects marked as favorites."
+ },
+ "Récents": {
+  "fr": "Affiche les effets utilisés récemment.",
+  "en": "Shows recently used effects."
+ },
+ "Effets en graphe": {
+  "fr": "Affiche seulement les effets construits en nœuds.",
+  "en": "Shows only node-based effects."
+ },
+ "Nouveau nœud (non relié)": {
+  "fr": "Ajoute cet effet comme nouveau nœud du graphe, sans le relier.",
+  "en": "Adds this effect as a new, unconnected node in the graph."
+ },
+ "Nœud seul": {
+  "fr": "Ajoute cet effet comme nouveau nœud du graphe, sans le relier.",
+  "en": "Adds this effect as a new, unconnected node in the graph."
+ },
+ "Aperçu du calque": {
+  "fr": "Affiche le contenu du calque actif, de son masque ou du nœud sélectionné, seul.",
+  "en": "Shows the content of the active layer, its mask or the selected node on its own."
+ },
+ "Voir le calque": {
+  "fr": "Revient à l'aperçu du calque au lieu de celui du nœud sélectionné.",
+  "en": "Goes back to previewing the layer instead of the selected node."
+ },
+ "Masque": {
+  "fr": "Affiche le masque du calque au lieu de son contenu.",
+  "en": "Shows the layer mask instead of its content."
+ },
+ "Éditeur d'effets": {
+  "fr": "Crée et modifie des effets, fusions et pinceaux en nœuds ou en code HLSL, avec aperçus.",
+  "en": "Creates and edits effects, blend modes and brushes as nodes or HLSL code, with previews."
+ },
+ "Fusion du calque": {
+  "fr": "Modifie le mode de fusion personnalisé du calque actif.",
+  "en": "Edits the active layer's custom blend mode."
+ },
+ "Pinceau": {
+  "fr": "Modifie la pointe du pinceau actif.",
+  "en": "Edits the active brush tip."
+ },
+ "Voir le graphe": {
+  "fr": "Affiche le graphe de nœuds de cet élément de la bibliothèque au lieu de son code.",
+  "en": "Shows this library item's node graph instead of its code."
+ },
+ "Créer une fusion en graphe": {
+  "fr": "Donne au calque actif un mode de fusion construit en nœuds, à modifier ici.",
+  "en": "Gives the active layer a node-based blend mode to edit here."
+ },
+ "Créer une fusion en code": {
+  "fr": "Donne au calque actif un mode de fusion écrit en HLSL, à partir d'un modèle.",
+  "en": "Gives the active layer a blend mode written in HLSL, from a template."
+ },
+ "Créer un pinceau en graphe": {
+  "fr": "Remplace le pinceau actif par un pinceau construit en nœuds, à modifier ici.",
+  "en": "Replaces the active brush with a node-based brush to edit here."
+ },
+ "Convertir cet effet en graphe vide": {
+  "fr": "Remplace cet effet par un graphe de départ à construire en nœuds.",
+  "en": "Replaces this effect with a starter graph to build with nodes."
+ },
+ "Nouveau calque de réglage « Effet visuel »": {
+  "fr": "Ajoute un calque de réglage vide à construire en nœuds dans cet éditeur.",
+  "en": "Adds an empty adjustment layer to build with nodes in this editor."
+ },
+ "Éditeur d'effets|Nom": {
+  "fr": "Nom de l'effet, du paramètre ou de la fonction sélectionnée.",
+  "en": "Name of the selected effect, parameter or function."
+ },
+ "Propriétés|Nom": {
+  "fr": "Nom du calque, du nœud ou de la variable.",
+  "en": "Name of the layer, node or variable."
+ },
+ "Scène de rendu|Nom": {
+  "fr": "Nom de l'objet ou de la lumière sélectionnée.",
+  "en": "Name of the selected object or light."
+ },
+ "Nuancier|Nom": {
+  "fr": "Nom de la nuance (Entrée pour valider).",
+  "en": "Swatch name (press Enter to confirm)."
+ },
+ "Nouveau document|Nom": {
+  "fr": "Nom du nouveau document.",
+  "en": "Name of the new document."
+ },
+ "Enregistrer comme modèle|Nom": {
+  "fr": "Nom du modèle de document.",
+  "en": "Name of the document template."
+ },
+ "Styles de texte|Nom": {
+  "fr": "Nom du style de texte.",
+  "en": "Name of the text style."
+ },
+ "Nom": {
+  "fr": "Nom sous lequel l'élément est enregistré dans la bibliothèque.",
+  "en": "Name the item is saved under in the library."
+ },
+ "Ordre": {
+  "fr": "Place de cette broche parmi les entrées ou sorties du nœud.",
+  "en": "Position of this pin among the node's inputs or outputs."
+ },
+ "Éditeur d'effets|Dégrouper": {
+  "fr": "Remplace la fonction par les nœuds qu'elle contient, directement dans le graphe.",
+  "en": "Replaces the function with the nodes it contains, directly in the graph."
+ },
+ "Calques 3D|Dégrouper": {
+  "fr": "Supprime le dossier et garde ses calques à sa place.",
+  "en": "Removes the folder and keeps its layers in its place."
+ },
+ "Enregistrer dans la bibliothèque": {
+  "fr": "Enregistre cette fonction dans la bibliothèque pour la réutiliser dans d'autres graphes.",
+  "en": "Saves this function to the library to reuse it in other graphs."
+ },
+ "Voir le code": {
+  "fr": "Affiche le code HLSL de cet effet de la bibliothèque.",
+  "en": "Shows the HLSL code of this library effect."
+ },
+ "Éditeur d'effets|Catégorie": {
+  "fr": "Catégorie sous laquelle l'élément est rangé dans la bibliothèque et les menus.",
+  "en": "Category the item is filed under in the library and menus."
+ },
+ "Enregistrer comme modèle|Catégorie": {
+  "fr": "Catégorie sous laquelle le modèle apparaît dans la fenêtre Nouveau document.",
+  "en": "Category the template appears under in the New Document window."
+ },
+ "Catégorie": {
+  "fr": "Catégorie sous laquelle l'élément est rangé dans la bibliothèque.",
+  "en": "Category the item is filed under in the library."
+ },
+ "Entrées": {
+  "fr": "Nombre d'images que l'effet reçoit en entrée (0 pour un générateur).",
+  "en": "Number of input images the effect receives (0 for a generator)."
+ },
+ "Prémultiplié": {
+  "fr": "L'effet travaille sur des couleurs prémultipliées par l'alpha, ce qui évite les franges sur les bords transparents.",
+  "en": "The effect works on alpha-premultiplied colors, avoiding fringes on transparent edges."
+ },
+ "Espacement": {
+  "fr": "Distance entre deux touches du pinceau le long du trait, en fraction du diamètre.",
+  "en": "Distance between brush dabs along the stroke, as a fraction of the diameter."
+ },
+ "Suivre le trait": {
+  "fr": "La pointe tourne dans le sens du trait.",
+  "en": "The tip rotates to follow the stroke direction."
+ },
+ "Éditeur d'effets|Dispersion": {
+  "fr": "Déplace chaque touche au hasard autour du trait, en diamètres.",
+  "en": "Randomly offsets each dab around the stroke, in diameters."
+ },
+ "Matériau du pinceau|Dispersion": {
+  "fr": "Étalement des particules autour de leur trajectoire.",
+  "en": "Spread of the particles around their path."
+ },
+ "Taille aléatoire": {
+  "fr": "Variation aléatoire de la taille de chaque touche.",
+  "en": "Random size variation of each dab."
+ },
+ "Angle aléatoire": {
+  "fr": "Variation aléatoire de l'angle de chaque touche.",
+  "en": "Random angle variation of each dab."
+ },
+ "Opacité aléatoire": {
+  "fr": "Variation aléatoire de l'opacité de chaque touche.",
+  "en": "Random opacity variation of each dab."
+ },
+ "Valeur": {
+  "fr": "Valeur constante fournie par ce nœud.",
+  "en": "Constant value output by this node."
+ },
+ "Min": {
+  "fr": "Valeur minimale du curseur de ce paramètre dans Propriétés.",
+  "en": "Minimum value of this parameter's slider in Properties."
+ },
+ "Max": {
+  "fr": "Valeur maximale du curseur de ce paramètre dans Propriétés.",
+  "en": "Maximum value of this parameter's slider in Properties."
+ },
+ "Coché par défaut": {
+  "fr": "État initial de la case à cocher de ce paramètre.",
+  "en": "Initial state of this parameter's check box."
+ },
+ "Couleur de l'arrêt": {
+  "fr": "Couleur de l'arrêt sélectionné : une couleur choisie, ou celle de premier plan ou d'arrière-plan.",
+  "en": "Color of the selected stop: a chosen color, or the foreground or background color."
+ },
+ "Inverser la rampe": {
+  "fr": "Retourne la rampe : le début devient la fin.",
+  "en": "Reverses the ramp: the start becomes the end."
+ },
+ "Texture": {
+  "fr": "Numéro de la texture du pinceau lue par ce nœud (1 à 4).",
+  "en": "Index of the brush texture this node reads (1 to 4)."
+ },
+ "Libellé": {
+  "fr": "Nom de la texture affiché dans les réglages du pinceau.",
+  "en": "Texture name shown in the brush settings."
+ },
+ "Entrée": {
+  "fr": "Numéro de l'image d'entrée lue par ce nœud.",
+  "en": "Index of the input image this node reads."
+ },
+ "Titre": {
+  "fr": "Titre affiché sur le nœud de code.",
+  "en": "Title shown on the code node."
+ },
+ "Éditeur d'effets|Type": {
+  "fr": "Type de valeur de la broche (nombre, vecteur, couleur, texture...).",
+  "en": "Value type of the pin (number, vector, color, texture...)."
+ },
+ "Propriétés|Type": {
+  "fr": "Type du calque de forme ou de la fonction (sous-graphe ou outil).",
+  "en": "Type of the shape layer or of the function (subgraph or tool)."
+ },
+ "Options|Type": {
+  "fr": "Forme dessinée par l'outil : rectangle, ellipse, ligne, polygone, étoile ou forme personnalisée.",
+  "en": "Shape drawn by the tool: rectangle, ellipse, line, polygon, star or custom shape."
+ },
+ "Scène de rendu|Type": {
+  "fr": "Type de lumière : ponctuelle, spot, surfacique ou soleil.",
+  "en": "Light type: point, spot, area or sun."
+ },
+ "Min / max": {
+  "fr": "Plage du curseur de cette entrée dans Propriétés.",
+  "en": "Slider range of this input in Properties."
+ },
+ "Mettre en forme": {
+  "fr": "Remet en forme le code : une instruction par ligne, blocs indentés.",
+  "en": "Reformats the code: one statement per line, indented blocks."
+ },
+ "Agrandir": {
+  "fr": "Ouvre le code du nœud dans une grande fenêtre.",
+  "en": "Opens the node's code in a large window."
+ },
+ "Supprimer le nœud": {
+  "fr": "Supprime le nœud sélectionné et ses liens.",
+  "en": "Deletes the selected node and its links."
+ },
+ "Colonne d'aperçu": {
+  "fr": "Affiche la colonne d'aperçu du résultat à côté du graphe.",
+  "en": "Shows the result preview column next to the graph."
+ },
+ "Aperçus sur les nœuds": {
+  "fr": "Affiche une petite image du résultat sur chaque nœud.",
+  "en": "Shows a small result thumbnail on each node."
+ },
+ "Importer du HLSL...": {
+  "fr": "Colle ou ouvre du HLSL pour créer un effet, avec ses entrées et sorties.",
+  "en": "Pastes or opens HLSL to create an effect with its inputs and outputs."
+ },
+ "Voir le HLSL généré": {
+  "fr": "Affiche le code HLSL produit à partir du graphe.",
+  "en": "Shows the HLSL code generated from the graph."
+ },
+ "Convertir en HLSL éditable": {
+  "fr": "Remplace le graphe par son code HLSL, à modifier à la main.",
+  "en": "Replaces the graph with its HLSL code for hand editing."
+ },
+ "Renommer": {
+  "fr": "Renomme cet élément.",
+  "en": "Renames this item."
+ },
+ "Supprimer le commentaire": {
+  "fr": "Supprime ce commentaire du graphe ; les nœuds qu'il entoure restent.",
+  "en": "Deletes this comment from the graph; the nodes it frames stay."
+ },
+ "Ajouter un commentaire (C)": {
+  "fr": "Ajoute un cadre de commentaire pour annoter et regrouper des nœuds (raccourci C).",
+  "en": "Adds a comment frame to annotate and group nodes (shortcut C)."
+ },
+ "Éditeur d'effets|Verrouillé": {
+  "fr": "Empêche que cet élément de votre bibliothèque soit remplacé par un enregistrement.",
+  "en": "Prevents this item of your library from being overwritten by a save."
+ },
+ "Propriétés|Verrouillé": {
+  "fr": "Verrouille le calque pour éviter de le modifier par erreur.",
+  "en": "Locks the layer to prevent accidental edits."
+ },
+ "Modifier une copie (code)": {
+  "fr": "Crée une copie modifiable du code de cet élément ; la bibliothèque reste intacte.",
+  "en": "Creates an editable copy of this item's code; the library stays untouched."
+ },
+ "Modifier une copie (graphe)": {
+  "fr": "Crée une copie modifiable du graphe de cet élément ; la bibliothèque reste intacte.",
+  "en": "Creates an editable copy of this item's graph; the library stays untouched."
+ },
+ "Nouveau pinceau (code)": {
+  "fr": "Crée un nouveau pinceau écrit en HLSL à partir d'un modèle.",
+  "en": "Creates a new HLSL brush from a template."
+ },
+ "Nouveau pinceau (graphe)": {
+  "fr": "Crée un nouveau pinceau construit en nœuds.",
+  "en": "Creates a new node-based brush."
+ },
+ "Appliquer (Ctrl+Entrée)": {
+  "fr": "Compile le code du pinceau et l'utilise (Ctrl+Entrée).",
+  "en": "Compiles the brush code and uses it (Ctrl+Enter)."
+ },
+ "Revenir à l'original": {
+  "fr": "Abandonne les modifications et revient au pinceau de la bibliothèque.",
+  "en": "Discards your changes and reverts to the library brush."
+ },
+ "Ouvrir un fichier...": {
+  "fr": "Charge du code HLSL depuis un fichier (.hlsl, .fx, .slang, .txt).",
+  "en": "Loads HLSL code from a file (.hlsl, .fx, .slang, .txt)."
+ },
+ "Exemple": {
+  "fr": "Remplit la zone avec un exemple d'effet HLSL annoté.",
+  "en": "Fills the box with an annotated HLSL effect example."
+ },
+ "Effacer la zone d'essai": {
+  "fr": "Efface les traits peints dans la zone d'essai du pinceau.",
+  "en": "Clears the strokes painted in the brush test pad."
+ },
+ "Retour à l'édition": {
+  "fr": "Ferme la bibliothèque et revient à l'élément en cours d'édition.",
+  "en": "Closes the library and returns to the item being edited."
+ },
+ "Nouveau vide (graphe)": {
+  "fr": "Commence un nouvel élément vide construit en nœuds.",
+  "en": "Starts a new, empty node-based item."
+ },
+ "Éditer l'original": {
+  "fr": "Ouvre l'élément de la bibliothèque lui-même pour le modifier.",
+  "en": "Opens the library item itself for editing."
+ },
+ "Exporter sous": {
+  "fr": "Exporte l'image ou chaque calque dans un format choisi, à une ou plusieurs tailles.",
+  "en": "Exports the image or each layer in a chosen format, at one or more sizes."
+ },
+ "Transparence": {
+  "fr": "Garde la transparence dans le fichier exporté ; sinon, elle est remplie par la couleur de fond.",
+  "en": "Keeps transparency in the exported file; otherwise it is filled with the background color."
+ },
+ "Exporter sous|Fond": {
+  "fr": "Couleur qui remplace la transparence dans le fichier exporté.",
+  "en": "Color that replaces transparency in the exported file."
+ },
+ "Propriétés|Fond": {
+  "fr": "Remplit l'intérieur de la forme avec la couleur choisie.",
+  "en": "Fills the inside of the shape with the chosen color."
+ },
+ "Rogner les bords transparents": {
+  "fr": "Retire les bords entièrement transparents autour de l'image exportée.",
+  "en": "Removes fully transparent borders around the exported image."
+ },
+ "Contenu": {
+  "fr": "Ce qui est exporté : l'image entière, le rectangle de la sélection ou chaque calque séparément.",
+  "en": "What gets exported: the whole image, the selection rectangle or each layer separately."
+ },
+ "Suffixe": {
+  "fr": "Texte ajouté au nom du fichier pour cette taille (par exemple @2x).",
+  "en": "Text appended to the file name for this size (for example @2x)."
+ },
+ "+ Taille": {
+  "fr": "Ajoute une taille d'export supplémentaire.",
+  "en": "Adds another export size."
+ },
+ "Moitié + entière": {
+  "fr": "Exporte à la moitié et à la taille entière.",
+  "en": "Exports at half and full size."
+ },
+ "Figer (Entrée)": {
+  "fr": "Arrête l'écoulement et garde la peinture dans son état actuel (Entrée).",
+  "en": "Stops the flow and keeps the paint as it is now (Enter)."
+ },
+ "Annuler (Échap)": {
+  "fr": "Abandonne l'opération en cours sans rien modifier (Échap).",
+  "en": "Abandons the current operation without changing anything (Esc)."
+ },
+ "Débit": {
+  "fr": "Quantité de peinture déposée à chaque touche du pinceau mélangeur.",
+  "en": "Amount of paint laid down by each dab of the mixer brush."
+ },
+ "Dureté": {
+  "fr": "Netteté du bord du pinceau : 0 bord très doux, 1 bord net.",
+  "en": "Brush edge sharpness: 0 very soft edge, 1 hard edge."
+ },
+ "Nombre de poils": {
+  "fr": "Nombre de poils qui laissent des sillons dans la peinture.",
+  "en": "Number of bristles that leave grooves in the paint."
+ },
+ "Peinture": {
+  "fr": "Couleur de la peinture liquide.",
+  "en": "Color of the liquid paint."
+ },
+ "Vue 3D|Direction": {
+  "fr": "Direction de la lumière autour du modèle, en degrés.",
+  "en": "Light direction around the model, in degrees."
+ },
+ "Calques 3D|Direction": {
+  "fr": "Axe du dégradé du masque intelligent (haut, bas, X ou Z).",
+  "en": "Axis of the smart mask gradient (up, down, X or Z)."
+ },
+ "Options|Orientation": {
+  "fr": "Direction horizontale de la gravité personnalisée, en degrés.",
+  "en": "Horizontal direction of the custom gravity, in degrees."
+ },
+ "Matériau du pinceau|Orientation": {
+  "fr": "Direction horizontale de la gravité personnalisée, en degrés.",
+  "en": "Horizontal direction of the custom gravity, in degrees."
+ },
+ "Scène de rendu|Orientation": {
+  "fr": "Direction horizontale de la lumière, en degrés.",
+  "en": "Horizontal direction of the light, in degrees."
+ },
+ "Scène de rendu|Inclinaison": {
+  "fr": "Inclinaison verticale de la lumière, en degrés.",
+  "en": "Vertical tilt of the light, in degrees."
+ },
+ "Mur": {
+  "fr": "Support vertical : la peinture coule vers le bas.",
+  "en": "Vertical surface: the paint runs downward."
+ },
+ "Incliné 45°": {
+  "fr": "Support incliné à 45° : la peinture coule plus lentement.",
+  "en": "Surface tilted at 45°: the paint runs more slowly."
+ },
+ "À plat": {
+  "fr": "Support à plat : la peinture s'étale sans couler.",
+  "en": "Flat surface: the paint spreads without running."
+ },
+ "Plafond": {
+  "fr": "Support à l'envers : la peinture goutte et tombe.",
+  "en": "Upside-down surface: the paint drips and falls."
+ },
+ "Irrégularité": {
+  "fr": "Variations aléatoires de l'écoulement pour des coulures moins régulières.",
+  "en": "Random flow variations for less uniform drips."
+ },
+ "Échelle des irrégularités": {
+  "fr": "Taille des variations de l'écoulement : petites pour un détail fin, grandes pour des formes larges.",
+  "en": "Size of the flow variations: small for fine detail, large for broad shapes."
+ },
+ "Gouttes qui tombent": {
+  "fr": "Sous un support penché vers le bas, la peinture épaisse se détache en gouttes.",
+  "en": "On a downward-facing surface, thick paint breaks off into drops."
+ }
+}

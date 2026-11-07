@@ -193,15 +193,21 @@ void App::OpenGraphEditor(int target) {
     FocusPanel("Éditeur d'effets");
 }
 
+namespace {
+// The standard round tip has no library entry: a built-in equivalent draws its previews.
+const BrushDef* RoundPreviewDef() {
+    static BrushDefPtr round = ParseBrush("_round_preview",
+                                          "//@name Ronde\n//@category Standard\nfloat4 Tip(Brush b)\n{\n"
+                                          "    float d = length(b.local);\n    return float4(b.color, 1.0 - smoothstep(b.hardness * 0.999, 1.0, d));\n}\n");
+    return round.get();
+}
+}  // namespace
+
 // Stroke preview of the current tool: white ink on a transparent (checkered) background.
 void App::BrushStrokePreview(BrushSettings& b, const BrushDef* td, float h) {
     DocView* v = Active();
     if (!v) return;
-    // The standard round tip has no library entry: a built-in equivalent draws its preview.
-    static BrushDefPtr round = ParseBrush("_round_preview",
-                                          "//@name Ronde\n//@category Standard\nfloat4 Tip(Brush b)\n{\n"
-                                          "    float d = length(b.local);\n    return float4(b.color, 1.0 - smoothstep(b.hardness * 0.999, 1.0, d));\n}\n");
-    const BrushDef* def = td ? td : round.get();
+    const BrushDef* def = td ? td : RoundPreviewDef();
     if (!def) return;
     float w = ImGui::GetContentRegionAvail().x;
     ImVec2 p = ImGui::GetCursorScreenPos();
@@ -284,31 +290,90 @@ void App::DrawBrushPanel() {
     // Wide (bottom zone): list | preview + code. Narrow (side tab): stacked.
     const bool wide = ImGui::GetContentRegionAvail().x > 640 * dpi;
 
-    // Library.
-    const float listW = wide ? std::max(220.0f * dpi, ImGui::GetContentRegionAvail().x * 0.28f) : 0.0f;
-    const float listH = wide ? 0.0f : std::max(150.0f * dpi, ImGui::GetContentRegionAvail().y * 0.36f);
+    // Library: each brush shown by its stroke (a thumbnail rendered once, kept in the cache), grouped by category,
+    // the search filtering names and categories.
+    const float listW = wide ? std::max(260.0f * dpi, ImGui::GetContentRegionAvail().x * 0.34f) : 0.0f;
+    const float listH = wide ? 0.0f : std::max(220.0f * dpi, ImGui::GetContentRegionAvail().y * 0.55f);
     ImGui::BeginChild("##brushlist", ImVec2(listW, listH), ImGuiChildFlags_Borders);
     ImGui::SetNextItemWidth(-FLT_MIN);
     ImGui::InputTextWithHint("##bsearch", "Rechercher un pinceau...", &brushEd.search);
-    if (ImGui::Selectable("Ronde (standard)", !td)) SelectTip(b, "");
     std::string q = Lower(brushEd.search);
+    int rendered = 0;  // (new thumbnails per frame: a few, the rest the next frames)
+    const float tileW = 104 * dpi, tileH = 46 * dpi;
+    auto tile = [&](const std::string& id, const BrushDef* def, const std::string& name, bool selected, bool graph) {
+        ImGui::PushID(id.c_str());
+        const ImVec2 p = ImGui::GetCursorScreenPos();
+        const float textH = ImGui::GetTextLineHeight();
+        const bool clicked = ImGui::InvisibleButton("##tile", ImVec2(tileW, tileH + textH + 4 * dpi));
+        const bool hovered = ImGui::IsItemHovered();
+        ImGui::SetItemTooltip("%s%s", name.c_str(), graph ? TrC("  (graphe)") : "");
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        dl->AddRectFilled(p, ImVec2(p.x + tileW, p.y + tileH), IM_COL32(30, 30, 36, 255), 4 * dpi);
+        if (v && def && ImGui::IsItemVisible()) {
+            const u64 key = (1ull << 58) | (std::hash<std::string>{}(id) & ((1ull << 56) - 1));
+            const u64 hash = std::hash<std::string>{}(def->text) ^ (u64)tileW;
+            gpu::Texture* th = v->renderer.CachedThumbnail(key);
+            // Drawn three times (a brush's shader may still be compiling the first time: an empty stroke), then
+            // kept until the brush's source changes.
+            int& tries = brushEd.thumbTries[id];
+            if (brushEd.thumbHash[id] != hash) { brushEd.thumbHash[id] = hash; tries = 0; }
+            if ((!th || tries < 3) && rendered < 2) {
+                BrushSettings ps = b;
+                ps.size = tileH * 0.32f;
+                ps.tipId = def == RoundPreviewDef() ? std::string() : id;
+                ps.tipCode.clear();
+                ps.tipGraph.clear();
+                if (def->def) ps.tipParams = def->def->DefaultParams();
+                BindTipTextures(ps, *def);
+                EffectInstance tip;
+                tip.params = ps.tipParams;
+                std::string err;
+                // (dark ink: the thumbnail's transparency shows as a light checkerboard, like paper)
+                if (gpu::Texture* t = v->renderer.BrushPreview(*ctx, *def, tip, ps, {0.02f, 0.02f, 0.03f, 1}, (u32)tileW, (u32)tileH, &err))
+                    th = v->renderer.Thumbnail(*ctx, key, t, hash ^ (u64)(tries + 1) ^ 0xD0, (u32)tileW, (u32)tileH);
+                ++tries;
+                ++rendered;
+            }
+            if (th) dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(th), p, ImVec2(p.x + tileW, p.y + tileH));
+        }
+        const ImU32 frame = selected ? cyui::palette().accent : hovered ? cyui::palette().line : 0;
+        if (frame) dl->AddRect(p, ImVec2(p.x + tileW, p.y + tileH), frame, 4 * dpi, 0, selected ? 2.0f : 1.0f);
+        // The name under it, shortened to the tile.
+        std::string shown = Tr(name);
+        while (shown.size() > 3 && ImGui::CalcTextSize(shown.c_str()).x > tileW) shown = shown.substr(0, shown.size() - 4) + "...";
+        dl->AddText(ImVec2(p.x + (tileW - ImGui::CalcTextSize(shown.c_str()).x) * 0.5f, p.y + tileH + 2 * dpi),
+                    selected ? cyui::palette().text : cyui::palette().textDim, shown.c_str());
+        ImGui::PopID();
+        return clicked;
+    };
+    // Tiles flow in rows across the width.
+    int col = 0;
+    const int perRow = std::max(1, (int)((ImGui::GetContentRegionAvail().x + ImGui::GetStyle().ItemSpacing.x) / (tileW + ImGui::GetStyle().ItemSpacing.x)));
+    auto place = [&] {
+        if (col > 0 && col < perRow) ImGui::SameLine();
+        col = col + 1 >= perRow ? 0 : col + 1;
+    };
+    if (q.empty() || Lower(Tr("Ronde (standard)") + " standard").find(q) != std::string::npos) {
+        place();
+        if (tile("_round", RoundPreviewDef(), "Ronde (standard)", !td, false)) SelectTip(b, "");
+    }
     std::vector<std::string> cats;
     for (auto& x : Brushes().All())
         if (x->def && std::find(cats.begin(), cats.end(), x->def->category) == cats.end()) cats.push_back(x->def->category);
     for (auto& c : cats) {
         bool any = false;
         for (auto& x : Brushes().All())
-            if (x->def && x->def->category == c && (q.empty() || Lower(x->def->name + " " + c).find(q) != std::string::npos)) any = true;
+            if (x->def && x->def->category == c && (q.empty() || Lower(x->def->name + " " + c + " " + Tr(x->def->name) + " " + Tr(c)).find(q) != std::string::npos)) any = true;
         if (!any) continue;
         if (!q.empty()) ImGui::SetNextItemOpen(true);
-        if (!ImGui::TreeNodeEx(c.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | (c == (td && td->def ? td->def->category : "") ? ImGuiTreeNodeFlags_DefaultOpen : 0))) continue;
+        if (!ImGui::CollapsingHeader((c + "##bcat").c_str(), ImGuiTreeNodeFlags_DefaultOpen)) continue;
+        col = 0;
         for (auto& x : Brushes().All()) {
             if (!x->def || x->def->category != c) continue;
-            if (!q.empty() && Lower(x->def->name + " " + c).find(q) == std::string::npos) continue;
-            std::string label = x->def->name + (x->def->graph.empty() ? "" : "  (graphe)") + "##" + x->id;
-            if (ImGui::Selectable(label.c_str(), b.tipId == x->id && b.tipCode.empty())) SelectTip(b, x->id);
+            if (!q.empty() && Lower(x->def->name + " " + c + " " + Tr(x->def->name) + " " + Tr(c)).find(q) == std::string::npos) continue;
+            place();
+            if (tile(x->id, x.get(), x->def->name, b.tipId == x->id && b.tipCode.empty(), !x->def->graph.empty())) SelectTip(b, x->id);
         }
-        ImGui::TreePop();
     }
     ImGui::EndChild();
     if (wide) ImGui::SameLine();

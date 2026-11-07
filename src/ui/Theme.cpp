@@ -20,6 +20,13 @@ const char* SharedIcon(int icon) {
         case IconCrop:return cyui::icon::crop;
         case IconTrim:return cyui::icon::trim;
         case IconText:return cyui::icon::document;
+        case IconOpenMesh:return cyui::icon::openFile;
+        case IconExport:return cyui::icon::exportFile;
+        case IconEnvironment:return cyui::icon::globe;
+        case IconRenderSettings:return cyui::icon::settings;
+        case IconTurntable:return cyui::icon::sync;
+        case IconViews:return cyui::icon::camera;
+        case IconUV:return cyui::icon::grid;
         default:return nullptr;
     }
 }
@@ -179,6 +186,58 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             }
             break;
         }
+        case IconSphere:
+            dl->AddCircle(c, s * 0.42f, col, 0, t);
+            dl->AddEllipse(c, ImVec2(s * 0.42f, s * 0.14f), col, 0, 0, t * 0.8f);
+            break;
+        case IconCube: {
+            // An isometric cube: the top face and the two visible sides.
+            const ImVec2 top = P(0, -0.85f), l = P(-0.75f, -0.42f), r = P(0.75f, -0.42f), m = P(0, 0.0f);
+            const ImVec2 bl = P(-0.75f, 0.42f), br = P(0.75f, 0.42f), b = P(0, 0.85f);
+            ImVec2 outline[6] = {top, r, br, b, bl, l};
+            dl->AddPolyline(outline, 6, col, ImDrawFlags_Closed, t);
+            dl->AddLine(l, m, col, t);
+            dl->AddLine(r, m, col, t);
+            dl->AddLine(m, b, col, t);
+            break;
+        }
+        case IconPlane: {
+            ImVec2 q[4] = {P(-0.45f, -0.35f), P(0.85f, -0.35f), P(0.45f, 0.45f), P(-0.85f, 0.45f)};
+            dl->AddPolyline(q, 4, col, ImDrawFlags_Closed, t);
+            break;
+        }
+        case IconRecenter:
+            // A target: ring, center dot and four ticks.
+            dl->AddCircle(c, s * 0.32f, col, 0, t);
+            dl->AddCircleFilled(c, s * 0.08f, col);
+            dl->AddLine(P(0, -0.9f), P(0, -0.5f), col, t);
+            dl->AddLine(P(0, 0.5f), P(0, 0.9f), col, t);
+            dl->AddLine(P(-0.9f, 0), P(-0.5f, 0), col, t);
+            dl->AddLine(P(0.5f, 0), P(0.9f, 0), col, t);
+            break;
+        case IconBake:
+            // An oven: box, door window, two knobs.
+            dl->AddRect(P(-0.8f, -0.7f), P(0.8f, 0.75f), col, 2, 0, t);
+            dl->AddRect(P(-0.55f, -0.2f), P(0.55f, 0.5f), col, 1, 0, t * 0.8f);
+            dl->AddCircleFilled(P(-0.35f, -0.47f), s * 0.07f, col);
+            dl->AddCircleFilled(P(0.35f, -0.47f), s * 0.07f, col);
+            break;
+        case IconWireframe: {
+            // A triangulated square.
+            dl->AddRect(P(-0.75f, -0.75f), P(0.75f, 0.75f), col, 0, 0, t);
+            dl->AddLine(P(-0.75f, 0.75f), P(0.75f, -0.75f), col, t * 0.8f);
+            dl->AddLine(P(-0.75f, 0), P(0, -0.75f), col, t * 0.8f);
+            dl->AddLine(P(0, 0.75f), P(0.75f, 0), col, t * 0.8f);
+            break;
+        }
+        case IconOrtho:
+            // Parallel projection: a front square and its offset copy, edges parallel.
+            dl->AddRect(P(-0.8f, -0.4f), P(0.35f, 0.8f), col, 0, 0, t);
+            dl->AddRect(P(-0.35f, -0.85f), P(0.8f, 0.35f), col, 0, 0, t * 0.7f);
+            dl->AddLine(P(-0.8f, -0.4f), P(-0.35f, -0.85f), col, t * 0.7f);
+            dl->AddLine(P(0.35f, -0.4f), P(0.8f, -0.85f), col, t * 0.7f);
+            dl->AddLine(P(0.35f, 0.8f), P(0.8f, 0.35f), col, t * 0.7f);
+            break;
         case IconLink: {
             // Two chain links, slanted.
             const float k = P(1, 0).x - P(0, 0).x;
