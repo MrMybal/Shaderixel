@@ -1,0 +1,182 @@
+{
+  "layers": {
+    "en": {
+      "file": "layers-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "layers-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "image-graph": {
+    "en": {
+      "file": "image-graph-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "image-graph-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "effect-lab": {
+    "en": {
+      "file": "effect-lab-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "effect-lab-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "shader": {
+    "en": {
+      "file": "shader-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "shader-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "paint3d": {
+    "en": {
+      "file": "paint3d-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "paint3d-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "render": {
+    "en": {
+      "file": "render-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "render-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "material": {
+    "en": {
+      "file": "material-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "material-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "shapes": {
+    "en": {
+      "file": "shapes-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "shapes-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "precision": {
+    "en": {
+      "file": "precision-en.webp",
+      "width": 614,
+      "height": 660
+    },
+    "fr": {
+      "file": "precision-fr.webp",
+      "width": 614,
+      "height": 660
+    }
+  },
+  "curves": {
+    "en": {
+      "file": "curves-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "curves-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "raw": {
+    "en": {
+      "file": "raw-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "raw-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "animation": {
+    "en": {
+      "file": "animation-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "animation-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "actions": {
+    "en": {
+      "file": "actions-en.webp",
+      "width": 2544,
+      "height": 1401
+    },
+    "fr": {
+      "file": "actions-fr.webp",
+      "width": 2544,
+      "height": 1401
+    }
+  },
+  "ui-toolkit": {
+    "en": {
+      "file": "ui-toolkit.webp",
+      "width": 1200,
+      "height": 900
+    },
+    "fr": {
+      "file": "ui-toolkit.webp",
+      "width": 1200,
+      "height": 900
+    }
+  },
+  "uv-library": {
+    "en": {
+      "file": "uv-library.webp",
+      "width": 960,
+      "height": 660
+    },
+    "fr": {
+      "file": "uv-library.webp",
+      "width": 960,
+      "height": 660
+    }
+  }
+}

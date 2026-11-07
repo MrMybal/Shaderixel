@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111316">
+  <meta name="description" content="{{DESCRIPTION}}">
+  <meta property="og:title" content="{{TITLE}}">
+  <meta property="og:description" content="{{DESCRIPTION}}">
+  <meta property="og:type" content="website">
+  <title>{{TITLE}}</title>
+  <link rel="icon" href="{{LOGO}}" type="image/webp">
+  <link rel="stylesheet" href="{{CSS}}">
+  <script src="{{DATA}}" defer></script>
+  <script src="{{JS}}" defer></script>
+</head>
+<body>
+{{SKIP}}
+<header class="site-header">
+  <div class="header-inner container">
+    <a class="brand" href="#" aria-label="Shaderixel"><img src="{{LOGO}}" width="36" height="36" alt=""><span>Shaderixel</span></a>
+    <nav class="header-links" id="header-links" aria-label="{{NAV_LABEL}}" data-i18n-aria="nav.label">{{HEADER_NAV}}</nav>
+    <div class="header-actions">
+      <div class="language-switch" role="group" aria-label="{{LANGUAGE}}" data-i18n-aria="language"><button type="button" data-lang="en" aria-pressed="true" lang="en">EN</button><button type="button" data-lang="fr" aria-pressed="false" lang="fr">FR</button></div>
+      <a class="github-button" href="https://github.com/MrMybal/Shaderixel">GitHub <span aria-hidden="true">↗</span></a>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="header-links" aria-label="{{MENU_LABEL}}" data-i18n-aria="nav.menu"><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+<main id="main" tabindex="-1">
+  <section class="hero container" aria-labelledby="hero-title">
+    <div class="hero-copy">{{HERO}}</div>
+    {{HERO_IMAGE}}
+  </section>
+  <div class="capability-strip container">{{STRIP}}</div>
+  <nav class="chapter-nav" aria-label="{{CHAPTER_LABEL}}" data-i18n-aria="chapters.label"><div class="container">{{CHAPTERS}}</div></nav>
+  {{SECTIONS}}
+</main>
+<footer class="site-footer container"><a class="brand" href="#"><img src="{{LOGO}}" width="36" height="36" alt=""><span>Shaderixel</span></a>{{FOOTER}}</footer>
+<dialog class="lightbox" aria-labelledby="lightbox-title">
+  <header class="lightbox-header">{{DIALOG_TITLE}}<button class="lightbox-close" type="button" data-i18n-aria="zoom.close" aria-label="{{DIALOG_CLOSE}}">×</button></header>
+  <div class="lightbox-stage"><img alt="" width="2544" height="1401"></div>
+  <div class="lightbox-caption"><p></p><div><button type="button" data-image-step="-1" aria-label="{{DIALOG_PREVIOUS}}" data-i18n-aria="zoom.previous">←</button><button type="button" data-image-step="1" aria-label="{{DIALOG_NEXT}}" data-i18n-aria="zoom.next">→</button></div></div>
+  <footer>{{DIALOG_HINT}}</footer>
+</dialog>
+</body>
+</html>

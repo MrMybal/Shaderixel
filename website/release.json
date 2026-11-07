@@ -1,0 +1,19 @@
+{
+  "version": "0.1.0-alpha.20261106",
+  "tag": "v0.1.0-alpha.20261106",
+  "url": "https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261106",
+  "status": "alpha",
+  "platform": "Windows x64",
+  "assets": {
+    "installer": {
+      "url": "https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261106/Shaderixel-0.1.0-alpha.20261106-windows-x64-setup.exe",
+      "name": "Shaderixel-0.1.0-alpha.20261106-windows-x64-setup.exe",
+      "size": 72737357
+    },
+    "portable": {
+      "url": "https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261106/Shaderixel-0.1.0-alpha.20261106-windows-x64.zip",
+      "name": "Shaderixel-0.1.0-alpha.20261106-windows-x64.zip",
+      "size": 125529917
+    }
+  }
+}
