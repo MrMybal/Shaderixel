@@ -630,7 +630,7 @@ gpu::Texture* Renderer::DisplaySource(gpu::CommandContext& ctx, gpu::Texture* im
     return reduced.get();
 }
 
-gpu::Texture* Renderer::Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Texture* src, u64 hash, u32 w, u32 h) {
+gpu::Texture* Renderer::Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Texture* src, u64 hash, u32 w, u32 h, float checker) {
     ThumbCache& t = thumbs[key];
     const gpu::Texture* was = t.tex.get();
     Ensure(t.tex, w, h, gpu::Format::RGBA8, "Thumb");
@@ -650,8 +650,8 @@ gpu::Texture* Renderer::Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Textur
         v.viewH = h;
         v.origin = {(docW - w * inv) * 0.5f, (docH - h * inv) * 0.5f};
         v.nearest = false;
-        v.checker = 4;
-        v.outside = {0.16f, 0.16f, 0.18f, 1};
+        v.checker = checker;
+        v.outside = checker < 0 ? float4{0.016f, 0.016f, 0.02f, 1} : float4{0.16f, 0.16f, 0.18f, 1};
         if (Display(ctx, src, (u32)docW, (u32)docH, v, t.tex.get())) {  // retry next frame if the kernel isn't ready
             t.hash = hash;
             t.frame = frame;

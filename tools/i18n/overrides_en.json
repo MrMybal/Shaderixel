@@ -1063,5 +1063,12 @@
  "Projection selon la normale moyenne : la touche est posée à plat sur la surface sous le pinceau\n(marques rondes sur les surfaces vues de biais)": "Projection along the average normal: the dab is laid flat on the surface under the brush\n(round marks on surfaces seen at a grazing angle)",
  "Taille %.0f px": "Size %.0f px",
  "Flux %.2f": "Flow %.2f",
- "Symétrie de peinture : miroir, deux axes, radiale, mandala (clic : réglages)": "Painting symmetry: mirror, two axes, radial, mandala (click: settings)"
+ "Symétrie de peinture : miroir, deux axes, radiale, mandala (clic : réglages)": "Painting symmetry: mirror, two axes, radial, mandala (click: settings)",
+ "Le matériau peint par le pinceau (couleur, rugosité, métal, relief, émissif)": "The material painted by the brush (color, roughness, metal, relief, emissive)",
+ "Hauteur": "Height",
+ "Métal": "Metallic",
+ "Émissif": "Emissive",
+ "peint (clic : ignorer ce canal)": "painted (click: ignore this channel)",
+ "ignoré (clic : peindre ce canal)": "ignored (click: paint this channel)",
+ "Aperçu agrandi": "Larger preview"
 }

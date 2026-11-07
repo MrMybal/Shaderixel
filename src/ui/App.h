@@ -735,7 +735,7 @@ private:
     std::string TipTexturePath(const BrushSettings& b, const struct BrushDef& td, size_t i) const;
     bool TipTexturesUI(BrushSettings& b, const struct BrushDef& td);
     u64 BrushPreviewVersion(const BrushSettings& b, const struct BrushDef& td) const;
-    void BrushStrokePreview(BrushSettings& b, const struct BrushDef* td, float h);
+    void BrushStrokePreview(BrushSettings& b, const struct BrushDef* td, float h, float width = 0);
     void BrushTipPicker(BrushSettings& b);
     std::vector<Id> strokeTargets;    // 3D project: layers of the current 2D stroke (several channels)
     std::vector<float4> strokeColors;
@@ -861,7 +861,10 @@ private:
         bool eraser = false, alongNormal = false;
     } cursor3D, cursor2D;
     bool showUvWire = true;  // the model's UV wireframe over the texture (2D view of a Paint 3D document)
-    void DrawUvWire(DocView& v, ImVec2 d0, ImDrawList* dl);  // first frames counted: the loading screen closes after them
+    void DrawUvWire(DocView& v, ImVec2 d0, ImDrawList* dl);
+    // The current brush, Substance-like: its stroke (white on black) and, for Paint 3D, its material on a sphere with
+    // the painted channels (click a chip: use / ignore that channel).
+    void DrawBrushPbrPreview(float h);  // first frames counted: the loading screen closes after them
     int uiErrorCount = 0;
     gpu::ReadbackPtr captureRb;
 

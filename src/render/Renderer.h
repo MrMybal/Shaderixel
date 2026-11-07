@@ -148,7 +148,8 @@ public:
     // or a box-reduced copy (kept up to date incrementally) when strongly zoomed out.
     gpu::Texture* DisplaySource(gpu::CommandContext& ctx, gpu::Texture* image, float invZoom);
     // Small preview texture for a panel; regenerated when `hash` changes (throttled).
-    gpu::Texture* Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Texture* src, u64 hash, u32 w, u32 h);
+    // checker: square size of the checkerboard behind transparency (negative: black behind, e.g. brush strokes).
+    gpu::Texture* Thumbnail(gpu::CommandContext& ctx, u64 key, gpu::Texture* src, u64 hash, u32 w, u32 h, float checker = 4);
     // The preview last drawn under `key` (never refreshed here), nullptr if none.
     gpu::Texture* CachedThumbnail(u64 key) const {
         auto it = thumbs.find(key);
@@ -306,6 +307,10 @@ public:
     // Two views: the 3D brush's footprint on the texture (document-sized overlay, mesh_uv_cursor.slang), and the 2D
     // brush's footprint on the model (view-sized overlay, mesh_view_cursor.slang; center and radius in document pixels).
     gpu::TexturePtr meshUvCursor, meshViewCursor;
+    // The brush material on a sphere (material_ball.slang): sRGB colors, size x size, straight alpha.
+    gpu::TexturePtr materialBall;
+    gpu::Texture* MaterialBall(gpu::CommandContext& ctx, u32 size, float4 baseSrgb, float rough, float metal, float4 emissiveSrgb,
+                               float height, bool heightOn);
     gpu::Texture* MeshUvCursor(gpu::CommandContext& ctx, MeshScene& s, u32 docW, u32 docH, float2 p, float r, float hardness,
                                float angle, float4 color, bool alongNormal);
     gpu::Texture* MeshViewCursor(gpu::CommandContext& ctx, MeshScene& s, u32 docW, u32 docH, float2 center, float r, float hardness,

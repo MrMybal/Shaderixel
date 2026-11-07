@@ -204,23 +204,16 @@ const BrushDef* RoundPreviewDef() {
 }
 }  // namespace
 
-// Stroke preview of the current tool: white ink on a transparent (checkered) background.
-void App::BrushStrokePreview(BrushSettings& b, const BrushDef* td, float h) {
+// Stroke preview of the current tool: white ink on black (the stroke's coverage, like an alpha).
+void App::BrushStrokePreview(BrushSettings& b, const BrushDef* td, float h, float width) {
     DocView* v = Active();
     if (!v) return;
     const BrushDef* def = td ? td : RoundPreviewDef();
     if (!def) return;
-    float w = ImGui::GetContentRegionAvail().x;
+    float w = width > 0 ? width : ImGui::GetContentRegionAvail().x;
     ImVec2 p = ImGui::GetCursorScreenPos();
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    // Checkerboard.
-    const float c = 8 * dpi;
-    dl->PushClipRect(p, ImVec2(p.x + w, p.y + h), true);
-    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), IM_COL32(52, 52, 58, 255));
-    for (int y = 0; y * c < h; ++y)
-        for (int x = 0; x * c < w; ++x)
-            if ((x + y) & 1) dl->AddRectFilled(ImVec2(p.x + x * c, p.y + y * c), ImVec2(p.x + (x + 1) * c, p.y + (y + 1) * c), IM_COL32(38, 38, 44, 255));
-    dl->PopClipRect();
+    dl->AddRectFilled(p, ImVec2(p.x + w, p.y + h), IM_COL32(4, 4, 6, 255), 3);
     EffectInstance tip;
     if (td) {
         tip.params = b.tipParams;
@@ -232,7 +225,7 @@ void App::BrushStrokePreview(BrushSettings& b, const BrushDef* td, float h) {
     ps.size = std::min(b.size, h * 0.42f);
     std::string err;
     if (gpu::Texture* t = v->renderer.BrushPreview(*ctx, *def, tip, ps, {1, 1, 1, 1}, (u32)w, (u32)h, &err)) {
-        gpu::Texture* th = v->renderer.Thumbnail(*ctx, (1ull << 59) | 3, t, BrushPreviewVersion(ps, *def) ^ (u64)w ^ ((u64)h << 20) ^ 0xC0FFEE, (u32)w, (u32)h);
+        gpu::Texture* th = v->renderer.Thumbnail(*ctx, (1ull << 59) | 3, t, BrushPreviewVersion(ps, *def) ^ (u64)w ^ ((u64)h << 20) ^ 0xC0FFEF, (u32)w, (u32)h, -1);
         ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(th), ImVec2(w, h));
     } else {
         ImGui::Dummy(ImVec2(w, h));
@@ -371,8 +364,9 @@ void App::DrawBrushPanel() {
             ui::ManualReferenceTopic("brush",b.tipId,"brushes_tablet"));
     }
     DocView* v = Active();
-    // The current brush above everything: its stroke (current size and settings) and its name.
-    BrushStrokePreview(b, td.get(), 64 * dpi);
+    // The current brush above everything: its stroke (current size and settings), its material on a sphere for
+    // Paint 3D, and its name.
+    DrawBrushPbrPreview(84 * dpi);
     ImGui::TextUnformatted(Tr(td && td->def ? td->def->name : std::string("Ronde (standard)")).c_str());
     if (td && td->def) {
         ImGui::SameLine();
@@ -403,7 +397,7 @@ void App::DrawBrushPanel() {
             ImGui::EndPopup();
         }
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        dl->AddRectFilled(p, ImVec2(p.x + tileW, p.y + tileH), IM_COL32(30, 30, 36, 255), 4 * dpi);
+        dl->AddRectFilled(p, ImVec2(p.x + tileW, p.y + tileH), IM_COL32(4, 4, 6, 255), 4 * dpi);
         if (v && def && ImGui::IsItemVisible()) {
             const u64 key = (1ull << 58) | (std::hash<std::string>{}(id) & ((1ull << 56) - 1));
             const u64 hash = std::hash<std::string>{}(def->text) ^ (u64)tileW;
@@ -424,9 +418,9 @@ void App::DrawBrushPanel() {
                 EffectInstance tip;
                 tip.params = ps.tipParams;
                 std::string err;
-                // (dark ink: the thumbnail's transparency shows as a light checkerboard, like paper)
-                if (gpu::Texture* t = v->renderer.BrushPreview(*ctx, *def, tip, ps, {0.02f, 0.02f, 0.03f, 1}, (u32)tileW, (u32)tileH, &err))
-                    th = v->renderer.Thumbnail(*ctx, key, t, hash ^ (u64)(tries + 1) ^ 0xD0, (u32)tileW, (u32)tileH);
+                // (white ink on black: the stroke's coverage, like an alpha)
+                if (gpu::Texture* t = v->renderer.BrushPreview(*ctx, *def, tip, ps, {1, 1, 1, 1}, (u32)tileW, (u32)tileH, &err))
+                    th = v->renderer.Thumbnail(*ctx, key, t, hash ^ (u64)(tries + 1) ^ 0xD1, (u32)tileW, (u32)tileH, -1);
                 ++tries;
                 ++rendered;
             }
@@ -542,6 +536,67 @@ void App::DrawBrushPanel() {
     }
     ImGui::EndChild();
     ImGui::End();
+}
+
+void App::DrawBrushPbrPreview(float h) {
+    BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
+    auto td = TipDef(b);
+    DocView* v = Active();
+    if (!v || !v->mesh) {
+        BrushStrokePreview(b, td.get(), h);
+        return;
+    }
+    const float gap = 6 * dpi, avail = ImGui::GetContentRegionAvail().x;
+    const float ball = std::min(h * 1.25f, avail * 0.4f);
+    const float H = ball;
+    BrushStrokePreview(b, td.get(), H, avail - ball - gap);
+    ImGui::SameLine(0, gap);
+    auto& B = brush3D;
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddRectFilled(p, ImVec2(p.x + ball, p.y + ball), IM_COL32(4, 4, 6, 255), 3);
+    const bool useC = B.use[(int)PbrChannel::BaseColor], useR = B.use[(int)PbrChannel::Roughness], useM = B.use[(int)PbrChannel::Metallic];
+    const bool useH = B.use[(int)PbrChannel::Height], useE = B.use[(int)PbrChannel::Emissive];
+    const float4 base = useC ? float4{fg.x, fg.y, fg.z, 1} : float4{0.7f, 0.7f, 0.7f, 1};
+    const float4 emi = useE ? B.emissive : float4{0, 0, 0, 1};
+    if (gpu::Texture* t = v->renderer.MaterialBall(*ctx, (u32)ball, base, useR ? B.rough : 0.5f, useM ? B.metal : 0.0f, emi, B.height, useH))
+        ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(t), ImVec2(ball, ball));
+    else
+        ImGui::Dummy(ImVec2(ball, ball));
+    ImGui::SetItemTooltip("%s", TrC("Le matériau peint par le pinceau (couleur, rugosité, métal, relief, émissif)"));
+    // The painted channels: a chip each, crossed out when ignored; a click toggles it.
+    struct Chip { PbrChannel c; const char* name; };
+    static const Chip chips[] = {{PbrChannel::BaseColor, "Couleur"}, {PbrChannel::Height, "Hauteur"}, {PbrChannel::Roughness, "Rugosité"},
+                                 {PbrChannel::Metallic, "Métal"}, {PbrChannel::Emissive, "Émissif"}};
+    const float cw = std::max(40 * dpi, (avail - gap * 4) / 5), chH = 26 * dpi;
+    for (int i = 0; i < 5; ++i) {
+        const Chip& ch = chips[i];
+        if (i) ImGui::SameLine(0, gap);
+        ImGui::PushID(i);
+        const ImVec2 q = ImGui::GetCursorScreenPos();
+        bool& on = B.use[(int)ch.c];
+        if (ImGui::InvisibleButton("##chip", ImVec2(cw, chH + ImGui::GetTextLineHeight() + 2 * dpi))) on = !on;
+        const bool hov = ImGui::IsItemHovered();
+        ImU32 fill;
+        switch (ch.c) {
+            case PbrChannel::BaseColor: fill = ImGui::ColorConvertFloat4ToU32(ImVec4(fg.x, fg.y, fg.z, 1)); break;
+            case PbrChannel::Emissive: fill = ImGui::ColorConvertFloat4ToU32(ImVec4(B.emissive.x, B.emissive.y, B.emissive.z, 1)); break;
+            default: {
+                const float g = ch.c == PbrChannel::Height ? B.height : ch.c == PbrChannel::Roughness ? B.rough : B.metal;
+                fill = ImGui::ColorConvertFloat4ToU32(ImVec4(g, g, g, 1));
+            }
+        }
+        dl->AddRectFilled(q, ImVec2(q.x + cw, q.y + chH), on ? fill : IM_COL32(20, 20, 24, 255), 3);
+        dl->AddRect(q, ImVec2(q.x + cw, q.y + chH), on ? (hov ? cyui::palette().text : cyui::palette().line) : IM_COL32(170, 60, 60, 220), 3, 0, on ? 1.0f : 1.5f);
+        if (!on) dl->AddLine(ImVec2(q.x + 3, q.y + chH - 3), ImVec2(q.x + cw - 3, q.y + 3), IM_COL32(170, 60, 60, 220), 1.5f);
+        const char* label = TrC(ch.name);
+        const float lw = ImGui::CalcTextSize(label).x;
+        dl->PushClipRect(q, ImVec2(q.x + cw, q.y + chH + ImGui::GetTextLineHeight() + 4 * dpi), true);
+        dl->AddText(ImVec2(q.x + std::max(0.0f, (cw - lw) * 0.5f), q.y + chH + 1 * dpi), on ? cyui::palette().text : cyui::palette().textDim, label);
+        dl->PopClipRect();
+        if (hov) ImGui::SetTooltip("%s : %s", TrC(ch.name), TrC(on ? "peint (clic : ignorer ce canal)" : "ignoré (clic : peindre ce canal)"));
+        ImGui::PopID();
+    }
 }
 
 }  // namespace sx

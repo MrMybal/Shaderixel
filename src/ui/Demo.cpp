@@ -1462,6 +1462,12 @@ void App::DemoTick() {
                 brush.hardness = 0.6f;
                 SelectTip(brush, "");
                 if (const char* sy = getenv("SX_SYM")) m->renderer.meshSymmetry = atoi(sy);
+                if (getenv("SX_COPPER")) {
+                    fg = {0.85f, 0.45f, 0.3f, 1};
+                    brush3D.metal = 1;
+                    brush3D.rough = 0.3f;
+                    brush3D.use[(int)PbrChannel::Metallic] = true;
+                }
             }
             if (frameCounter >= 50) {
                 if (ImGuiWindow* w = ImGui::FindWindowByName(over3d ? "Vue 3D" : "Canevas")) {

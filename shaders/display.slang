@@ -182,7 +182,7 @@ void main(uint3 id : SV_DispatchThreadID)
 
     int2 cell = int2(floor(v / max(gChecker, 1.0)));
     float checker = ((cell.x + cell.y) & 1) ? 0.80 : 1.0;
-    float3 back = SrgbToLinear(float3(checker, checker, checker));
+    float3 back = gChecker < 0.0 ? float3(0, 0, 0) : SrgbToLinear(float3(checker, checker, checker));  // (negative: on black)
     float3 rgb = c.rgb + back * (1.0 - saturate(c.a));
     float3 srgb = LinearToSrgb(rgb);
     const float3 docSrgb = srgb;

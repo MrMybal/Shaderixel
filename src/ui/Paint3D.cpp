@@ -647,6 +647,7 @@ void App::DrawBrushMaterialPanel() {
     };
     if (ImGui::BeginTabBar("##paint3dtabs", ImGuiTabBarFlags_FittingPolicyShrink)) {
         if (tab("Peinture", 0)) {
+            DrawBrushPbrPreview(84 * dpi);
             ImGui::SeparatorText("Matériau peint");
     ImGui::TextDisabled("Valeurs peintes dans chaque canal d'un calque de peinture.");
     if (ImGui::BeginCombo("Préréglage", "Choisir...")) {
