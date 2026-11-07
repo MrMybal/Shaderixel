@@ -6,8 +6,10 @@
 cbuffer Root : register(b0)
 {
     uint2 gSize;
-    uint gType;      // 0 edge wear, 1 cavity dirt, 2 dust on top, 3 gradient, 4 occlusion, 5 noise, 6 thin parts, 7 full, 8 follows a layer
-    uint gFlags;     // 1 invert, 2 mesh maps bound, 4 source coverage in alpha (paint layer; else red: mask), 8 painted corrections (t4)
+    uint gType;      // 0 edge wear, 1 cavity dirt, 2 dust on top, 3 gradient, 4 occlusion, 5 noise, 6 thin parts, 7 full, 8 follows a layer,
+                     // 9 world normal (color), 10 position (color), 11 curvature (gray around 0.5), 12 edges (convex and concave)
+    uint gFlags;     // 1 invert, 2 mesh maps bound, 4 source coverage in alpha (paint layer; else red: mask), 8 painted corrections (t4),
+                     // 16 raw map: the value itself (a layer's color), no coverage threshold nor noise
     float gAmount;   // 0..1: how much of the surface is covered
     float gContrast; // edge sharpness (1 soft .. 20 hard)
     float gNoise;    // noise breaking the mask (0..1)
@@ -88,7 +90,7 @@ void main(uint3 id : SV_DispatchThreadID)
     if (any(id.xy >= gSize)) return;
     int2 px = int2(id.xy);
     float4 pos = gPos.Load(int3(px, 0));
-    if (pos.a <= 0.0) { gOut[px] = float4(0, 0, 0, 1); return; }
+    if (pos.a <= 0.0) { gOut[px] = (gFlags & 16) ? float4(0, 0, 0, 0) : float4(0, 0, 0, 1); return; }
     float3 n = normalize(gNrm.Load(int3(px, 0)).xyz);
     float2 uv = (float2(px) + 0.5) / float2(gSize);
     float4 maps = (gFlags & 2) ? gMaps.SampleLevel(sLinearClamp, uv, 0) : float4(1, 0, 0, 1);
@@ -111,7 +113,20 @@ void main(uint3 id : SV_DispatchThreadID)
     case 5: base = noise; break;
     case 6: base = 1.0 - maps.a; break;
     case 8: base = Anchor(uv, noise); break;
+    case 11: base = saturate(0.5 + (maps.g - maps.b) * 0.5); break;
+    case 12: base = max(maps.g, maps.b); break;
     default: base = 1.0; break;
+    }
+    if (gFlags & 16)
+    {
+        // Raw mesh map (a layer of its own): colors for the normal and the position, gray for the others.
+        float3 c = base.xxx;
+        if (gType == 9) c = n * 0.5 + 0.5;
+        else if (gType == 10) c = saturate((pos.xyz - gBoundsMin.xyz) / max(gBoundsMax.xyz - gBoundsMin.xyz, 1e-4));
+        else if (gType == 5) c = noise.xxx;
+        if (gFlags & 1) c = 1.0 - c;
+        gOut[px] = float4(SrgbToLinear(c), 1.0);
+        return;
     }
     float v = base + (noise - 0.5) * 2.0 * gNoise;
     float t = 1.0 - gAmount;

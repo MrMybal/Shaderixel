@@ -292,6 +292,14 @@ void App::DrawLayers3DPanel() {
         ImGui::EndPopup();
     }
     ImGui::SameLine();
+    if (ImGui::Button("+ Maillage \xE2\x96\xBE")) ImGui::OpenPopup("##addmesh3d");
+    ui::HelpTooltip("Calques calculés à partir de la forme du modèle : normale, position, occlusion ambiante, courbure,\n"
+                    "détection des bords, creux, épaisseur, dégradé, bruit ; ou le matériau du pinceau masqué par l'un d'eux.");
+    if (ImGui::BeginPopup("##addmesh3d")) {
+        if (DrawMeshOperatorMenu(*v)) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+    ImGui::SameLine();
     if (ImGui::Button("+ Intelligent \xE2\x96\xBE") || std::exchange(smartGridRequest, false)) ImGui::OpenPopup("##addsmart3d");
     ui::HelpTooltip("Matériau intelligent : plusieurs couches dont les masques suivent la forme du modèle\n(usure des arêtes, saleté des creux, poussière, rouille...).");
     if (ImGui::BeginPopup("##addsmart3d")) {

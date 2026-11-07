@@ -340,6 +340,7 @@ public:
         int anchorMode = 0;
         float anchorRadius = 8;
         gpu::Texture* edits = nullptr;  // painted corrections laid over the result
+        bool raw = false;               // the map itself as a color layer (types 0-12), no threshold
     };
     bool MeshGenerate(Document& doc, gpu::CommandContext& ctx, MeshScene& s, Id surface, const MeshGenParams& p);
     // Projected material: `image` projected triplanar on the model into `surface` (shaders/mesh_triplanar.slang).

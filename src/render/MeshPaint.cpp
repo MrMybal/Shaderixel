@@ -697,7 +697,7 @@ bool Renderer::MeshGenerate(Document& doc, gpu::CommandContext& ctx, MeshScene& 
     struct Root {
         u32 w, h, type, flags;
         float amount, contrast, noise, noiseScale, seed, blur, pad[2];
-    } root = {W, H, (u32)p.type, (p.invert ? 1u : 0u) | (s.maps ? 2u : 0u) | (p.sourceAlpha ? 4u : 0u) | (p.edits ? 8u : 0u), p.amount, p.contrast, p.noise, p.noiseScale, p.seed, 0, {0, 0}};
+    } root = {W, H, (u32)p.type, (p.invert ? 1u : 0u) | (s.maps ? 2u : 0u) | (p.sourceAlpha ? 4u : 0u) | (p.edits ? 8u : 0u) | (p.raw ? 16u : 0u), p.amount, p.contrast, p.noise, p.noiseScale, p.seed, 0, {0, 0}};
     struct Gen {
         float4 dir, bmin, bmax, anchor;
     } gen = {{p.dir.x, p.dir.y, p.dir.z, 0}, {s.data.boundsMin.x, s.data.boundsMin.y, s.data.boundsMin.z, 0}, {s.data.boundsMax.x, s.data.boundsMax.y, s.data.boundsMax.z, 0},

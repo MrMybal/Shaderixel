@@ -1432,6 +1432,20 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_MESHOP=<.sx3d>;<type>[;mask]: a mesh operator layer added (Calques 3D > + Maillage), for the captures.
+        char meshOpArg[600] = "";
+        if (GetEnvironmentVariableA("SX_MESHOP", meshOpArg, sizeof(meshOpArg)) > 0) {
+            std::string a = meshOpArg;
+            const size_t c1 = a.find(';');
+            const std::string file = a.substr(0, c1);
+            const int type = atoi(a.c_str() + c1 + 1);
+            const bool mask = a.find(";mask") != std::string::npos;
+            if (frameCounter == 12) LoadSxl(file);
+            DocView* m = Active();
+            if (!m || !m->mesh) return;
+            if (frameCounter == 30) AddMeshMapLayer(*m, type, mask);
+            return;
+        }
         // SX_DUALVIEW=<.sx3d>;3d|2d: the two views of Paint 3D, the brush hovering the 3D view (its footprint shown on the
         // texture) or the texture (shown on the model); for the captures.
         char dualArg[600] = "";

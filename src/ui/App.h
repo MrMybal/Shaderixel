@@ -1983,6 +1983,13 @@ private:
     Id AddBakedLayer(DocView& v, PbrChannel c, const std::string& name, const std::vector<float>& src, int channels, int size);
     void PollMeshMapsBake();
     void UpdateSmartMasks(DocView& v);
+    // Mesh operators (Calques 3D > + Maillage): a paint layer holding a map computed from the model (world normal,
+    // position, occlusion, curvature, edges, cavities, thickness, gradient, noise), or a material masked by it.
+    // Generated once the mesh maps are baked (pending jobs, UpdateSmartMasks).
+    struct MeshMapJob { const DocView* view; Id surface; int type; bool invert; int dir; };
+    std::vector<MeshMapJob> meshMapJobs;
+    void AddMeshMapLayer(DocView& v, int type, bool asMask);
+    bool DrawMeshOperatorMenu(DocView& v);
     void DrawSmartMaskEditor(DocView& v, Id material);
     // Projected materials (Projection.cpp).
     std::map<std::string, gpu::TexturePtr> projImages;  // source -> image

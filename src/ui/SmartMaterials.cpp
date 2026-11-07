@@ -4,6 +4,7 @@
 // materials whose masks follow the shape of the model.
 #include "ui/App.h"
 #include "ui/Theme.h"
+#include "ui/Lang.h"
 #include "render/MeshPaint.h"
 #include "mesh/MeshBake.h"
 
@@ -12,6 +13,7 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 #include <filesystem>
+#include <span>
 #include <fstream>
 #include <sstream>
 
@@ -21,7 +23,7 @@ namespace {
 
 const char* kGenTypes = "Aucun (masque peint)\0Usure des arêtes\0Saleté des creux\0Poussière (dessus)\0Dégradé\0Occlusion\0Bruit\0Parties fines\0Plein\0Suit un calque\0";
 // Types that read the baked mesh maps.
-bool NeedsMaps(int type) { return type == 0 || type == 1 || type == 4 || type == 6; }
+bool NeedsMaps(int type) { return type == 0 || type == 1 || type == 4 || type == 6 || type == 11 || type == 12; }
 
 float3 DirOf(int k) {
     static const float3 d[] = {{0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}};
@@ -139,6 +141,26 @@ void App::UpdateSmartMasks(DocView& v) {
     if (!s.posMap) return;
     if (s.maps && s.mapsForRevision != s.revision) s.maps.reset();  // the geometry or the UVs changed
     Document& d = *v.doc;
+    // Mesh map layers waiting for their pixels.
+    for (size_t i = 0; i < meshMapJobs.size();) {
+        const MeshMapJob j = meshMapJobs[i];
+        if (j.view != &v) { ++i; continue; }
+        if (!d.GetSurface(j.surface)) { meshMapJobs.erase(meshMapJobs.begin() + i); continue; }
+        if (NeedsMaps(j.type) && !s.maps) {
+            if (!mapsBake.running) StartMeshMapsBake(v);
+            ++i;
+            continue;
+        }
+        Renderer::MeshGenParams p;
+        p.type = j.type;
+        p.invert = j.invert;
+        p.raw = true;
+        p.noiseScale = 6;
+        { float3 dd = DirOf(j.dir); p.dir = {dd.x, dd.y, dd.z, 0}; }
+        v.renderer.MeshGenerate(d, *ctx, s, j.surface, p);
+        Log("[meshmap] type %d generated", j.type);
+        meshMapJobs.erase(meshMapJobs.begin() + i);
+    }
     std::set<Id> seen;
     for (auto& l : d.S().layers) {
         if (!l.material || l.generator.empty() || !l.mask || seen.count(l.material)) continue;
@@ -587,6 +609,90 @@ void App::ApplySmartMaterial(DocView& v, const Json& def) {
     v.history.EndGroup();
     if (last) SelectMaterial(*v.doc, last);
     Status("Matériau intelligent « " + def["name"].S() + " » : " + std::to_string(def["layers"].Size()) + " couches");
+}
+
+// ------------------------------------------------------------------ mesh operators
+
+namespace {
+struct MeshOp { int type; const char* name; const char* help; int dir; bool mask; };
+const MeshOp kMeshMaps[] = {
+    {9, "Normale (monde)", "La direction de la surface en couleur (X rouge, Y vert, Z bleu) : repérer les faces, base d'effets directionnels.", 0, false},
+    {10, "Position", "La position de chaque point dans la boîte du modèle en couleur : dégradés, masques par zone.", 0, false},
+    {4, "Occlusion ambiante", "Les zones peu exposées à la lumière ambiante sont sombres (creux, coins, dessous).", 0, false},
+    {11, "Courbure", "Gris moyen sur le plat, clair sur les arêtes bombées, sombre dans les creux.", 0, false},
+    {12, "Détection des bords", "Les arêtes et les plis du modèle en blanc, le reste en noir.", 0, false},
+    {1, "Creux", "Les creux et zones occluses en blanc (saleté, crasse).", 0, false},
+    {6, "Épaisseur", "Les parties fines en sombre, les parties épaisses en clair.", 0, false},
+    {3, "Dégradé haut / bas", "Un dégradé du bas (noir) vers le haut (blanc) du modèle.", 0, false},
+    {5, "Bruit 3D", "Un bruit continu à travers les coutures UV.", 0, false},
+};
+const MeshOp kMeshMasks[] = {
+    {0, "Usure des arêtes", "Matériau du pinceau sur les arêtes bombées (peinture écaillée, métal usé).", 0, true},
+    {1, "Saleté des creux", "Matériau du pinceau dans les creux et zones occluses.", 0, true},
+    {2, "Poussière (dessus)", "Matériau du pinceau sur les faces tournées vers le haut.", 0, true},
+    {4, "Occlusion", "Matériau du pinceau dans les zones peu éclairées.", 0, true},
+    {6, "Parties fines", "Matériau du pinceau sur les parties fines du modèle.", 0, true},
+    {3, "Dégradé", "Matériau du pinceau du bas vers le haut du modèle.", 0, true},
+    {5, "Bruit", "Matériau du pinceau en taches de bruit 3D.", 0, true},
+};
+const MeshOp* FindOp(int type, bool mask) {
+    for (const MeshOp& o : mask ? std::span<const MeshOp>(kMeshMasks) : std::span<const MeshOp>(kMeshMaps))
+        if (o.type == type) return &o;
+    return nullptr;
+}
+}  // namespace
+
+void App::AddMeshMapLayer(DocView& v, int type, bool asMask) {
+    if (!v.mesh) return;
+    Document& d = *v.doc;
+    const MeshOp* op = FindOp(type, asMask);
+    const std::string name = Tr(op ? op->name : "Carte du maillage");
+    if (asMask) {
+        // A material (the brush's values) masked by the smart mask of this kind.
+        const float3 col{fg.x, fg.y, fg.z};
+        const float rough = brush3D.rough, metal = brush3D.metal;
+        Id m = AddMaterialLayerValues(v, name, brush3D.use[(int)PbrChannel::BaseColor] ? &col : nullptr,
+                                      brush3D.use[(int)PbrChannel::Roughness] ? &rough : nullptr,
+                                      brush3D.use[(int)PbrChannel::Metallic] ? &metal : nullptr, nullptr, false);
+        if (!m) return;
+        static const float amounts[] = {0.25f, 0.4f, 0.35f, 0.5f, 0.5f, 0.5f, 0.3f, 1.0f, 0.5f};
+        const Json g = Gen(type, amounts[std::clamp(type, 0, 8)], 5, type == 5 ? 0.0f : 0.3f, 6);
+        Edit e(d, v.history, "Masque intelligent");
+        for (auto& l : d.S().layers) if (l.material == m) l.generator = g.Dump(0);
+        EnsureMaskEdit(d, m);
+        e.Commit();
+        Status(Tr("Matériau masqué ajouté : ") + name);
+        return;
+    }
+    // A paint layer whose color is the map (the other channels left empty): painted over, hidden, blended like any layer.
+    const Id m = AddPaintLayer3D(v, name);
+    Layer* bc = MaterialChannelLayer(d, m, PbrChannel::BaseColor);
+    if (!bc || !bc->surface) return;
+    meshMapJobs.push_back({&v, bc->surface, type, false, 0});
+    if (NeedsMaps(type) && !(v.mesh->maps && v.mesh->mapsForRevision == v.mesh->revision))
+        Status(Tr("Cuisson des cartes du maillage, le calque se remplit ensuite : ") + name);
+    else Status(Tr("Calque ajouté : ") + name);
+}
+
+bool App::DrawMeshOperatorMenu(DocView& v) {
+    bool done = false;
+    auto list = [&](std::span<const MeshOp> ops, bool mask) {
+        for (const MeshOp& o : ops) {
+            ImGui::PushID(o.type + (mask ? 100 : 0));
+            if (ImGui::Selectable(TrC(o.name), false, 0, ImVec2(ImGui::GetFontSize() * 16, 0))) {
+                AddMeshMapLayer(v, o.type, mask);
+                done = true;
+            }
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", TrC(o.help));
+            ImGui::PopID();
+        }
+    };
+    ImGui::SeparatorText("Carte du maillage (nouveau calque)");
+    list(kMeshMaps, false);
+    ImGui::SeparatorText("Matériau du pinceau masqué par");
+    list(kMeshMasks, true);
+    ImGui::TextDisabled("Occlusion, courbure et épaisseur sont cuites une fois\n(quelques secondes), puis réutilisées.");
+    return done;
 }
 
 }  // namespace sx
