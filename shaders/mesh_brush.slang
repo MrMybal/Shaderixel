@@ -20,7 +20,7 @@ cbuffer Root : register(b0)
     uint gMode;         // 0 paint, 1 erase
     uint gFlags;        // 1 has selection, 2 coverage only read, 4 decal, 8 decal color
     float gFacingMin;   // texels seen more edge-on than this (dot(n, v)) are not painted
-    float2 _pad;
+    float gNear, gFar;  // the camera's depth range (perspective: near > 0; orthographic: near < 0)
 };
 
 cbuffer Paint : register(b1)
@@ -56,6 +56,27 @@ float StencilAt(float2 sp)
     float l = gStencil2.w > 0.5 ? saturate((dot(t.rgb, float3(0.2126, 0.7152, 0.0722)) - gStencil3.x) * gStencil3.y + 0.5) : 1.0;
     float v = l * t.a;
     return gStencil2.z > 0.5 ? 1.0 - v : v;
+}
+
+// A depth of the [0, 1] buffer as a distance along the view (world units): perspective (D3D, left-handed) or
+// orthographic.
+float LinearDepth(float z)
+{
+    if (gNear > 0.0) return gNear * gFar / max(gFar - z * (gFar - gNear), 1e-6);
+    return gNear + z * (gFar - gNear);
+}
+
+// Is a surface point at depth `z` the one seen at its pixel (depth `scene`)? Compared as distances: the [0, 1]
+// depth is very non-linear (near plane 0.02), a fixed tolerance on it covers several centimetres further away and
+// painted through thin walls (the inside of a mug, a handle behind). The tolerance grows with the distance and
+// when the surface is seen edge-on (one depth sample per pixel).
+bool Visible(float z, float scene, float facing)
+{
+    if (scene < 0.0) return false;
+    const float d = LinearDepth(z), s = LinearDepth(scene);
+    const float range = gNear > 0.0 ? d : 1.0;
+    const float bias = range * (0.0015 + 0.006 * saturate(1.0 - facing)) + 1e-4;
+    return d <= s + bias;
 }
 
 float TipCoverage(float2 rel, float r, float4 ex)
@@ -141,7 +162,7 @@ void main(uint3 id : SV_DispatchThreadID)
     float3 v = normalize(gCamPos.xyz - pos.xyz);
     float facing = dot(n, v);
     const float fmin = gFacingMin;
-    float facingW = (onScreen && ndc.z <= scene + 0.0015 && facing > fmin) ? saturate((facing - fmin) * 4.0) : 0.0;
+    float facingW = (onScreen && Visible(ndc.z, scene, facing) && facing > fmin) ? saturate((facing - fmin) * 4.0) : 0.0;
     const uint symFlags = gFlags & (16u | 64u | 128u);
     if (facingW <= 0.0 && symFlags == 0) return;
 
@@ -157,11 +178,11 @@ void main(uint3 id : SV_DispatchThreadID)
         {
             float3 nm = cm.xyz / cm.w;
             float2 s2 = float2(nm.x * 0.5 + 0.5, 0.5 - nm.y * 0.5) * float2(gViewSize);
-            if (all(s2 >= 0.0) && all(s2 < float2(gViewSize)) && nm.z <= gDepth.Load(int3(int2(s2), 0)) + 0.0015)
+            if (all(s2 >= 0.0) && all(s2 < float2(gViewSize)))
             {
                 float3 nrm = normalize(gNrmMap.Load(int3(px, 0)).xyz);
                 float f = dot(normalize(nrm * mirror), normalize(gCamPos.xyz - pm));
-                if (f > fmin) { spm = s2; facingM = saturate((f - fmin) * 4.0); }
+                if (f > fmin && Visible(nm.z, gDepth.Load(int3(int2(s2), 0)), f)) { spm = s2; facingM = saturate((f - fmin) * 4.0); }
             }
         }
     }

@@ -18,7 +18,7 @@ void MeshScene::UpdateCamera(float aspect) {
     camPos = target + float3{std::cos(pitch) * std::sin(yaw), std::sin(pitch), -std::cos(pitch) * std::cos(yaw)} * distance;
     Mat4 view = Mat4::LookAtLH(camPos, target, {0, 1, 0});
     const float hh = OrthoHalfHeight();
-    Mat4 proj = ortho ? Mat4::OrthoLH(hh * std::max(aspect, 0.01f), hh, -100.0f, 200.0f) : Mat4::PerspectiveLH(fov, std::max(aspect, 0.01f), 0.02f, 200.0f);
+    Mat4 proj = ortho ? Mat4::OrthoLH(hh * std::max(aspect, 0.01f), hh, kOrthoNear, kOrthoFar) : Mat4::PerspectiveLH(fov, std::max(aspect, 0.01f), kNear, kFar);
     viewProj = proj * view;
 }
 
@@ -67,7 +67,7 @@ struct BrushRootM {
     float hardness, opacity;
     u32 mode, flags;
     float facingMin;
-    float pad[2];
+    float zNear, zFar;  // the camera's depth range (orthographic: near < 0), see MeshScene::UpdateCamera
 };
 }  // namespace
 
@@ -403,7 +403,8 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
         d.uav[0] = sf->tex.get();
         d.uav[1] = strokeMask.get();
         BrushRootM root = {W, H, s.depth->Width(), s.depth->Height(), (u32)count, b.hardness, b.opacity, erase ? 1u : 0u, (sel ? 1u : 0u) | extraFlags,
-                           std::clamp(meshFacingMin, -0.5f, 0.95f), {0, 0}};
+                           std::clamp(meshFacingMin, -0.5f, 0.95f), s.ortho ? MeshScene::kOrthoNear : MeshScene::kNear,
+                           s.ortho ? MeshScene::kOrthoFar : MeshScene::kFar};
         memcpy(d.constants, &root, sizeof(root));
         d.numConstants = sizeof(root) / 4;
         d.cbData = &cb;

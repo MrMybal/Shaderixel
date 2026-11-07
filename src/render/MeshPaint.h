@@ -41,6 +41,8 @@ struct MeshScene {
     u32 revision = 0;  // bumped when the geometry or UVs change (render scene)
     gpu::TexturePtr color, depth;                     // viewport
     float yaw = 0.7f, pitch = 0.35f, distance = 2.8f, fov = 0.8f;
+    // Depth ranges of the camera (the 3D brush turns its depth back into distances).
+    static constexpr float kNear = 0.02f, kFar = 200.0f, kOrthoNear = -100.0f, kOrthoFar = 200.0f;
     bool ortho = false;  // orthographic projection: the view's height is what the perspective shows at the target
     float OrthoHalfHeight() const { return distance * std::tan(fov * 0.5f); }
     // Eye for view-dependent shading: far along the view axis when orthographic (parallel view direction).

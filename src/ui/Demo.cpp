@@ -1371,6 +1371,65 @@ void App::DemoTick() {
         }
         // SX_SMARTG: two rectangles on their own layers; the first dragged with the move tool (synthetic events) to
         // 2.5 px from the second's left edge: the smart guides snap it onto it. Exported (SX_OUT).
+        // SX_THROUGH=<mug .sx3d>: the example mug seen from -X (its handle, on +X, hidden behind the body), a 3D brush
+        // stroke across the whole body; the texels painted beyond the body's radius (the handle) are counted: the brush
+        // must not paint through the walls (expected 0).
+        char throughFile[512] = "";
+        if (GetEnvironmentVariableA("SX_THROUGH", throughFile, sizeof(throughFile)) > 0) {
+            static gpu::ReadbackPtr before, after, pos;
+            static std::vector<Id> targets;
+            if (frameCounter == 12) Log("[through] loaded %d", LoadSxl(throughFile) ? 1 : 0);
+            DocView* m = Active();
+            if (!m || !m->mesh) return;
+            MeshScene& s = *m->mesh;
+            Document& md = *m->doc;
+            if (frameCounter == 20) {
+                FocusPanel("Vue 3D");
+                s.yaw = -1.5707963f;  // camera on -X
+                s.pitch = 0.05f;
+                s.distance = GetEnvironmentVariableA("SX_DIST", nullptr, 0) > 0 ? 5.0f : 2.2f;
+            }
+            if (frameCounter == 30 && s.depth && s.posMap) {
+                std::vector<float4> colors;
+                targets = Paint3DTargets(*m, colors);
+                if (!targets.empty())
+                    if (Surface* t = md.GetSurface(targets[0])) before = ctx->ReadbackTexture(t->tex.get());
+                pos = ctx->ReadbackTexture(s.posMap.get());
+                if (m->renderer.BeginStrokeMulti(md, *ctx, targets)) {
+                    std::vector<Dab> dabs;
+                    const float W = (float)s.depth->Width(), H = (float)s.depth->Height();
+                    for (int row = 0; row < 7; ++row)
+                        for (int i = 0; i <= 200; ++i) dabs.push_back({W * (0.1f + 0.8f * i / 200.0f), H * (0.2f + 0.1f * row), H * 0.05f, 1});
+                    BrushSettings b = brush;
+                    b.hardness = 0.8f;
+                    m->renderer.MeshStrokeDabsMulti(md, *ctx, s, dabs, b, colors, false);
+                    m->renderer.EndStrokeMulti(md, *ctx, m->history, "Peinture 3D");
+                }
+            }
+            if (frameCounter == 36 && !targets.empty())
+                if (Surface* t = md.GetSurface(targets[0])) after = ctx->ReadbackTexture(t->tex.get());
+            if (before && after && pos && before->ready && after->ready && pos->ready) {
+                const u32 W = pos->width, H = pos->height;
+                const float* P = (const float*)pos->data.data();
+                float xmax = 0;
+                for (size_t i = 0; i < (size_t)W * H; ++i)
+                    if (P[i * 4 + 3] > 0) xmax = std::max(xmax, P[i * 4]);
+                const float body = xmax * (0.45f / 0.636f);  // (the mug: body radius 0.43, handle up to 0.636)
+                const size_t bpp = before->data.size() / ((size_t)before->width * before->height);
+                size_t painted = 0, handle = 0;
+                if (after->width == W && after->height == H && before->data.size() == after->data.size())
+                    for (size_t i = 0; i < (size_t)W * H; ++i) {
+                        if (P[i * 4 + 3] <= 0 || !memcmp(&before->data[i * bpp], &after->data[i * bpp], bpp)) continue;
+                        ++painted;
+                        handle += P[i * 4] > body;
+                    }
+                Log("[through] painted %zu texels, %zu on the hidden handle (expected 0), model x max %.3f", painted, handle, xmax);
+                before.reset();
+                after.reset();
+                pos.reset();
+            }
+            return;
+        }
         // SX_OPEN3D=<file>: a Paint 3D project opened from the image document (workspace switch), logged.
         char open3d[512] = "";
         if (GetEnvironmentVariableA("SX_OPEN3D", open3d, sizeof(open3d)) > 0) {
