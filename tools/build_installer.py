@@ -14,6 +14,7 @@ import subprocess
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'.CyDocBuild'))
 from build_manual import copy_manual, validate_generated
+from package_readme import copy_readme
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTENT_DIRS = (
@@ -88,8 +89,8 @@ def main():
         current = ROOT / 'build/Release/plugins' / plugin.relative_to(stage / 'plugins')
         if current.is_file():
             shutil.copy2(current, plugin)
-    for filename in ('README.md', 'LICENSE'):
-        shutil.copy2(ROOT / filename, stage / filename)
+    copy_readme(stage)
+    shutil.copy2(ROOT / 'LICENSE', stage / 'LICENSE')
     shutil.copy2(ROOT / 'docs/PRESETS.md', stage / 'PRESETS.md')
     copy_manual(stage)
     shutil.copytree(ROOT / 'docs/screenshots', stage / 'docs/screenshots')

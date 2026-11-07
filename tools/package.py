@@ -21,6 +21,7 @@ import zipfile
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]/'.CyDocBuild'))
 from build_manual import copy_manual, validate_generated
+from package_readme import copy_readme
 
 # Demo captures start minimized without taking the focus (the PC stays usable meanwhile).
 _run = subprocess.run
@@ -421,7 +422,7 @@ def main():
     for f in os.listdir(BUILD):
         if f.lower().endswith(('.exe', '.dll')):
             shutil.copy2(os.path.join(BUILD, f), dist)
-    shutil.copy2(os.path.join(ROOT, 'README.md'), os.path.join(dist, 'README.md'))
+    copy_readme(dist)
     copy_manual(dist)
     shutil.copytree(os.path.join(ROOT, 'docs', 'screenshots'), os.path.join(dist, 'docs', 'screenshots'))
     # Reviewed UI guides and self-contained documents, with package-relative links.
