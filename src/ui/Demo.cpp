@@ -1539,6 +1539,8 @@ void App::DemoTick() {
                 brush.hardness = 0.8f;
                 brush3D.normalProject = on;
                 brush3D.tip = false;
+                char tipId[64] = "";
+                if (GetEnvironmentVariableA("SX_PERFTIP", tipId, sizeof(tipId)) > 0) { SelectTip(brush, tipId); brush3D.tip = true; }
                 m->mesh->yaw = 0.0f;
                 m->mesh->pitch = 0.0f;
                 m->mesh->distance = 2.2f;

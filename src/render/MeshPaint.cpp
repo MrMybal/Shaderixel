@@ -414,6 +414,39 @@ gpu::ReadbackPtr Renderer::MeshCursorFrame(gpu::CommandContext& ctx, MeshScene& 
     return ctx.ReadbackTexture(meshFrames.get(), &col);
 }
 
+gpu::Texture* Renderer::MeshCursorPreview(gpu::CommandContext& ctx, MeshScene& s, float2 p, float r, float hardness, float angle,
+                                          float4 colorSrgb, bool alongNormal) {
+    auto* k = Kernel("mesh_cursor_preview.slang");
+    if (!k || !s.depth) return nullptr;
+    const u32 W = s.depth->Width(), H = s.depth->Height();
+    if (alongNormal && !MeshDabFrames(ctx, s, {float4{p.x, p.y, r, 1}})) alongNormal = false;
+    Ensure(meshCursorPreview, W, H, gpu::Format::RGBA8, "MeshCursorPreview");
+    struct FrameCB { float inv[16]; float4 color; };
+    static FrameCB cb;
+    if (!Inverse4(s.viewProj.m[0], cb.inv)) alongNormal = false;
+    cb.color = colorSrgb;
+    const bool tip = meshTipOn && meshTipAtlas;
+    struct Root {
+        u32 w, h;
+        float cx, cy, r, hardness;
+        u32 flags;
+        float extent, variants, c, s, pad;
+    } root{W, H, p.x, p.y, r, hardness, (alongNormal ? 1u : 0u) | (tip ? 2u : 0u), meshTipExtent, (float)meshTipVariants,
+           std::cos(angle), std::sin(angle), 0};
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = s.depth.get();
+    d.srv[1] = alongNormal ? meshFrames.get() : nullptr;
+    d.srv[2] = tip ? meshTipAtlas.get() : nullptr;
+    d.uav[0] = meshCursorPreview.get();
+    memcpy(d.constants, &root, sizeof(root));
+    d.numConstants = sizeof(root) / 4;
+    d.cbData = &cb;
+    d.cbSize = sizeof(cb);
+    Dispatch2D(ctx, d, W, H);
+    return meshCursorPreview.get();
+}
+
 void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
                               float4 color, bool erase, u32 extraFlags, gpu::Texture* decal, const std::vector<float4>* dabEx) {
     if (!strokeSurface || dabs.empty() || !s.posMap || !s.depth) {

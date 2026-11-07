@@ -300,6 +300,11 @@ public:
     gpu::TexturePtr meshFrames;
     bool MeshDabFrames(gpu::CommandContext& ctx, MeshScene& s, const std::vector<float4>& dabs);
     gpu::ReadbackPtr MeshCursorFrame(gpu::CommandContext& ctx, MeshScene& s, float2 p, float r);
+    // The dab under the cursor drawn on the model (view-sized overlay, straight color): the tip's shape (meshTipOn) or
+    // the round one, along the average normal or from the camera (mesh_cursor_preview.slang).
+    gpu::TexturePtr meshCursorPreview;
+    gpu::Texture* MeshCursorPreview(gpu::CommandContext& ctx, MeshScene& s, float2 p, float r, float hardness, float angle, float4 colorSrgb,
+                                    bool alongNormal);
     void MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
                              const std::vector<float4>& colorsLinear, bool erase, const std::vector<float4>* dabEx = nullptr);  // dabEx: cos, sin, tip variant
     int meshSymmetry = 0;        // 3D strokes mirrored across the model's axis: 0 none, 1 X, 2 Y, 3 Z

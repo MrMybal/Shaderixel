@@ -580,6 +580,15 @@ void App::DrawView3D() {
     if (hovered && paintTool && !orbit) {
         const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
         float r = std::max(b.size * 0.5f, 1.0f);
+        // The dab drawn on the model under the cursor: the tip's real shape in the paint color, laid on the surface
+        // (along the average normal when that mode is on), before painting.
+        if (!meshStroking) setupTip(b);
+        {
+            const float4 col = tool == Tool::Eraser ? float4{1, 1, 1, 0.45f} : float4{fg.x, fg.y, fg.z, 0.55f};
+            if (gpu::Texture* ov = v->renderer.MeshCursorPreview(*ctx, s, local(io.MousePos.x, io.MousePos.y), r, b.hardness,
+                                                                 brush3D.angle * 0.0174533f, col, brush3D.normalProject))
+                dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(ov), origin, ImVec2(origin.x + w, origin.y + h));
+        }
         bool oriented = false;
         if (brush3D.normalProject) {
             // The plane under the cursor (read back a frame later): the brush disc drawn on it, and its normal.
