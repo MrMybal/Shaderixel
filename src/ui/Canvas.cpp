@@ -109,28 +109,12 @@ void App::DrawToolbar() {
     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4 * dpi, 3 * dpi));
     if (ImGui::Begin("Outils", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar)) {
         float size = std::min(ImGui::GetContentRegionAvail().x, 38.0f * dpi);
-        // 3D view: the painting tools that work on the model; canvas: every image tool (whatever the project).
-        const bool p3d = Use3DTools();
+        // Every image tool, whichever view is worked in: the brush and the eraser paint in the texture (2D view) and on the
+        // model (3D view) alike. The tools that only work on the model are in the 3D view's paint bar.
         auto only3D = [](Tool t) { return t == Tool::Projection || t == Tool::PolyFill || t == Tool::Particles; };
-        auto allowed3D = [](Tool t) {
-            return t == Tool::Brush || t == Tool::Eraser || t == Tool::Projection || t == Tool::PolyFill || t == Tool::Particles || t == Tool::Fluid || t == Tool::Clone || t == Tool::Blur || t == Tool::Picker ||
-                   t == Tool::Hand || t == Tool::Zoom || t == Tool::Lasso || t == Tool::RectSelect || t == Tool::Plugin;
-        };
-        {
-            // Each view keeps its own tool: switching views brings back the last one used there.
-            static int lastView = -1;
-            const int cur = p3d ? 1 : 0;
-            if (lastView >= 0 && lastView != cur) {
-                viewTool[lastView] = tool;
-                tool = viewTool[cur];
-            }
-            if (cur == 1 && !allowed3D(tool)) tool = Tool::Brush;
-            if (cur == 0 && only3D(tool)) tool = Tool::Brush;
-            lastView = cur;
-        }
         for (size_t g = 0; g < kGroups.size(); ++g) {
             const auto& group = kGroups[g];
-            if (p3d ? !allowed3D(group[0]) : only3D(group[0])) continue;
+            if (only3D(group[0])) continue;
             if (g == 1 || g == 5 || g == 17) {  // separators before transform, brushes, gradients
                 ImVec2 c = ImGui::GetCursorScreenPos();
                 ImGui::GetWindowDrawList()->AddLine(ImVec2(c.x + 4, c.y + 1), ImVec2(c.x + size - 4, c.y + 1), cyui::palette().line);
@@ -380,6 +364,19 @@ void App::DrawCanvas() {
         ImGui::SetCursorScreenPos(ImVec2(canvasMin.x + 8 * dpi, canvasMin.y + 8 * dpi));
         if (ui::IconButton("##uvwire", ui::IconUV, showUvWire, 28 * dpi, TrC("Afficher le fil des UV du modèle sur la texture")))
             showUvWire = !showUvWire;
+        ImGui::SetCursorScreenPos(keep);
+    } else if (doc.kind != 1 && IsPaintTool(tool)) {
+        // Painting symmetry within reach (mirror, radial, mandala), its axes drawn on the canvas.
+        const ImVec2 keep = ImGui::GetCursorScreenPos();
+        ImGui::SetCursorScreenPos(ImVec2(canvasMin.x + 8 * dpi, canvasMin.y + 8 * dpi));
+        if (ui::IconButton("##sym2d", ui::IconSymmetry, paintSym.mode != 0, 28 * dpi,
+                           TrC("Symétrie de peinture : miroir, deux axes, radiale, mandala (clic : réglages)")))
+            ImGui::OpenPopup("##sym2dpop");
+        if (ImGui::BeginPopup("##sym2dpop")) {
+            ImGui::SetNextItemWidth(180 * dpi);
+            SymmetryOptions(doc);
+            ImGui::EndPopup();
+        }
         ImGui::SetCursorScreenPos(keep);
     }
     for (size_t i = 0; i < analysis.samplers.size(); ++i) {

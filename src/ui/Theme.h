@@ -23,6 +23,8 @@ enum Icon { IconBrush, IconEraser, IconPicker, IconHand, IconZoom, IconGradient,
             IconStamp, IconHeal, IconDrop, IconSharpen, IconFinger, IconDodge, IconBurn, IconSponge, IconFolder, IconCrop, IconText, IconShape, IconLiquify, IconQuickSelect, IconPen, IconTransform, IconTrim, IconParticles, IconPolyFill, IconFluid, IconLink,
             // 3D view header
             IconSphere, IconCube, IconPlane, IconOpenMesh, IconUV, IconRecenter, IconBake, IconExport, IconEnvironment,
-            IconRenderSettings, IconTurntable, IconWireframe, IconOrtho, IconViews };
+            IconRenderSettings, IconTurntable, IconWireframe, IconOrtho, IconViews,
+            // 3D painting bar
+            IconSymmetry, IconNormal };
 
 }  // namespace sx::ui

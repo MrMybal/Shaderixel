@@ -1461,6 +1461,7 @@ void App::DemoTick() {
                 brush.size = over3d ? 90 : 160;
                 brush.hardness = 0.6f;
                 SelectTip(brush, "");
+                if (const char* sy = getenv("SX_SYM")) m->renderer.meshSymmetry = atoi(sy);
             }
             if (frameCounter >= 50) {
                 if (ImGuiWindow* w = ImGui::FindWindowByName(over3d ? "Vue 3D" : "Canevas")) {

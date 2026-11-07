@@ -1047,5 +1047,21 @@
  "Cuisson des cartes du maillage, le calque se remplit ensuite : ": "Baking the mesh maps, the layer fills afterwards: ",
  "Calque ajouté : ": "Layer added: ",
  "+ Maillage ▾": "+ Mesh ▾",
- "Calques calculés à partir de la forme du modèle : normale, position, occlusion ambiante, courbure,\ndétection des bords, creux, épaisseur, dégradé, bruit ; ou le matériau du pinceau masqué par l'un d'eux.": "Layers computed from the model's shape: normal, position, ambient occlusion, curvature,\nedge detection, cavities, thickness, gradient, noise; or the brush material masked by one of them."
+ "Calques calculés à partir de la forme du modèle : normale, position, occlusion ambiante, courbure,\ndétection des bords, creux, épaisseur, dégradé, bruit ; ou le matériau du pinceau masqué par l'un d'eux.": "Layers computed from the model's shape: normal, position, ambient occlusion, curvature,\nedge detection, cavities, thickness, gradient, noise; or the brush material masked by one of them.",
+ "Pinceau (B) : peint le matériau sur le modèle": "Brush (B): paints the material on the model",
+ "Gomme (E) : efface la peinture du calque": "Eraser (E): erases the layer's paint",
+ "Remplir : triangle, face, île UV ou pièce sous le curseur": "Fill: triangle, face, UV island or part under the cursor",
+ "Décalque (P) : pose une image sur le modèle": "Decal (P): places an image on the model",
+ "Particules : gouttes, poussière, éclaboussures qui peignent où elles passent": "Particles: drops, dust, splashes that paint wherever they go",
+ "Peinture liquide : coule avec la gravité": "Liquid paint: runs with gravity",
+ "Pipette (I)": "Eyedropper (I)",
+ "Symétrie : chaque trait est aussi peint de l'autre côté du modèle (clic : choisir l'axe)": "Symmetry: every stroke is also painted on the other side of the model (click: choose the axis)",
+ "Aucune": "None",
+ "Axe X (gauche / droite)": "X axis (left / right)",
+ "Axe Y (haut / bas)": "Y axis (top / bottom)",
+ "Axe Z (avant / arrière)": "Z axis (front / back)",
+ "Projection selon la normale moyenne : la touche est posée à plat sur la surface sous le pinceau\n(marques rondes sur les surfaces vues de biais)": "Projection along the average normal: the dab is laid flat on the surface under the brush\n(round marks on surfaces seen at a grazing angle)",
+ "Taille %.0f px": "Size %.0f px",
+ "Flux %.2f": "Flow %.2f",
+ "Symétrie de peinture : miroir, deux axes, radiale, mandala (clic : réglages)": "Painting symmetry: mirror, two axes, radial, mandala (click: settings)"
 }

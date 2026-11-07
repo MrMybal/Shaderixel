@@ -238,6 +238,21 @@ void DrawIcon(ImDrawList* dl, int icon, ImVec2 c, float s, ImU32 col) {
             dl->AddLine(P(0.35f, -0.4f), P(0.8f, -0.85f), col, t * 0.7f);
             dl->AddLine(P(0.35f, 0.8f), P(0.8f, 0.35f), col, t * 0.7f);
             break;
+        case IconSymmetry: {
+            // A dashed mirror axis, a shape and its mirror image.
+            for (int i = 0; i < 4; ++i) dl->AddLine(P(0, -0.95f + i * 0.5f), P(0, -0.7f + i * 0.5f), col, t);
+            dl->AddTriangleFilled(P(-0.2f, -0.5f), P(-0.85f, 0.15f), P(-0.2f, 0.6f), col);
+            dl->AddTriangle(P(0.2f, -0.5f), P(0.85f, 0.15f), P(0.2f, 0.6f), col, t);
+            break;
+        }
+        case IconNormal: {
+            // A surface (arc) with the arrow of its normal.
+            dl->PathArcTo(P(0, 1.6f), (P(1, 0).x - P(0, 0).x) * 1.25f, -2.35f, -0.79f);
+            dl->PathStroke(col, 0, t * 1.4f);
+            dl->AddLine(P(0, 0.35f), P(0, -0.75f), col, t * 1.4f);
+            dl->AddTriangleFilled(P(0, -0.95f), P(-0.28f, -0.55f), P(0.28f, -0.55f), col);
+            break;
+        }
         case IconLink: {
             // Two chain links, slanted.
             const float k = P(1, 0).x - P(0, 0).x;

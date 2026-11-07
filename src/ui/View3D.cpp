@@ -221,6 +221,64 @@ void App::DrawView3D() {
         ImGui::TextDisabled("(?)");
         ui::HelpTooltip("Clic droit / Alt+clic : orbite   Molette : zoom   Clic molette : déplacer\nMaj + clic droit : tourner l'éclairage (HDRI et lumières)\nPinceau / gomme : peindre sur le modèle");
     }
+    if (v->mesh) {
+        // 3D paint bar: the tools that paint on the model, and the stroke options shown on it.
+        ImGui::SetCursorPos(ImVec2(rowX, ImGui::GetCursorPosY() + 3 * dpi));
+        first = true;
+        const ImVec2 barMin = ImGui::GetCursorScreenPos();
+        ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(barMin.x - 6 * dpi, barMin.y - 3 * dpi),
+                                                  ImVec2(barMin.x + ImGui::GetContentRegionAvail().x - 2 * dpi, barMin.y + ib + 3 * dpi),
+                                                  ImGui::GetColorU32(ImGuiCol_FrameBg, 0.6f), 5 * dpi);
+        struct T3 { Tool t; int icon; const char* tip; };
+        static const T3 tools3d[] = {
+            {Tool::Brush, ui::IconBrush, "Pinceau (B) : peint le matériau sur le modèle"},
+            {Tool::Eraser, ui::IconEraser, "Gomme (E) : efface la peinture du calque"},
+            {Tool::PolyFill, ui::IconPolyFill, "Remplir : triangle, face, île UV ou pièce sous le curseur"},
+            {Tool::Projection, ui::IconStamp, "Décalque (P) : pose une image sur le modèle"},
+            {Tool::Particles, ui::IconParticles, "Particules : gouttes, poussière, éclaboussures qui peignent où elles passent"},
+            {Tool::Fluid, ui::IconFluid, "Peinture liquide : coule avec la gravité"},
+            {Tool::Picker, ui::IconPicker, "Pipette (I)"},
+        };
+        for (const T3& t3 : tools3d) {
+            char id[16];
+            snprintf(id, sizeof(id), "p3d%d", (int)t3.t);
+            if (icon(id, t3.icon, TrC(t3.tip), tool == t3.t)) {
+                tool = t3.t;
+                viewTool[1] = t3.t;
+                workView = 1;
+            }
+        }
+        flow(8 * dpi);
+        ImGui::Dummy(ImVec2(6 * dpi, ib));
+        int& sym = v->renderer.meshSymmetry;
+        if (icon("sym3d", ui::IconSymmetry, TrC("Symétrie : chaque trait est aussi peint de l'autre côté du modèle (clic : choisir l'axe)"), sym != 0))
+            ImGui::OpenPopup("##sym3d");
+        if (sym != 0) {
+            static const char* axes[] = {"", "X", "Y", "Z"};
+            flow(ImGui::CalcTextSize("X").x + 4 * dpi);
+            ImGui::TextUnformatted(axes[std::clamp(sym, 0, 3)]);
+        }
+        if (ImGui::BeginPopup("##sym3d")) {
+            static const char* names[] = {"Aucune", "Axe X (gauche / droite)", "Axe Y (haut / bas)", "Axe Z (avant / arrière)"};
+            for (int k = 0; k < 4; ++k)
+                if (ImGui::Selectable(TrC(names[k]), sym == k)) sym = k;
+            ImGui::EndPopup();
+        }
+        if (icon("normal3d", ui::IconNormal,
+                 TrC("Projection selon la normale moyenne : la touche est posée à plat sur la surface sous le pinceau\n(marques rondes sur les surfaces vues de biais)"),
+                 brush3D.normalProject))
+            brush3D.normalProject = !brush3D.normalProject;
+        if (icon("uvwire3d", ui::IconUV, TrC("Afficher le fil des UV du modèle sur la texture"), showUvWire)) showUvWire = !showUvWire;
+        {
+            BrushSettings& bs = tool == Tool::Eraser ? eraser : brush;
+            flow(150 * dpi);
+            ImGui::SetNextItemWidth(150 * dpi);
+            ImGui::SliderFloat("##size3d", &bs.size, 1, 600, TrC("Taille %.0f px"), ImGuiSliderFlags_Logarithmic);
+            flow(110 * dpi);
+            ImGui::SetNextItemWidth(110 * dpi);
+            ImGui::SliderFloat("##flow3d", &bs.flow, 0.01f, 1, TrC("Flux %.2f"));
+        }
+    }
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4 * dpi);
     ImVec2 origin = ImGui::GetCursorScreenPos();
     ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -577,6 +635,29 @@ void App::DrawView3D() {
         dl->PopClipRect();
     }
     if (tool == Tool::PolyFill && polyHover >= 0) DrawPolyHighlight(s, polyHover, origin, w, h);
+    if (const int sym = v->renderer.meshSymmetry; sym >= 1 && sym <= 3) {
+        // The mirror plane of the symmetry (object axis through the origin), across the model's box.
+        const float3 lo = s.data.boundsMin * 1.08f, hi = s.data.boundsMax * 1.08f;
+        float3 c[4];
+        if (sym == 1) c[0] = {0, lo.y, lo.z}, c[1] = {0, hi.y, lo.z}, c[2] = {0, hi.y, hi.z}, c[3] = {0, lo.y, hi.z};
+        else if (sym == 2) c[0] = {lo.x, 0, lo.z}, c[1] = {hi.x, 0, lo.z}, c[2] = {hi.x, 0, hi.z}, c[3] = {lo.x, 0, hi.z};
+        else c[0] = {lo.x, lo.y, 0}, c[1] = {hi.x, lo.y, 0}, c[2] = {hi.x, hi.y, 0}, c[3] = {lo.x, hi.y, 0};
+        ImVec2 q[4];
+        bool ok = true;
+        for (int i = 0; i < 4 && ok; ++i) {
+            float z = 0;
+            const float2 p = ViewPoint(s.viewProj, c[i], w, h, &z);
+            ok = z < 1e29f;
+            q[i] = ImVec2(origin.x + p.x, origin.y + p.y);
+        }
+        if (ok) {
+            const ImU32 col = sym == 1 ? IM_COL32(255, 90, 90, 255) : sym == 2 ? IM_COL32(110, 230, 110, 255) : IM_COL32(100, 150, 255, 255);
+            dl->PushClipRect(origin, ImVec2(origin.x + w, origin.y + h), true);
+            dl->AddQuadFilled(q[0], q[1], q[2], q[3], (col & 0x00FFFFFF) | 0x18000000);
+            dl->AddPolyline(q, 4, (col & 0x00FFFFFF) | 0xB0000000, ImDrawFlags_Closed, 1.5f);
+            dl->PopClipRect();
+        }
+    }
     // The brush hovering the texture (2D view): where it paints on the model.
     if (!hovered && cursor2D.view == v && cursor2D.frame >= ImGui::GetFrameCount() - 1) {
         const float4 col = cursor2D.eraser ? float4{1, 1, 1, 0.5f} : float4{fg.x, fg.y, fg.z, 0.6f};
