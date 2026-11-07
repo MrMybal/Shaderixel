@@ -303,6 +303,13 @@ public:
     // The dab under the cursor drawn on the model (view-sized overlay, straight color): the tip's shape (meshTipOn) or
     // the round one, along the average normal or from the camera (mesh_cursor_preview.slang).
     gpu::TexturePtr meshCursorPreview;
+    // Two views: the 3D brush's footprint on the texture (document-sized overlay, mesh_uv_cursor.slang), and the 2D
+    // brush's footprint on the model (view-sized overlay, mesh_view_cursor.slang; center and radius in document pixels).
+    gpu::TexturePtr meshUvCursor, meshViewCursor;
+    gpu::Texture* MeshUvCursor(gpu::CommandContext& ctx, MeshScene& s, u32 docW, u32 docH, float2 p, float r, float hardness,
+                               float angle, float4 color, bool alongNormal);
+    gpu::Texture* MeshViewCursor(gpu::CommandContext& ctx, MeshScene& s, u32 docW, u32 docH, float2 center, float r, float hardness,
+                                 float4 color);
     gpu::Texture* MeshCursorPreview(gpu::CommandContext& ctx, MeshScene& s, float2 p, float r, float hardness, float angle, float4 colorSrgb,
                                     bool alongNormal);
     void MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,

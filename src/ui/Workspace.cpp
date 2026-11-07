@@ -105,8 +105,11 @@ void App::BuildDockLayout(ImGuiID dock) {
     const bool p3d = layoutKind == 1;
     if (p3d) {
         // Paint 3D: the model first, the texture (UV) next to it; materials shelf at the bottom.
+        // The model and its texture side by side: the brush over one is shown in the other.
+        ImGuiID uvSide = 0;
+        ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, 0.45f, &uvSide, &center);
         ImGui::DockBuilderDockWindow("Vue 3D", center);
-        ImGui::DockBuilderDockWindow("Canevas", center);
+        ImGui::DockBuilderDockWindow("Canevas", uvSide);
         ImGui::DockBuilderDockWindow("Rendu", center);
         ImGui::DockBuilderDockWindow("Éditeur d'effets", center);
         ImGui::DockBuilderDockWindow("Matériaux", bottomLeft);
@@ -312,7 +315,16 @@ void App::MigrateLayout() {
         ImGuiWindow* w = ImGui::FindWindowByName(window);
         return w && w->DockId && ImGui::DockBuilderGetNode(w->DockId) ? w->DockId : 0;
     };
-    const ImGuiID center = nodeOf("Canevas") ? nodeOf("Canevas") : nodeOf("Vue 3D");
+    if (layoutMigration < 8 && layoutKind == 1 && nodeOf("Canevas") && nodeOf("Canevas") == nodeOf("Vue 3D")) {
+        // Paint 3D saved with the model and the texture as tabs: side by side now.
+        ImGuiID uvSide = 0, rest = 0;
+        ImGui::DockBuilderSplitNode(nodeOf("Vue 3D"), ImGuiDir_Right, 0.45f, &uvSide, &rest);
+        ImGui::DockBuilderDockWindow("Canevas", uvSide);
+        ImGuiDockNode* root = ImGui::DockBuilderGetNode(rest);
+        while (root && root->ParentNode) root = root->ParentNode;
+        if (root) ImGui::DockBuilderFinish(root->ID);
+    }
+    const ImGuiID center = nodeOf("Vue 3D") && layoutKind == 1 ? nodeOf("Vue 3D") : nodeOf("Canevas") ? nodeOf("Canevas") : nodeOf("Vue 3D");
     const ImGuiID bottom = nodeOf("Graphe") ? nodeOf("Graphe") : nodeOf("Calques");
     if (layoutMigration < 7) {
         if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(SideTabDock(4))) {

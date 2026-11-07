@@ -2,8 +2,10 @@
 #include "ui/App.h"
 #include "doc/Brushes.h"
 #include "ui/Theme.h"
+#include "ui/Lang.h"
 
 #include <imgui_internal.h>
+#include <unordered_set>
 
 namespace sx {
 
@@ -364,6 +366,22 @@ void App::DrawCanvas() {
     ImVec2 d1(d0.x + doc.Width() * v->zoom, d0.y + doc.Height() * v->zoom);
     dl->AddRect(ImVec2(d0.x - 1, d0.y - 1), ImVec2(d1.x + 1, d1.y + 1), IM_COL32(0, 0, 0, 120));
     DrawSelectToolsOverlay(*v, d0, d1, dl);
+    if (v->mesh) {
+        // Paint 3D document: the model's UV wireframe over the texture, and the brush hovering the 3D view shown
+        // where it lands on the texture (every island it touches).
+        if (showUvWire) DrawUvWire(*v, d0, dl);
+        if (!hovered && cursor3D.view == v && cursor3D.frame >= ImGui::GetFrameCount() - 1) {
+            const float4 col = cursor3D.eraser ? float4{1, 1, 1, 0.5f} : float4{fg.x, fg.y, fg.z, 0.65f};
+            if (gpu::Texture* ov = v->renderer.MeshUvCursor(*ctx, *v->mesh, doc.Width(), doc.Height(), cursor3D.p, cursor3D.r,
+                                                            cursor3D.hardness, cursor3D.angle, col, cursor3D.alongNormal))
+                dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(ov), d0, d1);
+        }
+        const ImVec2 keep = ImGui::GetCursorScreenPos();
+        ImGui::SetCursorScreenPos(ImVec2(canvasMin.x + 8 * dpi, canvasMin.y + 8 * dpi));
+        if (ui::IconButton("##uvwire", ui::IconUV, showUvWire, 28 * dpi, TrC("Afficher le fil des UV du modèle sur la texture")))
+            showUvWire = !showUvWire;
+        ImGui::SetCursorScreenPos(keep);
+    }
     for (size_t i = 0; i < analysis.samplers.size(); ++i) {
         const auto& sp = analysis.samplers[i];
         const ImVec2 c(d0.x + (sp.pos.x + 0.5f) * v->zoom, d0.y + (sp.pos.y + 0.5f) * v->zoom);
@@ -408,6 +426,7 @@ void App::DrawCanvas() {
     } else if (hovered && !panMode && IsPaintTool(tool) && !(ImGui::GetIO().KeyAlt && tool == Tool::Brush)) {
         const BrushSettings& b = CurrentBrush();
         float r = std::max(b.size * 0.5f * v->zoom, 1.0f);
+        if (v->mesh) cursor2D = {ImGui::GetFrameCount(), v, cursorDoc, b.size * 0.5f, b.hardness, 0, tool == Tool::Eraser, false};
         dl->AddCircle(mouse, r + 1, IM_COL32(0, 0, 0, 160), 0, 1.5f);
         dl->AddCircle(mouse, r, IM_COL32(255, 255, 255, 220), 0, 1.0f);
         if (b.hardness < 0.95f) dl->AddCircle(mouse, r * std::max(b.hardness, 0.05f), IM_COL32(255, 255, 255, 70), 0, 1.0f);
@@ -1022,6 +1041,41 @@ void App::EmitDabsRaw(DocView& v, const std::vector<Dab>& dabs, const std::vecto
         default: rp.mode = spongeSaturate ? RetouchMode::Saturate : RetouchMode::Desaturate; break;
     }
     v.renderer.RetouchDabs(doc, *ctx, dabs, retouch, rp);
+}
+
+}  // namespace sx
+
+namespace sx {
+
+void App::DrawUvWire(DocView& v, ImVec2 d0, ImDrawList* dl) {
+    // Unique edges of the model's UV layout (texture pixels = uv * size), kept until the geometry changes.
+    struct Cache { const MeshScene* scene = nullptr; u32 revision = ~0u; size_t tris = 0; std::vector<float4> edges; };
+    static Cache c;
+    const MeshScene& s = *v.mesh;
+    const MeshData& m = s.data;
+    if (c.scene != &s || c.revision != s.revision || c.tris != m.indices.size()) {
+        c = {&s, s.revision, m.indices.size(), {}};
+        std::unordered_set<u64> seen;
+        seen.reserve(m.indices.size());
+        auto key = [](float2 a) { return ((u64)(u32)std::lround(a.x * 65536.0f) << 32) | (u32)std::lround(a.y * 65536.0f); };
+        for (size_t t = 0; t + 2 < m.indices.size(); t += 3)
+            for (int e = 0; e < 3; ++e) {
+                const float2 a = m.vertices[m.indices[t + e]].uv, b = m.vertices[m.indices[t + (e + 1) % 3]].uv;
+                u64 ka = key(a), kb = key(b);
+                if (ka > kb) std::swap(ka, kb);
+                if (!seen.insert(ka * 0x9E3779B97F4A7C15ull ^ kb).second) continue;
+                c.edges.push_back({a.x, a.y, b.x, b.y});
+            }
+    }
+    const float W = v.doc->Width() * v.zoom, H = v.doc->Height() * v.zoom;
+    const ImVec4 clip = dl->GetClipRectMax().x > 0 ? ImVec4(dl->GetClipRectMin().x, dl->GetClipRectMin().y, dl->GetClipRectMax().x, dl->GetClipRectMax().y)
+                                                   : ImVec4(-1e9f, -1e9f, 1e9f, 1e9f);
+    const ImU32 col = IM_COL32(255, 255, 255, 80);
+    for (const float4& e : c.edges) {
+        const ImVec2 a(d0.x + e.x * W, d0.y + e.y * H), b(d0.x + e.z * W, d0.y + e.w * H);
+        if (std::max(a.x, b.x) < clip.x || std::min(a.x, b.x) > clip.z || std::max(a.y, b.y) < clip.y || std::min(a.y, b.y) > clip.w) continue;
+        dl->AddLine(a, b, col, 1.0f);
+    }
 }
 
 }  // namespace sx

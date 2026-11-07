@@ -474,7 +474,7 @@ public:
     std::map<std::string, PanelOpenFlag> panelOpen;  // closed panels (tab cross)
     // 6: layouts saved before it may hold panels left floating by the incomplete default workspaces (repaired once).
     // 7: the 3D brush (Paint 3D) moved to the Paint tab, the swatches closed by default.
-    static constexpr int kLayoutMigration = 7;
+    static constexpr int kLayoutMigration = 8;
     int layoutMigration = 0, layoutMigrationFrames = 0;  // saved layouts from older versions start at 0
     int layoutRepairFrames = 0;
     float tooltipDelay = 0.15f;      // seconds of hover before a tooltip (View menu, saved)
@@ -850,7 +850,18 @@ private:
     gpu::ReadbackPtr dumpRb;
     int captureFrame = 30;
     u64 frameCounter = 0;
-    int startupFrames = 0;  // first frames counted: the loading screen closes after them
+    int startupFrames = 0;
+    // Paint 3D with the two views: the brush hovering one view is shown where it lands in the other (the 3D brush on
+    // the texture, the 2D brush on the model). p, r: 3D view pixels for cursor3D, document pixels for cursor2D.
+    struct CrossCursor {
+        int frame = -100;
+        const void* view = nullptr;
+        float2 p;
+        float r = 0, hardness = 1, angle = 0;
+        bool eraser = false, alongNormal = false;
+    } cursor3D, cursor2D;
+    bool showUvWire = true;  // the model's UV wireframe over the texture (2D view of a Paint 3D document)
+    void DrawUvWire(DocView& v, ImVec2 d0, ImDrawList* dl);  // first frames counted: the loading screen closes after them
     int uiErrorCount = 0;
     gpu::ReadbackPtr captureRb;
 

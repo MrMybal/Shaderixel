@@ -1006,5 +1006,6 @@
  "Pointe et trait": "Tip and stroke",
  "Clic sur le modèle : remplit l'élément sous le curseur avec le matériau de l'onglet Peinture\n(ou le masque du matériau). Ctrl+clic : efface.": "Click on the model: fills the element under the cursor with the material of the Paint tab\n(or the material's mask). Ctrl+click: erases.",
  "Mode Décalque : clic sur le modèle pour poser l'image\n(molette + Ctrl : taille, Maj : rotation).": "Decal mode: click on the model to place the image\n(wheel + Ctrl: size, Shift: rotation).",
- "Mode Particules : maintenez le clic sur le modèle ; les gouttes partent du pinceau (sa taille fixe\nla zone) et peignent le matériau de l'onglet Peinture là où elles passent, même hors de la vue.": "Particles mode: hold the click on the model; drops leave the brush (its size sets\nthe area) and paint the material of the Paint tab wherever they go, even out of view."
+ "Mode Particules : maintenez le clic sur le modèle ; les gouttes partent du pinceau (sa taille fixe\nla zone) et peignent le matériau de l'onglet Peinture là où elles passent, même hors de la vue.": "Particles mode: hold the click on the model; drops leave the brush (its size sets\nthe area) and paint the material of the Paint tab wherever they go, even out of view.",
+ "Afficher le fil des UV du modèle sur la texture": "Show the model's UV wireframe on the texture"
 }

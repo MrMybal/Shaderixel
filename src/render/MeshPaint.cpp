@@ -414,6 +414,82 @@ gpu::ReadbackPtr Renderer::MeshCursorFrame(gpu::CommandContext& ctx, MeshScene& 
     return ctx.ReadbackTexture(meshFrames.get(), &col);
 }
 
+gpu::Texture* Renderer::MeshUvCursor(gpu::CommandContext& ctx, MeshScene& s, u32 docW, u32 docH, float2 p, float r, float hardness,
+                                     float angle, float4 color, bool alongNormal) {
+    auto* k = Kernel("mesh_uv_cursor.slang");
+    if (!k || !s.depth || !s.posMap || !s.nrmMap || s.bakedW != docW || s.bakedH != docH) return nullptr;
+    if (alongNormal && !MeshDabFrames(ctx, s, {float4{p.x, p.y, r, 1}})) alongNormal = false;
+    Ensure(meshUvCursor, docW, docH, gpu::Format::RGBA8, "MeshUvCursor");
+    struct FrameCB { Mat4 vp; float4 cam; float4 color; };
+    static FrameCB cb;
+    cb.vp = s.viewProj;
+    cb.cam = {s.camPos.x, s.camPos.y, s.camPos.z, 1};
+    cb.color = color;
+    const bool tip = meshTipOn && meshTipAtlas;
+    struct Root {
+        u32 dw, dh, vw, vh;
+        float cx, cy, r, hardness;
+        u32 flags;
+        float facing, zn, zf, extent, variants, c, s;
+    } root{docW, docH, s.depth->Width(), s.depth->Height(), p.x, p.y, r, hardness, (alongNormal ? 1u : 0u) | (tip ? 2u : 0u),
+           std::clamp(meshFacingMin, -0.5f, 0.95f), s.ortho ? MeshScene::kOrthoNear : MeshScene::kNear,
+           s.ortho ? MeshScene::kOrthoFar : MeshScene::kFar, meshTipExtent, (float)meshTipVariants, std::cos(angle), std::sin(angle)};
+    static_assert(sizeof(Root) <= sizeof(gpu::DispatchDesc::constants), "root constants");
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = s.posMap.get();
+    d.srv[1] = s.nrmMap.get();
+    d.srv[2] = s.depth.get();
+    d.srv[3] = alongNormal ? meshFrames.get() : nullptr;
+    d.srv[4] = tip ? meshTipAtlas.get() : nullptr;
+    d.uav[0] = meshUvCursor.get();
+    memcpy(d.constants, &root, sizeof(root));
+    d.numConstants = sizeof(root) / 4;
+    d.cbData = &cb;
+    d.cbSize = sizeof(cb);
+    Dispatch2D(ctx, d, docW, docH);
+    return meshUvCursor.get();
+}
+
+gpu::Texture* Renderer::MeshViewCursor(gpu::CommandContext& ctx, MeshScene& s, u32 docW, u32 docH, float2 center, float r,
+                                       float hardness, float4 color) {
+    auto* k = Kernel("mesh_view_cursor.slang");
+    if (!k || !s.depth || !s.posMap || !s.nrmMap || s.bakedW != docW || s.bakedH != docH) return nullptr;
+    const u32 W = s.depth->Width(), H = s.depth->Height();
+    Ensure(meshViewCursor, W, H, gpu::Format::RGBA8, "MeshViewCursor");
+    struct FrameCB { Mat4 vp; float4 cam; float4 color; };
+    static FrameCB cb;
+    cb.vp = s.viewProj;
+    cb.cam = {s.camPos.x, s.camPos.y, s.camPos.z, 1};
+    cb.color = color;
+    const int x0 = (int)std::floor(center.x - r - 1), y0 = (int)std::floor(center.y - r - 1);
+    const u32 bw = (u32)std::clamp((int)std::ceil(2 * r + 3), 1, 4096), bh = bw;
+    struct Root {
+        u32 vw, vh, dw, dh;
+        int bx, by;
+        u32 bw, bh;
+        float cx, cy, r, hardness;
+        u32 pass;
+        float zn, zf, pad;
+    } root{W, H, docW, docH, x0, y0, bw, bh, center.x, center.y, r, hardness, 0, s.ortho ? MeshScene::kOrthoNear : MeshScene::kNear,
+           s.ortho ? MeshScene::kOrthoFar : MeshScene::kFar, 0};
+    gpu::DispatchDesc d;
+    d.pipeline = k;
+    d.srv[0] = s.posMap.get();
+    d.srv[1] = s.nrmMap.get();
+    d.srv[2] = s.depth.get();
+    d.uav[0] = meshViewCursor.get();
+    memcpy(d.constants, &root, sizeof(root));
+    d.numConstants = sizeof(root) / 4;
+    d.cbData = &cb;
+    d.cbSize = sizeof(cb);
+    Dispatch2D(ctx, d, W, H);
+    root.pass = 1;
+    memcpy(d.constants, &root, sizeof(root));
+    Dispatch2D(ctx, d, bw, bh);
+    return meshViewCursor.get();
+}
+
 gpu::Texture* Renderer::MeshCursorPreview(gpu::CommandContext& ctx, MeshScene& s, float2 p, float r, float hardness, float angle,
                                           float4 colorSrgb, bool alongNormal) {
     auto* k = Kernel("mesh_cursor_preview.slang");

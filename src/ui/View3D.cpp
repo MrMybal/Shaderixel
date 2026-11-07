@@ -577,12 +577,21 @@ void App::DrawView3D() {
         dl->PopClipRect();
     }
     if (tool == Tool::PolyFill && polyHover >= 0) DrawPolyHighlight(s, polyHover, origin, w, h);
+    // The brush hovering the texture (2D view): where it paints on the model.
+    if (!hovered && cursor2D.view == v && cursor2D.frame >= ImGui::GetFrameCount() - 1) {
+        const float4 col = cursor2D.eraser ? float4{1, 1, 1, 0.5f} : float4{fg.x, fg.y, fg.z, 0.6f};
+        if (gpu::Texture* ov = v->renderer.MeshViewCursor(*ctx, s, v->doc->Width(), v->doc->Height(), cursor2D.p, cursor2D.r,
+                                                          cursor2D.hardness, col))
+            dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(ov), origin, ImVec2(origin.x + w, origin.y + h));
+    }
     if (hovered && paintTool && !orbit) {
         const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
         float r = std::max(b.size * 0.5f, 1.0f);
         // The dab drawn on the model under the cursor: the tip's real shape in the paint color, laid on the surface
         // (along the average normal when that mode is on), before painting.
         if (!meshStroking) setupTip(b);
+        cursor3D = {ImGui::GetFrameCount(), v, local(io.MousePos.x, io.MousePos.y), r, b.hardness, brush3D.angle * 0.0174533f,
+                    tool == Tool::Eraser, brush3D.normalProject};
         {
             const float4 col = tool == Tool::Eraser ? float4{1, 1, 1, 0.45f} : float4{fg.x, fg.y, fg.z, 0.55f};
             if (gpu::Texture* ov = v->renderer.MeshCursorPreview(*ctx, s, local(io.MousePos.x, io.MousePos.y), r, b.hardness,

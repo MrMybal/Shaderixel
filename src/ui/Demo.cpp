@@ -1432,6 +1432,32 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_DUALVIEW=<.sx3d>;3d|2d: the two views of Paint 3D, the brush hovering the 3D view (its footprint shown on the
+        // texture) or the texture (shown on the model); for the captures.
+        char dualArg[600] = "";
+        if (GetEnvironmentVariableA("SX_DUALVIEW", dualArg, sizeof(dualArg)) > 0) {
+            std::string a = dualArg, file = a.substr(0, a.find(';'));
+            const bool over3d = a.find(";2d") == std::string::npos;
+            ImGuiIO& io = ImGui::GetIO();
+            if (frameCounter == 12) LoadSxl(file);
+            DocView* m = Active();
+            if (!m || !m->mesh) return;
+            if (frameCounter == 40) {
+                tool = viewTool[1] = Tool::Brush;
+                brush.size = over3d ? 90 : 160;
+                brush.hardness = 0.6f;
+                SelectTip(brush, "");
+            }
+            if (frameCounter >= 50) {
+                if (ImGuiWindow* w = ImGui::FindWindowByName(over3d ? "Vue 3D" : "Canevas")) {
+                    const ImVec2 c(w->InnerRect.Min.x + w->InnerRect.GetWidth() * (over3d ? 0.42f : 0.62f),
+                                   w->InnerRect.Min.y + w->InnerRect.GetHeight() * (over3d ? 0.55f : 0.21f));
+                    io.AddMousePosEvent(c.x, c.y);
+                }
+            }
+            if (frameCounter == 80) Log("[dualview] cursor3D frame %d, cursor2D frame %d, now %d", cursor3D.frame, cursor2D.frame, ImGui::GetFrameCount());
+            return;
+        }
         // SX_SLOW3D=<.sx3d>: the same in the 3D view (a 120 px brush on the model, 1 pixel per frame): the frames whose
         // painted layer changed are counted.
         char slowFile[512] = "";

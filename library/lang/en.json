@@ -278,6 +278,7 @@
  "Afficher l'environnement derrière le modèle": "Show the environment behind the model",
  "Afficher le calque": "Show layer",
  "Afficher le fichier": "Show the file",
+ "Afficher le fil des UV du modèle sur la texture": "Show the model's UV wireframe on the texture",
  "Afficher le gizmo (flèches, anneau)": "Show gizmo (arrows, ring)",
  "Afficher le graphe": "Show graph",
  "Afficher le maillage": "Show mesh",
