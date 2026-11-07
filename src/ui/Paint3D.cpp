@@ -479,13 +479,6 @@ void App::DrawLayers3DPanel() {
                 v->history.EndGroup();
             }
         }
-        ImGui::SetNextItemWidth(120 * dpi);
-        ImGui::Combo("Symétrie (pinceau 3D)", &v->renderer.meshSymmetry, "Aucune\0Axe X\0Axe Y\0Axe Z\0");
-        ImGui::Checkbox("Projection selon la normale moyenne", &brush3D.normalProject);
-        ui::HelpTooltip("Chaque touche est posée à plat sur la surface sous le pinceau (la moyenne de ses normales) au lieu d'être\n"
-                        "projetée depuis la caméra : les marques restent rondes sur les surfaces vues de biais.\n"
-                        "Le contour du pinceau montre ce plan. Sans symétrie ni pochoir.");
-        ui::HelpTooltip("Chaque trait est aussi peint de l'autre côté du modèle (miroir sur l'axe choisi de l'objet).");
     }
     ImGui::End();
 }
@@ -579,20 +572,74 @@ void App::DrawMaterialFilters(DocView& v, Id material) {
 
 void App::DrawBrushMaterialPanel() {
     if (!ImGui::Begin("Matériau du pinceau", PanelFlag("Matériau du pinceau"))) { ImGui::End(); return; }
+    auto& B = brush3D;
+    // Paint mode: what a click on the model does. One tile per mode, the current one highlighted, and the tab with
+    // its settings opened when it changes.
+    struct Mode { Tool t; int icon; const char* name; const char* help; int tab; };
+    static const Mode modes[] = {
+        {Tool::Brush, ui::IconBrush, "Pinceau", "Clic-glisser sur le modèle : peint le matériau de l'onglet Peinture. (B)", 0},
+        {Tool::Eraser, ui::IconEraser, "Gomme", "Clic-glisser sur le modèle : efface la peinture du calque. (E)", 0},
+        {Tool::PolyFill, ui::IconPolyFill, "Remplir", "Clic : remplit le triangle, la face, l'île UV ou la pièce sous le curseur.", 1},
+        {Tool::Projection, ui::IconStamp, "Décalque", "Clic : pose une image sur le modèle (projection). (P)", 2},
+        {Tool::Particles, ui::IconParticles, "Particules", "Maintenir le clic : des gouttes partent du pinceau et peignent là où elles passent.", 3},
+        {Tool::Fluid, ui::IconFluid, "Liquide", "Peinture liquide qui coule avec la gravité (tous les canaux du matériau).", 3},
+    };
+    const int nModes = (int)std::size(modes);
+    int cur = -1;
+    for (int i = 0; i < nModes; ++i) if (modes[i].t == tool) cur = i;
+    {
+        ImGui::SeparatorText("Mode de peinture");
+        const auto& pal = cyui::palette();
+        const float gap = 4 * dpi;
+        const float avail = ImGui::GetContentRegionAvail().x;
+        const float tw = std::max(48 * dpi, (avail - gap * (nModes - 1)) / nModes);
+        const float th = std::max(44 * dpi, ImGui::GetFontSize() * 3.1f);
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        for (int i = 0; i < nModes; ++i) {
+            if (i > 0) {
+                ImGui::SameLine(0, gap);
+                if (ImGui::GetContentRegionAvail().x < tw - 1) ImGui::NewLine();
+            }
+            const Mode& m = modes[i];
+            ImGui::PushID(i);
+            const ImVec2 p0 = ImGui::GetCursorScreenPos();
+            if (ImGui::InvisibleButton("##mode", ImVec2(tw, th))) {
+                tool = m.t;
+                viewTool[1] = m.t;
+            }
+            const bool hov = ImGui::IsItemHovered(), sel = i == cur;
+            const ImVec2 p1(p0.x + tw, p0.y + th);
+            dl->AddRectFilled(p0, p1, sel ? pal.accent : ImGui::GetColorU32(hov ? ImGuiCol_ButtonHovered : ImGuiCol_FrameBg), 6 * dpi);
+            const ImU32 ink = sel ? pal.accentText : hov ? pal.text : pal.textDim;
+            ui::DrawIcon(dl, m.icon, ImVec2((p0.x + p1.x) * 0.5f, p0.y + th * 0.36f), th * 0.42f, ink);
+            const char* label = TrC(m.name);
+            const ImVec2 ls = ImGui::CalcTextSize(label);
+            ImGui::PushClipRect(p0, p1, true);
+            dl->AddText(ImVec2(std::max(p0.x + 2, (p0.x + p1.x - ls.x) * 0.5f), p1.y - ls.y - 3 * dpi), ink, label);
+            ImGui::PopClipRect();
+            if (hov) ImGui::SetTooltip("%s\n%s", TrC(m.name), TrC(m.help));
+            ImGui::PopID();
+        }
+        if (cur >= 0) {
+            ImGui::PushStyleColor(ImGuiCol_Text, pal.accent);
+            ImGui::TextWrapped("%s : %s", TrC(modes[cur].name), TrC(modes[cur].help));
+            ImGui::PopStyleColor();
+        } else {
+            ImGui::TextDisabled("Choisissez un mode : l'outil actif ne peint pas sur le modèle.");
+        }
+    }
     ui::FilterBox();
-    // A 3D tool just chosen: its section is scrolled into view (they sit at the bottom of the panel).
-    static Tool seenTool = Tool::Brush;
+    // The settings tab of the mode just chosen comes forward.
+    static Tool seenTool = Tool::Count;
     const bool toolJump = tool != seenTool;
     seenTool = tool;
-    auto section = [&](const char* title, Tool t) {
-        if (tool == t) {
-            if (toolJump) ImGui::SetScrollHereY(0.0f);
-            ImGui::PushStyleColor(ImGuiCol_Text, cyui::palette().accent);
-        }
-        ImGui::SeparatorText(title);
-        if (tool == t) ImGui::PopStyleColor();
+    const int wantTab = toolJump && cur >= 0 ? modes[cur].tab : -1;
+    auto tab = [&](const char* label, int index) {
+        return ImGui::BeginTabItem(label, nullptr, wantTab == index ? ImGuiTabItemFlags_SetSelected : 0);
     };
-    auto& B = brush3D;
+    if (ImGui::BeginTabBar("##paint3dtabs", ImGuiTabBarFlags_FittingPolicyShrink)) {
+        if (tab("Peinture", 0)) {
+            ImGui::SeparatorText("Matériau peint");
     ImGui::TextDisabled("Valeurs peintes dans chaque canal d'un calque de peinture.");
     if (ImGui::BeginCombo("Préréglage", "Choisir...")) {
         for (int i = 0; i < MaterialPresetCount(); ++i) {
@@ -643,8 +690,9 @@ void App::DrawBrushMaterialPanel() {
                         "sur lequel il commence, même s'il déborde sur une pièce voisine.");
     }
 
-    // The brush on the model: tip, dynamics, stroke helpers.
-    ImGui::SeparatorText("Pinceau 3D");
+
+            // The brush on the model: tip, dynamics, stroke helpers.
+            ImGui::SeparatorText("Pointe et trait");
     {
         BrushSettings& bs = tool == Tool::Eraser ? eraser : brush;
         auto td = TipDef(bs);
@@ -666,6 +714,14 @@ void App::DrawBrushMaterialPanel() {
         ImGui::SliderFloat("Taille", &bs.size, 1, 600, "%.0f px", ImGuiSliderFlags_Logarithmic);
         ImGui::SliderFloat("Flux", &bs.flow, 0.01f, 1, "%.2f");
         ImGui::SliderFloat("Espacement", &bs.spacing, 0.02f, 2.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+        ImGui::Checkbox("Projection selon la normale moyenne", &brush3D.normalProject);
+        ui::HelpTooltip("Chaque touche est posée à plat sur la surface sous le pinceau (la moyenne de ses normales) au lieu d'être\n"
+                        "projetée depuis la caméra : les marques restent rondes sur les surfaces vues de biais.\n"
+                        "Le contour du pinceau montre ce plan. Sans symétrie ni pochoir.");
+        if (DocView* v = Active()) {
+            ImGui::Combo("Symétrie", &v->renderer.meshSymmetry, "Aucune\0Axe X\0Axe Y\0Axe Z\0");
+            ui::HelpTooltip("Chaque trait est aussi peint de l'autre côté du modèle (miroir sur l'axe choisi de l'objet).");
+        }
         if (ImGui::TreeNode("Dynamique")) {
             ImGui::SliderFloat("Angle", &B.angle, -180, 180, "%.0f°");
             ImGui::Checkbox("Suivre le trait", &B.follow);
@@ -687,45 +743,21 @@ void App::DrawBrushMaterialPanel() {
             ImGui::TreePop();
         }
     }
-    section("Remplissage par polygone", Tool::PolyFill);
+            ImGui::EndTabItem();
+        }
+        if (tab("Remplissage", 1)) {
     ImGui::SetNextItemWidth(-FLT_MIN);
     ImGui::Combo("##polymode", &B.polyMode, "Triangle\0Face (polygone plat)\0Île UV\0Pièce du maillage\0Tout le modèle\0");
-    if (ImGui::Button("Outil Remplissage par polygone")) tool = Tool::PolyFill;
-    ui::HelpTooltip("Clic sur le modèle : remplit l'élément sous le curseur avec le matériau du pinceau\n(ou le masque du matériau). Ctrl+clic : efface.");
-    section("Simulation (particules)", Tool::Particles);
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    if (ImGui::BeginCombo("##simpreset", SimPresetName(B.simPreset))) {
-        for (int i = 0; i < SimPresetCount(); ++i) {
-            if (ImGui::Selectable(SimPresetName(i), i == B.simPreset)) B.simPreset = i;
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", SimPresetHelp(i));
+    ImGui::TextDisabled("Clic sur le modèle : remplit l'élément sous le curseur avec le matériau de l'onglet Peinture\n(ou le masque du matériau). Ctrl+clic : efface.");
+            ImGui::EndTabItem();
         }
-        ImGui::EndCombo();
-    }
-    ImGui::SliderFloat("Particules / s", &B.simRate, 5, 400, "%.0f", ImGuiSliderFlags_Logarithmic);
-    float sz = B.simSize * 100;
-    if (ImGui::SliderFloat("Taille des gouttes", &sz, 0.2f, 10, "%.1f %%", ImGuiSliderFlags_Logarithmic)) B.simSize = sz / 100;
-    ImGui::SliderFloat("Gravité", &B.simGravity, 0, 3, "%.2f");
-    ImGui::SliderFloat("Adhérence", &B.simAdhesion, 0, 2, "%.2f");
-    ImGui::SliderFloat("Durée de vie", &B.simLife, 0.2f, 10, "%.1f s");
-    if (B.simPreset == 3) ImGui::SliderFloat("Dispersion", &B.simSpread, 0, 2, "%.2f");
-    if (ImGui::Button("Outil Simulation")) tool = Tool::Particles;
-    ui::HelpTooltip("Maintenez le clic sur le modèle : les particules partent du pinceau (sa taille fixe la zone)\net peignent le matériau du pinceau là où elles passent, même hors de la vue.");
-    section("Peinture liquide", Tool::Fluid);
-    if (tool == Tool::Fluid) {
-        DrawFluidOptions(true);
-    } else {
-        ImGui::TextDisabled("Coulures simulées : tous les canaux du matériau à la fois, avec la gravité.");
-        if (ImGui::Button("Outil Peinture liquide")) tool = Tool::Fluid;
-    }
-    section("Projection (décalque)", Tool::Projection);
+        if (tab("Décalque", 2)) {
     std::string dn = decal.path.empty() ? "(aucune image)" : Narrow(Utf8Path(decal.path).filename().wstring());
     ImGui::TextUnformatted(dn.c_str());
     if (ImGui::Button("Choisir une image...")) {
         std::string f = platform::OpenFileDialog(hwnd, L"Images\0*.png;*.jpg;*.jpeg;*.tga;*.bmp\0");
         if (!f.empty()) LoadDecal(f);
     }
-    ImGui::SameLine();
-    if (ImGui::Button("Outil Projection")) tool = Tool::Projection;
     ImGui::SliderFloat("Taille##decal", &decal.size, 0.05f, 2.0f, "%.2f");  // (the brush size above is "Taille" too)
     ImGui::SliderFloat("Rotation", &decal.rotation, -180, 180, "%.0f°");
     ImGui::SliderFloat("Opacité##dec", &decal.opacity, 0, 1, "%.2f");
@@ -746,7 +778,34 @@ void App::DrawBrushMaterialPanel() {
             ui::HelpTooltip("Élevé : pochoir franc (noir ou blanc), même avec une image aux tons moyens.");
         }
     }
-    ImGui::TextDisabled("Outil Projection : clic sur le modèle pour poser le décalque\n(molette + Ctrl : taille, Maj : rotation).");
+    ImGui::TextDisabled("Mode Décalque : clic sur le modèle pour poser l'image\n(molette + Ctrl : taille, Maj : rotation).");
+            ImGui::EndTabItem();
+        }
+        if (tab("Simulation", 3)) {
+            ImGui::SeparatorText("Particules");
+            ImGui::TextDisabled("Mode Particules : maintenez le clic sur le modèle ; les gouttes partent du pinceau (sa taille fixe\n"
+                                "la zone) et peignent le matériau de l'onglet Peinture là où elles passent, même hors de la vue.");
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    if (ImGui::BeginCombo("##simpreset", SimPresetName(B.simPreset))) {
+        for (int i = 0; i < SimPresetCount(); ++i) {
+            if (ImGui::Selectable(SimPresetName(i), i == B.simPreset)) B.simPreset = i;
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", SimPresetHelp(i));
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SliderFloat("Particules / s", &B.simRate, 5, 400, "%.0f", ImGuiSliderFlags_Logarithmic);
+    float sz = B.simSize * 100;
+    if (ImGui::SliderFloat("Taille des gouttes", &sz, 0.2f, 10, "%.1f %%", ImGuiSliderFlags_Logarithmic)) B.simSize = sz / 100;
+    ImGui::SliderFloat("Gravité", &B.simGravity, 0, 3, "%.2f");
+    ImGui::SliderFloat("Adhérence", &B.simAdhesion, 0, 2, "%.2f");
+    ImGui::SliderFloat("Durée de vie", &B.simLife, 0.2f, 10, "%.1f s");
+    if (B.simPreset == 3) ImGui::SliderFloat("Dispersion", &B.simSpread, 0, 2, "%.2f");
+            ImGui::SeparatorText("Peinture liquide");
+            DrawFluidOptions(true);
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
     ImGui::End();
 }
 

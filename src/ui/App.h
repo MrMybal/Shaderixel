@@ -602,6 +602,22 @@ private:
     void SaveDocument(DocView& v, const std::string& path, bool asCopy = false);
     void SaveCurrent(bool saveAs);
     bool LoadSxl(const std::string& path);
+    // The document built from a read .sxl / .sx3d (GPU uploads, mesh, 3D view): LoadSxl's second half.
+    bool FinishSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& blobs);
+    // Projects opened from the interface: the file is read and unpacked on a worker thread while a progress bar shows,
+    // then the document is built (UpdateProjectLoad, every frame).
+    struct ProjectLoadJob {
+        std::string path;
+        std::atomic<float> progress{0};
+        Json meta;
+        std::vector<SurfaceBlob> blobs;
+        std::string error;
+        std::future<bool> work;
+        int finishIn = -1;  // frames left before the document is built (the "preparing" step is drawn first)
+    };
+    std::unique_ptr<ProjectLoadJob> projectLoad;
+    void StartProjectLoad(const std::string& path);
+    void UpdateProjectLoad();
     void UpdateSaves();
     void DrawClosePrompt();
     void UpdateTitle();
@@ -834,6 +850,7 @@ private:
     gpu::ReadbackPtr dumpRb;
     int captureFrame = 30;
     u64 frameCounter = 0;
+    int startupFrames = 0;  // first frames counted: the loading screen closes after them
     int uiErrorCount = 0;
     gpu::ReadbackPtr captureRb;
 

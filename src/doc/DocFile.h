@@ -10,6 +10,7 @@
 #include "doc/Document.h"
 #include "core/Json.h"
 
+#include <atomic>
 #include <memory>
 
 namespace sx {
@@ -38,6 +39,8 @@ Json GraphToJson(const Graph& g);
 void GraphFromJson(const Json& jg, Graph& g);
 
 bool WriteSxl(const std::string& path, const Json& meta, const std::vector<SurfaceBlob>& surfaces, std::string* error);
-bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surfaces, std::string* error);
+// progress (optional, any thread): 0..1 while the file is read then unpacked.
+bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surfaces, std::string* error,
+             std::atomic<float>* progress = nullptr);
 
 }  // namespace sx

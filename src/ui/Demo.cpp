@@ -1649,7 +1649,7 @@ void App::DemoTick() {
         char open3d[512] = "";
         if (GetEnvironmentVariableA("SX_OPEN3D", open3d, sizeof(open3d)) > 0) {
             if (frameCounter == 20) {
-                const bool ok = LoadSxl(open3d);
+                const bool ok = getenv("SX_ASYNCOPEN") ? (OpenImage(open3d, false), true) : LoadSxl(open3d);  // (SX_ASYNCOPEN: as from the menu)
                 Log("[open3d] loaded %d, layout kind %d", ok ? 1 : 0, layoutKind);
             }
             // (SX_TAB=<side tab>: that tab and the 3D view in front, for the captures)

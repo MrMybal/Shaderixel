@@ -1073,12 +1073,15 @@ bool WriteSxl(const std::string& path, const Json& meta, const std::vector<Surfa
     return true;
 }
 
-bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surfaces, std::string* error) {
+bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surfaces, std::string* error, std::atomic<float>* progress) {
     std::ifstream f(Utf8Path(path), std::ios::binary);
     if (!f) {
         if (error) *error = "impossible d'ouvrir " + path;
         return false;
     }
+    std::error_code sizeEc;
+    const double fileSize = std::max(1.0, (double)std::filesystem::file_size(Utf8Path(path), sizeEc));
+    auto report = [&](float p) { if (progress) progress->store(p); };
     auto get = [&](void* p, size_t n) { return (bool)f.read((char*)p, (std::streamsize)n); };
     char magic[4];
     u32 version = 0;
@@ -1130,6 +1133,7 @@ bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surf
         }
         surfaces.push_back(std::move(b));
         packed.push_back(std::move(p));
+        report(0.4f * (float)std::min(1.0, (double)f.tellg() / fileSize));
     }
     f.close();
     if (truncated) {
@@ -1152,7 +1156,9 @@ bool ReadSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& surf
             if (ok) surfaces[i].data = Unshuffle(tmp, ElemSize(surfaces[i].format));
         }
         packed[i].clear();
+        report(0.4f + 0.6f * (float)(i + 1) / (float)surfaces.size());
     }
+    report(1.0f);
     if (!ok && error) *error = "données de pixels corrompues";
     return ok;
 }

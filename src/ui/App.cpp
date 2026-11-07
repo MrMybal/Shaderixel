@@ -13,6 +13,7 @@
 #include "gpu/ShaderSystem.h"
 #include "io/PsdImport.h"
 #include "core/SysStats.h"
+#include "platform/Splash.h"
 
 #include <shellapi.h>
 #include <imgui_internal.h>
@@ -85,7 +86,23 @@ int App::Run() {
         }
         if (quit) break;
         if (IsIconic(hwnd)) { Sleep(16); continue; }
+        const auto f0 = std::chrono::steady_clock::now();
         Frame();
+        if (startupFrames < 8 || splash::Active()) {
+            ++startupFrames;
+            const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - f0).count();
+            if (startupFrames <= 8) Log("[startup] frame %d: %.0f ms", startupFrames, ms);
+            if (splash::Active()) {
+                splash::Step(std::min(0.99f, 0.80f + 0.2f * startupFrames / 6.0f), Tr("Préparation de l'interface"));
+                // The interface is drawn (menus, panels, layout) and frames are quick again (first launch: the shaders
+                // compile): the window appears, the loading screen goes (at most ~10 s of frames).
+                if ((startupFrames >= 4 && ms < 120) || startupFrames > 300) {
+                    ShowWindow(hwnd, SW_SHOWMAXIMIZED);
+                    SetForegroundWindow(hwnd);
+                    splash::Close();
+                }
+            }
+        }
     }
     Shutdown();
     if (!pendingUpdateInstaller.empty()) {
@@ -148,8 +165,33 @@ bool App::Init() {
     ParseCommandLine();
     ImGui_ImplWin32_EnableDpiAwareness();
     dpi = ImGui_ImplWin32_GetDpiScaleForMonitor(MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY));
+    // Settings and language first: the loading screen speaks the user's language.
+    settingsPath = ExeDir() + "/shaderixel_settings.json";
+    LoadAiSettings();
+    if (const char* forced = getenv("SX_LANG")) uiLanguage = forced;  // tests
+    if (uiLanguage.empty()) uiLanguage = "en";
+    if (!SetLanguage(uiLanguage)) {
+        uiLanguage = "en";  // An unavailable saved language uses the default dictionary.
+        if (!SetLanguage(uiLanguage)) {
+            Log("English interface dictionary unavailable; using built-in French");
+            uiLanguage = "fr";
+            SetLanguage(uiLanguage);
+        }
+    }
+    // Loading screen (the logo, the version, the step and a progress bar) until the interface is ready; scripted
+    // runs skip it (SX_SPLASH_PNG writes it as an image).
+    if (const char* png = getenv("SX_SPLASH_PNG"))
+        splash::SavePng(png, 0.42f, Tr("Bibliothèque d'effets"), updates::Version);
+    if (!Automated()) splash::Show(updates::Version);
+    const auto startT = std::chrono::steady_clock::now();
+    auto step = [&](float p, const char* what) {
+        Log("[startup] %5.0f ms  %s", std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - startT).count(), what);
+        splash::Step(p, Tr(what));
+    };
+    step(0.03f, "Moteur graphique");
     hwnd = platform::CreateMainWindow(L"Shaderixel", (int)(1600 * dpi), (int)(960 * dpi));
     if (!gpu::Dev().Init(hwnd)) {
+        splash::Close();
         MessageBoxW(hwnd, gpu::BackendName() == std::string("Vulkan") ? L"Impossible d'initialiser Vulkan 1.3 (pilote graphique à jour ?)."
                                                                     : L"Impossible d'initialiser Direct3D 12.", L"Shaderixel", MB_ICONERROR);
         return false;
@@ -163,8 +205,11 @@ bool App::Init() {
     });
 
     std::string shaderDir = ShaderDir();
+    step(0.15f, "Compilateur de shaders");
     gpu::Shaders().Init(shaderDir, ExeDir() + "/shadercache");
+    step(0.25f, "Bibliothèque d'effets");
     Effects().Load(shaderDir + "/effects");
+    step(0.40f, "Bibliothèque de pinceaux");
     Brushes().Load(shaderDir + "/brushes");
     // Warm up builtin kernels in the background.
     for (const char* s : {"composite.slang", "display.slang", "brush.slang", "clear.slang", "clear_r.slang", "gradient.slang"})
@@ -357,6 +402,7 @@ bool App::Init() {
         Log("[test-brushes] %d / %zu brushes compiled", okb, Brushes().All().size());
     }
 
+    step(0.48f, "Interface");
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     if (Automated()) {
@@ -385,13 +431,12 @@ bool App::Init() {
     LoadRecent();
     io.IniFilename = iniPath.c_str();
     layoutRepairFrames = 3;  // (the saved layout read at start: no panel left floating, MigrateLayout)
-    settingsPath = ExeDir() + "/shaderixel_settings.json";
-    LoadAiSettings();
     if (const char* forced = getenv("SX_THEME")) uiTheme = forced;
     if (const char* forced = getenv("SX_DENSITY")) uiComfortable = std::string(forced) == "comfortable";
     if (const char* forced = getenv("SX_DPI")) dpi = std::clamp((float)atof(forced), .5f, 4.f);
     if (std::none_of(cyui::builtInThemes().begin(), cyui::builtInThemes().end(), [&](const auto& t) { return t.key == uiTheme; })) uiTheme = "violet";
     ui::ApplyTheme(dpi, uiTheme.c_str(), uiComfortable);
+    step(0.52f, "Polices");
     ui::LoadFonts(dpi);
 
     ImGui_ImplWin32_Init(hwnd);
@@ -399,28 +444,22 @@ bool App::Init() {
 
     eraser = brush;
     eraser.hardness = 0.9f;
-    if (const char* forced = getenv("SX_LANG")) uiLanguage = forced;  // tests
-    if (uiLanguage.empty()) uiLanguage = "en";
-    if (!SetLanguage(uiLanguage)) {
-        uiLanguage = "en";  // An unavailable saved language uses the default dictionary.
-        if (!SetLanguage(uiLanguage)) {
-            Log("English interface dictionary unavailable; using built-in French");
-            uiLanguage = "fr";
-            SetLanguage(uiLanguage);
-        }
-    }
     cyui::registerTranslations("fr", {{"Theme", "Thème"}, {"Comfortable density", "Densité confortable"}, {"Arrange nodes", "Organiser les nœuds"}});
     if (!cyui::setLocale(uiLanguage.c_str())) cyui::setLocale("en");
     Log("Interface language: %s", CurrentLanguage().c_str());
     Log("[cyui] theme=%s density=%s dpi=%.2f", cyui::currentThemeKey().c_str(), uiComfortable ? "comfortable" : "compact", dpi);
     ApplyHistoryLimits();
+    step(0.58f, "Fonctions et actions");
     InitFunctions();
     LoadActions();
     monitorProfile = color::MonitorPath(hwnd);
     RegisterAiOps();
+    step(0.66f, "Plugins");
     InitPlugins();
+    step(0.72f, "Recherche");
     InitSearch();
     if (aiTest) bridge.allowWrites = true;
+    step(0.76f, "Liaisons et pont IA");
     InitLink();
     if (bridge.Start(ExeDir() + "/Shaderixel") && (aiSettings.autoStart || aiTest)) {
         std::string err;
@@ -434,10 +473,17 @@ bool App::Init() {
         SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0);
         SetWindowPos(hwnd, HWND_BOTTOM, wa.left, wa.top, wa.right - wa.left, wa.bottom - wa.top, SWP_NOACTIVATE);
         ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+    } else if (splash::Active()) {
+        // Hidden, already at its maximized size, until the first frames are drawn (App::Run shows it and closes the
+        // loading screen): no empty window without menus while the interface builds.
+        RECT wa;
+        SystemParametersInfoW(SPI_GETWORKAREA, 0, &wa, 0);
+        SetWindowPos(hwnd, nullptr, wa.left, wa.top, wa.right - wa.left, wa.bottom - wa.top, SWP_NOACTIVATE | SWP_NOZORDER);
     } else {
         ShowWindow(hwnd, SW_SHOWMAXIMIZED);
     }
     UpdateWindow(hwnd);
+    step(0.80f, "Préparation de l'interface");
     InitUpdates();
     cyui::registerTranslations("fr", {{"Documentation", "Documentation"}, {"Getting started", "Prise en main"},
         {"Keyboard shortcuts", "Raccourcis clavier"}, {"Troubleshooting", "Dépannage"}, {"Guided projects", "Projets guidés"}, {"Tool reference", "Référence des outils"}, {"Action reference", "Référence des actions"}});
@@ -973,6 +1019,7 @@ void App::Frame() {
         pickReadback.reset();
     }
 
+    UpdateProjectLoad();  // project opening in the background: its progress bar, then the document
     autotips::EndFrame();  // (after every window: the hovered item is known)
     if (Automated())
         if (ImGuiID id = ImGui::GetCurrentContext()->DebugDrawIdConflictsId) {
@@ -1086,7 +1133,10 @@ void App::OpenImage(const std::string& path, bool asLayer) {
         std::string ext = Narrow(Utf8Path(path).extension().wstring());
         for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
         if (ext == ".sxl" || ext == ".sx3d") {
-            LoadSxl(path);
+            // Opened from the interface: in the background with a progress bar (scripted runs: at once, unless
+            // SX_ASYNCOPEN tests it).
+            if (!Automated() || getenv("SX_ASYNCOPEN")) StartProjectLoad(path);
+            else LoadSxl(path);
             return;
         }
         if (ext == ".uasset" && OpenUAsset(path, asLayer)) return;  // meshes (Unreal conversion); textures continue below
@@ -2148,7 +2198,9 @@ void App::DrawStatusBar() {
                 if (ImGui::SmallButton((std::to_string(failedCount) + " erreur(s) de shader").c_str())) showShaderErrors = true;
                 ImGui::PopStyleColor();
             }
-            // Scripted documentation captures omit host diagnostics.
+            // Scripted documentation captures omit host diagnostics (the version stays, at the right end).
+            char right[160];
+            snprintf(right, sizeof(right), "v%s", updates::Version);
             if (!Automated()) {
                 // Machine load (Windows counters, sampled once a second): graphics card, processor, video memory.
                 gpu::Device& gd = gpu::Dev();
@@ -2160,8 +2212,7 @@ void App::DrawStatusBar() {
                 if (vTotal) vUsed = std::min(vUsed, vTotal);
                 const u64 vFree = vTotal > vUsed ? vTotal - vUsed : 0;
                 const float vFrac = vTotal ? (float)((double)vUsed / (double)vTotal) : -1.0f;
-                char right[160];
-                snprintf(right, sizeof(right), "%s   %.0f i/s", gd.AdapterName().c_str(), ImGui::GetIO().Framerate);
+                snprintf(right, sizeof(right), "%s   %.0f i/s   v%s", gd.AdapterName().c_str(), ImGui::GetIO().Framerate, updates::Version);
                 // Zone toggles (Tab / Maj+Tab), left of the gauges and the GPU name.
                 static float gaugesW = 0;  // measured on the previous frame
                 const char* tb = hideBottom ? "Afficher le graphe" : "Masquer le graphe";
@@ -2206,7 +2257,12 @@ void App::DrawStatusBar() {
                 gaugesW = ImGui::GetItemRectMax().x - gx;
                 ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(right).x - 16);
                 ImGui::TextDisabled("%s", right);
+            } else {
+                ImGui::SetCursorPosX(ImGui::GetWindowWidth() - ImGui::CalcTextSize(right).x - 16);
+                ImGui::TextDisabled("%s", right);
             }
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s %s", TrC("Version de Shaderixel :"), updates::Version);
+            if (ImGui::IsItemClicked()) showAbout = true;
             ImGui::EndMenuBar();
         }
     }
@@ -2654,6 +2710,53 @@ void App::UpdateSaves() {
     }
 }
 
+void App::StartProjectLoad(const std::string& path) {
+    if (projectLoad) {
+        Status(Tr("Un projet est déjà en cours d'ouverture."));
+        return;
+    }
+    auto job = std::make_unique<ProjectLoadJob>();
+    job->path = path;
+    ProjectLoadJob* j = job.get();
+    j->work = std::async(std::launch::async, [j] { return ReadSxl(j->path, j->meta, j->blobs, &j->error, &j->progress); });
+    projectLoad = std::move(job);
+    Log("[open] %s (background)", path.c_str());
+}
+
+void App::UpdateProjectLoad() {
+    if (!projectLoad) return;
+    ProjectLoadJob& j = *projectLoad;
+    const std::string name = Narrow(Utf8Path(j.path).filename().wstring());
+    if (j.finishIn < 0 && j.work.valid() && j.work.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+        if (!j.work.get()) {
+            Status(Tr("Ouverture impossible : ") + j.error);
+            CloseJobModal();
+            projectLoad.reset();
+            return;
+        }
+        j.finishIn = 2;
+    }
+    if (j.finishIn == 0) {
+        CloseJobModal();
+        const double t0 = Now();
+        FinishSxl(j.path, j.meta, j.blobs);
+        Log("[open] %s ready (%.0f ms to build)", name.c_str(), (Now() - t0) * 1000.0);
+        projectLoad.reset();
+        return;
+    }
+    const bool preparing = j.finishIn > 0;
+    if (preparing) --j.finishIn;
+    const float p = preparing ? 0.92f : 0.9f * j.progress.load();
+    const std::string title = Tr("Ouverture de") + " " + name + "\n" +
+                              Tr(preparing ? "Préparation du document (textures, maillage)..." : j.progress.load() < 0.4f ? "Lecture du fichier..." : "Décompression des calques...");
+    if (Automated()) {
+        static std::string logged;
+        if (title != logged) Log("[open] %.0f %%  %s", p * 100, title.c_str());
+        logged = title;
+    }
+    DrawJobModal(title.c_str(), p, nullptr);
+}
+
 bool App::LoadSxl(const std::string& path) {
     Json meta;
     std::vector<SurfaceBlob> blobs;
@@ -2662,6 +2765,11 @@ bool App::LoadSxl(const std::string& path) {
         Status("Ouverture impossible : " + err);
         return false;
     }
+    return FinishSxl(path, meta, blobs);
+}
+
+bool App::FinishSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& blobs) {
+    std::string err;
     auto doc = DeserializeDocument(meta, blobs, &err);
     if (!doc) {
         Status("Document invalide : " + err);
