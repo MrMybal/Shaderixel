@@ -370,6 +370,9 @@ bool App::Init() {
     ui::InstallFilter();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;  // no keyboard nav: keys belong to the tools
+    // Two items with the same identifier: highlighted with a programmer's message in tests only (and logged at the
+    // end of the frame), never shown to the users.
+    io.ConfigDebugHighlightIdConflicts = Automated();
     // Panels and extra windows can leave the main window (other screens).
     if (!Automated() || multiWindowTest) io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     // Pointer samples in the coordinates ImGui uses (screen pixels with multi-viewports).
@@ -971,6 +974,12 @@ void App::Frame() {
     }
 
     autotips::EndFrame();  // (after every window: the hovered item is known)
+    if (Automated())
+        if (ImGuiID id = ImGui::GetCurrentContext()->DebugDrawIdConflictsId) {
+            static std::set<ImGuiID> logged;
+            ImGuiWindow* w = ImGui::GetCurrentContext()->HoveredWindow;
+            if (logged.insert(id).second) Log("[id-conflict] 0x%08X in '%s'", id, w ? w->Name : "?");
+        }
     GlobalSearch::Get().EndFrame();
     cyui::renderNotifications();
     ImGui::Render();

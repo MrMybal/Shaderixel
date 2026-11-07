@@ -35,7 +35,7 @@ FRENCH={
     'Vein Strength':'Intensité de nervure','Vein Width':'Largeur de nervure',
     'Whorl Amount':'Amplitude du tourbillon','Whorl Count':'Nombre de tours','Wobble':'Ondulation',
     'Brush Texture':'Texture de pointe','Formes':'Formes','Matières':'Matières',
-    'Particules':'Particules','Détails':'Détails','Texture 3D':'Texture 3D','Exemples':'Exemples'
+    'Particules':'Particules','Détails':'Détails','Texture 3D':'Texture 3D','Exemples':'Exemples','Essentiels':'Essentiels'
 }
 
 

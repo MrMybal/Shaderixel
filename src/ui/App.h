@@ -2082,6 +2082,8 @@ private:
         std::unordered_map<std::string, u64> thumbHash;  // the library's stroke thumbnails: source hash drawn
         std::unordered_map<std::string, int> thumbTries;  // times drawn for that source
     } brushEd;
+    std::set<std::string> brushFavorites;  // brush ids (settings)
+    void BrushTileMenu(BrushSettings& b, const std::string& id, const BrushDef* def, const std::string& name);
     bool haveStrokeEnd = false;
     bool gradientDrag = false;
     float2 gradientStart, gradientEnd;

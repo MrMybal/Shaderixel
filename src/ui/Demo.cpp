@@ -1431,6 +1431,45 @@ void App::DemoTick() {
             }
             return;
         }
+        // SX_PAINTPERF=<.sx3d>: a Paint 3D project opened, then a 3D brush stroke drawn in a circle on the model
+        // (synthetic mouse) for 60 frames; the frame times while idle and while painting are logged.
+        char perfFile[512] = "";
+        if (GetEnvironmentVariableA("SX_PAINTPERF", perfFile, sizeof(perfFile)) > 0) {
+            static std::vector<float> idle, paint;
+            static ImVec2 c;
+            ImGuiIO& io = ImGui::GetIO();
+            if (frameCounter == 12) Log("[paintperf] loaded %d", LoadSxl(perfFile) ? 1 : 0);
+            if (frameCounter == 30) { FocusPanel("Vue 3D"); tool = viewTool[1] = Tool::Brush; }
+            if (frameCounter == 40)
+                if (ImGuiWindow* w = ImGui::FindWindowByName("Vue 3D")) {
+                    c = ImVec2((w->InnerRect.Min.x + w->InnerRect.Max.x) * 0.5f, w->InnerRect.Min.y + w->InnerRect.GetHeight() * 0.55f);
+                    io.AddMousePosEvent(c.x, c.y);
+                }
+            if (frameCounter > 45 && frameCounter <= 75) idle.push_back(io.DeltaTime * 1000);
+            if (frameCounter == 80) io.AddMouseButtonEvent(0, true);
+            if (frameCounter > 80 && frameCounter <= 160) {
+                const float a = (frameCounter - 80) * 0.12f;
+                io.AddMousePosEvent(c.x + std::cos(a) * 90, c.y + std::sin(a) * 60);
+                if (frameCounter > 85) paint.push_back(io.DeltaTime * 1000);
+            }
+            if (frameCounter == 161) io.AddMouseButtonEvent(0, false);
+            if (frameCounter == 170) {
+                auto stats = [](std::vector<float>& v) {
+                    if (v.empty()) return std::string("-");
+                    std::vector<float> s = v;
+                    std::sort(s.begin(), s.end());
+                    float sum = 0;
+                    for (float x : s) sum += x;
+                    char b[96];
+                    snprintf(b, sizeof(b), "mean %.1f ms, median %.1f, max %.1f (%zu frames)", sum / s.size(), s[s.size() / 2], s.back(), s.size());
+                    return std::string(b);
+                };
+                DocView* m = Active();
+                Log("[paintperf] doc %u x %u, %zu layers; idle: %s; painting: %s", m ? m->doc->Width() : 0, m ? m->doc->Height() : 0,
+                    m ? m->doc->S().layers.size() : 0, stats(idle).c_str(), stats(paint).c_str());
+            }
+            return;
+        }
         // SX_TIPTEST=<label>: a test window with a button of that label, the (synthetic) mouse left on it; the automatic
         // tooltip shown after the delay is logged (its text) and captured.
         char tipLabel[160] = "";

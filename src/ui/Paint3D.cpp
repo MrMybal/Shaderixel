@@ -722,7 +722,7 @@ void App::DrawBrushMaterialPanel() {
     }
     ImGui::SameLine();
     if (ImGui::Button("Outil Projection")) tool = Tool::Projection;
-    ImGui::SliderFloat("Taille", &decal.size, 0.05f, 2.0f, "%.2f");
+    ImGui::SliderFloat("Taille##decal", &decal.size, 0.05f, 2.0f, "%.2f");  // (the brush size above is "Taille" too)
     ImGui::SliderFloat("Rotation", &decal.rotation, -180, 180, "%.0f°");
     ImGui::SliderFloat("Opacité##dec", &decal.opacity, 0, 1, "%.2f");
     ImGui::Checkbox("Couleurs de l'image", &decal.imageColor);

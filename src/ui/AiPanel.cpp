@@ -62,6 +62,8 @@ void App::LoadAiSettings() {
         uiTheme = j["ui"]["theme"].S("violet");
         uiComfortable = j["ui"]["comfortable"].B(true);
         tooltipDelay = std::clamp(j["ui"]["tooltipDelay"].F(0.15f), 0.0f, 2.0f);
+        brushFavorites.clear();
+        for (auto& f : j["brushes"]["favorites"].Elements()) if (!f.S("").empty()) brushFavorites.insert(f.S(""));
         updateCheckAtStartup = j["updates"]["checkAtStartup"].B(true);
         updateIncludePrereleases = j["updates"]["includePrereleases"].B(std::string(updates::Version).find('-') != std::string::npos);
         histGpuMB = j["history"]["gpuMB"].I(0);
@@ -98,6 +100,11 @@ void App::SaveAiSettings() {
     ui["theme"] = uiTheme;
     ui["comfortable"] = uiComfortable;
     ui["tooltipDelay"] = tooltipDelay;
+    {
+        Json fav = Json::Array();
+        for (auto& f : brushFavorites) fav.Push(f);
+        j["brushes"]["favorites"] = fav;
+    }
     j["ui"] = ui;
     j["updates"]["checkAtStartup"] = updateCheckAtStartup;
     j["updates"]["includePrereleases"] = updateIncludePrereleases;

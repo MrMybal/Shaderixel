@@ -7,6 +7,7 @@
 #include "gpu/ShaderSystem.h"
 #include "doc/EffectGraph.h"
 #include "ui/Lang.h"
+#include <shellapi.h>
 
 #include <imgui_stdlib.h>
 
@@ -277,6 +278,89 @@ void App::BrushTipPicker(BrushSettings& b) {
     }
 }
 
+// Right-click menu of a brush in the library: use it, edit a copy, duplicate it into My brushes, favorites, show
+// the file; rename / delete for my own brushes.
+void App::BrushTileMenu(BrushSettings& b, const std::string& id, const BrushDef* def, const std::string& name) {
+    namespace fs = std::filesystem;
+    const bool round = id == "_round";
+    const bool mine = !round && (id.rfind("user_", 0) == 0 || (def && def->def && def->def->category == "Mes pinceaux"));
+    ImGui::TextDisabled("%s", Tr(name).c_str());
+    ImGui::Separator();
+    if (ImGui::MenuItem("Utiliser ce pinceau")) SelectTip(b, round ? "" : id);
+    if (!round && ImGui::MenuItem("Modifier (code ou graphe)...")) {
+        SelectTip(b, id);
+        OpenGraphEditor(2);
+    }
+    if (!round && def && ImGui::MenuItem("Dupliquer dans Mes pinceaux")) {
+        // A copy under a new id, in the "Mes pinceaux" category.
+        std::error_code ec;
+        int n = 1;
+        while (fs::exists(Utf8Path(Brushes().Dir() + "/user_" + id + "_" + std::to_string(n) + ".slang"), ec)) ++n;
+        const std::string newId = "user_" + id + "_" + std::to_string(n);
+        std::string text = def->text;
+        auto setMeta = [&](const std::string& key, const std::string& value) {
+            const std::string tag = "//@" + key + " ";
+            size_t at = text.find(tag);
+            if (at == std::string::npos) { text = tag + value + "\n" + text; return; }
+            size_t e = text.find('\n', at);
+            text.replace(at, (e == std::string::npos ? text.size() : e) - at, tag + value);
+        };
+        setMeta("name", name + " " + Tr("(copie)"));
+        setMeta("category", "Mes pinceaux");
+        std::ofstream f(Utf8Path(Brushes().Dir() + "/" + newId + ".slang"), std::ios::binary);
+        if (f << text) {
+            f.close();
+            Brushes().Reload();
+            SelectTip(b, newId);
+            Status(Tr("Pinceau dupliqué dans Mes pinceaux :") + " " + name);
+        } else {
+            Status(Tr("Dupliquer le pinceau : écriture impossible dans") + " " + Brushes().Dir());
+        }
+    }
+    if (!round) {
+        const bool fav = brushFavorites.count(id) > 0;
+        if (ImGui::MenuItem(fav ? "Retirer des favoris" : "Ajouter aux favoris")) {
+            if (fav) brushFavorites.erase(id);
+            else brushFavorites.insert(id);
+            SaveAiSettings();
+        }
+    }
+    if (!round && ImGui::MenuItem("Afficher le fichier")) {
+        const std::wstring args = L"/select,\"" + Utf8Path(Brushes().Dir() + "/" + id + ".slang").wstring() + L"\"";
+        ShellExecuteW(hwnd, L"open", L"explorer.exe", args.c_str(), nullptr, SW_SHOWNORMAL);
+    }
+    if (mine) {
+        ImGui::Separator();
+        if (ImGui::BeginMenu("Renommer")) {
+            static std::string rename;
+            if (ImGui::IsWindowAppearing()) rename = name;
+            ImGui::SetNextItemWidth(220 * dpi);
+            if (ImGui::InputText("##rename", &rename, ImGuiInputTextFlags_EnterReturnsTrue) && !rename.empty() && def) {
+                std::string text = def->text;
+                const std::string tag = "//@name ";
+                size_t at = text.find(tag);
+                if (at == std::string::npos) text = tag + rename + "\n" + text;
+                else {
+                    size_t e = text.find('\n', at);
+                    text.replace(at, (e == std::string::npos ? text.size() : e) - at, tag + rename);
+                }
+                std::ofstream(Utf8Path(Brushes().Dir() + "/" + id + ".slang"), std::ios::binary) << text;
+                Brushes().Reload();
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::MenuItem("Supprimer ce pinceau")) {
+            std::error_code ec;
+            fs::remove(Utf8Path(Brushes().Dir() + "/" + id + ".slang"), ec);
+            brushFavorites.erase(id);
+            if (b.tipId == id) SelectTip(b, "");
+            Brushes().Reload();
+            Status(ec ? Tr("Supprimer le pinceau : impossible") : Tr("Pinceau supprimé :") + " " + name);
+        }
+    }
+}
+
 void App::DrawBrushPanel() {
     if (!ImGui::Begin("Pinceaux", PanelFlag("Pinceaux"))) { ImGui::End(); return; }
     PopOutCorner("Pinceaux");
@@ -287,6 +371,13 @@ void App::DrawBrushPanel() {
             ui::ManualReferenceTopic("brush",b.tipId,"brushes_tablet"));
     }
     DocView* v = Active();
+    // The current brush above everything: its stroke (current size and settings) and its name.
+    BrushStrokePreview(b, td.get(), 64 * dpi);
+    ImGui::TextUnformatted(Tr(td && td->def ? td->def->name : std::string("Ronde (standard)")).c_str());
+    if (td && td->def) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", Tr(td->def->category).c_str());
+    }
     // Wide (bottom zone): list | preview + code. Narrow (side tab): stacked.
     const bool wide = ImGui::GetContentRegionAvail().x > 640 * dpi;
 
@@ -306,7 +397,11 @@ void App::DrawBrushPanel() {
         const float textH = ImGui::GetTextLineHeight();
         const bool clicked = ImGui::InvisibleButton("##tile", ImVec2(tileW, tileH + textH + 4 * dpi));
         const bool hovered = ImGui::IsItemHovered();
-        ImGui::SetItemTooltip("%s%s", name.c_str(), graph ? TrC("  (graphe)") : "");
+        ImGui::SetItemTooltip("%s%s", Tr(name).c_str(), graph ? TrC("  (graphe)") : "");
+        if (ImGui::BeginPopupContextItem("##tilemenu")) {
+            BrushTileMenu(b, id, def, name);
+            ImGui::EndPopup();
+        }
         ImDrawList* dl = ImGui::GetWindowDrawList();
         dl->AddRectFilled(p, ImVec2(p.x + tileW, p.y + tileH), IM_COL32(30, 30, 36, 255), 4 * dpi);
         if (v && def && ImGui::IsItemVisible()) {
@@ -317,7 +412,8 @@ void App::DrawBrushPanel() {
             // kept until the brush's source changes.
             int& tries = brushEd.thumbTries[id];
             if (brushEd.thumbHash[id] != hash) { brushEd.thumbHash[id] = hash; tries = 0; }
-            if ((!th || tries < 3) && rendered < 2) {
+            // (a shader still compiling: the preview would return an older image, so wait for it)
+            if ((!th || tries < 3) && rendered < 2 && v->renderer.BrushPipeline(*def)) {
                 BrushSettings ps = b;
                 ps.size = tileH * 0.32f;
                 ps.tipId = def == RoundPreviewDef() ? std::string() : id;
@@ -360,16 +456,26 @@ void App::DrawBrushPanel() {
     std::vector<std::string> cats;
     for (auto& x : Brushes().All())
         if (x->def && std::find(cats.begin(), cats.end(), x->def->category) == cats.end()) cats.push_back(x->def->category);
+    // The essentials first, my brushes next, the others in their order.
+    std::stable_sort(cats.begin(), cats.end(), [](const std::string& a, const std::string& b) {
+        auto rank = [](const std::string& c) { return c == "Essentiels" ? 0 : c == "Mes pinceaux" ? 1 : 2; };
+        return rank(a) < rank(b);
+    });
+    const std::string kFav = "\xE2\x98\x85 Favoris";
+    if (!brushFavorites.empty()) cats.insert(cats.begin(), kFav);
+    auto inCat = [&](const BrushDefPtr& x, const std::string& c) {
+        return x->def && (c == kFav ? brushFavorites.count(x->id) > 0 : x->def->category == c);
+    };
     for (auto& c : cats) {
         bool any = false;
         for (auto& x : Brushes().All())
-            if (x->def && x->def->category == c && (q.empty() || Lower(x->def->name + " " + c + " " + Tr(x->def->name) + " " + Tr(c)).find(q) != std::string::npos)) any = true;
+            if (inCat(x, c) && (q.empty() || Lower(x->def->name + " " + c + " " + Tr(x->def->name) + " " + Tr(c)).find(q) != std::string::npos)) any = true;
         if (!any) continue;
         if (!q.empty()) ImGui::SetNextItemOpen(true);
-        if (!ImGui::CollapsingHeader((c + "##bcat").c_str(), ImGuiTreeNodeFlags_DefaultOpen)) continue;
+        if (!ImGui::CollapsingHeader((Tr(c) + "##bcat" + c).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) continue;
         col = 0;
         for (auto& x : Brushes().All()) {
-            if (!x->def || x->def->category != c) continue;
+            if (!inCat(x, c)) continue;
             if (!q.empty() && Lower(x->def->name + " " + c + " " + Tr(x->def->name) + " " + Tr(c)).find(q) == std::string::npos) continue;
             place();
             if (tile(x->id, x.get(), x->def->name, b.tipId == x->id && b.tipCode.empty(), !x->def->graph.empty())) SelectTip(b, x->id);
@@ -410,24 +516,10 @@ void App::DrawBrushPanel() {
         ImGui::End();
         return;
     }
-    // Preview stroke (current color and settings).
+    // (the stroke preview is at the top of the panel)
     std::string err;
-    if (v) {
-        float w = ImGui::GetContentRegionAvail().x, h = 90 * dpi;
-        EffectInstance tip;
-        tip.params = b.tipParams;
-        BindTipTextures(b, *td);
-        BrushSettings ps = b;
-        ps.size = std::min(b.size, h * 0.4f);
-        if (gpu::Texture* t = v->renderer.BrushPreview(*ctx, *td, tip, ps, LinearColor(fg), (u32)w, (u32)h, &err)) {
-            gpu::Texture* th = v->renderer.Thumbnail(*ctx, (1ull << 59) | 2, t, BrushPreviewVersion(ps, *td) ^ (u64)w ^ ((u64)h << 20), (u32)w, (u32)h);
-            ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(th), ImVec2(w, h));
-        }
-    }
     const bool isGraph = !b.tipGraph.empty();
-    ImGui::TextUnformatted(td->def ? td->def->name.c_str() : "Pinceau");
-    ImGui::SameLine();
-    ImGui::TextDisabled("%s%s", td->def ? td->def->category.c_str() : "", isGraph ? "  (graphe)" : b.tipCode.empty() ? "" : "  (copie modifiée)");
+    if (isGraph || !b.tipCode.empty()) ImGui::TextDisabled("%s", TrC(isGraph ? "(graphe)" : "(copie modifiée)"));
     // Parameters of the tip.
     if (td->def && !td->def->params.empty()) {
         EffectInstance fx;
