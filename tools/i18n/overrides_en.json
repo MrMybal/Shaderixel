@@ -1070,5 +1070,20 @@
  "Émissif": "Emissive",
  "peint (clic : ignorer ce canal)": "painted (click: ignore this channel)",
  "ignoré (clic : peindre ce canal)": "ignored (click: paint this channel)",
- "Aperçu agrandi": "Larger preview"
+ "Aperçu agrandi": "Larger preview",
+ "Peinture rouge": "Red paint",
+ "Plastique blanc": "White plastic",
+ "Caoutchouc": "Rubber",
+ "Bois": "Wood",
+ "Or": "Gold",
+ "Cuivre": "Copper",
+ "Fer brut": "Raw iron",
+ "Rouille": "Rust",
+ "Boue": "Mud",
+ "Gravure (hauteur)": "Engraving (height)",
+ "Relief (hauteur)": "Relief (height)",
+ "masque": "mask",
+ "  + hauteur": "  + height",
+ "Clic : nouveau calque de matériau (masque noir, à peindre)": "Click: new material layer (black mask, to paint)",
+ "Ctrl+clic : outil Tampon de motif": "Ctrl+click: Pattern Stamp tool"
 }

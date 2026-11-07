@@ -439,6 +439,12 @@ void App::DrawLayers() {
             if (src) {
                 gpu::Texture* t = v->renderer.Thumbnail(*ctx, ((u64)l.id << 1), src, hash, (u32)thumb, (u32)thumb);
                 dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), tp, ImVec2(tp.x + thumb, tp.y + thumb));
+                if (ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(tp, ImVec2(tp.x + thumb, tp.y + thumb))) {
+                    const float k = 300 * dpi / std::max(1u, std::max(src->Width(), src->Height()));
+                    const u32 bw = std::max(1u, (u32)(src->Width() * k)), bh = std::max(1u, (u32)(src->Height() * k));
+                    BigPreviewTooltip(v->renderer.Thumbnail(*ctx, ((u64)l.id << 1) ^ (5ull << 59), src, hash, bw, bh), l.name,
+                                      std::to_string(src->Width()) + " x " + std::to_string(src->Height()));
+                }
             }
             if (l.kind == LayerKind::Text) ui::DrawIcon(dl, ui::IconText, ImVec2(tp.x + thumb * 0.5f, tp.y + thumb * 0.5f), thumb * 0.55f, IM_COL32(255, 255, 255, 220));
             else if (l.kind == LayerKind::Smart) {
@@ -457,6 +463,12 @@ void App::DrawLayers() {
                 if (Surface* s = d.GetSurface(l.mask)) {
                     gpu::Texture* t = v->renderer.Thumbnail(*ctx, ((u64)l.id << 1) | 1, s->tex.get(), s->version, (u32)thumb, (u32)thumb);
                     dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), mp, ImVec2(mp.x + thumb, mp.y + thumb));
+                    if (ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(mp, ImVec2(mp.x + thumb, mp.y + thumb))) {
+                        const float k = 300 * dpi / std::max(1u, std::max(s->tex->Width(), s->tex->Height()));
+                        BigPreviewTooltip(v->renderer.Thumbnail(*ctx, (((u64)l.id << 1) | 1) ^ (5ull << 59), s->tex.get(), s->version,
+                                                                std::max(1u, (u32)(s->tex->Width() * k)), std::max(1u, (u32)(s->tex->Height() * k))),
+                                          l.name + " - " + Tr("masque"));
+                    }
                 }
                 bool maskSel = selected && d.S().editMask;
                 dl->AddRect(ImVec2(mp.x - 1, mp.y - 1), ImVec2(mp.x + thumb + 1, mp.y + thumb + 1), maskSel ? cyui::palette().info : cyui::palette().line, 0, 0, maskSel ? 2.0f : 1.0f);

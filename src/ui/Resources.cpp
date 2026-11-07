@@ -2,6 +2,7 @@
 // .pat import), swatches (Nuancier panel, .aco / .ase / .gpl libraries) and
 // Photoshop brushes (.abr sampled tips -> textured brushes of the library).
 #include "ui/App.h"
+#include "ui/Lang.h"
 #include "ui/Theme.h"
 #include "io/AdobeFormats.h"
 #include "doc/Brushes.h"
@@ -335,7 +336,8 @@ void App::DrawPatternsPanel() {
         float rep = cell / std::max(p.w, p.h) < 0.5f ? 1.0f : 2.0f;
         dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(p.thumb.get()), a, ImVec2(a.x + cell, a.y + cell), ImVec2(0, 0), ImVec2(rep, rep));
         dl->AddRect(a, ImVec2(a.x + cell, a.y + cell), i == patternSel ? cyui::palette().accent : cyui::palette().line, 2, 0, i == patternSel ? 2.0f : 1.0f);
-        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s (%d x %d)\nCtrl+clic : outil Tampon de motif", p.name.c_str(), p.w, p.h);
+        if (ImGui::IsItemHovered())
+            BigPreviewTooltip(p.thumb.get(), p.name, std::to_string(p.w) + " x " + std::to_string(p.h) + "   " + Tr("Ctrl+clic : outil Tampon de motif"));
         ImGui::PopID();
     }
     ImGui::End();

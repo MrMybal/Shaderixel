@@ -599,4 +599,29 @@ void App::DrawBrushPbrPreview(float h) {
     }
 }
 
+void App::BigPreviewTooltip(gpu::Texture* t, const std::string& title, const std::string& info, bool checker) {
+    if (!t || ImGui::IsMouseDragging(ImGuiMouseButton_Left)) return;
+    if (!ImGui::BeginTooltip()) return;
+    if (!title.empty()) ImGui::TextUnformatted(title.c_str());
+    const float side = 300 * dpi;
+    const float k = std::min(side / std::max(1u, t->Width()), side / std::max(1u, t->Height()));
+    const ImVec2 sz(t->Width() * k, t->Height() * k);
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    if (checker) {
+        const float cs = 10 * dpi;
+        dl->PushClipRect(p, ImVec2(p.x + sz.x, p.y + sz.y), true);
+        for (float y = 0; y < sz.y; y += cs)
+            for (float x = 0; x < sz.x; x += cs)
+                dl->AddRectFilled(ImVec2(p.x + x, p.y + y), ImVec2(p.x + x + cs, p.y + y + cs),
+                                  ((int)(x / cs) + (int)(y / cs)) % 2 ? IM_COL32(70, 70, 76, 255) : IM_COL32(52, 52, 58, 255));
+        dl->PopClipRect();
+    } else {
+        dl->AddRectFilled(p, ImVec2(p.x + sz.x, p.y + sz.y), IM_COL32(22, 22, 26, 255), 4);
+    }
+    ImGui::Image((ImTextureID)gpu::Dev().UiTextureId(t), sz);
+    if (!info.empty()) ImGui::TextDisabled("%s", info.c_str());
+    ImGui::EndTooltip();
+}
+
 }  // namespace sx

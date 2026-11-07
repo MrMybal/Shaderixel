@@ -415,21 +415,22 @@ gpu::ReadbackPtr Renderer::MeshCursorFrame(gpu::CommandContext& ctx, MeshScene& 
 }
 
 gpu::Texture* Renderer::MaterialBall(gpu::CommandContext& ctx, u32 size, float4 base, float rough, float metal, float4 emissive,
-                                     float height, bool heightOn) {
+                                     float height, bool heightOn, int slot) {
     auto* k = Kernel("material_ball.slang");
     if (!k || !size) return nullptr;
-    Ensure(materialBall, size, size, gpu::Format::RGBA8, "MaterialBall");
+    gpu::TexturePtr& ball = materialBall[std::clamp(slot, 0, 1)];
+    Ensure(ball, size, size, gpu::Format::RGBA8, "MaterialBall");
     struct Root {
         u32 w, h;
         float r, g, b, rough, metal, er, eg, eb, height, heightOn;
     } root{size, size, base.x, base.y, base.z, rough, metal, emissive.x, emissive.y, emissive.z, height, heightOn ? 1.0f : 0.0f};
     gpu::DispatchDesc d;
     d.pipeline = k;
-    d.uav[0] = materialBall.get();
+    d.uav[0] = ball.get();
     memcpy(d.constants, &root, sizeof(root));
     d.numConstants = sizeof(root) / 4;
     Dispatch2D(ctx, d, size, size);
-    return materialBall.get();
+    return ball.get();
 }
 
 gpu::Texture* Renderer::MeshUvCursor(gpu::CommandContext& ctx, MeshScene& s, u32 docW, u32 docH, float2 p, float r, float hardness,

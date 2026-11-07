@@ -4,6 +4,7 @@
 // with a double click or dragged onto the canvas, the graph or the render view (same routes as a
 // file dropped from Windows).
 #include "ui/App.h"
+#include "ui/Lang.h"
 #include "ui/Theme.h"
 #include "io/UAsset.h"
 #include "io/RawLoad.h"
@@ -585,6 +586,8 @@ void App::DrawResourceBrowser() {
                                               ((int)((xx - a.x) / cs) + (int)((yy - a.y) / cs)) % 2 ? IM_COL32(64, 64, 70, 255) : IM_COL32(48, 48, 54, 255));
                     dl->PopClipRect();
                     dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(t), a, ImVec2(a.x + w, a.y + h));
+                    if (ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(p, ImVec2(p.x + cw, p.y + cw)))
+                        BigPreviewTooltip(t, Narrow(Utf8Path(path).filename().wstring()));
                 } else {
                     const std::string ext = Narrow(Utf8Path(path).extension().wstring());
                     const ImVec2 ts = ImGui::CalcTextSize(ext.c_str());

@@ -864,7 +864,10 @@ private:
     void DrawUvWire(DocView& v, ImVec2 d0, ImDrawList* dl);
     // The current brush, Substance-like: its stroke (white on black) and, for Paint 3D, its material on a sphere with
     // the painted channels (click a chip: use / ignore that channel).
-    void DrawBrushPbrPreview(float h);  // first frames counted: the loading screen closes after them
+    void DrawBrushPbrPreview(float h);
+    // Larger preview of a hovered thumbnail (layers, masks, materials, images, patterns): a tooltip with the image
+    // (its aspect kept, checkerboard behind transparency) and a title. Call when the item is hovered.
+    void BigPreviewTooltip(gpu::Texture* t, const std::string& title, const std::string& info = "", bool checker = true);  // first frames counted: the loading screen closes after them
     int uiErrorCount = 0;
     gpu::ReadbackPtr captureRb;
 

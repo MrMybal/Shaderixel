@@ -551,7 +551,7 @@ bool App::DrawSmartMaterialGrid(DocView& v) {
             else
                 dl->AddText(ImVec2(p.x + 8, p.y + cell * 0.45f), cyui::palette().textDim, "(aperçu)");
             dl->AddRect(p, ImVec2(p.x + cell, p.y + cell), hot ? cyui::palette().accent : cyui::palette().line, 6, 0, hot ? 2.0f : 1.0f);
-            if (hot && !sm["description"].S("").empty()) ImGui::SetTooltip("%s\n\n%s", name.c_str(), sm["description"].S("").c_str());
+            if (hot) BigPreviewTooltip(SmartMaterialThumb(v, name), name, sm["description"].S(""), false);
             ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + cell);
             ImGui::TextUnformatted(name.c_str());
             ImGui::PopTextWrapPos();

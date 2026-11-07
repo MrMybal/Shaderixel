@@ -366,6 +366,9 @@ void App::DrawLayers3DPanel() {
                 gpu::Texture* th = v->renderer.Thumbnail(*ctx, (2ull << 58) | m, s->tex.get(), s->version, (u32)hh, (u32)hh);
                 dl->AddRectFilled(sp, ImVec2(sp.x + hh, sp.y + hh), IM_COL32(60, 60, 66, 255), 3);
                 dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(th), sp, ImVec2(sp.x + hh, sp.y + hh));
+                if (ImGui::IsWindowHovered() && ImGui::IsMouseHoveringRect(sp, ImVec2(sp.x + hh, sp.y + hh)))
+                    BigPreviewTooltip(v->renderer.Thumbnail(*ctx, (6ull << 58) | m, s->tex.get(), s->version, (u32)(300 * dpi), (u32)(300 * dpi)),
+                                      bc->name);
             }
         } else {
             float4 col = bc && !bc->effect.params.empty() ? bc->effect.params[0] : float4{0.4f, 0.4f, 0.4f, 1};

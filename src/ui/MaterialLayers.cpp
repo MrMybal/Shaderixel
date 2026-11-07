@@ -3,6 +3,7 @@
 // tagged with the same material id and sharing ONE mask: painting the mask (in
 // 2D or on the 3D model) applies every channel of the material at once.
 #include "ui/App.h"
+#include "ui/Lang.h"
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
 
@@ -387,10 +388,20 @@ void App::DrawMaterialPanel() {
         if (p.hasHeight && !p.hasColor) dl->AddCircle(c, r * 0.6f, IM_COL32(220, 220, 230, 160), 24, 2.0f);
         if (hov) dl->AddCircle(c, r + 2, cyui::palette().accent, 32, 2.0f);
         ImVec4 clip(a.x, a.y, a.x + sw, a.y + sw + fs * 1.3f);
-        ImVec2 ts = ImGui::CalcTextSize(p.name);
-        dl->AddText(nullptr, 0, ImVec2(a.x + std::max(0.0f, (sw - ts.x) * 0.5f), a.y + sw), ImGui::GetColorU32(ImGuiCol_Text), p.name, nullptr, 0, &clip);
-        if (hov) ImGui::SetTooltip("%s\nRugosité %.2f  Métal %.2f%s\nClic : nouveau calque de matériau (masque noir, à peindre)", p.name, p.rough, p.metal,
-                                   p.hasHeight ? "  + hauteur" : "");
+        const char* shownName = TrC(p.name);
+        ImVec2 ts = ImGui::CalcTextSize(shownName);
+        dl->AddText(nullptr, 0, ImVec2(a.x + std::max(0.0f, (sw - ts.x) * 0.5f), a.y + sw), ImGui::GetColorU32(ImGuiCol_Text), shownName, nullptr, 0, &clip);
+        if (hov) {
+            // The material on a lit sphere, larger.
+            char info[160];
+            snprintf(info, sizeof(info), "%s %.2f   %s %.2f%s\n%s", TrC("Rugosité"), p.rough, TrC("Métal"), p.metal, p.hasHeight ? TrC("  + hauteur") : "",
+                     TrC("Clic : nouveau calque de matériau (masque noir, à peindre)"));
+            const float4 col = p.hasColor ? float4{p.color.x, p.color.y, p.color.z, 1} : float4{0.6f, 0.6f, 0.6f, 1};
+            gpu::Texture* ball = v->renderer.MaterialBall(*ctx, (u32)(300 * dpi), col, p.rough, p.metal, float4{0, 0, 0, 1}, p.hasHeight ? 0.7f : 0.5f,
+                                                          p.hasHeight, 1);
+            if (ball) BigPreviewTooltip(ball, Tr(p.name), info, false);
+            else ImGui::SetTooltip("%s\n%s", TrC(p.name), info);
+        }
         ImGui::PopID();
     }
 

@@ -308,9 +308,9 @@ public:
     // brush's footprint on the model (view-sized overlay, mesh_view_cursor.slang; center and radius in document pixels).
     gpu::TexturePtr meshUvCursor, meshViewCursor;
     // The brush material on a sphere (material_ball.slang): sRGB colors, size x size, straight alpha.
-    gpu::TexturePtr materialBall;
+    gpu::TexturePtr materialBall[2];  // slot 0: the brush, 1: a hovered material (both drawn in one frame)
     gpu::Texture* MaterialBall(gpu::CommandContext& ctx, u32 size, float4 baseSrgb, float rough, float metal, float4 emissiveSrgb,
-                               float height, bool heightOn);
+                               float height, bool heightOn, int slot = 0);
     gpu::Texture* MeshUvCursor(gpu::CommandContext& ctx, MeshScene& s, u32 docW, u32 docH, float2 p, float r, float hardness,
                                float angle, float4 color, bool alongNormal);
     gpu::Texture* MeshViewCursor(gpu::CommandContext& ctx, MeshScene& s, u32 docW, u32 docH, float2 center, float r, float hardness,

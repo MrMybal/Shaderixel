@@ -1469,7 +1469,15 @@ void App::DemoTick() {
                     brush3D.use[(int)PbrChannel::Metallic] = true;
                 }
             }
-            if (frameCounter >= 50) {
+            wchar_t hoverAt[200] = L"";
+            if (frameCounter >= 50 && GetEnvironmentVariableW(L"SX_HOVERAT", hoverAt, 200) > 0) {
+                // SX_HOVERAT=<window>;<fx>;<fy>: the mouse over that point of a window instead (hover previews).
+                std::string h = Narrow(hoverAt);
+                const size_t a1 = h.find(';'), a2 = h.find(';', a1 + 1);
+                if (ImGuiWindow* w = ImGui::FindWindowByName(h.substr(0, a1).c_str()))
+                    io.AddMousePosEvent(w->InnerRect.Min.x + w->InnerRect.GetWidth() * (float)atof(h.c_str() + a1 + 1),
+                                        w->InnerRect.Min.y + w->InnerRect.GetHeight() * (float)atof(h.c_str() + a2 + 1));
+            } else if (frameCounter >= 50) {
                 if (ImGuiWindow* w = ImGui::FindWindowByName(over3d ? "Vue 3D" : "Canevas")) {
                     const ImVec2 c(w->InnerRect.Min.x + w->InnerRect.GetWidth() * (over3d ? 0.42f : 0.62f),
                                    w->InnerRect.Min.y + w->InnerRect.GetHeight() * (over3d ? 0.55f : 0.21f));
