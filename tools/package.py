@@ -99,6 +99,14 @@ def make_torus_glb(path, R=1.0, r=0.38, seg=96, ring=48):
 
 
 # Example documents: (file name, demo, frames, title, what to try)
+# Image documents that belong with the 3D examples (made for Paint 3D).
+EXAMPLES_3D = {'13_Materiau_PBR'}
+
+
+def ExampleDir(dist, fname):
+    return os.path.join(dist, 'Exemples', '3D' if fname in EXAMPLES_3D else '2D')
+
+
 EXAMPLES = [
     ('01_Calques_et_effets', '', 40, 'Calques et effets non destructifs',
      "Dégradé, peinture, copie floutée en mode Écran (lueur), calque de réglage Vibrance, bruit en Incrustation avec masque. "
@@ -429,9 +437,11 @@ def main():
     os.makedirs(os.path.join(dist, 'docs', 'images'))
     for image in ('ui_uv_library.png', 'ui_toolkit.png'):
         shutil.copy2(os.path.join(ROOT, 'docs', 'images', image), os.path.join(dist, 'docs', 'images', image))
-    os.makedirs(os.path.join(dist, 'examples'))
+    # One examples folder, split by kind: Exemples/2D (image documents) and Exemples/3D (Paint 3D projects, models,
+    # lighting). The UI documents of the repository's examples/ folder are 2D examples.
+    os.makedirs(os.path.join(dist, 'Exemples', '2D'))
     for document in ('ui_uv_library_demo.sxl', 'ui_toolkit_demo.sxl'):
-        shutil.copy2(os.path.join(ROOT, 'examples', document), os.path.join(dist, 'examples', document))
+        shutil.copy2(os.path.join(ROOT, 'examples', document), os.path.join(dist, 'Exemples', '2D', document))
     shutil.copy2(os.path.join(ROOT, 'LICENSE'), os.path.join(dist, 'LICENSE'))
     shutil.copytree(os.path.join(ROOT, 'shaders'), os.path.join(dist, 'shaders'))
     # Function library (sub-graphs and tools, .sxfn), listed in the node menu > Bibliothèque.
@@ -498,8 +508,10 @@ def main():
         os.makedirs(os.path.dirname(os.path.join(dist, rel)) or dist, exist_ok=True)
         with open(os.path.join(dist, rel), 'wb') as fh:
             fh.write(data)
-    ex = os.path.join(dist, 'Exemples')
+    ex2 = os.path.join(dist, 'Exemples', '2D')
+    ex = os.path.join(dist, 'Exemples', '3D')
     shots = os.path.join(dist, '_work', 'captures')
+    os.makedirs(ex2, exist_ok=True)
     os.makedirs(ex)
     os.makedirs(shots)
     shutil.copy2(os.path.join(ROOT, 'assets', 'logo.png'), os.path.join(shots, 'logo.png'))
@@ -509,7 +521,7 @@ def main():
     os.makedirs(work, exist_ok=True)
     for fname, demo, frames, title, _ in EXAMPLES:
         args = [exe, '--demo'] + ([demo] if demo else []) + ['--frames', str(frames),
-                '--capture', os.path.join(shots, fname + '.png'), '--save', os.path.join(ex, fname + '.sxl')]
+                '--capture', os.path.join(shots, fname + '.png'), '--save', os.path.join(ExampleDir(dist, fname), fname + '.sxl')]
         print('Example', fname)
         subprocess.run(args, cwd=work, timeout=300)
     # Layered PSD and the sample assets written by demos.
@@ -517,9 +529,10 @@ def main():
     subprocess.run([exe, '--demo', 'hdri', '--frames', '30', '--capture', os.path.join(shots, '14_HDRI.png')], cwd=work, timeout=300)
     subprocess.run([exe, '--demo', 'genfill', '--frames', '45', '--capture', os.path.join(shots, '15_Remplissage_generatif.png')],
                    cwd=work, timeout=300, env=dict(os.environ, SX_AI_MOCK='1'))
-    for src, dst in [('demo_export.psd', 'Calques_Photoshop.psd'), ('demo_grade.cube', 'LUT_Sarcelle_Orange.cube'), ('demo_sky.hdr', 'Ciel.hdr')]:
+    for src, dst, folder in [('demo_export.psd', 'Calques_Photoshop.psd', ex2), ('demo_grade.cube', 'LUT_Sarcelle_Orange.cube', ex2),
+                             ('demo_sky.hdr', 'Ciel.hdr', ex)]:
         if os.path.exists(os.path.join(work, src)):
-            shutil.copy2(os.path.join(work, src), os.path.join(ex, dst))
+            shutil.copy2(os.path.join(work, src), os.path.join(folder, dst))
     make_torus_glb(os.path.join(ex, 'Tore.glb'))
     # Paint 3D example: a mug without UVs (unwrapped by xatlas at creation), gold rim material,
     # waves on a paint layer, logo projected with the Projection tool.

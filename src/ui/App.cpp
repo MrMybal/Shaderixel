@@ -380,6 +380,7 @@ bool App::Init() {
     static std::string iniPath = ExeDir() + "/shaderixel_layout_v12.ini";
     LoadRecent();
     io.IniFilename = iniPath.c_str();
+    layoutRepairFrames = 3;  // (the saved layout read at start: no panel left floating, MigrateLayout)
     settingsPath = ExeDir() + "/shaderixel_settings.json";
     LoadAiSettings();
     if (const char* forced = getenv("SX_THEME")) uiTheme = forced;

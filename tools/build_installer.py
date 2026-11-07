@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CONTENT_DIRS = (
     'ai', 'assets', 'functions', 'IA', 'lang', 'layouts', 'licences', 'plugins',
     'scenes', 'SDK', 'shaders', 'smartmaterials', 'swatches', 'templates',
-    'Unreal', 'Exemples', 'examples',
+    'Unreal', 'Exemples',
 )
 BINARIES = ('Shaderixel.exe', 'ShaderixelVk.exe', 'dxcompiler.dll', 'dxil.dll',
             'slang.dll', 'slang-compiler.dll', 'slang-glslang.dll', 'slang-rt.dll')

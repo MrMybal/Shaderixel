@@ -116,17 +116,23 @@ void App::BuildDockLayout(ImGuiID dock) {
         ImGui::DockBuilderDockWindow("Canevas", center);
         ImGui::DockBuilderDockWindow("Vue 3D", center);
         ImGui::DockBuilderDockWindow("Éditeur d'effets", center);
+        ImGui::DockBuilderDockWindow("Rendu", center);
         ImGui::DockBuilderDockWindow("Graphe", bottomLeft);
         ImGui::DockBuilderDockWindow("Calques", bottomLeft);
-        ImGui::DockBuilderDockWindow("Animation", bottomLeft);
     }
+    // Every other panel has its place too (one left out would float over the work area with its old size).
+    ImGui::DockBuilderDockWindow("Ressources", center);
+    ImGui::DockBuilderDockWindow("Éditeur d'actions", center);
+    ImGui::DockBuilderDockWindow("Animation", bottomLeft);
     ImGui::DockBuilderDockWindow("Aperçu du calque", bottomRight);
     ImGui::DockBuilderDockWindow("Panneaux", right);
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(left)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoResizeX;
     // The side tabs host: nothing docks over it (a panel dropped there would vanish behind it).
     if (ImGuiDockNode* n = ImGui::DockBuilderGetNode(right)) n->LocalFlags |= ImGuiDockNodeFlags_NoTabBar | ImGuiDockNodeFlags_NoDockingOverMe;
     ImGui::DockBuilderFinish(dock);
-    panelOpen.clear();  // the default layout shows every panel
+    panelOpen.clear();  // the default layout shows every panel (but the action editor, opened on demand)
+    panelOpen["Éditeur d'actions"].open = false;
+    layoutRepairFrames = 3;  // (every panel is placed above; one created later still goes to its place)
     // Tabs in front once the windows exist (next frames).
     focusAfterLayout = {p3d ? "Matériaux" : "Graphe", p3d ? "Vue 3D" : "Canevas"};
     if (p3d) sideTabRequest = 5;
@@ -147,6 +153,7 @@ void App::BuildDockLayout(ImGuiID dock) {
                 two(0.45f);
                 ImGui::DockBuilderDockWindow("Navigateur", top);
                 ImGui::DockBuilderDockWindow("Histogramme", top);
+                ImGui::DockBuilderDockWindow("Analyse d'image", top);
                 ImGui::DockBuilderDockWindow("Propriétés", low);
                 ImGui::DockBuilderDockWindow("Historique", low);
                 break;
@@ -156,6 +163,7 @@ void App::BuildDockLayout(ImGuiID dock) {
                 ImGui::DockBuilderDockWindow("Actions", id);
                 ImGui::DockBuilderDockWindow("Compositions de calques", id);
                 ImGui::DockBuilderDockWindow("Styles de texte", id);
+                ImGui::DockBuilderDockWindow("Trim sheet", id);
                 break;
             case 2:  // Effets
                 ImGui::DockBuilderDockWindow("Effets", id);
@@ -174,13 +182,14 @@ void App::BuildDockLayout(ImGuiID dock) {
             case 5:  // 3D: project layers and brush material (+ the materials shelf for image documents)
                 two(0.55f);
                 ImGui::DockBuilderDockWindow("Calques 3D", top);
-                if (p3d) ImGui::DockBuilderDockWindow("Scène de rendu", top);
+                ImGui::DockBuilderDockWindow("Scène de rendu", top);
                 ImGui::DockBuilderDockWindow("Matériau du pinceau", low);
                 if (!p3d) ImGui::DockBuilderDockWindow("Matériaux", top);
                 break;
             case 6:  // IA
                 ImGui::DockBuilderDockWindow("Assistant IA", id);
                 ImGui::DockBuilderDockWindow("Génération IA", id);
+                ImGui::DockBuilderDockWindow("Inpainting IA", id);
                 break;
         }
         ImGui::DockBuilderFinish(id);
@@ -283,25 +292,52 @@ void App::DrawSidePanel() {
 }
 
 void App::MigrateLayout() {
-    // Panels added in later versions, left floating by an older saved layout: put them in their tab once.
-    if (layoutMigration >= kLayoutMigration) return;
-    if (++layoutMigrationFrames < 3) return;  // windows created first
-    // `since`: the migration that brought the panel in; only the newer ones move (a panel the user floated since
-    // stays where it is).
-    struct P { const char* name; int tab; bool lower; int since; };
-    static const P panels[] = {{"Actions", 1, false, 4}, {"Compositions de calques", 1, false, 4}, {"Styles de texte", 1, false, 4},
-                               {"Nuancier", 4, false, 4}, {"Motifs", 4, true, 4}, {"Histogramme", 0, false, 4}, {"Analyse d'image", 0, false, 4},
-                               {"Navigateur", 0, false, 5},
-                               {"Palette de nœuds", 2, false, 4}, {"Trim sheet", 1, true, 4}, {"Inpainting IA", 6, false, 4},
-                               {"Calques 3D", 5, false, 4}, {"Matériau du pinceau", 5, true, 4}, {"Scène de rendu", 5, false, 4}};
+    // After a layout is loaded or built (start, a workspace switch, the default layouts, a layout from the menu):
+    // no panel floats over the work area. A panel left floating (one the layout does not mention keeps the docking of
+    // the previous layout, usually a node that no longer exists; or one saved floating) goes to its default place.
+    // Only the panels opened large on purpose (pop-out, F11) stay in their own window.
+    if (layoutRepairFrames <= 0) return;
+    if (--layoutRepairFrames > 0) return;  // (the windows exist after a couple of frames)
+    // Where each panel goes: a side tab (0..6, top or lower zone), or -1 the center, -2 the bottom zone.
+    struct P { const char* name; int tab; bool lower; };
+    static const P panels[] = {
+        {"Canevas", -1, false}, {"Vue 3D", -1, false}, {"Éditeur d'effets", -1, false}, {"Rendu", -1, false}, {"Ressources", -1, false},
+        {"Éditeur d'actions", -1, false}, {"Graphe", -2, false}, {"Calques", -2, false}, {"Animation", -2, false}, {"Matériaux", -2, false},
+        {"Navigateur", 0, false}, {"Histogramme", 0, false}, {"Analyse d'image", 0, false}, {"Propriétés", 0, true}, {"Historique", 0, true},
+        {"Options", 1, false}, {"Tracés", 1, false}, {"Actions", 1, false}, {"Compositions de calques", 1, false}, {"Styles de texte", 1, false},
+        {"Trim sheet", 1, false}, {"Effets", 2, false}, {"Palette de nœuds", 2, false}, {"Fusions", 3, false}, {"Couleur", 4, false},
+        {"Nuancier", 4, false}, {"Pinceaux", 4, true}, {"Motifs", 4, true}, {"Calques 3D", 5, false}, {"Scène de rendu", 5, false},
+        {"Matériau du pinceau", 5, true}, {"Assistant IA", 6, false}, {"Génération IA", 6, false}, {"Inpainting IA", 6, false}};
+    auto nodeOf = [](const char* window) -> ImGuiID {
+        ImGuiWindow* w = ImGui::FindWindowByName(window);
+        return w && w->DockId && ImGui::DockBuilderGetNode(w->DockId) ? w->DockId : 0;
+    };
+    const ImGuiID center = nodeOf("Canevas") ? nodeOf("Canevas") : nodeOf("Vue 3D");
+    const ImGuiID bottom = nodeOf("Graphe") ? nodeOf("Graphe") : nodeOf("Calques");
+    // Docked means in a node of a dockspace (the main one, a side tab, an extra window); a group of tabs torn off
+    // into a floating node of its own counts as floating.
+    auto docked = [](ImGuiWindow* w) {
+        ImGuiDockNode* n = w->DockId ? ImGui::DockBuilderGetNode(w->DockId) : nullptr;
+        while (n && n->ParentNode) n = n->ParentNode;
+        return n && n->IsDockSpace();
+    };
+    int moved = 0;
     for (const P& p : panels) {
-        if (p.since <= layoutMigration) continue;
         ImGuiWindow* w = ImGui::FindWindowByName(p.name);
-        if (!w || w->DockId || IsPoppedOut(p.name)) continue;
-        ImGuiDockNode* n = ImGui::DockBuilderGetNode(SideTabDock(p.tab));
-        while (n && n->IsSplitNode()) n = n->ChildNodes[p.lower ? 1 : 0] ? n->ChildNodes[p.lower ? 1 : 0] : n->ChildNodes[0];
-        if (n) ImGui::DockBuilderDockWindow(p.name, n->ID);
+        if (!w || IsPoppedOut(p.name) || docked(w)) continue;
+        ImGuiID target = 0;
+        if (p.tab == -1) target = center;
+        else if (p.tab == -2) target = bottom;
+        else {
+            ImGuiDockNode* n = ImGui::DockBuilderGetNode(SideTabDock(p.tab));
+            while (n && n->IsSplitNode()) n = n->ChildNodes[p.lower ? 1 : 0] ? n->ChildNodes[p.lower ? 1 : 0] : n->ChildNodes[0];
+            target = n ? n->ID : 0;
+        }
+        if (!target || target == w->DockId) continue;
+        ImGui::DockBuilderDockWindow(p.name, target);
+        ++moved;
     }
+    if (moved) Log("Disposition : %d panneau(x) absent(s) de la disposition rangé(s) à leur place", moved);
     layoutMigration = kLayoutMigration;
 }
 
@@ -519,7 +555,7 @@ void App::ApplyPendingLayout() {
     panelOpen.clear();
     ImGui::LoadIniSettingsFromMemory(pendingLayoutIni.c_str(), pendingLayoutIni.size());
     layoutBuilt = true;
-    layoutMigrationFrames = 0;  // a layout saved before some panels existed: MigrateLayout docks them
+    layoutRepairFrames = 3;  // (no panel left floating: MigrateLayout)
     Status("Disposition : " + pendingLayoutName);
     pendingLayoutIni.clear();
 }

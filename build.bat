@@ -12,6 +12,11 @@ if not defined VSDIR (
     exit /b 1
 )
 call "%VSDIR%\VC\Auxiliary\Build\vcvars64.bat" >nul || exit /b 1
+rem UTF-8 console: Ninja reads the header dependencies from the compiler's "including file" lines, whose
+rem localized prefix (French: a non-breaking space) CMake recorded in UTF-8. In the OEM code page the
+rem compiler writes another byte, nothing is recorded and header changes do not rebuild the files using
+rem them (mismatched objects, crashes).
+chcp 65001 >nul
 
 set BUILD_DIR=%~dp0build\%CONFIG%
 cmake -S "%~dp0." -B "%BUILD_DIR%" -G Ninja -DCMAKE_BUILD_TYPE=%CONFIG% || exit /b 1

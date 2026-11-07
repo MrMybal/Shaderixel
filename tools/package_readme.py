@@ -18,3 +18,7 @@ def copy_readme(destination):
         target = destination / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
+        if relative.endswith('.md'):
+            # In a package the repository's examples/ documents live in Exemples/2D.
+            text = target.read_text(encoding='utf-8')
+            target.write_text(text.replace('](examples/', '](Exemples/2D/'), encoding='utf-8', newline='\n')
