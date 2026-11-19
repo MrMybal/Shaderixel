@@ -1,8 +1,11 @@
-// AI panels: MCP bridge / companion control, assistant chat, image generation.
+// Native assistant and MCP controls, plus image generation.
 #include "ui/App.h"
 #include "ui/Lang.h"
 #include "ui/Filter.h"
 #include "ai/Comfy.h"
+#include "ai/McpPaths.h"
+#include "ShaderixelMcpVersion.h"
+#include <cymcp/chat_ui.hpp>
 #include "ui/Theme.h"
 
 #include <imgui_stdlib.h>
@@ -28,27 +31,6 @@ std::string EnvSet(const std::string& name) {
     return out;
 }
 
-// One CyTools protocol call to the companion.
-Json CompanionCall(const std::string& url, const std::string& token, const std::string& method, const Json& params, std::string& err) {
-    static std::atomic<int> nextId{1};
-    Json req = Json::Object();
-    req["protocolVersion"] = "1.0";
-    req["id"] = nextId++;
-    req["method"] = method;
-    req["params"] = params;
-    auto r = net::Http("POST", url, {{"Authorization", "Bearer " + token}, {"Content-Type", "application/json"}}, req.Dump(0), 30000);
-    if (!r.error.empty()) { err = r.error; return {}; }
-    Json j;
-    if (!Json::Parse(r.body, j)) { err = "réponse invalide (HTTP " + std::to_string(r.status) + ")"; return {}; }
-    if (j.Has("error")) { err = j["error"]["code"].S("") + " : " + j["error"]["message"].S(""); return {}; }
-    return j["result"];
-}
-
-const Json& JobOutputs(const Json& job) {
-    if (job["outputs"].IsObject()) return job["outputs"];
-    if (job["result"]["outputs"].IsObject()) return job["result"]["outputs"];
-    return job["result"];
-}
 }  // namespace
 
 void App::LoadAiSettings() {
@@ -78,21 +60,13 @@ void App::LoadAiSettings() {
         if (j["tablet"]["api"].S("ink") == "wintab" && !platform::SetTabletApi(platform::TabletApi::Wintab))
             Log("Tablet: Wintab unavailable, Windows Ink used");
     }
-    // CyUEMCPSDK companion: %CYUEMCPSDK_DIR%, else a CyUEMCPSDK folder next to the Shaderixel sources.
-    fs::path sdk;
-    if (const char* e = getenv("CYUEMCPSDK_DIR")) sdk = Utf8Path(e);
-    else sdk = Utf8Path(ExeDir()).parent_path().parent_path().parent_path() / "CyUEMCPSDK";
-    std::error_code ec;
-    if (aiSettings.companionScript.empty() && fs::exists(sdk / "Bridge" / "run.py", ec))
-        aiSettings.companionScript = Narrow((sdk / "Bridge" / "run.py").generic_wstring());
-    if (aiSettings.python == "python" && fs::exists(sdk / "Runtime" / "python" / "Scripts" / "python.exe", ec))
-        aiSettings.python = Narrow((sdk / "Runtime" / "python" / "Scripts" / "python.exe").generic_wstring());
-    bridge.allowWrites = aiSettings.allowWrites;
+
 }
 
 bool App::SaveAiSettings() {
     Json j = Json::Object();
     aiSettings.allowWrites = bridge.allowWrites;
+    aiSettings.allowFiles = bridge.allowFiles;
     j["ai"] = aiSettings.ToJson();
     j["textureExportPresets"] = TextureExportPresetsJson();
     j["particlePresets"] = Json::Array();
@@ -158,203 +132,292 @@ void App::PollAiJobs() {
     }
 }
 
+struct AssistantUi {
+    std::shared_ptr<cymcp::ProviderRegistry> providers = std::make_shared<cymcp::ProviderRegistry>();
+    cymcp::ChatController controller{providers};
+    cymcp::Cancellation cancelDiscovery;
+    std::future<std::vector<cymcp::DiscoveredConnection>> discover;
+    std::vector<cymcp::DiscoveredConnection> connections;
+    std::vector<fs::path> attachments;
+    std::string draft, error;
+    uint64_t shownRevision = 0;
+    enum class Probe { Open, Send, Tool, Cancel, Restore, Finished } probe = Probe::Open;
+    bool observedDelta = false;
+    cymcp::Clock::time_point probeDeadline = cymcp::Clock::now() + std::chrono::minutes(2);
+
+    ~AssistantUi() { cancelDiscovery.cancel(); controller.cancel(); }
+
+    void Discover() {
+        if (discover.valid()) return;
+        cancelDiscovery = {};
+        auto registry = providers;
+        cymcp::CallContext context;
+        context.cancellation = cancelDiscovery;
+        discover = std::async(std::launch::async, [registry, context] { return registry->discover({}, context); });
+    }
+
+    void Poll() {
+        controller.poll();
+        if (!discover.valid() || discover.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
+        try { connections = discover.get(); }
+        catch (const std::exception& e) { error = cymcp::redact_error_message(e.what()); }
+    }
+
+    void Open(AiBridge& bridge, const AiSettings& settings, bool restore) {
+        cymcp::ChatConnection connection;
+        connection.provider_id = settings.assistantConnector;
+        connection.model = settings.assistantModel;
+        connection.system_prompt =
+            "You are the assistant in Shaderixel. Inspect the current document and use its operations for requested editing. "
+            "Respect read-only mode, errors, and confirmations. Ask before overwriting an existing file. "
+            "GPU and document changes affect the user's open editor. Use the resource tools to retrieve render results.";
+        const auto found = std::find_if(connections.begin(), connections.end(), [&](const auto& candidate) {
+            return candidate.provider_id == connection.provider_id && candidate.available();
+        });
+        if (found != connections.end()) connection.provider = found->config;
+        if (!settings.assistantEndpoint.empty()) connection.provider.settings["base_url"] = settings.assistantEndpoint;
+        if (!settings.assistantKeyEnv.empty()) connection.provider.api_key = EnvSet(settings.assistantKeyEnv);
+        else if (connection.provider.api_key.empty()) {
+            if (connection.provider_id == "openai") connection.provider.api_key = EnvSet("OPENAI_API_KEY");
+            if (connection.provider_id == "anthropic") connection.provider.api_key = EnvSet("ANTHROPIC_API_KEY");
+            if (connection.provider_id == "openrouter") connection.provider.api_key = EnvSet("OPENROUTER_API_KEY");
+        }
+        if (connection.provider_id == "claude-code") {
+            std::string failure;
+            if (!bridge.StartMcp(failure)) throw cymcp::Error("NetworkError", failure);
+            connection.provider.settings["mcp_servers"] =
+                cymcp::parse_json(bridge.McpConfiguration()).at("mcpServers");
+        } else {
+            connection.provider.tools = bridge.ChatTools(settings.compactTools);
+        }
+        const auto endpoint = connection.provider.settings.value("base_url", std::string());
+        const auto state = mcplocal::StateDirectory();
+        if (settings.keepChatHistory) {
+            connection.history_directory = state / "conversations";
+            connection.history_id = "assistant-" + cymcp::sha256(connection.provider_id + "\n" + endpoint).substr(0, 24);
+            connection.restore = restore && fs::is_regular_file(connection.history_directory / (connection.history_id + ".json"));
+        }
+        connection.context.max_bytes = static_cast<size_t>(settings.contextKiB) * 1024;
+        connection.performance = bridge.Performance();
+        connection.automatic_model = connection.model.empty();
+        controller.open(std::move(connection));
+    }
+
+    void DrawChat(HWND owner, float dpi) {
+        const auto& view = controller.state();
+        if (!view.error_message.empty()) ImGui::TextWrapped("%s", view.error_message.c_str());
+        if (!view.storage_error.empty()) ImGui::TextWrapped("Historique : %s", view.storage_error.c_str());
+        const float transcriptHeight = std::max(100.0f * dpi, ImGui::GetContentRegionAvail().y - 120.0f * dpi);
+        if (ImGui::BeginChild("AssistantMessages", ImVec2(0, transcriptHeight), ImGuiChildFlags_Borders)) {
+            const bool nearBottom = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - ImGui::GetTextLineHeightWithSpacing();
+            for (const auto& message : view.messages) {
+                ImGui::TextDisabled("%s", message.role == "user" ? "Vous" : "Assistant");
+                ImGui::TextWrapped("%s", message.markdown.c_str());
+                for (const auto& file : message.attachments) ImGui::TextDisabled("%s", file.name.c_str());
+                if (message.interrupted) ImGui::TextDisabled("Annulé");
+                if (!message.error_message.empty()) ImGui::TextWrapped("%s", message.error_message.c_str());
+                ImGui::Spacing();
+            }
+            if (view.busy && !view.activity.empty()) ImGui::TextDisabled("%s", view.activity.back().name.c_str());
+            if (nearBottom && shownRevision != view.revision) ImGui::SetScrollHereY(1.0f);
+            shownRevision = view.revision;
+        }
+        ImGui::EndChild();
+        ImGui::BeginDisabled(!view.connected || view.busy);
+        const auto inputSize = ImVec2(-1, 59 * dpi);
+        ImGui::InputTextMultiline("##assistantDraft", &draft, inputSize);
+        const bool shortcut = view.connected && !view.busy && ImGui::IsItemFocused() &&
+                              ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Enter);
+        if (ImGui::Button("Joindre un fichier")) {
+            const auto path = platform::OpenFileDialog(owner, L"Fichiers\0*.*\0");
+            if (!path.empty()) attachments.push_back(Utf8Path(path));
+        }
+        ImGui::SameLine();
+        if ((ImGui::Button("Envoyer") || shortcut) && (!draft.empty() || !attachments.empty())) {
+            try {
+                error.clear();
+                controller.send(draft, attachments);
+                draft.clear();
+                attachments.clear();
+            } catch (const std::exception& e) { error = cymcp::redact_error_message(e.what()); }
+        }
+        for (size_t i = 0; i < attachments.size();) {
+            ImGui::PushID(static_cast<int>(i));
+            if (ImGui::SmallButton("Retirer")) attachments.erase(attachments.begin() + i);
+            else {
+                ImGui::SameLine();
+                ImGui::TextUnformatted(cymcp::path_utf8(attachments[i].filename()).c_str());
+                ++i;
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndDisabled();
+        if (view.busy && ImGui::Button("Annuler la requête")) controller.cancel();
+    }
+
+    // Isolated integration fixture, enabled together with --ai-test by the local test driver.
+    void CheckIntegration(AiBridge& bridge, const AiSettings& settings, const fs::path& report) {
+        if (probe == Probe::Finished) return;
+        const auto& view = controller.state();
+        const auto has = [&](std::string_view text) {
+            return std::any_of(view.messages.begin(), view.messages.end(), [&](const auto& message) {
+                return message.role == "assistant" && message.markdown.find(text) != std::string::npos;
+            });
+        };
+        const auto reportResult = [&](const std::string& failure) {
+            probe = Probe::Finished;
+            std::ofstream file(report, std::ios::binary);
+            file << cymcp::Json{{"ok", failure.empty()}, {"streamed", observedDelta}, {"error", failure}}.dump();
+        };
+        try {
+            if (cymcp::Clock::now() > probeDeadline) throw std::runtime_error("Chat fixture timed out");
+            switch (probe) {
+            case Probe::Open:
+                Open(bridge, settings, false);
+                probe = Probe::Send;
+                break;
+            case Probe::Send:
+                if (view.busy) break;
+                if (!view.connected) throw std::runtime_error("Connect: " + view.error_code + " " + view.error_message);
+                controller.send("fixture-tool-turn");
+                probe = Probe::Tool;
+                break;
+            case Probe::Tool:
+                if (view.busy) {
+                    if (has("Contrôle") && !has("Contrôle réussi")) observedDelta = true;
+                } else {
+                    if (!observedDelta || !has("Contrôle réussi"))
+                        throw std::runtime_error("Missing streamed or final response: " + view.error_code + " " + view.error_message);
+                    controller.send("fixture-cancel-turn");
+                    probe = Probe::Cancel;
+                }
+                break;
+            case Probe::Cancel:
+                if (view.busy) {
+                    if (has("Interrompre")) controller.cancel();
+                } else {
+                    if (view.error_code != "Cancelled" || !has("Interrompre"))
+                        throw std::runtime_error("Missing cancellation or partial text: " + view.error_code);
+                    Open(bridge, settings, true);
+                    probe = Probe::Restore;
+                }
+                break;
+            case Probe::Restore:
+                if (view.busy) break;
+                if (!view.connected || !has("Contrôle réussi"))
+                    throw std::runtime_error("Could not restore the completed conversation: " + view.error_code + " " + view.error_message);
+                reportResult({});
+                break;
+            case Probe::Finished: break;
+            }
+        } catch (const std::exception& e) { reportResult(cymcp::redact_error_message(e.what())); }
+    }
+};
+
+void App::CloseAssistant() { assistant.reset(); }
+
 void App::DrawAiPanel() {
     if (!ImGui::Begin("Assistant IA", PanelFlag("Assistant IA"))) { ImGui::End(); return; }
-    ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.35f);
-
-    // ---------------------------------------------------------- bridge / MCP
-    if (ImGui::CollapsingHeader("Pont MCP (CyToolsCore)", ImGuiTreeNodeFlags_DefaultOpen)) {
-        if (bridge.Running()) ImGui::TextColored(ImVec4(0.45f, 0.9f, 0.55f, 1), "Pont actif : 127.0.0.1:%d", bridge.Port());
-        else ImGui::TextColored(ImVec4(1, 0.5f, 0.4f, 1), "Pont arrêté");
-        bool comp = bridge.CompanionRunning();
-        ImGui::Text("%s %s", TrC("Compagnon :"), TrC(!comp ? "arrêté" : bridge.ServiceReady() ? "prêt" : "démarrage..."));
-        ImGui::Text("%s %d%s", TrC("Appels servis :"), bridge.callsServed.load(),
-                    bridge.lastOperation.empty() ? "" : ("  (" + Tr("dernier :") + " " + bridge.lastOperation + ")").c_str());
-        bool w = bridge.allowWrites;
-        if (ImGui::Checkbox("Autoriser l'IA à modifier le document", &w)) {
-            bridge.allowWrites = w;
-            SaveAiSettings();
-        }
-        ui::HelpTooltip("Désactivé : les agents peuvent seulement lire le document et le rendu.");
-        if (!comp) {
-            if (ImGui::Button("Démarrer le compagnon")) {
-                std::string err;
-                if (!bridge.LaunchCompanion(aiSettings, &err)) Status("Compagnon : " + err);
+    if (!assistant) assistant = std::make_shared<AssistantUi>();
+    auto& chat = *assistant;
+    chat.Poll();
+    if (aiTest && Active()) {
+        const auto report = EnvSet("SX_MCP_CHAT_RESULT");
+        if (!report.empty()) chat.CheckIntegration(bridge, aiSettings, Utf8Path(report));
+    }
+    if (ImGui::CollapsingHeader("Serveur MCP")) {
+        ImGui::TextDisabled("CyMCPSDK %s (%.*s)", cymcp::version, 12, SX_CYMCP_REVISION);
+        const auto url = bridge.McpUrl();
+        if (url.empty()) {
+            if (ImGui::Button("Démarrer le serveur MCP")) {
+                chat.error.clear();
+                bridge.StartMcp(chat.error);
             }
-        } else if (ImGui::Button("Arrêter le compagnon")) {
-            bridge.StopCompanion();
-            assistant.Reset();
+        } else {
+            ImGui::TextUnformatted(url.c_str());
+            if (ImGui::Button("Arrêter le serveur MCP")) bridge.StopMcp();
+            ImGui::SameLine();
+            if (ImGui::Button("Copier la configuration MCP")) ImGui::SetClipboardText(bridge.McpConfiguration().c_str());
         }
-        ImGui::SameLine();
-        if (ImGui::Checkbox("Démarrage auto", &aiSettings.autoStart)) SaveAiSettings();
-        if (ImGui::TreeNode("Configuration")) {
-            if (ImGui::InputText("Python", &aiSettings.python)) SaveAiSettings();
-            if (ImGui::InputText("Script compagnon", &aiSettings.companionScript)) SaveAiSettings();
-            ImGui::TextDisabled("CyUEMCPSDK/Bridge/run.py (CyToolsCore requis dans cet environnement Python)");
-            ImGui::TreePop();
-        }
-        if (ImGui::TreeNode("Brancher un agent externe (MCP)")) {
-            std::string script = aiSettings.companionScript;
-            std::string conn = bridge.ConnectionFile();
-            for (auto* s : {&script, &conn})
-                for (auto& c : *s) if (c == '\\') c = '/';
-            std::string cfg = "{\n  \"mcpServers\": {\n    \"shaderixel\": {\n      \"command\": \"" + aiSettings.python + "\",\n      \"args\": [\"" + script +
-                              "\", \"--editor\", \"" + conn + "\", \"--mcp\"]\n    }\n  }\n}";
-            ImGui::PushFont(ui::GetFonts().mono, 0.0f);
-            ImGui::InputTextMultiline("##mcpcfg", &cfg, ImVec2(-1, 140 * dpi), ImGuiInputTextFlags_ReadOnly);
-            ImGui::PopFont();
-            if (ImGui::Button("Copier")) ImGui::SetClipboardText(cfg.c_str());
-            ImGui::TextDisabled("Le compagnon doit tourner. Outils : op_shaderixel.* (document_info, layer_add, render...).");
+        bool writes = bridge.allowWrites;
+        if (ImGui::Checkbox("Autoriser l'IA à modifier le document", &writes)) { bridge.allowWrites = writes; SaveAiSettings(); }
+        bool files = bridge.allowFiles;
+        if (ImGui::Checkbox("Autoriser l'accès aux fichiers", &files)) { bridge.allowFiles = files; SaveAiSettings(); }
+        if (ImGui::Checkbox("Démarrage auto du serveur", &aiSettings.autoStart)) SaveAiSettings();
+        if (ImGui::TreeNode("Optimisations MCP")) {
+            if (ImGui::Checkbox("Découverte à la demande dans le chat", &aiSettings.compactTools)) SaveAiSettings();
+            if (ImGui::Checkbox("Stockage sur disque des gros résultats", &aiSettings.spoolResults)) SaveAiSettings();
+            if (ImGui::Checkbox("Cache de découverte", &aiSettings.cacheDiscovery)) SaveAiSettings();
+            if (ImGui::Checkbox("Notifications du catalogue et des ressources", &aiSettings.notifyChanges)) SaveAiSettings();
+            if (ImGui::Checkbox("Mesures de performance privées", &aiSettings.measureCalls)) SaveAiSettings();
+            ImGui::TextDisabled("Les options du serveur s’appliquent après redémarrage.");
             ImGui::TreePop();
         }
     }
 
-    // ---------------------------------------------------------- assistant chat
-    if (ImGui::CollapsingHeader("Assistant", ImGuiTreeNodeFlags_DefaultOpen)) {
-        bool ready = bridge.ServiceReady();
-        if (!ready) ImGui::TextDisabled("Démarrez le compagnon pour discuter avec un assistant.");
-        ImGui::BeginDisabled(!ready || assistant.busy);
-        if (ImGui::InputText("Connecteur", &aiSettings.assistantConnector)) SaveAiSettings();
-        ui::HelpTooltip("codex, claude-code, ollama, lmstudio... (voir CyUEMCPSDK/Docs/Providers.md)");
+    if (ImGui::CollapsingHeader("Fournisseur de l’assistant", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::BeginDisabled(chat.controller.state().busy);
+        const std::pair<const char*, const char*> profiles[] = {
+            {"codex", "Codex"}, {"claude-code", "Claude Code"}, {"openai", "OpenAI"},
+            {"anthropic", "Anthropic"}, {"openrouter", "OpenRouter"}, {"ollama", "Ollama"},
+            {"lmstudio", "LM Studio"}, {"llama.cpp", "llama.cpp"}, {"openai-compatible", "API compatible OpenAI"}
+        };
+        if (ImGui::BeginCombo("Connecteur", aiSettings.assistantConnector.c_str())) {
+            for (const auto& [id, name] : profiles) {
+                if (ImGui::Selectable(name, aiSettings.assistantConnector == id)) {
+                    aiSettings.assistantConnector = id;
+                    aiSettings.assistantModel.clear();
+                    aiSettings.assistantEndpoint.clear();
+                    aiSettings.assistantKeyEnv.clear();
+                    SaveAiSettings();
+                }
+            }
+            ImGui::EndCombo();
+        }
         if (ImGui::InputText("Modèle", &aiSettings.assistantModel)) SaveAiSettings();
-        if (ImGui::Button(assistant.conversationId.empty() ? "Ouvrir la conversation" : "Nouvelle conversation")) {
-            std::string url = bridge.ServiceUrl(), token = bridge.ServiceToken();
-            std::string connector = aiSettings.assistantConnector, model = aiSettings.assistantModel;
-            std::string session = assistant.sessionId;
-            assistant.busy = true;
-            assistant.log.push_back({false, "Ouverture de « " + connector + " »..."});
-            AiAsync([this, url, token, connector, model, session]() -> std::function<void()> {
-                std::string err, sid = session;
-                if (sid.empty()) {
-                    Json p = Json::Object();
-                    p["temporary"] = false;
-                    sid = CompanionCall(url, token, "CreateSession", p, err)["sessionId"].S("");
+        const auto& models = chat.controller.state().models;
+        if (models.is_array() && !models.empty() && ImGui::BeginCombo("Modèles détectés", aiSettings.assistantModel.c_str())) {
+            for (const auto& model : models) {
+                if (!model.is_object()) continue;
+                const auto id = model.value("id", std::string());
+                if (!id.empty() && ImGui::Selectable(id.c_str(), aiSettings.assistantModel == id)) {
+                    aiSettings.assistantModel = id;
+                    SaveAiSettings();
                 }
-                std::string conv;
-                if (err.empty()) {
-                    Json params = Json::Object();
-                    params["connector"] = connector;
-                    if (!model.empty()) params["model"] = model;
-                    Json p = Json::Object();
-                    p["sessionId"] = sid;
-                    p["operationId"] = "assistant_open";
-                    p["parameters"] = params;
-                    std::string jobId = CompanionCall(url, token, "SubmitJob", p, err)["jobId"].S("");
-                    for (int i = 0; err.empty() && i < 600; ++i) {
-                        Json q = Json::Object();
-                        q["jobId"] = jobId;
-                        Json job = CompanionCall(url, token, "GetJob", q, err);
-                        std::string st = job["state"].S("");
-                        if (st == "Completed") {
-                            const Json& o = JobOutputs(job);
-                            conv = o["conversationId"].S(o["id"].S(""));
-                            break;
-                        }
-                        if (st == "Failed" || st == "Cancelled") { err = job["error"]["message"].S(st); break; }
-                        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-                    }
-                }
-                return [this, sid, conv, err] {
-                    assistant.busy = false;
-                    assistant.sessionId = sid;
-                    if (!err.empty() || conv.empty()) assistant.log.push_back({false, "Erreur : " + (err.empty() ? "conversation non créée" : err)});
-                    else {
-                        assistant.conversationId = conv;
-                        assistant.log.push_back({false, "Conversation ouverte."});
-                    }
-                };
-            });
+            }
+            ImGui::EndCombo();
         }
-        ImGui::EndDisabled();
-
-        float logH = std::max(120.0f * dpi, ImGui::GetContentRegionAvail().y - 110 * dpi);
-        ImGui::BeginChild("##chat", ImVec2(0, logH), ImGuiChildFlags_Borders);
-        for (auto& m : assistant.log) {
-            ImGui::PushStyleColor(ImGuiCol_Text, m.user ? ImVec4(0.7f, 0.65f, 1, 1) : ImGui::GetStyleColorVec4(ImGuiCol_Text));
-            ImGui::TextWrapped("%s%s", m.user ? "Vous : " : "", m.text.c_str());
-            ImGui::PopStyleColor();
-            ImGui::Spacing();
+        if (ImGui::TreeNode("Connexion et historique")) {
+            if (ImGui::InputText("Adresse du fournisseur", &aiSettings.assistantEndpoint)) SaveAiSettings();
+            if (ImGui::InputText("Variable d’environnement de la clé", &aiSettings.assistantKeyEnv)) SaveAiSettings();
+            if (ImGui::Checkbox("Conserver l’historique local", &aiSettings.keepChatHistory)) SaveAiSettings();
+            if (ImGui::InputInt("Fenêtre de contexte (Kio, 0 = complète)", &aiSettings.contextKiB)) {
+                aiSettings.contextKiB = std::clamp(aiSettings.contextKiB, 0, 1024);
+                SaveAiSettings();
+            }
+            ImGui::TreePop();
         }
-        {
-            std::lock_guard lock(assistant.streamMutex);
-            if (!assistant.streaming.empty()) ImGui::TextWrapped("%s", assistant.streaming.c_str());
+        if (ImGui::Button("Détecter les fournisseurs")) chat.Discover();
+        if (chat.discover.valid()) { ImGui::SameLine(); ImGui::TextDisabled("Détection…"); }
+        for (const auto& candidate : chat.connections) {
+            if (candidate.provider_id != aiSettings.assistantConnector) continue;
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", candidate.state.c_str());
+            break;
         }
-        if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 20) ImGui::SetScrollHereY(1.0f);
-        ImGui::EndChild();
-
-        ImGui::BeginDisabled(!ready || assistant.conversationId.empty() || assistant.busy);
-        ImGui::InputTextMultiline("##msg", &assistant.input, ImVec2(-80 * dpi, 60 * dpi));
+        auto open = [&](bool restore) {
+            try { chat.error.clear(); chat.Open(bridge, aiSettings, restore); }
+            catch (const std::exception& e) { chat.error = cymcp::redact_error_message(e.what()); }
+        };
+        if (ImGui::Button("Connecter ou reprendre")) open(true);
         ImGui::SameLine();
-        bool send = ImGui::Button("Envoyer", ImVec2(-1, 60 * dpi)) || (ImGui::IsKeyPressed(ImGuiKey_Enter) && ImGui::GetIO().KeyCtrl && !assistant.input.empty());
+        if (ImGui::Button("Nouvelle conversation")) open(false);
         ImGui::EndDisabled();
-        if (send && !assistant.input.empty() && ready && !assistant.busy) {
-            std::string text = assistant.input;
-            assistant.input.clear();
-            assistant.log.push_back({true, text});
-            assistant.busy = true;
-            std::string url = bridge.ServiceUrl(), token = bridge.ServiceToken(), sid = assistant.sessionId, conv = assistant.conversationId;
-            std::string docName = Active() ? Active()->doc->Name() : "";
-            AiAsync([this, url, token, sid, conv, text, docName]() -> std::function<void()> {
-                std::string err;
-                Json params = Json::Object();
-                params["conversationId"] = conv;
-                params["text"] = text;
-                Json context = Json::Object();
-                context["label"] = "Shaderixel";
-                context["id"] = docName;
-                params["context"] = context;
-                Json p = Json::Object();
-                p["sessionId"] = sid;
-                p["operationId"] = "assistant_send";
-                p["parameters"] = params;
-                std::string jobId = CompanionCall(url, token, "SubmitJob", p, err)["jobId"].S("");
-                std::string answer;
-                long long cursor = assistant.eventCursor;
-                for (int i = 0; err.empty() && i < 3000; ++i) {
-                    Json q = Json::Object();
-                    q["after"] = (double)cursor;
-                    Json ev = CompanionCall(url, token, "GetEvents", q, err);
-                    err.clear();  // events are best effort
-                    for (auto& e : ev["events"].Elements()) {
-                        cursor = std::max<long long>(cursor, (long long)e["sequence"].Num(0));
-                        const Json& data = e["data"];
-                        std::string kind = data["kind"].S(data["type"].S(""));
-                        if (kind == "TextDelta") {
-                            std::lock_guard lock(assistant.streamMutex);
-                            assistant.streaming += data["text"].S("");
-                        }
-                    }
-                    if (ev.Has("cursor")) cursor = std::max<long long>(cursor, (long long)ev["cursor"].Num(0));
-                    Json jq = Json::Object();
-                    jq["jobId"] = jobId;
-                    Json job = CompanionCall(url, token, "GetJob", jq, err);
-                    std::string st = job["state"].S("");
-                    if (st == "Completed") {
-                        answer = JobOutputs(job)["text"].S("");
-                        break;
-                    }
-                    if (st == "Failed" || st == "Cancelled") { err = job["error"]["message"].S(st); break; }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(150));
-                }
-                return [this, answer, err, cursor] {
-                    std::string streamed;
-                    {
-                        std::lock_guard lock(assistant.streamMutex);
-                        streamed.swap(assistant.streaming);
-                    }
-                    assistant.eventCursor = cursor;
-                    assistant.busy = false;
-                    if (!err.empty()) assistant.log.push_back({false, "Erreur : " + err});
-                    else assistant.log.push_back({false, answer.empty() ? streamed : answer});
-                };
-            });
-        }
     }
-    ImGui::PopItemWidth();
+    if (!chat.error.empty()) ImGui::TextWrapped("%s", chat.error.c_str());
+    chat.DrawChat(hwnd, dpi);
     ImGui::End();
 }
-
-// ------------------------------------------------------------------ image generation
 
 void App::StartImageGeneration() {
     if (genBusy || genPrompt.empty()) return;
@@ -504,6 +567,10 @@ void App::DrawImageGenPanel() {
     if (!ImGui::Begin("Génération IA", PanelFlag("Génération IA"))) { ImGui::End(); return; }
     ui::FilterBox();
     ImGui::PushItemWidth(-ImGui::GetContentRegionAvail().x * 0.35f);
+    if (ImGui::TreeNode("Scripts d’image")) {
+        if (ImGui::InputText("Interpréteur Python", &aiSettings.python)) SaveAiSettings();
+        ImGui::TreePop();
+    }
     int provider = aiSettings.imageProvider == "gemini" ? 1 : aiSettings.imageProvider == "comfyui" ? 2 : 0;
     if (ImGui::Combo("Fournisseur", &provider, "OpenAI (GPT Image)\0Google Gemini\0ComfyUI (local)\0")) {
         aiSettings.imageProvider = provider == 1 ? "gemini" : provider == 2 ? "comfyui" : "openai";

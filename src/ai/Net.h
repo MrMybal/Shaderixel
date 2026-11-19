@@ -1,6 +1,5 @@
 #pragma once
-// Minimal networking for the AI integration: a loopback HTTP/1.1 server (bridge
-// for the CyToolsCore companion) and a WinHTTP client (companion + providers).
+// Local HTTP transport for script plugins and WinHTTP for image services.
 
 #include "core/Common.h"
 

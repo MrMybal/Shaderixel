@@ -101,7 +101,7 @@ bool App::CameraRay(MeshScene& s, float2 local, u32 w, u32 h, float3& o, float3&
     const float nx = (local.x + 0.5f) / w * 2.0f - 1.0f, ny = 1.0f - (local.y + 0.5f) / h * 2.0f;
     if (s.ortho) {
         // Parallel rays starting well in front of the model.
-        o = s.camPos + right * (nx * tx) + up * (ny * ty) - fwd * 100.0f;
+        o = s.camPos + right * (nx * tx) + up * (ny * ty) + fwd * MeshScene::kOrthoNear;
         d = fwd;
         return true;
     }
@@ -125,12 +125,13 @@ App::ParticleOrigin App::ParticleOriginAt(MeshScene& s, float2 local, u32 w, u32
     auto& rc = s.Rays();
     CameraRay(s, local, w, h, origin.rayOrigin, origin.rayDirection);
     float t = 0;
-    const bool hit = rc.Ray(origin.rayOrigin, origin.rayDirection, 100.0f, &origin.point, &origin.normal, &t);
+    const float reach = s.ortho ? MeshScene::kOrthoFar - MeshScene::kOrthoNear : 100.0f;
+    const bool hit = rc.Ray(origin.rayOrigin, origin.rayDirection, reach, &origin.point, &origin.normal, &t);
     const auto& B = sim.playing ? sim.settings : particleBrush;
     const auto& P = kPresets[B.behavior];
     if (!hit) {
         if (P.emit == 0) return origin;
-        t = s.distance + (s.ortho ? 100.0f : 0.0f);
+        t = s.distance - (s.ortho ? MeshScene::kOrthoNear : 0.0f);
         origin.point = origin.rayOrigin + origin.rayDirection * t;
         origin.normal = {0, 1, 0};
     }
@@ -841,6 +842,33 @@ void App::UpdateSimulation(DocView& v, bool clicked, bool held, float2 pos, u32 
         const bool emit = !sim.replay && sim.settings.source == 0 && held;
         const auto origin = emit ? ParticleOriginAt(*v.mesh, pos, w, h) : ParticleOrigin{};
         AdvanceParticles(dt, origin, emit);
+    }
+}
+
+void App::PumpAiParticles() {
+    if (!aiParticleSequence) return;
+    const auto sequence = aiParticleSequence;
+    CheckParticleSession();
+    if (sim.view != sequence->view || !ViewAlive(sequence->view)) {
+        sequence->finished = sequence->failed = true;
+        aiParticleSequence.reset();
+        return;
+    }
+    if (sim.playing) {
+        if (sim.sourceMask) {
+            UpdateSimulation(*sequence->view, false, false, {}, 1, 1);
+        } else if (sequence->next < sequence->origins.size()) {
+            AdvanceParticles(kParticleStep * sequence->ticksPerPoint, sequence->origins[sequence->next++], true);
+        } else if (sim.queued) {
+            sim.queued = false;
+            AdvanceParticles(kParticleStep * 4, sim.origins.front(), false);
+        } else {
+            AdvanceParticles(kParticleStep * 4, {}, false);
+        }
+    }
+    if (!sim.playing) {
+        sequence->finished = true;
+        aiParticleSequence.reset();
     }
 }
 

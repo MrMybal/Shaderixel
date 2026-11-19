@@ -371,9 +371,9 @@ Sans clé, testez la chaîne avec `set SX_AI_MOCK=1 `avant de lancer : un résul
 
 ComfyUI (local) : choisissez ce fournisseur, indiquez l'adresse du serveur (http://127.0.0.1:8188 par défaut) et soit un checkpoint pour le graphe intégré, soit un workflow exporté avec « Save (API format) » : le prompt, la graine, la taille et l'image actuelle (option img2img) y sont injectés.
 
-### Pont MCP (CyToolsCore)
+### Serveur MCP
 
-Panneau Assistant IA : le pont local est actif au lancement ; « Autoriser l'IA à modifier le document » pour les opérations d'écriture. Un agent externe peut piloter Shaderixel (calques, effets, export).
+Dans le panneau Assistant IA, démarrez le serveur MCP et copiez sa configuration. Activez « Autoriser l'IA à modifier le document » pour les opérations d'écriture. Un client externe peut piloter les calques, effets et exports.
 
 ## Limites connues
 

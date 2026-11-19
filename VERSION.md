@@ -2,9 +2,21 @@
 
 [English](VERSION.md) · [Français](VERSION.fr.md) · [README](README.md)
 
+## 0.1.0-alpha.20261119.1 · Alpha
+
+Windows x64 installer and portable ZIP with D3D12, Vulkan and `ShaderixelCli.exe`.
+
+- The in-app assistant, CLI and local MCP server share the CyMCPSDK 0.7.0 operation registry.
+- Paint 3D operations cover projects, material channels, camera, brush strokes, particle scripts and replay, baking and PBR texture export.
+- The assistant can inspect visible controls, capture the main Shaderixel window, navigate menus and send input within that window. Editing and file access use separate permissions.
+- Particle emission now uses the correct ray range in orthographic views.
+- The offline manual and the assistant guide describe setup, permissions and CLI examples.
+
+[Release and SHA-256 files](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261119.1)
+
 ## 0.1.0-alpha.20261119 · Alpha
 
-Portable preview for Windows x64 with D3D12 and Vulkan executables.
+Windows x64 installer and portable ZIP with D3D12 and Vulkan executables.
 
 - Paint 3D adds surface painting and retouching tools, with updates to UDIM handling and texture export.
 - The new particle brushes include rust, mud, rain and dust. The Simulation tab can edit scripts for emission, evolution and impact and replay the last stroke.

@@ -12,8 +12,8 @@
     </td>
     <td width="300" align="right" valign="top">
       <p><sub>Application license</sub><br><a href="LICENSE"><strong>GPL-3.0-or-later</strong></a></p>
-      <p><sub>Version</sub><br><a href="VERSION.md"><strong>0.1.0-alpha.20261106</strong></a><br><strong>ALPHA</strong></p>
-      <p><a href="https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261106/Shaderixel-0.1.0-alpha.20261106-windows-x64-setup.exe"><strong>Download the alpha</strong></a><br><sub>Windows x64 · installer</sub></p>
+      <p><sub>Version</sub><br><a href="VERSION.md"><strong>0.1.0-alpha.20261119.1</strong></a><br><strong>ALPHA</strong></p>
+      <p><a href="https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261119.1/Shaderixel-0.1.0-alpha.20261119.1-windows-x64-setup.exe"><strong>Download the alpha</strong></a><br><sub>Windows x64 · installer</sub></p>
     </td>
   </tr>
 </table>
@@ -25,7 +25,7 @@ creators. Paint and composite with editable layers, assemble image operations
 in a node graph, or create your own HLSL/Slang effects. Paint 3D and PBR tools
 extend the workflow from an image to a material on a mesh.
 
-> **ALPHA · 0.1.0-alpha.20261106**
+> **ALPHA · 0.1.0-alpha.20261119.1**
 >
 > An experimental release for testing and feedback. Features and project formats
 > may change. Keep editable copies of important work and read the
@@ -120,7 +120,7 @@ Windows 10 version 2004 or later is required. Use a GPU and driver compatible
 with Direct3D 12 for `Shaderixel.exe`, or Vulkan for `ShaderixelVk.exe`.
 No macOS or Linux package is currently published.
 
-1. [Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261106/Shaderixel-0.1.0-alpha.20261106-windows-x64-setup.exe).
+1. [Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261119.1/Shaderixel-0.1.0-alpha.20261119.1-windows-x64-setup.exe).
 2. Run the setup wizard. It installs for your Windows account, without
    administrator rights, and adds D3D12/Vulkan Start menu shortcuts.
 3. Start Shaderixel and open an image or one of the supplied examples.
@@ -130,10 +130,10 @@ optional desktop shortcut. Runtime libraries, effects, graph functions, examples
 offline documentation and license notices are included. Its interface starts in
 English, with French also available.
 
-Alternatively, [download the portable ZIP](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261106/Shaderixel-0.1.0-alpha.20261106-windows-x64.zip),
+Alternatively, [download the portable ZIP](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261119.1/Shaderixel-0.1.0-alpha.20261119.1-windows-x64.zip),
 extract the complete archive into a writable folder and run either executable.
 Keep the supplied directories together.
-[Release notes and SHA-256 files](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261106)
+[Release notes and SHA-256 files](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261119.1)
 accompany both downloads. Uninstall through **Windows Settings > Apps**;
 user-created files and settings are retained.
 
@@ -148,6 +148,26 @@ Offline checks can be retried.
 The first installer dated 2026-11-03 has no updater. Install a newer alpha manually
 once to enable subsequent checks. The public update channel needs no GitHub account.
 
+## AI assistant, CLI and MCP
+
+Open **AI Assistant**, select a provider and connect. The assistant uses the
+same operation registry as `ShaderixelCli.exe` and external MCP clients.
+It can edit layers, run actions, control Paint 3D, edit and replay particle
+scripts, and export textures. It can also inspect the main window, navigate its
+menus and send clicks or keystrokes. Enable editing and file access separately
+in the assistant panel. The installer and portable ZIP both include the CLI.
+
+To connect an external client, start **MCP server** in the panel and copy its
+configuration. With a document open, the following PowerShell commands list
+operations and read the active document:
+
+```powershell
+.\ShaderixelCli.exe list
+.\ShaderixelCli.exe invoke shaderixel.document_info
+```
+
+[Assistant and MCP guide (French)](docs/ASSISTANT_MCP.fr.md)
+
 ## Source, build and required libraries
 
 <details>
@@ -156,7 +176,9 @@ once to enable subsequent checks. The public update channel needs no GitHub acco
 Use Visual Studio 2022 with the C++ desktop tools, Windows SDK, CMake 3.24+ and
 Ninja, plus Git, Python 3.9+, Node.js 22+ and npm. Node/npm generate the CyDoc
 manual during development; they are not needed to read it or run the editor.
-Source builds require access to the pinned CyUI repository.
+Source builds require access to the pinned CyUI repository. CMake compiles
+CyMCPSDK from a sibling checkout when available, with a pinned GitHub revision
+as the fallback. Set `SX_CYMCP_SOURCE_DIR` to use another local checkout.
 
 ```bat
 git clone https://github.com/MrMybal/Shaderixel.git
@@ -206,8 +228,8 @@ To create an installer, install [Inno Setup 7](https://jrsoftware.org/isdl.php)
 and use a fresh package/version name:
 
 ```bat
-python tools/package.py --source-only-unreal --name Shaderixel-0.1.0-alpha.20261106-windows-x64
-python tools/build_installer.py --package dist/Shaderixel-0.1.0-alpha.20261106-windows-x64 --version 0.1.0-alpha.20261106
+python tools/package.py --source-only-unreal --name Shaderixel-0.1.0-alpha.20261119.1-windows-x64
+python tools/build_installer.py --package dist/Shaderixel-0.1.0-alpha.20261119.1-windows-x64 --version 0.1.0-alpha.20261119.1
 ```
 
 Pass `--iscc <path-to-ISCC.exe>` if Inno Setup is not found automatically.

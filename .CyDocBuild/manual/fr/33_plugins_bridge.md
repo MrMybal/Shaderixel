@@ -5,7 +5,7 @@ description: Plugins > Gestionnaire liste plugins et activation.
 section: Manuel
 order: 32
 parent: automation
-sourceRevision: f874ad773198fa6d
+sourceRevision: 42d2303ca728a976
 ---
 
 ## Gestionnaire de plugins {#plugin-manager}
@@ -18,7 +18,11 @@ Créer un plugin génère un squelette script/natif. Le rechargement de dévelop
 
 ## Assistant et pont {#assistant-and-bridge}
 
-Le panneau IA expose le pont local et la configuration des clients compatibles. Les opérations portent sur documents, calques, graphes et ressources. Une opération peut modifier le projet : vérifiez la cible et sauvegardez selon le travail.
+Dans Assistant IA, démarrez le serveur MCP local et copiez sa configuration pour un client HTTP. Le chat et le serveur utilisent les mêmes opérations pour les documents, calques, graphes et ressources. `ShaderixelCli.exe list` affiche le catalogue de l’instance ouverte. Activez les autorisations de modification et d’accès aux fichiers selon les besoins du travail.
+
+Les opérations Paint 3D peuvent créer un projet, régler la caméra et les matières, peindre un trait, modifier un script de particules et rejouer une émission, cuire des cartes et exporter des jeux de textures. `ShaderixelCli.exe describe shaderixel.paint3d_stroke` détaille les coordonnées normalisées dans la vue et les réglages du pinceau.
+
+`shaderixel.ui_state` recherche les contrôles visibles et les menus indexés. `shaderixel.ui_activate` navigue vers un résultat. `shaderixel.ui_input` envoie des clics, glissements, défilements, touches ou du texte dans la fenêtre principale. `shaderixel.ui_capture` renvoie une image privée de cette fenêtre. Le pilotage générique des menus et des entrées demande les autorisations de modification et d’accès aux fichiers. Les dialogues natifs Windows et les panneaux détachés sont hors du champ de la capture et de la saisie.
 
 Connexion d'assistant, fournisseur de génération d'images et serveur ComfyUI sont des configurations distinctes. Un pont démarré ne signifie pas qu'un modèle externe est installé.
 

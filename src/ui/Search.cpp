@@ -130,6 +130,20 @@ void GlobalSearch::OnItemInfo(ImGuiContext* ctx, unsigned id, const char* label,
     }
     const std::string lab = Clean(label);
     if (lab.empty()) return;
+    if (observing && id && id == lastAddId && !w->Hidden && w->Viewport == ImGui::GetMainViewport() &&
+        !(w->Flags & ImGuiWindowFlags_Tooltip) && observedControls.size() < 2048) {
+        ImRect bounds(lastBB[0], lastBB[1], lastBB[2], lastBB[3]);
+        bounds.ClipWith(w->ClipRect);
+        if (bounds.GetWidth() > 1 && bounds.GetHeight() > 1) {
+            auto& item = observedControls.emplace_back();
+            item.label = lab;
+            item.window = DisplayName(w->RootWindow ? w->RootWindow : w);
+            item.id = id;
+            item.disabled = (ctx->CurrentItemFlags & ImGuiItemFlags_Disabled) != 0;
+            item.bounds[0] = bounds.Min.x; item.bounds[1] = bounds.Min.y;
+            item.bounds[2] = bounds.Max.x; item.bounds[3] = bounds.Max.y;
+        }
+    }
     const bool menuPopup = (w->Flags & ImGuiWindowFlags_ChildMenu) != 0, mainBar = IsMainMenuBar(w);
     if (menuPopup || mainBar) {
         std::vector<std::string> path;
@@ -292,6 +306,8 @@ void GlobalSearch::BeginFrame() {
     ImGuiContext& g = *ImGui::GetCurrentContext();
     g.TestEngineHookItems = true;
     matches.clear();
+    observing = std::exchange(observeRequested, false);
+    if (observing) observedControls.clear();
     // A menu result: its headers opened one per frame, then the item activated.
     auto stepChain = [&](const std::vector<std::string>& chain, size_t& step, int& wait, int& tries) -> int {
         if (wait > 0) { --wait; return 0; }
@@ -374,6 +390,11 @@ void GlobalSearch::BeginFrame() {
 
 void GlobalSearch::EndFrame() {
     ImGuiContext& g = *ImGui::GetCurrentContext();
+    if (observing) {
+        visibleControls.swap(observedControls);
+        ++observationFrame;
+        observing = false;
+    }
     const ImU32 col = IM_COL32(255, 170, 40, 220);
     for (auto& m : matches) {
         if (!m.window || !m.window->WasActive || !m.window->Viewport) continue;

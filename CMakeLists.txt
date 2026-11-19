@@ -119,6 +119,7 @@ target_include_directories(imgui PUBLIC ${IMGUI_DIR} ${IMGUI_DIR}/backends ${IMG
 target_compile_definitions(imgui PUBLIC IMGUI_DEFINE_MATH_OPERATORS IMGUI_ENABLE_TEST_ENGINE)
 
 include(cmake/CyUI.cmake)
+include(cmake/CyMCP.cmake)
 
 # ---------------------------------------------------------------- xatlas (automatic UV unwrapping, MIT)
 # Build a generated copy with relative diagnostic filenames; keep upstream sources untouched.
@@ -195,8 +196,9 @@ add_custom_target(ShaderixelDocumentation ALL
 
 function(sx_app target)
     add_executable(${target} WIN32 ${SX_SOURCES} ${ARGN} ${CMAKE_SOURCE_DIR}/assets/shaderixel.rc)
-    target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/sdk/include ${EXT}/stb)
+    target_include_directories(${target} PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/sdk/include ${EXT}/stb "${CMAKE_BINARY_DIR}/generated")
     target_link_libraries(${target} PRIVATE CyUI::Core CyUI::Nodes CyUI::Images CyUI::Curves CyUI::Plots CyUI::CodeEditor slang xatlas ufbx comdlg32 shell32 shlwapi ole32 d3d11 windowscodecs advapi32 pdh)
+    target_link_libraries(${target} PRIVATE CyMCP::MCP ShaderixelChatController)
     target_compile_definitions(${target} PRIVATE
         NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE SX_APP_VERSION="${SX_APP_VERSION}")
     if(MSVC)
@@ -213,6 +215,14 @@ function(sx_app target)
         target_compile_definitions(${target} PRIVATE SX_LIBRAW=1)
     endif()
 endfunction()
+
+add_executable(ShaderixelCli tools/mcp/ShaderixelCli.cpp)
+target_link_libraries(ShaderixelCli PRIVATE CyMCP::MCP shell32 ole32 crypt32)
+target_include_directories(ShaderixelCli PRIVATE src "${CMAKE_BINARY_DIR}/generated")
+target_compile_definitions(ShaderixelCli PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN UNICODE _UNICODE SX_APP_VERSION="${SX_APP_VERSION}")
+if(MSVC)
+    target_compile_options(ShaderixelCli PRIVATE /utf-8 /W4 /permissive-)
+endif()
 
 # Example plugin (sdk/examples): built into <exe dir>/plugins/Exemple with its manifest.
 add_library(ShaderixelExamplePlugin SHARED ${CMAKE_SOURCE_DIR}/sdk/examples/example_plugin/example_plugin.cpp)

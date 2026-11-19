@@ -25,6 +25,13 @@ struct SearchEntry {
     double seen = 0;                    // last time drawn (ImGui time; 0: loaded from disk)
 };
 
+struct VisibleControl {
+    std::string label, window;
+    unsigned id = 0;
+    float bounds[4] = {};
+    bool disabled = false;
+};
+
 class GlobalSearch {
 public:
     static GlobalSearch& Get();
@@ -42,6 +49,10 @@ public:
     void EndFrame();
     void Activate(const SearchEntry& e);
     void StartCrawl();
+    bool Navigating() const { return pend.active; }
+    void ObserveControls() { observeRequested = true; }
+    unsigned ObservedFrame() const { return observationFrame; }
+    const std::vector<VisibleControl>& Controls() const { return visibleControls; }
     bool Crawling() const { return crawl.active; }
     bool MenusHidden() const { return crawl.active && crawl.phase == 0; }
     size_t Size() const { return entries.size(); }
@@ -58,6 +69,9 @@ private:
     float lastBB[4] = {};
     struct Match { ImGuiWindow* window; float bb[4]; };
     std::vector<Match> matches;  // this frame: widgets matching the query (highlight)
+    bool observeRequested = false, observing = false;
+    unsigned observationFrame = 0;
+    std::vector<VisibleControl> observedControls, visibleControls;
     struct Pending {
         bool active = false;
         int kind = 0;

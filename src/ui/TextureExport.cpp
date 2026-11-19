@@ -4,6 +4,7 @@
 // (DirectX / OpenGL), padding past the UV islands, file name pattern. The channels
 // are read back from the GPU, then assembled and written on a worker thread.
 #include "ui/App.h"
+#include "ui/AiSchema.h"
 #include "ui/Filter.h"
 #include "ui/Theme.h"
 #include "render/MeshPaint.h"
@@ -199,9 +200,13 @@ Json App::TextureExportPresetsJson() const {
     return list;
 }
 
-void App::StartTextureExport(DocView& v) {
+void App::StartTextureExport(DocView& v, std::function<void(TexExportResult)> completed, bool overwrite) {
     const auto& o = texExport;
-    if (!v.mesh || o.folder.empty()) { Status("Export des textures : choisissez un dossier"); return; }
+    auto fail = [&](const std::string& message, const char* code = "ExportFailed") {
+        Status(message);
+        if (completed) completed({message, code, {}});
+    };
+    if (!v.mesh || o.folder.empty()) return fail("Export des textures : choisissez un dossier", "InvalidParameters");
     TexExportJob job;
     const auto& builtins = Presets();
     const int index = std::clamp(o.preset, 0, (int)(builtins.size() + customExportPresets.size()) - 1);
@@ -216,7 +221,7 @@ void App::StartTextureExport(DocView& v) {
     for (auto& [suffix, r] : job.parts) {
         if (suffix.empty() && r.Empty()) r = {0, 0, (int)d.Width(), (int)d.Height()};
         r = r.Clipped(d.Width(), d.Height());
-        if (r.Empty()) { Status("Export des textures : tuile vide " + suffix); return; }
+        if (r.Empty()) return fail("Export des textures : tuile vide " + suffix);
         const u32 channels = d.TextureSetChannels(suffix);
         allChannels |= channels;
         distinctChannels.insert(channels);
@@ -241,7 +246,11 @@ void App::StartTextureExport(DocView& v) {
     }
     std::string error = texexport::PlanOutputs(job.parts, job.preset.maps, o.pattern.empty() ? "{nom}_{carte}" : o.pattern, base,
                                                o.depth == 2 ? ".tga" : ".png", job.outputs, enabledMaps);
-    if (!error.empty()) { Status(error); return; }
+    if (!error.empty()) return fail(error, "InvalidParameters");
+    if (!overwrite) for (const auto& output : job.outputs) {
+        const auto path = Utf8Path(o.folder) / Utf8Path(output.filename);
+        if (std::filesystem::exists(path)) return fail("Un fichier existe : " + Narrow(path.wstring()), "ConfirmationRequired");
+    }
     v.renderer.EvaluateComplete(d, *ctx);
     std::set<C> needed;
     for (const auto& output : job.outputs)
@@ -258,11 +267,11 @@ void App::StartTextureExport(DocView& v) {
                 gpu::Texture* t = (variant & 1) ? normal : nullptr;
                 if ((variant & 2) && height) {
                     auto baked = v.renderer.BakeNormal(*ctx,t,height,d.Width(),d.Height());
-                    if (!baked) { Status("Impossible de calculer les normales du jeu de textures."); return; }
+                    if (!baked) return fail("Impossible de calculer les normales du jeu de textures.");
                     t = baked.get();
                     job.bakedNormals.push_back(std::move(baked));
                 }
-                if (t && !(job.normals[variant] = ctx->ReadbackTexture(t))) { Status("Lecture GPU des normales impossible."); return; }
+                if (t && !(job.normals[variant] = ctx->ReadbackTexture(t))) return fail("Lecture GPU des normales impossible.");
             }
             continue;
         }
@@ -270,11 +279,13 @@ void App::StartTextureExport(DocView& v) {
         gpu::Texture* t = ChannelTexture(v, c);
         if (t) {
             job.ch[(int)c] = ctx->ReadbackTexture(t);
-            if (!job.ch[(int)c]) { Status("Lecture GPU impossible : " + std::string(PbrChannelName(c))); return; }
+            if (!job.ch[(int)c]) return fail("Lecture GPU impossible : " + std::string(PbrChannelName(c)));
         }
     }
     if (o.padding > 0 && v.mesh->posMap) job.pos = ctx->ReadbackTexture(v.mesh->posMap.get());
     v.renderer.DropNodeCaches(d);
+    job.completed = std::move(completed);
+    job.overwrite = overwrite;
     texExportJobs.push_back(std::move(job));
     Status("Export des textures...");
 }
@@ -284,8 +295,11 @@ void App::PollTextureExports() {
         auto& j = texExportJobs[i];
         if (j.result.valid()) {
             if (j.result.wait_for(std::chrono::seconds(0)) != std::future_status::ready) { ++i; continue; }
-            try { Status(j.result.get()); }
-            catch (const std::exception& e) { Status(std::string("Échec de l'export des textures : ") + e.what()); }
+            TexExportResult result;
+            try { result = j.result.get(); }
+            catch (const std::exception& e) { result = {std::string("Échec de l'export des textures : ") + e.what(), "ExportFailed", {}}; }
+            Status(result.message);
+            if (j.completed) j.completed(std::move(result));
             texExportJobs.erase(texExportJobs.begin() + i);
             continue;
         }
@@ -296,13 +310,20 @@ void App::PollTextureExports() {
         j.bakedNormals.clear();
         j.result = std::async(std::launch::async, [ch = std::move(j.ch), pos = std::move(j.pos), o = j.opt, p = std::move(j.preset),
                             normals = std::move(j.normals), masks = std::move(j.partChannels), atlas = std::move(j.atlasChannels),
-                            parts = std::move(j.parts), outputs = std::move(j.outputs), w = (int)j.width, h = (int)j.height]() -> std::string {
-            for (const auto& rb : ch) if (rb && !ValidReadback(*rb, w, h)) return "Export : lecture GPU de canal incomplète.";
-            for (const auto& rb : normals) if (rb && !ValidReadback(*rb, w, h)) return "Export : lecture GPU des normales incomplète.";
-            if (pos && !ValidReadback(*pos, w, h)) return "Export : lecture GPU des UV incomplète.";
+                            parts = std::move(j.parts), outputs = std::move(j.outputs), w = (int)j.width, h = (int)j.height,
+                            overwrite = j.overwrite]() -> TexExportResult {
+            TexExportResult result;
+            auto fail = [&](std::string message, const char* code = "ExportFailed") {
+                result.message = std::move(message);
+                result.errorCode = code;
+                return std::move(result);
+            };
+            for (const auto& rb : ch) if (rb && !ValidReadback(*rb, w, h)) return fail("Export : lecture GPU de canal incomplète.");
+            for (const auto& rb : normals) if (rb && !ValidReadback(*rb, w, h)) return fail("Export : lecture GPU des normales incomplète.");
+            if (pos && !ValidReadback(*pos, w, h)) return fail("Export : lecture GPU des UV incomplète.");
             std::error_code ec;
             std::filesystem::create_directories(Utf8Path(o.folder), ec);
-            if (ec) return "Export : " + ec.message();
+            if (ec) return fail("Export : " + ec.message());
             int previous = -1, written = 0;
             std::vector<texexport::PaddingPixel> padding;
             for (const auto& output : outputs) {
@@ -351,15 +372,88 @@ void App::PollTextureExports() {
                 const int oh = std::max(1, (int)std::lround((double)th * ow / tw));
                 auto resized = ResizeMap(std::move(image), tw, th, ow, oh);
                 const std::string path = o.folder + "/" + output.filename;
+                if (!overwrite && std::filesystem::exists(Utf8Path(path)))
+                    return fail("Un fichier existe : " + path, "ConfirmationRequired");
                 std::string err;
                 if (!WriteMap(path, resized, ow, oh, o.depth, err))
-                    return "Échec de l'export : " + path + " (" + std::to_string(written) + " image(s) écrite(s)). " + err;
+                    return fail("Échec de l'export : " + path + " (" + std::to_string(written) + " image(s) écrite(s)). " + err);
+                result.files.push_back(path);
                 ++written;
             }
-            return "Export des textures (" + p.name + ") : " + std::to_string(written) + " image(s) dans " + o.folder;
+            result.message = "Export des textures (" + p.name + ") : " + std::to_string(written) + " image(s) dans " + o.folder;
+            return result;
         });
         ++i;
     }
+}
+
+void App::RegisterAiTextureExport() {
+    using namespace ai;
+    bridge.Register({"shaderixel.paint3d_export_presets", "Liste les modèles d’export des textures et la composition de leurs cartes.",
+        Schema({}), false, {}, [this](const Json&, const std::string&) {
+            Json r = Json::Object();
+            r["presets"] = Json::Array();
+            auto add = [&](const auto& presets) {
+                for (const auto& preset : presets) {
+                    Json row = Json::Object();
+                    row["index"] = static_cast<u32>(r["presets"].Size());
+                    row["name"] = preset.name;
+                    row["maps"] = Json::Array();
+                    for (const auto& map : preset.maps) row["maps"].Push(map.suffix);
+                    r["presets"].Push(std::move(row));
+                }
+            };
+            add(Presets());
+            add(customExportPresets);
+            return AiResult::Ok(std::move(r));
+        }});
+
+    bridge.Register({"shaderixel.paint3d_export", "Exporte les textures PBR par UDIM/jeu ou en atlas avec les modèles natifs. Attends la fin et renvoie les fichiers. overwrite confirme le remplacement de fichiers existants.",
+        Schema({{"folder", T("string")}, {"name", T("string")}, {"pattern", T("string")}, {"preset", Range("integer", 0, 65535)},
+                {"size", Enum({"native", "half", "quarter", "512", "1024", "2048", "4096"})}, {"atlas", T("boolean")},
+                {"format", Enum({"png8", "png16", "tga"})}, {"normal", Enum({"preset", "directx", "opengl"})},
+                {"padding", Range("integer", 0, 64)}, {"overwrite", T("boolean")}}, {"folder"}),
+        true, {"folder"}, [this](const Json& p, const std::string&) {
+            auto* v = Active();
+            if (!v || !v->mesh) return AiResult::Fail("NoMesh", "Ouvrez un projet avec un maillage");
+            if (sim.view || meshStroking || fluidRun.active || !texExportJobs.empty())
+                return AiResult::Fail("Busy", "Terminez l’export ou le geste en cours");
+            TexExportOptions selected;
+            selected.folder = p["folder"].S();
+            if (!Utf8Path(selected.folder).is_absolute()) return AiResult::Fail("InvalidParameters", "Dossier absolu requis");
+            selected.name = p["name"].S();
+            selected.pattern = p["pattern"].S("{nom}_{carte}");
+            selected.preset = p["preset"].I(v->doc->exportTemplate);
+            if (selected.preset < 0 || static_cast<size_t>(selected.preset) >= Presets().size() + customExportPresets.size())
+                return AiResult::Fail("InvalidParameters", "Modèle d’export inconnu");
+            const std::string sizes[] = {"native", "half", "quarter", "512", "1024", "2048", "4096"};
+            selected.size = static_cast<int>(std::ranges::find(sizes, p["size"].S("native")) - std::begin(sizes));
+            selected.atlas = p["atlas"].B();
+            const auto format = p["format"].S(), normal = p["normal"].S();
+            selected.depth = format == "png16" ? 1 : format == "tga" ? 2 : 0;
+            selected.normal = normal == "opengl" ? 1 : normal == "directx" ? 0 : -1;
+            selected.padding = std::clamp(p["padding"].I(8), 0, 64);
+            auto finished = std::make_shared<std::optional<TexExportResult>>();
+            const auto previous = texExport;
+            texExport = std::move(selected);
+            try { StartTextureExport(*v, [finished](TexExportResult result) { *finished = std::move(result); }, p["overwrite"].B()); }
+            catch (...) { texExport = previous; throw; }
+            texExport = previous;
+            AiResult result;
+            result.done = false;
+            result.poll = [finished](AiResult& out) {
+                if (!*finished) return false;
+                const auto& result = finished->value();
+                if (!result.errorCode.empty()) out = AiResult::Fail(result.errorCode, result.message);
+                else {
+                    out.result["files"] = Json::Array();
+                    for (const auto& path : result.files) out.result["files"].Push(path);
+                    out.result["message"] = result.message;
+                }
+                return true;
+            };
+            return result;
+        }, Schema({{"files", T("array")}, {"message", T("string")}}, {"files", "message"})});
 }
 
 void App::DrawTextureExportDialog() {

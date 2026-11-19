@@ -5,7 +5,7 @@ description: Plugins > Plugin Manager lists installed plugins and their enabled 
 section: Handbook
 order: 32
 parent: automation
-revision: f874ad773198fa6d
+revision: 42d2303ca728a976
 ---
 
 ## Plugin Manager {#plugin-manager}
@@ -18,7 +18,11 @@ Create a Plugin generates a script/native skeleton. Development auto-reload help
 
 ## Assistant and bridge {#assistant-and-bridge}
 
-The AI panel exposes the local bridge and connection configuration for supported clients. The bridge provides operations for documents, layers, graphs and resources. A client operation can modify a document, so inspect the active target and save work as appropriate.
+In AI Assistant, start the local MCP server and copy its configuration for an HTTP client. Chat and the server share the same operations for documents, layers, graphs and resources. Run `ShaderixelCli.exe list` to inspect the catalogue of the open instance. Enable editing and file access permissions as needed.
+
+Paint 3D operations can create a project, adjust the camera and materials, paint a stroke, change a particle script and replay an emission, bake maps and export texture sets. Run `ShaderixelCli.exe describe shaderixel.paint3d_stroke` for the normalized view coordinates and brush parameters.
+
+`shaderixel.ui_state` finds visible controls and indexed menus. `shaderixel.ui_activate` navigates to an indexed item. `shaderixel.ui_input` sends clicks, drags, scrolling, keys or text within the main window. `shaderixel.ui_capture` returns a private picture of that window. Generic menu and input control requires both editing and file permissions. Native Windows dialogs and detached panels are outside window capture and input.
 
 An assistant connection, an image-generation provider and a ComfyUI server are separate configurations. A running bridge does not imply an external model/checkpoint is installed.
 

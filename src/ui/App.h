@@ -345,27 +345,7 @@ struct EffectEditorState {
     } session;
 };
 
-struct AssistantState {
-    struct Msg {
-        bool user;
-        std::string text;
-    };
-    std::string sessionId, conversationId, input;
-    std::vector<Msg> log;
-    bool busy = false;
-    std::mutex streamMutex;
-    std::string streaming;
-    long long eventCursor = 0;
-    void Reset() {
-        sessionId.clear();
-        conversationId.clear();
-        log.clear();
-        busy = false;
-        std::lock_guard lock(streamMutex);
-        streaming.clear();
-        eventCursor = 0;
-    }
-};
+struct AssistantUi;
 
 // Rendered content of the active layer (filters included) / of everything below it.
 gpu::Texture* ActiveLayerContent(DocView& v, u64& hash);
@@ -577,7 +557,7 @@ private:
     void NewDocument(u32 w, u32 h, Precision p, DocMode mode, int background, const std::string& name);
     void OpenImage(const std::string& path, bool asLayer);
     // target: the document written (the active one when null; actions pass theirs: the user may switch tabs).
-    void ExportImage(const std::string& path, DocView* target = nullptr);
+    void ExportImage(const std::string& path, DocView* target = nullptr, std::function<void(std::string)> completed = {});
     void ExportPsd(const std::string& path, int depth = 8, DocView* target = nullptr);
     void MergeDown(DocView& v);
     // Bake one layer's own content and filters; compositing properties stay editable.
@@ -622,7 +602,7 @@ private:
     void MergeVisible(DocView& v, bool flatten);
     void PollPsdExport();
     void CloseDocument(int index, bool force = false);
-    void SaveDocument(DocView& v, const std::string& path, bool asCopy = false);
+    void SaveDocument(DocView& v, const std::string& path, bool asCopy = false, std::function<void(std::string)> completed = {});
     void SaveCurrent(bool saveAs);
     bool LoadSxl(const std::string& path);
     // The document built from a read .sxl / .sx3d (GPU uploads, mesh, 3D view): LoadSxl's second half.
@@ -729,11 +709,18 @@ private:
     void DrawEffectEditor();
     // AI (AiOps.cpp / AiPanel.cpp)
     void RegisterAiOps();
+    void RegisterAiPaint3D();
+    void RegisterAiParticleOps();
+    void RegisterAiTextureExport();
+    void RegisterAiInterface();
+    void PumpAiInterface();
+    void PumpAiParticles();
     void LoadAiSettings();
     bool SaveAiSettings();
     void AiAsync(std::function<std::function<void()>()> fn);
     void PollAiJobs();
     void DrawAiPanel();
+    void CloseAssistant();
     void DrawImageGenPanel();
     void DrawView3D();
     void AttachMesh(DocView& v, MeshData data);
@@ -871,7 +858,8 @@ private:
     void SurfaceToolTestTick();
     void RasterizeLayerDemoTick();
     bool testEffects = false;
-    bool aiTest = false;  // --ai-test: start the companion and allow writes (automation)
+    bool aiTest = false;  // --ai-test: enable the MCP server and writes for automation
+    bool launchMcp = false;
     void RunDemo16k();
     int demoMode = 0;              // 0 none, 1 layers, 2 nodes, 3 selection, 4 transform
     std::string capturePath, dumpPath, cliSavePath;
@@ -2139,6 +2127,10 @@ private:
     int exportPresetEditing = -2; // -2 closed, -1 new, otherwise custom preset index
     void LoadTextureExportPresets(const Json& settings);
     Json TextureExportPresetsJson() const;
+    struct TexExportResult {
+        std::string message, errorCode;
+        std::vector<std::string> files;
+    };
     struct TexExportJob {
         TexExportOptions opt;
         std::array<gpu::ReadbackPtr, (int)PbrChannel::Count> ch{};
@@ -2151,10 +2143,12 @@ private:
         std::vector<u32> partChannels;
         std::vector<std::pair<Rect,u32>> atlasChannels;
         std::vector<texexport::Output> outputs;
-        std::future<std::string> result;
+        std::future<TexExportResult> result;
+        std::function<void(TexExportResult)> completed;
+        bool overwrite = true;
     };
     std::vector<TexExportJob> texExportJobs;
-    void StartTextureExport(DocView& v);
+    void StartTextureExport(DocView& v, std::function<void(TexExportResult)> completed = {}, bool overwrite = true);
     void PollTextureExports();
     void DrawTextureExportDialog();
     // Presentation (Marmoset-like): lighting presets, camera bookmarks, focus picking, turntable export.
@@ -2261,6 +2255,7 @@ private:
         int quality = 92;
         bool trim = false;
         float4 matte = {0, 0, 0, -1};
+        std::function<void(std::string)> completed;
     };
     std::vector<PendingExport> exports;
     struct PsdExportState {
@@ -2283,6 +2278,7 @@ private:
         u64 revision = 0;
         std::optional<u64> closeRevision;
         std::string nextPath;
+        std::function<void(std::string)> completed;
     };
     std::vector<std::unique_ptr<PendingSave>> saves;
     int closePrompt = -1;        // document index awaiting save/discard, -2 = quitting
@@ -2511,9 +2507,24 @@ private:
     bool meshLineValid = false;
     u32 meshRng = 12345;
     AiBridge bridge;
+    struct AiUiSequence {
+        struct Event { ImVec2 point{}; float wheel = 0; int button = -1; ImGuiKey key = ImGuiKey_None; bool down = false, move = false; std::string text; };
+        std::vector<Event> events;
+        size_t next = 0;
+    };
+    std::shared_ptr<AiUiSequence> aiUiSequence;
+    std::weak_ptr<gpu::Readback> aiUiCapture;
+    struct AiParticleSequence {
+        DocView* view = nullptr;
+        std::vector<ParticleOrigin> origins;
+        size_t next = 0;
+        int ticksPerPoint = 1;
+        bool finished = false, failed = false;
+    };
+    std::shared_ptr<AiParticleSequence> aiParticleSequence;
     AiSettings aiSettings;
     std::string settingsPath;
-    AssistantState assistant;
+    std::shared_ptr<AssistantUi> assistant;
     std::vector<std::future<std::function<void()>>> aiJobs;
     std::string genPrompt;
     int genSize = 0;

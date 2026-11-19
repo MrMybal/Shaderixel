@@ -130,6 +130,7 @@ void App::ParseCommandLine() {
         std::string a = Narrow(argv[i]);
         if (a == "--test-effects") testEffects = true;
         else if (a == "--ai-test") aiTest = true;
+        else if (a == "--mcp") launchMcp = true;
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
@@ -176,6 +177,7 @@ bool App::Init() {
     // Settings and language first: the loading screen speaks the user's language.
     settingsPath = ExeDir() + "/shaderixel_settings.json";
     LoadAiSettings();
+    bridge.Configure(aiSettings);
     if (const char* forced = getenv("SX_LANG")) uiLanguage = forced;  // tests
     if (uiLanguage.empty()) uiLanguage = "en";
     if (!SetLanguage(uiLanguage)) {
@@ -462,6 +464,10 @@ bool App::Init() {
     LoadActions();
     monitorProfile = color::MonitorPath(hwnd);
     RegisterAiOps();
+    RegisterAiPaint3D();
+    RegisterAiParticleOps();
+    RegisterAiTextureExport();
+    RegisterAiInterface();
     step(0.66f, "Plugins");
     InitPlugins();
     step(0.72f, "Recherche");
@@ -469,9 +475,9 @@ bool App::Init() {
     if (aiTest) bridge.allowWrites = true;
     step(0.76f, "Liaisons et pont IA");
     InitLink();
-    if (bridge.Start(ExeDir() + "/Shaderixel") && (aiSettings.autoStart || aiTest)) {
+    if (aiSettings.autoStart || launchMcp || aiTest) {
         std::string err;
-        if (!bridge.LaunchCompanion(aiSettings, &err)) Log("Companion: %s", err.c_str());
+        if (!bridge.StartMcp(err)) Log("MCP: %s", err.c_str());
     }
     if (Automated()) {
         platform::SetIgnoreUserInput(true);
@@ -513,6 +519,7 @@ void App::Shutdown() {
     carveJob.reset();  // stops and joins the seam carving thread
     animExport.reset();
     CancelUAssetConversions();  // a running Unreal conversion ends instead of holding the exit
+    CloseAssistant();
     bridge.Shutdown();
     for (auto& j : aiJobs) j.wait();
     gpu::Dev().WaitIdle();
@@ -674,6 +681,7 @@ void App::Frame() {
     UpdateRelativeDrag();  // before NewFrame: feeds the cursor motion of slider drags
     SwitchWorkspaceKind();
     ApplyPendingLayout();
+    PumpAiInterface();
     {
         // Tooltip delay (View > Tooltip delay): every tooltip, the theme's own delays replaced.
         ImGuiStyle& st = ImGui::GetStyle();
@@ -729,6 +737,7 @@ void App::Frame() {
     if (aboutAtStart && frameCounter == 3) showAbout = true;
     if (testEffects && capturePath.empty() && frameCounter == 3) autoQuit = true;  // compile test: quit once done
     if (demoMode) DemoTick();
+    if (frameCounter == 4 && aiTest && getenv("SX_MCP_CHAT_RESULT")) ShowSideTab(6);
     if (frameCounter >= 4 && frameCounter - 4 < focusAtStart.size()) FocusPanel(focusAtStart[frameCounter - 4].c_str());
     if (!focusAfterLayout.empty() && ImGui::FindWindowByName(focusAfterLayout.front().c_str())) {
         FocusPanel(focusAfterLayout.front().c_str());
@@ -773,6 +782,7 @@ void App::Frame() {
     }
 
     bridge.Pump();
+    PumpAiParticles();
     UpdatePlugins();
     UpdateSearch();
     UpdateSmartChildren();
@@ -1005,6 +1015,7 @@ void App::Frame() {
             else if (ext == ".tga") ok = stbi_write_tga(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data());
             else ok = stbi_write_png(native.c_str(), e.rb->width, e.rb->height, 4, e.rb->data.data(), e.rb->width * 4);
             Status(ok ? "Exporté : " + e.path : "Échec de l'export : " + e.path);
+            if (e.completed) e.completed(ok ? std::string{} : "Échec de l’export : " + e.path);
             exports.erase(exports.begin() + i);
         } else {
             ++i;
@@ -1279,16 +1290,23 @@ void App::PollPsdExport() {
     }
 }
 
-void App::ExportImage(const std::string& path, DocView* target) {
+void App::ExportImage(const std::string& path, DocView* target, std::function<void(std::string)> completed) {
     DocView* v = target ? target : Active();
-    if (!v || path.empty()) return;
+    if (!v || path.empty()) { if (completed) completed("Document ou chemin absent"); return; }
+    if (completed && std::any_of(exports.begin(), exports.end(), [&](const auto& job) {
+        return CompareStringOrdinal(Utf8Path(job.path).c_str(), -1, Utf8Path(path).c_str(), -1, TRUE) == CSTR_EQUAL;
+    })) { completed("Un export est déjà en cours vers ce fichier"); return; }
     gpu::Texture* img = v->renderer.EvaluateComplete(*v->doc, *ctx);
-    if (!img) return;
+    if (!img) { if (completed) completed("Le rendu est indisponible"); return; }
     std::string ext = Narrow(Utf8Path(path).extension().wstring());
     for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
     // TIFF: 16 bits per channel (photo work); the other formats 8 bits.
     auto rb = ext == ".tif" || ext == ".tiff" ? v->renderer.ExportRGBA16(*ctx, img) : v->renderer.ExportRGBA8(*ctx, img);
-    if (rb) exports.push_back({path, rb, {}, exportQuality});
+    if (rb) {
+        PendingExport result{path, rb, {}, exportQuality};
+        result.completed = std::move(completed);
+        exports.push_back(std::move(result));
+    } else if (completed) completed("Lecture des pixels GPU impossible");
 }
 
 void App::Status(const std::string& msg) {
@@ -2610,7 +2628,7 @@ void App::SaveCurrent(bool saveAs) {
     SaveDocument(*v, path);
 }
 
-void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) try {
+void App::SaveDocument(DocView& v, const std::string& path, bool asCopy, std::function<void(std::string)> completed) try {
     if (sim.view == &v) FinishParticles(true);
     if (fluidRun.active && fluidRun.view == &v) FluidFinish(true);
     Document& d = *v.doc;
@@ -2618,12 +2636,14 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) try {
     // Queue repeated saves of newer edits without allowing two writers on the same file.
     for (auto& pending : saves) {
         if (!asCopy && pending->doc == &d) {
+            if (completed) { completed("Un enregistrement de ce document est déjà en cours"); return; }
             if (pending->revision != d.dirty.Revision() || pending->path != path) pending->nextPath = path;
             return;
         }
         const auto target = fs::absolute(Utf8Path(path)).lexically_normal();
         const auto other = fs::absolute(Utf8Path(pending->path)).lexically_normal();
         if (CompareStringOrdinal(target.c_str(), -1, other.c_str(), -1, TRUE) == CSTR_EQUAL) {
+            if (completed) completed("Un enregistrement est déjà en cours vers ce fichier");
             Status("Enregistrement déjà en cours : " + path);
             return;
         }
@@ -2763,9 +2783,11 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) try {
         job->doc = &d;
         job->revision = d.dirty.Revision();
     }
+    job->completed = completed;
     saves.push_back(std::move(job));
     Status("Enregistrement de " + path + "...");
 } catch (const std::exception& e) {
+    if (completed) completed(e.what());
     Status("Échec de l'enregistrement : " + std::string(e.what()));
 }
 
@@ -2806,6 +2828,7 @@ void App::UpdateSaves() {
             try { err = finished->writing.get(); }
             catch (const std::exception& e) { err = e.what(); }
             Status(err.empty() ? "Enregistré : " + finished->path : "Échec de l'enregistrement : " + err);
+            if (finished->completed) finished->completed(err);
             DocView* view = nullptr;
             int idx = -1;
             for (int n = 0; n < (int)docs.size(); ++n)

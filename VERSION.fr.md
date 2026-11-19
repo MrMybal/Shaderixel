@@ -2,9 +2,21 @@
 
 [English](VERSION.md) · [Français](VERSION.fr.md) · [README](README.fr.md)
 
+## 0.1.0-alpha.20261119.1 · Alpha
+
+Installeur et ZIP portable Windows x64 avec D3D12, Vulkan et `ShaderixelCli.exe`.
+
+- L’assistant intégré, le CLI et le serveur MCP local partagent le registre d’opérations de CyMCPSDK 0.7.0.
+- Le pilotage de Paint 3D couvre les projets, les canaux de matière, la caméra, les traits, les scripts et le rejeu des particules, la cuisson et l’export des textures PBR.
+- L’assistant peut lire les contrôles visibles, capturer la fenêtre principale de Shaderixel, parcourir les menus et envoyer des entrées dans cette fenêtre. Les modifications et l’accès aux fichiers ont chacun leur autorisation.
+- La portée du rayon d’émission des particules est corrigée en vue orthographique.
+- Le manuel hors ligne et le guide de l’assistant décrivent la configuration, les permissions et des exemples CLI.
+
+[Publication et fichiers SHA-256](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261119.1)
+
 ## 0.1.0-alpha.20261119 · Alpha
 
-Version portable pour Windows x64, avec les exécutables D3D12 et Vulkan.
+Installeur et ZIP portable pour Windows x64, avec les exécutables D3D12 et Vulkan.
 
 - Le Paint 3D ajoute des outils de peinture et de retouche de surface, et améliore la gestion des UDIM et l’export des textures.
 - Les nouvelles brosses à particules couvrent la rouille, la boue, la pluie et la poussière. L’onglet Simulation permet de modifier les scripts d’émission, d’évolution et d’impact et de rejouer le dernier geste.

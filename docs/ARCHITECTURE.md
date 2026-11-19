@@ -33,7 +33,7 @@ autonome de l'éditeur Document de CyTexture (plugin Unreal).
 | `src/doc/EffectGraph.*` | Graphes d'effets visuels → code d'effet ; export matériau Unreal |
 | `src/doc/DocFile.*` | Format `.sxl` |
 | `src/io/*` | Import PSD, rendu du texte (stb_truetype) |
-| `src/ai/*` | Pont HTTP local (protocole CyToolsCore), client WinHTTP |
+| `src/ai/*` | Registre et serveur MCP natifs, protocole des plugins Python, clients des services d’image |
 | `src/mesh/*`, `src/render/MeshPaint.*` | Maillages, vue 3D, cuisson UV, pinceau projeté |
 | `shaders/` | Noyaux intégrés (`composite`, `brush`, `display`...) |
 | `shaders/effects/` | Bibliothèque d'effets : un fichier = un effet, rechargés à chaud |
@@ -77,19 +77,19 @@ Pour tester toute la bibliothèque : `Shaderixel.exe --test-effects`.
 
 ## IA et MCP
 
-Shaderixel expose un pont HTTP local (`describe` / `invoke` / `ack`, jeton aléatoire,
-fichier `%LOCALAPPDATA%/Shaderixel/Assistant/shaderixel.connection.json`) et lance le
-compagnon `CyUEMCPSDK/Bridge/run.py --editor <connection.json>`. Les agents externes se
-branchent avec `run.py --editor <connection.json> --mcp` (configuration copiable dans le
-panneau « Assistant IA »). Les opérations qui modifient le document sont refusées tant
-que l'utilisateur ne les a pas autorisées.
+Le chat intégré, `ShaderixelCli` et les clients MCP utilisent le registre CyMCPSDK.
+Les opérations sur le document et le GPU passent par la file du thread principal.
+Le serveur écoute en boucle locale avec un jeton propre à l’instance. Les plugins
+Python lancés par Shaderixel conservent leur protocole et leur jeton distincts.
+[Guide de démarrage et des permissions](ASSISTANT_MCP.fr.md)
 
 ## Automatisation
 
 ```
 Shaderixel.exe --test-effects               compile tous les effets, résultat dans shaderixel.log
 Shaderixel.exe --demo [nodes|select|transform|retouch|groups|save|image|curves|effectgraph|text|shapes|mesh] --capture out.png [--frames N]
-Shaderixel.exe --ai-test                    démarre le compagnon IA et autorise l'écriture (tests)
+Shaderixel.exe --mcp                        démarre le serveur local avec les droits configurés
+Shaderixel.exe --ai-test                    démarre le serveur local et autorise l'écriture (tests)
 Shaderixel.exe image.png                    ouvre une image
 ```
 

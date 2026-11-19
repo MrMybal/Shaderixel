@@ -1,12 +1,6 @@
 #pragma once
-// Host side of the CyToolsCore integration (same protocol as CyTexture's
-// Unreal bridge): a loopback HTTP endpoint answering `describe`, `invoke`
-// (idempotent per callId) and `ack`, plus the companion process
-// (CyUEMCPSDK `run.py --editor <connection.json>`) which turns these host
-// operations into an MCP server and provides the in-app assistant.
-//
-// Operations always execute on the main thread (GPU + document access): the
-// HTTP thread queues the call and the app pumps the queue once per frame.
+// Shaderixel operations execute on the main thread. The native SDK serves the
+// assistant, CLI and MCP. The script-plugin HTTP protocol stays compatible.
 
 #include "ai/Net.h"
 #include "core/Json.h"
@@ -15,6 +9,8 @@
 #include <future>
 #include <mutex>
 #include <unordered_map>
+
+namespace cymcp { class Registry; class PerformanceMonitor; }
 
 namespace sx {
 
@@ -31,16 +27,25 @@ struct AiOperation {
     std::string id;
     std::string description;
     Json inputSchema;       // JSON schema of parameters
-    bool write = false;     // modifies the document (gated by the user)
-    std::vector<std::string> inputFiles;  // parameter paths the companion copies in
+    bool write = false;     // changes document or application state
+    std::vector<std::string> inputFiles;  // named path arguments requiring file access
     std::function<AiResult(const Json& params, const std::string& workspace)> run;
+    Json outputSchema;
+    bool fileAccess = false;  // commands with indirect file access, including arbitrary UI input
 };
 
 struct AiSettings {
     std::string python = "python";
-    std::string companionScript;  // CyUEMCPSDK Bridge/run.py
     bool autoStart = false;
     bool allowWrites = false;
+    bool allowFiles = false;
+    bool compactTools = true;
+    bool spoolResults = true;
+    bool cacheDiscovery = true;
+    bool notifyChanges = true;
+    bool measureCalls = false;
+    bool keepChatHistory = true;
+    int contextKiB = 0;
     std::string imageProvider = "openai";
     std::string openaiEndpoint = "https://api.openai.com/v1";
     std::string openaiModel = "gpt-image-1";
@@ -55,24 +60,18 @@ struct AiSettings {
     int comfySteps = 25;
     float comfyDenoise = 0.6f;
     std::string assistantConnector = "codex";
-    std::string assistantModel;
+    std::string assistantModel, assistantEndpoint, assistantKeyEnv;
     Json ToJson() const;
     void FromJson(const Json& j);
 };
 
 class AiBridge {
 public:
-    ~AiBridge() { Shutdown(); }
-    // Main thread only; the network thread lists them under opsMutex (Describe).
-    void Register(AiOperation op) {
-        std::lock_guard lock(opsMutex);
-        ops.push_back(std::move(op));
-    }
-    void Unregister(const std::string& id) {
-        std::lock_guard lock(opsMutex);
-        for (size_t i = 0; i < ops.size(); ++i)
-            if (ops[i].id == id) { ops.erase(ops.begin() + i); return; }
-    }
+    AiBridge();
+    ~AiBridge();
+    void Configure(const AiSettings&);
+    void Register(AiOperation op);
+    void Unregister(const std::string& id);
     // Token of the script plugins started by the user (their writes are allowed).
     const std::string& PluginToken() const { return pluginToken; }
     const std::vector<AiOperation>& Operations() const { return ops; }
@@ -84,27 +83,25 @@ public:
     void Shutdown();
     void Pump();                                  // main thread, once per frame
 
-    bool LaunchCompanion(const AiSettings& s, std::string* error);
-    void StopCompanion();
-    bool CompanionRunning() const;
-    // Companion service endpoint (after it published <connection>.service.json).
-    bool ServiceReady() const { return !serviceUrl.empty(); }
-    const std::string& ServiceUrl() const { return serviceUrl; }
-    const std::string& ServiceToken() const { return serviceToken; }
+    bool StartMcp(std::string& error);
+    void StopMcp();
+    std::string McpUrl() const;
+    std::string McpConfiguration() const;
+    std::shared_ptr<const cymcp::Registry> ChatTools(bool compact) const;
+    std::shared_ptr<cymcp::PerformanceMonitor> Performance() const;
 
     bool Running() const { return server.Running(); }
     int Port() const { return server.Port(); }
-    const std::string& ConnectionFile() const { return connectionFile; }
     std::atomic<bool> allowWrites{false};
-    std::atomic<int> callsServed{0};
-    std::string lastOperation;
+    std::atomic<bool> allowFiles{false};
 
 private:
     struct Call {
-        std::string callId, op, workspace;
+        std::string op, workspace;
         Json params;
         bool trusted = false;  // script plugin started by the user
-        std::shared_ptr<std::promise<std::string>> promise;
+        std::function<bool()> cancelled;
+        std::function<void(const AiResult&)> finish;
     };
     struct Pending {
         Call call;
@@ -112,19 +109,20 @@ private:
     };
     int Handle(const net::Request& req, std::string& out);
     std::string Describe() const;
-    std::string Finish(const Call& c, const AiResult& r);
+    bool Queue(Call);
+    void Finish(const Call&, const AiResult&);
 
     net::LoopbackServer server;
-    std::string token, pluginToken, connectionFile, serviceFile, project;
+    std::string pluginToken;
     std::vector<AiOperation> ops;
     std::mutex mutex;
     mutable std::mutex opsMutex;
     std::deque<Call> queue;
     std::vector<Pending> pending;
     std::unordered_map<std::string, std::shared_future<std::string>> calls;  // callId -> response
-    void* companion = nullptr;  // process handle
-    std::string serviceUrl, serviceToken;
-    double lastServiceCheck = 0;
+    bool closing = false; // guarded by mutex
+    struct Sdk;
+    std::unique_ptr<Sdk> sdk;
 };
 
 }  // namespace sx

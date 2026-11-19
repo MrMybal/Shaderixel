@@ -1,5 +1,6 @@
-// Operations exposed to AI agents through the CyToolsCore bridge (MCP tools).
+// Document operations used by the assistant, MCP, CLI and plugins.
 #include "ui/App.h"
+#include "ui/AiSchema.h"
 #include "doc/HlslImport.h"
 #include "doc/EffectGraph.h"
 #include "gpu/ShaderSystem.h"
@@ -8,12 +9,15 @@
 #include <stb_image_write.h>
 
 #include <filesystem>
+#include <fstream>
 
 namespace fs = std::filesystem;
 
 namespace sx {
 
 namespace {
+using ai::Schema;
+using ai::T;
 const char* kBlendKeys[] = {"normal", "multiply", "screen", "overlay", "linear_dodge", "subtract", "darken", "lighten", "difference",
                             "color_dodge", "color_burn", "hard_light", "soft_light", "dissolve", "linear_burn", "vivid_light",
                             "linear_light", "pin_light", "hard_mix", "exclusion", "divide", "hue", "saturation", "color",
@@ -139,25 +143,6 @@ Json LayerJson(const Layer& l) {
     return o;
 }
 
-Json Schema(std::initializer_list<std::pair<const char*, Json>> props, std::initializer_list<const char*> required = {}) {
-    Json s = Json::Object();
-    s["type"] = "object";
-    Json p = Json::Object();
-    for (auto& [k, v] : props) p[k] = v;
-    s["properties"] = p;
-    Json r = Json::Array();
-    for (auto* k : required) r.Push(k);
-    s["required"] = r;
-    return s;
-}
-
-Json T(const char* type, const char* desc = nullptr) {
-    Json j = Json::Object();
-    j["type"] = type;
-    if (desc) j["description"] = desc;
-    return j;
-}
-
 Json ColorT(const char* desc) {
     Json j = Json::Object();
     j["type"] = "array";
@@ -200,10 +185,19 @@ void App::RegisterAiOps() {
                          return AiResult::Ok(j);
                      }});
 
-    bridge.Register({"shaderixel.effects_list", "Liste les effets disponibles (id, nom, catégorie, entrées, paramètres avec types et bornes).",
-                     Schema({}), false, {}, [](const Json&, const std::string&) {
+    bridge.Register({"shaderixel.effects_list", "Liste les effets disponibles. Filtrez par catégorie ou par identifiant/nom, avec offset et limit si nécessaire.",
+                     Schema({{"category", T("string")}, {"query", T("string")}, {"offset", T("integer")}, {"limit", T("integer")}}),
+                     false, {}, [](const Json& args, const std::string&) {
                          Json arr = Json::Array();
+                         const auto category = args["category"].S();
+                         const auto query = args["query"].S();
+                         const auto offset = std::clamp(args["offset"].Num(), 0.0, static_cast<double>(Effects().All().size()));
+                         const auto limit = std::clamp(args["limit"].Num(), 0.0, static_cast<double>(Effects().All().size()));
+                         unsigned total = 0;
                          for (auto& e : Effects().All()) {
+                             if ((!category.empty() && e->category != category) ||
+                                 (!query.empty() && e->id.find(query) == std::string::npos && e->name.find(query) == std::string::npos)) continue;
+                             if (total++ < offset || (limit > 0 && arr.Size() >= limit)) continue;
                              Json o = Json::Object();
                              o["id"] = e->id;
                              o["name"] = e->name;
@@ -226,10 +220,15 @@ void App::RegisterAiOps() {
                          }
                          Json j = Json::Object();
                          j["effects"] = arr;
+                         if (args.Has("offset") || args.Has("limit") || !category.empty() || !query.empty()) {
+                             unsigned next = static_cast<unsigned>(offset) + static_cast<unsigned>(arr.Size());
+                             j["total"] = total;
+                             if (next < total) j["nextOffset"] = next;
+                         }
                          return AiResult::Ok(j);
                      }});
 
-    bridge.Register({"shaderixel.render", "Rend l'image composite du document en PNG (fichier dans l'espace de travail du job).",
+    bridge.Register({"shaderixel.render", "Rend l’image composite en PNG. Depuis le chat, le CLI et MCP, le résultat est une ressource privée à lire par morceaux.",
                      Schema({{"file", T("string", "nom du fichier (défaut render.png)")}}), false, {},
                      [this, need](const Json& p, const std::string& workspace) {
                          AiResult e;
@@ -238,6 +237,7 @@ void App::RegisterAiOps() {
                          gpu::Texture* img = v->renderer.EvaluateComplete(*v->doc, *ctx);
                          if (!img) return AiResult::Fail("NotReady", "Le rendu n'est pas encore prêt, réessayez");
                          auto rb = v->renderer.ExportRGBA8(*ctx, img);
+                         if (!rb) return AiResult::Fail("NotReady", "Lecture du rendu indisponible");
                          std::string name = p["file"].S("render.png");
                          if (name.find_first_of("/\\:") != std::string::npos) name = "render.png";
                          std::string dir = workspace.empty() ? Narrow(fs::temp_directory_path().wstring()) : workspace;
@@ -245,8 +245,13 @@ void App::RegisterAiOps() {
                          AiResult r;
                          r.done = false;
                          r.poll = [rb, path](AiResult& out) {
-                             if (!rb || !rb->ready) return false;
-                             if (!stbi_write_png(path.c_str(), rb->width, rb->height, 4, rb->data.data(), rb->width * 4)) {
+                             if (!rb->ready) return false;
+                             std::ofstream png(Utf8Path(path), std::ios::binary | std::ios::trunc);
+                             const auto write = [](void* stream, void* data, int size) {
+                                 static_cast<std::ostream*>(stream)->write(static_cast<const char*>(data), size);
+                             };
+                             if (!png || !stbi_write_png_to_func(write, static_cast<std::ostream*>(&png), rb->width, rb->height, 4,
+                                                                rb->data.data(), rb->width * 4) || !(png.flush())) {
                                  out.errorCode = "WriteFailed";
                                  out.errorMessage = "écriture impossible : " + path;
                                  return true;
@@ -592,21 +597,36 @@ void App::RegisterAiOps() {
                          return AiResult::Ok(Json::Object());
                      }});
 
-    bridge.Register({"shaderixel.document_save", "Enregistre le document (.sxl) ou exporte une image (.png, .jpg) au chemin donné.",
-                     Schema({{"path", T("string")}}, {"path"}), true, {}, [this, need](const Json& p, const std::string&) {
+    bridge.Register({"shaderixel.document_save", "Enregistre le document (.sxl, .sx3d) ou exporte une image (.png, .jpg) au chemin donné.",
+                     Schema({{"path", T("string")}, {"overwrite", T("boolean", "Confirme le remplacement d’un fichier existant")}}, {"path"}), true, {}, [this, need](const Json& p, const std::string&) {
                          AiResult e;
                          DocView* v = need(e);
                          if (!v) return e;
                          std::string path = p["path"].S("");
                          std::string ext = Narrow(Utf8Path(path).extension().wstring());
                          for (auto& c : ext) c = (char)tolower((unsigned char)c);
-                         if (ext == ".sxl") SaveDocument(*v, path);
-                         else if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".tga" || ext == ".bmp") ExportImage(path);
+                         auto completion = std::make_shared<std::optional<std::string>>();
+                         const auto noteResult = [completion](std::string error) { *completion = std::move(error); };
+                         if (ext == ".sx3d" && v->doc->kind != 1)
+                             return AiResult::Fail("InvalidParameters", "Le format SX3D nécessite un projet Paint 3D");
+                         if (ext == ".sxl" || ext == ".sx3d") SaveDocument(*v, path, false, noteResult);
+                         else if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".tga" || ext == ".bmp")
+                             ExportImage(path, v, noteResult);
                          else return AiResult::Fail("InvalidParameters", "extension non supportée");
-                         Json j = Json::Object();
-                         j["path"] = path;
-                         j["note"] = "écriture asynchrone (terminée en quelques images)";
-                         return AiResult::Ok(j);
+                         AiResult result;
+                         result.done = false;
+                         result.poll = [completion, path](AiResult& out) {
+                             if (!*completion) return false;
+                             if (!completion->value().empty()) {
+                                 out.errorCode = "WriteFailed";
+                                 out.errorMessage = completion->value();
+                             } else {
+                                 out.result["path"] = path;
+                                 out.result["note"] = "Fichier enregistré";
+                             }
+                             return true;
+                         };
+                         return result;
                      }});
 
     // ------------------------------------------------------------------ node graph (node mode)

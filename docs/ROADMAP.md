@@ -25,7 +25,7 @@
 
 **Spécifique Shaderixel**
 - Nœuds HLSL personnalisés et **éditeur d'effets visuel** (façon éditeur de matériaux Unreal) avec **export vers un matériau Unreal** (script Python : nœud Custom + paramètres + textures)
-- **IA** : pont MCP compatible CyToolsCore (26 opérations `shaderixel.*`, écriture soumise à autorisation), compagnon CyUEMCPSDK lancé automatiquement, assistant intégré, génération d'images OpenAI / Gemini
+- **IA** : assistant intégré, serveur MCP et CLI natifs via CyMCPSDK, opérations `shaderixel.*` et autorisations d’écriture, génération d’images OpenAI / Gemini
 - **Peinture 3D** : vue 3D (OBJ, primitives), document en texture, pinceau projeté avec occultation
 
 ## Prochaines étapes

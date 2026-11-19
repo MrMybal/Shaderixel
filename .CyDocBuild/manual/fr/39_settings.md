@@ -5,7 +5,7 @@ description: Shaderixel distingue réglages du document, préférences de l’ap
 section: Manuel
 order: 38
 parent: workspace
-sourceRevision: bc86d68f47360d71
+sourceRevision: 33dfbbd4b61db74a
 ---
 
 Shaderixel distingue réglages du document, préférences de l’application et ressources de bibliothèque. Enregistrer un projet ne copie pas toutes les préférences ni ses ressources externes.
@@ -28,7 +28,9 @@ Les réglages tablette choisissent Windows Ink ou Wintab et la courbe de pressio
 
 ## IA et pont local {#ai-and-local-bridge}
 
-Assistant IA configure exécutable/script Python compagnon, connecteur et modèle d’assistant. Le fournisseur d’images possède ses propres réglages de point d’accès, modèle et nom de variable d’environnement de clé. ComfyUI possède serveur, chemin de workflow, checkpoint, prompt négatif et échantillonnage. Ces configurations sont indépendantes.
+Dans Assistant IA, choisissez le fournisseur et le modèle du chat. Le serveur MCP local, ses permissions et la conservation de l’historique ont leurs propres réglages. Le fournisseur d’images et ComfyUI gardent chacun leurs options de connexion et de génération.
+
+L’autorisation de modification s’applique aux opérations qui changent un document, un projet ou l’interface. L’autorisation de fichiers couvre aussi le pilotage générique des menus et des entrées, car il peut ouvrir une commande de fichier. Le CLI et les clients MCP externes appliquent les mêmes droits.
 
 Un champ de clé demandant une variable d’environnement conserve son nom ; configurez la vraie variable dans l’environnement de lancement. Ne placez pas de secret dans un workflow exporté, un nom de fichier ou une capture. L’autorisation d’écriture du pont contrôle les modifications des clients ; une connexion seule ne démarre pas un modèle de génération.
 

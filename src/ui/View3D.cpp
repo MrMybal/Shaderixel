@@ -610,7 +610,7 @@ void App::DrawView3D() {
             meshLineValid = true;
         }
     }
-    if (tool == Tool::Particles && demoMode != 114) {
+    if (tool == Tool::Particles && demoMode != 114 && !aiParticleSequence) {
         const bool canEmit = hovered && !io.KeyAlt && !orbit;
         UpdateSimulation(*v, canEmit && ImGui::IsMouseClicked(ImGuiMouseButton_Left),
                          canEmit && ImGui::IsMouseDown(ImGuiMouseButton_Left), local(io.MousePos.x, io.MousePos.y), w, h);

@@ -431,6 +431,7 @@ def main():
         if f.lower().endswith(('.exe', '.dll')):
             shutil.copy2(os.path.join(BUILD, f), dist)
     copy_readme(dist)
+    shutil.copy2(os.path.join(ROOT, 'docs', 'ASSISTANT_MCP.fr.md'), os.path.join(dist, 'Assistant-MCP.fr.md'))
     copy_manual(dist)
     shutil.copytree(os.path.join(ROOT, 'docs', 'screenshots'), os.path.join(dist, 'docs', 'screenshots'))
     # Reviewed UI guides and self-contained documents, with package-relative links.
@@ -488,6 +489,7 @@ def main():
     # Third-party licenses (libraries built in or shipped).
     lic = os.path.join(dist, 'licences')
     os.makedirs(lic, exist_ok=True)
+    shutil.copytree(os.path.join(BUILD, 'cymcp-licenses'), os.path.join(lic, 'cymcp'))
     for lib in ('imgui', 'stb', 'slang', 'volk', 'vulkan-headers', 'xatlas', 'ufbx', 'LibRaw'):
         base = os.path.join(ROOT, 'external', lib)
         for f in ('LICENSE', 'LICENSE.txt', 'LICENSE.md', 'LICENSE.CDDL', 'LICENSE.LGPL', 'COPYRIGHT'):

@@ -5,7 +5,7 @@ description: Shaderixel keeps document settings, application preferences and lib
 section: Handbook
 order: 38
 parent: workspace
-revision: bc86d68f47360d71
+revision: 33dfbbd4b61db74a
 ---
 
 Shaderixel keeps document settings, application preferences and library resources in different places. Saving a project does not copy every application preference or external asset.
@@ -28,7 +28,9 @@ Tablet controls select Windows Ink or Wintab and the pressure response curve. If
 
 ## AI and local bridge {#ai-and-local-bridge}
 
-The Assistant panel configures the companion Python executable/script, connector and assistant model. The image-generation provider has its own endpoint/model/credential-environment-variable settings. ComfyUI has its own server, workflow path, checkpoint, negative prompt and sampling settings. These configurations are independent.
+In AI Assistant, select a chat provider and model. The local MCP server, its permissions and saved conversations have their own controls. The image provider and ComfyUI each keep their own connection and generation settings.
+
+Editing permission applies to tool calls that change a document, project or interface. File access permission also covers generic menu and input automation, because either can open a file command. The CLI and external MCP clients use these same permissions.
 
 An API-key field that asks for an environment variable stores its name; configure the actual variable in the environment used to launch the app. Do not put a secret in an exported workflow, filename or screenshot. The bridge's write permission controls client edits; a connection alone does not start an image-generation model.
 

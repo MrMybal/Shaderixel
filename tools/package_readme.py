@@ -21,4 +21,6 @@ def copy_readme(destination):
         if relative.endswith('.md'):
             # In a package the repository's examples/ documents live in Exemples/2D.
             text = target.read_text(encoding='utf-8')
-            target.write_text(text.replace('](examples/', '](Exemples/2D/'), encoding='utf-8', newline='\n')
+            text = text.replace('](examples/', '](Exemples/2D/')
+            text = text.replace('](docs/ASSISTANT_MCP.fr.md)', '](Assistant-MCP.fr.md)')
+            target.write_text(text, encoding='utf-8', newline='\n')

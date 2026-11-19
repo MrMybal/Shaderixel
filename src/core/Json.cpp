@@ -5,6 +5,11 @@
 
 namespace sx {
 
+const Json& Json::At(size_t index) const {
+    static const Json missing;
+    return index < arr.size() ? arr[index] : missing;
+}
+
 namespace {
 const Json kNull;
 
@@ -149,7 +154,7 @@ void Json::DumpTo(std::string& out, int indent, int depth) const {
         case Type::Bool: out += num != 0 ? "true" : "false"; break;
         case Type::Number: {
             char buf[32];
-            if (num == (double)(long long)num && std::abs(num) < 1e15) snprintf(buf, sizeof(buf), "%lld", (long long)num);
+            if (std::abs(num) < 1e15 && num == (double)(long long)num) snprintf(buf, sizeof(buf), "%lld", (long long)num);
             else snprintf(buf, sizeof(buf), "%.9g", num);
             out += buf;
             break;

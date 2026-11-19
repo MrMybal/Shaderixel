@@ -39,7 +39,7 @@ public:
     // Array access
     void Push(Json v) { type = Type::Array; arr.push_back(std::move(v)); }
     size_t Size() const { return type == Type::Array ? arr.size() : obj.size(); }
-    const Json& At(size_t i) const { return arr[i]; }
+    const Json& At(size_t i) const;
     const std::vector<Json>& Elements() const { return arr; }
 
     // Typed reads with defaults

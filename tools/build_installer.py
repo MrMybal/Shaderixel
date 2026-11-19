@@ -22,7 +22,7 @@ CONTENT_DIRS = (
     'scenes', 'SDK', 'shaders', 'smartmaterials', 'swatches', 'templates',
     'Unreal', 'Exemples',
 )
-BINARIES = ('Shaderixel.exe', 'ShaderixelVk.exe', 'dxcompiler.dll', 'dxil.dll',
+BINARIES = ('Shaderixel.exe', 'ShaderixelVk.exe', 'ShaderixelCli.exe', 'dxcompiler.dll', 'dxil.dll',
             'slang.dll', 'slang-compiler.dll', 'slang-glslang.dll', 'slang-rt.dll')
 
 
@@ -90,6 +90,8 @@ def main():
         if current.is_file():
             shutil.copy2(current, plugin)
     copy_readme(stage)
+    shutil.copy2(ROOT / 'docs/ASSISTANT_MCP.fr.md', stage / 'Assistant-MCP.fr.md')
+    shutil.copytree(ROOT / 'build/Release/cymcp-licenses', stage / 'licences/cymcp', dirs_exist_ok=True)
     shutil.copy2(ROOT / 'LICENSE', stage / 'LICENSE')
     shutil.copy2(ROOT / 'docs/PRESETS.md', stage / 'PRESETS.md')
     copy_manual(stage)
