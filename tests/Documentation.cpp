@@ -6,7 +6,13 @@ int RunDocumentationTests() {
     using namespace sx::ui;
     int failures=0;
     auto check=[&](bool ok,const char* label){if(!ok){++failures;std::fprintf(stderr,"FAIL CyDoc: %s\n",label);}};
-    check(ManualPages().size()==942,"all original routes retained");
+    static constexpr struct { std::string_view id, route; } legacy[] = {
+#include "ManualRouteBaseline.inc"
+    };
+    for (const auto& page : legacy) {
+        const int index = ManualPageIndex(page.id);
+        check(index >= 0 && ManualPages()[index].route == page.route, page.id.data());
+    }
     check(ManualPageIndex("getting_started")==0,"legacy home");
     check(ManualPageIndex("getting-started")==0,"canonical home");
     check(ManualPageIndex("unknown")==-1,"unknown rejected");
@@ -19,7 +25,11 @@ int RunDocumentationTests() {
     check(ManualReferenceTopic("brush","cy_texture","brushes_tablet")=="brush:cy_texture","brush route");
     check(ManualReferenceTopic("command","export","actions")=="command:export","recorded command");
     check(ManualPracticeAvailable("ui_nine_slice") && !ManualPracticeAvailable("../unknown"),"practice allowlist");
-    for(int i=0;i<46;++i) check(ManualPageIndex(ManualToolTopic(i))>=0,"all toolbar routes");
+    for (int i=0; i<48; ++i) {
+        auto topic=ManualToolTopic(i);
+        check(topic.starts_with("tool:") && ManualPageIndex(topic)>=0,"toolbar tool has its own page");
+    }
+    check(ManualToolTopic(46)=="tool:surface_mask" && ManualToolTopic(47)=="tool:surface_path","3D tool routes");
     for(const auto& page:ManualPages()) {
         check(ManualPageIndex(page.route)>=0,"every canonical ID resolves");
         check(!page.route.empty() && page.route.find(':')==std::string_view::npos,"CyDoc stable ID syntax");

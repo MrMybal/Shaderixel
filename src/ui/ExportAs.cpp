@@ -42,7 +42,7 @@ struct App::ExportAsJob {
     size_t next = 0;
     int queued = 0;  // images actually sent to be written
     std::vector<std::pair<Id, bool>> visible;  // to restore after a per-layer export
-    bool wasDirty = false, perLayer = false, cancel = false;
+    bool perLayer = false, cancel = false;
     Id shownLayer = ~0ull;
     int format = 0, quality = 90;
     bool trim = false, keepAlpha = true;
@@ -160,7 +160,6 @@ void App::ExportAsRun(DocView& v, const std::string& basePath) {
     J->trim = E.trim;
     J->keepAlpha = E.transparent && (E.format == 0 || E.format == 2 || E.format == 3);
     J->matte = E.matte;
-    J->wasDirty = d.dirty;
     const Rect whole = {0, 0, (int)d.Width(), (int)d.Height()};
     const Rect area = E.area == 1 && d.S().selection && !E.selRect.Empty() ? E.selRect : whole;
     std::set<std::string> used;  // (two layers with one name, two scales with one suffix: numbered, never overwritten)
@@ -208,8 +207,10 @@ void App::ExportAsTick() {
                 for (auto& [id, vis] : J.visible) if (id == l.id) was = vis;
                 l.visible = on && was;
             }
+            const auto changes = d.dirty;
             d.SyncGraph();
             Prepare(v);
+            d.dirty = changes;
             J.shownLayer = T.layer;
         }
         const u32 w = (u32)std::max(1L, std::lround(T.area.Width() * T.scale)), h = (u32)std::max(1L, std::lround(T.area.Height() * T.scale));
@@ -233,10 +234,11 @@ void App::ExportAsTick() {
             for (auto& l : d.S().layers)
                 for (auto& [id, vis] : J.visible)
                     if (id == l.id) l.visible = vis;
+            const auto changes = d.dirty;
             d.SyncGraph();
             Prepare(v);
+            d.dirty = changes;
         }
-        d.dirty = J.wasDirty;  // (showing the layers one by one is not an edit)
         Status("Exporter sous : " + std::to_string(J.queued) + " image(s)" + (J.cancel ? " (interrompu)" : "") + " vers " + J.dir);
         exportAsJob.reset();
     }

@@ -58,6 +58,8 @@ const ToolInfo kToolInfo[] = {
     {Tool::ColorReplace, ui::IconBrush, "Remplacement de couleur (la couleur de premier plan sur les tons proches, luminosité gardée)", "B"},
     {Tool::Ruler, ui::IconPicker, "Règle (mesure, redresser)", "I"},
     {Tool::Mixer, ui::IconBrush, "Pinceau mélangeur (la peinture se mêle aux couleurs de la toile)", "B"},
+    {Tool::SurfaceMask, ui::IconMask, "Masque rapide de surface", "Q"},
+    {Tool::SurfacePath, ui::IconPen, "Tracé de surface", "-"},
 };
 
 // Toolbar slots; tools sharing a slot appear in a flyout (right-click).
@@ -687,6 +689,13 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
     }
 
     if (click && target && !stroking) {
+        const bool materialBrush = doc.kind == 1 && (tool == Tool::Brush || tool == Tool::Eraser);
+        strokeTargets.clear();
+        if (materialBrush) {
+            strokeTargets = Paint3DTargets(v, strokeColors);
+            if (strokeTargets.empty()) return;
+            target = strokeTargets.front();
+        }
         // History brush source: the layer as it was before its first edit (or the last snapshot).
         // (a snapshot of another size: the layer was cropped / resized since; taken again)
         if (auto it = v.snapshots.find(target); it != v.snapshots.end()) {
@@ -695,10 +704,7 @@ void App::CanvasInput(DocView& v, ImVec2 canvasMin, ImVec2 canvasSize, bool hove
         }
         if (!v.snapshots.count(target)) TakeHistorySnapshot(v, target);
         // 3D project paint layer: the brush paints every checked channel (shared coverage).
-        strokeTargets.clear();
-        if (doc.kind == 1 && (tool == Tool::Brush || tool == Tool::Eraser)) strokeTargets = Paint3DTargets(v, strokeColors);
-        bool begun = strokeTargets.size() > 1 ? v.renderer.BeginStrokeMulti(doc, *ctx, strokeTargets) : v.renderer.BeginStroke(doc, *ctx, target);
-        if (strokeTargets.size() <= 1) strokeTargets.clear();
+        bool begun = materialBrush ? v.renderer.BeginStrokeMulti(doc, *ctx, strokeTargets) : v.renderer.BeginStroke(doc, *ctx, target);
         if (begun) {
             stroking = true;
             strokeErase = tool == Tool::Eraser;

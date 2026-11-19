@@ -25,6 +25,20 @@ const char* kGenTypes = "Aucun (masque peint)\0Usure des arêtes\0Saleté des cr
 // Types that read the baked mesh maps.
 bool NeedsMaps(int type) { return type == 0 || type == 1 || type == 4 || type == 6 || type == 11 || type == 12; }
 
+bool CyclicAnchor(Document& doc, Id target, Id source) {
+    std::set<Id> visited{target};
+    while (source) {
+        if (!visited.insert(source).second) return true;
+        const Layer* layer = nullptr;
+        for (const auto& l : doc.S().layers)
+            if (l.material == source && !l.generator.empty()) { layer = &l; break; }
+        Json g;
+        if (!layer || !Json::Parse(layer->generator, g) || g["type"].I() != 8) break;
+        source = (Id)g["source"].I();
+    }
+    return false;
+}
+
 float3 DirOf(int k) {
     static const float3 d[] = {{0, 1, 0}, {0, -1, 0}, {1, 0, 0}, {-1, 0, 0}, {0, 0, 1}, {0, 0, -1}};
     return d[std::clamp(k, 0, 5)];
@@ -180,7 +194,13 @@ void App::UpdateSmartMasks(DocView& v) {
             // Follows another 3D layer: regenerated when its pixels change.
             const Id src = (Id)g["source"].I(0);
             Surface* ss = nullptr;
-            if (src && src != l.material) {
+            if (!src || CyclicAnchor(d, l.material, src)) continue;
+            const int channel = g["channel"].I(-1);
+            if (channel >= 0 && channel < (int)PbrChannel::Count) {
+                Layer* ref = MaterialChannelLayer(d, src, (PbrChannel)channel);
+                if (ref && ref->surface) ss = d.GetSurface(ref->surface);
+                p.sourceValue = true;
+            } else {
                 if (IsPaintLayer3D(d, src)) {
                     Layer* bc = MaterialChannelLayer(d, src, PbrChannel::BaseColor);
                     if (!bc) bc = AnyMaterialLayer(d, src);
@@ -192,6 +212,7 @@ void App::UpdateSmartMasks(DocView& v) {
             }
             if (!ss) continue;
             p.source = ss->tex.get();
+            sig += "|" + std::to_string((uintptr_t)p.source);
             sig += "|" + std::to_string(src) + ":" + std::to_string(ss->version);
         }
         if (Surface* es = l.maskEdit ? d.GetSurface(l.maskEdit) : nullptr) {
@@ -255,14 +276,27 @@ void App::DrawSmartMaskEditor(DocView& v, Id material) {
             ImGui::SetNextItemWidth(-90 * dpi);
             if (ImGui::BeginCombo("Calque suivi", cur.c_str())) {
                 for (Id m : MaterialIds(d)) {
-                    if (m == material) continue;
+                    if (CyclicAnchor(d, material, m)) continue;
                     Layer* a = AnyMaterialLayer(d, m);
                     if (!a || (!IsPaintLayer3D(d, m) && !a->mask)) continue;
-                    if (ImGui::Selectable(a->name.c_str(), m == src)) { g["source"] = (int)m; changed = true; }
+                    if (ImGui::Selectable(a->name.c_str(), m == src)) { g["source"] = (int)m; g["channel"] = -1; changed = true; }
                 }
                 ImGui::EndCombo();
             }
             ui::HelpTooltip("Le masque suit ce que contient ce calque (sa peinture ou son masque) : il se met à jour quand on y peint.");
+            int channel = cg["channel"].I(-1);
+            const char* selected = channel >= 0 && channel < (int)PbrChannel::Count ? PbrChannelName((PbrChannel)channel) : "Couverture";
+            if (ImGui::BeginCombo("Entrée du générateur", selected)) {
+                if (ImGui::Selectable("Couverture", channel < 0)) { g["channel"] = -1; changed = true; }
+                for (int c = 0; c < (int)PbrChannel::Count; ++c) {
+                    auto* layer = MaterialChannelLayer(d, src, (PbrChannel)c);
+                    if (layer && layer->surface && ImGui::Selectable(PbrChannelName((PbrChannel)c), channel == c)) {
+                        g["channel"] = c;
+                        changed = true;
+                    }
+                }
+                ImGui::EndCombo();
+            }
             int mode = cg["anchor"].I(0);
             ImGui::SetNextItemWidth(-90 * dpi);
             if (ImGui::Combo("Placement", &mode, "Dessus\0Bord\0Autour\0Ailleurs\0")) { g["anchor"] = mode; changed = true; }
@@ -483,7 +517,7 @@ bool App::SaveSmartMaterial(DocView& v, const std::string& name, const std::stri
                 if (it != saved.end() && it < me) g["follow"] = (int)(it - me);
                 else g = Gen(7, 1, 4, 0, 6);
                 Json clean = Json::Object();
-                for (const char* k : {"type", "amount", "contrast", "noise", "scale", "seed", "invert", "dir", "anchor", "radius", "follow"})
+                for (const char* k : {"type", "amount", "contrast", "noise", "scale", "seed", "invert", "dir", "anchor", "radius", "follow", "channel"})
                     if (g.Has(k)) clean[k] = g[k];
                 g = clean;
             }

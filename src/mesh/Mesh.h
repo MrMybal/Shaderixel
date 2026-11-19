@@ -55,12 +55,16 @@ struct MeshData {
     std::vector<u16> triMaterial;             // per triangle, index into materials (empty: one material)
     // Paint 3D: each material's UVs moved into its own tile of the texture (UV rect x0, y0, x1, y1 per material;
     // empty: the UVs as loaded). Exports cut one texture set per material from these tiles.
+    std::vector<std::string> partNames;
+    std::vector<u32> triPart;  // optional source object index per triangle
     std::vector<float4> uvTiles;
     // UDIM: the model's UV tiles (1001, 1002...) packed into a grid of cells of the texture, cell k at column
     // k % udimCols, row k / udimCols (cells of 1 / udimCols); empty: no UDIM layout. Exports write one texture
     // set per tile (name_BaseColor.1001.png) and the OBJ export puts the UVs back in UDIM space.
     std::vector<u16> udims;
+    std::vector<u16> udimMaterials;  // optional material index per packed cell, including repeated UDIM numbers
     int udimCols = 0;
+    std::vector<float> udimScale; // optional fraction of each grid cell used at native tile resolution
     float3 boundsMin, boundsMax;
     // NormalizeMesh: original position = pos / srcScale + srcCenter (exports in the file's own units).
     float3 srcCenter;
@@ -90,6 +94,9 @@ bool PackUdims(MeshData& m, std::vector<u32>* sourceVertex = nullptr);
 std::vector<float2> UdimUvs(const MeshData& m);
 // Cell of the UDIM layout holding a UV of the packed texture (-1: none).
 int UdimCellAt(const MeshData& m, float2 uv);
+float4 UdimRect(const MeshData& m, int cell);
+// Scales packed UVs before any paint is created. A key is a UDIM number or an imported material name.
+bool SizeTextureTiles(MeshData& mesh, int defaultSize, const std::string& overrides, int& atlasSize, std::string& error);
 // Wavefront OBJ (positions back in the original units when `original`), Y up, UV v flipped like LoadObj reads it.
 // udimSpace: UDIM layouts written in the tiles' own UV space (false: the packed UVs of the single texture).
 bool SaveObj(const std::string& path, const MeshData& m, bool original, std::string* error = nullptr, bool udimSpace = true);

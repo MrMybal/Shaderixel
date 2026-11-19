@@ -75,7 +75,12 @@ int App::Run() {
                 for (auto& dv : docs) dv->doc->dirty = false;
             // Ask about each unsaved document, then leave once all are handled and saves finished.
             int dirtyIdx = -1;
-            for (int i = 0; i < (int)docs.size(); ++i) if (docs[i]->doc->dirty) { dirtyIdx = i; break; }
+            for (int i = 0; i < (int)docs.size(); ++i) {
+                Document* d = docs[i]->doc.get();
+                if (!d->dirty) continue;
+                const bool closing = std::any_of(saves.begin(), saves.end(), [&](const auto& s) { return s->doc == d && s->closeRevision; });
+                if (!closing) { dirtyIdx = i; break; }
+            }
             if (dirtyIdx >= 0 && closePrompt == -1) { activeDoc = dirtyIdx; focusDocRequest = dirtyIdx; closePrompt = dirtyIdx; }
             if (dirtyIdx < 0 && saves.empty()) {
                 if (!pendingUpdateInstaller.empty() && !updates::VerifyFile(pendingUpdateInstaller, updateClient.Get().release)) {
@@ -85,7 +90,7 @@ int App::Run() {
             }
         }
         if (quit) break;
-        if (IsIconic(hwnd)) { Sleep(16); continue; }
+        if (IsIconic(hwnd) && !quitting && saves.empty()) { Sleep(16); continue; }
         const auto f0 = std::chrono::steady_clock::now();
         Frame();
         if (startupFrames < 8 || splash::Active()) {
@@ -128,7 +133,10 @@ void App::ParseCommandLine() {
         else if (a == "--canvas") meshDebugCanvas = true;
         else if (a == "--demo") {
             std::string m = i + 1 < argc ? Narrow(argv[i + 1]) : "";
-            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : m == "drop" ? 69 : m == "uassetconv" ? 70 : m == "layerxf" ? 71 : m == "graphtools" ? 72 : m == "functions" ? 73 : m == "typed" ? 74 : m == "library" ? 75 : m == "trims" ? 76 : m == "nodeui" ? 77 : m == "maketemplates" ? 78 : m == "makescenes" ? 79 : m == "comments" ? 80 : m == "execjoin" ? 81 : m == "call" ? 82 : m == "inpaint" ? 83 : m == "explorer" ? 84 : m == "actioneditor" ? 85 : m == "popout" ? 86 : m == "paint3dtools" ? 87 : m == "smartmat" ? 88 : m == "bake" ? 89 : m == "simulation" ? 90 : m == "projection" ? 91 : m == "smartthumbs" ? 93 : m == "plugins" ? 94 : m == "search" ? 95 : m == "cameraraw" ? 96 : m == "view3d" ? 97 : m == "nodesel" ? 98 : m == "filter" ? 99 : m == "sidetabs" ? 100 : m == "analysis" ? 101 : m == "customshapes" ? 102 : m == "psdadjust" ? 103 : m == "undoram" ? 104 : m == "fluid" ? 105 : m == "multimat" ? 106 : m == "carve" ? 107 : m == "anim" ? 108 : m == "perspcrop" ? 109 : m == "rasterize" ? 110 : 1;
+            if (m == "paint-particles") { demoMode = 114; ++i; continue; }
+            if (m == "paint-integrity") { demoMode = 113; ++i; continue; }
+            if (m == "surface-tools") { demoMode = 111; ++i; continue; }
+            demoMode = m == "nodes" ? 2 : m == "select" ? 3 : m == "transform" ? 4 : m == "transform-undo" ? 5 : m == "retouch" ? 6 : m == "groups" ? 7 : m == "save" ? 8 : m == "image" ? 9 : m == "curves" ? 10 : m == "effectgraph" ? 11 : m == "text" ? 12 : m == "shapes" ? 13 : m == "mesh" ? 14 : m == "tiles" ? 15 : m == "16k" ? 16 : m == "psd" ? 17 : m == "blendif" ? 18 : m == "liquify" ? 19 : m == "lut" ? 20 : m == "selmove" ? 21 : m == "quicksel" ? 22 : m == "pen" ? 23 : m == "merge" ? 24 : m == "guides" ? 25 : m == "stroke" ? 26 : m == "gltf" ? 27 : m == "pbr" ? 28 : m == "hdri" ? 29 : m == "genfill" ? 30 : m == "psd16" ? 31 : m == "selpath" ? 32 : m == "warp" ? 33 : m == "comfy" ? 34 : m == "sliders" ? 35 : m == "fxbrowser" ? 36 : m == "codefx" ? 37 : m == "chanblend" ? 38 : m == "chanlinks" ? 39 : m == "cygallery" ? 40 : m == "brushes" ? 41 : m == "workspace" ? 42 : m == "graphs" ? 43 : m == "dnd" ? 44 : m == "material" ? 45 : m == "custompins" ? 46 : m == "hlslimport" ? 47 : m == "tablet" ? 48 : m == "smart" ? 49 : m == "selectmask" ? 50 : m == "maglasso" ? 51 : m == "sky" ? 52 : m == "fill" ? 53 : m == "meshwarp" ? 54 : m == "actions" ? 55 : m == "artboards" ? 56 : m == "color" ? 57 : m == "photo" ? 58 : m == "textstyles" ? 59 : m == "resources" ? 60 : m == "booleans" ? 61 : m == "fxlib" ? 62 : m == "paint3d" ? 63 : m == "uv" ? 64 : m == "example3d" ? 65 : m == "render" ? 66 : m == "example3dx" ? 67 : m == "linksend" ? 68 : m == "drop" ? 69 : m == "uassetconv" ? 70 : m == "layerxf" ? 71 : m == "graphtools" ? 72 : m == "functions" ? 73 : m == "typed" ? 74 : m == "library" ? 75 : m == "trims" ? 76 : m == "nodeui" ? 77 : m == "maketemplates" ? 78 : m == "makescenes" ? 79 : m == "comments" ? 80 : m == "execjoin" ? 81 : m == "call" ? 82 : m == "inpaint" ? 83 : m == "explorer" ? 84 : m == "actioneditor" ? 85 : m == "popout" ? 86 : m == "paint3dtools" ? 87 : m == "smartmat" ? 88 : m == "bake" ? 89 : m == "simulation" ? 90 : m == "projection" ? 91 : m == "smartthumbs" ? 93 : m == "plugins" ? 94 : m == "search" ? 95 : m == "cameraraw" ? 96 : m == "view3d" ? 97 : m == "nodesel" ? 98 : m == "filter" ? 99 : m == "sidetabs" ? 100 : m == "analysis" ? 101 : m == "customshapes" ? 102 : m == "psdadjust" ? 103 : m == "undoram" ? 104 : m == "fluid" ? 105 : m == "multimat" ? 106 : m == "carve" ? 107 : m == "anim" ? 108 : m == "perspcrop" ? 109 : m == "rasterize" ? 110 : m == "project-io" ? 112 : 1;
             if (demoMode > 1) ++i;
         }
         else if (a == "--format-library" && i + 1 < argc) {
@@ -758,7 +766,7 @@ void App::Frame() {
         exportUnrealDir.clear();
         autoQuit = true;
     }
-    if (autoQuit && saves.empty() && !psdExport && !dumpRb && exports.empty() && packJobs.empty() && !LinkBusy()) {
+    if (autoQuit && saves.empty() && !psdExport && !dumpRb && exports.empty() && packJobs.empty() && texExportJobs.empty() && !LinkBusy()) {
         for (auto& dv : docs) dv->doc->dirty = false;  // never prompt
         PostMessageW(hwnd, WM_CLOSE, 0, 0);
         autoQuit = false;
@@ -1081,6 +1089,17 @@ void App::NewDocument(u32 w, u32 h, Precision p, DocMode mode, int background, c
 
 void App::CloseDocument(int index, bool force) {
     if (index < 0 || index >= (int)docs.size()) return;
+    if (sim.view == docs[index].get()) FinishParticles(!force);
+    if (fluidRun.active && fluidRun.view == docs[index].get()) FluidFinish(!force);
+    Document* document = docs[index]->doc.get();
+    for (auto& s : saves) {
+        if (s->doc != document) continue;
+        if (!force && document->dirty.Revision() == s->revision) {
+            s->closeRevision = s->revision;
+            return;
+        }
+        if (force) s->doc = nullptr;
+    }
     if (!force && docs[index]->doc->dirty) {
         closePrompt = index;
         return;
@@ -1098,6 +1117,9 @@ void App::CloseDocument(int index, bool force) {
     gpu::Dev().WaitIdle();
     DetachSmartChild(*docs[index]);
     docs.erase(docs.begin() + index);
+    if (closePrompt == index) closePrompt = -1;
+    else if (closePrompt > index) --closePrompt;
+    if (activeDoc > index) --activeDoc;
     activeDoc = std::min(activeDoc, (int)docs.size() - 1);
 }
 
@@ -1362,6 +1384,7 @@ void App::Undo() {
     DocView* v = Active();
     if (!v || stroking) return;
     pen.drawing = false;  // the subpath being drawn may be the step undone
+    if (sim.view == v) { FinishParticles(false); return; }
     if (fluidRun.active) FluidFinish(true);  // the wet paint becomes the last step (undone here)
     if (xf.active) { TransformCancel(*v); return; }
     u32 w = v->doc->Width(), h = v->doc->Height();
@@ -1374,6 +1397,7 @@ void App::Undo() {
 void App::Redo() {
     DocView* v = Active();
     if (!v || stroking || xf.active) return;
+    if (sim.view == v) { FinishParticles(false); return; }
     pen.drawing = false;
     if (fluidRun.active) FluidFinish(true);
     u32 w = v->doc->Width(), h = v->doc->Height();
@@ -1385,8 +1409,60 @@ void App::Redo() {
 
 // ------------------------------------------------------------------ layout & menus
 
+namespace {
+void DrawWindowControls(HWND hwnd, const ImRect& bar, float width, float dpi) {
+    if (width <= 0 || bar.GetHeight() <= 0) return;
+    const bool maximized = IsZoomed(hwnd) != FALSE;
+    const char* labels[] = {"Réduire la fenêtre", maximized ? "Restaurer la fenêtre" : "Agrandir la fenêtre", "Fermer la fenêtre"};
+    const char* ids[] = {"##window-minimize", "##window-maximize", "##window-close"};
+    const WPARAM commands[] = {SC_MINIMIZE, maximized ? SC_RESTORE : SC_MAXIMIZE, SC_CLOSE};
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    for (int i = 0; i < 3; ++i) {
+        ImGui::SetCursorScreenPos({bar.Max.x - width * (3 - i), bar.Min.y});
+        if (ImGui::InvisibleButton(ids[i], {width, bar.GetHeight()}, ImGuiButtonFlags_EnableNav))
+            PostMessageW(hwnd, WM_SYSCOMMAND, commands[i], 0);
+        const ImVec2 lo = ImGui::GetItemRectMin(), hi = ImGui::GetItemRectMax();
+        const bool closeHovered = i == 2 && ImGui::IsItemHovered();
+        if (ImGui::IsItemActive() || ImGui::IsItemHovered()) {
+            const ImU32 fill = closeHovered ?
+                IM_COL32(196, 43, 54, 255) : ImGui::GetColorU32(ImGui::IsItemActive() ? ImGuiCol_ButtonActive : ImGuiCol_ButtonHovered);
+            draw->AddRectFilled(lo, hi, fill);
+        }
+        const ImU32 ink = closeHovered ? IM_COL32_WHITE : ImGui::GetColorU32(ImGuiCol_Text);
+        const ImVec2 center = ImFloor((lo + hi) * 0.5f) + ImVec2(0.5f, 0.5f);
+        const float radius = std::max(2.0f, std::round(4.5f * dpi));
+        const float stroke = std::max(1.0f, dpi);
+        const ImVec2 a = center - ImVec2(radius, radius), b = center + ImVec2(radius, radius);
+        if (i == 0) {
+            draw->AddLine({a.x, center.y}, {b.x, center.y}, ink, stroke);
+        } else if (i == 1 && maximized) {
+            const float offset = std::round(2 * dpi);
+            draw->AddRect({a.x, a.y + offset}, {b.x - offset, b.y}, ink, 0, 0, stroke);
+            const ImVec2 back[] = {{a.x + offset,a.y + offset}, {a.x + offset,a.y}, {b.x,a.y}, {b.x,b.y - offset}, {b.x - offset,b.y - offset}};
+            draw->AddPolyline(back, IM_ARRAYSIZE(back), ink, 0, stroke);
+        } else if (i == 1) {
+            draw->AddRect(a, b, ink, 0, 0, stroke);
+        } else {
+            draw->AddLine(a, b, ink, stroke);
+            draw->AddLine({a.x, b.y}, {b.x, a.y}, ink, stroke);
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+            ImGui::SetTooltip("%s", TrC(labels[i]));
+    }
+}
+}  // namespace
+
 void App::DrawMenuBar() {
-    if (!ImGui::BeginMainMenuBar()) return;
+    if (!ImGui::BeginMainMenuBar()) {
+        platform::SetTitleBarDragArea({});
+        return;
+    }
+    ImGuiWindow* menu = ImGui::GetCurrentWindow();
+    const ImRect bar = menu->ClipRect;
+    const float buttonWidth = std::floor(std::min(44 * dpi, bar.GetWidth() / 4));
+    const float controlsLeft = bar.Max.x - 3 * buttonWidth;
+    const float menuRight = std::max(bar.Min.x, controlsLeft - std::round(52 * dpi));
+    ImGui::PushClipRect(bar.Min, {menuRight, bar.Max.y}, true);
     // Search index being built: the menus open invisibly (labels hidden meanwhile).
     const bool hideMenus = GlobalSearch::Get().MenusHidden();
     if (hideMenus) ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.0f);
@@ -1679,9 +1755,13 @@ void App::DrawMenuBar() {
     }
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 16);
     DrawSearchBox();
-    // Document tabs in the menu bar.
+    // Keep tab scrolling and document close buttons inside the space left of the caption.
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 16);
-    if (ImGui::BeginTabBar("##docs", ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_FittingPolicyScroll)) {
+    float dragLeft = std::min(menuRight, ImGui::GetCursorScreenPos().x);
+    const float workRight = menu->WorkRect.Max.x;
+    menu->WorkRect.Max.x = menuRight;
+    if (!docs.empty() && menuRight - dragLeft >= ImGui::GetFrameHeight() * 2 &&
+        ImGui::BeginTabBar("##docs", ImGuiTabBarFlags_AutoSelectNewTabs | ImGuiTabBarFlags_FittingPolicyScroll)) {
         for (int i = 0; i < (int)docs.size(); ++i) {
             bool open = true;
             ImGuiTabItemFlags flags = (focusDocRequest == i ? ImGuiTabItemFlags_SetSelected : 0) | (docs[i]->doc->dirty ? ImGuiTabItemFlags_UnsavedDocument : 0);
@@ -1695,8 +1775,16 @@ void App::DrawMenuBar() {
         }
         focusDocRequest = -1;
         ImGui::EndTabBar();
+        const ImGuiTabBar* tabs = ImGui::TabBarFindByID(ImGui::GetID("##docs"));
+        if (tabs) dragLeft = std::min(menuRight, tabs->BarRect.Min.x + tabs->WidthAllTabs + ImGui::GetStyle().ItemSpacing.x);
     }
+    menu->WorkRect.Max.x = workRight;
     if (hideMenus) ImGui::PopStyleVar();
+    ImGui::PopClipRect();
+    DrawWindowControls(hwnd, bar, buttonWidth, dpi);
+    const ImVec2 origin = ImGui::GetMainViewport()->Pos;
+    platform::SetTitleBarDragArea({(LONG)std::ceil(dragLeft - origin.x), (LONG)(bar.Min.y - origin.y),
+                                  (LONG)(controlsLeft - origin.x), (LONG)(bar.Max.y - origin.y)});
     ImGui::EndMainMenuBar();
 }
 
@@ -2052,7 +2140,10 @@ void App::HandleShortcuts() {
     if (tool == Tool::Pen && ctrl && ImGui::IsKeyPressed(ImGuiKey_Enter) && v) PathToSelection(*v, SelMode::Replace);
     if (pressed(ImGuiKey_H)) setTool(Tool::Hand);
     if (pressed(ImGuiKey_Z)) setTool(Tool::Zoom);
-    if (pressed(ImGuiKey_Q)) quickMask = !quickMask;
+    if (pressed(ImGuiKey_Q)) {
+        if (Use3DTools()) setTool(tool == Tool::SurfaceMask ? Tool::Brush : Tool::SurfaceMask);
+        else quickMask = !quickMask;
+    }
     if (pressed(ImGuiKey_X)) std::swap(fg, bg);
     if (pressed(ImGuiKey_D)) { fg = {0, 0, 0, 1}; bg = {1, 1, 1, 1}; }
 
@@ -2494,6 +2585,8 @@ void App::SaveCurrent(bool saveAs) {
     if (v->smartLink.parent) {
         // Inner document of a smart object: saving = updating the object (already live).
         v->smartLink.syncKey = 0;
+        UpdateSmartChildren();
+        if (!v->smartLink.syncKey) { Status("Mise à jour de l'objet dynamique en cours"); return; }
         v->doc->dirty = false;
         Status("Objet dynamique mis à jour");
         return;
@@ -2504,6 +2597,8 @@ void App::SaveCurrent(bool saveAs) {
         return;
     }
     std::string path = v->doc->path;
+    if (!saveAs) for (const auto& s : saves)
+        if (s->doc == v->doc.get()) { path = s->nextPath.empty() ? s->path : s->nextPath; break; }
     std::string ext = Narrow(Utf8Path(path).extension().wstring());
     for (auto& ch : ext) ch = (char)tolower((unsigned char)ch);
     const bool p3d = v->doc->kind == 1;
@@ -2515,93 +2610,95 @@ void App::SaveCurrent(bool saveAs) {
     SaveDocument(*v, path);
 }
 
-void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
+void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) try {
+    if (sim.view == &v) FinishParticles(true);
+    if (fluidRun.active && fluidRun.view == &v) FluidFinish(true);
     Document& d = *v.doc;
-    // One write at a time per file (two would share its temporary file).
-    for (auto& s : saves)
-        if (s->path == path) { Status("Enregistrement déjà en cours : " + path); return; }
-    if (!demoMode && !asCopy) AddRecent(path);
+    UpdateSmartChildren();
+    // Queue repeated saves of newer edits without allowing two writers on the same file.
+    for (auto& pending : saves) {
+        if (!asCopy && pending->doc == &d) {
+            if (pending->revision != d.dirty.Revision() || pending->path != path) pending->nextPath = path;
+            return;
+        }
+        const auto target = fs::absolute(Utf8Path(path)).lexically_normal();
+        const auto other = fs::absolute(Utf8Path(pending->path)).lexically_normal();
+        if (CompareStringOrdinal(target.c_str(), -1, other.c_str(), -1, TRUE) == CSTR_EQUAL) {
+            Status("Enregistrement déjà en cours : " + path);
+            return;
+        }
+    }
     auto job = std::make_unique<PendingSave>();
     job->path = path;
-    job->meta = SerializeDocument(d);
-    for (Id id : ReferencedSurfaces(d)) {
-        Surface* s = d.GetSurface(id);
-        SurfaceBlob b;
-        b.id = id;
-        b.width = s->tex->Width();
-        b.height = s->tex->Height();
-        b.format = s->tex->GetFormat();
-        job->blobs.push_back(std::move(b));
-        job->readbacks.push_back(ctx->ReadbackTexture(s->tex.get()));
-    }
-    // Smart objects used by layers: contents + inner document (its surfaces get ids above kSmartChildBlobBit).
-    Json smartArr = Json::Array();
-    u32 smartIndex = 0;
-    for (auto& [sid, so] : d.smartObjects) {
-        bool used = false;
-        for (auto& l : d.S().layers) used |= l.kind == LayerKind::Smart && l.smart == sid;
-        for (auto& gn : d.S().graph.nodes) {
-            used |= (gn.kind == NodeKind::Tool || gn.kind == NodeKind::Action) && gn.smart == sid;  // native-size tool results
-            for (auto& [inner, s] : gn.execSmart) used |= s == sid;
-        }
-        if (!used || !so->content) continue;
-        Json o = Json::Object();
-        o["id"] = sid;
-        o["name"] = so->name;
-        if (!so->linkedPath.empty()) o["linked"] = so->linkedPath;
-        SurfaceBlob cb;
-        cb.id = sid;
-        cb.width = so->content->Width();
-        cb.height = so->content->Height();
-        cb.format = so->content->GetFormat();
-        job->blobs.push_back(std::move(cb));
-        job->readbacks.push_back(ctx->ReadbackTexture(so->content.get()));
-        Document* child = so->child.get();
-        for (auto& dv : docs)
-            if (dv->smartLink.parent == &v && dv->smartLink.smart == sid) child = dv->doc.get();
-        if (child && smartIndex < 512) {
-            Id base = kSmartChildBlobBit | (smartIndex << 22);
-            Json cj = SerializeDocument(*child);
-            cj["blobBase"] = base;
-            for (Id cid : ReferencedSurfaces(*child)) {
-                Surface* cs = child->GetSurface(cid);
-                if (!cs || cid >= (1u << 22)) continue;
-                SurfaceBlob b;
-                b.id = base | cid;
-                b.width = cs->tex->Width();
-                b.height = cs->tex->Height();
-                b.format = cs->tex->GetFormat();
-                job->blobs.push_back(std::move(b));
-                job->readbacks.push_back(ctx->ReadbackTexture(cs->tex.get()));
+    auto snapshot = [&](gpu::Texture* texture, Id id, u32 scope) {
+        if (!texture) throw std::runtime_error("surface de pixels indisponible");
+        SurfaceBlob blob;
+        blob.id = id;
+        blob.scope = scope;
+        blob.width = texture->Width();
+        blob.height = texture->Height();
+        blob.format = texture->GetFormat();
+        job->blobs.push_back(std::move(blob));
+        job->readbacks.push_back(ctx->ReadbackTexture(texture));
+    };
+    u32 nextScope = 1;
+    auto captureDocument = [&](auto&& self, Document& source, DocView* view, u32 scope) -> Json {
+        auto& renderer = view ? view->renderer : v.renderer;
+        if (!source.pendingClears.empty())
+            gpu::Shaders().CompileNow("clear.slang", gpu::Shaders().File("clear.slang"));
+        renderer.Prepare(source, *ctx);
+        if (!source.pendingClears.empty() || !source.pendingCopies.empty())
+            throw std::runtime_error("préparation des pixels inachevée");
+        if (view) { SyncTextLayers(*view); SyncSmartLayers(*view); }
+        Json meta = SerializeDocument(source);
+        for (Id id : ReferencedSurfaces(source)) snapshot(source.GetSurface(id)->tex.get(), id, scope);
+        std::set<Id> used;
+        for (const auto& l : source.S().layers) if (l.kind == LayerKind::Smart) used.insert(l.smart);
+        auto findSmart = [&](auto&& visit, const Graph& graph) -> void {
+            for (const auto& n : graph.nodes) {
+                if (n.smart) used.insert(n.smart);
+                for (const auto& pair : n.execSmart) used.insert(pair.second);
+                if (n.sub) visit(visit, *n.sub);
             }
-            // Smart objects inside it: their contents are kept (an inner smart layer still shows),
-            // their own layered documents are not (two levels down).
-            Json inner = Json::Array();
-            for (auto& [isid, iso] : child->smartObjects) {
-                if (!iso || !iso->content || isid >= (1u << 22)) continue;
-                Json io = Json::Object();
-                io["id"] = isid;
-                io["name"] = iso->name;
-                if (!iso->linkedPath.empty()) io["linked"] = iso->linkedPath;
-                inner.Push(io);
-                SurfaceBlob b;
-                b.id = base | isid;
-                b.width = iso->content->Width();
-                b.height = iso->content->Height();
-                b.format = iso->content->GetFormat();
-                job->blobs.push_back(std::move(b));
-                job->readbacks.push_back(ctx->ReadbackTexture(iso->content.get()));
+        };
+        findSmart(findSmart, source.S().graph);
+        Json objects = Json::Array();
+        for (Id id : used) {
+            auto* object = source.GetSmart(id);
+            if (!object || !object->content) continue;
+            Json entry = Json::Object();
+            entry["id"] = id;
+            entry["name"] = object->name;
+            if (!object->linkedPath.empty()) entry["linked"] = object->linkedPath;
+            snapshot(object->content.get(), id, scope);
+            Document* child = object->child.get();
+            DocView* childView = nullptr;
+            if (view) for (const auto& dv : docs) {
+                if (dv->smartLink.parent == view && dv->smartLink.smart == id) {
+                    childView = dv.get();
+                    child = dv->doc.get();
+                    break;
+                }
             }
-            if (inner.Size()) cj["smartObjects"] = inner;
-            o["child"] = cj;
-            ++smartIndex;
+            if (child) {
+                const u32 childScope = nextScope++;
+                entry["child"] = self(self, *child, childView, childScope);
+                entry["child"]["blobScope"] = childScope;
+            }
+            objects.Push(std::move(entry));
         }
-        smartArr.Push(o);
-    }
-    if (smartArr.Size()) job->meta["smartObjects"] = smartArr;
+        if (objects.Size()) meta["smartObjects"] = std::move(objects);
+        return meta;
+    };
+    job->meta = captureDocument(captureDocument, d, &v, 0);
     // Paint 3D project: the mesh travels with the file.
     if (d.kind == 1 && v.mesh) {
-        job->meta["mesh"] = MeshToJson(v.mesh->data);
+        const MeshData& source = v.mesh->data;
+        job->meta["mesh"] = MeshToJson(source, false);
+        job->mesh.vertices = source.vertices;
+        job->mesh.indices = source.indices;
+        job->mesh.triangleMaterials = source.triMaterial;
+        job->mesh.triangleParts = source.triPart;
         if (!d.unrealSettings.empty()) {
             Json u;
             if (Json::Parse(d.unrealSettings, u)) job->meta["unreal"] = u;
@@ -2663,22 +2760,27 @@ void App::SaveDocument(DocView& v, const std::string& path, bool asCopy) {
         if (v.render) job->meta["render"] = RenderToJson(*v.render, Narrow(Utf8Path(path).parent_path().wstring()));
     }
     if (!asCopy) {  // a copy (template...) leaves the document as it is
-        d.path = path;
-        if (!v.link) d.SetName(Narrow(Utf8Path(path).filename().wstring()));  // linked: keeps the Unreal asset name
-        d.dirty = false;
         job->doc = &d;
+        job->revision = d.dirty.Revision();
     }
     saves.push_back(std::move(job));
     Status("Enregistrement de " + path + "...");
-    if (!pluginListeners.empty()) PluginEvent(SX_EVENT_DOCUMENT_SAVED, path);
+} catch (const std::exception& e) {
+    Status("Échec de l'enregistrement : " + std::string(e.what()));
 }
 
 void App::UpdateSaves() {
     for (size_t i = 0; i < saves.size();) {
         PendingSave& s = *saves[i];
         if (!s.started) {
+            const bool failed = std::any_of(s.readbacks.begin(), s.readbacks.end(), [](const auto& r) { return !r; });
             bool ready = std::all_of(s.readbacks.begin(), s.readbacks.end(), [](auto& r) { return r && r->ready; });
-            if (ready) {
+            if (failed) {
+                std::promise<std::string> result;
+                s.writing = result.get_future();
+                result.set_value("lecture des pixels GPU impossible");
+                s.started = true;
+            } else if (ready) {
                 for (size_t k = 0; k < s.blobs.size(); ++k) s.blobs[k].data = std::move(s.readbacks[k]->data);
                 s.readbacks.clear();
                 s.started = true;
@@ -2686,10 +2788,10 @@ void App::UpdateSaves() {
                 s.writing = std::async(std::launch::async, [p] {
                     std::string err;
                     auto t0 = std::chrono::steady_clock::now();
-                    bool ok = WriteSxl(p->path, p->meta, p->blobs, &err);
+                    bool ok = WriteSxl(p->path, p->meta, p->blobs, &err, p->meta.Has("mesh") ? &p->mesh : nullptr);
                     u64 raw = 0;
                     for (auto& b : p->blobs) raw += b.data.size();
-                    Log("Saved %s: %.0f MB of pixels in %.2f s", p->path.c_str(), raw / 1048576.0,
+                    Log("Save %s: %s, %.0f MB of pixels in %.2f s", ok ? "completed" : "failed", p->path.c_str(), raw / 1048576.0,
                         std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count());
                     return ok ? std::string() : err;
                 });
@@ -2698,12 +2800,42 @@ void App::UpdateSaves() {
             continue;
         }
         if (s.writing.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-            std::string err = s.writing.get();
-            Status(err.empty() ? "Enregistré : " + s.path : "Échec de l'enregistrement : " + err);
-            if (!err.empty() && s.doc)
-                for (auto& dv : docs)
-                    if (dv->doc.get() == s.doc) dv->doc->dirty = true;  // not saved: closing still asks
+            auto finished = std::move(saves[i]);
             saves.erase(saves.begin() + i);
+            std::string err;
+            try { err = finished->writing.get(); }
+            catch (const std::exception& e) { err = e.what(); }
+            Status(err.empty() ? "Enregistré : " + finished->path : "Échec de l'enregistrement : " + err);
+            DocView* view = nullptr;
+            int idx = -1;
+            for (int n = 0; n < (int)docs.size(); ++n)
+                if (docs[n]->doc.get() == finished->doc) { view = docs[n].get(); idx = n; break; }
+            auto saveQueued = [&] {
+                SaveDocument(*view, finished->nextPath);
+                for (auto& next : saves)
+                    if (next->doc == view->doc.get() && finished->closeRevision == next->revision) next->closeRevision = next->revision;
+            };
+            if (!err.empty()) {
+                if (finished->closeRevision) quitting = false;
+                if (view && !finished->nextPath.empty()) saveQueued();
+                continue;
+            }
+            if (view) {
+                UpdateSmartChildren();
+                auto& d = *view->doc;
+                d.path = finished->path;
+                if (!view->link) d.SetName(Narrow(Utf8Path(d.path).filename().wstring()));
+                if (!demoMode) AddRecent(d.path);
+                const bool current = d.dirty.MarkSaved(finished->revision);
+                if (!finished->nextPath.empty()) {
+                    saveQueued();
+                } else if (finished->closeRevision && current) {
+                    CloseDocument(idx, true);
+                } else if (finished->closeRevision) {
+                    quitting = false;
+                }
+            }
+            if (!pluginListeners.empty()) PluginEvent(SX_EVENT_DOCUMENT_SAVED, finished->path);
         } else {
             ++i;
         }
@@ -2718,7 +2850,7 @@ void App::StartProjectLoad(const std::string& path) {
     auto job = std::make_unique<ProjectLoadJob>();
     job->path = path;
     ProjectLoadJob* j = job.get();
-    j->work = std::async(std::launch::async, [j] { return ReadSxl(j->path, j->meta, j->blobs, &j->error, &j->progress); });
+    j->work = std::async(std::launch::async, [j] { return ReadSxl(j->path, j->meta, j->blobs, &j->error, &j->progress, &j->mesh); });
     projectLoad = std::move(job);
     Log("[open] %s (background)", path.c_str());
 }
@@ -2739,7 +2871,7 @@ void App::UpdateProjectLoad() {
     if (j.finishIn == 0) {
         CloseJobModal();
         const double t0 = Now();
-        FinishSxl(j.path, j.meta, j.blobs);
+        FinishSxl(j.path, j.meta, j.blobs, &j.mesh);
         Log("[open] %s ready (%.0f ms to build)", name.c_str(), (Now() - t0) * 1000.0);
         projectLoad.reset();
         return;
@@ -2760,83 +2892,73 @@ void App::UpdateProjectLoad() {
 bool App::LoadSxl(const std::string& path) {
     Json meta;
     std::vector<SurfaceBlob> blobs;
+    SavedMesh mesh;
     std::string err;
-    if (!ReadSxl(path, meta, blobs, &err)) {
+    if (!ReadSxl(path, meta, blobs, &err, nullptr, &mesh)) {
         Status("Ouverture impossible : " + err);
         return false;
     }
-    return FinishSxl(path, meta, blobs);
+    return FinishSxl(path, meta, blobs, &mesh);
 }
 
-bool App::FinishSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& blobs) {
+bool App::FinishSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& blobs, SavedMesh* geometry) try {
     std::string err;
-    auto doc = DeserializeDocument(meta, blobs, &err);
-    if (!doc) {
-        Status("Document invalide : " + err);
-        return false;
-    }
-    auto upload = [&](Document& target, const std::vector<SurfaceBlob>& list) {
-        for (auto& b : list) {
-            Surface* s = target.GetSurface(b.id);
-            if (!s || !s->tex || s->tex->Width() != b.width || s->tex->Height() != b.height || s->tex->GetFormat() != b.format) continue;
-            if (b.data.size() < (size_t)b.width * b.height * gpu::BytesPerPixel(b.format)) continue;
-            ctx->Upload(s->tex.get(), b.data.data(), b.width * gpu::BytesPerPixel(b.format));
-            target.TouchSurface(b.id);
+    std::map<u32, std::vector<SurfaceBlob>> scopes;
+    for (auto& b : blobs) scopes[b.scope].push_back(std::move(b));
+    std::set<u32> restored;
+    auto restore = [&](auto&& self, const Json& metadata, u32 scope) -> std::unique_ptr<Document> {
+        if (!restored.insert(scope).second) { err = "document incorporé répété"; return {}; }
+        const auto& local = scopes[scope];
+        auto target = DeserializeDocument(metadata, local, &err, scope);
+        if (!target) return {};
+        std::map<Id, const SurfaceBlob*> byId;
+        for (const auto& blob : local) {
+            if (!byId.emplace(blob.id, &blob).second || !blob.width || !blob.height ||
+                blob.width > 32768 || blob.height > 32768 ||
+                blob.data.size() != (u64)blob.width * blob.height * gpu::BytesPerPixel(blob.format)) {
+                err = "surface de pixels invalide";
+                return {};
+            }
+            Surface* s = target->GetSurface(blob.id);
+            if (!s) continue;  // smart-object content has its own dimensions
+            if (!s->tex || s->tex->Width() != blob.width || s->tex->Height() != blob.height ||
+                s->tex->GetFormat() != blob.format) { err = "dimensions de surface incohérentes"; return {}; }
+            ctx->Upload(s->tex.get(), blob.data.data(), blob.width * gpu::BytesPerPixel(blob.format));
+            target->TouchSurface(blob.id);
         }
+        for (const auto& o : metadata["smartObjects"].Elements()) {
+            auto so = std::make_shared<SmartObject>();
+            so->id = o["id"].U();
+            so->name = o["name"].S("Objet dynamique");
+            so->linkedPath = o["linked"].S("");
+            if (!so->linkedPath.empty()) {
+                std::error_code ec;
+                auto t = fs::last_write_time(Utf8Path(so->linkedPath), ec);
+                so->linkedTime = ec ? 0 : (long long)t.time_since_epoch().count();
+            }
+            const auto item = byId.find(so->id);
+            if (item == byId.end()) { err = "pixels d'objet dynamique manquants"; return {}; }
+            const SurfaceBlob& b = *item->second;
+            so->content = gpu::Dev().CreateTexture(b.width, b.height, b.format, "SmartContent");
+            if (!so->content) { err = "mémoire GPU insuffisante pour l'objet dynamique"; return {}; }
+            ctx->Upload(so->content.get(), b.data.data(), b.width * gpu::BytesPerPixel(b.format));
+            so->width = b.width;
+            so->height = b.height;
+            if (o.Has("child")) {
+                const Json& child = o["child"];
+                // v1/v2 packed an inner document's scope into the high bits of each blob id.
+                const u32 childScope = child.Has("blobScope") ? child["blobScope"].U()
+                    : 1 + ((child["blobBase"].U() & ~kSmartChildBlobBit) >> 22);
+                so->child = self(self, child, childScope);
+                if (!so->child) return {};
+            }
+            target->smartObjects[so->id] = std::move(so);
+        }
+        target->dirty = false;
+        return target;
     };
-    upload(*doc, blobs);
-    // Smart objects: contents (blob with the object id) and inner documents.
-    for (auto& o : meta["smartObjects"].Elements()) {
-        auto so = std::make_shared<SmartObject>();
-        so->id = o["id"].U();
-        so->name = o["name"].S("Objet dynamique");
-        so->linkedPath = o["linked"].S("");
-        if (!so->linkedPath.empty()) {
-            // Reloaded from the file at the next check if it changed since the save.
-            std::error_code ec;
-            auto t = std::filesystem::last_write_time(Utf8Path(so->linkedPath), ec);
-            so->linkedTime = ec ? 0 : (long long)t.time_since_epoch().count();
-        }
-        for (auto& b : blobs)
-            if (b.id == so->id && b.data.size() >= (size_t)b.width * b.height * gpu::BytesPerPixel(b.format)) {
-                so->content = gpu::Dev().CreateTexture(b.width, b.height, b.format, "SmartContent");
-                ctx->Upload(so->content.get(), b.data.data(), b.width * gpu::BytesPerPixel(b.format));
-                so->width = b.width;
-                so->height = b.height;
-            }
-        if (o.Has("child")) {
-            Id base = o["child"]["blobBase"].U();
-            std::vector<SurfaceBlob> childBlobs;
-            for (auto& b : blobs)
-                if (b.id >= kSmartChildBlobBit && (b.id & 0xFFC00000u) == base) {
-                    SurfaceBlob c = b;
-                    c.id = b.id & 0x3FFFFFu;
-                    childBlobs.push_back(std::move(c));
-                }
-            std::string cerr;
-            if (auto child = DeserializeDocument(o["child"], childBlobs, &cerr)) {
-                upload(*child, childBlobs);
-                // Its own smart objects (contents only).
-                for (auto& io : o["child"]["smartObjects"].Elements()) {
-                    auto iso = std::make_shared<SmartObject>();
-                    iso->id = io["id"].U();
-                    iso->name = io["name"].S("Objet dynamique");
-                    iso->linkedPath = io["linked"].S("");
-                    for (auto& b : childBlobs)
-                        if (b.id == iso->id && b.data.size() >= (size_t)b.width * b.height * gpu::BytesPerPixel(b.format)) {
-                            iso->content = gpu::Dev().CreateTexture(b.width, b.height, b.format, "SmartContent");
-                            ctx->Upload(iso->content.get(), b.data.data(), b.width * gpu::BytesPerPixel(b.format));
-                            iso->width = b.width;
-                            iso->height = b.height;
-                        }
-                    if (iso->content) child->smartObjects[iso->id] = iso;
-                }
-                child->dirty = false;
-                so->child = std::move(child);
-            }
-        }
-        if (so->content) doc->smartObjects[so->id] = so;
-    }
+    auto doc = restore(restore, meta, 0);
+    if (!doc) { Status("Document invalide : " + err); return false; }
     doc->path = path;
     doc->SetName(Narrow(Utf8Path(path).filename().wstring()));
     doc->dirty = false;
@@ -2844,7 +2966,8 @@ bool App::FinishSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob
     view->doc = std::move(doc);
     if (meta.Has("mesh")) {
         MeshData m;
-        if (MeshFromJson(meta["mesh"], m)) AttachMesh(*view, std::move(m));
+        if (!MeshFromJson(meta["mesh"], m, geometry)) { Status("Document invalide : maillage incomplet"); return false; }
+        AttachMesh(*view, std::move(m));
         if (meta.Has("unreal")) view->doc->unrealSettings = meta["unreal"].Dump(0);
         if (view->mesh && meta.Has("view3d")) {
             MeshScene& m = *view->mesh;
@@ -2914,6 +3037,19 @@ bool App::FinishSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob
     focusDocRequest = activeDoc;
     Status("Ouvert : " + path);
     return true;
+} catch (const std::exception& e) {
+    Status("Ouverture impossible : " + std::string(e.what()));
+    return false;
+}
+
+void App::SaveAndClose(int idx) {
+    DocView& v = *docs[idx];
+    activeDoc = idx;
+    SaveCurrent(false);
+    auto request = std::find_if(saves.begin(), saves.end(), [&](const auto& s) { return s->doc == v.doc.get(); });
+    if (request != saves.end()) (*request)->closeRevision = v.doc->dirty.Revision();
+    else if (!v.doc->dirty) CloseDocument(idx, true);
+    else quitting = false;  // the save dialog was cancelled or the snapshot could not be started
 }
 
 void App::DrawClosePrompt() {
@@ -2931,9 +3067,7 @@ void App::DrawClosePrompt() {
     ImGui::Spacing();
     int idx = closePrompt;
     if (ImGui::Button("Enregistrer", ImVec2(130 * dpi, 0))) {
-        activeDoc = idx;
-        SaveCurrent(false);
-        if (!v.doc->dirty) CloseDocument(idx, true);  // dialog not cancelled
+        SaveAndClose(idx);
         closePrompt = -1;
         ImGui::CloseCurrentPopup();
     }

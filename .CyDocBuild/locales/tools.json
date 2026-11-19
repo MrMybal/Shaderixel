@@ -149,14 +149,14 @@
     "en": [
       "Clone Stamp",
       "Copy image detail from a chosen source position.",
-      "Alt+click to set the source, then paint the destination. Reset the source when the sampled region is unsuitable.",
+      "On the canvas, Alt-click to set the source. On a 3D model, Ctrl-click the source and choose the active layer or visible layers. Paint the destination.",
       "Aligned preserves a consistent sampling offset. Brush size/opacity affect the copied stroke; the displayed Strength control is unused for Clone.",
       "Repeated features can reveal the copy. Sampling cannot reconstruct detail absent from the source."
     ],
     "fr": [
       "Tampon de duplication",
       "Copier des détails depuis une position source choisie.",
-      "Alt+cliquez pour définir la source puis peignez la destination. Changez de source si la zone copiée ne convient pas.",
+      "Sur le canevas, Alt+clic place la source. Sur le modèle 3D, Ctrl+clic place la source et vous pouvez choisir le calque actif ou les calques visibles. Peignez ensuite la destination.",
       "Aligné conserve un décalage d'échantillonnage cohérent. Taille/opacité agissent sur le trait ; le contrôle Intensité affiché est inutilisé pour ce tampon.",
       "Des motifs répétés peuvent révéler la copie. Le tampon ne reconstruit pas des détails absents de la source."
     ]
@@ -257,14 +257,14 @@
     "en": [
       "Smudge",
       "Drag existing colors along the stroke.",
-      "Start within painted content and drag toward the desired direction.",
+      "Start within painted content and drag in the desired direction. On the 3D model, the stroke pulls the enabled material channels across the surface.",
       "Use brush size and Strength to control the amount of pulled color.",
       "Large repeated drags can destroy texture. Mixer Brush offers a different model with explicit wetness and load."
     ],
     "fr": [
       "Doigt",
       "Entraîner les couleurs existantes le long du trait.",
-      "Partez du contenu peint et glissez dans la direction voulue.",
+      "Partez du contenu peint et glissez dans la direction voulue. Sur le modèle 3D, le doigt étire les canaux de matière cochés le long de la surface.",
       "Taille et Intensité contrôlent la quantité de couleur entraînée.",
       "De grands passages répétés peuvent détruire la texture. Le pinceau mélangeur propose humidité et charge explicites."
     ]
@@ -701,22 +701,58 @@
       "Le modèle exige une cible UV/matériau peignable. Examinez raccords UV et canal actif en plus de la vue ombrée."
     ]
   },
+  "SurfaceMask": {
+    "chapter": "paint3d",
+    "target": "3d",
+    "en": [
+      "Surface quick mask",
+      "Protect part of the model while painting different material layers.",
+      "Drag on the surface to protect it. Hold Ctrl while dragging to release it.",
+      "The red overlay shows protection. Switch to a brush to paint with the selection in effect.",
+      "Clear the protection from the 3D toolbar. Undo restores the previous selection."
+    ],
+    "fr": [
+      "Masque rapide de surface",
+      "Protéger une partie du modèle pendant la peinture de plusieurs calques.",
+      "Peignez pour protéger la surface. Maintenez Ctrl pour libérer la zone peinte.",
+      "Le voile rouge affiche la protection. Reprenez le pinceau pour peindre avec cette sélection.",
+      "Le bouton de la barre 3D lève la protection. Annuler restaure la sélection précédente."
+    ]
+  },
+  "SurfacePath": {
+    "chapter": "paint3d",
+    "target": "3d",
+    "en": [
+      "Surface path",
+      "Draw and edit a material line attached to the mesh.",
+      "Click the model to add anchors. Drag an anchor to move it or Ctrl-click it to remove it.",
+      "Choose Stroke for a line or spaced dabs. Ribbon repeats an optional image stencil along its length. The project embeds its luminance and alpha at up to 512 pixels.",
+      "Eraser removes material from lower layers in the channel group. Fill closes three or more anchors across connected mesh faces. On a closed shell it fills the smaller side. Select the path layer to edit its anchors or settings."
+    ],
+    "fr": [
+      "Tracé de surface",
+      "Dessiner et éditer un trait de matière attaché au maillage.",
+      "Cliquez sur le modèle pour poser des points. Faites glisser un point pour le déplacer ou Ctrl+clic pour le supprimer.",
+      "Choisissez Trait pour un trait continu ou espacé. Ruban répète un motif au fil du tracé. Le projet incorpore sa luminance et son alpha sur un maximum de 512 pixels.",
+      "Gomme efface la matière des calques inférieurs du groupe de canal. Remplissage ferme le contour à partir de trois points sur des faces connectées. Sur un maillage fermé, il remplit le plus petit côté. Sélectionnez le calque du tracé pour le modifier."
+    ]
+  },
   "Particles": {
     "chapter": "projection_fluid",
     "target": "3d",
     "en": [
       "Paint Particles",
       "Simulate deposits such as drips, dust and splashes on a model.",
-      "Choose a simulation preset and brush material, run a small test on the model and inspect the deposited paint.",
-      "Simulation controls and material channels determine the particle behavior and written surface data.",
-      "This is an artistic simulation. Geometry scale, UV layout and the active material affect the result."
+      "In Brush Material > Simulation, choose Rust under a rivet. Activate Particles and click the mesh. The other sources emit from a UV selection or surface path.",
+      "A brush can set material colors and per-channel strength separately for impacts and trails. Adjust the settings, replay the gesture and freeze it to commit the paint.",
+      "Save a gesture as .sxstroke to replay it on the same mesh. Wet impacts transfer to Fluid Paint and use its pause and freeze controls."
     ],
     "fr": [
       "Particules de peinture",
       "Simuler coulures, poussière ou éclaboussures sur le modèle.",
-      "Choisissez simulation et matériau du pinceau, faites un essai limité et examinez la peinture déposée.",
-      "Contrôles de simulation et canaux du matériau déterminent comportement et données écrites.",
-      "Il s'agit d'une simulation artistique. Échelle géométrique, UV et matériau actif influencent le résultat."
+      "Dans Matériau du pinceau > Simulation, choisissez Rouille sous un rivet. Activez les particules et cliquez sur le maillage. Vous pouvez aussi émettre depuis une sélection UV ou un tracé.",
+      "Une brosse règle séparément la matière et l’intensité par canal à l’impact et sur la traînée. Modifiez les réglages, rejouez le geste puis figez la peinture.",
+      "Enregistrez le geste en .sxstroke pour le rejouer sur le même maillage. Les impacts humides passent à la peinture liquide avec ses commandes de pause et de fixation."
     ]
   },
   "Fluid": {

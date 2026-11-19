@@ -50,7 +50,7 @@ Texture2D<float4> gD0 : register(t2);
 Texture2D<float4> gD1 : register(t3);
 Texture2D<float4> gFlux : register(t4);
 Texture2D<float4> gGrav : register(t5);
-Texture2D<float4> gBed : register(t6);     // height channel (relief the paint flows around)
+Texture2D<float4> gBed : register(t6);     // simulation: relief bed; composite: original document-resolution selection
 Texture2D<float4> gPosMap : register(t7);  // document size
 Texture2D<float4> gNrmMap : register(t8);
 Texture2D<float4> gAux : register(t9);     // gravity: selection; composite: the layer before the paint
@@ -88,12 +88,8 @@ int2 DocPixel(float2 uv) { return clamp(int2(uv * float2(gDocSize)), int2(0, 0),
 float4 GravityAt(int2 p)
 {
     float2 uv = (float2(p) + 0.5) / float2(gSize);
-    if ((gFlags & 1) == 0)
-    {
-        float valid = 1.0;
-        if (gFlags & 4) valid = gAux.SampleLevel(sLinearClamp, uv, 0).r > 0.5 ? 1.0 : 0.0;
-        return float4(gGravity.xy * gGravity.w, gGravity.z, valid);
-    }
+    if ((gFlags & 4) && gAux.SampleLevel(sLinearClamp, uv, 0).r <= 0) return 0;
+    if ((gFlags & 1) == 0) return float4(gGravity.xy * gGravity.w, gGravity.z, 1);
     float4 P = gPosMap.Load(int3(DocPixel(uv), 0));
     if (P.a < 0.75) return 0;  // outside the islands, or their padding (dilated texels: a = 0.5)
     float3 n = normalize(gNrmMap.Load(int3(DocPixel(uv), 0)).xyz);
@@ -396,7 +392,10 @@ void Transport(int2 p)
 void Composite(int2 p)
 {
     float2 uv = (float2(p) + 0.5) / float2(gDocSize);
-    float4 pre = gAux.Load(int3(p, 0));
+    const float4 original = gAux.Load(int3(p, 0));
+    const float selection = (gFlags & 4) ? saturate(gBed.Load(int3(p, 0)).r) : 1.0;
+    if (selection <= 0) { gOut0[p] = original; return; }
+    const float4 pre = (gFlags & 512) ? float4(0,0,0,0) : original;
     // Outside the simulated texels (UV island padding, seams): the paint of the nearest simulated texel,
     // so the seams show no line.
     if (gFlags & 1)
@@ -419,11 +418,10 @@ void Composite(int2 p)
     }
     float4 f0 = gF0.SampleLevel(sLinearClamp, uv, 0), f1 = gF1.SampleLevel(sLinearClamp, uv, 0);
     float4 d0 = gD0.SampleLevel(sLinearClamp, uv, 0), d1 = gD1.SampleLevel(sLinearClamp, uv, 0);
-    if (gFlags & 512) pre = 0;  // "make the layer run": its paint is now the liquid
     float T = f0.x + d0.x;
     if (T < 1e-4)
     {
-        gOut0[p] = pre;
+        gOut0[p] = lerp(original,pre,selection);
         return;
     }
     float td = T / max(gPhys.y, 0.03) * gLook.x * 0.5;  // the retained film nearly covers
@@ -438,7 +436,7 @@ void Composite(int2 p)
     else if (gKind == 2) v = float4(SrgbToLinear1(saturate(metal)).xxx, 1);
     else if (gKind == 3) v = float4(SrgbToLinear1(saturate(gLook.z + gLook.y * T * 0.06)).xxx, 1);
     else v = float4(gEmissive.rgb * emis, 1);
-    gOut0[p] = pre * (1.0 - alpha) + v * alpha;
+    gOut0[p] = lerp(original,pre * (1.0 - alpha) + v * alpha,selection);
 }
 
 [numthreads(8, 8, 1)]

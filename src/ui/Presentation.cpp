@@ -157,23 +157,10 @@ void App::UpdateCameraAnimation(MeshScene& s) {
 }
 
 bool App::PickFocus(MeshScene& s, float2 local, u32 w, u32 h) {
-    // The scene address and revision alone can match a new scene (closed document, another opened at the same
-    // address): the mesh buffers are part of the key too.
-    static const void* builtIdx = nullptr;
-    static size_t builtVerts = 0, builtTris = 0;
-    const bool sameMesh = builtIdx == (const void*)s.data.indices.data() && builtVerts == s.data.vertices.size() && builtTris == s.data.indices.size();
-    if (sim.rc.Empty() || sim.scene != &s || sim.rev != s.revision || !sameMesh) {
-        builtIdx = s.data.indices.data();
-        builtVerts = s.data.vertices.size();
-        builtTris = s.data.indices.size();
-        sim.rc.Build(s.data);
-        sim.scene = &s;
-        sim.rev = s.revision;
-    }
     float3 o, d, p, n;
     CameraRay(s, local, w, h, o, d);
     float t = 0;
-    if (!sim.rc.Ray(o, d, 1000.0f, &p, &n, &t)) return false;
+    if (!s.Rays().Ray(o, d, 1000.0f, &p, &n, &t)) return false;
     // The path tracer's focus plane is measured along the view axis.
     s.dofFocus = std::max((s.ortho ? t - 100.0f + s.distance : t) * Dot(d, Normalize(s.target - s.camPos)), 0.01f);
     return true;

@@ -21,7 +21,8 @@ cbuffer Root : register(b0)
     uint gMode;         // 0 paint, 1 erase
     uint gFlags;        // 1 has selection, 2 coverage only read, 4 decal, 8 decal color
     float gFacingMin;   // texels seen more edge-on than this (dot(n, v)) are not painted
-    float gNear, gFar;  // the camera's depth range (perspective: near > 0; orthographic: near < 0)
+    float gNear, gFar;
+    uint2 gOrigin;  // the camera's depth range (perspective: near > 0; orthographic: near < 0)
 };
 
 cbuffer Paint : register(b1)
@@ -97,6 +98,7 @@ float TipCoverage(float2 rel, float r, float4 ex)
 }
 RWTexture2D<float4> gLayer : register(u0);
 RWTexture2D<float> gStroke : register(u1);
+RWTexture2D<float> gImpact : register(u2); // flag 4096: a separate coverage field for particle impacts
 
 // Coverage m (accumulated stroke coverage) -> the layer: paint, erase or decal color.
 void Composite(int2 px, float m, float before, float4 decal)
@@ -125,6 +127,7 @@ void Composite(int2 px, float m, float before, float4 decal)
 [numthreads(8, 8, 1)]
 void main(uint3 id : SV_DispatchThreadID)
 {
+    id.xy += gOrigin;
     if (any(id.xy >= gDocSize)) return;
     int2 px = int2(id.xy);
     float4 pos = gPosMap.Load(int3(px, 0));
@@ -171,6 +174,10 @@ void main(uint3 id : SV_DispatchThreadID)
         // World dabs: spheres on the model, on the side the surface faces (no camera, no occlusion test).
         float mw = gStroke[px];
         const float beforeW = mw;
+        const bool particlePaint = (gFlags & 4096) != 0;
+        float impact = 0;
+        if (particlePaint) impact = gImpact[px];
+        const float beforeImpact = impact;
         if ((gFlags & 2) == 0)
         {
             float3 nw = normalize(gNrmMap.Load(int3(px, 0)).xyz);
@@ -182,10 +189,29 @@ void main(uint3 id : SV_DispatchThreadID)
                 float d = length(pos.xyz - dab.xyz);
                 if (d >= r || dot(nw, ex.yzw) < 0.1) continue;
                 float soft = 1.0 - smoothstep(r * saturate(gHardness), r, d);
-                mw = mw + (1.0 - mw) * soft * ex.x;
+                if (particlePaint && ex.x < 0)
+                    impact = impact + (1.0 - impact) * soft * (-ex.x);
+                else
+                    mw = mw + (1.0 - mw) * soft * ex.x;
             }
         }
-        Composite(px, mw, beforeW, float4(0, 0, 0, 0));
+        if (particlePaint)
+        {
+            if ((gFlags & 2) == 0)
+            {
+                if (mw == beforeW && impact == beforeImpact) return;
+                gStroke[px] = mw;
+                gImpact[px] = impact;
+            }
+            else if (max(mw, impact) <= 0) return;
+            const float sel = (gFlags & 1) != 0 ? gSel.Load(int3(px, 0)) : 1.0;
+            const float trailAlpha = saturate(mw * gOpacity * gStencil2.x) * sel * gColor.a;
+            const float impactAlpha = saturate(impact * gOpacity * gStencil2.y) * sel * gStencil.a;
+            const float4 trail = float4(gColor.rgb * trailAlpha, trailAlpha);
+            const float4 splat = float4(gStencil.rgb * impactAlpha, impactAlpha);
+            gLayer[px] = splat + (trail + gPre.Load(int3(px, 0)) * (1.0 - trailAlpha)) * (1.0 - impactAlpha);
+        }
+        else Composite(px, mw, beforeW, float4(0, 0, 0, 0));
         return;
     }
     float4 clip = mul(gViewProj, float4(pos.xyz, 1.0));

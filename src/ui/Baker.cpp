@@ -101,6 +101,13 @@ void App::StartBake(DocView& v) {
         if (!LoadMesh(B.highPath, *high, &err)) { Status("Modèle haute définition : " + err); return; }
         TransformToMeshSpace(*high, low);
     }
+    std::shared_ptr<MeshData> cage;
+    if (high && !B.cagePath.empty()) {
+        cage = std::make_shared<MeshData>();
+        std::string err;
+        if (!LoadMesh(B.cagePath, *cage, &err)) { Status("Cage : " + err); return; }
+        TransformToMeshSpace(*cage, low);
+    }
     B.view = &v;
     B.progress = std::make_shared<std::atomic<float>>(0.0f);
     B.cancel = std::make_shared<std::atomic<bool>>(false);
@@ -112,8 +119,8 @@ void App::StartBake(DocView& v) {
     o.size = sizes[std::clamp(B.sizeIndex, 0, 3)];
     auto progress = B.progress;
     auto cancel = B.cancel;
-    B.job = std::async(std::launch::async, [low = std::move(low), high, o, progress, cancel] {
-        return BakeMeshes(low, high.get(), o, progress.get(), cancel.get());
+    B.job = std::async(std::launch::async, [low = std::move(low), high, cage, o, progress, cancel] {
+        return BakeMeshes(low, high.get(), o, progress.get(), cancel.get(), cage.get());
     });
     Status(high ? "Cuisson depuis le modèle haute définition..." : "Cuisson des cartes du maillage...");
 }
@@ -223,6 +230,15 @@ void App::DrawBakerWindow() {
             std::string f = platform::OpenFileDialog(hwnd, L"Maillages (*.obj, *.fbx, *.gltf, *.glb)\0*.obj;*.fbx;*.gltf;*.glb\0");
             if (!f.empty()) B.highPath = f;
         }
+        ImGui::Checkbox("Apparier les pièces par nom (_low / _high)", &B.opt.matchByName);
+        ImGui::SetNextItemWidth(-60 * dpi);
+        ImGui::InputTextWithHint("##cage", "Cage personnalisée (facultative)", &B.cagePath);
+        ImGui::SameLine();
+        if (ImGui::Button("...##cage")) {
+            auto file = platform::OpenFileDialog(hwnd, L"Maillages\0*.obj;*.fbx;*.gltf;*.glb\0");
+            if (!file.empty()) B.cagePath = file;
+        }
+        ui::HelpTooltip("La cage doit conserver les triangles et leur ordre dans le modèle basse définition.");
         float front = B.opt.front / std::max(R, 1e-6f) * 100, back = B.opt.back / std::max(R, 1e-6f) * 100;
         ImGui::SetNextItemWidth(200 * dpi);
         if (ImGui::SliderFloat("Cage : au-dessus", &front, 0.1f, 30, "%.1f %% du modèle", ImGuiSliderFlags_Logarithmic)) B.opt.front = front / 100 * R;

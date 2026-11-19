@@ -57,6 +57,7 @@ void PtGpuRenderer::EnsureAccum(u32 w, u32 h) {
 }
 
 void PtGpuRenderer::BeginAtlas(u32 size) {
+    hasOpacity = false;
     for (auto& t : packed)
         if (!t || t->Width() != size || t->Height() != size) t = gpu::Dev().CreateTexture(size, size, gpu::Format::RGBA16F, "PtAtlas");
     Reset();
@@ -68,7 +69,8 @@ void PtGpuRenderer::PackTile(gpu::CommandContext& ctx, gpu::Texture* const* chan
     gpu::DispatchDesc d;
     d.pipeline = k;
     u32 flags = 0;
-    for (int c = 0; c < 7; ++c) {
+    hasOpacity |= channels[7] != nullptr;
+    for (int c = 0; c <= 7; ++c) {
         d.srv[c] = channels[c];
         if (channels[c]) flags |= 1u << c;
     }
@@ -157,7 +159,7 @@ bool PtGpuRenderer::Render(gpu::CommandContext& ctx, const std::vector<PtMateria
     }
     cb.numLights = nl;
     const bool hasEnv = envTex && envCdf;
-    cb.flags = (hasEnv ? 1u : 0u) | (s.envVisible ? 2u : 0u) | (packed[0] ? 4u : 0u) | (!scene->nodes.empty() ? 8u : 0u);
+    cb.flags = (hasEnv ? 1u : 0u) | (s.envVisible ? 2u : 0u) | (packed[0] ? 4u : 0u) | (!scene->nodes.empty() ? 8u : 0u) | (hasOpacity ? 16u : 0u);
     cb.nodeBase = nodeBase;
     cb.envW = hasEnv ? scene->env->width : 0;
     cb.envH = hasEnv ? scene->env->height : 0;

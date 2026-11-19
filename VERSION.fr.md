@@ -2,6 +2,15 @@
 
 [English](VERSION.md) · [Français](VERSION.fr.md) · [README](README.fr.md)
 
+## 0.1.0-alpha.20261119 · Alpha
+
+Version portable pour Windows x64, avec les exécutables D3D12 et Vulkan.
+
+- Le Paint 3D ajoute des outils de peinture et de retouche de surface, et améliore la gestion des UDIM et l’export des textures.
+- Les nouvelles brosses à particules couvrent la rouille, la boue, la pluie et la poussière. L’onglet Simulation permet de modifier les scripts d’émission, d’évolution et d’impact et de rejouer le dernier geste.
+- Les scripts peuvent définir des réglages, des groupes conditionnels et des valeurs par défaut. Gouttes vagabondes illustre les modes d’impact, la force du rebond et la réinitialisation des groupes.
+- Les boutons Windows de réduction, d’agrandissement et de fermeture sont intégrés à la barre de menus de Shaderixel.
+
 ## 0.1.0-alpha.20261106 · Alpha
 
 Publiée le **2026-11-06** pour **Windows x64**. Cette version expérimentale est

@@ -443,7 +443,7 @@ bool RayBox(float3 o, float3 inv, float3 bmin, float3 bmax, float tmax) {
     return true;
 }
 
-void Intersect(const PtScene& sc, float3 o, float3 d, Hit& h, bool any, float tmax) {
+void Intersect(const PtScene& sc, float3 o, float3 d, Hit& h, bool any, float tmax, const PtProjectTextures* tex) {
     h.t = tmax;
     if (sc.nodes.empty()) return;
     float3 inv = {1.0f / (std::abs(d.x) > 1e-12f ? d.x : 1e-12f), 1.0f / (std::abs(d.y) > 1e-12f ? d.y : 1e-12f), 1.0f / (std::abs(d.z) > 1e-12f ? d.z : 1e-12f)};
@@ -469,6 +469,10 @@ void Intersect(const PtScene& sc, float3 o, float3 d, Hit& h, bool any, float tm
                 if (v < 0 || u + v > 1) continue;
                 float t = Dot(e2, qv) * id;
                 if (t > 1e-4f && t < h.t) {
+                    if (tex && tex->hasOpacity && tr.material < sc.materials.size() && sc.materials[tr.material].useProject) {
+                        auto uv = tr.uv[0]*(1-u-v) + tr.uv[1]*u + tr.uv[2]*v;
+                        if (tex->base.Sample(uv).w < 0.5f) continue;
+                    }
                     h.t = t;
                     h.tri = (int)(n.leftFirst + i);
                     h.b1 = u;
@@ -620,7 +624,7 @@ float3 PtTrace(const PtScene& sc, const PtProjectTextures* tex, const PtSettings
     const int nLights = (int)sc.lights.size() + (sc.env ? 1 : 0);
     for (int bounce = 0; bounce <= s.maxBounces; ++bounce) {
         Hit h;
-        Intersect(sc, o, d, h, false, 1e30f);
+        Intersect(sc, o, d, h, false, 1e30f, tex);
         // Area lights in front of the geometry (seen in reflections and bounces, not by the camera).
         for (int i = 0; i < (int)sc.lights.size(); ++i) {
             float t;
@@ -790,7 +794,7 @@ float3 PtTrace(const PtScene& sc, const PtProjectTextures* tex, const PtSettings
                 float3 f = BsdfEval(su, wo, wi, pSpec, bpdf);
                 if (Lum(f) > 0) {
                     Hit sh;
-                    Intersect(sc, su.p + su.ng * 1e-3f, wi, sh, true, dist - 2e-3f);
+                    Intersect(sc, su.p + su.ng * 1e-3f, wi, sh, true, dist - 2e-3f, tex);
                     if (sh.tri < 0) {
                         float w = delta ? 1.0f : Power(lpdf / nLights, bpdf);
                         add(Mul(Mul(beta, f), Li) * (w * nLights / (delta ? 1.0f : lpdf)));

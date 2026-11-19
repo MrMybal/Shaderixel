@@ -17,11 +17,14 @@
 #include "render/MeshPaint.h"
 #include "mesh/UvUnwrap.h"
 #include "mesh/MeshBake.h"
+#include "mesh/SurfacePath.h"
+#include "mesh/ParticleProgram.h"
 #include "render/PathTracer.h"
 #include "io/VideoWriter.h"
 #include "io/GifWriter.h"
 #include "io/Lensfun.h"
 #include "io/RawLoad.h"
+#include "io/TextureExportPlan.h"
 #include "shaderixel_plugin.h"
 #include "ui/Search.h"
 #include "ui/CodeEdit.h"
@@ -51,7 +54,7 @@ enum class Tool {
     Move, RectSelect, EllipseSelect, Lasso, PolyLasso, Wand,
     Brush, Eraser, Clone, Heal, Gradient, Bucket, Blur, Sharpen, Smudge, Dodge, Burn, Sponge, Liquify,
     Picker, Hand, Zoom, Crop, Text, Shape, QuickSelect, Pen, MagneticLasso,
-    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Fluid, Plugin, Mixer, Ruler, SpotHeal, ColorReplace, Count
+    Patch, ContentMove, RedEye, MagicEraser, BackgroundEraser, HistoryBrush, PatternStamp, Projection, LayerTransform, Trim, PolyFill, Particles, Fluid, Plugin, Mixer, Ruler, SpotHeal, ColorReplace, SurfaceMask, SurfacePath, Count
 };
 inline bool IsRetouchTool(Tool t) {
     return (t >= Tool::Clone && t <= Tool::Liquify && t != Tool::Gradient && t != Tool::Bucket) || t == Tool::BackgroundEraser || t == Tool::HistoryBrush ||
@@ -78,7 +81,6 @@ int MaterialPresetCount();
 // Paint simulation presets (Paint3DSim.cpp).
 int SimPresetCount();
 const char* SimPresetName(int i);
-const char* SimPresetHelp(int i);
 const char* MaterialPresetName(int i);
 void MaterialPresetValues(int i, float3& color, float& rough, float& metal, float& height, bool& hasColor, bool& hasRough, bool& hasMetal, bool& hasHeight);
 
@@ -164,10 +166,30 @@ struct DocView {
     float fitW = 0, fitH = 0;
     gpu::TexturePtr viewTex;
     gpu::Texture* lastImage = nullptr;
+    struct SetChannelPreview { gpu::TexturePtr texture; u64 key = 0; };
+    std::map<int,SetChannelPreview> setChannelPreviews;
     float2 viewSize = {0, 0};  // the canvas area (screen pixels), for the Navigator
     std::unordered_map<Id, u64> textHashes;   // surface -> rasterized style hash
     std::unordered_map<Id, Rect> textRects;   // surface -> text bounds
     std::unique_ptr<MeshScene> mesh;          // 3D painting scene (optional)
+    struct {
+        bool hasSource = false, uncover = false;
+        u32 sourceRevision = 0;
+        Tool stroke = Tool::Count;
+        float3 source;
+        float2 last, cloneOffset;
+        std::vector<Id> targets;
+        std::vector<gpu::TexturePtr> merged;
+        gpu::TexturePtr coverage;
+        bool newPath = false;
+        int pathMode = 0;
+        int dragPoint = -1;
+        Id dragMaterial = 0;
+        SurfacePathTopology pathTopology;
+        u32 pathMeshRevision = ~0u;
+        int lastFrame = -1;
+    } surfaceTools;
+    Id particlePathSource = 0;
     std::unique_ptr<PtRenderState> render;    // render mode scene (3D projects)
     std::unique_ptr<PtRenderState> viewRT;    // ray-traced 3D view (its own scene: model + floor)
     std::shared_ptr<LinkSession> link;        // opened from the Unreal plugin (sent back on Ctrl+S)
@@ -571,8 +593,9 @@ private:
     Id FindChannelGroup(Document& d, PbrChannel c);
     gpu::Texture* ChannelTexture(DocView& v, PbrChannel c);
     MeshMaterial GatherMaterial(DocView& v);
-    void CreatePbrChannels(DocView& v, bool project = false);
+    void CreatePbrChannels(DocView& v, bool project = false, u32 additionalChannels = 0);
     void ExportPbrTextures(DocView& v, const std::string& pngBasePath);
+    std::array<gpu::ReadbackPtr,4> ReadSetNormals8(DocView& v, const std::vector<std::pair<std::string,Rect>>& parts);
     // Recent files (stored next to the executable).
     std::vector<std::string> recentFiles;
     void LoadRecent();
@@ -603,7 +626,7 @@ private:
     void SaveCurrent(bool saveAs);
     bool LoadSxl(const std::string& path);
     // The document built from a read .sxl / .sx3d (GPU uploads, mesh, 3D view): LoadSxl's second half.
-    bool FinishSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& blobs);
+    bool FinishSxl(const std::string& path, Json& meta, std::vector<SurfaceBlob>& blobs, SavedMesh* mesh = nullptr);
     // Projects opened from the interface: the file is read and unpacked on a worker thread while a progress bar shows,
     // then the document is built (UpdateProjectLoad, every frame).
     struct ProjectLoadJob {
@@ -611,6 +634,7 @@ private:
         std::atomic<float> progress{0};
         Json meta;
         std::vector<SurfaceBlob> blobs;
+        SavedMesh mesh;
         std::string error;
         std::future<bool> work;
         int finishIn = -1;  // frames left before the document is built (the "preparing" step is drawn first)
@@ -620,6 +644,11 @@ private:
     void UpdateProjectLoad();
     void UpdateSaves();
     void DrawClosePrompt();
+    void SaveAndClose(int index);
+    void DemoProjectPersistence();
+    void DemoPaintIntegrity();
+    void DemoPaintParticles();
+    void DemoParticlePerformance(int preset);
     void UpdateTitle();
     void FitView(DocView& v, ImVec2 avail);
 
@@ -701,7 +730,7 @@ private:
     // AI (AiOps.cpp / AiPanel.cpp)
     void RegisterAiOps();
     void LoadAiSettings();
-    void SaveAiSettings();
+    bool SaveAiSettings();
     void AiAsync(std::function<std::function<void()>()> fn);
     void PollAiJobs();
     void DrawAiPanel();
@@ -839,6 +868,7 @@ private:
     void RunDemo();
     void DemoTick();
     void RunRasterizeLayerDemo();
+    void SurfaceToolTestTick();
     void RasterizeLayerDemoTick();
     bool testEffects = false;
     bool aiTest = false;  // --ai-test: start the companion and allow writes (automation)
@@ -1679,30 +1709,64 @@ private:
         bool open = false;
         int mesh = 0, resolution = 1, exportTemplate = 1, basePreset = 1;
         std::string meshPath;
-        bool channels[7] = {true, true, true, true, false, true, true};
+        bool channels[(int)PbrChannel::Count] = {true, true, true, true, false, true, true};
         bool autoUv = false;  // xatlas UVs at creation (meshes without usable UVs)
+        bool resolutionPerTile = false;
+        std::string tileResolutions; // optional "UDIM or material name = pixel size", one per line
         int tileMode = 0;     // several materials: 0 a UV tile each when they overlap, 1 always, 2 keep the UVs
         bool skipPaintLayer = false;  // no "Peinture 1" (the caller adds its layers first)
     } p3dNew;
     struct {
-        bool use[7] = {true, true, false, false, false, false, false};
+        float opacity = 1.0f, occlusion = 1.0f, user[4] = {};
+        float3 normal{0.5f, 0.5f, 1.0f};
+        bool use[(int)PbrChannel::Count] = {true, true, false, false, false, false, false};
         float rough = 0.45f, metal = 0.0f, height = 0.6f;
         float4 emissive = {1, 0.6f, 0.2f, 1};
         // 3D brush dynamics (View3D.cpp).
         bool tip = true;     // the programmable tip of the brush (Pinceaux panel)
         float jitterSize = 0, jitterAngle = 0, scatter = 0, jitterFlow = 0, angle = 0;
         bool follow = false;  // dab angle follows the stroke
+        bool followTilt = false, followTwist = false;
         float lazy = 0;       // lazy mouse distance (screen px)
         int polyMode = 1;     // polygon fill: 0 triangle, 1 flat face, 2 UV island, 3 mesh part, 4 whole model
         bool limitMaterial = false;  // models with a tile per material: a stroke stays on the material it starts on
         bool normalProject = false;  // dabs laid on the plane of the average normal under the brush (not projected from the camera)
+        bool modelSize = false;
+        float modelDiameter = 0.08f; // model-space units after mesh normalization
         gpu::ReadbackPtr cursorFrame;  // that plane under the cursor (oriented outline)
         float cursorFrameData[16] = {};
         bool cursorFrameValid = false;
-        // Paint simulation (Paint3DSim.cpp): particles per second, size (model units), gravity, adhesion, life (s), spread.
-        int simPreset = 0;
-        float simRate = 60, simSize = 0.015f, simGravity = 1, simAdhesion = 0.5f, simLife = 2.5f, simSpread = 0.5f;
     } brush3D;
+    struct ParticleBrush {
+        std::string name;
+        int behavior = 0, source = 0; // cursor, selection, selected surface path
+        u32 seed = 777;
+        float rate = 60, size = 0.015f, gravity = 1, adhesion = 0.5f, life = 2.5f, spread = 0.5f;
+        float hardness = 0.35f, flow = 0.25f, opacity = 1;
+        bool adjustable = false, wet = false, customMaterial = false;
+        u32 channels = 0;
+        std::array<float4, (int)PbrChannel::Count> colors{}, impactColors{};
+        std::array<float2, (int)PbrChannel::Count> deposits{}; // trail, impact
+        std::string script;
+        int scriptVersion = 1;
+        std::shared_ptr<const particles::Program> program;
+        particles::ControlValues scriptValues{};
+        std::array<std::optional<bool>,particles::MaxControls> scriptGroupOpen{};
+        bool SetScript(std::string source, particles::Diagnostic& error);
+        Json ToJson(bool includeGroupState = true) const;
+        static ParticleBrush FromJson(const Json& j);
+    };
+    static ParticleBrush DefaultParticleBrush(int preset);
+    ParticleBrush particleBrush = DefaultParticleBrush(0);
+    std::vector<ParticleBrush> particlePresets;
+    void DrawParticleOptions(DocView& v);
+    void DrawParticleCodeEditor();
+    struct {
+        std::string text;
+        particles::Diagnostic diagnostic;
+    } particleCode;
+    Json ParticleGestureJson(const MeshData& mesh) const;
+    bool LoadParticleGesture(DocView& v, const Json& j);
     // Polygon fill (Paint3DTools.cpp): mesh adjacency, rebuilt when the mesh changes.
     struct MeshTopology {
         const void* scene = nullptr;
@@ -1713,20 +1777,43 @@ private:
     int polyHover = -1;
     struct SimParticle {
         float3 p, v, n;
-        float life = 1, size = 0.01f, alpha = 1, trail = 0;
-        bool onSurface = false, alive = true;
+        float life = 1, size = 0.01f, alpha = 1, trail = 0, age = 0;
+        bool onSurface = false, alive = true, justPlaced = false;
     };
-    struct {
+    struct ParticleOrigin {
+        float3 point, normal, rayOrigin, rayDirection;
+        float radius = 0;
+        bool valid = false;
+    };
+    struct ParticleInput {
+        u32 tick = 0;
+        ParticleOrigin origin;
+    };
+    struct ParticleSimulation {
         DocView* view = nullptr;
-        MeshRaycaster rc;
-        const void* scene = nullptr;
         u32 rev = ~0u;
         std::vector<SimParticle> parts;
-        bool stroking = false;
-        float emitAcc = 0;
-        u32 rng = 777;
-        double last = 0;
+        std::vector<Id> targets;
+        std::vector<ParticleInput> inputs;
+        std::vector<ParticleOrigin> origins;
+        std::vector<float4> wetDabs, wetExtra;
+        gpu::ReadbackPtr sourceMask;
+        std::vector<std::pair<Id,u64>> versions;
+        std::map<Id,std::vector<Rect>> disabledRegions;
+        std::vector<Renderer::ParticleDeposit> deposits;
+        ParticleBrush settings;
+        ParticleOrigin previous;
+        double elapsed = 0, emitAcc = 0;
+        size_t replayIndex = 0;
+        u32 tick = 0, rng = 777, scriptRng = 0;
+        bool stroking = false, held = false, playing = false, replay = false, burst = false, queued = false;
+        bool wasDirty = false;
+        u64 lastRevision = 0;
+        Id activeLayer = 0;
+        Id selection = 0;
     } sim;
+    particles::State ParticleScriptState(const SimParticle& particle) const;
+    u32 fluidRng = 777;
     // Liquid paint tool (FluidPaintUi.cpp): a film of paint (the brush material: color, roughness, metal,
     // relief, emissive) simulated on the GPU that runs with gravity, on the model or on a tilted image.
     struct FluidSettings {
@@ -1770,6 +1857,7 @@ private:
         float4 overrideColor;
         bool useOverride = false;
         bool mesh = false;
+        std::optional<ParticleBrush> particleMaterial;
         u32 simW = 0, simH = 0;
         std::vector<u64> versions;  // painted layers as the last composite left them
         // Drops fallen from overhangs, landing lower on the model (times in simulation seconds).
@@ -1779,7 +1867,7 @@ private:
         int landed = 0;
     } fluidRun;
     Renderer::FluidParams FluidParamsNow(DocView& v);
-    bool FluidStart(DocView& v);
+    bool FluidStart(DocView& v, const ParticleBrush* particleMaterial = nullptr);
     void FluidFinish(bool keep);
     void FluidInput2D(DocView& v, float2 dp, float2 canvasMin, bool hovered);
     void FluidInput3D(DocView& v, float2 local, u32 w, u32 h, bool hovered, bool orbit, ImVec2 origin);
@@ -1789,9 +1877,18 @@ private:
     void ApplyFluidPreset(int i);
     bool CameraRay(MeshScene& s, float2 local, u32 w, u32 h, float3& o, float3& d);
     float Rand01();
-    void SimEmit(DocView& v, float2 local, u32 w, u32 h, float dt);
-    void SimStep(DocView& v, float dt, std::vector<float4>& dabs, std::vector<float4>& ex);
-    void UpdateSimulation(DocView& v, bool emitting, float2 local, u32 w, u32 h, const std::vector<Id>& targets, const std::vector<float4>& colors);
+    ParticleOrigin ParticleOriginAt(MeshScene& s, float2 local, u32 w, u32 h);
+    void SimEmit(MeshScene& s, const ParticleOrigin& origin, int count);
+    void SimStep(MeshScene& s, std::vector<float4>& dabs, std::vector<float4>& ex);
+    bool BeginParticleStroke(DocView& v, bool replay = false);
+    void AdvanceParticles(double dt, ParticleOrigin origin, bool held);
+    void FinishParticles(bool keep);
+    void UpdateSimulation(DocView& v, bool clicked, bool held, float2 local, u32 w, u32 h);
+    bool ParticlePathOrigins(DocView& v, std::vector<ParticleOrigin>& origins);
+    void ParticleSelectionOrigins(DocView& v);
+    void CheckParticleSession();
+    void SetParticleBrush(int preset);
+    bool PickMeshHit(MeshScene& s, float2 screen, u32 w, u32 h, u32& triangle, float3& weights);
     int PickMeshTriangle(MeshScene& s, float2 screen, u32 w, u32 h);
     void BuildMeshTopology(MeshScene& s);
     std::vector<u32> PolyFillTriangles(MeshScene& s, int tri, int mode);
@@ -1815,16 +1912,13 @@ private:
         Rect crop;  // one material's tile (empty: the whole texture)
     };
     // Parts of a texture export: the whole texture, or one per material tile (file suffix, pixel rect).
-    std::vector<std::pair<std::string, Rect>> ExportParts(DocView& v);
+    std::vector<std::pair<std::string, Rect>> ExportParts(DocView& v, bool actualSets = false);
     bool exportWholeTexture = false;  // ExportParts: the whole texture only (the Unreal export: one set, packed UVs)
     // An existing project: each material gets its own UV tile, the paint follows (one undo step for the pixels).
     void RetileMaterials(DocView& v);
-    // udim: a UDIM tile ("1001": files name_Channel.1001.png, no Unreal script); empty otherwise.
-    void ExportPbrTexturesPart(DocView& v, const std::string& pngBasePath, Rect crop, const std::string& udim = "");
     std::vector<PackJob> packJobs;
+    std::future<bool> packedMapWrite;
     std::string layoutSlot[2];        // saved workspace of each kind
-    Json MeshToJson(const MeshData& m);
-    bool MeshFromJson(const Json& j, MeshData& m);
     void NewPaint3DProject();
     Id AddPaintLayer3D(DocView& v, const std::string& name);
     bool IsPaintLayer3D(Document& d, Id material);
@@ -1968,7 +2062,7 @@ private:
     // Baker (Baker.cpp): maps from the project's model or a high poly model.
     struct {
         bool open = false, running = false, useHigh = false, toChannels = true, heightToChannel = false, exportPng = false;
-        std::string highPath, exportDir;
+        std::string highPath, cagePath, exportDir;
         BakeOptions opt;
         int sizeIndex = 2, idMode = 0;
         DocView* view = nullptr;
@@ -2010,7 +2104,9 @@ private:
     bool IsFolder3D(Document& d, Id material);
     Id Folder3DOf(Document& d, Id material);
     int Folder3DDepth(Document& d, Id material);
-    Id CreateFolder3D(DocView& v, Id wrap);
+    Id CreateFolder3D(DocView& v, Id wrap, const std::string& name = {}, const std::vector<Rect>& regions = {}, bool fromSelection = false, const std::string& textureSet = {});
+    void SetTextureSetChannels(DocView& v, const std::string& set, u32 channels, bool inherit = false);
+    Id NewLayerParent3D(Document& d, PbrChannel c, Id material = 0);
     void MoveIntoFolder3D(DocView& v, Id material, Id folder);
     void MoveOutOfFolder3D(DocView& v, Id material);
     void UngroupFolder3D(DocView& v, Id folder);
@@ -2018,8 +2114,15 @@ private:
     bool PickMeshUv(MeshScene& s, float2 sp, u32 w, u32 h, float2& uv);
     void StartMaterialPick(DocView& v, float2 sp, u32 w, u32 h);
     void PollMaterialPick();
+    bool cloneVisible3D = false;
+    void SurfaceToolInput(DocView& v, float2 pos, u32 w, u32 h, bool hovered);
+    void EndSurfaceTool(DocView& v);
+    void SurfacePathInput(DocView& v, float2 pos, u32 w, u32 h, bool hovered, ImVec2 origin);
+    void SurfacePathOptions(DocView& v);
+    float4 BrushChannelValue(PbrChannel c);
+    bool WriteSurfacePath(DocView& v, Id material, const Json& definition, const char* label);
     struct {
-        gpu::ReadbackPtr rb[4];  // base color, roughness, metal, height
+        std::array<gpu::ReadbackPtr, (int)PbrChannel::Count> rb;
         bool active = false;
     } matPick;
     // Graph: a relay node inserted on the link src -> dst (input, channel), at graph position pos.
@@ -2027,18 +2130,27 @@ private:
     // Texture export presets (TextureExport.cpp).
     struct TexExportOptions {
         bool open = false;
+        bool atlas = false;
         int preset = 0, depth = 0, size = 0, normal = -1, padding = 8;
         std::string folder, name, pattern = "{nom}_{carte}";
     } texExport;
+    std::vector<texexport::Preset> customExportPresets;
+    texexport::Preset exportPresetDraft;
+    int exportPresetEditing = -2; // -2 closed, -1 new, otherwise custom preset index
+    void LoadTextureExportPresets(const Json& settings);
+    Json TextureExportPresetsJson() const;
     struct TexExportJob {
-        DocView* view = nullptr;
         TexExportOptions opt;
         std::array<gpu::ReadbackPtr, (int)PbrChannel::Count> ch{};
-        bool has[(int)PbrChannel::Count] = {};
-        gpu::TexturePtr bakedNormal;
+        std::array<gpu::ReadbackPtr,4> normals{};
+        std::vector<gpu::TexturePtr> bakedNormals;
         gpu::ReadbackPtr pos;
         u32 width = 0, height = 0;
-        std::string name;
+        texexport::Preset preset;
+        std::vector<std::pair<std::string, Rect>> parts;
+        std::vector<u32> partChannels;
+        std::vector<std::pair<Rect,u32>> atlasChannels;
+        std::vector<texexport::Output> outputs;
         std::future<std::string> result;
     };
     std::vector<TexExportJob> texExportJobs;
@@ -2163,10 +2275,14 @@ private:
         std::string path;
         Json meta;
         std::vector<SurfaceBlob> blobs;
+        SavedMesh mesh;
         std::vector<gpu::ReadbackPtr> readbacks;
         std::future<std::string> writing;  // error message ("" = ok)
         bool started = false;
-        Document* doc = nullptr;  // marked modified again if the write fails (unless a copy)
+        Document* doc = nullptr;  // null for copies and explicitly discarded documents
+        u64 revision = 0;
+        std::optional<u64> closeRevision;
+        std::string nextPath;
     };
     std::vector<std::unique_ptr<PendingSave>> saves;
     int closePrompt = -1;        // document index awaiting save/discard, -2 = quitting
@@ -2387,6 +2503,7 @@ private:
     NodeEditorState nodeEd;
     EffectEditorState efEd;
     bool meshStroking = false;
+    bool meshStrokeEraser = false;
     bool meshDebugCanvas = false;
     float2 meshLastDab;
     float meshDabRemainder = 0;

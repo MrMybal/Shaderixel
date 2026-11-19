@@ -253,6 +253,7 @@ void Renderer::FillSelection(Document& doc, gpu::CommandContext& ctx, History* h
     d.uav[0] = s->tex.get();
     SetConstants(d, FillRoot{W, H, (u32)mode, (sel ? 1u : 0u) | (coverage ? 2u : 0u), color, opacity});
     Dispatch2D(ctx, d, W, H);
+    PreserveDisabledPaint(ctx,surface,s->tex.get(),before.get(),{0,0,(int)W,(int)H});
     if (hist) {
         auto after = gpu::Dev().CreateTexture(W, H, s->tex->GetFormat(), "UndoAfter");
         ctx.CopyTexture(after.get(), s->tex.get());

@@ -21,7 +21,7 @@
     "gallery",
     "graph"
   ],
-  "version": "0.1.0-alpha.20261106",
+  "version": "0.1.0-alpha.20261119",
   "aliases": {
     "download-docs-images-ui-toolkit-png": "getting-started",
     "download-shaders-effects-ui-draw-interface-pattern-slang": "effect-ui-draw-interface-pattern",
@@ -830,6 +830,8 @@
     "tool:ruler": "tool-ruler",
     "tool:spot_heal": "tool-spot-heal",
     "tool:color_replace": "tool-color-replace",
+    "tool:surface_mask": "tool-surface-mask",
+    "tool:surface_path": "tool-surface-path",
     "command:image_size": "command-image-size",
     "command:fit_crop": "command-fit-crop",
     "command:canvas_size": "command-canvas-size",

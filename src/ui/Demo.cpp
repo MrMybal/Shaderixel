@@ -47,6 +47,47 @@ void CompareReadbacks(const char* what, const gpu::Readback& a, const gpu::Readb
 }  // namespace
 
 void App::DemoTick() {
+    if (demoMode == 91 && getenv("SX_ORM_BENCH_DIR")) {
+        // Profile the same entry point as Exporter in the texture export dialog.
+        // The wall-clock markers also delimit an external process-memory sample.
+        using Clock = std::chrono::steady_clock;
+        static Clock::time_point started, previous;
+        static std::vector<double> frames;
+        if (frameCounter == 4) {
+            p3dNew = {};
+            p3dNew.resolution = 2;
+            p3dNew.skipPaintLayer = true;
+            p3dNew.channels[(int)PbrChannel::Emissive] = false;
+            NewPaint3DProject();
+        }
+        if (frameCounter == 90 && Active() && Active()->mesh) {
+            texExport.folder = getenv("SX_ORM_BENCH_DIR");
+            texExport.name = "Profile";
+            texExport.depth = 0;
+            texExport.preset = 0;
+            texExport.padding = 8;
+            Log("[orm-bench] begin tick=%llu size=%ux%u", GetTickCount64(), Active()->doc->Width(), Active()->doc->Height());
+            started = previous = Clock::now();
+            StartTextureExport(*Active());
+        } else if (started != Clock::time_point{}) {
+            auto now = Clock::now();
+            frames.push_back(std::chrono::duration<double, std::milli>(now - previous).count());
+            previous = now;
+            if (texExportJobs.empty()) {
+                std::sort(frames.begin(), frames.end());
+                Log("[orm-bench] end tick=%llu elapsed_ms=%.2f frames=%zu median_ms=%.2f max_ms=%.2f result=%s",
+                    GetTickCount64(), std::chrono::duration<double, std::milli>(now - started).count(), frames.size(),
+                    frames[frames.size()/2], frames.back(), statusMsg.c_str());
+                started = {};
+                autoQuit = true;
+            }
+        }
+        return;
+    }
+    if (demoMode == 114) { DemoPaintParticles(); return; }
+    if (demoMode == 113) { DemoPaintIntegrity(); return; }
+    if (demoMode == 112) { DemoProjectPersistence(); return; }
+    if (demoMode == 111) { SurfaceToolTestTick(); return; }
     if (const char* illustration=getenv("SX_MANUAL_ILLUSTRATION");illustration && frameCounter==35) {
         // Clean, procedural documentation captures: hide unrelated floating
         // panels and the browser so no personal folder inventory is included.
@@ -693,8 +734,8 @@ void App::DemoTick() {
         if (frameCounter == 10) {
             tool = Tool::Particles;
             viewTool[0] = viewTool[1] = Tool::Particles;  // each view keeps its tool
-            brush3D.simPreset = atoi(preset);
-            brush3D.simRate = 120;
+            SetParticleBrush(atoi(preset));
+            particleBrush.rate = 120;
             brush.size = 120;
             fg = {0.35f, 0.12f, 0.04f, 1};
             brush3D.use[(int)PbrChannel::Roughness] = true;
@@ -1636,6 +1677,9 @@ void App::DemoTick() {
         char perfFile[512] = "";
         if (GetEnvironmentVariableA("SX_PAINTPERF", perfFile, sizeof(perfFile)) > 0) {
             static std::vector<float> idle, paint;
+            static u64 peakVram = 0, historyStart = 0;
+            if (frameCounter >= 80 && frameCounter <= 169) peakVram = std::max(peakVram, gpu::Dev().VideoMemoryUsage());
+            if (frameCounter == 79 && Active()) historyStart = Active()->history.MemoryBytes();
             static ImVec2 c;
             ImGuiIO& io = ImGui::GetIO();
             // The GPU's work of the previous frame waited for: the frame times include it (a minimized window does
@@ -1671,10 +1715,11 @@ void App::DemoTick() {
                     float sum = 0;
                     for (float x : s) sum += x;
                     char b[96];
-                    snprintf(b, sizeof(b), "mean %.1f ms, median %.1f, max %.1f (%zu frames)", sum / s.size(), s[s.size() / 2], s.back(), s.size());
+                    snprintf(b, sizeof(b), "mean %.1f ms, median %.1f, p95 %.1f, max %.1f (%zu frames)", sum / s.size(), s[s.size() / 2], s[(size_t)std::ceil(s.size()*0.95)-1], s.back(), s.size());
                     return std::string(b);
                 };
                 DocView* m = Active();
+                if (m) Log("[paintperf] stroke history %.2f MiB, peak VRAM %.1f MiB", ((double)m->history.MemoryBytes() - historyStart)/1048576.0, peakVram/1048576.0);
                 Log("[paintperf] doc %u x %u, %zu layers; idle: %s; painting: %s", m ? m->doc->Width() : 0, m ? m->doc->Height() : 0,
                     m ? m->doc->S().layers.size() : 0, stats(idle).c_str(), stats(paint).c_str());
             }
@@ -2209,12 +2254,64 @@ void App::DemoTick() {
         char mf[512] = "", outDir[512] = "";
         GetEnvironmentVariableA("SX_MESHFILE", mf, sizeof(mf));
         GetEnvironmentVariableA("SX_OUT", outDir, sizeof(outDir));
+        const bool testTileExport = GetEnvironmentVariableA("SX_TEST_TILE_EXPORT", nullptr, 0) != 0;
+        const bool testCombined = GetEnvironmentVariableA("SX_TEST_HYBRID", nullptr, 0) != 0;
+        static gpu::ReadbackPtr globalAllowed, globalExcluded, renderedExcluded;
+        if (GetEnvironmentVariableA("SX_TEST_4K_EXPORT", nullptr, 0) != 0) {
+            static u64 started = 0, peak = 0;
+            if (frameCounter == 4) {
+                Log("[native4k] budget %.0f MiB, before %.0f MiB", gpu::Dev().VideoMemoryBudget()/1048576., gpu::Dev().VideoMemoryUsage()/1048576.);
+                p3dNew = {};
+                p3dNew.mesh = 3;
+                p3dNew.meshPath = mf;
+                p3dNew.resolution = 2;
+                p3dNew.resolutionPerTile = true;
+                std::fill(std::begin(p3dNew.channels), std::end(p3dNew.channels), false);
+                p3dNew.channels[(int)PbrChannel::BaseColor] = true;
+                NewPaint3DProject();
+            }
+            DocView* doc = Active();
+            if (!doc || !doc->mesh) return;
+            peak = std::max(peak, gpu::Dev().VideoMemoryUsage());
+            if (frameCounter == 9) {
+                const auto regions = ExportParts(*doc);
+                if (regions.size() != 4) { Log("[native4k] expected 4 tiles"); return; }
+                Layer* layer = MaterialChannelLayer(*doc->doc, materialSel, PbrChannel::BaseColor);
+                if (!layer) return;
+                auto* surface = doc->doc->GetSurface(layer->surface);
+                if (!surface) return;
+                Prepare(*doc);
+                const float4 colors[] = {{1,0,0,1},{0,1,0,1},{0,0,1,1},{1,1,0,1}};
+                for (size_t i = 0; i < regions.size(); ++i) {
+                    Rect r = regions[i].second;
+                    doc->renderer.FillTexture(*ctx, surface->tex.get(), colors[i], r);
+                    // A one-texel mark distinguishes a native export from a scaled-up lower-resolution tile.
+                    doc->renderer.FillTexture(*ctx, surface->tex.get(), {1,1,1,1}, {r.x0+101,r.y0+173,r.x0+102,r.y0+174});
+                }
+                doc->doc->TouchSurface(layer->surface);
+                texExport.name = "Native";
+                texExport.folder = outDir;
+                texExport.preset = 5;
+                texExport.padding = 0;
+                started = GetTickCount64();
+                StartTextureExport(*doc);
+            }
+            if (started && texExportJobs.empty()) {
+                Log("[native4k] exported in %.3f s, peak process GPU memory %.0f MiB", (GetTickCount64()-started)/1000., peak/1048576.);
+                started = 0;
+            }
+            return;
+        }
         if (frameCounter == 4) {
             p3dNew = {};
             p3dNew.basePreset = 1;
             p3dNew.mesh = 3;
             p3dNew.meshPath = mf;
             p3dNew.resolution = 0;
+            if (testTileExport) {
+                p3dNew.resolutionPerTile = true;
+                p3dNew.tileResolutions = testCombined ? "1001 = 128\n1002 = 32\nTrim.1001 = 64" : "1001 = 128\n1002 = 64";
+            }
             // SX_RETILE: the project keeps the overlapping UVs; the tiles come later (Une tuile par matériau).
             if (GetEnvironmentVariableA("SX_RETILE", nullptr, 0) > 0) p3dNew.tileMode = 2;
             NewPaint3DProject();
@@ -2258,10 +2355,75 @@ void App::DemoTick() {
         }
         if (frameCounter == 12) {
             fg = {1, 0, 0, 1};
+            if (testTileExport) brush3D.polyMode = 0;
             PolygonFill(*a, 0, false);  // first triangle: material 1
+        }
+        if (testTileExport && frameCounter == 16) {
+            const auto parts = ExportParts(*a);
+            if (parts.size() == (testCombined ? 3u : 2u)) {
+                const auto& set = parts.back().first;
+                CreateFolder3D(*a, 0, "Green test region", {parts.back().second}, false, set);
+                const float3 green{0,1,0};
+                const float rough = 0.25f, metal = 0.75f;
+                AddMaterialLayerValues(*a, "Green on 1002", &green, &rough, &metal, nullptr, true);
+                if (testCombined) {
+                    auto& d = *a->doc;
+                    const auto roughChannel = PbrChannel::Roughness, privateChannel = PbrChannel::User2;
+                    const u32 local = (d.pbrChannels & ~(1u << (int)roughChannel)) | (1u << (int)privateChannel);
+                    SetTextureSetChannels(*a,set,local);
+                    a->history.Undo(d,*ctx);
+                    const bool undo = d.TextureSetChannels(set) == d.pbrChannels;
+                    a->history.Redo(d,*ctx);
+                    const Id paint = AddPaintLayer3D(*a,"Scoped paint");
+                    brush3D.use[(int)roughChannel] = brush3D.use[(int)privateChannel] = true;
+                    std::vector<float4> colors;
+                    const auto targets = Paint3DTargets(*a,colors);
+                    auto* user = MaterialChannelLayer(d,paint,privateChannel);
+                    auto* rug = MaterialChannelLayer(d,paint,roughChannel);
+                    const bool correct = user && std::find(targets.begin(),targets.end(),user->surface) != targets.end() &&
+                        (!rug || std::find(targets.begin(),targets.end(),rug->surface) == targets.end());
+                    if (user) {
+                        Prepare(*a);
+                        const float val = SrgbToLinear(0.6f);
+                        a->renderer.FillTexture(*ctx,d.GetSurface(user->surface)->tex.get(),{val,val,val,1});
+                        d.TouchSurface(user->surface);
+                    }
+                    std::string error;
+                    auto loaded = DeserializeDocument(SerializeDocument(d), {}, &error);
+                    const bool persist = loaded && loaded->TextureSetChannels(set) == local && loaded->TextureSetChannels(parts[0].first) == d.pbrChannels &&
+                        loaded->ActiveLayer() && loaded->LayerTextureSet(*loaded->ActiveLayer()) == set;
+                    Log("[setchannels] target filter %d, undo %d, persisted %d", (int)correct, (int)undo, (int)persist);
+                    for (const auto& l : d.S().layers) {
+                        if (l.kind != LayerKind::Pixel || !l.material || !d.LayerTextureSet(l).empty()) continue;
+                        Layer* global = MaterialChannelLayer(d,l.material,roughChannel);
+                        if (!global) continue;
+                        SelectMaterial(d,l.material);
+                        Paint3DTargets(*a,colors);
+                        a->renderer.FillSelection(d,*ctx,&a->history,global->surface,0,{1,1,1,1},1.0f,"Global set check",nullptr,nullptr,false);
+                        auto* pixels = d.GetSurface(global->surface)->tex.get();
+                        globalAllowed = a->renderer.ReadPixel(*ctx,pixels,32,64);
+                        globalExcluded = a->renderer.ReadPixel(*ctx,pixels,16,160);
+                        a->renderer.EvaluateComplete(d,*ctx);
+                        renderedExcluded = a->renderer.ReadPixel(*ctx,ChannelTexture(*a,roughChannel),16,160);
+                        break;
+                    }
+                }
+            }
         }
         // SX_LIMIT: a green stroke started on the first material, across onto the second, limited to the first.
         const bool limit = GetEnvironmentVariableA("SX_LIMIT", nullptr, 0) > 0;
+        if (testCombined && globalAllowed && globalExcluded && renderedExcluded &&
+            globalAllowed->ready && globalExcluded->ready && renderedExcluded->ready) {
+            auto sample = [](const auto& rb, int component) {
+                u16 value;
+                memcpy(&value,rb->data.data()+component*2,sizeof(value));
+                return HalfToFloat(value);
+            };
+            const bool retained = sample(globalAllowed,0) > 0.99f && sample(globalExcluded,3) < 0.01f;
+            const bool hidden = std::abs(LinearToSrgb(sample(renderedExcluded,0)) - 0.5f) < 0.01f;
+            Log("[setchannels] global pixels %d, fill visibility %d",(int)retained,(int)hidden);
+            globalAllowed.reset(); globalExcluded.reset(); renderedExcluded.reset();
+        }
         if (limit) {
             ImGuiIO& io = ImGui::GetIO();
             if (frameCounter == 14) {
@@ -2282,6 +2444,25 @@ void App::DemoTick() {
             if (frameCounter == 61) io.AddMouseButtonEvent(0, false);
         }
         if (frameCounter == (limit ? 80 : 20) && outDir[0]) {
+            if (testTileExport) {
+                // The same entry point as File > Export Project Textures, with a user-defined component layout.
+                customExportPresets.push_back({"Tile export check", "", false, {{"Packed", {"C.r","C.g","R","M"}}}});
+                texExport.name = "Modele";
+                texExport.folder = outDir;
+                texExport.preset = 6 + (int)customExportPresets.size() - 1;
+                texExport.depth = 1;
+                StartTextureExport(*a);
+                if (testCombined) {
+                    texExport.atlas = true;
+                    texExport.name = "Atlas";
+                    StartTextureExport(*a);
+                    texExport.atlas = false;
+                    texExport.name = "Set";
+                    texExport.preset = 5;
+                    StartTextureExport(*a);
+                }
+                customExportPresets.pop_back();
+            }
             a->doc->exportTemplate = 0;
             ExportProjectTextures(*a, std::string(outDir) + "\\sep.png");
             a->doc->exportTemplate = 1;
@@ -7036,6 +7217,8 @@ float4 Vignette(Texture2D Image, SamplerState S, float2 UV, float Amount, float 
 }
 
 void App::RunDemo() {
+    if (demoMode == 112 || demoMode == 113) return;
+    if (demoMode == 111) return;
     if (demoMode == 110) { RunRasterizeLayerDemo(); return; }
     for (const char* s : {"composite.slang", "display.slang", "brush.slang", "clear.slang", "clear_r.slang", "gradient.slang"})
         gpu::Shaders().CompileNow(s, gpu::Shaders().File(s));

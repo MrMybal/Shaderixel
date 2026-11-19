@@ -12,7 +12,6 @@
 #include "render/MeshPaint.h"
 #include "doc/Brushes.h"
 #include "doc/Effects.h"
-#include "ai/Net.h"
 
 #include <fstream>
 
@@ -25,103 +24,16 @@
 namespace sx {
 
 namespace {
-const PbrChannel kPaintChannels[] = {PbrChannel::BaseColor, PbrChannel::Roughness, PbrChannel::Metallic, PbrChannel::Height, PbrChannel::Emissive};
-}
-
-// ------------------------------------------------------------------ mesh in the file
-
-Json App::MeshToJson(const MeshData& m) {
-    Json j = Json::Object();
-    j["name"] = m.name;
-    j["vertices"] = net::Base64Encode(m.vertices.data(), m.vertices.size() * sizeof(MeshVertex));
-    j["indices"] = net::Base64Encode(m.indices.data(), m.indices.size() * sizeof(u32));
-    // Placement of the original model (exports in its own units).
-    Json c = Json::Array();
-    c.Push(m.srcCenter.x); c.Push(m.srcCenter.y); c.Push(m.srcCenter.z);
-    j["srcCenter"] = c;
-    j["srcScale"] = m.srcScale;
-    // Materials of the parts (names, colors) with their triangles, and their UV tiles.
-    if (!m.materials.empty() && m.triMaterial.size() * 3 == m.indices.size()) {
-        Json mats = Json::Array();
-        for (size_t i = 0; i < m.materials.size(); ++i) {
-            const auto& mi = m.materials[i];
-            Json o = Json::Object();
-            o["name"] = mi.name;
-            Json c = Json::Array();
-            c.Push(mi.baseColor.x); c.Push(mi.baseColor.y); c.Push(mi.baseColor.z); c.Push(mi.baseColor.w);
-            o["color"] = c;
-            o["roughness"] = mi.roughness;
-            o["metallic"] = mi.metallic;
-            if (i < m.uvTiles.size()) {
-                Json t = Json::Array();
-                t.Push(m.uvTiles[i].x); t.Push(m.uvTiles[i].y); t.Push(m.uvTiles[i].z); t.Push(m.uvTiles[i].w);
-                o["tile"] = t;
-            }
-            mats.Push(o);
-        }
-        j["materials"] = mats;
-        j["triMaterial"] = net::Base64Encode(m.triMaterial.data(), m.triMaterial.size() * sizeof(u16));
-    }
-    if (!m.udims.empty()) {
-        Json u = Json::Array();
-        for (u16 t : m.udims) u.Push((int)t);
-        j["udims"] = u;
-        j["udimCols"] = m.udimCols;
-    }
-    return j;
-}
-
-bool App::MeshFromJson(const Json& j, MeshData& m) {
-    std::vector<u8> v = net::Base64Decode(j["vertices"].S()), i = net::Base64Decode(j["indices"].S());
-    if (v.empty() || i.empty() || v.size() % sizeof(MeshVertex) || i.size() % sizeof(u32)) return false;
-    m.name = j["name"].S("Maillage");
-    m.vertices.resize(v.size() / sizeof(MeshVertex));
-    memcpy(m.vertices.data(), v.data(), v.size());
-    m.indices.resize(i.size() / sizeof(u32));
-    memcpy(m.indices.data(), i.data(), i.size());
-    if (m.indices.size() % 3) return false;
-    for (u32 ix : m.indices)
-        if (ix >= m.vertices.size()) return false;  // corrupt or hand-edited file: would read out of bounds
-    if (j["srcCenter"].Size() == 3) m.srcCenter = {j["srcCenter"].At(0).F(), j["srcCenter"].At(1).F(), j["srcCenter"].At(2).F()};
-    m.srcScale = j["srcScale"].F(1.0f);
-    if (j.Has("materials")) {
-        std::vector<u8> tm = net::Base64Decode(j["triMaterial"].S());
-        if (tm.size() == m.indices.size() / 3 * sizeof(u16)) {
-            m.triMaterial.resize(tm.size() / sizeof(u16));
-            memcpy(m.triMaterial.data(), tm.data(), tm.size());
-            bool tiles = false;
-            for (size_t i = 0; i < j["materials"].Size(); ++i) {
-                const Json& o = j["materials"].At(i);
-                MeshMaterialInfo mi;
-                mi.name = o["name"].S("");
-                if (o["color"].Size() == 4) mi.baseColor = {o["color"].At(0).F(), o["color"].At(1).F(), o["color"].At(2).F(), o["color"].At(3).F()};
-                mi.roughness = o["roughness"].F(0.5f);
-                mi.metallic = o["metallic"].F(0.0f);
-                m.materials.push_back(mi);
-                float4 t = {0, 0, 0, 0};
-                if (o["tile"].Size() == 4) { t = {o["tile"].At(0).F(), o["tile"].At(1).F(), o["tile"].At(2).F(), o["tile"].At(3).F()}; tiles = true; }
-                m.uvTiles.push_back(t);
-            }
-            if (!tiles) m.uvTiles.clear();
-        }
-    }
-    for (auto& u : j["udims"].Elements()) m.udims.push_back((u16)std::clamp(u.I(1001), 1001, 2000));
-    m.udimCols = m.udims.empty() ? 0 : std::max(1, j["udimCols"].I(1));
-    if (!m.udims.empty() && (size_t)m.udimCols * m.udimCols < m.udims.size()) m.udims.clear(), m.udimCols = 0;  // inconsistent
-    m.boundsMin = {1e30f, 1e30f, 1e30f};
-    m.boundsMax = {-1e30f, -1e30f, -1e30f};
-    for (auto& p : m.vertices) {
-        m.boundsMin = {std::min(m.boundsMin.x, p.pos.x), std::min(m.boundsMin.y, p.pos.y), std::min(m.boundsMin.z, p.pos.z)};
-        m.boundsMax = {std::max(m.boundsMax.x, p.pos.x), std::max(m.boundsMax.y, p.pos.y), std::max(m.boundsMax.z, p.pos.z)};
-    }
-    return true;
+const PbrChannel kPaintChannels[] = {PbrChannel::BaseColor, PbrChannel::Roughness, PbrChannel::Metallic, PbrChannel::Height, PbrChannel::Emissive, PbrChannel::Normal, PbrChannel::Occlusion, PbrChannel::Opacity,
+    PbrChannel::User0, PbrChannel::User1, PbrChannel::User2, PbrChannel::User3};
 }
 
 // ------------------------------------------------------------------ project
 
 void App::NewPaint3DProject() {
     auto& P = p3dNew;
-    const u32 res = P.resolution == 0 ? 1024 : P.resolution == 1 ? 2048 : 4096;
+    const int tileSize = P.resolution == 0 ? 1024 : P.resolution == 1 ? 2048 : 4096;
+    int res = tileSize;
     MeshData mesh;
     if (P.mesh == 3 && Narrow(Utf8Path(P.meshPath).extension().wstring()) == ".uasset") {
         // Unreal mesh: exported by Unreal Editor first, then the same settings with the glTF.
@@ -144,14 +56,26 @@ void App::NewPaint3DProject() {
     // Several materials over the same UVs: one tile of the texture each (before an unwrap, which replaces them).
     // UDIM layouts (UVs over several 0..1 tiles): each tile becomes a cell of the texture.
     const bool udim = !(P.autoUv || !mesh.hasUvs) && PackUdims(mesh);
-    const bool tiled = !udim && !(P.autoUv || !mesh.hasUvs) && P.tileMode != 2 && TileMaterialUvs(mesh, res, P.tileMode);
+    const int materialMode = P.resolutionPerTile && P.tileMode == 0 ? 1 : P.tileMode;
+    const bool tiled = !udim && !(P.autoUv || !mesh.hasUvs) && materialMode != 2 && TileMaterialUvs(mesh, res, materialMode);
+    if (P.resolutionPerTile && P.mesh == 3 && !P.autoUv) {
+        std::string error;
+        if (!SizeTextureTiles(mesh, tileSize, P.tileResolutions, res, error)) { P.open = true; Status(error); return; }
+        // Four RGBA32F geometry textures are allocated together by the 3D viewport, before the paint layers.
+        const u64 budget = gpu::Dev().VideoMemoryBudget(), used = gpu::Dev().VideoMemoryUsage();
+        if (res > tileSize && budget && (u64)res * res * 64 > budget - std::min(budget, used)) {
+            P.open = true;
+            Status("Mémoire vidéo insuffisante pour les cartes d’un atlas de " + std::to_string(res) + " px. Réduisez les résolutions des tuiles.");
+            return;
+        }
+    }
     if (P.autoUv || !mesh.hasUvs) {
         // New UVs before anything is painted (models without UVs, or overlapping ones).
         UnwrapOptions o;
         o.resolution = (int)res;
         UnwrapResult r;
         if (UnwrapMesh(mesh, o, r)) mesh = std::move(r.mesh);
-        else Status("UV automatiques : " + r.error);
+        else { Status("UV automatiques : " + r.error); return; }
     }
     std::string name = (mesh.name.empty() ? std::string("Projet") : mesh.name) + " (3D)";
     NewDocument(res, res, Precision::Half16, DocMode::Layers, 3, name);
@@ -187,7 +111,7 @@ Id App::AddPaintLayer3D(DocView& v, const std::string& name) {
     Id material = d.NewId();
     Id first = 0;  // by id: the next insert reallocates the layer vector
     for (PbrChannel c : kPaintChannels) {
-        Id g = FindChannelGroup(d, c);
+        Id g = NewLayerParent3D(d, c, material);
         if (!g) continue;
         Layer p;
         p.id = d.NewId();
@@ -213,18 +137,32 @@ Id App::AddPaintLayer3D(DocView& v, const std::string& name) {
 
 bool App::IsPaintLayer3D(Document& d, Id material) {
     for (auto& l : d.S().layers)
-        if (l.material == material && l.kind == LayerKind::Pixel) return true;
+        if (l.material == material && l.kind == LayerKind::Pixel && l.projection.empty()) return true;
     return false;
+}
+
+float4 App::BrushChannelValue(PbrChannel c) {
+    if (c == PbrChannel::BaseColor) return LinearColor(fg);
+    if (c == PbrChannel::Normal) return {SrgbToLinear(brush3D.normal.x), SrgbToLinear(brush3D.normal.y), SrgbToLinear(brush3D.normal.z), 1};
+    if (c == PbrChannel::Emissive) return {SrgbToLinear(brush3D.emissive.x), SrgbToLinear(brush3D.emissive.y), SrgbToLinear(brush3D.emissive.z), 1};
+    float g = c == PbrChannel::Roughness ? brush3D.rough : c == PbrChannel::Metallic ? brush3D.metal : brush3D.height;
+    if (c == PbrChannel::Occlusion) g = brush3D.occlusion;
+    if (c == PbrChannel::Opacity) g = brush3D.opacity;
+    if (c >= PbrChannel::User0) g = brush3D.user[(int)c - (int)PbrChannel::User0];
+    float lin = SrgbToLinear(g);
+    return {lin, lin, lin, 1};
 }
 
 std::vector<Id> App::Paint3DTargets(DocView& v, std::vector<float4>& colors) {
     // Surfaces painted by a stroke in a project, with the value of each channel.
     std::vector<Id> out;
     colors.clear();
+    v.renderer.disabledPaintRegions.clear();
     Document& d = *v.doc;
     Layer* al = d.ActiveLayer();
     if (!al) return out;
-    if (!al->material || !IsPaintLayer3D(d, al->material) || d.S().editMask) {
+    if ((!al->surfacePath.empty() || al->locked) && !d.S().editMask && !d.S().editInpaint) return out;
+    if (!al->material || !IsPaintLayer3D(d, al->material) || d.S().editMask || d.S().editInpaint) {
         // Fill material (shared mask) or a plain layer: single target.
         if (Id t = d.PaintTarget()) {
             out.push_back(t);
@@ -232,20 +170,27 @@ std::vector<Id> App::Paint3DTargets(DocView& v, std::vector<float4>& colors) {
         }
         return out;
     }
-    for (PbrChannel c : kPaintChannels) {
-        if (!brush3D.use[(int)c]) continue;
-        Layer* l = MaterialChannelLayer(d, al->material, c);
-        if (!l || !l->surface) continue;
-        float4 col;
-        switch (c) {
-            case PbrChannel::BaseColor: col = LinearColor(fg); break;
-            case PbrChannel::Emissive: col = {SrgbToLinear(brush3D.emissive.x), SrgbToLinear(brush3D.emissive.y), SrgbToLinear(brush3D.emissive.z), 1}; break;
-            default: {
-                float g = c == PbrChannel::Roughness ? brush3D.rough : c == PbrChannel::Metallic ? brush3D.metal : brush3D.height;
-                float lin = SrgbToLinear(g);  // data channels hold visual gray levels
-                col = {lin, lin, lin, 1};
-            }
+    const auto scope = d.LayerTextureSet(*al);
+    u32 allowed = d.kind == 1 ? d.TextureSetChannels(scope) : ~0u;
+    std::vector<std::pair<Rect,u32>> regions;
+    if (!scope.empty() || !d.S().textureSetChannels.empty()) {
+        allowed = 0;
+        bool foundScope = false;
+        for (const auto& [set, rect] : ExportParts(v,true)) {
+            const u32 enabled = d.TextureSetChannels(set);
+            const bool inside = scope.empty() || set == scope || texexport::SetSuffixes(set).first == scope;
+            if (inside) { allowed |= enabled; foundScope = true; }
+            regions.push_back({rect,inside ? enabled : 0u});
         }
+        if (!foundScope) { allowed = d.TextureSetChannels(scope); regions.clear(); }  // a transferred folder retained its painted mask after a new layout
+    }
+    for (PbrChannel c : kPaintChannels) {
+        if (!brush3D.use[(int)c] || !(allowed & (1u << (int)c))) continue;
+        Layer* l = MaterialChannelLayer(d, al->material, c);
+        if (!l || !l->surface || l->locked) continue;
+        for (const auto& [rect,enabled] : regions)
+            if (!(enabled & (1u << (int)c))) v.renderer.disabledPaintRegions[l->surface].push_back(rect);
+        const float4 col = BrushChannelValue(c);
         // Base color first: it carries the decal colors.
         if (c == PbrChannel::BaseColor) {
             out.insert(out.begin(), l->surface);
@@ -260,6 +205,52 @@ std::vector<Id> App::Paint3DTargets(DocView& v, std::vector<float4>& colors) {
 
 // ------------------------------------------------------------------ panels
 
+void App::SetTextureSetChannels(DocView& v, const std::string& set, u32 channels, bool inherit) {
+    if (set.empty()) return;
+    Document& d = *v.doc;
+    const u32 old = d.TextureSetChannels(set);
+    v.history.BeginGroup();
+    {
+        Edit edit(d, v.history, "Canaux du jeu de textures");
+        if (inherit) d.S().textureSetChannels.erase(set);
+        else d.S().textureSetChannels[set] = channels | 1u;
+        edit.Commit();
+    }
+    const u32 enabled = d.TextureSetChannels(set) & ~old;
+    bool needsRoot = false;
+    for (PbrChannel c : kPaintChannels)
+        if ((enabled & (1u << (int)c)) && !FindChannelGroup(d,c)) needsRoot = true;
+    if (needsRoot) CreatePbrChannels(v, true, enabled);
+    if (enabled) {
+        Edit edit(d, v.history, "Canaux des calques de peinture du jeu");
+        const auto ids = MaterialIds(d);
+        for (Id id : ids) {
+            const Layer* existing = AnyMaterialLayer(d,id);
+            if (!existing || !IsPaintLayer3D(d,id)) continue;
+            const std::string scope = d.LayerTextureSet(*existing);
+            const bool broader = scope.empty() || texexport::SetSuffixes(set).first == scope;
+            if (!broader && scope != set && texexport::SetSuffixes(scope).first != set) continue;
+            const u32 local = broader ? enabled : enabled & d.TextureSetChannels(scope);
+            const std::string name = existing->name;
+            for (PbrChannel c : kPaintChannels) {
+                if (!(local & (1u << (int)c)) || MaterialChannelLayer(d,id,c)) continue;
+                Layer extra;
+                extra.parent = NewLayerParent3D(d,c,id);
+                if (!extra.parent) continue;
+                extra.id = d.NewId();
+                extra.kind = LayerKind::Pixel;
+                extra.name = name;
+                extra.material = id;
+                extra.surface = d.CreateSurface({});
+                d.S().layers.insert(d.S().layers.begin() + d.LayerIndex(extra.parent), extra);
+            }
+        }
+        d.SyncGraph();
+        edit.Commit();
+    }
+    v.history.EndGroup();
+}
+
 void App::DrawLayers3DPanel() {
     if (!ImGui::Begin("Calques 3D", PanelFlag("Calques 3D"))) { ImGui::End(); return; }
     DocView* v = Active();
@@ -269,6 +260,39 @@ void App::DrawLayers3DPanel() {
         return;
     }
     Document& d = *v->doc;
+    if (ImGui::Button("Canaux par jeu de textures")) ImGui::OpenPopup("##setchannels");
+    if (ImGui::BeginPopup("##setchannels")) {
+        std::map<std::string,std::vector<Rect>> scopes;
+        for (const auto& [suffix, rect] : ExportParts(*v)) {
+            if (suffix.empty()) continue;
+            scopes[suffix].push_back(rect);
+            const auto [material, udim] = texexport::SetSuffixes(suffix);
+            if (!material.empty() && !udim.empty()) scopes[material].push_back(rect);
+        }
+        if (scopes.empty()) ImGui::TextDisabled("Ce projet utilise les canaux de l’atlas.");
+        for (const auto& [key, rects] : scopes) {
+            const std::string label = key.front() == '.' ? "UDIM " + key.substr(1) : key.substr(1);
+            if (!ImGui::BeginMenu(label.c_str())) continue;
+            if (ImGui::MenuItem("Ouvrir sa pile de peinture")) {
+                Id folder = 0;
+                for (const auto& l : d.S().layers) if (l.textureSet == key) { folder = l.material; break; }
+                if (folder) SelectMaterial(d,folder);
+                else CreateFolder3D(*v,0,label,rects,false,key);
+            }
+            if (ImGui::MenuItem("Hériter des canaux", nullptr, !d.S().textureSetChannels.contains(key)))
+                SetTextureSetChannels(*v,key,0,true);
+            for (int c = 0; c < (int)PbrChannel::Count; ++c) {
+                const u32 channels = d.TextureSetChannels(key), bit = 1u << c;
+                bool enabled = (channels & bit) != 0;
+                ImGui::BeginDisabled(c == (int)PbrChannel::BaseColor);
+                if (ImGui::Checkbox(PbrChannelName((PbrChannel)c), &enabled))
+                    SetTextureSetChannels(*v,key,enabled ? channels|bit : channels&~bit);
+                ImGui::EndDisabled();
+            }
+            ImGui::EndMenu();
+        }
+        ImGui::EndPopup();
+    }
     if (ImGui::Button("+ Peinture")) AddPaintLayer3D(*v, "Peinture " + std::to_string(MaterialIds(d).size() + 1));
     ui::HelpTooltip("Calque de peinture : un calque par canal, peints ensemble avec les valeurs du pinceau.");
     ImGui::SameLine();
@@ -326,6 +350,30 @@ void App::DrawLayers3DPanel() {
     ImGui::SameLine();
     if (ImGui::Button("+ Dossier")) CreateFolder3D(*v, IsFolder3D(d, materialSel) ? 0 : materialSel);
     ui::HelpTooltip("Dossier de calques 3D : visibilité, opacité, fusion et masque (intelligent) communs.\nAutour du calque sélectionné, ou vide en haut.");
+    ImGui::SameLine();
+    if (ImGui::Button("+ Pile masquée")) ImGui::OpenPopup("##setstack");
+    if (ImGui::BeginPopup("##setstack")) {
+        if (ImGui::MenuItem("Depuis la sélection", nullptr, false, d.Selection() != nullptr))
+            CreateFolder3D(*v, 0, "Pile de la sélection", {}, true);
+        const auto parts = ExportParts(*v);
+        std::map<std::string, std::vector<Rect>> materials;
+        for (const auto& [suffix, rect] : parts) {
+            const auto [material, udim] = texexport::SetSuffixes(suffix);
+            if (!material.empty() && !udim.empty()) materials[material.substr(1)].push_back(rect);
+        }
+        for (const auto& [material, regions] : materials) {
+            if (regions.size() > 1 && ImGui::MenuItem((material + " (toutes les tuiles)").c_str()))
+                CreateFolder3D(*v, 0, material, regions, false, "_" + material);
+        }
+        for (const auto& [suffix, rect] : parts) {
+            if (rect.Empty()) continue;
+            const std::string label = suffix.starts_with(".") ? "UDIM " + suffix.substr(1) : suffix.substr(1);
+            ImGui::PushID(rect.x0); ImGui::PushID(rect.y0);
+            if (ImGui::MenuItem(label.c_str())) CreateFolder3D(*v, 0, label, {rect}, false, suffix);
+            ImGui::PopID(); ImGui::PopID();
+        }
+        ImGui::EndPopup();
+    }
     ImGui::Separator();
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const float hh = ImGui::GetFrameHeight() * 1.5f;
@@ -392,7 +440,7 @@ void App::DrawLayers3DPanel() {
         std::string chans;
         for (PbrChannel c : kPaintChannels)
             if (MaterialChannelLayer(d, m, c)) {
-                static const char* abbr[] = {"C", "R", "M", "N", "E", "O", "H"};
+                static const char* abbr[] = {"C", "R", "M", "N", "E", "O", "H", "Op", "U1", "U2", "U3", "U4"};
                 chans += std::string(abbr[(int)c]) + " ";
             }
         // (assembled: each piece translated)
@@ -520,7 +568,9 @@ void App::DrawMaterialFilters(DocView& v, Id material) {
         {"hue_saturation", "Teinte / saturation"}, {"brightness_contrast", "Luminosité / contraste"}, {"levels", "Niveaux"}, {"curves", "Courbes"},
         {"color_balance", "Balance des couleurs"}, {"gaussian_blur", "Flou"}, {"sharpen", "Netteté"}, {"noise", "Bruit"}, {"invert", "Inverser"}};
     static const std::pair<PbrChannel, const char*> kChannels[] = {{PbrChannel::BaseColor, "Couleur"}, {PbrChannel::Roughness, "Rugosité"},
-                                                                    {PbrChannel::Metallic, "Métal"}, {PbrChannel::Height, "Hauteur"}, {PbrChannel::Emissive, "Émissif"}};
+                                                                    {PbrChannel::Metallic, "Métal"}, {PbrChannel::Height, "Hauteur"}, {PbrChannel::Emissive, "Émissif"},
+        {PbrChannel::Opacity, "Opacité"}, {PbrChannel::User0, "U1"}, {PbrChannel::User1, "U2"},
+        {PbrChannel::User2, "U3"}, {PbrChannel::User3, "U4"}};
     ImGui::SeparatorText("Filtres");
     bool changed = false;
     Id removeLayer = 0;
@@ -591,6 +641,10 @@ void App::DrawBrushMaterialPanel() {
         {Tool::Brush, ui::IconBrush, "Pinceau", "Clic-glisser sur le modèle : peint le matériau de l'onglet Peinture. (B)", 0},
         {Tool::Eraser, ui::IconEraser, "Gomme", "Clic-glisser sur le modèle : efface la peinture du calque. (E)", 0},
         {Tool::PolyFill, ui::IconPolyFill, "Remplir", "Clic : remplit le triangle, la face, l'île UV ou la pièce sous le curseur.", 1},
+        {Tool::Clone, ui::IconStamp, "Tampon", "Ctrl+clic choisit la source. Glissez pour dupliquer la matière sur les canaux cochés.", 0},
+        {Tool::Smudge, ui::IconFinger, "Doigt", "Glissez pour étaler les canaux cochés du calque sur le modèle.", 0},
+        {Tool::SurfaceMask, ui::IconMask, "Masque rapide", "Peignez pour protéger la surface. Ctrl+peindre libère la zone.", 0},
+        {Tool::SurfacePath, ui::IconPen, "Tracé", "Cliquez pour poser les points du tracé. Glissez un point pour le déplacer.", 0},
         {Tool::Projection, ui::IconStamp, "Décalque", "Clic : pose une image sur le modèle (projection). (P)", 2},
         {Tool::Particles, ui::IconParticles, "Particules", "Maintenir le clic : des gouttes partent du pinceau et peignent là où elles passent.", 3},
         {Tool::Fluid, ui::IconFluid, "Liquide", "Peinture liquide qui coule avec la gravité (tous les canaux du matériau).", 3},
@@ -673,7 +727,38 @@ void App::DrawBrushMaterialPanel() {
     }
     auto row = [&](PbrChannel c, const char* label) {
         ImGui::PushID((int)c);
-        ImGui::Checkbox(label, &B.use[(int)c]);
+        auto* view = Active();
+        const auto* selected = view ? view->doc->ActiveLayer() : nullptr;
+        const std::string scope = selected && view->doc->kind == 1 ? view->doc->LayerTextureSet(*selected) : std::string{};
+        ImGui::BeginDisabled(!scope.empty() && !(view->doc->TextureSetChannels(scope) & (1u << (int)c)));
+        if (ImGui::Checkbox(label, &B.use[(int)c]) && B.use[(int)c]) {
+            if (view && view->doc->kind == 1) {
+                auto& doc = *view->doc;
+                const auto* active = doc.ActiveLayer();
+                if (active && !doc.S().editMask && IsPaintLayer3D(doc, active->material) && active->surfacePath.empty() &&
+                    !MaterialChannelLayer(doc, active->material, c)) {
+                    const Id mat = active->material;
+                    Layer extra = *active;
+                    view->history.BeginGroup();
+                    const u32 previous = doc.pbrChannels;
+                    if (scope.empty()) doc.pbrChannels |= 1u << (int)c;
+                    if (!FindChannelGroup(doc, c)) {
+                        const u32 next = doc.pbrChannels;
+                        view->history.PushCustom("Canal PBR", [&doc,previous,next](bool undo){ doc.pbrChannels = undo ? previous : next; });
+                        CreatePbrChannels(*view, true, 1u << (int)c);
+                    }
+                    Edit edit(doc, view->history, "Ajouter un canal au calque de peinture");
+                    extra.id = doc.NewId();
+                    extra.filters.clear();
+                    extra.parent = NewLayerParent3D(doc, c, mat);
+                    extra.surface = doc.CreateSurface({0,0,0,0});
+                    doc.S().layers.insert(doc.S().layers.begin()+doc.LayerIndex(extra.parent), extra);
+                    doc.SyncGraph();
+                    edit.Commit();
+                    view->history.EndGroup();
+                }
+            }
+        }
         ImGui::SameLine(150 * dpi);
         ImGui::SetNextItemWidth(-FLT_MIN);
         ImGui::BeginDisabled(!B.use[(int)c]);
@@ -682,9 +767,15 @@ void App::DrawBrushMaterialPanel() {
             case PbrChannel::Roughness: ImGui::SliderFloat("##v", &B.rough, 0, 1, "%.2f"); break;
             case PbrChannel::Metallic: ImGui::SliderFloat("##v", &B.metal, 0, 1, "%.2f"); break;
             case PbrChannel::Height: ImGui::SliderFloat("##v", &B.height, 0, 1, B.height > 0.5f ? "%.2f (relief)" : B.height < 0.5f ? "%.2f (creux)" : "%.2f"); break;
+            case PbrChannel::Normal: ImGui::ColorEdit3("##v", &B.normal.x); break;
+            case PbrChannel::Occlusion: ImGui::SliderFloat("##v", &B.occlusion, 0, 1); break;
+            case PbrChannel::Opacity: ImGui::SliderFloat("##v", &B.opacity, 0, 1); break;
+            case PbrChannel::User0: case PbrChannel::User1: case PbrChannel::User2: case PbrChannel::User3:
+                ImGui::SliderFloat("##v", &B.user[(int)c - (int)PbrChannel::User0], 0, 1); break;
             case PbrChannel::Emissive: ImGui::ColorEdit3("##v", &B.emissive.x); break;
             default: break;
         }
+        ImGui::EndDisabled();
         ImGui::EndDisabled();
         ImGui::PopID();
     };
@@ -693,6 +784,9 @@ void App::DrawBrushMaterialPanel() {
     row(PbrChannel::Metallic, "Métal");
     row(PbrChannel::Height, "Hauteur");
     row(PbrChannel::Emissive, "Émissif");
+    row(PbrChannel::Normal, "Normale");
+    row(PbrChannel::Occlusion, "Occlusion");
+    for (int c = (int)PbrChannel::Opacity; c < (int)PbrChannel::Count; ++c) row((PbrChannel)c, PbrChannelName((PbrChannel)c));
     if (DocView* av = Active(); av && av->mesh && !av->mesh->data.udims.empty()) {
         ImGui::Checkbox("Limiter à la tuile UDIM sous le pinceau", &B.limitMaterial);
         ui::HelpTooltip("Modèle UDIM : un trait ne peint que la tuile (1001, 1002...) sur laquelle il commence.");
@@ -726,6 +820,8 @@ void App::DrawBrushMaterialPanel() {
         ImGui::SliderFloat("Taille", &bs.size, 1, 600, "%.0f px", ImGuiSliderFlags_Logarithmic);
         ImGui::SliderFloat("Flux", &bs.flow, 0.01f, 1, "%.2f");
         ImGui::SliderFloat("Espacement", &bs.spacing, 0.02f, 2.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+        ImGui::Checkbox("Taille en unités du modèle", &brush3D.modelSize);
+        if (brush3D.modelSize) ImGui::SliderFloat("Diamètre dans le modèle", &brush3D.modelDiameter, 0.005f, 1.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
         ImGui::Checkbox("Projection selon la normale moyenne", &brush3D.normalProject);
         ui::HelpTooltip("Chaque touche est posée à plat sur la surface sous le pinceau (la moyenne de ses normales) au lieu d'être\n"
                         "projetée depuis la caméra : les marques restent rondes sur les surfaces vues de biais.\n"
@@ -738,6 +834,8 @@ void App::DrawBrushMaterialPanel() {
             ImGui::SliderFloat("Angle", &B.angle, -180, 180, "%.0f°");
             ImGui::Checkbox("Suivre le trait", &B.follow);
             ui::HelpTooltip("La pointe tourne dans le sens du trait (rayures, coutures, traînées).");
+            ImGui::Checkbox("Orienter la pointe avec l'inclinaison du stylet", &B.followTilt);
+            ImGui::Checkbox("Orienter la pointe avec la rotation du stylet", &B.followTwist);
             ImGui::SliderFloat("Variation d'angle", &B.jitterAngle, 0, 1, "%.2f");
             ImGui::SliderFloat("Variation de taille", &B.jitterSize, 0, 1, "%.2f");
             ImGui::SliderFloat("Dispersion", &B.scatter, 0, 3, "%.2f");
@@ -795,23 +893,7 @@ void App::DrawBrushMaterialPanel() {
         }
         if (tab("Simulation", 3)) {
             ImGui::SeparatorText("Particules");
-            ImGui::TextDisabled("Mode Particules : maintenez le clic sur le modèle ; les gouttes partent du pinceau (sa taille fixe\n"
-                                "la zone) et peignent le matériau de l'onglet Peinture là où elles passent, même hors de la vue.");
-    ImGui::SetNextItemWidth(-FLT_MIN);
-    if (ImGui::BeginCombo("##simpreset", SimPresetName(B.simPreset))) {
-        for (int i = 0; i < SimPresetCount(); ++i) {
-            if (ImGui::Selectable(SimPresetName(i), i == B.simPreset)) B.simPreset = i;
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", SimPresetHelp(i));
-        }
-        ImGui::EndCombo();
-    }
-    ImGui::SliderFloat("Particules / s", &B.simRate, 5, 400, "%.0f", ImGuiSliderFlags_Logarithmic);
-    float sz = B.simSize * 100;
-    if (ImGui::SliderFloat("Taille des gouttes", &sz, 0.2f, 10, "%.1f %%", ImGuiSliderFlags_Logarithmic)) B.simSize = sz / 100;
-    ImGui::SliderFloat("Gravité", &B.simGravity, 0, 3, "%.2f");
-    ImGui::SliderFloat("Adhérence", &B.simAdhesion, 0, 2, "%.2f");
-    ImGui::SliderFloat("Durée de vie", &B.simLife, 0.2f, 10, "%.1f s");
-    if (B.simPreset == 3) ImGui::SliderFloat("Dispersion", &B.simSpread, 0, 2, "%.2f");
+            if (DocView* view = Active(); view && view->mesh) DrawParticleOptions(*view);
             ImGui::SeparatorText("Peinture liquide");
             DrawFluidOptions(true);
             ImGui::EndTabItem();
@@ -854,15 +936,7 @@ void App::RetileMaterials(DocView& v) {
         const float2 ou = source[i] < old.vertices.size() ? old.vertices[source[i]].uv : float2{0, 0};
         src[i] = {ou.x * W, ou.y * H};
     }
-    std::vector<Id> surfaces;
-    for (auto& l : d.S().layers) {
-        if (l.surface && l.kind == LayerKind::Pixel) surfaces.push_back(l.surface);
-        if (l.mask) surfaces.push_back(l.mask);
-        if (l.maskEdit) surfaces.push_back(l.maskEdit);
-    }
-    for (auto& n : d.S().graph.nodes) if (n.kind == NodeKind::Surface && n.surface) surfaces.push_back(n.surface);
-    std::sort(surfaces.begin(), surfaces.end());
-    surfaces.erase(std::unique(surfaces.begin(), surfaces.end()), surfaces.end());
+    const auto surfaces = d.UvPaintSurfaces();
     v.renderer.Prepare(d, *ctx);
     v.history.BeginGroup();
     for (Id id : surfaces) {
@@ -887,21 +961,26 @@ void App::RetileMaterials(DocView& v) {
     Status("Une tuile par matériau : " + std::to_string(n) + " matériaux, peinture reportée (Ctrl+Z annule tout ; les exports écrivent un jeu par matériau)");
 }
 
-std::vector<std::pair<std::string, Rect>> App::ExportParts(DocView& v) {
+std::vector<std::pair<std::string, Rect>> App::ExportParts(DocView& v, bool actualSets) {
     std::vector<std::pair<std::string, Rect>> parts;
     const Document& d = *v.doc;
-    if (exportWholeTexture) {
+    if (exportWholeTexture && !actualSets) {
         parts.push_back({"", Rect{}});
         return parts;
     }
+    auto materialSuffix = [](const MeshData& m, size_t i) {
+        std::string name = m.materials[i].name.empty() ? "Materiau" + std::to_string(i + 1) : m.materials[i].name;
+        for (auto& c : name)
+            if (!(isalnum((unsigned char)c) || c == '-' || c == '_' || (unsigned char)c >= 0x80)) c = '_';
+        return "_" + name;
+    };
     if (v.mesh && !v.mesh->data.udims.empty()) {
-        // UDIM: one texture set per tile, named like the tile (.1001, .1002...).
         const auto& m = v.mesh->data;
-        const int cols = std::max(1, m.udimCols);
         for (size_t k = 0; k < m.udims.size(); ++k) {
-            const int cx = (int)k % cols, cy = (int)k / cols;
-            parts.push_back({"." + std::to_string(m.udims[k]), Rect{(int)std::lround((double)cx * d.Width() / cols), (int)std::lround((double)cy * d.Height() / cols),
-                                                                   (int)std::lround((double)(cx + 1) * d.Width() / cols), (int)std::lround((double)(cy + 1) * d.Height() / cols)}});
+            const float4 t = UdimRect(m, (int)k);
+            const std::string material = m.udimMaterials.empty() ? "" : materialSuffix(m, m.udimMaterials[k]);
+            parts.push_back({material + "." + std::to_string(m.udims[k]), Rect{(int)std::lround(t.x * d.Width()), (int)std::lround(t.y * d.Height()),
+                                                                   (int)std::lround(t.z * d.Width()), (int)std::lround(t.w * d.Height())}});
         }
         return parts;
     }
@@ -910,12 +989,8 @@ std::vector<std::pair<std::string, Rect>> App::ExportParts(DocView& v) {
         for (size_t i = 0; i < m.uvTiles.size() && i < m.materials.size(); ++i) {
             const float4 t = m.uvTiles[i];
             if (t.z <= t.x || t.w <= t.y) continue;  // material without triangles
-            // File-safe name of the material.
-            std::string name = m.materials[i].name.empty() ? "Materiau" + std::to_string(i + 1) : m.materials[i].name;
-            for (auto& c : name)
-                if (!(isalnum((unsigned char)c) || c == '-' || c == '_' || (unsigned char)c >= 0x80)) c = '_';
             Rect r = {(int)std::lround(t.x * d.Width()), (int)std::lround(t.y * d.Height()), (int)std::lround(t.z * d.Width()), (int)std::lround(t.w * d.Height())};
-            parts.push_back({"_" + name, r});
+            parts.push_back({materialSuffix(m, i), r});
         }
     }
     if (parts.empty()) parts.push_back({"", Rect{}});
@@ -927,6 +1002,8 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
     if (basePath.empty()) return;
     if (d.exportTemplate == 0) { ExportPbrTextures(v, basePath); return; }
     const auto parts = ExportParts(v);
+    const std::string error = texexport::ValidateSetNames(parts, Narrow(Utf8Path(basePath).stem().wstring()));
+    if (!error.empty()) { Status(error); return; }
     // Packed maps: ORM (Unreal: R occlusion, G roughness, B metal) or Unity mask map (R metal, G occlusion, A smoothness).
     auto p = std::filesystem::absolute(Utf8Path(basePath));
     std::string stem = Narrow((p.parent_path() / p.stem()).wstring());
@@ -938,28 +1015,30 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
     const bool unity = d.exportTemplate == 2;
     const gpu::ReadbackPtr ao = rb(PbrChannel::Occlusion), rough = rb(PbrChannel::Roughness), metal = rb(PbrChannel::Metallic);
     // Base color, normal (height baked in) and emissive as separate maps.
-    gpu::Texture* n = ChannelTexture(v, PbrChannel::Normal);
-    gpu::Texture* h = ChannelTexture(v, PbrChannel::Height);
-    gpu::TexturePtr baked = h ? v.renderer.BakeNormal(*ctx, n, h, d.Width(), d.Height()) : nullptr;
+    const auto normals = ReadSetNormals8(v,parts);
     auto grab = [&](gpu::Texture* t) { return t ? v.renderer.ExportRGBA8(*ctx, t) : nullptr; };
-    const gpu::ReadbackPtr base = grab(ChannelTexture(v, PbrChannel::BaseColor)), normal = grab(baked ? baked.get() : n);
-    const gpu::ReadbackPtr emis = (d.pbrChannels & (1u << (int)PbrChannel::Emissive)) ? grab(ChannelTexture(v, PbrChannel::Emissive)) : nullptr;
+    const gpu::ReadbackPtr base = grab(ChannelTexture(v, PbrChannel::BaseColor));
+    const gpu::ReadbackPtr emissive = grab(ChannelTexture(v, PbrChannel::Emissive));
     v.renderer.DropNodeCaches(d);
     const std::string stemAll = stem;
     const std::string nameAll = Narrow(p.stem().wstring());
     // One texture set per part: the whole texture, or each material's tile (the readbacks are shared).
     for (const auto& [suffix, crop] : parts) {
-    const std::string stem = stemAll + suffix;
+    const u32 enabled = d.TextureSetChannels(suffix);
+    const auto normal = normals[PbrNormalVariant(enabled)];
+    const auto emis = (enabled & (1u << (int)PbrChannel::Emissive)) ? emissive : nullptr;
+    const auto [materialSuffix, udimSuffix] = texexport::SetSuffixes(suffix);
+    const std::string setStem = stemAll + materialSuffix;
     // UDIM tiles: name_Channel.1001.png (the tile number last, as the 3D tools expect).
-    const bool udimPart = !suffix.empty() && suffix[0] == '.';
-    auto named = [&](const char* channel) { return udimPart ? stemAll + channel + suffix + ".png" : stem + channel + ".png"; };
+    const bool udimPart = !udimSuffix.empty();
+    auto named = [&](const char* channel) { return setStem + channel + udimSuffix + ".png"; };
     PackJob job;
     job.unity = unity;
     job.path = named(job.unity ? "_MaskMap" : "_ORM");
-    job.ao = ao;
-    job.rough = rough;
-    job.metal = metal;
-    job.crop = crop;
+    job.ao = (enabled & (1u << (int)PbrChannel::Occlusion)) ? ao : nullptr;
+    job.rough = (enabled & (1u << (int)PbrChannel::Roughness)) ? rough : nullptr;
+    job.metal = (enabled & (1u << (int)PbrChannel::Metallic)) ? metal : nullptr;
+    job.crop = crop.Empty() ? Rect{0, 0, (int)d.Width(), (int)d.Height()} : crop;
     packJobs.push_back(job);
     if (base) exports.push_back({named(unity ? "_BaseMap" : "_BaseColor"), base, crop});
     if (normal) exports.push_back({named("_Normal"), normal, crop});
@@ -977,15 +1056,15 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
             t["file"] = nameAll + suffix + fileSuffix;
             texs.Push(t);
         };
-        add("BaseColor", "_BaseColor.png");
-        add("Normal", "_Normal.png");
+        if (base) add("BaseColor", "_BaseColor.png");
+        if (normal) add("Normal", "_Normal.png");
         add("ORM", "_ORM.png");
-        if (d.pbrChannels & (1u << (int)PbrChannel::Emissive)) add("Emissive", "_Emissive.png");
+        if (emis) add("Emissive", "_Emissive.png");
         m["textures"] = texs;
-        std::ofstream(Utf8Path(stem + ".sxue.json"), std::ios::binary) << m.Dump(1);
+        std::ofstream(Utf8Path(setStem + ".sxue.json"), std::ios::binary) << m.Dump(1);
     }
     }
-    if (parts.size() > 1 && parts[0].first[0] == '.')
+    if (parts.size() > 1 && !texexport::SetSuffixes(parts[0].first).second.empty())
         Status("Export des textures : " + std::to_string(parts.size()) + " tuiles UDIM, " + stemAll + "_*.<tuile>.png");
     else if (parts.size() > 1)
         Status("Export des textures : " + std::to_string(parts.size()) + " matériaux, " + stemAll + "_<matériau>_*.png" + (unity ? "" : " (+ .sxue.json)"));
@@ -994,37 +1073,51 @@ void App::ExportProjectTextures(DocView& v, const std::string& basePath) {
 }
 
 void App::UpdatePaint3D() {
+    if (demoMode != 114) CheckParticleSession();
+    for (auto& v : docs) {
+        if (v->surfaceTools.stroke != Tool::Count &&
+            (v.get() != Active() || v->surfaceTools.lastFrame + 1 < ImGui::GetFrameCount()))
+            EndSurfaceTool(*v);
+    }
     PollMeshMapsBake();
     PollBake();
     PollTextureExports();
     PollTurntable();
     PollSmartMaterialSave();
     PollMaterialPick();
-    for (size_t i = 0; i < packJobs.size();) {
-        PackJob& j = packJobs[i];
-        auto ready = [](const gpu::ReadbackPtr& r) { return !r || r->ready; };
-        if (!ready(j.ao) || !ready(j.rough) || !ready(j.metal)) { ++i; continue; }
-        const gpu::Readback* ref = j.rough ? j.rough.get() : j.ao ? j.ao.get() : j.metal.get();
-        if (ref) {
-            const u32 FW = ref->width;
-            // A material's tile, or the whole texture.
-            Rect c = j.crop.Empty() ? Rect{0, 0, (int)ref->width, (int)ref->height} : j.crop;
-            c.x0 = std::clamp(c.x0, 0, (int)ref->width); c.x1 = std::clamp(c.x1, c.x0, (int)ref->width);
-            c.y0 = std::clamp(c.y0, 0, (int)ref->height); c.y1 = std::clamp(c.y1, c.y0, (int)ref->height);
-            const u32 W = (u32)c.Width(), H = (u32)c.Height();
-            std::vector<u8> px((size_t)W * H * 4, 255);
-            auto ch = [&](const gpu::ReadbackPtr& r, size_t p, u8 def) { return r && r->width == FW ? r->data[p * 4] : def; };
-            for (size_t p = 0; p < (size_t)W * H; ++p) {
-                const size_t src = (size_t)(c.y0 + p / W) * FW + (c.x0 + p % W);
-                u8 ao = ch(j.ao, src, 255), ro = ch(j.rough, src, 128), me = ch(j.metal, src, 0);
-                if (j.unity) { px[p * 4] = me; px[p * 4 + 1] = ao; px[p * 4 + 2] = 0; px[p * 4 + 3] = (u8)(255 - ro); }
-                else { px[p * 4] = ao; px[p * 4 + 1] = ro; px[p * 4 + 2] = me; px[p * 4 + 3] = 255; }
-            }
-            stbi_write_png(j.path.c_str(), (int)W, (int)H, 4, px.data(), (int)W * 4);
-            Status("Exporté : " + j.path);
+    if (packJobs.empty()) return;
+    const auto& job = packJobs.front();
+    if (packedMapWrite.valid()) {
+        if (packedMapWrite.wait_for(std::chrono::seconds(0)) != std::future_status::ready) return;
+        try {
+            Status((packedMapWrite.get() ? "Exporté : " : "Échec de l'export : ") + job.path);
+        } catch (const std::exception& e) {
+            Status("Échec de l'export : " + job.path + " (" + e.what() + ")");
         }
-        packJobs.erase(packJobs.begin() + i);
+        packJobs.erase(packJobs.begin());
+        return;
     }
+    auto ready = [](const gpu::ReadbackPtr& r) { return !r || r->ready; };
+    if (!ready(job.ao) || !ready(job.rough) || !ready(job.metal)) return;
+    packedMapWrite = std::async(std::launch::async, [job] {
+        const Rect c = job.crop;
+        if (c.Empty()) return false;
+        for (const auto& r : {job.ao, job.rough, job.metal}) {
+            if (r && (c.x0 < 0 || c.y0 < 0 || c.x1 > (int)r->width || c.y1 > (int)r->height ||
+                      r->data.size() != (size_t)r->width * r->height * 4)) return false;
+        }
+        std::vector<u8> px((size_t)c.Width() * c.Height() * 4);
+        auto sample = [](const gpu::ReadbackPtr& r, int x, int y, u8 fallback) {
+            return r ? r->data[((size_t)y * r->width + x) * 4] : fallback;
+        };
+        for (int y = c.y0; y < c.y1; ++y) for (int x = c.x0; x < c.x1; ++x) {
+            const u8 ao = sample(job.ao, x, y, 255), rough = sample(job.rough, x, y, 128), metal = sample(job.metal, x, y, 0);
+            u8* out = &px[((size_t)(y-c.y0) * c.Width() + x-c.x0) * 4];
+            if (job.unity) { out[0] = metal; out[1] = ao; out[2] = 0; out[3] = 255 - rough; }
+            else { out[0] = ao; out[1] = rough; out[2] = metal; out[3] = 255; }
+        }
+        return stbi_write_png(job.path.c_str(), c.Width(), c.Height(), 4, px.data(), c.Width() * 4) != 0;
+    });
 }
 
 void App::DrawPaint3DNewDialog() {
@@ -1059,8 +1152,15 @@ void App::DrawPaint3DNewDialog() {
     }
     ImGui::SeparatorText("Texture");
     ImGui::Combo("Résolution", &P.resolution, "1024 x 1024\0" "2048 x 2048\0" "4096 x 4096\0");
+    if (P.mesh == 3 && !P.autoUv) {
+        ImGui::Checkbox("Résolution native par tuile ou matériau", &P.resolutionPerTile);
+        if (P.resolutionPerTile) {
+            ImGui::InputTextMultiline("Résolutions individuelles", &P.tileResolutions, ImVec2(250*dpi, 60*dpi));
+            ui::HelpTooltip("Une ligne par exception : 1001 = 2048, Carrosserie = 1024 ou Carrosserie.1001 = 512. Le couple matériau–UDIM est prioritaire.");
+        }
+    }
     ImGui::SeparatorText("Canaux");
-    static const char* names[] = {"Couleur de base", "Rugosité", "Métal", "Normale", "Émissif", "Occlusion (AO)", "Hauteur"};
+    static const char* names[] = {"Couleur de base", "Rugosité", "Métal", "Normale", "Émissif", "Occlusion (AO)", "Hauteur", "Opacité", "Utilisateur 1", "Utilisateur 2", "Utilisateur 3", "Utilisateur 4"};
     for (int c = 0; c < (int)PbrChannel::Count; ++c) {
         if (c % 3) ImGui::SameLine(c % 3 * 150 * dpi);
         ImGui::BeginDisabled(c == 0);

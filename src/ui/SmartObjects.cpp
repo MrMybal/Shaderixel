@@ -115,7 +115,7 @@ void App::SyncSmartLayers(DocView& v) {
         auto it = v.textHashes.find(l.surface);
         if (it != v.textHashes.end() && it->second == h) continue;
         d.CancelPendingClear(l.surface);
-        bool wasDirty = d.dirty;  // derived pixels: not a change of the document
+        const auto wasDirty = d.dirty;  // derived pixels: not a change of the document
         v.renderer.PlaceSmart(d, *ctx, l.surface, so->content.get(), l.smartCorners, l.smartInterp);
         d.dirty = wasDirty;
         v.textHashes[l.surface] = h;
@@ -259,22 +259,23 @@ void App::EditSmartContents(DocView& parent, Layer& l) {
 
 void App::UpdateSmartChildren() {
     // Inner documents open in tabs: their image becomes the contents after each change.
-    for (auto& vp : docs) {
-        DocView& v = *vp;
+    // Children are appended after their parents. Propagate the deepest edits first.
+    for (auto it = docs.rbegin(); it != docs.rend(); ++it) {
+        DocView& v = **it;
         if (!v.smartLink.parent) continue;
         bool parentAlive = false;
         for (auto& p : docs) if (p.get() == v.smartLink.parent) parentAlive = true;
         if (!parentAlive) { v.smartLink = {}; continue; }
         SmartObject* so = v.smartLink.parent->doc->GetSmart(v.smartLink.smart);
         if (!so) { v.smartLink = {}; continue; }
-        u64 key = ((u64)v.history.Cursor() << 32) ^ v.history.Count() ^ ((u64)v.doc->Width() << 16) ^ v.doc->Height();
+        const u64 key = v.doc->dirty.Revision() + 1;
         if (key == v.smartLink.syncKey) continue;
         v.renderer.Prepare(*v.doc, *ctx);
         SyncTextLayers(v);
         SyncSmartLayers(v);
         gpu::Texture* img = v.renderer.EvaluateComplete(*v.doc, *ctx);
         if (!img) continue;  // shaders still compiling: retry next frame
-        v.smartLink.syncKey = key;
+        v.smartLink.syncKey = v.doc->dirty.Revision() + 1;
         if (!so->content || so->content->Width() != img->Width() || so->content->Height() != img->Height() || so->content->GetFormat() != img->GetFormat()) {
             so->content = gpu::Dev().CreateTexture(img->Width(), img->Height(), img->GetFormat(), "SmartContent");
             so->width = img->Width();

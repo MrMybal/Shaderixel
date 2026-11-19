@@ -4,6 +4,7 @@
 // Converted to the engine's left-handed space like the OBJ loader (z flip +
 // reversed winding). glTF UVs already have v pointing down.
 #include "mesh/Mesh.h"
+#include "mesh/UvUnwrap.h"
 #include "core/Json.h"
 #include "ai/Net.h"  // Base64
 
@@ -184,7 +185,7 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
         }
         out.materials.push_back(info);
     }
-    bool hasUv = false;
+    std::vector<u8> missingUvs;
     std::function<void(int, const M4&, int)> visit = [&](int ni, const M4& parent, int depth) {
         if (depth > 64) return;  // malformed file with a cycle in the node hierarchy
         const Json& node = g.doc["nodes"].At(ni);
@@ -192,6 +193,8 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
         const bool mirrored = world.Det3() < 0;  // the transform already reverses the winding
         if (node.Has("mesh")) {
             const Json& mesh = g.doc["meshes"].At(node["mesh"].I());
+            const u32 part = (u32)out.partNames.size();
+            out.partNames.push_back(node["name"].S(mesh["name"].S(out.name)));
             for (auto& prim : mesh["primitives"].Elements()) {
                 if (prim["mode"].I(4) != 4) continue;  // triangles only
                 const Json& at = prim["attributes"];
@@ -200,7 +203,7 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
                 std::vector<u32> I;
                 if (!g.Read(at["POSITION"].I(), 3, &P, nullptr)) return;
                 if (at.Has("NORMAL") && !g.Read(at["NORMAL"].I(), 3, &N, nullptr)) return;
-                if (at.Has("TEXCOORD_0")) { if (!g.Read(at["TEXCOORD_0"].I(), 2, &T, nullptr)) return; hasUv = true; }
+                if (at.Has("TEXCOORD_0") && !g.Read(at["TEXCOORD_0"].I(), 2, &T, nullptr)) return;
                 size_t nv = P.size() / 3;
                 if (N.size() / 3 < nv) N.clear();  // attributes shorter than POSITION: ignored
                 if (T.size() / 2 < nv) T.clear();
@@ -226,7 +229,9 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
                     out.indices.push_back(base + I[i]);
                     out.indices.push_back(base + I[i + o1]);
                     out.indices.push_back(base + I[i + o2]);
+                    out.triPart.push_back(part);
                     out.triMaterial.push_back((u16)mat);
+                    missingUvs.push_back(T.empty());
                 }
                 if (N.empty()) {  // flat-ish normals from faces
                     for (size_t i = 0; i + 2 < I.size(); i += 3) {
@@ -249,7 +254,7 @@ bool LoadGltf(const std::string& path, MeshData& out, std::string* error) {
     }
     if (!g.error.empty()) return fail(g.error);
     if (out.indices.empty()) return fail("aucun triangle");
-    out.hasUvs = hasUv;  // without UVs: loaded anyway, the UV tool (xatlas) unwraps it
+    out.hasUvs = RepairPartialUvs(out, missingUvs);
     if (out.materials.empty()) out.triMaterial.clear();
     NormalizeMesh(out);
     return true;

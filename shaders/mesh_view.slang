@@ -3,6 +3,7 @@
 // DirectX/Unreal convention), emissive, ambient occlusion. Data channels are
 // read as their visual (sRGB-encoded) value so a 50% gray means 0.5.
 #include "env_common.slang"
+#include "mesh_opacity.slang"
 
 cbuffer View : register(b1)
 {
@@ -42,6 +43,7 @@ Texture2D<float4> gHeight : register(t6);
 // vertically (level k is (W>>k) x (H>>k), H = W/2), sampled by roughness.
 Texture2D<float4> gEnv : register(t7);
 Texture2D<float4> gMaps : register(t8);      // baked mesh maps (R occlusion)
+Texture2D<float4> gExtra : register(t10);
 Texture2D<float> gShadowMap : register(t9);
 
 float ShadowAt(float3 world, float3 n)
@@ -134,6 +136,13 @@ float4 psMain(VSOut i, bool front : SV_IsFrontFace) : SV_Target0
     if (dot(n, v) < 0) n = -n;
 
     float3 base = float3(0.55, 0.55, 0.58);
+    int inspection = (int)(gViewMode + 0.5);
+    if (inspection >= 12) {
+        float fallback = inspection == 12 ? 1.0 : 0.0;
+        float value = (gFlags & 256) ? Data(gExtra, i.uv, fallback.xxx).r : fallback;
+        return float4(value.xxx, 1);
+    }
+    if (inspection == 0 && (gFlags & 256) && MeshOpacity(gExtra, i.uv) < 0.5) discard;
     if (gFlags & 1)
     {
         float4 c = gBase.SampleLevel(sLinearWrap, i.uv, 0);

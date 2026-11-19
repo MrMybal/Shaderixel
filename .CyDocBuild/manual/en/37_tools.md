@@ -1,14 +1,14 @@
 ---
 id: tools
 title: Tools and editing commands
-description: Each of the 46 toolbar tools has a reference page in the Tools category.
+description: Each toolbar tool has a reference page in the Tools category.
 section: Handbook
 order: 36
 parent: workspace
-revision: 0b6a6c617e175f2c
+revision: 52f25e775c2e10ab
 ---
 
-Each of the 46 toolbar tools has a reference page in the Tools category. Search by its English/French name, stable tool ID, operation or prerequisite. With the canvas, toolbar or Options focused, F1 opens the active tool's page. Options also offers Tool help. Help > Tool reference opens this index.
+Each toolbar tool has a reference page in the Tools category. Search by its English/French name, stable tool ID, operation or prerequisite. With the canvas, toolbar or Options focused, F1 opens the active tool's page. Options also offers Tool help. Help > Tool reference opens this index.
 
 ```image
 {"id": "layers-view", "src": "assets/manual/layers_view_en.png", "alt": "The toolbar chooses an interaction; Properties and Options edit its current target and settings.", "controls": "minimal"}
@@ -79,6 +79,8 @@ If a stroke seems ineffective, check the active document, selected layer, image/
 
 [Projection](doc:tool-projection)
 [Polygon Fill](doc:tool-poly-fill)
+[Surface quick mask](doc:tool-surface-mask)
+[Surface path](doc:tool-surface-path)
 [Paint Particles](doc:tool-particles)
 [Fluid Paint on canvas or model](doc:tool-fluid)
 [Plugin Tool](doc:tool-plugin)

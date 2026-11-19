@@ -139,6 +139,7 @@ struct PtImage {
     float4 Sample(float2 uv) const;  // bilinear, wrap
 };
 struct PtProjectTextures {
+    bool hasOpacity = false;
     PtImage base, orm, emissive, normal;  // orm: roughness, metal, occlusion
 };
 
@@ -191,6 +192,7 @@ public:
     gpu::Texture* Tonemap(gpu::CommandContext& ctx, const PtSettings& s);
     int Samples() const { return samples; }
     u32 Row() const { return row; }
+    bool hasOpacity = false;
     gpu::TexturePtr accum, view, packed[4];  // packed: base, ORM, emission, normal
     gpu::TexturePtr guideA, guideN;          // first-hit albedo (a: hits) / normal + distance sums (denoiser guides, passes)
     // Render pass image (RGBA8) from the guides: 0 albedo, 1 normal (world), 2 depth (white near, black at `farDist`), 3 mask.

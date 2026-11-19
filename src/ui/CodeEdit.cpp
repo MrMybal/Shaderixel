@@ -10,6 +10,10 @@
 #include <cctype>
 #include <cstring>
 
+namespace sx::demo {
+void (*observeCodeEditor)(const std::string*, TextEditor&) = nullptr;
+}
+
 namespace sx::ui {
 namespace {
 // Identifier boundaries are also used by Shaderixel's source formatter.
@@ -419,6 +423,7 @@ bool CodeEditor(const char* label, std::string* text, ImVec2 size, bool readOnly
     }
     view.editor.setReadOnly(readOnly);
     auto& native = view.editor.native();
+    if (demo::observeCodeEditor) demo::observeCodeEditor(text, native);
     native.ClearMarkers();
     if (marks) for (const auto& mark : *marks)
         if (mark.line >= 0) native.AddMarker((size_t)mark.line, cyui::palette().error,

@@ -74,7 +74,7 @@ void main(uint3 id : SV_DispatchThreadID)
         rgb = as * ab * mixed + (1.0 - as) * ab * cb;
         a = ab;
     }
-    float4 result = float4(rgb, a);
+    float4 result = gMode == 27 ? base * (1.0 - as) : float4(rgb, a);  // Erase (destination-out).
     uint keep = (gFlags >> 8) & 15;
     if (keep)
     {

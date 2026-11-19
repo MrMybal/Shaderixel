@@ -31,7 +31,8 @@ public:
     void PushState(const std::string& label, const DocState& before, const DocState& after);
     // Profile / CMYK profile / color mode of the document (kept outside DocState).
     void PushColorSettings(const std::string& label, const ColorSettings& before, const ColorSettings& after);
-    void PushPaint(const std::string& label, Id surface, const Rect& r, gpu::TexturePtr before, gpu::TexturePtr after);
+    void PushPaint(const std::string& label, Id surface, const Rect& r, gpu::TexturePtr before, gpu::TexturePtr after,
+                   gpu::ReadbackPtr tiles = {});
     // State kept outside the document (e.g. a 3D project's model): apply(true) undoes it, apply(false) redoes it.
     void PushCustom(const std::string& label, std::function<void(bool undo)> apply);
     void BeginGroup() { if (groupDepth++ == 0) currentGroup = ++groupCounter; }
@@ -78,6 +79,9 @@ private:
         DocState before, after;
         Id surface = 0;
         Rect rect;
+        gpu::ReadbackPtr tiles;
+        std::vector<Rect> tileRects;  // document regions in packed row-major order
+        u32 packCols = 0;
         gpu::TexturePtr pixelsBefore, pixelsAfter;
         u64 bytes = 0;  // on the GPU
         u32 group = 0;
@@ -86,6 +90,8 @@ private:
         std::future<std::pair<CpuPixels, CpuPixels>> packing;
         CpuPixels cpuBefore, cpuAfter;
     };
+    void CompactTiles(Entry& e, gpu::CommandContext& ctx);
+    void ApplyPaint(Document& doc, gpu::CommandContext& ctx, const Entry& e, gpu::Texture* pixels);
     void Account(const Entry& e, int sign);
     void Push(Entry&& e);
     void UndoOne(Document& doc, gpu::CommandContext& ctx);

@@ -12,7 +12,7 @@ namespace sx {
 namespace {
 const char* BlendKey(BlendMode m) {
     static const char* keys[] = {"norm", "mul ", "scrn", "over", "lddg", "fsub", "dark", "lite", "diff", "div ", "idiv", "hLit", "sLit", "diss",
-                                 "lbrn", "vLit", "lLit", "pLit", "hMix", "smud", "fdiv", "hue ", "sat ", "colr", "lum ", "dkCl", "lgCl"};
+                                 "lbrn", "vLit", "lLit", "pLit", "hMix", "smud", "fdiv", "hue ", "sat ", "colr", "lum ", "dkCl", "lgCl", "eras"};
     static_assert(sizeof(keys) / sizeof(keys[0]) == (size_t)BlendMode::Count);
     return (size_t)m < (size_t)BlendMode::Count ? keys[(size_t)m] : "norm";
 }

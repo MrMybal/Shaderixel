@@ -704,6 +704,8 @@ inline constexpr ManualPage kManualPages[] = {
     {"tool:ruler", "tool-ruler", "Ruler", "Tools"},
     {"tool:spot_heal", "tool-spot-heal", "Spot Healing", "Tools"},
     {"tool:color_replace", "tool-color-replace", "Color Replacement", "Tools"},
+    {"tool:surface_mask", "tool-surface-mask", "Surface quick mask", "Tools"},
+    {"tool:surface_path", "tool-surface-path", "Surface path", "Tools"},
     {"command:image_size", "command-image-size", "Image Size", "Commands"},
     {"command:fit_crop", "command-fit-crop", "Fit and Center Crop", "Commands"},
     {"command:canvas_size", "command-canvas-size", "Canvas Size", "Commands"},
@@ -1169,6 +1171,8 @@ inline constexpr std::string_view kManualToolTopics[] = {
     "tool:ruler",
     "tool:spot_heal",
     "tool:color_replace",
+    "tool:surface_mask",
+    "tool:surface_path",
 };
 inline constexpr ManualUiText kManualPanelTopics[] = {
     {"Calques", "layers"},

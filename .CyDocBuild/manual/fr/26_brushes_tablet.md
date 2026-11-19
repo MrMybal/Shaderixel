@@ -5,7 +5,7 @@ description: Ouvrez Aide > Pinceaux pour cet index.
 section: Manuel
 order: 25
 parent: painting
-sourceRevision: 5ffd39fa291ebe8f
+sourceRevision: b07e6e55f0b7bc3b
 ---
 
 ## Choisir et régler {#choose-and-configure-a-brush}
@@ -64,6 +64,32 @@ Ces aperçus sont calculés sur le GPU avec une pression simulée, sans mesure d
 [Création](doc:authoring)
 
 ## Catalogue des pinceaux livrés {#shipped-brush-catalog}
+
+### Essentiels {#essentials}
+
+[Aérographe](doc:brush-ess-airbrush)
+
+[Pinceau plat](doc:brush-ess-flat-brush)
+
+[Gouache](doc:brush-ess-gouache)
+
+[Plume d’encre](doc:brush-ess-ink-pen)
+
+[Marqueur](doc:brush-ess-marker)
+
+[Crayon](doc:brush-ess-pencil)
+
+[Rond dur](doc:brush-ess-round-hard)
+
+[Rond doux](doc:brush-ess-round-soft)
+
+[Pastel tendre](doc:brush-ess-soft-pastel)
+
+[Éclaboussures](doc:brush-ess-splatter)
+
+[Bombe de peinture](doc:brush-ess-spray)
+
+[Lavis](doc:brush-ess-wash)
 
 ### Exemples {#examples}
 

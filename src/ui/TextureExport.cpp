@@ -11,91 +11,269 @@
 
 #include <imgui_stdlib.h>
 #include <filesystem>
+#include <fstream>
 #include <stb_image_write.h>
 
 namespace sx {
 
 namespace {
 
-struct MapSpec {
-    std::string suffix;
-    std::string src[4];  // C.r C.g C.b C.a R S(1-R) M AO H N.r N.g N.b E.r E.g E.b 1 0
-};
-struct ExportPresetDef {
-    const char* name;
-    const char* desc;
-    bool opengl;  // normal map Y convention
-    std::vector<MapSpec> maps;
-};
+using texexport::Map;
+using texexport::Preset;
 
-const std::vector<ExportPresetDef>& Presets() {
-    static const std::vector<ExportPresetDef> p = {
+const std::vector<Preset>& Presets() {
+    static const std::vector<Preset> p = {
         {"Unreal Engine (ORM)", "BaseColor, Normal (DirectX), ORM (R occlusion, G rugosité, B métal), Emissive.", false,
-         {{"BaseColor", {"C.r", "C.g", "C.b", "1"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}}, {"ORM", {"AO", "R", "M", "1"}}, {"Emissive", {"E.r", "E.g", "E.b", "1"}}}},
+         {{"BaseColor", {"C.r", "C.g", "C.b", "O"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}}, {"ORM", {"AO", "R", "M", "1"}}, {"Emissive", {"E.r", "E.g", "E.b", "1"}}}},
         {"Unity HDRP", "BaseMap, Normal (OpenGL), MaskMap (R métal, G occlusion, B détail, A lissé).", true,
-         {{"BaseMap", {"C.r", "C.g", "C.b", "1"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}}, {"MaskMap", {"M", "AO", "0", "S"}}, {"Emissive", {"E.r", "E.g", "E.b", "1"}}}},
+         {{"BaseMap", {"C.r", "C.g", "C.b", "O"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}}, {"MaskMap", {"M", "AO", "0", "S"}}, {"Emissive", {"E.r", "E.g", "E.b", "1"}}}},
         {"Unity URP / Built-in (métal)", "BaseMap, Normal (OpenGL), MetallicSmoothness (R métal, A lissé), Occlusion.", true,
-         {{"BaseMap", {"C.r", "C.g", "C.b", "1"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}}, {"MetallicSmoothness", {"M", "M", "M", "S"}},
+         {{"BaseMap", {"C.r", "C.g", "C.b", "O"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}}, {"MetallicSmoothness", {"M", "M", "M", "S"}},
           {"Occlusion", {"AO", "AO", "AO", "1"}}, {"Emission", {"E.r", "E.g", "E.b", "1"}}}},
         {"glTF / Blender (ORM)", "BaseColor, Normal (OpenGL), OcclusionRoughnessMetallic (R occlusion, G rugosité, B métal), Emissive.", true,
-         {{"BaseColor", {"C.r", "C.g", "C.b", "1"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}}, {"OcclusionRoughnessMetallic", {"AO", "R", "M", "1"}},
+         {{"BaseColor", {"C.r", "C.g", "C.b", "O"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}}, {"OcclusionRoughnessMetallic", {"AO", "R", "M", "1"}},
           {"Emissive", {"E.r", "E.g", "E.b", "1"}}}},
         {"Godot (ORM)", "Albedo, Normal (OpenGL), ORM (R occlusion, G rugosité, B métal), Emission.", true,
-         {{"Albedo", {"C.r", "C.g", "C.b", "1"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}}, {"ORM", {"AO", "R", "M", "1"}}, {"Emission", {"E.r", "E.g", "E.b", "1"}}}},
+         {{"Albedo", {"C.r", "C.g", "C.b", "O"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}}, {"ORM", {"AO", "R", "M", "1"}}, {"Emission", {"E.r", "E.g", "E.b", "1"}}}},
         {"Textures séparées", "Une image par canal : couleur, rugosité, métal, normale (DirectX), émissif, occlusion, hauteur.", false,
-         {{"BaseColor", {"C.r", "C.g", "C.b", "1"}}, {"Roughness", {"R", "R", "R", "1"}}, {"Metallic", {"M", "M", "M", "1"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}},
-          {"Emissive", {"E.r", "E.g", "E.b", "1"}}, {"AO", {"AO", "AO", "AO", "1"}}, {"Height", {"H", "H", "H", "1"}}}},
+         {{"BaseColor", {"C.r", "C.g", "C.b", "O"}}, {"Roughness", {"R", "R", "R", "1"}}, {"Metallic", {"M", "M", "M", "1"}}, {"Normal", {"N.r", "N.g", "N.b", "1"}},
+          {"Emissive", {"E.r", "E.g", "E.b", "1"}}, {"AO", {"AO", "AO", "AO", "1"}}, {"Height", {"H", "H", "H", "1"}}, {"Opacity", {"O", "O", "O", "1"}},
+           {"User0", {"U0", "U0", "U0", "1"}}, {"User1", {"U1", "U1", "U1", "1"}},
+           {"User2", {"U2", "U2", "U2", "1"}}, {"User3", {"U3", "U3", "U3", "1"}}}},
     };
     return p;
 }
 
-std::vector<float> ToFloats(const gpu::Readback& rb) {
-    const size_t n = (size_t)rb.width * rb.height;
-    std::vector<float> out(n * 4, 0.0f);
-    const size_t bpp = n ? rb.data.size() / n : 0;
-    if (bpp >= 16) memcpy(out.data(), rb.data.data(), n * 16);
-    else if (bpp >= 8) {
-        const u16* s = (const u16*)rb.data.data();
-        for (size_t i = 0; i < n * 4; ++i) out[i] = HalfToFloat(s[i]);
-    } else if (bpp >= 4) {
-        for (size_t i = 0; i < n * 4; ++i) out[i] = rb.data[i] / 255.0f;
+struct Source {
+    const char* id;
+    const char* label;
+    PbrChannel channel;
+    int component;
+    float fallback;
+};
+using C = PbrChannel;
+u32 Bit(C c) { return 1u << (int)c; }
+const Source sources[] = {
+    {"C.r","Couleur R",C::BaseColor,0,0.5f}, {"C.g","Couleur V",C::BaseColor,1,0.5f}, {"C.b","Couleur B",C::BaseColor,2,0.5f},
+    {"C.a","Couverture",C::BaseColor,3,1}, {"R","Rugosité",C::Roughness,0,0.5f}, {"S","Lissé",C::Roughness,0,0.5f},
+    {"M","Métal",C::Metallic,0,0}, {"AO","Occlusion",C::Occlusion,0,1}, {"H","Hauteur",C::Height,0,0.5f},
+    {"N.r","Normale X",C::Normal,0,0.5f}, {"N.g","Normale Y",C::Normal,1,0.5f}, {"N.b","Normale Z",C::Normal,2,1},
+    {"E.r","Émissif R",C::Emissive,0,0}, {"E.g","Émissif V",C::Emissive,1,0}, {"E.b","Émissif B",C::Emissive,2,0},
+    {"O","Opacité",C::Opacity,0,1}, {"U0","Utilisateur 1",C::User0,0,0}, {"U1","Utilisateur 2",C::User1,0,0},
+    {"U2","Utilisateur 3",C::User2,0,0}, {"U3","Utilisateur 4",C::User3,0,0}, {"1","1",C::Count,0,1}, {"0","0",C::Count,0,0}
+};
+const Source* FindSource(const std::string& id) {
+    for (const auto& s : sources) if (id == s.id) return &s;
+    return nullptr;
+}
+
+bool ValidPreset(const Preset& p) {
+    if (p.name.empty() || p.maps.empty()) return false;
+    for (const auto& m : p.maps) {
+        if (m.suffix.empty()) return false;
+        for (const auto& s : m.src) if (!FindSource(s)) return false;
+    }
+    return true;
+}
+
+bool ValidReadback(const gpu::Readback& r, int w, int h) {
+    const size_t size = r.format == gpu::Format::RGBA32F ? 16 : r.format == gpu::Format::RGBA16F || r.format == gpu::Format::RGBA16 ? 8 :
+                        r.format == gpu::Format::RGBA8 ? 4 : 0;
+    return size && r.width == (u32)w && r.height == (u32)h && r.data.size() == (size_t)w * h * size;
+}
+
+float Read(const gpu::Readback& r, size_t pixel, int c) {
+    const size_t i = pixel * 4 + c;
+    switch (r.format) {
+        case gpu::Format::RGBA32F: return reinterpret_cast<const float*>(r.data.data())[i];
+        case gpu::Format::RGBA16F: return HalfToFloat(reinterpret_cast<const u16*>(r.data.data())[i]);
+        case gpu::Format::RGBA16: return reinterpret_cast<const u16*>(r.data.data())[i] / 65535.0f;
+        default: return r.data[i] / 255.0f;
+    }
+}
+
+struct ExportComponent {
+    const gpu::Readback* image;
+    int component;
+    float fallback;
+    bool invert;
+    float Sample(size_t p) const {
+        float value = fallback;
+        if (image) {
+            const float a = Read(*image, p, 3);
+            if (component == 3) value = std::clamp(a, 0.0f, 1.0f);
+            else if (a > 1e-4f) value = std::clamp(LinearToSrgb(std::max(0.0f, Read(*image, p, component) / std::min(a, 1.0f))), 0.0f, 1.0f);
+        }
+        return invert ? 1.0f - value : value;
+    }
+};
+
+std::vector<float> ResizeMap(std::vector<float> img, int w, int h, int ow, int oh) {
+    if (w == ow && h == oh) return img;
+    std::vector<float> out((size_t)ow * oh * 4);
+    for (int y = 0; y < oh; ++y) for (int x = 0; x < ow; ++x) {
+        const double x0 = (double)x * w / ow, x1 = (double)(x+1) * w / ow, y0 = (double)y * h / oh, y1 = (double)(y+1) * h / oh;
+        float* dst = &out[((size_t)y * ow + x) * 4];
+        for (int sy = (int)y0; sy < (int)std::ceil(y1); ++sy) for (int sx = (int)x0; sx < (int)std::ceil(x1); ++sx) {
+            const float weight = (float)((std::min(x1, sx+1.0)-std::max(x0, (double)sx)) *
+                                         (std::min(y1, sy+1.0)-std::max(y0, (double)sy)) / ((x1-x0)*(y1-y0)));
+            for (int c = 0; c < 4; ++c) dst[c] += weight * img[((size_t)sy * w + sx) * 4 + c];
+        }
     }
     return out;
 }
 
-float Encode(float linear) { return std::clamp(LinearToSrgb(std::max(linear, 0.0f)), 0.0f, 1.0f); }
+bool EncodeMap(const std::string& path, const std::vector<float>& pixels, int w, int h, int depth, std::string& err) {
+    if (depth == 1) {
+        std::vector<u16> px(pixels.size());
+        for (size_t i = 0; i < px.size(); ++i) px[i] = (u16)std::lround(std::clamp(pixels[i], 0.0f, 1.0f) * 65535.0f);
+        return SavePng16(path, px, w, h, &err);
+    }
+    std::ofstream file(Utf8Path(path), std::ios::binary);
+    if (!file) return false;
+    std::vector<u8> px(pixels.size());
+    for (size_t i = 0; i < px.size(); ++i) px[i] = (u8)std::lround(std::clamp(pixels[i], 0.0f, 1.0f) * 255.0f);
+    auto write = [](void* f, void* data, int n) { static_cast<std::ofstream*>(f)->write(static_cast<const char*>(data), n); };
+    const bool ok = depth == 2 ? stbi_write_tga_to_func(write, &file, w, h, 4, px.data()) != 0 :
+                                 stbi_write_png_to_func(write, &file, w, h, 4, px.data(), w * 4) != 0;
+    file.close();
+    return ok && !file.fail();
+}
+
+bool WriteMap(const std::string& path, const std::vector<float>& pixels, int w, int h, int depth, std::string& err) {
+    const auto dest = Utf8Path(path);
+    std::error_code ec;
+    std::filesystem::create_directories(dest.parent_path(), ec);
+    if (ec) { err = ec.message(); return false; }
+    static std::atomic<u64> serial{0};
+    std::filesystem::path tmp;
+    for (;;) {
+        tmp = dest.parent_path() / ("shaderixel-" + std::to_string(GetCurrentProcessId()) + "-" + std::to_string(++serial) + ".tmp");
+        HANDLE file = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file != INVALID_HANDLE_VALUE) { CloseHandle(file); break; }
+        const DWORD error = GetLastError();
+        if (error != ERROR_FILE_EXISTS && error != ERROR_ALREADY_EXISTS) {
+            err = std::system_category().message(error);
+            return false;
+        }
+    }
+    bool ok = EncodeMap(Narrow(tmp.wstring()), pixels, w, h, depth, err);
+    if (ok) {
+        std::filesystem::rename(tmp, dest, ec);
+        if (ec) { err = ec.message(); ok = false; }
+    }
+    if (!ok) std::filesystem::remove(tmp, ec);
+    return ok;
+}
 
 }  // namespace
 
-int TextureExportPresetCount() { return (int)Presets().size(); }
+void App::LoadTextureExportPresets(const Json& settings) {
+    customExportPresets.clear();
+    for (const auto& j : settings.Elements()) {
+        Preset p{j["name"].S(), "", j["opengl"].B(), {}};
+        for (const auto& item : j["maps"].Elements()) {
+            Map m{item["name"].S(), {}};
+            const auto& ch = item["rgba"].Elements();
+            if (ch.size() == 4) for (int i = 0; i < 4; ++i) m.src[i] = ch[i].S();
+            p.maps.push_back(std::move(m));
+        }
+        if (ValidPreset(p)) customExportPresets.push_back(std::move(p));
+    }
+}
+
+Json App::TextureExportPresetsJson() const {
+    Json list = Json::Array();
+    for (const auto& p : customExportPresets) {
+        Json j = Json::Object();
+        j["name"] = p.name;
+        j["opengl"] = p.opengl;
+        for (const auto& m : p.maps) {
+            Json item = Json::Object();
+            item["name"] = m.suffix;
+            for (const auto& input : m.src) item["rgba"].Push(input);
+            j["maps"].Push(item);
+        }
+        list.Push(j);
+    }
+    return list;
+}
 
 void App::StartTextureExport(DocView& v) {
-    auto& E = texExport;
-    Document& d = *v.doc;
-    if (!v.mesh || E.folder.empty()) { Status("Export des textures : choisissez un dossier"); return; }
-    v.renderer.EvaluateComplete(d, *ctx);
+    const auto& o = texExport;
+    if (!v.mesh || o.folder.empty()) { Status("Export des textures : choisissez un dossier"); return; }
     TexExportJob job;
-    job.view = &v;
-    job.opt = E;
-    for (int c = 0; c < (int)PbrChannel::Count; ++c)
-        if (gpu::Texture* t = ChannelTexture(v, (PbrChannel)c)) {
-            job.has[c] = true;
-            job.ch[c] = ctx->ReadbackTexture(t);
-        }
-    // Normal with the height baked in (like the other exports).
-    gpu::Texture* n = ChannelTexture(v, PbrChannel::Normal);
-    gpu::Texture* h = ChannelTexture(v, PbrChannel::Height);
-    if (h) {
-        job.bakedNormal = v.renderer.BakeNormal(*ctx, n, h, d.Width(), d.Height());
-        if (job.bakedNormal) {
-            job.ch[(int)PbrChannel::Normal] = ctx->ReadbackTexture(job.bakedNormal.get());
-            job.has[(int)PbrChannel::Normal] = true;
-        }
-    }
-    if (E.padding > 0 && v.mesh->posMap) job.pos = ctx->ReadbackTexture(v.mesh->posMap.get());
+    const auto& builtins = Presets();
+    const int index = std::clamp(o.preset, 0, (int)(builtins.size() + customExportPresets.size()) - 1);
+    job.preset = index < (int)builtins.size() ? builtins[index] : customExportPresets[index - builtins.size()];
+    Document& d = *v.doc;
+    job.opt = o;
     job.width = d.Width();
     job.height = d.Height();
-    job.name = E.name.empty() ? (d.path.empty() ? std::string("Texture") : Narrow(Utf8Path(d.path).stem().wstring())) : E.name;
+    job.parts = ExportParts(v);
+    u32 allChannels = 0;
+    std::set<u32> distinctChannels;
+    for (auto& [suffix, r] : job.parts) {
+        if (suffix.empty() && r.Empty()) r = {0, 0, (int)d.Width(), (int)d.Height()};
+        r = r.Clipped(d.Width(), d.Height());
+        if (r.Empty()) { Status("Export des textures : tuile vide " + suffix); return; }
+        const u32 channels = d.TextureSetChannels(suffix);
+        allChannels |= channels;
+        distinctChannels.insert(channels);
+        job.partChannels.push_back(channels);
+        if (o.atlas) job.atlasChannels.push_back({r, channels});
+    }
+    if (o.atlas) {
+        job.parts = {{"", {0,0,(int)d.Width(),(int)d.Height()}}};
+        job.partChannels = {allChannels};
+        std::erase_if(job.atlasChannels, [allChannels](const auto& region){ return region.second == allChannels; });
+    }
+    const std::string base = o.name.empty() ? (d.path.empty() ? std::string("Texture") : Narrow(Utf8Path(d.path).stem().wstring())) : o.name;
+    // Built-in separate maps are optional when their channel is disabled, including emissive in packed templates.
+    std::vector<std::vector<bool>> enabledMaps;
+    for (u32 channels : job.partChannels) {
+        auto& enabled = enabledMaps.emplace_back();
+        for (const Map& map : job.preset.maps) {
+            const C c = FindSource(map.src[0])->channel;
+            const bool optional = index == 5 || (index < (int)builtins.size() && c == C::Emissive);
+            enabled.push_back(!optional || (channels & Bit(c)) || (c == C::Normal && PbrNormalVariant(channels)));
+        }
+    }
+    std::string error = texexport::PlanOutputs(job.parts, job.preset.maps, o.pattern.empty() ? "{nom}_{carte}" : o.pattern, base,
+                                               o.depth == 2 ? ".tga" : ".png", job.outputs, enabledMaps);
+    if (!error.empty()) { Status(error); return; }
+    v.renderer.EvaluateComplete(d, *ctx);
+    std::set<C> needed;
+    for (const auto& output : job.outputs)
+        for (const auto& id : job.preset.maps[output.map].src) needed.insert(FindSource(id)->channel);
+    for (C c : needed) {
+        if (c == C::Count) continue;
+        if (c == C::Normal) {
+            auto* normal = ChannelTexture(v,C::Normal);
+            auto* height = ChannelTexture(v,C::Height);
+            distinctChannels.insert(allChannels);
+            std::set<int> variants;
+            for (u32 mask : distinctChannels) variants.insert(PbrNormalVariant(mask));
+            for (int variant : variants) {
+                gpu::Texture* t = (variant & 1) ? normal : nullptr;
+                if ((variant & 2) && height) {
+                    auto baked = v.renderer.BakeNormal(*ctx,t,height,d.Width(),d.Height());
+                    if (!baked) { Status("Impossible de calculer les normales du jeu de textures."); return; }
+                    t = baked.get();
+                    job.bakedNormals.push_back(std::move(baked));
+                }
+                if (t && !(job.normals[variant] = ctx->ReadbackTexture(t))) { Status("Lecture GPU des normales impossible."); return; }
+            }
+            continue;
+        }
+        if (!(allChannels & Bit(c))) continue;
+        gpu::Texture* t = ChannelTexture(v, c);
+        if (t) {
+            job.ch[(int)c] = ctx->ReadbackTexture(t);
+            if (!job.ch[(int)c]) { Status("Lecture GPU impossible : " + std::string(PbrChannelName(c))); return; }
+        }
+    }
+    if (o.padding > 0 && v.mesh->posMap) job.pos = ctx->ReadbackTexture(v.mesh->posMap.get());
     v.renderer.DropNodeCaches(d);
     texExportJobs.push_back(std::move(job));
     Status("Export des textures...");
@@ -103,163 +281,82 @@ void App::StartTextureExport(DocView& v) {
 
 void App::PollTextureExports() {
     for (size_t i = 0; i < texExportJobs.size();) {
-        TexExportJob& J = texExportJobs[i];
-        if (J.result.valid()) {
-            if (J.result.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-                Status(J.result.get());
-                texExportJobs.erase(texExportJobs.begin() + i);
-                continue;
-            }
-            ++i;
+        auto& j = texExportJobs[i];
+        if (j.result.valid()) {
+            if (j.result.wait_for(std::chrono::seconds(0)) != std::future_status::ready) { ++i; continue; }
+            try { Status(j.result.get()); }
+            catch (const std::exception& e) { Status(std::string("Échec de l'export des textures : ") + e.what()); }
+            texExportJobs.erase(texExportJobs.begin() + i);
             continue;
         }
-        bool ready = !J.pos || J.pos->ready;
-        for (auto& rb : J.ch) ready &= !rb || rb->ready;
+        bool ready = !j.pos || j.pos->ready;
+        for (const auto& rb : j.ch) ready &= !rb || rb->ready;
+        for (const auto& rb : j.normals) ready &= !rb || rb->ready;
         if (!ready) { ++i; continue; }
-        // Everything on the CPU now: assemble on a worker thread.
-        struct Data {
-            std::vector<float> ch[(int)PbrChannel::Count];
-            bool has[(int)PbrChannel::Count] = {};
-            std::vector<u8> covered;
-        };
-        auto data = std::make_shared<Data>();
-        for (int c = 0; c < (int)PbrChannel::Count; ++c)
-            if (J.ch[c]) {
-                data->ch[c] = ToFloats(*J.ch[c]);
-                data->has[c] = J.has[c];
-            }
-        if (J.pos) {
-            std::vector<float> pos = ToFloats(*J.pos);
-            data->covered.resize(pos.size() / 4);
-            for (size_t k = 0; k < data->covered.size(); ++k) data->covered[k] = pos[k * 4 + 3] > 0 ? 1 : 0;
-        }
-        J.ch = {};
-        J.pos.reset();
-        J.bakedNormal.reset();
-        const TexExportOptions o = J.opt;
-        const int W = (int)J.width, H = (int)J.height;
-        const std::string name = J.name;
-        J.result = std::async(std::launch::async, [data, o, W, H, name]() -> std::string {
-            const ExportPresetDef& P = Presets()[std::clamp(o.preset, 0, (int)Presets().size() - 1)];
-            const bool opengl = o.normal < 0 ? P.opengl : o.normal == 1;
-            const size_t N = (size_t)W * H;
-            auto value = [&](const std::string& s, size_t px) -> float {
-                auto chan = [&](PbrChannel c, int k, float def) {
-                    const auto& v = data->ch[(int)c];
-                    if (!data->has[(int)c] || v.size() < N * 4) return def;
-                    const float a = v[px * 4 + 3];
-                    const float x = a > 1e-4f ? v[px * 4 + k] / std::min(a, 1.0f) : 0.0f;
-                    return a > 1e-4f ? Encode(x) : def;
-                };
-                if (s == "1") return 1.0f;
-                if (s == "0") return 0.0f;
-                if (s == "C.r") return chan(PbrChannel::BaseColor, 0, 0.5f);
-                if (s == "C.g") return chan(PbrChannel::BaseColor, 1, 0.5f);
-                if (s == "C.b") return chan(PbrChannel::BaseColor, 2, 0.5f);
-                if (s == "C.a") return data->has[0] && data->ch[0].size() >= N * 4 ? std::clamp(data->ch[0][px * 4 + 3], 0.0f, 1.0f) : 1.0f;
-                if (s == "R") return chan(PbrChannel::Roughness, 0, 0.5f);
-                if (s == "S") return 1.0f - chan(PbrChannel::Roughness, 0, 0.5f);
-                if (s == "M") return chan(PbrChannel::Metallic, 0, 0.0f);
-                if (s == "AO") return chan(PbrChannel::Occlusion, 0, 1.0f);
-                if (s == "H") return chan(PbrChannel::Height, 0, 0.5f);
-                if (s == "N.r") return chan(PbrChannel::Normal, 0, 0.5f);
-                if (s == "N.g") { float g = chan(PbrChannel::Normal, 1, 0.5f); return opengl ? 1.0f - g : g; }
-                if (s == "N.b") return chan(PbrChannel::Normal, 2, 1.0f);
-                if (s == "E.r") return chan(PbrChannel::Emissive, 0, 0.0f);
-                if (s == "E.g") return chan(PbrChannel::Emissive, 1, 0.0f);
-                if (s == "E.b") return chan(PbrChannel::Emissive, 2, 0.0f);
-                return 0.0f;
-            };
-            static const int sizes[] = {0, 0, 0, 512, 1024, 2048, 4096};
-            const int outW = o.size == 0 ? W : o.size == 1 ? W / 2 : o.size == 2 ? W / 4 : sizes[std::clamp(o.size, 3, 6)];
-            const int outH = o.size <= 2 ? (o.size == 0 ? H : o.size == 1 ? H / 2 : H / 4) : outW * H / std::max(W, 1);
+        j.bakedNormals.clear();
+        j.result = std::async(std::launch::async, [ch = std::move(j.ch), pos = std::move(j.pos), o = j.opt, p = std::move(j.preset),
+                            normals = std::move(j.normals), masks = std::move(j.partChannels), atlas = std::move(j.atlasChannels),
+                            parts = std::move(j.parts), outputs = std::move(j.outputs), w = (int)j.width, h = (int)j.height]() -> std::string {
+            for (const auto& rb : ch) if (rb && !ValidReadback(*rb, w, h)) return "Export : lecture GPU de canal incomplète.";
+            for (const auto& rb : normals) if (rb && !ValidReadback(*rb, w, h)) return "Export : lecture GPU des normales incomplète.";
+            if (pos && !ValidReadback(*pos, w, h)) return "Export : lecture GPU des UV incomplète.";
             std::error_code ec;
             std::filesystem::create_directories(Utf8Path(o.folder), ec);
-            int written = 0;
-            std::string errors;
-            for (const MapSpec& m : P.maps) {
-                bool uses = false;
-                bool needed = true;
-                for (auto& s : m.src) {
-                    if (s.rfind("E.", 0) == 0) needed &= data->has[(int)PbrChannel::Emissive];
-                    uses |= s != "0" && s != "1";
+            if (ec) return "Export : " + ec.message();
+            int previous = -1, written = 0;
+            std::vector<texexport::PaddingPixel> padding;
+            for (const auto& output : outputs) {
+                const Rect& r = parts[output.part].second;
+                const int tw = r.Width(), th = r.Height();
+                if (previous != output.part && pos) {
+                    std::vector<u8> covered((size_t)tw * th);
+                    for (int y = 0; y < th; ++y) for (int x = 0; x < tw; ++x)
+                        // The viewport's six preview-padding texels carry alpha 0.5. Only geometry (1) seeds export dilation.
+                        covered[(size_t)y * tw + x] = Read(*pos, (size_t)(r.y0 + y) * w + r.x0 + x, 3) > 0.75f;
+                    padding = texexport::BuildPadding(std::move(covered), tw, th, o.padding);
+                    previous = output.part;
                 }
-                // Separate maps: only the channels the project has.
-                if (P.maps.size() == 7) {
-                    const std::string& s0 = m.src[0];
-                    PbrChannel c = s0 == "R" ? PbrChannel::Roughness : s0 == "M" ? PbrChannel::Metallic : s0 == "AO" ? PbrChannel::Occlusion : s0 == "H" ? PbrChannel::Height
-                                   : s0[0] == 'N' ? PbrChannel::Normal : s0[0] == 'E' ? PbrChannel::Emissive : PbrChannel::BaseColor;
-                    needed &= data->has[(int)c];
+                const Map& map = p.maps[output.map];
+                std::vector<float> image((size_t)tw * th * 4);
+                auto components = [&](u32 enabled) {
+                    std::array<ExportComponent,4> result{};
+                    for (int k = 0; k < 4; ++k) {
+                        const Source& s = *FindSource(map.src[k]);
+                        const bool opengl = o.normal < 0 ? p.opengl : o.normal == 1;
+                        const gpu::Readback* source = nullptr;
+                        if (s.channel == C::Normal) source = normals[PbrNormalVariant(enabled)].get();
+                        else if (s.channel != C::Count && (enabled & Bit(s.channel))) source = ch[(int)s.channel].get();
+                        result[k] = {source,s.component,s.fallback,map.src[k] == "S" || (map.src[k] == "N.g" && opengl)};
+                    }
+                    return result;
+                };
+                const auto inputs = components(masks[output.part]);
+                for (int y = 0; y < th; ++y) for (int x = 0; x < tw; ++x) {
+                    const size_t src = (size_t)(r.y0 + y) * w + r.x0 + x, dst = ((size_t)y * tw + x) * 4;
+                    for (int k = 0; k < 4; ++k) image[dst + k] = inputs[k].Sample(src);
                 }
-                if (!uses || !needed) continue;
-                std::vector<float> img(N * 4);
-                for (size_t px = 0; px < N; ++px)
-                    for (int k = 0; k < 4; ++k) img[px * 4 + k] = value(m.src[k], px);
-                // Padding: the colors of the islands pushed outwards.
-                if (o.padding > 0 && data->covered.size() == N) {
-                    std::vector<u8> filled = data->covered;
-                    for (int pass = 0; pass < o.padding; ++pass) {
-                        std::vector<u8> nf = filled;
-                        bool any = false;
-                        for (int y = 0; y < H; ++y)
-                            for (int x = 0; x < W; ++x) {
-                                const size_t idx = (size_t)y * W + x;
-                                if (filled[idx]) continue;
-                                float acc[4] = {};
-                                int c = 0;
-                                for (int dy = -1; dy <= 1; ++dy)
-                                    for (int dx = -1; dx <= 1; ++dx) {
-                                        const int xx = x + dx, yy = y + dy;
-                                        if (xx < 0 || yy < 0 || xx >= W || yy >= H || !filled[(size_t)yy * W + xx]) continue;
-                                        for (int k = 0; k < 4; ++k) acc[k] += img[((size_t)yy * W + xx) * 4 + k];
-                                        ++c;
-                                    }
-                                if (!c) continue;
-                                for (int k = 0; k < 4; ++k) img[idx * 4 + k] = acc[k] / c;
-                                nf[idx] = 1;
-                                any = true;
-                            }
-                        filled.swap(nf);
-                        if (!any) break;
+                for (const auto& [region, enabled] : atlas) {
+                    const auto local = components(enabled);
+                    for (int k = 0; k < 4; ++k) {
+                        if (inputs[k].image == local[k].image) continue;
+                        for (int y = region.y0; y < region.y1; ++y) for (int x = region.x0; x < region.x1; ++x) {
+                            const size_t px = (size_t)y*w+x;
+                            image[px*4+k] = local[k].Sample(px);
+                        }
                     }
                 }
-                // Size: area average down, bilinear up.
-                std::vector<float> out = img;
-                if (outW != W || outH != H) {
-                    out.assign((size_t)outW * outH * 4, 0.0f);
-                    for (int y = 0; y < outH; ++y)
-                        for (int x = 0; x < outW; ++x) {
-                            const float x0 = (float)x * W / outW, x1 = (float)(x + 1) * W / outW, y0 = (float)y * H / outH, y1 = (float)(y + 1) * H / outH;
-                            float acc[4] = {};
-                            int c = 0;
-                            for (int sy = (int)y0; sy < std::max((int)std::ceil(y1), (int)y0 + 1) && sy < H; ++sy)
-                                for (int sx = (int)x0; sx < std::max((int)std::ceil(x1), (int)x0 + 1) && sx < W; ++sx) {
-                                    for (int k = 0; k < 4; ++k) acc[k] += img[((size_t)sy * W + sx) * 4 + k];
-                                    ++c;
-                                }
-                            for (int k = 0; k < 4; ++k) out[((size_t)y * outW + x) * 4 + k] = c ? acc[k] / c : 0;
-                        }
-                }
-                std::string file = o.pattern.empty() ? "{nom}_{carte}" : o.pattern;
-                for (size_t at; (at = file.find("{nom}")) != std::string::npos;) file.replace(at, 5, name);
-                for (size_t at; (at = file.find("{carte}")) != std::string::npos;) file.replace(at, 7, m.suffix);
-                const std::string path = o.folder + "/" + file + (o.depth == 2 ? ".tga" : ".png");
-                bool ok = false;
-                if (o.depth == 1) {
-                    std::vector<u16> px(out.size());
-                    for (size_t k = 0; k < out.size(); ++k) px[k] = (u16)std::lround(std::clamp(out[k], 0.0f, 1.0f) * 65535.0f);
-                    std::string err;
-                    ok = SavePng16(path, px, outW, outH, &err);
-                    if (!ok) errors += " " + err;
-                } else {
-                    std::vector<u8> px(out.size());
-                    for (size_t k = 0; k < out.size(); ++k) px[k] = (u8)std::lround(std::clamp(out[k], 0.0f, 1.0f) * 255.0f);
-                    ok = o.depth == 2 ? stbi_write_tga(path.c_str(), outW, outH, 4, px.data()) != 0
-                                      : stbi_write_png(path.c_str(), outW, outH, 4, px.data(), outW * 4) != 0;
-                }
-                written += ok ? 1 : 0;
+                texexport::ApplyPadding(padding, tw, image);
+                static const int fixed[] = {512,1024,2048,4096};
+                const int ow = o.size <= 2 ? std::max(1, tw >> std::clamp(o.size, 0, 2)) : fixed[std::clamp(o.size-3, 0, 3)];
+                const int oh = std::max(1, (int)std::lround((double)th * ow / tw));
+                auto resized = ResizeMap(std::move(image), tw, th, ow, oh);
+                const std::string path = o.folder + "/" + output.filename;
+                std::string err;
+                if (!WriteMap(path, resized, ow, oh, o.depth, err))
+                    return "Échec de l'export : " + path + " (" + std::to_string(written) + " image(s) écrite(s)). " + err;
+                ++written;
             }
-            return "Export des textures (" + std::string(P.name) + ") : " + std::to_string(written) + " image(s) dans " + o.folder + errors;
+            return "Export des textures (" + p.name + ") : " + std::to_string(written) + " image(s) dans " + o.folder;
         });
         ++i;
     }
@@ -273,38 +370,92 @@ void App::DrawTextureExportDialog() {
     ImGui::SetNextWindowSize(ImVec2(560 * dpi, 0), ImGuiCond_Appearing);
     if (!ImGui::Begin("Exporter les textures", &E.open, ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_AlwaysAutoResize)) { ImGui::End(); return; }
     ui::FilterBox("Filtrer (Ctrl+F)...", 320.0f * dpi);
-    const auto& P = Presets();
+    const auto& builtins = Presets();
+    auto presetAt = [&](int i) -> const Preset& {
+        return i < (int)builtins.size() ? builtins[i] : customExportPresets[i - builtins.size()];
+    };
+    const int count = (int)(builtins.size() + customExportPresets.size());
+    E.preset = std::clamp(E.preset, 0, count - 1);
     ImGui::PushItemWidth(320 * dpi);
-    if (ImGui::BeginCombo("Modèle", P[std::clamp(E.preset, 0, (int)P.size() - 1)].name)) {
-        for (int i = 0; i < (int)P.size(); ++i)
-            if (ImGui::Selectable(P[i].name, i == E.preset)) E.preset = i;
+    if (ImGui::BeginCombo("Modèle", presetAt(E.preset).name.c_str())) {
+        for (int i = 0; i < count; ++i)
+            if (ImGui::Selectable(presetAt(i).name.c_str(), i == E.preset)) { E.preset = i; exportPresetEditing = -2; }
         ImGui::EndCombo();
     }
-    const ExportPresetDef& pr = P[std::clamp(E.preset, 0, (int)P.size() - 1)];
-    ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 520 * dpi);
-    ImGui::TextDisabled("%s", pr.desc);
-    ImGui::PopTextWrapPos();
-    if (ImGui::BeginTable("##maps", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerV, ImVec2(520 * dpi, 0))) {
-        static const std::pair<const char*, const char*> names[] = {{"C.r", "couleur R"}, {"C.g", "couleur V"}, {"C.b", "couleur B"}, {"C.a", "couverture"},
-                                                                    {"R", "rugosité"}, {"S", "lissé (1 - rugosité)"}, {"M", "métal"}, {"AO", "occlusion"},
-                                                                    {"H", "hauteur"}, {"N.r", "normale X"}, {"N.g", "normale Y"}, {"N.b", "normale Z"},
-                                                                    {"E.r", "émissif R"}, {"E.g", "émissif V"}, {"E.b", "émissif B"}, {"1", "1"}, {"0", "0"}};
-        auto label = [&](const std::string& s) {
-            for (auto& [k, n] : names) if (s == k) return n;
-            return s.c_str();
-        };
-        for (const MapSpec& m : pr.maps) {
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::TextUnformatted(m.suffix.c_str());
-            ImGui::TableNextColumn();
-            ImGui::TextDisabled("R %s  G %s  B %s  A %s", label(m.src[0]), label(m.src[1]), label(m.src[2]), label(m.src[3]));
+    const Preset& pr = presetAt(E.preset);
+    if (!pr.desc.empty()) ImGui::TextWrapped("%s", pr.desc.c_str());
+    if (exportPresetEditing == -2) {
+        if (ImGui::Button("Dupliquer le modèle")) {
+            exportPresetDraft = pr;
+            exportPresetDraft.name += " (copie)";
+            exportPresetEditing = -1;
         }
-        ImGui::EndTable();
+        if (E.preset >= (int)builtins.size()) {
+            ImGui::SameLine();
+            if (ImGui::Button("Modifier le modèle")) { exportPresetDraft = pr; exportPresetEditing = E.preset - (int)builtins.size(); }
+        }
+        for (const Map& m : pr.maps)
+            ImGui::Text("%s     R %s   V %s   B %s   A %s", m.suffix.c_str(), FindSource(m.src[0])->label, FindSource(m.src[1])->label,
+                        FindSource(m.src[2])->label, FindSource(m.src[3])->label);
+    }
+    if (exportPresetEditing != -2) {
+        Preset& draft = exportPresetDraft;
+        ImGui::InputText("Nom du modèle", &draft.name);
+        ImGui::Checkbox("Normales OpenGL par défaut", &draft.opengl);
+        int remove = -1;
+        const float editorHeight = std::clamp((ImGui::GetFrameHeightWithSpacing()*2+4*dpi)*(float)draft.maps.size(), 32.0f*dpi, 230.0f*dpi);
+        ImGui::BeginChild("##exportmaps", ImVec2(0, editorHeight), ImGuiChildFlags_Borders);
+        for (int i = 0; i < (int)draft.maps.size(); ++i) {
+            ImGui::PushID(i);
+            Map& m = draft.maps[i];
+            ImGui::InputText("Nom de la carte", &m.suffix);
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Retirer")) remove = i;
+            static const char* labels[] = {"R", "V", "B", "A"};
+            for (int k = 0; k < 4; ++k) {
+                if (k) ImGui::SameLine();
+                ImGui::SetNextItemWidth(86 * dpi);
+                if (ImGui::BeginCombo(labels[k], FindSource(m.src[k])->label)) {
+                    for (auto& source : sources)
+                        if (ImGui::Selectable(source.label, m.src[k] == source.id)) m.src[k] = source.id;
+                    ImGui::EndCombo();
+                }
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndChild();
+        if (remove >= 0) draft.maps.erase(draft.maps.begin() + remove);
+        if (ImGui::Button("Ajouter une carte")) draft.maps.push_back({"Carte" + std::to_string(draft.maps.size()+1), {"C.r","C.g","C.b","1"}});
+        ImGui::SameLine();
+        if (ImGui::Button("Enregistrer le modèle")) {
+            bool duplicate = false;
+            const int editing = exportPresetEditing < 0 ? -1 : (int)builtins.size() + exportPresetEditing;
+            for (int i = 0; i < count; ++i) if (i != editing && presetAt(i).name == draft.name) duplicate = true;
+            std::vector<texexport::Output> preview;
+            const std::string error = texexport::PlanOutputs({{"", {}}}, draft.maps, "{nom}_{carte}", "Texture", ".png", preview);
+            if (!ValidPreset(draft) || duplicate || !error.empty()) Status(error.empty() ? "Le modèle doit avoir un nom unique et des cartes nommées." : error);
+            else {
+                draft.desc.clear();
+                const auto previous = customExportPresets;
+                if (exportPresetEditing < 0) customExportPresets.push_back(draft);
+                else customExportPresets[exportPresetEditing] = draft;
+                if (SaveAiSettings()) {
+                    if (exportPresetEditing < 0) E.preset = count;
+                    exportPresetEditing = -2;
+                } else {
+                    customExportPresets = previous;
+                    Status("Impossible d’enregistrer le modèle dans " + settingsPath);
+                }
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Annuler les modifications")) exportPresetEditing = -2;
     }
     ImGui::SeparatorText("Options");
+    int layout = E.atlas ? 1 : 0;
+    if (ImGui::Combo("Découpage", &layout, "Jeux de textures (matériau / UDIM)\0Atlas du projet\0")) E.atlas = layout == 1;
     ImGui::Combo("Format", &E.depth, "PNG 8 bits\0PNG 16 bits\0TGA 8 bits\0");
-    ImGui::Combo("Taille", &E.size, "Taille du document\0Moitié\0Quart\0" "512\0" "1024\0" "2048\0" "4096\0");
+    ImGui::Combo("Taille", &E.size, "Taille native de la tuile\0Moitié\0Quart\0" "512\0" "1024\0" "2048\0" "4096\0");
     int nrm = E.normal + 1;
     if (ImGui::Combo("Normale", &nrm, "Selon le modèle\0DirectX (Y-, Unreal)\0OpenGL (Y+, Unity, Blender, Godot)\0")) E.normal = nrm - 1;
     ImGui::SliderInt("Marge (texels)", &E.padding, 0, 64);
@@ -323,7 +474,7 @@ void App::DrawTextureExportDialog() {
     ImGui::TextUnformatted("Dossier");
     ImGui::PopItemWidth();
     ImGui::Separator();
-    ImGui::BeginDisabled(E.folder.empty() || !texExportJobs.empty());
+    ImGui::BeginDisabled(E.folder.empty() || !texExportJobs.empty() || exportPresetEditing != -2);
     if (ImGui::Button(texExportJobs.empty() ? "Exporter" : "Export en cours...", ImVec2(160 * dpi, 0))) StartTextureExport(*v);
     ImGui::EndDisabled();
     ImGui::End();

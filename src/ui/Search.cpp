@@ -12,8 +12,13 @@
 
 #include "core/Json.h"
 
+namespace sx::demo {
+void (*observeItem)(ImGuiID, const ImRect&) = nullptr;
+}
+
 // ---------------------------------------------------------------- Dear ImGui test engine hooks
 void ImGuiTestEngineHook_ItemAdd(ImGuiContext* ctx, ImGuiID id, const ImRect& bb, const ImGuiLastItemData*) {
+    if (sx::demo::observeItem) sx::demo::observeItem(id, bb);
     const float r[4] = {bb.Min.x, bb.Min.y, bb.Max.x, bb.Max.y};
     sx::GlobalSearch::Get().OnItemAdd(ctx, id, r);
 }

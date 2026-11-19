@@ -1,4 +1,5 @@
 #include "mesh/Mesh.h"
+#include "mesh/UvUnwrap.h"
 
 #include <fstream>
 #include <sstream>
@@ -86,6 +87,24 @@ bool SaveObj(const std::string& path, const MeshData& m, bool original, std::str
     std::ofstream f(Utf8Path(path), std::ios::binary);
     if (!f) { if (error) *error = "écriture impossible : " + path; return false; }
     f << "# Shaderixel: " << m.name << " (Y up" << (original ? ", original units" : ", normalized") << ")\n";
+    std::vector<std::string> materialNames;
+    if (udimSpace && !m.materials.empty() && m.triMaterial.size() == m.indices.size() / 3) {
+        auto library = Utf8Path(path);
+        library.replace_extension(".mtl");
+        std::ofstream mtl(library, std::ios::binary);
+        if (!mtl) { if (error) *error = "écriture MTL impossible"; return false; }
+        f << "mtllib " << Narrow(library.filename().wstring()) << "\n";
+        for (const auto& material : m.materials) {
+            std::string name = material.name.empty() ? "Materiau" + std::to_string(materialNames.size()+1) : material.name;
+            for (char& c : name) if (c == '\n' || c == '\r') c = ' ';
+            materialNames.push_back(name);
+            const auto& color = material.baseColor;
+            mtl << "newmtl " << name << "\nKd " << LinearToSrgb(color.x) << ' ' << LinearToSrgb(color.y) << ' '
+                << LinearToSrgb(color.z) << "\nPr " << material.roughness << "\nPm " << material.metallic << "\n\n";
+        }
+        mtl.close();
+        if (!mtl) { if (error) *error = "écriture MTL incomplète"; return false; }
+    }
     f << "o " << (m.name.empty() ? std::string("Mesh") : m.name) << "\n";
     char b[128];
     const float k = original && m.srcScale > 0 ? 1.0f / m.srcScale : 1.0f;
@@ -105,11 +124,19 @@ bool SaveObj(const std::string& path, const MeshData& m, bool original, std::str
         snprintf(b, sizeof(b), "vn %.5f %.5f %.5f\n", v.normal.x, v.normal.y, -v.normal.z);
         f << b;
     }
+    int previousMaterial = -1;
     for (size_t i = 0; i + 2 < m.indices.size(); i += 3) {
+        if (!materialNames.empty()) {
+            const int index = m.triMaterial[i / 3];
+            if (index != previousMaterial && (size_t)index < materialNames.size())
+                f << "usemtl " << materialNames[index] << "\n";
+            previousMaterial = index;
+        }
         const u32 a = m.indices[i] + 1, c = m.indices[i + 1] + 1, d = m.indices[i + 2] + 1;
         snprintf(b, sizeof(b), "f %u/%u/%u %u/%u/%u %u/%u/%u\n", a, a, a, d, d, d, c, c, c);  // winding of the file
         f << b;
     }
+    f.close();
     return (bool)f;
 }
 
@@ -138,6 +165,7 @@ bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
     out = MeshData{};
     out.name = Narrow(Utf8Path(path).stem().wstring());
     bool hasNormals = false;
+    std::vector<u8> vertexHasUv, missingUvs;
     std::string line;
     std::unordered_map<std::string, int> matByName;
     int curMat = -1;
@@ -171,12 +199,21 @@ bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
             }
         }
     };
+    u32 part = 0;
+    out.partNames.push_back(out.name);
     while (std::getline(f, line)) {
         if (line.size() < 2) continue;
         std::istringstream s(line);
         std::string tag;
         s >> tag;
-        if (tag == "mtllib") { std::string file; std::getline(s >> std::ws, file); loadMtl(file); }
+        if (tag == "o" || tag == "g") {
+            std::string name;
+            std::getline(s >> std::ws, name);
+            if (!name.empty()) {
+                part = (u32)out.partNames.size();
+                out.partNames.push_back(name);
+            }
+        } else if (tag == "mtllib") { std::string file; std::getline(s >> std::ws, file); loadMtl(file); }
         else if (tag == "usemtl") {
             std::string name;
             std::getline(s >> std::ws, name);
@@ -211,6 +248,7 @@ bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
                     if (ni > 0 && ni <= (int)nrm.size()) { v.normal = nrm[ni - 1]; hasNormals = true; }
                     it = dedup.emplace(k, (u32)out.vertices.size()).first;
                     out.vertices.push_back(v);
+                    vertexHasUv.push_back(ti > 0 && ti <= (int)uvs.size());
                 }
                 poly.push_back(it->second);
             }
@@ -219,13 +257,14 @@ bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
                 out.indices.push_back(poly[0]);
                 out.indices.push_back(poly[i + 1]);
                 out.indices.push_back(poly[i]);
+                out.triPart.push_back(part);
+                missingUvs.push_back(!vertexHasUv[poly[0]] || !vertexHasUv[poly[i + 1]] || !vertexHasUv[poly[i]]);
                 out.triMaterial.push_back((u16)std::max(curMat, 0));
             }
         }
     }
     if (out.indices.empty()) { if (error) *error = "aucune face"; return false; }
     if (out.materials.empty()) out.triMaterial.clear();
-    out.hasUvs = !uvs.empty();  // without UVs: loaded anyway, the UV tool (xatlas) unwraps it
     if (!hasNormals) {
         for (auto& v : out.vertices) v.normal = {};
         for (size_t i = 0; i + 2 < out.indices.size(); i += 3) {
@@ -235,6 +274,7 @@ bool LoadObj(const std::string& path, MeshData& out, std::string* error) {
         }
         for (auto& v : out.vertices) v.normal = Normalize(v.normal);
     }
+    out.hasUvs = RepairPartialUvs(out, missingUvs);
     NormalizeMesh(out);
     return true;
 }
@@ -353,8 +393,11 @@ bool PackUdims(MeshData& m, std::vector<u32>* sourceVertex) {
     const size_t nt = m.indices.size() / 3;
     if (!nt || m.vertices.empty()) return false;
     // Tile of each triangle (its center), in the file's V-up convention (the UVs are stored with V down).
-    std::vector<int> triTile(nt);
-    std::map<int, int> cellOf;
+    using Tile = std::pair<u16, u16>;  // material, UDIM number
+    const bool indexedMaterials = m.triMaterial.size() == nt && !m.materials.empty();
+    std::vector<Tile> faceTiles(nt);
+    std::map<Tile, int> cellOf;
+    bool outsideUnit = false;
     for (size_t t = 0; t < nt; ++t) {
         float2 c = {0, 0};
         for (int k = 0; k < 3; ++k) c = c + m.vertices[m.indices[t * 3 + k]].uv;
@@ -366,16 +409,24 @@ bool PackUdims(MeshData& m, std::vector<u32>* sourceVertex) {
             const float lu = uv.x - tu, lv = (1.0f - uv.y) - tv;
             if (lu < -0.01f || lu > 1.01f || lv < -0.01f || lv > 1.01f) return false;  // straddles tiles: a tiling texture
         }
-        triTile[t] = 1001 + tu + 10 * tv;
-        cellOf[triTile[t]] = 0;
+        const u16 material = indexedMaterials ? m.triMaterial[t] : 0;
+        if (indexedMaterials && material >= m.materials.size()) return false;
+        const auto udim = (u16)(1001 + tu + 10 * tv);
+        outsideUnit |= udim != 1001;
+        faceTiles[t] = {material, udim};
+        cellOf[faceTiles[t]] = 0;
     }
-    if (cellOf.size() < 2) return false;
+    if (!outsideUnit) return false;  // ordinary 0..1 UVs follow the material tiling option
     int cols = 1;
     while (cols * cols < (int)cellOf.size()) cols *= 2;
     m.udims.clear();
-    for (auto& [udim, cell] : cellOf) {
+    m.udimScale.clear();
+    m.udimMaterials.clear();
+    const bool multipleMaterials = cellOf.begin()->first.first != cellOf.rbegin()->first.first;
+    for (auto& [tile, cell] : cellOf) {
         cell = (int)m.udims.size();
-        m.udims.push_back((u16)udim);
+        m.udims.push_back(tile.second);
+        if (multipleMaterials) m.udimMaterials.push_back(tile.first);
     }
     m.udimCols = cols;
     // Vertices shared by two tiles are split: each copy moves into its own cell.
@@ -384,27 +435,29 @@ bool PackUdims(MeshData& m, std::vector<u32>* sourceVertex) {
     for (size_t i = 0; i < source.size(); ++i) source[i] = (u32)i;
     std::vector<int> vtile(m.vertices.size(), -1);
     std::map<std::pair<u32, int>, u32> copies;
-    for (size_t t = 0; t < nt; ++t)
+    for (size_t t = 0; t < nt; ++t) {
+        const int cell = cellOf[faceTiles[t]];
         for (int k = 0; k < 3; ++k) {
             u32& idx = m.indices[t * 3 + k];
-            if (vtile[idx] < 0) { vtile[idx] = triTile[t]; continue; }
-            if (vtile[idx] == triTile[t]) continue;
-            auto it = copies.find({idx, triTile[t]});
+            if (vtile[idx] < 0) { vtile[idx] = cell; continue; }
+            if (vtile[idx] == cell) continue;
+            auto it = copies.find({idx, cell});
             if (it == copies.end()) {
                 const u32 n = (u32)verts.size();
                 verts.push_back(m.vertices[idx]);
                 source.push_back(idx);
-                vtile.push_back(triTile[t]);
-                it = copies.emplace(std::make_pair(idx, triTile[t]), n).first;
+                vtile.push_back(cell);
+                it = copies.emplace(std::make_pair(idx, cell), n).first;
             }
             idx = it->second;
         }
+    }
     m.vertices = std::move(verts);
     if (sourceVertex) *sourceVertex = std::move(source);
     const float inv = 1.0f / cols;
     for (size_t i = 0; i < m.vertices.size(); ++i) {
         if (vtile[i] < 0) continue;
-        const int udim = vtile[i] - 1001, tu = udim % 10, tv = udim / 10, cell = cellOf[vtile[i]];
+        const int cell = vtile[i], udim = m.udims[cell] - 1001, tu = udim % 10, tv = udim / 10;
         float2& uv = m.vertices[i].uv;
         const float lu = uv.x - tu, lvDown = 1.0f - ((1.0f - uv.y) - tv);  // local, V down like the texture
         uv = {((cell % cols) + lu) * inv, ((cell / cols) + lvDown) * inv};
@@ -424,12 +477,12 @@ std::vector<float2> UdimUvs(const MeshData& m) {
         const int cell = UdimCellAt(m, c * (1.0f / 3.0f));
         for (int k = 0; k < 3; ++k) if (cellOfVertex[m.indices[t + k]] < 0) cellOfVertex[m.indices[t + k]] = cell;
     }
-    const int cols = m.udimCols;
     for (size_t i = 0; i < out.size(); ++i) {
         const int cell = cellOfVertex[i];
         if (cell < 0 || cell >= (int)m.udims.size()) continue;
         const int udim = m.udims[cell] - 1001, tu = udim % 10, tv = udim / 10;
-        const float lu = m.vertices[i].uv.x * cols - (cell % cols), lvDown = m.vertices[i].uv.y * cols - (cell / cols);
+        const float4 r = UdimRect(m, cell);
+        const float lu = (m.vertices[i].uv.x-r.x)/(r.z-r.x), lvDown = (m.vertices[i].uv.y-r.y)/(r.w-r.y);
         out[i] = {tu + lu, 1.0f - (tv + (1.0f - lvDown))};
     }
     return out;
@@ -441,6 +494,13 @@ int UdimCellAt(const MeshData& m, float2 uv) {
     if (cx < 0 || cy < 0 || cx >= m.udimCols || cy >= m.udimCols) return -1;
     const int cell = cy * m.udimCols + cx;
     return cell < (int)m.udims.size() ? cell : -1;
+}
+
+float4 UdimRect(const MeshData& m, int cell) {
+    const int cols = std::max(1, m.udimCols);
+    const float x = (float)(cell % cols) / cols, y = (float)(cell / cols) / cols;
+    const float width = (m.udimScale.empty() ? 1.0f : m.udimScale[cell]) / cols;
+    return {x, y, x + width, y + width};
 }
 
 MeshData MakeCube() {

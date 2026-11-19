@@ -11,7 +11,6 @@
 #include "io/WicLoad.h"
 #include "doc/DocFile.h"
 #include "mesh/Mesh.h"
-#include "ai/Net.h"
 
 #include <ShlObj.h>
 #include <shellapi.h>
@@ -152,35 +151,7 @@ ThumbResult MakeThumb(const std::string& path, bool mesh) {
             const std::string glb = UAssetMeshCached(path);
             ok = !glb.empty() && LoadMesh(glb, m, &err);
         } else if (ext == ".sx3d") {
-            // Only the JSON at the start of the file ("SXL1" | u32 version | u64 size | json), not the pixels.
-            Json meta;
-            FILE* f = nullptr;
-            if (_wfopen_s(&f, Widen(path).c_str(), L"rb") == 0 && f) {
-                char magic[4] = {};
-                u32 version = 0;
-                u64 size = 0;
-                if (fread(magic, 1, 4, f) == 4 && memcmp(magic, "SXL1", 4) == 0 && fread(&version, 4, 1, f) == 1 && fread(&size, 8, 1, f) == 1 &&
-                    size > 0 && size < (1ull << 31)) {
-                    std::string js((size_t)size, '\0');
-                    if (fread(js.data(), 1, js.size(), f) == js.size()) ok = Json::Parse(js, meta) && meta.Has("mesh");
-                }
-                fclose(f);
-            }
-            if (ok) {
-                // Same layout as App::MeshToJson: vertices and indices in base64.
-                std::vector<u8> vb = net::Base64Decode(meta["mesh"]["vertices"].S("")), ib = net::Base64Decode(meta["mesh"]["indices"].S(""));
-                ok = !vb.empty() && !ib.empty() && vb.size() % sizeof(MeshVertex) == 0 && ib.size() % sizeof(u32) == 0 &&
-                     ib.size() / sizeof(u32) % 3 == 0;
-                if (ok) {
-                    m.vertices.resize(vb.size() / sizeof(MeshVertex));
-                    memcpy(m.vertices.data(), vb.data(), vb.size());
-                    m.indices.resize(ib.size() / sizeof(u32));
-                    memcpy(m.indices.data(), ib.data(), ib.size());
-                    // A damaged file must not make the render read outside the vertices.
-                    for (u32 i : m.indices)
-                        if (i >= m.vertices.size()) { ok = false; break; }
-                }
-            }
+            ok = ReadSxlMesh(path, m, &err);
         } else {
             ok = LoadMesh(path, m, &err);
         }

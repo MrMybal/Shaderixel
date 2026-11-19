@@ -19,6 +19,8 @@ float2 ViewPoint(const Mat4& vp, float3 p, u32 w, u32 h, float* depth) {
 }  // namespace
 
 void App::AttachMesh(DocView& v, MeshData data) {
+    if (sim.view == &v) FinishParticles(true);
+    if (fluidRun.active && fluidRun.view == &v) FluidFinish(true);
     if (!v.mesh) v.mesh = std::make_unique<MeshScene>();
     v.mesh->data = std::move(data);
     v.mesh->gpuDirty = true;
@@ -73,34 +75,37 @@ void App::DrawView3D() {
         flow(ib);
         return ui::IconButton(id, glyph, on, ib, tip);
     };
-    if (icon("sphere", ui::IconSphere, "Sphère : remplace le modèle par une sphère")) AttachMesh(*v, MakeSphere());
-    if (icon("cube", ui::IconCube, "Cube : remplace le modèle par un cube")) AttachMesh(*v, MakeCube());
-    if (icon("plane", ui::IconPlane, "Plan : remplace le modèle par un plan")) AttachMesh(*v, MakePlane());
+    auto replaceMesh = [this](DocView& target, MeshData mesh) {
+        const bool noUv = !mesh.hasUvs;
+        if (!noUv) PackUdims(mesh);
+        AttachMesh(target, std::move(mesh));
+        if (target.doc->kind == 1) target.doc->dirty = true;
+        if (noUv) {
+            uvTool.open = true;
+            StartUvUnwrap(target);
+            Status("Maillage sans UV : dépliage automatique proposé (aperçu, puis « Appliquer »)");
+        }
+    };
+    if (icon("sphere", ui::IconSphere, "Sphère : remplace le modèle par une sphère")) replaceMesh(*v, MakeSphere());
+    if (icon("cube", ui::IconCube, "Cube : remplace le modèle par un cube")) replaceMesh(*v, MakeCube());
+    if (icon("plane", ui::IconPlane, "Plan : remplace le modèle par un plan")) replaceMesh(*v, MakePlane());
     if (icon("openmesh", ui::IconOpenMesh, "Ouvrir un maillage... (OBJ, FBX, glTF, GLB, uasset)")) {
         std::string path = platform::OpenFileDialog(hwnd, L"Maillages (*.obj, *.fbx, *.gltf, *.glb, *.uasset)\0*.obj;*.fbx;*.gltf;*.glb;*.uasset\0");
         if (!path.empty() && Narrow(Utf8Path(path).extension().wstring()) == ".uasset") {
             DocView* target = v;
-            ConvertUAssetAsync(path, [this, target](const std::string& glb) {
+            ConvertUAssetAsync(path, [this, target, replaceMesh](const std::string& glb) {
                 MeshData m;
                 std::string err;
                 for (auto& d : docs)
-                    if (d.get() == target && LoadMesh(glb, m, &err)) AttachMesh(*target, std::move(m));
+                    if (d.get() == target && LoadMesh(glb, m, &err)) replaceMesh(*target, std::move(m));
             });
             path.clear();
         }
         if (!path.empty()) {
             MeshData m;
             std::string err;
-            if (LoadMesh(path, m, &err)) {
-                bool noUv = !m.hasUvs;
-                AttachMesh(*v, std::move(m));
-                if (noUv) {
-                    // Nothing can be painted without UVs: straight to the unwrap tool.
-                    uvTool.open = true;
-                    StartUvUnwrap(*v);
-                    Status("Maillage sans UV : dépliage automatique proposé (aperçu, puis « Appliquer »)");
-                }
-            } else Status("Maillage : " + err);
+            if (LoadMesh(path, m, &err)) replaceMesh(*v, std::move(m));
+            else Status("Maillage : " + err);
         }
     }
     if (v->mesh) {
@@ -173,10 +178,10 @@ void App::DrawView3D() {
         }
         {
             static const char* modes = "Rendu PBR\0Couleur de base\0Rugosité\0Métal\0Normale\0Émissif\0Occlusion\0Hauteur\0"
-                                       "Carte : occlusion (cuite)\0Carte : convexité\0Carte : concavité\0Carte : épaisseur\0";
+                                       "Carte : occlusion (cuite)\0Carte : convexité\0Carte : concavité\0Carte : épaisseur\0Opacité\0Utilisateur 1\0Utilisateur 2\0Utilisateur 3\0Utilisateur 4\0";
             flow(140 * dpi);
             ImGui::SetNextItemWidth(140 * dpi);
-            if (ImGui::Combo("##viewch", &v->mesh->viewChannel, modes) && v->mesh->viewChannel >= 8 && !v->mesh->maps) StartMeshMapsBake(*v);
+            if (ImGui::Combo("##viewch", &v->mesh->viewChannel, modes) && v->mesh->viewChannel >= 8 && v->mesh->viewChannel <= 11 && !v->mesh->maps) StartMeshMapsBake(*v);
             ui::HelpTooltip("Afficher un canal seul (tel que peint), ou une carte du maillage cuite (masques intelligents)");
             flow(100 * dpi);
             ImGui::SetNextItemWidth(100 * dpi);
@@ -238,6 +243,10 @@ void App::DrawView3D() {
             {Tool::Particles, ui::IconParticles, "Particules : gouttes, poussière, éclaboussures qui peignent où elles passent"},
             {Tool::Fluid, ui::IconFluid, "Peinture liquide : coule avec la gravité"},
             {Tool::Picker, ui::IconPicker, "Pipette (I)"},
+            {Tool::Clone, ui::IconStamp, "Tampon de matière : Ctrl+clic place la source, glisser duplique"},
+            {Tool::Smudge, ui::IconFinger, "Doigt : étaler les canaux cochés sur la surface"},
+            {Tool::SurfaceMask, ui::IconMask, "Masque rapide : peindre protège, Ctrl+peindre libère"},
+            {Tool::SurfacePath, ui::IconPen, "Tracé de surface : cliquer pour poser un point, glisser pour le déplacer"},
         };
         for (const T3& t3 : tools3d) {
             char id[16];
@@ -270,13 +279,26 @@ void App::DrawView3D() {
             brush3D.normalProject = !brush3D.normalProject;
         if (icon("uvwire3d", ui::IconUV, TrC("Afficher le fil des UV du modèle sur la texture"), showUvWire)) showUvWire = !showUvWire;
         {
-            BrushSettings& bs = tool == Tool::Eraser ? eraser : brush;
+            BrushSettings& bs = tool == Tool::Clone || tool == Tool::Smudge ? retouch : tool == Tool::Eraser ? eraser : brush;
             flow(150 * dpi);
             ImGui::SetNextItemWidth(150 * dpi);
-            ImGui::SliderFloat("##size3d", &bs.size, 1, 600, TrC("Taille %.0f px"), ImGuiSliderFlags_Logarithmic);
+            if ((brush3D.modelSize && (tool == Tool::Brush || tool == Tool::Eraser)) ||
+                (tool == Tool::Particles && (brush3D.modelSize || particleBrush.customMaterial)))
+                ImGui::SliderFloat("##size3d", &brush3D.modelDiameter, 0.005f, 1.0f, TrC("Diamètre modèle %.3f"), ImGuiSliderFlags_Logarithmic);
+            else ImGui::SliderFloat("##size3d", &bs.size, 1, 600, TrC("Taille %.0f px"), ImGuiSliderFlags_Logarithmic);
             flow(110 * dpi);
             ImGui::SetNextItemWidth(110 * dpi);
             ImGui::SliderFloat("##flow3d", &bs.flow, 0.01f, 1, TrC("Flux %.2f"));
+            if (tool == Tool::Clone) { flow(175*dpi); ImGui::Checkbox("Échantillonner les calques visibles", &cloneVisible3D); }
+            if (tool == Tool::Smudge) { flow(110*dpi); ImGui::SetNextItemWidth(110*dpi); ImGui::SliderFloat("Force##doigt", &retouchStrength, 0.01f, 1); }
+            if (tool == Tool::SurfaceMask && v->doc->Selection()) {
+                flow(140*dpi);
+                if (ImGui::SmallButton("Inverser la protection"))
+                    v->renderer.SelectionFilter(*v->doc, *ctx, v->history, 3, 0, "Inverser la protection");
+                flow(120*dpi);
+                if (ImGui::SmallButton("Lever la protection")) v->renderer.Deselect(*v->doc,v->history);
+            }
+            if (tool == Tool::SurfacePath) SurfacePathOptions(*v);
         }
     }
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 4 * dpi);
@@ -360,9 +382,18 @@ void App::DrawView3D() {
     }
 
     MeshPrepare3D(*v);
-    UpdateSmartMasks(*v);
     UpdateProjections(*v);
+    UpdateSmartMasks(*v);
+    s.UpdateCamera((float)w / h);
+    bool refreshedDepth = false;
+    auto refreshDepth = [&] {
+        if (!refreshedDepth) {
+            v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
+            refreshedDepth = true;
+        }
+    };
 
+    if (sim.view && tool != Tool::Particles) CheckParticleSession();
     // Painting
     std::vector<PointerSample> samples = frameSamples;
     Id target = doc.PaintTarget();
@@ -372,7 +403,10 @@ void App::DrawView3D() {
     std::vector<float4> meshColors;
     std::vector<Id> meshTargets = Paint3DTargets(*v, meshColors);
     // Smart mask corrections: the eraser paints black (removes the material) instead of erasing them.
-    bool eraseStroke = tool == Tool::Eraser;
+    const PointerSample currentPen = platform::PenActive() ? platform::LastPenSample() : PointerSample{};
+    const bool eraserEnd = currentPen.pen && currentPen.eraser;
+    const bool physicalErase = meshStroking ? meshStrokeEraser : tool == Tool::Eraser || eraserEnd;
+    bool eraseStroke = physicalErase;
     if (doc.PaintsMaskEdits()) {
         for (auto& c : meshColors) c = eraseStroke ? float4{0, 0, 0, 1} : float4{1, 1, 1, 1};
         eraseStroke = false;
@@ -414,11 +448,21 @@ void App::DrawView3D() {
     // left millimetres unpainted while moving slowly), each dab's flow lowered so the stroke builds up as it did
     // with the brush's own spacing. Stamp brushes (spacing over 0.35: stitches, rivets, splatter...) keep theirs.
     float flowExponent = 1;  // dab flow f -> 1 - (1 - f)^exponent
+    auto brushDiameter = [&](const BrushSettings& b, float2 point, bool forceModelSize = false) {
+        if (!brush3D.modelSize && !forceModelSize) return b.size;
+        if (s.ortho) return std::max(1.f, brush3D.modelDiameter * h / (2 * s.OrthoHalfHeight()));
+        float3 originRay, direction, hit;
+        CameraRay(s, point, w, h, originRay, direction);
+        float depth = s.distance;
+        if (s.Rays().Ray(originRay, direction, 100.f, &hit, nullptr))
+            depth = std::max(0.02f, Dot(hit - s.camPos, Normalize(s.target - s.camPos)));
+        return std::max(1.f, brush3D.modelDiameter * h / (2 * std::tan(s.fov * 0.5f) * depth));
+    };
     auto spacingOf = [&](const BrushSettings& b) {
         float sp = b.spacing;
         if (brush3D.tip)
             if (auto td = TipDef(b); td && td->spacing > 0) sp = td->spacing;
-        const float px = std::max(1.0f, b.size * std::max(sp, 0.02f));
+        const float px = std::max(1.0f, brushDiameter(b, local(io.MousePos.x, io.MousePos.y)) * std::max(sp, 0.02f));
         const float used = sp <= 0.35f ? std::min(px, 1.0f) : px;
         flowExponent = used / px;
         return used;
@@ -428,15 +472,23 @@ void App::DrawView3D() {
         meshRng = meshRng * 1664525u + 1013904223u;
         return (meshRng >> 8) * (1.0f / 16777216.0f);
     };
-    auto addDab = [&](std::vector<Dab>& out, float2 q, float pr, float2 dir, const BrushSettings& b) {
+    auto tipAngle = [&](const PointerSample& sample) {
+        float a = brush3D.angle * 0.0174533f;
+        if (sample.pen && brush3D.followTilt && std::abs(sample.tiltX) + std::abs(sample.tiltY) > 1)
+            a += std::atan2(sample.tiltY, sample.tiltX);
+        if (sample.pen && brush3D.followTwist) a += sample.twist * 0.0174533f;
+        return a;
+    };
+    auto addDab = [&](std::vector<Dab>& out, float2 q, float pr, float2 dir, const BrushSettings& b, const PointerSample& sample) {
         const auto& B = brush3D;
-        float rad = b.size * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f);
+        const float diameter = brushDiameter(b, q);
+        float rad = diameter * 0.5f * (b.pressureSize ? std::max(pr, 0.05f) : 1.0f);
         rad *= std::max(0.05f, 1.0f + B.jitterSize * (rnd() * 2 - 1));
         if (B.scatter > 0) {
-            const float ang = rnd() * 6.2831853f, dist = std::sqrt(rnd()) * B.scatter * b.size;
+            const float ang = rnd() * 6.2831853f, dist = std::sqrt(rnd()) * B.scatter * diameter;
             q = q + float2{std::cos(ang) * dist, std::sin(ang) * dist};
         }
-        float angle = B.angle * 0.0174533f + B.jitterAngle * 3.14159265f * (rnd() * 2 - 1);
+        float angle = tipAngle(sample) + B.jitterAngle * 3.14159265f * (rnd() * 2 - 1);
         if (B.follow && Length(dir) > 1e-4f) angle += std::atan2(dir.y, dir.x);
         float alpha = b.flow * (b.pressureOpacity ? pr : 1.0f) * (1.0f - B.jitterFlow * rnd());
         if (flowExponent < 1) alpha = 1.0f - std::pow(std::max(0.0f, 1.0f - alpha), flowExponent);  // (denser dabs)
@@ -446,7 +498,10 @@ void App::DrawView3D() {
     if (paintTool && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt && !stencilMoving) {
         if (!target || meshTargets.empty()) Status("Sélectionnez un calque de pixels pour peindre en 3D");
         else if (v->renderer.BeginStrokeMulti(doc, *ctx, meshTargets)) {
-            const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
+            meshStrokeEraser = physicalErase;
+            refreshDepth();
+            v->renderer.meshNormalMode = brush3D.normalProject;
+            const BrushSettings& b = meshStrokeEraser ? eraser : brush;
             setupTip(b);
             spacingOf(b);  // (the dabs' flow for this brush, the first dab included)
             float2 p = local(io.MousePos.x, io.MousePos.y);
@@ -458,10 +513,11 @@ void App::DrawView3D() {
                 if (tri >= 0) {
                     float2 c = {0, 0};
                     for (int k = 0; k < 3; ++k) c = c + s.data.vertices[s.data.indices[tri * 3 + k]].uv;
-                    const int cell = UdimCellAt(s.data, c * (1.0f / 3.0f)), cols = std::max(1, s.data.udimCols);
-                    if (cell >= 0)
-                        v->renderer.meshClip = {(int)std::floor((double)(cell % cols) * doc.Width() / cols), (int)std::floor((double)(cell / cols) * doc.Height() / cols),
-                                                (int)std::ceil((double)(cell % cols + 1) * doc.Width() / cols), (int)std::ceil((double)(cell / cols + 1) * doc.Height() / cols)};
+                    if (const int cell = UdimCellAt(s.data, c * (1.0f / 3.0f)); cell >= 0) {
+                        const float4 t = UdimRect(s.data, cell);
+                        v->renderer.meshClip = {(int)std::floor(t.x * doc.Width()), (int)std::floor(t.y * doc.Height()),
+                                                (int)std::ceil(t.z * doc.Width()), (int)std::ceil(t.w * doc.Height())};
+                    }
                 }
             } else if (brush3D.limitMaterial && !s.data.uvTiles.empty() && s.data.triMaterial.size() * 3 == s.data.indices.size()) {
                 const int tri = PickMeshTriangle(s, p, w, h);
@@ -481,9 +537,9 @@ void App::DrawView3D() {
                 float2 d = p - meshLineEnd;
                 float len = Length(d);
                 const float sp = spacingOf(b);
-                for (float t = 0; t <= len; t += sp) addDab(first, meshLineEnd + d * (t / std::max(len, 1e-4f)), pr, d, b);
+                for (float t = 0; t <= len; t += sp) addDab(first, meshLineEnd + d * (t / std::max(len, 1e-4f)), pr, d, b, currentPen);
             } else {
-                addDab(first, p, pr, {0, 0}, b);
+                addDab(first, p, pr, {0, 0}, b, currentPen);
             }
             meshStroking = true;
             meshLastDab = p;
@@ -500,7 +556,7 @@ void App::DrawView3D() {
         if (!decal.tex) Status("Projection : choisissez une image (panneau Matériau du pinceau)");
         else if (meshTargets.empty()) Status("Sélectionnez un calque pour projeter");
         else if (v->renderer.BeginStrokeMulti(doc, *ctx, meshTargets)) {
-            v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);  // depth of this frame
+            refreshDepth();
             float2 p = local(io.MousePos.x, io.MousePos.y);
             Layer* al = doc.ActiveLayer();
             bool imageColor = decal.imageColor && al && al->material && IsPaintLayer3D(doc, al->material) && brush3D.use[(int)PbrChannel::BaseColor];
@@ -509,9 +565,13 @@ void App::DrawView3D() {
         }
     }
     if (meshStroking) {
-        const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
+        const BrushSettings& b = meshStrokeEraser ? eraser : brush;
         if (brush3D.tip && !v->renderer.meshTipOn) setupTip(b);  // the tip may still be compiling at the first dab
-        if (samples.empty()) samples.push_back({io.MousePos.x, io.MousePos.y, platform::PenActive() ? platform::LastPressure() : 1.0f, platform::PenActive(), false});
+        if (samples.empty()) {
+            samples.push_back(currentPen);
+            samples.back().x = io.MousePos.x;
+            samples.back().y = io.MousePos.y;
+        }
         std::vector<Dab> dabs;
         const float spacing = spacingOf(b);
         for (auto& sm : samples) {
@@ -529,16 +589,18 @@ void App::DrawView3D() {
             float len = Length(d);
             float t = spacing - meshDabRemainder;
             while (t <= len) {
-                addDab(dabs, meshLastDab + d * (t / std::max(len, 1e-4f)), pr, d, b);
+                addDab(dabs, meshLastDab + d * (t / std::max(len, 1e-4f)), pr, d, b, sm);
                 t += spacing;
             }
             meshDabRemainder = std::max(0.0f, len - (t - spacing));
             if (len > 0) meshLastDab = p;
         }
         // Render first so the occlusion test uses this frame's depth.
-        v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);
         v->renderer.meshNormalMode = brush3D.normalProject;
-        if (!dabs.empty()) v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, dabs, b, meshColors, eraseStroke, &dabEx);
+        if (!dabs.empty()) {
+            refreshDepth();
+            v->renderer.MeshStrokeDabsMulti(doc, *ctx, s, dabs, b, meshColors, eraseStroke, &dabEx);
+        }
         dabEx.clear();
         if (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || io.KeyShift) {
             v->renderer.EndStrokeMulti(doc, *ctx, v->history, "Peinture 3D");
@@ -548,17 +610,14 @@ void App::DrawView3D() {
             meshLineValid = true;
         }
     }
-    // Paint simulation: particles emitted while the button is held, simulated until they stop.
-    {
-        const bool emitting = tool == Tool::Particles && hovered && ImGui::IsMouseDown(ImGuiMouseButton_Left) && !io.KeyAlt && !orbit;
-        if (emitting || !sim.parts.empty() || sim.stroking) {
-            if (emitting && meshTargets.empty()) Status("Sélectionnez un calque 3D pour la simulation");
-            v->renderer.MeshRender(*ctx, s, GatherMaterial(*v), w, h);  // depth for the brush kernel
-            UpdateSimulation(*v, emitting && !meshTargets.empty(), local(io.MousePos.x, io.MousePos.y), w, h, meshTargets, meshColors);
-        }
+    if (tool == Tool::Particles && demoMode != 114) {
+        const bool canEmit = hovered && !io.KeyAlt && !orbit;
+        UpdateSimulation(*v, canEmit && ImGui::IsMouseClicked(ImGuiMouseButton_Left),
+                         canEmit && ImGui::IsMouseDown(ImGuiMouseButton_Left), local(io.MousePos.x, io.MousePos.y), w, h);
     }
     if (tool == Tool::Fluid) FluidInput3D(*v, local(io.MousePos.x, io.MousePos.y), w, h, hovered, orbit, origin);
     if (tool == Tool::Plugin) PluginTool3DInput(*v, local(io.MousePos.x, io.MousePos.y), w, h, hovered);
+    SurfaceToolInput(*v, local(io.MousePos.x, io.MousePos.y), w, h, hovered && !orbit);
     // Eyedropper: the material under the cursor goes to the brush material (color, roughness, metal, height).
     if (tool == Tool::Picker && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !io.KeyAlt)
         StartMaterialPick(*v, local(io.MousePos.x, io.MousePos.y), w, h);
@@ -580,6 +639,10 @@ void App::DrawView3D() {
     if (s.quality == 2 && s.viewChannel == 0)
         if (gpu::Texture* rt = UpdateViewRayTrace(*v, w, h)) img = rt;  // ray-traced view (the raster render keeps the brush depth)
     if (gpu::Texture* pv = UvPreviewRender(*v, w, h)) img = pv;  // UV tool: checker on the new layout
+    if (tool == Tool::SurfaceMask && !tt) {
+        auto* mask = v->surfaceTools.coverage ? v->surfaceTools.coverage.get() : doc.Selection() ? doc.Selection()->tex.get() : nullptr;
+        if (mask) img = v->renderer.SurfaceMaskOverlay(*ctx,img,v->renderer.SurfaceUvView(*ctx,s,w,h),mask);
+    }
     ImDrawList* dl = ImGui::GetWindowDrawList();
     if (img) {
         ImVec2 a = origin, b(origin.x + w, origin.y + h);
@@ -635,6 +698,24 @@ void App::DrawView3D() {
         dl->PopClipRect();
     }
     if (tool == Tool::PolyFill && polyHover >= 0) DrawPolyHighlight(s, polyHover, origin, w, h);
+    if (tool == Tool::SurfacePath && !tt) SurfacePathInput(*v,local(io.MousePos.x,io.MousePos.y),w,h,hovered && !orbit,origin);
+    if ((tool == Tool::Clone || tool == Tool::Smudge || tool == Tool::SurfaceMask) && hovered && !orbit) {
+        dl->PushClipRect(origin,ImVec2(origin.x+w,origin.y+h),true);
+        const auto& b = tool == Tool::SurfaceMask ? brush : retouch;
+        dl->AddCircle(io.MousePos,b.size*0.5f,IM_COL32(30,30,30,240),48,3);
+        dl->AddCircle(io.MousePos,b.size*0.5f,IM_COL32(245,245,245,225),48,1);
+        if (tool == Tool::Clone && v->surfaceTools.hasSource && v->surfaceTools.sourceRevision == s.revision) {
+            auto p = v->surfaceTools.source;
+            float4 c = s.viewProj.Transform({p.x,p.y,p.z,1});
+            if (c.w>0) {
+                ImVec2 q(origin.x + (c.x/c.w*0.5f+0.5f)*w, origin.y + (0.5f-c.y/c.w*0.5f)*h);
+                if (v->surfaceTools.stroke == Tool::Clone) q=ImVec2(io.MousePos.x+v->surfaceTools.cloneOffset.x,io.MousePos.y+v->surfaceTools.cloneOffset.y);
+                dl->AddLine(ImVec2(q.x-6*dpi,q.y),ImVec2(q.x+6*dpi,q.y),IM_COL32(255,191,70,255),2);
+                dl->AddLine(ImVec2(q.x,q.y-6*dpi),ImVec2(q.x,q.y+6*dpi),IM_COL32(255,191,70,255),2);
+            }
+        }
+        dl->PopClipRect();
+    }
     if (const int sym = v->renderer.meshSymmetry; sym >= 1 && sym <= 3) {
         // The mirror plane of the symmetry (object axis through the origin), across the model's box.
         const float3 lo = s.data.boundsMin * 1.08f, hi = s.data.boundsMax * 1.08f;
@@ -665,18 +746,24 @@ void App::DrawView3D() {
                                                           cursor2D.hardness, col))
             dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(ov), origin, ImVec2(origin.x + w, origin.y + h));
     }
+    if (hovered && tool == Tool::Particles && particleBrush.source == 0 && !orbit) {
+        const float r = std::max(brushDiameter(brush, local(io.MousePos.x, io.MousePos.y), particleBrush.customMaterial) * 0.5f, 2.0f);
+        dl->AddCircle(io.MousePos, r + 1, IM_COL32(0, 0, 0, 150), 0, 1.5f);
+        dl->AddCircle(io.MousePos, r, IM_COL32_WHITE, 0, 1.0f);
+        dl->AddCircleFilled(io.MousePos, 1.5f, IM_COL32_WHITE);
+    }
     if (hovered && paintTool && !orbit) {
-        const BrushSettings& b = tool == Tool::Eraser ? eraser : brush;
-        float r = std::max(b.size * 0.5f, 1.0f);
+        const BrushSettings& b = physicalErase ? eraser : brush;
+        float r = std::max(brushDiameter(b, local(io.MousePos.x, io.MousePos.y)) * 0.5f, 1.0f);
         // The dab drawn on the model under the cursor: the tip's real shape in the paint color, laid on the surface
         // (along the average normal when that mode is on), before painting.
         if (!meshStroking) setupTip(b);
-        cursor3D = {ImGui::GetFrameCount(), v, local(io.MousePos.x, io.MousePos.y), r, b.hardness, brush3D.angle * 0.0174533f,
-                    tool == Tool::Eraser, brush3D.normalProject};
+        cursor3D = {ImGui::GetFrameCount(), v, local(io.MousePos.x, io.MousePos.y), r, b.hardness, tipAngle(currentPen),
+                    physicalErase, brush3D.normalProject};
         {
-            const float4 col = tool == Tool::Eraser ? float4{1, 1, 1, 0.45f} : float4{fg.x, fg.y, fg.z, 0.55f};
+            const float4 col = physicalErase ? float4{1, 1, 1, 0.45f} : float4{fg.x, fg.y, fg.z, 0.55f};
             if (gpu::Texture* ov = v->renderer.MeshCursorPreview(*ctx, s, local(io.MousePos.x, io.MousePos.y), r, b.hardness,
-                                                                 brush3D.angle * 0.0174533f, col, brush3D.normalProject))
+                                                                 tipAngle(currentPen), col, brush3D.normalProject))
                 dl->AddImage((ImTextureID)gpu::Dev().UiTextureId(ov), origin, ImVec2(origin.x + w, origin.y + h));
         }
         bool oriented = false;

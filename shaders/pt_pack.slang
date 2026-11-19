@@ -5,6 +5,7 @@
 // Outputs: base (straight linear, a = coverage), ORM (roughness, metallic,
 // occlusion), emission (linear), tangent normal (n * 0.5 + 0.5, height baked in).
 #include "common.slang"
+#include "mesh_opacity.slang"
 
 cbuffer Root : register(b0)
 {
@@ -24,6 +25,7 @@ Texture2D<float4> gNormal : register(t3);
 Texture2D<float4> gEmissive : register(t4);
 Texture2D<float4> gAO : register(t5);
 Texture2D<float4> gHeight : register(t6);
+Texture2D<float4> gOpacity : register(t7);
 RWTexture2D<float4> gOutBase : register(u0);
 RWTexture2D<float4> gOutOrm : register(u1);
 RWTexture2D<float4> gOutEmis : register(u2);
@@ -62,6 +64,7 @@ void main(uint3 id : SV_DispatchThreadID)
     }
     n = normalize(n);
     uint2 o = gOffset + id.xy;
+    if (gFlags & 128) base.a = MeshOpacity(gOpacity, uv);
     gOutBase[o] = base;
     gOutOrm[o] = float4(rough, metal, ao, 1.0);
     gOutEmis[o] = float4(emis, 1.0);

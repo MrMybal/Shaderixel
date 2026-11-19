@@ -674,6 +674,7 @@ gpu::Texture* App::UpdateRenderState(DocView& v, PtRenderState& r, u32 w, u32 h)
         for (auto& t : r.gpu.packed) r.texReadbacks.push_back(ctx->ReadbackTexture(t.get()));
     if (!r.texReadbacks.empty() && std::all_of(r.texReadbacks.begin(), r.texReadbacks.end(), [](auto& rb) { return rb && rb->ready; })) {
         auto tex = std::make_shared<PtProjectTextures>();
+        tex->hasOpacity = r.gpu.hasOpacity;
         PtImage* imgs[4] = {&tex->base, &tex->orm, &tex->emissive, &tex->normal};
         for (int i = 0; i < 4; ++i) {
             const gpu::Readback& rb = *r.texReadbacks[i];

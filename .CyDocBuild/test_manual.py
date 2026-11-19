@@ -52,7 +52,8 @@ class ManualTests(unittest.TestCase):
 
     def test_every_programmable_brush(self):
         brushes=brush_catalog()
-        self.assertEqual(len(brushes),53)
+        shader_ids={'brush:'+p.stem for p in (ROOT/'shaders/brushes').glob('*.slang')}
+        self.assertEqual({b['id'] for b in brushes},shader_ids)
         for lang,edition in self.editions.items():
             references={p['id']:p for p in edition if p['kind']=='Brushes'}
             self.assertEqual(set(references),{b['id'] for b in brushes})
@@ -179,8 +180,9 @@ class ManualTests(unittest.TestCase):
 
     def test_every_toolbar_tool(self):
         tools=tool_catalog()
-        self.assertEqual(len(tools),46)
-        self.assertEqual(len({tool['enum'] for tool in tools}),46)
+        names={tool['enum'] for tool in tools}
+        self.assertEqual(len(names),len(tools))
+        self.assertTrue({'SurfacePath','SurfaceMask'} <= names)
         for lang,edition in self.editions.items():
             references={page['id']:page for page in edition if page['kind']=='Tools'}
             self.assertEqual(set(references),{tool['id'] for tool in tools})

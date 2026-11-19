@@ -134,6 +134,14 @@ Renderer::FluidParams App::FluidParamsNow(DocView& v) {
     p.rough = brush3D.rough;
     p.metal = brush3D.metal;
     p.emissive = {SrgbToLinear(brush3D.emissive.x), SrgbToLinear(brush3D.emissive.y), SrgbToLinear(brush3D.emissive.z), 1};
+    if (fluidRun.active && fluidRun.particleMaterial && fluidRun.particleMaterial->customMaterial && !fluidRun.useOverride) {
+        const auto& material = fluidRun.particleMaterial->impactColors;
+        p.color = LinearColor(material[(int)PbrChannel::BaseColor]);
+        p.rough = material[(int)PbrChannel::Roughness].x;
+        p.metal = material[(int)PbrChannel::Metallic].x;
+        p.heightBase = material[(int)PbrChannel::Height].x;
+        p.emissive = LinearColor(material[(int)PbrChannel::Emissive]);
+    }
     if (fluidRun.active ? fluidRun.mesh : (v.doc->kind == 1 && v.mesh != nullptr)) {
         // World gravity: straight down, the bottom of the view, or any direction.
         MeshScene& s = *v.mesh;
@@ -158,30 +166,38 @@ Renderer::FluidParams App::FluidParamsNow(DocView& v) {
     return p;
 }
 
-bool App::FluidStart(DocView& v) {
+bool App::FluidStart(DocView& v, const ParticleBrush* particleMaterial) {
     if (fluidRun.active) FluidFinish(true);
     Document& d = *v.doc;
     if (d.tiled) { Status("Peinture liquide : pas sur les très grands documents (tuilés)"); return false; }
     // Particles still running hold the stroke: they end here.
-    if (sim.stroking && sim.view == &v) {
-        v.renderer.EndStrokeMulti(d, *ctx, v.history, "Simulation de peinture");
-        sim.stroking = false;
-        sim.parts.clear();
-    }
+    if (sim.view == &v) FinishParticles(false);
+    fluidRun.particleMaterial = particleMaterial ? std::optional<ParticleBrush>(*particleMaterial) : std::nullopt;
     std::vector<Id> targets;
     std::vector<int> kinds;
     fluidRun.useOverride = false;
     const bool project = d.kind == 1 && v.mesh;
+    v.renderer.disabledPaintRegions.clear();
     if (project) {
         Layer* al = d.ActiveLayer();
-        if (al && al->material && IsPaintLayer3D(d, al->material) && !d.S().editMask) {
+        if (al && al->material && IsPaintLayer3D(d, al->material) && !d.S().editMask && !d.S().editInpaint) {
+            if (al->locked || !al->surfacePath.empty()) { Status("Peinture liquide : sélectionnez un calque de peinture modifiable"); return false; }
+            bool previous[(int)PbrChannel::Count];
+            memcpy(previous, brush3D.use, sizeof(previous));
+            if (particleMaterial && particleMaterial->customMaterial) {
+                for (int i = 0; i < (int)PbrChannel::Count; ++i)
+                    brush3D.use[i] = (particleMaterial->channels & (1u << i)) && particleMaterial->deposits[i].y > 0;
+            }
+            std::vector<float4> colors;
+            const auto writable = Paint3DTargets(v, colors);
+            memcpy(brush3D.use, previous, sizeof(previous));
             for (PbrChannel c : kFluidChannels) {
-                if (!brush3D.use[(int)c]) continue;
                 Layer* l = MaterialChannelLayer(d, al->material, c);
-                if (!l || !l->surface) continue;
+                if (!l || std::find(writable.begin(), writable.end(), l->surface) == writable.end()) continue;
                 targets.push_back(l->surface);
                 kinds.push_back(c == PbrChannel::BaseColor ? 0 : c == PbrChannel::Roughness ? 1 : c == PbrChannel::Metallic ? 2 : c == PbrChannel::Height ? 3 : 4);
             }
+            if (targets.empty()) { Status("Peinture liquide : cochez un canal de liquide modifiable"); return false; }
         }
     }
     if (targets.empty()) {
@@ -205,7 +221,7 @@ bool App::FluidStart(DocView& v) {
     const u32 sw = std::max(16u, (u32)std::lround(W * k)), sh = std::max(16u, (u32)std::lround(H * k));
     gpu::Texture* bed = project ? ChannelTexture(v, PbrChannel::Height) : nullptr;
     Surface* sel = d.Selection();
-    if (!v.renderer.FluidBegin(d, *ctx, targets, kinds, project ? v.mesh.get() : nullptr, sw, sh, sel && !project ? sel->tex.get() : nullptr, bed)) {
+    if (!v.renderer.FluidBegin(d, *ctx, targets, kinds, project ? v.mesh.get() : nullptr, sw, sh, sel ? sel->tex.get() : nullptr, bed)) {
         Status("Peinture liquide : impossible de démarrer la simulation");
         return false;
     }
@@ -230,16 +246,22 @@ bool App::FluidStart(DocView& v) {
 void App::FluidFinish(bool keep) {
     if (!fluidRun.active) return;
     DocView* v = fluidRun.view;
+    const bool alive = ViewAlive(v);
+    if (alive && keep) {
+        auto params = FluidParamsNow(*v);
+        params.bristleAngle = fluidRun.bristleAngle;
+        if (!fluidRun.dabs.empty()) {
+            v->renderer.FluidGravity(*ctx, params);
+            v->renderer.FluidDeposit(*ctx, fluidRun.dabs, fluidRun.ex, fluidRun.world, fluidRun.erase, params);
+        }
+        v->renderer.FluidComposite(*v->doc, *ctx, params, true);
+    }
     fluidRun.active = false;
     fluidRun.painting = false;
     fluidRun.haveDoc = fluidRun.haveHit = false;
     fluidRun.dabs.clear();
     fluidRun.ex.clear();
-    bool alive = false;
-    for (auto& d : docs) alive |= d.get() == v;
-    if (!alive || !v) return;
-    // The last state of the paint (over everything it touched), then one undo step for every layer.
-    v->renderer.FluidComposite(*v->doc, *ctx, FluidParamsNow(*v), true);
+    if (!alive) return;
     v->renderer.FluidEnd(*v->doc, *ctx, v->history, "Peinture liquide", keep);
     Status(keep ? "Peinture liquide : figée" : "Peinture liquide : annulée");
 }
@@ -341,15 +363,10 @@ void App::FluidInput3D(DocView& v, float2 local, u32 w, u32 h, bool hovered, boo
         fluidRun.haveHit = false;
         return;
     }
-    if (sim.rc.Empty() || sim.scene != &s || sim.rev != s.revision) {
-        sim.rc.Build(s.data);
-        sim.scene = &s;
-        sim.rev = s.revision;
-    }
     float3 o, d, hit, n;
     CameraRay(s, local, w, h, o, d);
     float t = 0;
-    if (!sim.rc.Ray(o, d, 100.0f, &hit, &n, &t)) { fluidRun.haveHit = false; return; }
+    if (!s.Rays().Ray(o, d, 100.0f, &hit, &n, &t)) { fluidRun.haveHit = false; return; }
     if ((!fluidRun.active || fluidRun.view != &v) && !FluidStart(v)) return;
     fluidRun.erase = io.KeyCtrl;
     const float pixel = s.ortho ? 2.0f * s.OrthoHalfHeight() / std::max(h, 1u) : 2.0f * std::tan(s.fov * 0.5f) * t / std::max(h, 1u);
@@ -451,11 +468,6 @@ void App::FluidTick() {
         }
         std::vector<float4> vc, pc;
         if (v->renderer.FluidDrops(vc, pc) && !vc.empty()) {
-            if (sim.rc.Empty() || sim.scene != &s || sim.rev != s.revision) {
-                sim.rc.Build(s.data);
-                sim.scene = &s;
-                sim.rev = s.revision;
-            }
             const float tw = v->renderer.FluidTexelWorld();
             const float3 g = Normalize(float3{p.gravity.x, p.gravity.y, p.gravity.z});
             for (size_t i = 0; i < vc.size() && fluidRun.drops.size() < 512; ++i) {
@@ -465,7 +477,7 @@ void App::FluidTick() {
                 const float3 start = at + g * (tw * 3.0f);
                 float3 hit, n;
                 float t = 0;
-                if (!sim.rc.Ray(start, g, 100.0f, &hit, &n, &t)) continue;  // falls off the model
+                if (!s.Rays().Ray(start, g, 100.0f, &hit, &n, &t)) continue;  // falls off the model
                 fluidRun.drops.push_back({at, hit, n, v->renderer.FluidTime(), v->renderer.FluidTime() + std::sqrt(2.0f * std::max(t, 1e-4f) / 9.81f), vol,
                                                float3{vc[i].y, vc[i].z, vc[i].w} * (1.0f / vol)});
             }

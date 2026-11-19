@@ -5,7 +5,7 @@ description: Open Help > Brushes for this index.
 section: Handbook
 order: 25
 parent: painting
-revision: 5ffd39fa291ebe8f
+revision: b07e6e55f0b7bc3b
 ---
 
 ## Choose and configure a brush {#choose-and-configure-a-brush}
@@ -64,6 +64,32 @@ These are actual GPU previews with simulated pressure, not tablet measurements. 
 [Effect and brush authoring](doc:authoring)
 
 ## Shipped brush catalog {#shipped-brush-catalog}
+
+### Essentials {#essentials}
+
+[Airbrush](doc:brush-ess-airbrush)
+
+[Flat brush](doc:brush-ess-flat-brush)
+
+[Gouache](doc:brush-ess-gouache)
+
+[Ink pen](doc:brush-ess-ink-pen)
+
+[Marker](doc:brush-ess-marker)
+
+[Pencil](doc:brush-ess-pencil)
+
+[Hard round](doc:brush-ess-round-hard)
+
+[Soft round](doc:brush-ess-round-soft)
+
+[Soft pastel](doc:brush-ess-soft-pastel)
+
+[Splatter](doc:brush-ess-splatter)
+
+[Spray paint](doc:brush-ess-spray)
+
+[Wash](doc:brush-ess-wash)
 
 ### Examples {#examples}
 

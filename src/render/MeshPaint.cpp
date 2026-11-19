@@ -62,14 +62,145 @@ struct ViewCB {
     u32 opts[4];
     float4 xDir[kMaxMeshLights], xCol[kMaxMeshLights];  // extra lights
 };
+// Reject a UV tile only when its entire world-space box is outside a brush frustum plane.
+Rect BrushUvBounds(const MeshScene& s, const float4* dabs, size_t count, u32 flags, float extent, u32 viewWidth, u32 viewHeight) {
+    const Rect full{0,0,(int)s.bakedW,(int)s.bakedH};
+    const auto& rb = s.brushTileBounds;
+    if (!rb || !rb->ready || rb->data.size() != (size_t)rb->width*rb->height*sizeof(float4) ||
+        !count || (flags & (256u | 2048u))) return full;
+    if (!viewWidth || !viewHeight) return full;
+    const float w = (float)viewWidth, h = (float)viewHeight;
+    float x0 = w, y0 = h, x1 = 0, y1 = 0;
+    const bool decal = (flags & 4u) != 0;
+    for (size_t i = 0; i < (decal ? 1 : count); ++i) {
+        const auto& d = dabs[i];
+        const float radius = decal ? std::hypot(std::max(1.f,d.z), std::max(1.f,d.w)) + 1 : std::max(d.z,0.5f)*extent + 1;
+        x0 = std::min(x0,d.x-radius); x1 = std::max(x1,d.x+radius);
+        y0 = std::min(y0,d.y-radius); y1 = std::max(y1,d.y+radius);
+    }
+    float limits[] = {2*x0/w-1, 2*x1/w-1, 1-2*y1/h, 1-2*y0/h};
+    float4 planes[4];
+    for (int i=0; i<4; ++i) {
+        const auto& a = s.viewProj.m[i/2];
+        const auto& b = s.viewProj.m[3];
+        const float sign = i%2 ? -1.f : 1.f, v = limits[i];
+        planes[i] = {(a[0]-v*b[0])*sign,(a[1]-v*b[1])*sign,(a[2]-v*b[2])*sign,(a[3]-v*b[3])*sign};
+    }
+    auto visible = [&](float3 center, float3 half) {
+        for (const auto& p : planes) {
+            const float radius = std::abs(p.x)*half.x + std::abs(p.y)*half.y + std::abs(p.z)*half.z;
+            if (p.x*center.x + p.y*center.y + p.z*center.z + p.w + radius < -1e-5f) return false;
+        }
+        return true;
+    };
+    Rect region{};
+    for (u32 y=0; y<rb->height; ++y) for (u32 x=0; x<rb->width/2; ++x) {
+        float4 box[2];
+        memcpy(box, rb->data.data()+((size_t)y*rb->width+x*2)*sizeof(float4),sizeof(box));
+        if (!box[0].w) continue;
+        float3 lo{box[0].x,box[0].y,box[0].z}, hi{box[1].x,box[1].y,box[1].z};
+        float3 center=(hi+lo)*0.5f, half=(hi-lo)*0.5f;
+        if (!visible(center,half)) {
+            if (!(flags & (16u|64u|128u))) continue;
+            if (flags & 16u) center.x = -center.x;
+            if (flags & 64u) center.y = -center.y;
+            if (flags & 128u) center.z = -center.z;
+            if (!visible(center,half)) continue;
+        }
+        region.Merge({(int)x*64,(int)y*64,std::min((int)(x+1)*64,full.x1),std::min((int)(y+1)*64,full.y1)});
+    }
+    return region;
+}
+
+float4 StrokeChannelColor(const std::vector<float4>& colors, size_t slot) {
+    return colors.empty() ? float4{1, 1, 1, 1} : colors[std::min(slot, colors.size() - 1)];
+}
+
+std::vector<Rect> WorldBrushRegions(const MeshScene& scene, const float4* dabs, size_t count) {
+    const Rect full{0, 0, (int)scene.bakedW, (int)scene.bakedH};
+    const auto& rb = scene.brushTileBounds;
+    if (!rb || !rb->ready || rb->width % 2 || rb->data.size() != (size_t)rb->width * rb->height * sizeof(float4)) return {full};
+    struct Box {
+        float3 lo{FLT_MAX,FLT_MAX,FLT_MAX}, hi{-FLT_MAX,-FLT_MAX,-FLT_MAX};
+        void Include(float4 d, float padding = 0) {
+            const float r = std::max(d.w,1e-5f) + padding;
+            lo = {std::min(lo.x,d.x-r),std::min(lo.y,d.y-r),std::min(lo.z,d.z-r)};
+            hi = {std::max(hi.x,d.x+r),std::max(hi.y,d.y+r),std::max(hi.z,d.z+r)};
+        }
+        bool Overlaps(const float4 (&tile)[2]) const {
+            return tile[0].x <= hi.x && tile[1].x >= lo.x && tile[0].y <= hi.y &&
+                   tile[1].y >= lo.y && tile[0].z <= hi.z && tile[1].z >= lo.z;
+        }
+    } all;
+    float largest = 0;
+    for (size_t i = 0; i < count; ++i) {
+        all.Include(dabs[i]);
+        largest = std::max(largest,dabs[i].w);
+    }
+    // A single world box fills the gaps between drops on separate parts of the model.
+    // Group nearby drops into coarse cells, so each tile tests a short list of conservative boxes.
+    const float cellSize = std::max(largest * 4,0.0625f);
+    std::map<std::array<int,3>,Box> cells;
+    for (size_t i = 0; i < count; ++i) {
+        const auto d = dabs[i];
+        const std::array<int,3> key{(int)std::floor(d.x/cellSize),(int)std::floor(d.y/cellSize),(int)std::floor(d.z/cellSize)};
+        cells[key].Include(d,1e-6f);
+    }
+    std::vector<Box> groups;
+    if (cells.size() > 1 && cells.size() <= 64) {
+        groups.reserve(cells.size());
+        for (const auto& [key,box] : cells) groups.push_back(box);
+    }
+    std::vector<Rect> regions;
+    std::vector<size_t> previousRow, currentRow;
+    Rect bounds;
+    const u32 columns = rb->width / 2;
+    for (u32 y = 0; y < rb->height; ++y) {
+        int first = -1;
+        size_t above = 0;
+        currentRow.clear();
+        for (u32 x = 0; x <= columns; ++x) {
+            bool overlaps = false;
+            if (x < columns) {
+                float4 box[2];
+                memcpy(box, rb->data.data() + ((size_t)y * rb->width + 2*x) * sizeof(float4), sizeof(box));
+                overlaps = box[0].w && all.Overlaps(box) &&
+                           (groups.empty() || std::any_of(groups.begin(),groups.end(),[&](const Box& group) { return group.Overlaps(box); }));
+            }
+            if (overlaps && first < 0) first = (int)x;
+            if (overlaps || first < 0) continue;
+            Rect row{first * 64, (int)y * 64, std::min((int)x * 64, full.x1), std::min((int)(y+1) * 64, full.y1)};
+            bounds.Merge(row);
+            while (above < previousRow.size() && regions[previousRow[above]].x0 < row.x0) ++above;
+            if (above < previousRow.size() && regions[previousRow[above]].x0 == row.x0 && regions[previousRow[above]].x1 == row.x1) {
+                regions[previousRow[above]].y1 = row.y1;
+                currentRow.push_back(previousRow[above]);
+            } else {
+                currentRow.push_back(regions.size());
+                regions.push_back(row);
+            }
+            first = -1;
+        }
+        previousRow.swap(currentRow);
+    }
+    if (regions.size() > 64) return {bounds}; // limit dispatch overhead on highly fragmented layouts
+    return regions;
+}
+
 struct BrushRootM {
     u32 dw, dh, vw, vh, count;
     float hardness, opacity;
     u32 mode, flags;
     float facingMin;
-    float zNear, zFar;  // the camera's depth range (orthographic: near < 0), see MeshScene::UpdateCamera
+    float zNear, zFar;
+    u32 originX, originY;
+    // the camera's depth range (orthographic: near < 0), see MeshScene::UpdateCamera
 };
 }  // namespace
+
+Rect MeshBrushRegion(const MeshScene& scene, const float4* dabs, size_t count, u32 viewW, u32 viewH) {
+    return BrushUvBounds(scene, dabs, count, 0, 1.0f, viewW, viewH);
+}
 
 bool Renderer::MeshPrepare(Document& doc, gpu::CommandContext& ctx, MeshScene& s) {
     if (!s.vb || s.gpuDirty) {
@@ -88,8 +219,14 @@ bool Renderer::MeshPrepare(Document& doc, gpu::CommandContext& ctx, MeshScene& s
     if (!bake || !dilate) return false;
     s.posMap = gpu::Dev().CreateTexture(W, H, gpu::Format::RGBA32F, "PosMap", gpu::UsageRenderTarget);
     s.nrmMap = gpu::Dev().CreateTexture(W, H, gpu::Format::RGBA32F, "NrmMap", gpu::UsageRenderTarget);
-    s.tmpPos = gpu::Dev().CreateTexture(W, H, gpu::Format::RGBA32F, "PosTmp");
-    s.tmpNrm = gpu::Dev().CreateTexture(W, H, gpu::Format::RGBA32F, "NrmTmp");
+    // The dilation scratch is only needed for this bake. The backend retires it after the submitted commands.
+    auto tmpPos = gpu::Dev().CreateTexture(W, H, gpu::Format::RGBA32F, "PosTmp");
+    auto tmpNrm = gpu::Dev().CreateTexture(W, H, gpu::Format::RGBA32F, "NrmTmp");
+    if (!s.posMap || !s.nrmMap || !tmpPos || !tmpNrm) {
+        s.posMap.reset();
+        s.nrmMap.reset();
+        return false;
+    }
     gpu::DrawDesc d;
     d.pipeline = bake;
     d.rt[0] = s.posMap.get();
@@ -102,8 +239,8 @@ bool Renderer::MeshPrepare(Document& doc, gpu::CommandContext& ctx, MeshScene& s
     ctx.Draw(d);
     // Dilate islands by 6 texels (ping-pong) to cover seams.
     for (int i = 0; i < 6; ++i) {
-        gpu::Texture *srcP = (i & 1) ? s.tmpPos.get() : s.posMap.get(), *srcN = (i & 1) ? s.tmpNrm.get() : s.nrmMap.get();
-        gpu::Texture *dstP = (i & 1) ? s.posMap.get() : s.tmpPos.get(), *dstN = (i & 1) ? s.nrmMap.get() : s.tmpNrm.get();
+        gpu::Texture *srcP = (i & 1) ? tmpPos.get() : s.posMap.get(), *srcN = (i & 1) ? tmpNrm.get() : s.nrmMap.get();
+        gpu::Texture *dstP = (i & 1) ? s.posMap.get() : tmpPos.get(), *dstN = (i & 1) ? s.nrmMap.get() : tmpNrm.get();
         gpu::DispatchDesc k;
         k.pipeline = dilate;
         k.srv[0] = srcP;
@@ -114,6 +251,19 @@ bool Renderer::MeshPrepare(Document& doc, gpu::CommandContext& ctx, MeshScene& s
         memcpy(k.constants, size, 8);
         k.numConstants = 2;
         Dispatch2D(ctx, k, W, H);
+    }
+    s.brushTileBounds.reset();
+    if (const auto* bounds = Kernel("mesh_tile_bounds.slang")) {
+        const u32 columns = (W + 63) / 64, rows = (H + 63) / 64;
+        auto texture = gpu::Dev().CreateTexture(columns * 2, rows, gpu::Format::RGBA32F, "BrushTileBounds");
+        if (texture) {
+            gpu::DispatchDesc tiles;
+            tiles.pipeline = bounds;
+            tiles.srv[0] = s.posMap.get();
+            tiles.uav[0] = texture.get();
+            Dispatch2D(ctx, tiles, columns * 8, rows * 8);
+            s.brushTileBounds = ctx.ReadbackTexture(texture.get());
+        }
     }
     s.bakedW = W;
     s.bakedH = H;
@@ -228,8 +378,10 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
             dd.pipeline = sp;
             dd.depth = s.shadowMap.get();
             dd.clearDepth = true;
-            dd.cbData = cb.lightVP;
-            dd.cbSize = sizeof(cb.lightVP);
+            dd.srv[0] = material.tex[(int)PbrChannel::Opacity];
+            const struct { Mat4 vp; u32 hasOpacity, pad[3]; } shadowView{lvp, dd.srv[0] ? 1u : 0u, {}};
+            dd.cbData = &shadowView;
+            dd.cbSize = sizeof(shadowView);
             dd.vertices = s.vb.get();
             dd.indices = s.ib.get();
             dd.count = (u32)s.data.indices.size();
@@ -266,14 +418,17 @@ gpu::Texture* Renderer::MeshRender(gpu::CommandContext& ctx, MeshScene& s, const
     }
     gpu::DrawDesc d;
     d.pipeline = p;
-    for (int c = 0; c < (int)PbrChannel::Count; ++c) {
+    for (int c = 0; c <= (int)PbrChannel::Height; ++c) {
         d.srv[c] = material.tex[c];
         if (material.tex[c]) cb.flags |= 1u << c;
     }
+    const int extra = s.viewChannel >= 12 && s.viewChannel <= 16 ? s.viewChannel - 12 : 0;
+    d.srv[10] = material.tex[(int)PbrChannel::Opacity + extra];
+    if (d.srv[10]) cb.flags |= 256u;
     d.srv[7] = s.envAtlas.get();
     d.srv[8] = s.maps.get();
     d.srv[9] = (cb.opts[0] & 1) ? s.shadowMap.get() : nullptr;
-    if (s.viewChannel >= 8) d.srv[5] = s.maps.get();  // baked maps shown in place of the occlusion slot
+    if (s.viewChannel >= 8 && s.viewChannel <= 11) d.srv[5] = s.maps.get();  // baked maps shown in place of the occlusion slot
     d.rt[0] = s.color.get();
     d.depth = s.depth.get();
     d.clearColor = !sky;
@@ -543,8 +698,9 @@ gpu::Texture* Renderer::MeshCursorPreview(gpu::CommandContext& ctx, MeshScene& s
 }
 
 void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
-                              float4 color, bool erase, u32 extraFlags, gpu::Texture* decal, const std::vector<float4>* dabEx) {
-    if (!strokeSurface || dabs.empty() || !s.posMap || !s.depth) {
+                              float4 color, bool erase, u32 extraFlags, gpu::Texture* decal, const std::vector<float4>* dabEx,
+                              const ParticleDeposit* particles, std::vector<Rect>* dispatchedRegions) {
+    if (!strokeSurface || dabs.empty() || !s.posMap || (!s.depth && !(extraFlags & 256u))) {
         Log("MeshStrokeDabs skipped: stroke=%u dabs=%zu pos=%d depth=%d", strokeSurface, dabs.size(), (int)(bool)s.posMap, (int)(bool)s.depth);
         return;
     }
@@ -563,6 +719,11 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
     memcpy(cb.vp, s.viewProj.m, sizeof(cb.vp));
     cb.camPos = {s.ShadingEye().x, s.ShadingEye().y, s.ShadingEye().z, 1};
     cb.color = color;
+    if (particles) {
+        extraFlags |= 4096u;
+        cb.stencil = particles->impact;
+        cb.stencil2 = {particles->strength.x, particles->strength.y, 0, 0};
+    }
     // Programmable tip: shapes from the atlas (not for decals).
     const bool useTip = meshTipOn && meshTipAtlas && !(extraFlags & (4u | 256u));
     if (useTip) extraFlags |= 32u;
@@ -584,6 +745,7 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
     // Projection along the average normal (the brush, not decals or simulations; no symmetry, no stencil).
     const bool normalMode = meshNormalMode && !(extraFlags & (4u | 256u));
     if (normalMode) extraFlags = (extraFlags & ~(16u | 64u | 128u | 512u)) | 2048u;
+    Rect touched;
     for (size_t start = 0; start < dabs.size(); start += 1024) {
         size_t count = std::min<size_t>(1024, dabs.size() - start);
         for (size_t i = 0; i < count; ++i) {
@@ -606,17 +768,140 @@ void Renderer::MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene
         d.srv[7] = normalMode ? meshFrames.get() : nullptr;
         d.uav[0] = sf->tex.get();
         d.uav[1] = strokeMask.get();
-        BrushRootM root = {W, H, s.depth->Width(), s.depth->Height(), (u32)count, b.hardness, b.opacity, erase ? 1u : 0u, (sel ? 1u : 0u) | extraFlags,
+        d.uav[2] = particles ? particleImpacts.get() : nullptr;
+        const u32 viewW = s.depth ? s.depth->Width() : 0, viewH = s.depth ? s.depth->Height() : 0;
+        BrushRootM root = {W, H, viewW, viewH, (u32)count, b.hardness, b.opacity, erase ? 1u : 0u, (sel ? 1u : 0u) | extraFlags,
                            std::clamp(meshFacingMin, -0.5f, 0.95f), s.ortho ? MeshScene::kOrthoNear : MeshScene::kNear,
                            s.ortho ? MeshScene::kOrthoFar : MeshScene::kFar};
-        memcpy(d.constants, &root, sizeof(root));
-        d.numConstants = sizeof(root) / 4;
         d.cbData = &cb;
         d.cbSize = (useTip || (extraFlags & 256u)) ? offsetof(PaintCB, dabsEx) + count * sizeof(float4) : offsetof(PaintCB, dabs) + count * sizeof(float4);
-        Dispatch2D(ctx, d, W, H);
+        const auto dispatch = [&](Rect bounds) {
+            if (!meshClip.Empty()) {
+                bounds.x0 = std::max(bounds.x0, meshClip.x0); bounds.y0 = std::max(bounds.y0, meshClip.y0);
+                bounds.x1 = std::min(bounds.x1, meshClip.x1); bounds.y1 = std::min(bounds.y1, meshClip.y1);
+            }
+            if (bounds.Empty()) return;
+            root.originX = (u32)bounds.x0;
+            root.originY = (u32)bounds.y0;
+            SetConstants(d, root);
+            d.uavRect[0] = d.uavRect[1] = d.uavRect[2] = bounds;
+            Dispatch2D(ctx, d, bounds.Width(), bounds.Height());
+            if (dispatchedRegions) dispatchedRegions->push_back(bounds);
+            touched.Merge(bounds);
+        };
+        if (extraFlags & 256u) {
+            for (const Rect bounds : WorldBrushRegions(s, cb.dabs, count)) dispatch(bounds);
+        } else {
+            dispatch(BrushUvBounds(s, cb.dabs, count, extraFlags, useTip ? std::max(meshTipExtent, 1.0f)*1.415f : 1.0f, viewW, viewH));
+        }
     }
-    strokeRect = {0, 0, (int)W, (int)H};
-    doc.TouchSurface(strokeSurface);
+    if (!touched.Empty()) {
+        PreserveDisabledPaint(ctx,strokeSurface,sf->tex.get(),strokePre.get(),touched);
+        strokeRect.Merge(touched);
+        TrackMeshStrokeCoverage();
+        doc.TouchSurface(strokeSurface, &touched);
+    }
+}
+
+bool Renderer::BeginParticlePaint(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces) {
+    if (!BeginStrokeMulti(doc, ctx, surfaces)) return false;
+    auto* kernel = Kernel("clear_r.slang");
+    particleImpacts = gpu::Dev().CreateTexture(doc.Width(), doc.Height(), gpu::Format::R32F, "ParticleImpacts");
+    if (!kernel || !particleImpacts) {
+        CancelParticlePaint(doc, ctx);
+        return false;
+    }
+    gpu::DispatchDesc clear;
+    clear.pipeline = kernel;
+    clear.uav[0] = particleImpacts.get();
+    struct { u32 width, height; float value; } root{doc.Width(), doc.Height(), 0};
+    SetConstants(clear, root);
+    Dispatch2D(ctx, clear, doc.Width(), doc.Height());
+    return true;
+}
+
+void Renderer::ParticleDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<float4>& dabs,
+                            const std::vector<float4>& extra, const BrushSettings& brush, const std::vector<ParticleDeposit>& values) {
+    if (!strokeSurface || dabs.empty() || !particleImpacts || values.size() != strokeSlots.size() + 1) return;
+    std::vector<Dab> converted;
+    converted.reserve(dabs.size());
+    for (const auto& d : dabs) converted.push_back({d.x, d.y, d.z, d.w});
+    const auto* resolve = strokeSlots.empty() ? nullptr : Kernel("mesh_particle_composite.slang");
+    std::vector<Rect> regions;
+    MeshStrokeDabs(doc, ctx, s, converted, brush, values[0].trail, false, 256u, nullptr, &extra, &values[0], resolve ? &regions : nullptr);
+    if (resolve) {
+        Rect touched;
+        for (const Rect& rect : regions) touched.Merge(rect);
+        if (touched.Empty()) return;
+        constexpr size_t channelsPerPass = 4;
+        const auto* sel = doc.Selection();
+        for (size_t start = 0; start < strokeSlots.size(); start += channelsPerPass) {
+            struct Channel { float4 trail, impact, strength; };
+            Channel materials[channelsPerPass]{};
+            std::array<Id,channelsPerPass> surfaces{};
+            std::array<gpu::Texture*,channelsPerPass> original{};
+            gpu::DispatchDesc dispatch;
+            dispatch.pipeline = resolve;
+            dispatch.srv[0] = strokeMask.get();
+            dispatch.srv[1] = particleImpacts.get();
+            dispatch.srv[2] = sel ? sel->tex.get() : nullptr;
+            u32 count = 0;
+            for (size_t slot = start; slot < std::min(start + channelsPerPass, strokeSlots.size()); ++slot) {
+                const auto& entry = strokeSlots[slot];
+                const auto* surface = doc.GetSurface(entry.surface);
+                if (!surface || !surface->tex) continue;
+                const auto& value = values[slot+1];
+                materials[count] = {value.trail,value.impact,{value.strength.x,value.strength.y,0,0}};
+                surfaces[count] = entry.surface;
+                original[count] = entry.pre.get();
+                dispatch.srv[3+count] = original[count];
+                dispatch.uav[count] = surface->tex.get();
+                ++count;
+            }
+            if (!count) continue;
+            dispatch.cbData = materials;
+            dispatch.cbSize = sizeof(materials);
+            for (const Rect& rect : regions) {
+                struct { u32 x, y, w, h, channels, selected; float opacity; } root{
+                    (u32)rect.x0,(u32)rect.y0,(u32)rect.Width(),(u32)rect.Height(),count,sel ? 1u : 0u,brush.opacity};
+                SetConstants(dispatch,root);
+                for (u32 i = 0; i < count; ++i) dispatch.uavRect[i] = rect;
+                Dispatch2D(ctx,dispatch,root.w,root.h);
+            }
+            for (u32 i = 0; i < count; ++i) {
+                PreserveDisabledPaint(ctx,surfaces[i],dispatch.uav[i],original[i],touched);
+                doc.TouchSurface(surfaces[i],&touched);
+            }
+        }
+        return;
+    }
+    for (size_t i = 0; i < strokeSlots.size(); ++i) {
+        auto& slot = strokeSlots[i];
+        std::swap(strokeSurface, slot.surface);
+        std::swap(strokePre, slot.pre);
+        MeshStrokeDabs(doc, ctx, s, converted, brush, values[i+1].trail, false, 256u | 2u, nullptr, &extra, &values[i+1]);
+        std::swap(strokeSurface, slot.surface);
+        std::swap(strokePre, slot.pre);
+    }
+}
+
+void Renderer::CancelParticlePaint(Document& doc, gpu::CommandContext& ctx, bool restorePixels) {
+    const auto restore = [&](Id id, gpu::Texture* before) {
+        auto* surface = doc.GetSurface(id);
+        if (!surface || !surface->tex || !before || strokeRect.Empty()) return;
+        ctx.CopyRegion(surface->tex.get(), strokeRect.x0, strokeRect.y0, before, strokeRect);
+        doc.TouchSurface(id, &strokeRect);
+    };
+    if (restorePixels) {
+        restore(strokeSurface, strokePre.get());
+        for (const auto& slot : strokeSlots) restore(slot.surface, slot.pre.get());
+    }
+    strokeSlots.clear();
+    strokeSurface = 0;
+    strokeRect = {};
+    meshCoverage = false;
+    meshTileReadback.reset();
+    particleImpacts.reset();
 }
 
 bool Renderer::BeginStrokeMulti(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces) {
@@ -624,10 +909,15 @@ bool Renderer::BeginStrokeMulti(Document& doc, gpu::CommandContext& ctx, const s
     if (surfaces.empty() || !BeginStroke(doc, ctx, surfaces[0])) return false;  // runs the pending clears of every layer
     for (size_t i = 1; i < surfaces.size(); ++i) {
         Surface* s = doc.GetSurface(surfaces[i]);
-        if (!s) continue;
         StrokeSlot slot;
         slot.surface = surfaces[i];
-        slot.pre = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "StrokePreSlot");
+        if (s && s->tex)
+            slot.pre = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "StrokePreSlot");
+        if (!slot.pre) {
+            strokeSurface = 0;
+            strokeSlots.clear();
+            return false;
+        }
         ctx.CopyTexture(slot.pre.get(), s->tex.get());
         strokeSlots.push_back(std::move(slot));
     }
@@ -639,11 +929,11 @@ void Renderer::MeshStrokeDabsMulti(Document& doc, gpu::CommandContext& ctx, Mesh
     if (!strokeSurface) return;
     // First layer: accumulates the coverage; the others composite with it (symmetry is added by MeshStrokeDabs).
     const u32 sym = 0;
-    MeshStrokeDabs(doc, ctx, s, dabs, b, colors.empty() ? float4{1, 1, 1, 1} : colors[0], erase, sym, nullptr, dabEx);
+    MeshStrokeDabs(doc, ctx, s, dabs, b, StrokeChannelColor(colors, 0), erase, sym, nullptr, dabEx);
     for (size_t i = 0; i < strokeSlots.size(); ++i) {
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
-        MeshStrokeDabs(doc, ctx, s, dabs, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), erase, 2u | sym, nullptr, dabEx);
+        MeshStrokeDabs(doc, ctx, s, dabs, b, StrokeChannelColor(colors, i + 1), erase, 2u | sym, nullptr, dabEx);
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
     }
@@ -655,11 +945,11 @@ void Renderer::MeshWorldDabsMulti(Document& doc, gpu::CommandContext& ctx, MeshS
     // The dab array carries (x, y, z, radius); the extra one (alpha, normal).
     std::vector<Dab> d(dabs.size());
     for (size_t i = 0; i < dabs.size(); ++i) d[i] = {dabs[i].x, dabs[i].y, dabs[i].z, dabs[i].w};
-    MeshStrokeDabs(doc, ctx, s, d, b, colors.empty() ? float4{1, 1, 1, 1} : colors[0], erase, 256u, nullptr, &ex);
+    MeshStrokeDabs(doc, ctx, s, d, b, StrokeChannelColor(colors, 0), erase, 256u, nullptr, &ex);
     for (size_t i = 0; i < strokeSlots.size(); ++i) {
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
-        MeshStrokeDabs(doc, ctx, s, d, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), erase, 256u | 2u, nullptr, &ex);
+        MeshStrokeDabs(doc, ctx, s, d, b, StrokeChannelColor(colors, i + 1), erase, 256u | 2u, nullptr, &ex);
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
     }
@@ -673,32 +963,23 @@ void Renderer::MeshDecalMulti(Document& doc, gpu::CommandContext& ctx, MeshScene
     BrushSettings b;
     b.hardness = 1;
     b.opacity = 1;
-    MeshStrokeDabs(doc, ctx, s, d, b, colors.empty() ? float4{1, 1, 1, 1} : colors[0], false, 4u | (firstUsesImageColor ? 8u : 0u), image);
+    MeshStrokeDabs(doc, ctx, s, d, b, StrokeChannelColor(colors, 0), false, 4u | (firstUsesImageColor ? 8u : 0u), image);
     for (size_t i = 0; i < strokeSlots.size(); ++i) {
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
-        MeshStrokeDabs(doc, ctx, s, d, b, i + 1 < colors.size() ? colors[i + 1] : colors.back(), false, 4u | 2u, image);
+        MeshStrokeDabs(doc, ctx, s, d, b, StrokeChannelColor(colors, i + 1), false, 4u | 2u, image);
         std::swap(strokeSurface, strokeSlots[i].surface);
         std::swap(strokePre, strokeSlots[i].pre);
     }
 }
 
 void Renderer::EndStrokeMulti(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label) {
+    ReadStrokeTiles(ctx);
     hist.BeginGroup();
     for (auto& slot : strokeSlots) {
         std::swap(strokeSurface, slot.surface);
         std::swap(strokePre, slot.pre);
-        Surface* s = doc.GetSurface(strokeSurface);
-        if (s && !strokeRect.Empty()) {
-            auto fmt = s->tex->GetFormat();
-            auto before = gpu::Dev().CreateTexture(strokeRect.Width(), strokeRect.Height(), fmt, "UndoBefore");
-            auto after = gpu::Dev().CreateTexture(strokeRect.Width(), strokeRect.Height(), fmt, "UndoAfter");
-            if (before && after) {
-                ctx.CopyRegion(before.get(), 0, 0, strokePre.get(), strokeRect);
-                ctx.CopyRegion(after.get(), 0, 0, s->tex.get(), strokeRect);
-                hist.PushPaint(label, strokeSurface, strokeRect, before, after);
-            }
-        }
+        SaveStrokePixels(doc, ctx, hist, label);
         std::swap(strokeSurface, slot.surface);
         std::swap(strokePre, slot.pre);
     }
@@ -716,7 +997,7 @@ bool Renderer::MeshGenerate(Document& doc, gpu::CommandContext& ctx, MeshScene& 
     struct Root {
         u32 w, h, type, flags;
         float amount, contrast, noise, noiseScale, seed, blur, pad[2];
-    } root = {W, H, (u32)p.type, (p.invert ? 1u : 0u) | (s.maps ? 2u : 0u) | (p.sourceAlpha ? 4u : 0u) | (p.edits ? 8u : 0u) | (p.raw ? 16u : 0u), p.amount, p.contrast, p.noise, p.noiseScale, p.seed, 0, {0, 0}};
+    } root = {W, H, (u32)p.type, (p.invert ? 1u : 0u) | (s.maps ? 2u : 0u) | (p.sourceAlpha ? 4u : 0u) | (p.edits ? 8u : 0u) | (p.raw ? 16u : 0u) | (p.sourceValue ? 32u : 0u), p.amount, p.contrast, p.noise, p.noiseScale, p.seed, 0, {0, 0}};
     struct Gen {
         float4 dir, bmin, bmax, anchor;
     } gen = {{p.dir.x, p.dir.y, p.dir.z, 0}, {s.data.boundsMin.x, s.data.boundsMin.y, s.data.boundsMin.z, 0}, {s.data.boundsMax.x, s.data.boundsMax.y, s.data.boundsMax.z, 0},

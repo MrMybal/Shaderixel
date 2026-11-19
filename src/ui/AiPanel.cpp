@@ -56,6 +56,12 @@ void App::LoadAiSettings() {
     Json j;
     if (ReadTextFile(settingsPath, text) && Json::Parse(text, j)) {
         aiSettings.FromJson(j["ai"]);
+        LoadTextureExportPresets(j["textureExportPresets"]);
+        particlePresets.clear();
+        for (const auto& entry : j["particlePresets"].Elements()) {
+            auto saved = ParticleBrush::FromJson(entry);
+            if (!saved.name.empty()) particlePresets.push_back(std::move(saved));
+        }
         penPressureGamma = std::clamp(j["tablet"]["pressureGamma"].F(1.0f), 0.2f, 5.0f);
         lensfunDir = j["lensfun"]["dir"].S("");
         uiLanguage = j["ui"]["language"].S("en");
@@ -84,10 +90,13 @@ void App::LoadAiSettings() {
     bridge.allowWrites = aiSettings.allowWrites;
 }
 
-void App::SaveAiSettings() {
+bool App::SaveAiSettings() {
     Json j = Json::Object();
     aiSettings.allowWrites = bridge.allowWrites;
     j["ai"] = aiSettings.ToJson();
+    j["textureExportPresets"] = TextureExportPresetsJson();
+    j["particlePresets"] = Json::Array();
+    for (const auto& entry : particlePresets) j["particlePresets"].Push(entry.ToJson());
     Json t = Json::Object();
     t["api"] = platform::GetTabletApi() == platform::TabletApi::Wintab ? "wintab" : "ink";
     t["pressureGamma"] = penPressureGamma;
@@ -127,7 +136,9 @@ void App::SaveAiSettings() {
     if (!ok || ec) {
         fs::remove(tmp, ec);
         Log("Settings: cannot write %s", settingsPath.c_str());
+        return false;
     }
+    return true;
 }
 
 // Run `fn` on a worker; the result is applied on the main thread by PollAiJobs.

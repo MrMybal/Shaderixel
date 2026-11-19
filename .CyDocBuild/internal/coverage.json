@@ -5,7 +5,7 @@
     "en",
     "fr"
   ],
-  "pagesPerLanguage": 954,
+  "pagesPerLanguage": 956,
   "catalogs": {
     "Brushes": 65,
     "Commands": 20,
@@ -13,7 +13,7 @@
     "Functions": 162,
     "Handbook": 44,
     "Nodes": 168,
-    "Tools": 46
+    "Tools": 48
   },
   "illustrations": 42,
   "practiceDocuments": 6,

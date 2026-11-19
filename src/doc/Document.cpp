@@ -13,7 +13,8 @@ const char* kBlendNames[] = {
     "Obscurcir", "Éclaircir", "Différence", "Densité couleur -", "Densité couleur +", "Lumière crue",
     "Lumière tamisée", "Fondu", "Densité linéaire +", "Lumière vive", "Lumière linéaire", "Lumière ponctuelle",
     "Mélange maximal", "Exclusion", "Division", "Teinte", "Saturation", "Couleur", "Luminosité",
-    "Couleur plus foncée", "Couleur plus claire"};
+    "Couleur plus foncée", "Couleur plus claire", "Effacer"};
+static_assert(std::size(kBlendNames) == (size_t)BlendMode::Count);
 
 constexpr Id kOutputId = 1;
 constexpr Id kGenBase = 0x40000000u;
@@ -30,7 +31,7 @@ int LayerFilterOfRole(u32 role) {
     return -1;
 }
 
-const int kBlendMenuOrder[] = {0, 13, -1, 6, 1, 10, 14, 25, -1, 7, 2, 9, 4, 26, -1, 3, 12, 11, 15, 16, 17, 18, -1, 8, 19, 5, 20, -1, 21, 22, 23, 24};
+const int kBlendMenuOrder[] = {0, 13, 27, -1, 6, 1, 10, 14, 25, -1, 7, 2, 9, 4, 26, -1, 3, 12, 11, 15, 16, 17, 18, -1, 8, 19, 5, 20, -1, 21, 22, 23, 24};
 const int kBlendMenuCount = (int)(sizeof(kBlendMenuOrder) / sizeof(int));
 
 const char* BlendModeName(BlendMode m) {
@@ -298,6 +299,26 @@ Document::Document(u32 w, u32 h, Precision p, DocMode mode, const std::string& n
 SmartObject::SmartObject() = default;
 SmartObject::~SmartObject() = default;
 
+u32 Document::TextureSetChannels(const std::string& set) const {
+    if (auto it = state.textureSetChannels.find(set); it != state.textureSetChannels.end()) return it->second;
+    const auto tile = set.find('.');
+    if (tile != set.npos && tile > 0) {
+        auto it = state.textureSetChannels.find(set.substr(0, tile));
+        if (it != state.textureSetChannels.end()) return it->second;
+    }
+    return pbrChannels;
+}
+
+std::string Document::LayerTextureSet(const Layer& layer) const {
+    const Layer* current = &layer;
+    for (size_t depth = 0; current && depth <= state.layers.size(); ++depth) {
+        if (!current->textureSet.empty()) return current->textureSet;
+        const int index = current->parent ? LayerIndex(current->parent) : -1;
+        current = index < 0 ? nullptr : &state.layers[index];
+    }
+    return {};
+}
+
 Id Document::CreateSurface(const float4& clear) {
     Id id = NewId();
     Surface s;
@@ -328,6 +349,19 @@ void Document::CreateSurfaceWithId(Id id, gpu::Format f) {
 Surface* Document::GetSurface(Id id) {
     auto it = state.surfaces.find(id);
     return it == state.surfaces.end() ? nullptr : &it->second;
+}
+
+std::vector<Id> Document::UvPaintSurfaces() const {
+    std::vector<Id> surfaces;
+    for (auto& l : S().layers) {
+        if (l.surface && l.kind == LayerKind::Pixel) surfaces.push_back(l.surface);
+        if (l.mask) surfaces.push_back(l.mask);
+        if (l.maskEdit) surfaces.push_back(l.maskEdit);
+    }
+    for (auto& n : S().graph.nodes) if (n.kind == NodeKind::Surface && n.surface) surfaces.push_back(n.surface);
+    std::sort(surfaces.begin(), surfaces.end());
+    surfaces.erase(std::unique(surfaces.begin(), surfaces.end()), surfaces.end());
+    return surfaces;
 }
 
 void Document::TouchSurface(Id id, const Rect* rect) {
@@ -1034,6 +1068,7 @@ static bool ExtractLayers(const Graph& g, const std::vector<Layer>* prev, std::v
                 l.material = o.material;
                 l.generator = o.generator;
                 l.projection = o.projection;
+                l.surfacePath = o.surfacePath;
                 if (!l.mask && o.mask && !o.maskEnabled) {
                     l.mask = o.mask;
                     l.maskEnabled = false;
@@ -1286,7 +1321,7 @@ Id Document::PaintTarget() const {
         for (auto& l : state.layers)
             if (l.id == state.activeLayer) {
                 if (state.editMask && l.mask) return !l.generator.empty() && l.maskEdit ? l.maskEdit : l.mask;  // smart mask: its corrections
-                return l.kind == LayerKind::Pixel && !l.locked ? l.surface : 0;
+                return l.kind == LayerKind::Pixel && !l.locked && l.surfacePath.empty() && l.projection.empty() ? l.surface : 0;
             }
         return 0;
     }

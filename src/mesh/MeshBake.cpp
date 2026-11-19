@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <thread>
 #include <unordered_map>
 
@@ -101,7 +102,7 @@ struct Bvh {
         return true;
     }
     // Nearest hit (h.t = tmax when nothing).
-    bool Trace(float3 o, float3 d, float tmax, Hit* out = nullptr) const {
+    bool Trace(float3 o, float3 d, float tmax, Hit* out = nullptr, const std::vector<int>* groups = nullptr, int required = -1) const {
         if (nodes.empty() || tris.empty()) return false;
         float3 inv{1.0f / (std::fabs(d.x) > 1e-12f ? d.x : 1e-12f), 1.0f / (std::fabs(d.y) > 1e-12f ? d.y : 1e-12f), 1.0f / (std::fabs(d.z) > 1e-12f ? d.z : 1e-12f)};
         int stack[64];
@@ -115,6 +116,7 @@ struct Bvh {
             if (!Box(nd, o, inv, best.t)) continue;
             if (nd.count) {
                 for (int i = nd.start; i < nd.start + nd.count; ++i) {
+                    if (groups && (*groups)[tris[i]] != required) continue;
                     Hit h;
                     if (Tri(tris[i], o, d, best.t, h)) { best = h; any = true; }
                 }
@@ -126,9 +128,9 @@ struct Bvh {
         if (out) *out = best;
         return any;
     }
-    float Distance(float3 o, float3 d, float tmax) const {
+    float Distance(float3 o, float3 d, float tmax, const std::vector<int>* groups = nullptr, int group = -1) const {
         Hit h;
-        return Trace(o, d, tmax, &h) ? h.t : tmax;
+        return Trace(o, d, tmax, &h, groups, group) ? h.t : tmax;
     }
 };
 
@@ -273,7 +275,8 @@ struct Dirs {
 };
 
 // Occlusion (1 = open) and thickness (1 = thick) at p (normal n) against the analyzed mesh.
-void OcclusionThickness(const Analyzed& A, const Dirs& dirs, float3 p, float3 n, u32 seed, float aoDist, float& ao, float& thick) {
+void OcclusionThickness(const Analyzed& A, const Dirs& dirs, float3 p, float3 n, u32 seed, float aoDist, float& ao, float& thick,
+                        const std::vector<int>* groups = nullptr, int group = -1) {
     float3 t = Normalize(Cross(std::fabs(n.y) < 0.9f ? float3{0, 1, 0} : float3{1, 0, 0}, n));
     float3 b = Cross(n, t);
     const float rot = Hash(seed) * 6.2831853f, cr = std::cos(rot), sr = std::sin(rot);
@@ -285,11 +288,11 @@ void OcclusionThickness(const Analyzed& A, const Dirs& dirs, float3 p, float3 n,
         float3 d = dirs.d[k];
         float dx = d.x * cr - d.y * sr, dy = d.x * sr + d.y * cr;
         float3 w = t * dx + b * dy + n * d.z;
-        float hit = A.bvh.Distance(o0, w, aoDist);
+        float hit = A.bvh.Distance(o0, w, aoDist, groups, group);
         if (hit < aoDist) occl += 1.0f - hit / aoDist;
         if (k % 3 == 0) {
             float3 wi = t * dx * 0.5f + b * dy * 0.5f - n * d.z;
-            th += std::min(A.bvh.Distance(o1, Normalize(wi), 1.0f), 1.0f);
+            th += std::min(A.bvh.Distance(o1, Normalize(wi), 1.0f, groups, group), 1.0f);
             ++nth;
         }
     }
@@ -432,23 +435,42 @@ void ParallelFor(size_t n, std::atomic<float>* progress, std::atomic<bool>* canc
 }  // namespace
 
 struct MeshRaycaster::Impl {
-    MeshData mesh;
-    Analyzed a;
+    std::vector<float3> positions, normals;
+    std::vector<u32> indices;
+    Bvh bvh;
 };
 
 void MeshRaycaster::Build(const MeshData& m) {
-    auto i = std::make_shared<Impl>();
-    i->mesh = m;
-    i->a.Build(i->mesh, 25.0f, 0.05f);
-    impl = i;
+    auto data = std::make_shared<Impl>();
+    data->indices = m.indices;
+    data->positions.reserve(m.vertices.size());
+    data->normals.reserve(m.vertices.size());
+    for (const auto& v : m.vertices) {
+        data->positions.push_back(v.pos);
+        data->normals.push_back(v.normal);
+    }
+    data->bvh.Build(data->positions, data->indices);
+    impl = std::move(data);
 }
 
-bool MeshRaycaster::Ray(float3 o, float3 d, float tmax, float3* pos, float3* normal, float* tOut) const {
-    if (!impl) return false;
+bool MeshRaycaster::Ray(float3 o, float3 d, float tmax, float3* pos, float3* normal, float* tOut,
+                        u32* triangle, float3* weights) const {
     Hit h;
-    if (!impl->a.bvh.Trace(o, d, tmax, &h)) return false;
+    if (!impl || !impl->bvh.Trace(o, d, tmax, &h)) return false;
+    const float3 bary{1 - h.u - h.v, h.u, h.v};
+    if (triangle) *triangle = h.tri;
+    if (weights) *weights = bary;
     if (pos) *pos = o + d * h.t;
-    if (normal) *normal = impl->a.Normal(h.tri, 1 - h.u - h.v, h.u, h.v);
+    if (normal) {
+        const auto* i = &impl->indices[h.tri * 3];
+        const auto& n = impl->normals;
+        float3 v = n[i[0]] * bary.x + n[i[1]] * bary.y + n[i[2]] * bary.z;
+        const auto& p = impl->positions;
+        float3 face = Normalize(Cross(p[i[1]] - p[i[0]], p[i[2]] - p[i[0]]));
+        if (Dot(face, n[i[0]] + n[i[1]] + n[i[2]]) < 0) face = face * -1;
+        v = Normalize(v);
+        *normal = Dot(v, face) < 0.2f ? face : v;
+    }
     if (tOut) *tOut = h.t;
     return true;
 }
@@ -471,11 +493,50 @@ void TransformToMeshSpace(MeshData& m, const MeshData& ref) {
     }
 }
 
-BakeResult BakeMeshes(const MeshData& low, const MeshData* high, const BakeOptions& o, std::atomic<float>* progress, std::atomic<bool>* cancel) {
+BakeResult BakeMeshes(const MeshData& low, const MeshData* high, const BakeOptions& o, std::atomic<float>* progress, std::atomic<bool>* cancel, const MeshData* cage) {
     BakeResult out;
     const int S = std::clamp(o.size, 64, 8192);
     if (low.indices.empty()) { out.error = "maillage vide"; return out; }
     if (high && high->indices.empty()) high = nullptr;
+    if (cage && (cage->indices.size() != low.indices.size() || cage->indices.empty() ||
+                 std::any_of(cage->indices.begin(), cage->indices.end(), [&](u32 i) { return i >= cage->vertices.size(); }))) {
+        out.error = "La cage doit avoir les mêmes triangles dans le même ordre que le modèle basse définition";
+        return out;
+    }
+    if (cage) {
+        // UV seams and hard normals may split a vertex differently in each file.
+        // All corners sharing a low vertex must still identify one cage position.
+        std::vector<u32> first(low.vertices.size(), ~0u);
+        for (size_t i = 0; i < low.indices.size(); ++i) {
+            u32& previous = first[low.indices[i]];
+            const u32 vertex = cage->indices[i];
+            if (previous != ~0u && Length(cage->vertices[previous].pos-cage->vertices[vertex].pos)>1e-5f) {
+                out.error = "L’ordre ou la topologie des triangles de la cage diffère du modèle";
+                return out;
+            }
+            previous = vertex;
+        }
+    }
+    std::vector<int> lowParts, highParts;
+    if (high && o.matchByName) {
+        std::unordered_map<std::string, int> ids;
+        auto assign = [&](const MeshData& m, std::vector<int>& parts) {
+            std::vector<int> names;
+            auto key = [&](std::string name) {
+                for (char& c : name) if (c >= 'A' && c <= 'Z') c += 'a' - 'A';
+                for (const char* suffix : {"_high", "_low"})
+                    if (name.ends_with(suffix)) { name.resize(name.size() - strlen(suffix)); break; }
+                return ids.emplace(name, (int)ids.size()).first->second;
+            };
+            const int fallback = key(m.name);
+            for (const auto& name : m.partNames) names.push_back(key(name));
+            parts.assign(m.indices.size() / 3, fallback);
+            for (size_t t = 0; t < std::min(parts.size(), m.triPart.size()); ++t)
+                if (m.triPart[t] < names.size()) parts[t] = names[m.triPart[t]];
+        };
+        assign(low, lowParts);
+        assign(*high, highParts);
+    }
     Analyzed L;
     L.Build(low, o.sharpAngle, o.edgeWidth);
     Analyzed H;
@@ -547,14 +608,25 @@ BakeResult BakeMeshes(const MeshData& low, const MeshData* high, const BakeOptio
         float dw0 = tx.w0, dw1 = tx.w1, dw2 = tx.w2;
         if (high) {
             // Ray from the cage (above the low surface) down to `back` below it: the first high poly surface.
-            const float3 origin = tx.p + tx.n * o.front;
+            float3 origin = tx.p + tx.n * o.front;
+            float3 direction = tx.n * -1.0f;
+            float reach = span;
+            if (cage) {
+                const u32* ci = &cage->indices[tx.tri * 3];
+                const auto& cv = cage->vertices;
+                origin = cv[ci[0]].pos * tx.w0 + cv[ci[1]].pos * tx.w1 + cv[ci[2]].pos * tx.w2;
+                const float dist = Length(tx.p - origin);
+                if (dist > 1e-6f) direction = (tx.p - origin) * (1.0f / dist);
+                reach = dist + o.back;
+            }
             Hit h;
-            if (H.bvh.Trace(origin, tx.n * -1.0f, span, &h)) {
-                p = origin - tx.n * h.t;
+            if (H.bvh.Trace(origin, direction, reach, &h, highParts.empty() ? nullptr : &highParts,
+                            lowParts.empty() ? -1 : lowParts[tx.tri])) {
+                p = origin + direction * h.t;
                 dtri = h.tri;
                 dw0 = 1 - h.u - h.v, dw1 = h.u, dw2 = h.v;
                 n = H.Normal(dtri, dw0, dw1, dw2);
-                offset = o.front - h.t;
+                offset = Dot(p - tx.p, tx.n);
             } else {
                 misses.fetch_add(1);
                 dtri = ~0u;
@@ -564,7 +636,9 @@ BakeResult BakeMeshes(const MeshData& low, const MeshData* high, const BakeOptio
         const Analyzed& A = onDetail ? D : L;
         if (!onDetail) { dtri = tx.tri; dw0 = tx.w0, dw1 = tx.w1, dw2 = tx.w2; }
         float ao = 1, th = 1;
-        OcclusionThickness(A, dirs, p, n, tx.idx, o.aoDistance, ao, th);
+        const auto& detailParts = onDetail ? highParts : lowParts;
+        OcclusionThickness(A, dirs, p, n, tx.idx, o.aoDistance, ao, th,
+                           detailParts.empty() ? nullptr : &detailParts, detailParts.empty() ? -1 : detailParts[dtri]);
         const float curv = A.Curv(dtri, dw0, dw1, dw2);
         const float cv = A.Convex(p, curv), cc = A.Concave(p, curv);
         float* m4 = &out.maps[(size_t)tx.idx * 4];
@@ -572,7 +646,7 @@ BakeResult BakeMeshes(const MeshData& low, const MeshData* high, const BakeOptio
         if (o.ao) out.ao[tx.idx] = ao;
         if (o.curvature) out.curvature[tx.idx] = std::clamp(0.5f + 0.5f * (cv - cc), 0.0f, 1.0f);
         if (o.thickness) out.thickness[tx.idx] = th;
-        if (o.height) out.height[tx.idx] = std::clamp(0.5f + offset / (2.0f * std::max(o.front, o.back)), 0.0f, 1.0f);
+        if (o.height) out.height[tx.idx] = std::clamp(0.5f + offset / (2.0f * std::max({1e-6f, o.front, o.back})), 0.0f, 1.0f);
         if (o.position) {
             float3 q = p - bmin;
             out.position[(size_t)tx.idx * 3] = q.x / bext.x;

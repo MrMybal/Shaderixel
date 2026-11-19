@@ -589,11 +589,17 @@ gpu::TexturePtr Renderer::ApplyEffectInputs(Document& doc, gpu::CommandContext& 
 }
 
 void Renderer::FillTexture(gpu::CommandContext& ctx, gpu::Texture* dst, float4 value) {
+    FillTexture(ctx, dst, value, {0, 0, (int)dst->Width(), (int)dst->Height()});
+}
+
+void Renderer::FillTexture(gpu::CommandContext& ctx, gpu::Texture* dst, float4 value, Rect rect) {
+    rect = rect.Clipped(dst->Width(), dst->Height());
+    if (rect.Empty()) return;
     gpu::DispatchDesc d;
     d.pipeline = Kernel("clear.slang");
     d.uav[0] = dst;
-    SetConstants(d, ClearRoot{0, 0, dst->Width(), dst->Height(), value});
-    Dispatch2D(ctx, d, dst->Width(), dst->Height());
+    SetConstants(d, ClearRoot{rect.x0, rect.y0, (u32)rect.Width(), (u32)rect.Height(), value});
+    Dispatch2D(ctx, d, rect.Width(), rect.Height());
 }
 
 gpu::Texture* Renderer::DisplaySource(gpu::CommandContext& ctx, gpu::Texture* image, float invZoom) {
@@ -672,6 +678,8 @@ bool Renderer::BeginStroke(Document& doc, gpu::CommandContext& ctx, Id surface) 
     if (!s || !s->tex || !clearR || !Shaders().Builtin("brush.slang")) return false;
     Ensure(strokePre, s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "StrokePre");
     Ensure(strokeMask, s->tex->Width(), s->tex->Height(), gpu::Format::R32F, "StrokeMask");
+    if (!strokePre || !strokeMask) return false;
+    particleImpacts.reset();
     ctx.CopyTexture(strokePre.get(), s->tex.get());
     gpu::DispatchDesc d;
     d.pipeline = clearR;
@@ -681,6 +689,8 @@ bool Renderer::BeginStroke(Document& doc, gpu::CommandContext& ctx, Id surface) 
     d.threadsX = strokeMask->Width();
     d.threadsY = strokeMask->Height();
     ctx.Dispatch(d);
+    meshCoverage = false;
+    meshTileReadback.reset();
     strokeSurface = surface;
     strokeColorReady = false;
     strokeRect = {};
@@ -727,6 +737,7 @@ void Renderer::StrokeDabs(Document& doc, gpu::CommandContext& ctx, const std::ve
         d.threadsY = r.Height();
         ctx.Dispatch(d);
     }
+    PreserveDisabledPaint(ctx,strokeSurface,s->tex.get(),strokePre.get(),touched);
     doc.TouchSurface(strokeSurface, &touched);
 }
 
@@ -756,23 +767,63 @@ void Renderer::StrokeApplySlots(Document& doc, gpu::CommandContext& ctx, const B
         d.threadsX = r.Width();
         d.threadsY = r.Height();
         ctx.Dispatch(d);
+        PreserveDisabledPaint(ctx,strokeSlots[i].surface,s->tex.get(),strokeSlots[i].pre.get(),r);
         doc.TouchSurface(strokeSlots[i].surface, &r);
     }
 }
 
+void Renderer::ReadStrokeTiles(gpu::CommandContext& ctx) {
+    if (!meshCoverage || meshTileReadback || !strokeMask || strokeRect.Empty()) return;
+    // Tiny crops already cost less than a packed tile texture.
+    if (strokeRect.Width() <= 64 && strokeRect.Height() <= 64) return;
+    const u32 columns = (strokeRect.Width() + 63) / 64, rows = (strokeRect.Height() + 63) / 64;
+    auto* kernel = Kernel("mesh_stroke_tiles.slang");
+    if (!kernel) return;
+    auto tiles = gpu::Dev().CreateTexture(columns, rows, gpu::Format::R32F, "StrokeTiles");
+    if (!tiles) return;
+    gpu::DispatchDesc d;
+    d.pipeline = kernel;
+    d.srv[0] = strokeMask.get();
+    d.srv[1] = particleImpacts ? particleImpacts.get() : strokeMask.get();
+    d.uav[0] = tiles.get();
+    SetConstants(d, strokeRect);
+    Dispatch2D(ctx, d, columns * 8, rows * 8);
+    meshTileReadback = ctx.ReadbackTexture(tiles.get());
+}
+
+void Renderer::PreserveDisabledPaint(gpu::CommandContext& ctx, Id surface, gpu::Texture* dst, gpu::Texture* before, const Rect& changed) {
+    auto it = disabledPaintRegions.find(surface);
+    if (it == disabledPaintRegions.end() || !dst || !before) return;
+    for (const Rect& region : it->second) {
+        const Rect r{std::max(region.x0,changed.x0),std::max(region.y0,changed.y0),std::min(region.x1,changed.x1),std::min(region.y1,changed.y1)};
+        if (!r.Empty()) ctx.CopyRegion(dst,r.x0,r.y0,before,r);
+    }
+}
+
+void Renderer::SaveStrokePixels(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label) {
+    Surface* s = doc.GetSurface(strokeSurface);
+    if (!s || strokeRect.Empty()) return;
+    PreserveDisabledPaint(ctx,strokeSurface,s->tex.get(),strokePre.get(),strokeRect);
+    auto fmt = s->tex->GetFormat();
+    auto after = gpu::Dev().CreateTexture(strokeRect.Width(), strokeRect.Height(), fmt, "UndoAfter");
+    if (!after) return;
+    gpu::TexturePtr before;
+    if (meshTileReadback && strokeRect.Width() == (int)strokePre->Width() && strokeRect.Height() == (int)strokePre->Height()) before = std::move(strokePre);
+    else {
+        before = gpu::Dev().CreateTexture(strokeRect.Width(), strokeRect.Height(), fmt, "UndoBefore");
+        if (!before) return;
+        ctx.CopyRegion(before.get(), 0, 0, strokePre.get(), strokeRect);
+    }
+    ctx.CopyRegion(after.get(), 0, 0, s->tex.get(), strokeRect);
+    hist.PushPaint(label, strokeSurface, strokeRect, before, after, meshTileReadback);
+}
+
 void Renderer::EndStroke(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label) {
     if (!strokeSurface) return;
-    Surface* s = doc.GetSurface(strokeSurface);
-    if (s && !strokeRect.Empty()) {
-        auto fmt = s->tex->GetFormat();
-        auto before = gpu::Dev().CreateTexture(strokeRect.Width(), strokeRect.Height(), fmt, "UndoBefore");
-        auto after = gpu::Dev().CreateTexture(strokeRect.Width(), strokeRect.Height(), fmt, "UndoAfter");
-        if (before && after) {
-            ctx.CopyRegion(before.get(), 0, 0, strokePre.get(), strokeRect);
-            ctx.CopyRegion(after.get(), 0, 0, s->tex.get(), strokeRect);
-            hist.PushPaint(label, strokeSurface, strokeRect, before, after);
-        }
-    }
+    ReadStrokeTiles(ctx);
+    SaveStrokePixels(doc, ctx, hist, label);
+    meshTileReadback.reset();
+    particleImpacts.reset();
     strokeSurface = 0;
     liqActive = false;
     if (doc.tiled) liqDisp.reset();

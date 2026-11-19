@@ -2,13 +2,17 @@
 // 3D painting scene attached to a document: mesh buffers, UV-space position
 // and normal maps, orbit camera and the viewport render targets.
 
-#include "mesh/Mesh.h"
+#include "mesh/MeshBake.h"
 #include "render/PostProcess.h"
 
 namespace sx {
 
 // PBR material channels (shader slots t0..t5).
-enum class PbrChannel : int { BaseColor, Roughness, Metallic, Normal, Emissive, Occlusion, Height, Count };
+enum class PbrChannel : int { BaseColor, Roughness, Metallic, Normal, Emissive, Occlusion, Height, Opacity, User0, User1, User2, User3, Count };
+inline int PbrNormalVariant(u32 channels) {
+    return ((channels & (1u << (int)PbrChannel::Normal)) ? 1 : 0) |
+           ((channels & (1u << (int)PbrChannel::Height)) ? 2 : 0);
+}
 const char* PbrChannelName(PbrChannel c);    // group name in the document
 const char* PbrChannelSuffix(PbrChannel c);  // file / Unreal suffix
 struct MeshMaterial {
@@ -35,9 +39,16 @@ struct CameraBookmark {
 struct MeshScene {
     MeshData data;
     gpu::BufferPtr vb, ib;
-    gpu::TexturePtr posMap, nrmMap, tmpPos, tmpNrm;  // UV bake (document size)
+    gpu::TexturePtr posMap, nrmMap;  // UV bake (document size)
+    gpu::ReadbackPtr brushTileBounds;
     u32 bakedW = 0, bakedH = 0;
     bool gpuDirty = true;
+    MeshRaycaster raycaster;
+    u32 rayRevision = ~0u;
+    MeshRaycaster& Rays() {
+        if (rayRevision != revision) { raycaster.Build(data); rayRevision = revision; }
+        return raycaster;
+    }
     u32 revision = 0;  // bumped when the geometry or UVs change (render scene)
     gpu::TexturePtr color, depth;                     // viewport
     float yaw = 0.7f, pitch = 0.35f, distance = 2.8f, fov = 0.8f;
@@ -91,5 +102,7 @@ struct MeshScene {
 
 // Load an equirectangular .hdr (or any image) as the 3D view's environment.
 bool LoadEnvironment(MeshScene& s, const std::string& path, std::string* error);
+
+Rect MeshBrushRegion(const MeshScene& scene, const float4* dabs, size_t count, u32 viewW, u32 viewH);
 
 }  // namespace sx

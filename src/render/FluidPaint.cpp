@@ -51,20 +51,24 @@ bool Renderer::FluidBegin(Document& doc, gpu::CommandContext& ctx, const std::ve
                           u32 simW, u32 simH, gpu::Texture* selection, gpu::Texture* bed) {
     if (!Kernel("fluid_paint.slang")) return false;
     if (mesh && (!MeshPrepare(doc, ctx, *mesh) || !mesh->posMap)) return false;
+    // Capture the selection before opening a stroke. A failed allocation must not start an unprotected simulation.
+    gpu::TexturePtr protectedArea;
+    if (selection) {
+        protectedArea = gpu::Dev().CreateTexture(selection->Width(), selection->Height(), selection->GetFormat(), "FluidSelection");
+        if (!protectedArea) return false;
+        ctx.CopyTexture(protectedArea.get(), selection);
+    }
     fluid.beginning = true;
     const bool begun = BeginStrokeMulti(doc, ctx, surfaces);
     fluid.beginning = false;
     if (!begun) return false;
     FluidState& F = fluid;
     F.kinds = kinds;
+    F.disabledRegions = disabledPaintRegions;
     F.mesh = mesh;
     // Own copies: the selection and the relief may change while the paint runs.
-    F.selection.reset();
+    F.selection = std::move(protectedArea);
     F.bed.reset();
-    if (selection) {
-        F.selection = gpu::Dev().CreateTexture(selection->Width(), selection->Height(), selection->GetFormat(), "FluidSelection");
-        ctx.CopyTexture(F.selection.get(), selection);
-    }
     if (bed) {
         F.bed = gpu::Dev().CreateTexture(bed->Width(), bed->Height(), bed->GetFormat(), "FluidBed");
         ctx.CopyTexture(F.bed.get(), bed);
@@ -144,7 +148,7 @@ void Renderer::FluidDispatch(gpu::CommandContext& ctx, u32 pass, u32 kind, float
     }
     u32 flags = extraFlags;
     if (F.mesh) flags |= 1;
-    if (!F.mesh && F.selection) flags |= 4;
+    if (F.selection) flags |= 4;
     if (p.offEdges) flags |= 8;
     if (F.bed && p.bed > 0) flags |= 16;
     if (F.mesh && F.portalOut && F.portalKey && F.portalKey == F.portalPending) flags |= 64;
@@ -501,6 +505,7 @@ void Renderer::FluidComposite(Document& doc, gpu::CommandContext& ctx, const Flu
         d.srv[2] = F.d0[F.cur].get();
         d.srv[3] = F.d1[F.cur].get();
         d.srv[5] = F.grav.get();
+        d.srv[6] = F.selection.get();
         d.srv[9] = pre;
         d.uav[0] = s->tex.get();
         // The layer around the active area (document pixels; the whole layer when not windowed or at the end).
@@ -514,15 +519,19 @@ void Renderer::FluidComposite(Document& doc, gpu::CommandContext& ctx, const Flu
         } else if (F.windowed) {
             return;  // nothing painted yet
         }
-        SetConstants(d, FluidRoot{F.w, F.h, SW, SH, 4, (u32)kind, (F.mesh ? 1u : 0u) | (F.replace ? 512u : 0u), 0, p.seed, area.x0, area.y0, PackArea(area)});
+        const u32 flags = (F.mesh ? 1u : 0u) | (F.selection ? 4u : 0u) | (F.replace ? 512u : 0u);
+        SetConstants(d, FluidRoot{F.w, F.h, SW, SH, 4, (u32)kind, flags, 0, p.seed, area.x0, area.y0, PackArea(area)});
         d.cbData = &cb;
         d.cbSize = offsetof(FluidCB, dabs);
         d.uavRect[0] = area;
         Dispatch2D(ctx, d, (u32)area.Width(), (u32)area.Height());
+        PreserveDisabledPaint(ctx,surface,s->tex.get(),pre,area);
         doc.TouchSurface(surface, &area);
     };
+    std::swap(disabledPaintRegions, F.disabledRegions);
     one(strokeSurface, strokePre.get(), F.kinds.empty() ? 0 : F.kinds[0]);
     for (size_t i = 0; i < strokeSlots.size(); ++i) one(strokeSlots[i].surface, strokeSlots[i].pre.get(), i + 1 < F.kinds.size() ? F.kinds[i + 1] : 0);
+    std::swap(disabledPaintRegions, F.disabledRegions);
     // Undo: the painted area only (whole layer when not windowed).
     if (F.windowed && !F.paintRect.Empty()) {
         const float kx = (float)F.docW / F.w, ky = (float)F.docH / F.h;
@@ -566,6 +575,7 @@ void Renderer::FluidEnd(Document& doc, gpu::CommandContext& ctx, History& hist, 
     F.resetDrops = false;
     F.replace = false;
     F.mesh = nullptr;
+    F.disabledRegions.clear();
     F.selection.reset();
     F.bed.reset();
 }

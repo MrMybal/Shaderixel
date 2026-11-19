@@ -98,6 +98,15 @@ void TestTriangle(uint tri, float3 o, float3 d, inout Hit h)
     float t = dot(e2, qv) * id;
     if (t > 1e-4 && t < h.t)
     {
+        if (gFlags & 16) {
+            uint k = tri * 8;
+            uint material = min((uint)Geo(k).w, max(gNumMaterials,1u)-1u);
+            if (gMat[material*4+2].z > 0.5) {
+                float2 uv = float2(Geo(k+1).w, Geo(k+2).w)*(1-u-v) +
+                            float2(Geo(k+3).w, Geo(k+4).w)*u + float2(Geo(k+5).w,Geo(k+6).x)*v;
+                if (gBase.SampleLevel(sLinearWrap, uv, 0).a < 0.5) return;
+            }
+        }
         h.t = t;
         h.tri = (int)tri;
         h.b1 = u;

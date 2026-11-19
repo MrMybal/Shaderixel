@@ -98,18 +98,12 @@ void App::ApplyUvUnwrap(DocView& v) {
             src[i] = {ou.x * W, ou.y * H};
         }
         // Every painted surface (layers, masks, surface nodes).
-        std::vector<Id> surfaces;
-        for (auto& l : d.S().layers) {
-            if (l.surface && (l.kind == LayerKind::Pixel)) surfaces.push_back(l.surface);
-            if (l.mask) surfaces.push_back(l.mask);
-        }
-        for (auto& n : d.S().graph.nodes) if (n.kind == NodeKind::Surface && n.surface) surfaces.push_back(n.surface);
-        std::sort(surfaces.begin(), surfaces.end());
-        surfaces.erase(std::unique(surfaces.begin(), surfaces.end()), surfaces.end());
+        const auto surfaces = d.UvPaintSurfaces();
+        v.renderer.Prepare(d, *ctx);
         v.history.BeginGroup();
         for (Id id : surfaces) {
             Surface* s = d.GetSurface(id);
-            if (!s) continue;
+            if (!s || !s->tex || s->tex->Width() != d.Width() || s->tex->Height() != d.Height()) continue;
             auto before = gpu::Dev().CreateTexture(s->tex->Width(), s->tex->Height(), s->tex->GetFormat(), "UvBefore");
             ctx->CopyTexture(before.get(), s->tex.get());
             v.renderer.WarpTriangles(d, *ctx, id, before.get(), nullptr, Rect{0, 0, (int)W, (int)H}, dst, src, r.mesh.indices, false);

@@ -40,6 +40,10 @@ struct UnwrapResult {
 bool UnwrapMesh(const MeshData& in, const UnwrapOptions& o, UnwrapResult& out, std::atomic<float>* progress = nullptr,
                 std::atomic<bool>* cancel = nullptr);
 
+// Unwrap only faces without texture coordinates into an unused UDIM. Existing UVs
+// and face order are preserved. False requests the normal full-mesh unwrap.
+bool RepairPartialUvs(MeshData& mesh, const std::vector<u8>& missing);
+
 // Background unwrap (UI): input copy, result, progress, cancel.
 struct UvJob {
     UnwrapOptions options;

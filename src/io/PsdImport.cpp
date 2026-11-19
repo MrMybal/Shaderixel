@@ -93,7 +93,8 @@ int BlendFromKey(const std::string& k, bool& ok) {
         {"hLit", BlendMode::HardLight}, {"sLit", BlendMode::SoftLight}, {"diss", BlendMode::Dissolve}, {"lbrn", BlendMode::LinearBurn},
         {"vLit", BlendMode::VividLight}, {"lLit", BlendMode::LinearLight}, {"pLit", BlendMode::PinLight}, {"hMix", BlendMode::HardMix},
         {"smud", BlendMode::Exclusion}, {"fdiv", BlendMode::Divide}, {"hue ", BlendMode::Hue}, {"sat ", BlendMode::Saturation},
-        {"colr", BlendMode::Color}, {"lum ", BlendMode::Luminosity}, {"dkCl", BlendMode::DarkerColor}, {"lgCl", BlendMode::LighterColor}};
+        {"colr", BlendMode::Color}, {"lum ", BlendMode::Luminosity}, {"dkCl", BlendMode::DarkerColor}, {"lgCl", BlendMode::LighterColor},
+        {"eras", BlendMode::Erase}};
     ok = true;
     for (auto& [key, m] : map) if (k == key) return (int)m;
     ok = false;

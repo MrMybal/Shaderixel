@@ -20,6 +20,7 @@ bool g_screenCoords = false;
 float g_dropX = 0, g_dropY = 0;  // last drop point, in ImGui coordinates
 bool g_quit = false;
 HWND g_hwnd = nullptr;
+RECT g_titleBarDragArea{};
 std::function<void(u32, u32)> g_onResize;
 std::function<void(const std::string&)> g_onDrop;
 
@@ -206,6 +207,34 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;  // scripted run: the PC stays the user's
     if (ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam)) return true;
     switch (msg) {
+        case WM_NCCALCSIZE: {
+            // Keep the native sizing and system styles, but let the app paint the caption.
+            if (IsZoomed(hwnd) && !IsIconic(hwnd)) {
+                RECT& client = wParam ? reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam)->rgrc[0] : *reinterpret_cast<RECT*>(lParam);
+                MONITORINFO monitor{sizeof(monitor)};
+                RECT work{};
+                if (GetMonitorInfoW(MonitorFromRect(&client, MONITOR_DEFAULTTONEAREST), &monitor) &&
+                    IntersectRect(&work, &client, &monitor.rcWork))
+                    client = work;
+            }
+            return 0;
+        }
+        case WM_NCHITTEST: {
+            POINT point{GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam)};
+            ScreenToClient(hwnd, &point);
+            RECT client{};
+            GetClientRect(hwnd, &client);
+            if (!PtInRect(&client, point)) break;
+            if (!IsZoomed(hwnd)) {
+                const int grip = MulDiv(5, GetDpiForWindow(hwnd), USER_DEFAULT_SCREEN_DPI);
+                const bool left = point.x < client.left + grip, right = point.x >= client.right - grip;
+                if (point.y < client.top + grip) return left ? HTTOPLEFT : right ? HTTOPRIGHT : HTTOP;
+                if (point.y >= client.bottom - grip) return left ? HTBOTTOMLEFT : right ? HTBOTTOMRIGHT : HTBOTTOM;
+                if (left) return HTLEFT;
+                if (right) return HTRIGHT;
+            }
+            return PtInRect(&g_titleBarDragArea, point) ? HTCAPTION : HTCLIENT;
+        }
         case WM_POINTERUPDATE:
         case WM_POINTERDOWN:
         case WM_POINTERUP: {
@@ -258,7 +287,7 @@ LRESULT WINAPI WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
         case WM_SYSCOMMAND:
-            if ((wParam & 0xfff0) == SC_KEYMENU) return 0;  // no ALT application menu
+            if ((wParam & 0xfff0) == SC_KEYMENU && lParam == 0) return 0;  // Ignore bare Alt, keep the window system menu.
             break;
         case WM_CLOSE:
             g_quit = true;
@@ -283,6 +312,8 @@ HWND CreateMainWindow(const wchar_t* title, int w, int h) {
     g_hwnd = hwnd;
     return hwnd;
 }
+
+void SetTitleBarDragArea(RECT clientRect) { g_titleBarDragArea = clientRect; }
 
 std::vector<PointerSample> TakeSamples() {
     std::vector<PointerSample> out;

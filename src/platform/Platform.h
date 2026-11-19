@@ -27,6 +27,7 @@ namespace platform {
 enum class TabletApi : int { WindowsInk = 0, Wintab = 1 };
 
 HWND CreateMainWindow(const wchar_t* title, int w, int h);
+void SetTitleBarDragArea(RECT clientRect);
 // Samples gathered since the last call (mouse moves + pen history), in order.
 std::vector<PointerSample> TakeSamples();
 float LastPressure();

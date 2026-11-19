@@ -33,51 +33,30 @@ u64 Key3(float3 v) {
 
 }  // namespace
 
+bool App::PickMeshHit(MeshScene& s, float2 sp, u32 w, u32 h, u32& triangle, float3& weights) {
+    if (!w || !h) return false;
+    float3 origin, dir;
+    CameraRay(s, sp - float2{0.5f, 0.5f}, w, h, origin, dir);
+    const float forward = Dot(dir, Normalize(s.target - s.camPos));
+    if (forward < 1e-6f) return false;
+    const float nearPlane = s.ortho ? 0.0f : MeshScene::kNear / forward;
+    const float range = s.ortho ? MeshScene::kOrthoFar - MeshScene::kOrthoNear : MeshScene::kFar / forward - nearPlane;
+    return s.Rays().Ray(origin + dir * nearPlane, dir, range, nullptr, nullptr, nullptr, &triangle, &weights);
+}
+
 int App::PickMeshTriangle(MeshScene& s, float2 sp, u32 w, u32 h) {
-    // The nearest triangle whose screen projection contains the point.
-    const auto& V = s.data.vertices;
-    const auto& I = s.data.indices;
-    int best = -1;
-    float bestZ = 1e30f;
-    for (size_t t = 0; t + 2 < I.size(); t += 3) {
-        float z[3];
-        float2 a = ToScreen(s.viewProj, V[I[t]].pos, w, h, &z[0]), b = ToScreen(s.viewProj, V[I[t + 1]].pos, w, h, &z[1]),
-               c = ToScreen(s.viewProj, V[I[t + 2]].pos, w, h, &z[2]);
-        if (z[0] > 1e29f || z[1] > 1e29f || z[2] > 1e29f) continue;
-        const float area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-        if (std::fabs(area) < 1e-8f) continue;
-        const float w0 = ((b.x - sp.x) * (c.y - sp.y) - (b.y - sp.y) * (c.x - sp.x)) / area;
-        const float w1 = ((c.x - sp.x) * (a.y - sp.y) - (c.y - sp.y) * (a.x - sp.x)) / area;
-        const float w2 = 1 - w0 - w1;
-        if (w0 < 0 || w1 < 0 || w2 < 0) continue;
-        const float d = w0 * z[0] + w1 * z[1] + w2 * z[2];
-        if (d < bestZ) { bestZ = d; best = (int)(t / 3); }
-    }
-    return best;
+    u32 triangle;
+    float3 weights;
+    return PickMeshHit(s, sp, w, h, triangle, weights) ? (int)triangle : -1;
 }
 
 bool App::PickMeshUv(MeshScene& s, float2 sp, u32 w, u32 h, float2& uv) {
-    // UV under a view point: the nearest triangle there, its UVs interpolated (perspective-correct:
-    // screen barycentrics weighted by 1/w, like the rasterizer).
-    const auto& V = s.data.vertices;
-    const auto& I = s.data.indices;
-    const int t = PickMeshTriangle(s, sp, w, h);
-    if (t < 0) return false;
-    float z[3];
-    const MeshVertex &A = V[I[t * 3]], &B = V[I[t * 3 + 1]], &C = V[I[t * 3 + 2]];
-    const float2 a = ToScreen(s.viewProj, A.pos, w, h, &z[0]), b = ToScreen(s.viewProj, B.pos, w, h, &z[1]), c = ToScreen(s.viewProj, C.pos, w, h, &z[2]);
-    const float area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-    if (std::fabs(area) < 1e-8f) return false;
-    const float w0 = ((b.x - sp.x) * (c.y - sp.y) - (b.y - sp.y) * (c.x - sp.x)) / area;
-    const float w1 = ((c.x - sp.x) * (a.y - sp.y) - (c.y - sp.y) * (a.x - sp.x)) / area;
-    const float w2 = 1 - w0 - w1;
-    // 1/w of each corner (clip w: the view depth in perspective, 1 in orthographic views).
-    const float q0 = 1.0f / std::max(s.viewProj.Transform({A.pos.x, A.pos.y, A.pos.z, 1}).w, 1e-5f);
-    const float q1 = 1.0f / std::max(s.viewProj.Transform({B.pos.x, B.pos.y, B.pos.z, 1}).w, 1e-5f);
-    const float q2 = 1.0f / std::max(s.viewProj.Transform({C.pos.x, C.pos.y, C.pos.z, 1}).w, 1e-5f);
-    const float qs = w0 * q0 + w1 * q1 + w2 * q2;
-    if (std::fabs(qs) < 1e-12f) return false;
-    uv = (A.uv * (w0 * q0) + B.uv * (w1 * q1) + C.uv * (w2 * q2)) * (1.0f / qs);
+    u32 triangle;
+    float3 weights;
+    if (!PickMeshHit(s, sp, w, h, triangle, weights)) return false;
+    const auto* i = &s.data.indices[triangle * 3];
+    const auto& v = s.data.vertices;
+    uv = v[i[0]].uv * weights.x + v[i[1]].uv * weights.y + v[i[2]].uv * weights.z;
     return true;
 }
 
@@ -88,9 +67,9 @@ void App::StartMaterialPick(DocView& v, float2 sp, u32 w, u32 h) {
     Document& d = *v.doc;
     v.renderer.EvaluateComplete(d, *ctx);
     const int x = std::clamp((int)(uv.x * d.Width()), 0, (int)d.Width() - 1), y = std::clamp((int)(uv.y * d.Height()), 0, (int)d.Height() - 1);
-    static const PbrChannel chans[4] = {PbrChannel::BaseColor, PbrChannel::Roughness, PbrChannel::Metallic, PbrChannel::Height};
-    for (int k = 0; k < 4; ++k) {
-        gpu::Texture* t = ChannelTexture(v, chans[k]);
+    for (size_t k = 0; k < matPick.rb.size(); ++k) {
+        auto ch = (PbrChannel)k;
+        gpu::Texture* t = ChannelTexture(v, ch);
         matPick.rb[k] = t ? v.renderer.ReadPixel(*ctx, t, x, y) : nullptr;
     }
     matPick.active = true;
@@ -125,7 +104,19 @@ void App::PollMaterialPick() {
     // Data channels hold visual gray levels (as painted).
     if (value(matPick.rb[1], c)) { brush3D.rough = std::clamp(LinearToSrgb(c.x), 0.0f, 1.0f); msg += ", rugosité " + std::to_string((int)std::lround(brush3D.rough * 100)) + " %"; }
     if (value(matPick.rb[2], c)) { brush3D.metal = std::clamp(LinearToSrgb(c.x), 0.0f, 1.0f); msg += ", métal " + std::to_string((int)std::lround(brush3D.metal * 100)) + " %"; }
-    if (value(matPick.rb[3], c)) brush3D.height = std::clamp(LinearToSrgb(c.x), 0.0f, 1.0f);
+    auto scalar = [&](PbrChannel ch, float& result) {
+        if (value(matPick.rb[(int)ch], c)) result = std::clamp(LinearToSrgb(c.x), 0.0f, 1.0f);
+    };
+    scalar(PbrChannel::Height, brush3D.height);
+    scalar(PbrChannel::Occlusion, brush3D.occlusion);
+    if (value(matPick.rb[(int)PbrChannel::Normal], c))
+        brush3D.normal = {LinearToSrgb(c.x), LinearToSrgb(c.y), LinearToSrgb(c.z)};
+    scalar(PbrChannel::Opacity, brush3D.opacity);
+    for (int i = 0; i < 4; ++i) scalar((PbrChannel)((int)PbrChannel::User0 + i), brush3D.user[i]);
+    if (value(matPick.rb[(int)PbrChannel::Emissive], c)) {
+        brush3D.emissive = {LinearToSrgb(c.x), LinearToSrgb(c.y), LinearToSrgb(c.z), 1};
+        msg += ", émissif";
+    }
     Status(msg + " (matériau du pinceau)");
     for (auto& rb : matPick.rb) rb.reset();
     matPick.active = false;

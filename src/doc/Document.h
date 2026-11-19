@@ -26,7 +26,7 @@ enum class BlendMode : u8 {
     Normal, Multiply, Screen, Overlay, LinearDodge, Subtract, Darken, Lighten, Difference,
     ColorDodge, ColorBurn, HardLight, SoftLight, Dissolve, LinearBurn, VividLight, LinearLight,
     PinLight, HardMix, Exclusion, Divide, Hue, Saturation, Color, Luminosity, DarkerColor, LighterColor,
-    Count
+    Erase, Count
 };
 const char* BlendModeName(BlendMode m);
 // Photoshop menu order with separators (-1).
@@ -180,7 +180,9 @@ struct Layer {
     Id material = 0;          // material layer (one fill per PBR channel group, shared mask), 0 = none
     std::string generator;    // material layers: smart mask settings (JSON), the mask is generated from the mesh maps
     Id maskEdit = 0;          // smart mask: painted corrections laid over the generated mask (premultiplied gray, alpha = override)
+    std::string textureSet;   // scoped 3D folder: material / UDIM export suffix, empty for an unrestricted stack
     std::string projection;   // projected material (JSON): the pixels are generated from an image projected on the model
+    std::string surfacePath;  // editable model-space path, brush dimensions and per-channel values
     Id smart = 0;             // Smart layers: smart object (Document::smartObjects)
     float2 smartCorners[4];   // Smart layers: where the contents go (TL TR BR BL, document pixels)
     float2 smartPivot = {0.5f, 0.5f};  // Smart layers: transform pivot, in the contents (0..1)
@@ -418,6 +420,7 @@ struct DocState {
     u32 width = 1, height = 1;  // in the state so canvas size/crop can be undone
     DocMode mode = DocMode::Layers;
     std::vector<Layer> layers;  // [0] = bottom
+    std::map<std::string, u32> textureSetChannels;
     Graph graph;
     Id activeLayer = 0;
     std::vector<Id> layerSel;  // layers selected together (Ctrl / Shift + click), the active one among them
@@ -447,6 +450,27 @@ struct DocState {
     Id nextId = 100;
 };
 
+// Every edit gets a revision, including a second edit to an already dirty document.
+// A save may acknowledge only the revision whose pixels it captured.
+class DocumentChanges {
+public:
+    operator bool() const { return modified; }
+    DocumentChanges& operator=(bool changed) {
+        if (changed) ++revision;
+        modified = changed;
+        return *this;
+    }
+    u64 Revision() const { return revision; }
+    bool MarkSaved(u64 captured) {
+        if (captured != revision) return false;
+        modified = false;
+        return true;
+    }
+private:
+    bool modified = false;
+    u64 revision = 0;
+};
+
 class Document {
 public:
     Document(u32 w, u32 h, Precision p, DocMode mode, const std::string& name);
@@ -465,6 +489,8 @@ public:
     // Document kind: 0 image (Photoshop-like), 1 Paint 3D project (texture set of a mesh, .sx3d).
     int kind = 0;
     u32 pbrChannels = 0x7F;  // Paint 3D: channels of the texture set (bit per PbrChannel)
+    u32 TextureSetChannels(const std::string& set) const;
+    std::string LayerTextureSet(const Layer& layer) const;
     int exportTemplate = 0;  // Paint 3D: 0 separate maps, 1 Unreal (ORM), 2 Unity (mask map)
     std::string unrealSettings;  // Paint 3D: Unreal material / import settings (JSON, saved in the .sx3d)
     // Shot metadata of a photo opened from a camera RAW (EXIF): finds the lens profile. Not saved.
@@ -472,7 +498,7 @@ public:
         std::string make, model, lens, summary;
         float focal = 0, aperture = 0, crop = 0;
     } shot;
-    bool dirty = false;
+    DocumentChanges dirty;
 
     DocState& S() { return state; }
     const DocState& S() const { return state; }
@@ -486,6 +512,7 @@ public:
     Surface* Selection() { return state.selection ? GetSurface(state.selection) : nullptr; }
     Surface* GetSurface(Id id);
     // Mark a surface changed (whole surface, or only `rect`, used by tiled rendering).
+    std::vector<Id> UvPaintSurfaces() const;
     void TouchSurface(Id id, const Rect* rect = nullptr);
     u64 ContentVersion() const { return versionCounter; }  // grows with every pixel change
     std::unordered_map<Id, Rect> dirtyRects;  // accumulated since the renderer last consumed them

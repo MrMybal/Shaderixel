@@ -17,7 +17,7 @@ namespace {
 const char* kBlendKeys[] = {"normal", "multiply", "screen", "overlay", "linear_dodge", "subtract", "darken", "lighten", "difference",
                             "color_dodge", "color_burn", "hard_light", "soft_light", "dissolve", "linear_burn", "vivid_light",
                             "linear_light", "pin_light", "hard_mix", "exclusion", "divide", "hue", "saturation", "color",
-                            "luminosity", "darker_color", "lighter_color"};
+                            "luminosity", "darker_color", "lighter_color", "erase"};
 const char* kKindKeys[] = {"pixel", "fill", "adjustment", "group", "text", "shape"};
 
 int BlendFromKey(const std::string& k) {

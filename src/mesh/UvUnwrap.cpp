@@ -1,6 +1,8 @@
 #include "mesh/UvUnwrap.h"
 
 #include <xatlas.h>
+#include <array>
+#include <unordered_map>
 
 namespace sx {
 
@@ -25,6 +27,51 @@ bool OnProgress(xatlas::ProgressCategory category, int percent, void* user) {
     return !(s->cancel && s->cancel->load());
 }
 }  // namespace
+
+bool RepairPartialUvs(MeshData& mesh, const std::vector<u8>& missing) {
+    if (missing.size() != mesh.indices.size() / 3) return false;
+    if (std::none_of(missing.begin(), missing.end(), [](u8 x) { return x != 0; })) return true;
+    if (std::all_of(missing.begin(), missing.end(), [](u8 x) { return x != 0; })) return false;
+    std::array<bool, 1000> used{};
+    MeshData holes;
+    std::unordered_map<u32, u32> remap;
+    for (size_t t = 0; t < missing.size(); ++t) {
+        const u32* face = mesh.indices.data() + t * 3;
+        if (missing[t]) {
+            for (u32 index : {face[0], face[1], face[2]}) {
+                auto [it, inserted] = remap.emplace(index, (u32)holes.vertices.size());
+                if (inserted) holes.vertices.push_back(mesh.vertices[index]);
+                holes.indices.push_back(it->second);
+            }
+        } else {
+            const auto& a = mesh.vertices[face[0]].uv;
+            const auto& b = mesh.vertices[face[1]].uv;
+            const auto& c = mesh.vertices[face[2]].uv;
+            const float2 center = (a + b + c) / 3;
+            if (!std::isfinite(center.x) || !std::isfinite(center.y) || center.x < 0 || center.x >= 10 || center.y > 1 || center.y <= -99) return false;
+            const int col = (int)std::floor(center.x), row = (int)std::floor(1 - center.y);
+            if (row >= 100) return false;
+            for (const auto& uv : {a, b, c})
+                if (uv.x < col - 0.001f || uv.x > col + 1.001f || 1 - uv.y < row - 0.001f || 1 - uv.y > row + 1.001f) return false;
+            used[row * 10 + col] = true;
+        }
+    }
+    const auto free = std::find(used.begin(), used.end(), false);
+    if (free == used.end()) return false;
+    UnwrapResult result;
+    if (!UnwrapMesh(holes, UnwrapOptions{}, result) || result.mesh.indices.size() != holes.indices.size() || !result.error.empty()) return false;
+    const size_t cell = (size_t)(free - used.begin());
+    const float2 offset = {(float)(cell % 10), -(float)(cell / 10)};
+    const u32 base = (u32)mesh.vertices.size();
+    for (auto& vertex : result.mesh.vertices) {
+        vertex.uv = vertex.uv + offset;
+        mesh.vertices.push_back(vertex);
+    }
+    size_t index = 0;
+    for (size_t t = 0; t < missing.size(); ++t)
+        if (missing[t]) for (unsigned k = 0; k < 3; ++k) mesh.indices[t * 3 + k] = base + result.mesh.indices[index++];
+    return true;
+}
 
 bool UnwrapMesh(const MeshData& in, const UnwrapOptions& o, UnwrapResult& out, std::atomic<float>* progress, std::atomic<bool>* cancel) {
     out = {};
@@ -93,9 +140,15 @@ bool UnwrapMesh(const MeshData& in, const UnwrapOptions& o, UnwrapResult& out, s
     // Materials kept: xatlas keeps the face order, so the per-triangle material carries over.
     // The material tiles do not (new UVs over the whole texture), and the mesh has UVs now.
     out.mesh.materials = in.materials;
-    if (m.indexCount == in.indices.size()) out.mesh.triMaterial = in.triMaterial;
+    if (m.indexCount == in.indices.size()) {
+        out.mesh.triMaterial = in.triMaterial;
+        out.mesh.partNames = in.partNames;
+        out.mesh.triPart = in.triPart;
+    }
     out.mesh.uvTiles.clear();
     out.mesh.udims.clear();
+    out.mesh.udimMaterials.clear();
+    out.mesh.udimScale.clear();
     out.mesh.udimCols = 0;
     out.mesh.hasUvs = true;
     out.charts = atlas->chartCount;

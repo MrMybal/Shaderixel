@@ -57,6 +57,7 @@ float Fbm3(float3 p)
 float Src(float2 uv)
 {
     float4 c = gSource.SampleLevel(sLinearClamp, uv, 0);
+    if (gFlags & 32) return saturate(dot(LinearToSrgb(saturate(Unpremultiply(c).rgb)), float3(0.2126, 0.7152, 0.0722)) * c.a);
     return saturate((gFlags & 4) ? c.a : c.r);
 }
 

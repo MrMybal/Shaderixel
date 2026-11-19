@@ -114,6 +114,7 @@ bool Renderer::StrokeProgram(Document& doc, gpu::CommandContext& ctx, const std:
     Rect touched;
     RunBrush(ctx, pipe, b, tip, dabs, extra, base, s, color, erase, t, &touched);
     strokeRect.Merge(touched);
+    PreserveDisabledPaint(ctx,strokeSurface,surf->tex.get(),strokePre.get(),touched);
     doc.TouchSurface(strokeSurface, &touched);
     return true;
 }

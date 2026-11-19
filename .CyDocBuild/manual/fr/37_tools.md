@@ -1,14 +1,14 @@
 ---
 id: tools
 title: Outils et commandes d'édition
-description: Les 46 outils de la barre possèdent une fiche dans la catégorie Outils.
+description: Les outils de la barre possèdent une fiche dans la catégorie Outils.
 section: Manuel
 order: 36
 parent: workspace
-sourceRevision: 0b6a6c617e175f2c
+sourceRevision: 52f25e775c2e10ab
 ---
 
-Les 46 outils de la barre possèdent une fiche dans la catégorie Outils. Recherchez nom français/anglais, identifiant stable, opération ou prérequis. Avec le canevas, la barre ou Options actif, F1 ouvre la fiche de l'outil courant. Options propose aussi Aide de l'outil. Aide > Référence des outils ouvre cet index.
+Les outils de la barre possèdent une fiche dans la catégorie Outils. Recherchez nom français/anglais, identifiant stable, opération ou prérequis. Avec le canevas, la barre ou Options actif, F1 ouvre la fiche de l'outil courant. Options propose aussi Aide de l'outil. Aide > Référence des outils ouvre cet index.
 
 ```image
 {"id": "layers-view", "src": "assets/manual/layers_view_fr.png", "alt": "La barre choisit l'interaction ; Propriétés et Options modifient cible et réglages actuels.", "controls": "minimal"}
@@ -79,6 +79,8 @@ Si un trait semble sans effet, vérifiez document actif, calque, vignette image/
 
 [Projection](doc:tool-projection)
 [Remplissage par polygone](doc:tool-poly-fill)
+[Masque rapide de surface](doc:tool-surface-mask)
+[Tracé de surface](doc:tool-surface-path)
 [Particules de peinture](doc:tool-particles)
 [Peinture liquide sur canevas ou modèle](doc:tool-fluid)
 [Outil de plugin](doc:tool-plugin)

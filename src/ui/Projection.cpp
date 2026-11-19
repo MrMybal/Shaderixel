@@ -12,6 +12,7 @@
 #include <stb_image.h>
 #include <cstdio>
 #include <functional>
+#include <cwctype>
 
 namespace sx {
 
@@ -75,17 +76,29 @@ gpu::Texture* App::ProjectionImage(const std::string& source) {
 Id App::AddProjectedMaterial(DocView& v, const std::string& source, const std::string& name) {
     Document& d = *v.doc;
     if (d.Mode() != DocMode::Layers) return 0;
-    for (PbrChannel c : kProjChannels)
-        if (!FindChannelGroup(d, c)) {
-            d.pbrChannels |= 1u << (int)c;
-            CreatePbrChannels(v, true);
-        }
+    v.history.BeginGroup();
+    const u32 previous = d.pbrChannels;
+    const std::string scope = d.ActiveLayer() ? d.LayerTextureSet(*d.ActiveLayer()) : "";
+    const u32 available = scope.empty() ? ~0u : d.TextureSetChannels(scope);
+    bool needsGroups = false;
+    for (PbrChannel c : kProjChannels) {
+        const u32 bit = 1u << (int)c;
+        if (!(available & bit)) continue;
+        if (scope.empty()) d.pbrChannels |= bit;
+        if (!FindChannelGroup(d, c)) needsGroups = true;
+    }
+    if (previous != d.pbrChannels) {
+        const u32 next = d.pbrChannels;
+        v.history.PushCustom("Canaux de projection", [&d, previous, next](bool undo) { d.pbrChannels = undo ? previous : next; });
+    }
+    if (needsGroups) CreatePbrChannels(v, true, scope.empty() ? 0u : available);
     Edit e(d, v.history, "Matériau projeté");
     const Id material = d.NewId();
     const Id mask = d.CreateSurface({1, 1, 1, 1});  // everywhere until masked
     const std::string text = DefaultProjection(source).Dump(0);
     for (PbrChannel c : kProjChannels) {
-        Id g = FindChannelGroup(d, c);
+        if (!(available & (1u << (int)c))) continue;
+        Id g = NewLayerParent3D(d, c, material);
         if (!g) continue;
         Layer p;
         p.id = d.NewId();
@@ -104,6 +117,7 @@ Id App::AddProjectedMaterial(DocView& v, const std::string& source, const std::s
     d.S().editMask = true;
     d.SyncGraph();
     e.Commit();
+    v.history.EndGroup();
     materialSel = material;
     Status("Matériau projeté « " + name + " » : réglez l'échelle et la rotation (Calques 3D) ; son masque se peint ou se génère");
     return material;
@@ -122,21 +136,29 @@ void App::UpdateProjections(DocView& v) {
         const Id key = (Id)(l.surface ^ (Id)(std::hash<const void*>{}(&d) * 2654435761ull));
         char who[64];
         snprintf(who, sizeof(who), "%p|%p|", (const void*)&d, (const void*)sf->tex.get());
-        const std::string sig = who + l.projection + "|" + std::to_string(s.revision) + "|" + std::to_string(s.posMap->Width());
+        const Layer* root = &l;
+        size_t depth = 0;
+        while (root->parent && depth++ < d.S().layers.size()) {
+            root = d.FindLayer(root->parent);
+            if (!root) break;
+        }
+        int channel = 0;
+        while (root && channel < (int)PbrChannel::Count && root->name != PbrChannelName((PbrChannel)channel)) ++channel;
+        if (!root || channel == (int)PbrChannel::Count) continue;
+        const PbrChannel ch = (PbrChannel)channel;
+        const std::string sig = who + std::to_string(channel) + l.projection + "|" + std::to_string(s.revision) + "|" + std::to_string(s.posMap->Width());
         auto it = projectionDone.find(key);
         if (it != projectionDone.end() && it->second == sig) continue;
         Json p;
         if (!Json::Parse(l.projection, p)) continue;
-        gpu::Texture* img = ProjectionImage(p["source"].S());
+        const std::string separate = p["sources"][PbrChannelSuffix(ch)].S();
+        const std::string source = separate.empty() ? p["source"].S() : separate;
+        gpu::Texture* img = ProjectionImage(source);
         if (!img) {
             projectionDone[key] = sig;
-            Status("Matériau projeté : image introuvable " + p["source"].S());
+            Status("Matériau projeté : image introuvable " + source);
             continue;
         }
-        // Which channel this layer is: its group.
-        PbrChannel ch = PbrChannel::BaseColor;
-        for (PbrChannel c : kProjChannels)
-            if (FindChannelGroup(d, c) == l.parent) ch = c;
         Renderer::MeshProjectParams q;
         q.scale = p["scale"].F(1.5f);
         q.rotation = p["rotation"].F(0) * 0.0174533f;
@@ -144,7 +166,9 @@ void App::UpdateProjections(DocView& v) {
         q.offsetX = p["offsetX"].F(0);
         q.offsetY = p["offsetY"].F(0);
         q.contrast = p["contrast"].F(1);
-        if (ch == PbrChannel::BaseColor) {
+        if (ch == PbrChannel::Normal && !separate.empty()) {
+            q.mode = 2;
+        } else if (!separate.empty() || ch == PbrChannel::BaseColor) {
             q.mode = 0;
         } else if (ch == PbrChannel::Roughness) {
             q.mode = 1;
@@ -181,7 +205,7 @@ void App::DrawProjectionEditor(DocView& v, Id material) {
     ImGui::TextDisabled("%s", shown.c_str());
     if (ImGui::SmallButton("Image...")) {
         std::string f = platform::OpenFileDialog(hwnd, L"Images\0*.png;*.jpg;*.jpeg;*.tga;*.bmp\0");
-        if (!f.empty()) { p["source"] = f; changed = true; }
+        if (!f.empty()) { projImages.erase(f); p["source"] = f; changed = true; }
     }
     ImGui::SameLine();
     if (ImGui::SmallButton("Motif...")) ImGui::OpenPopup("##projpattern");
@@ -191,6 +215,80 @@ void App::DrawProjectionEditor(DocView& v, Id material) {
             if (ImGui::Selectable(pt.name.c_str())) { p["source"] = "pattern:" + pt.name; changed = true; }
         if (patterns.empty()) ImGui::TextDisabled("Aucun motif (panneau Motifs)");
         ImGui::EndPopup();
+    }
+    // Add optional channels only when a map is assigned. A layer is created inside
+    // the matching folder in that channel, preserving the material stack.
+    std::vector<PbrChannel> addedChannels;
+    if (ImGui::TreeNode("Images par canal")) {
+        for (int i = 0; i < (int)PbrChannel::Count; ++i) {
+            const auto channel = (PbrChannel)i;
+            ImGui::PushID(i);
+            ImGui::TextUnformatted(PbrChannelName(channel));
+            ImGui::SameLine();
+            auto file = cp["sources"][PbrChannelSuffix(channel)].S();
+            auto label = file.empty() ? std::string("Choisir...") : Narrow(Utf8Path(file).filename().wstring());
+            if (ImGui::SmallButton(label.c_str())) {
+                auto chosen = platform::OpenFileDialog(hwnd, L"Images\0*.png;*.jpg;*.jpeg;*.tga;*.bmp\0");
+                if (!chosen.empty()) {
+                    projImages.erase(chosen);
+                    p["sources"][PbrChannelSuffix(channel)] = chosen;
+                    addedChannels.push_back(channel);
+                    changed = true;
+                }
+            }
+            ImGui::PopID();
+        }
+        if (ImGui::SmallButton("Importer un jeu PBR...")) {
+            auto file = platform::OpenFileDialog(hwnd, L"Choisir une carte du jeu\0*.png;*.jpg;*.jpeg;*.tga;*.bmp\0");
+            if (!file.empty()) {
+                // A common asset stem followed by its channel name, e.g. Wood_BaseColor.png.
+                auto identify = [](std::string name, std::string& stem) {
+                    for (char& c : name) if (c >= 'A' && c <= 'Z') c += 'a'-'A';
+                    const auto split = name.find_last_of("_-. ");
+                    stem = split == std::string::npos ? "" : name.substr(0,split);
+                    const auto suffix = name.substr(split == std::string::npos ? 0 : split+1);
+                    for (int i=0; i<(int)PbrChannel::Count; ++i) {
+                        std::string canonical = PbrChannelSuffix((PbrChannel)i);
+                        for (char& c : canonical) if (c >= 'A' && c <= 'Z') c += 'a'-'A';
+                        if (canonical == suffix) return i;
+                    }
+                    if (suffix=="albedo" || suffix=="diffuse" || suffix=="basecolor") return (int)PbrChannel::BaseColor;
+                    if (suffix=="metalness") return (int)PbrChannel::Metallic;
+                    if (suffix=="displacement") return (int)PbrChannel::Height;
+                    if (suffix=="emission") return (int)PbrChannel::Emissive;
+                    if (suffix=="normaldx") return (int)PbrChannel::Normal;
+                    return -1;
+                };
+                const auto selected = Utf8Path(file);
+                std::string stem;
+                if (identify(Narrow(selected.stem().wstring()), stem)<0) {
+                    Status("Utilisez un nom comme Bois_BaseColor.png, Bois_Roughness.png ou Bois_Normal.png");
+                } else {
+                    std::error_code ec;
+                    std::vector<std::filesystem::path> matches;
+                    for (std::filesystem::directory_iterator it(selected.parent_path(), ec), end; it!=end && !ec; it.increment(ec)) {
+                        const auto path = it->path();
+                        auto ext = path.extension().wstring();
+                        for (auto& c : ext) c = std::towlower(c);
+                        if (ext==L".png" || ext==L".jpg" || ext==L".jpeg" || ext==L".tga" || ext==L".bmp") matches.push_back(path);
+                    }
+                    std::sort(matches.begin(),matches.end());
+                    matches.push_back(selected);
+                    for (const auto& path : matches) {
+                        std::string base;
+                        const int c = identify(Narrow(path.stem().wstring()), base);
+                        if (c<0 || base!=stem) continue;
+                        const auto channel = (PbrChannel)c;
+                        const auto source = Narrow(path.wstring());
+                        p["sources"][PbrChannelSuffix(channel)] = source;
+                        projImages.erase(source);
+                        if (std::find(addedChannels.begin(),addedChannels.end(),channel)==addedChannels.end()) addedChannels.push_back(channel);
+                    }
+                    changed = !addedChannels.empty();
+                }
+            }
+        }
+        ImGui::TreePop();
     }
     auto slider = [&](const char* label, const char* key, float def, float lo, float hi, const char* fmt, ImGuiSliderFlags fl = 0) {
         float x = cp[key].F(def);
@@ -222,10 +320,42 @@ void App::DrawProjectionEditor(DocView& v, Id material) {
     slider("Métal", "metal", 0, 0, 1, "%.2f");
     if (changed) {
         const std::string text = cp.Dump(0);
+        const Id mask = any->mask, edits = any->maskEdit;
+        const std::string name = any->name, generator = any->generator;
+        const std::string scope = d.LayerTextureSet(*any);
+        v.history.BeginGroup();
+        const u32 previous = d.pbrChannels;
+        u32 requested = d.TextureSetChannels(scope);
+        for (auto c : addedChannels) requested |= 1u << (int)c;
+        if (scope.empty()) d.pbrChannels = requested;
+        else if (requested != d.TextureSetChannels(scope)) SetTextureSetChannels(v,scope,requested);
+        if (previous != d.pbrChannels) {
+            const u32 next = d.pbrChannels;
+            v.history.PushCustom("Canaux de projection", [&d,previous,next](bool undo){ d.pbrChannels = undo ? previous : next; });
+        }
+        for (auto c : addedChannels) if (!FindChannelGroup(d,c)) { CreatePbrChannels(v,true,requested); break; }
         Edit e(d, v.history, "Projection du matériau");
+        for (auto c : addedChannels) {
+            if (MaterialChannelLayer(d, material, c)) continue;
+            Layer layer;
+            layer.id = d.NewId();
+            layer.material = material;
+            layer.kind = LayerKind::Pixel;
+            layer.name = name;
+            layer.mask = mask;
+            layer.maskEdit = edits;
+            layer.generator = generator;
+            layer.projection = text;
+            layer.parent = NewLayerParent3D(d, c, material);
+            layer.surface = d.CreateSurface({0, 0, 0, 0});
+            auto& layers = d.S().layers;
+            layers.insert(layers.begin() + d.LayerIndex(layer.parent), layer);
+            d.SyncGraph();
+        }
         for (auto& l : d.S().layers)
             if (l.material == material && !l.projection.empty()) l.projection = text;
         e.Commit();
+        v.history.EndGroup();
     }
 }
 

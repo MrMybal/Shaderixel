@@ -112,7 +112,7 @@ void App::AnimCaptureEntries(Document& d, std::vector<LayerComp::Entry>& out) {
 
 void App::ApplyAnimEntries(DocView& v, const std::vector<LayerComp::Entry>& entries) {
     Document& d = *v.doc;
-    const bool wasDirty = d.dirty;  // showing a frame is not an edit (thumbnails, playback, export)
+    const auto wasDirty = d.dirty;  // showing a frame is not an edit (thumbnails, playback, export)
     bool moved = false;
     for (auto& en : entries) {
         Layer* l = d.FindLayer(en.layer);

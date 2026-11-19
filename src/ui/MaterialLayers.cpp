@@ -14,7 +14,8 @@ namespace sx {
 
 namespace {
 // Channels a material layer can drive (normal / occlusion stay per-channel layers).
-const PbrChannel kMatChannels[] = {PbrChannel::BaseColor, PbrChannel::Roughness, PbrChannel::Metallic, PbrChannel::Height, PbrChannel::Emissive};
+const PbrChannel kMatChannels[] = {PbrChannel::BaseColor, PbrChannel::Roughness, PbrChannel::Metallic, PbrChannel::Height, PbrChannel::Emissive,
+    PbrChannel::Opacity, PbrChannel::User0, PbrChannel::User1, PbrChannel::User2, PbrChannel::User3};
 
 bool IsColorChannel(PbrChannel c) { return c == PbrChannel::BaseColor || c == PbrChannel::Emissive; }
 
@@ -140,7 +141,32 @@ int App::Folder3DDepth(Document& d, Id material) {
     return depth;
 }
 
-Id App::CreateFolder3D(DocView& v, Id wrap) {
+Id App::NewLayerParent3D(Document& d, PbrChannel c, Id material) {
+    const Id root = FindChannelGroup(d, c);
+    if (!root) return 0;
+    Layer* active = material ? AnyMaterialLayer(d, material) : nullptr;
+    if (!active) active = d.ActiveLayer();
+    if (!active || !active->material) return root;
+    Id folder = active->kind == LayerKind::Group ? active->material : Folder3DOf(d, active->material);
+    // A newly enabled channel may lack the selected folder. Reproduce its hierarchy and share its masks.
+    std::vector<Layer> missing;
+    Id parent = root;
+    for (; folder && missing.size() < 64; folder = Folder3DOf(d, folder)) {
+        if (Layer* group = MaterialChannelLayer(d, folder, c)) { parent = group->id; break; }
+        Layer* group = AnyMaterialLayer(d, folder);
+        if (!group) break;
+        missing.push_back(*group);
+    }
+    for (auto it = missing.rbegin(); it != missing.rend(); ++it) {
+        it->id = d.NewId();
+        it->parent = parent;
+        d.S().layers.insert(d.S().layers.begin() + d.LayerIndex(parent), *it);
+        parent = it->id;
+    }
+    return parent;
+}
+
+Id App::CreateFolder3D(DocView& v, Id wrap, const std::string& requestedName, const std::vector<Rect>& regions, bool fromSelection, const std::string& textureSet) {
     // New folder around the 3D layer `wrap` (or empty, on top).
     Document& d = *v.doc;
     if (d.Mode() != DocMode::Layers) return 0;
@@ -149,7 +175,14 @@ Id App::CreateFolder3D(DocView& v, Id wrap) {
     const Id mask = d.CreateSurface({1, 1, 1, 1});
     int count = 1;
     for (Id m : MaterialIds(d)) count += IsFolder3D(d, m) ? 1 : 0;
-    const std::string name = "Dossier " + std::to_string(count);
+    const std::string name = requestedName.empty() ? "Dossier " + std::to_string(count) : requestedName;
+    if (!regions.empty()) {
+        gpu::Texture* texture = d.GetSurface(mask)->tex.get();
+        d.CancelPendingClear(mask);
+        v.renderer.FillTexture(*ctx, texture, {});
+        for (const Rect& region : regions) v.renderer.FillTexture(*ctx, texture, {1,1,1,1}, region);
+        d.TouchSurface(mask);
+    } else if (fromSelection) v.renderer.SelectionToMask(d, *ctx, mask, false);
     for (int ci = 0; ci < (int)PbrChannel::Count; ++ci) {
         const Id g = FindChannelGroup(d, (PbrChannel)ci);
         if (!g) continue;
@@ -158,6 +191,7 @@ Id App::CreateFolder3D(DocView& v, Id wrap) {
         f.kind = LayerKind::Group;
         f.name = name;
         f.material = folder;
+        f.textureSet = textureSet;
         f.mask = mask;
         f.passThrough = false;
         auto& L = d.S().layers;
@@ -249,13 +283,15 @@ Layer* App::AnyMaterialLayer(Document& d, Id material) {
 
 // Fill layer of `material` in channel group `c` (created on top of the group).
 Layer* App::AddMaterialChannel(Document& d, Id material, PbrChannel c, const std::string& name, Id mask, float4 value, float opacity) {
-    Id g = FindChannelGroup(d, c);
+    // The supplied name may point into the layer vector (enabling a channel from its properties).
+    const std::string layerName = name;
+    Id g = NewLayerParent3D(d, c, material);
     auto solid = Effects().Find("solid_color");
     if (!g || !solid) return nullptr;
     Layer f;
     f.id = d.NewId();
     f.kind = LayerKind::Fill;
-    f.name = name;
+    f.name = layerName;
     f.parent = g;
     f.material = material;
     f.mask = mask;
@@ -272,7 +308,7 @@ Layer* App::AddMaterialChannel(Document& d, Id material, PbrChannel c, const std
 void App::AddMaterialLayer(DocView& v, int preset) {
     Document& d = *v.doc;
     if (d.Mode() != DocMode::Layers) { Status("Les matériaux utilisent le mode calques"); return; }
-    if (!FindChannelGroup(d, PbrChannel::Roughness)) CreatePbrChannels(v);
+    if (d.kind != 1 && !FindChannelGroup(d, PbrChannel::Roughness)) CreatePbrChannels(v);
     const MatPreset& p = Presets()[std::clamp(preset, 0, (int)Presets().size() - 1)];
     Edit e(d, v.history, "Nouveau matériau");
     Id material = d.NewId();
@@ -300,7 +336,7 @@ Id App::AddMaterialLayerValues(DocView& v, const std::string& name, const float3
                                 bool fullMask) {
     Document& d = *v.doc;
     if (d.Mode() != DocMode::Layers) return 0;
-    if (!FindChannelGroup(d, PbrChannel::Roughness)) CreatePbrChannels(v);
+    if (d.kind != 1 && !FindChannelGroup(d, PbrChannel::Roughness)) CreatePbrChannels(v);
     Edit e(d, v.history, "Nouveau matériau");
     Id material = d.NewId();
     Id mask = d.CreateSurface(fullMask ? float4{1, 1, 1, 1} : float4{0, 0, 0, 1});

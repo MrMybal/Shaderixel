@@ -141,19 +141,62 @@ void History::PushCustom(const std::string& label, std::function<void(bool undo)
     Push(std::move(e));
 }
 
-void History::PushPaint(const std::string& label, Id surface, const Rect& r, gpu::TexturePtr before, gpu::TexturePtr after) {
+void History::PushPaint(const std::string& label, Id surface, const Rect& r, gpu::TexturePtr before, gpu::TexturePtr after, gpu::ReadbackPtr tiles) {
     Entry e;
     e.label = label;
     e.paint = true;
     e.surface = surface;
     e.rect = r;
+    e.tiles = std::move(tiles);
     e.bytes = TextureBytes(before) + TextureBytes(after);
     e.pixelsBefore = std::move(before);
     e.pixelsAfter = std::move(after);
     Push(std::move(e));
 }
 
+void History::CompactTiles(Entry& e, gpu::CommandContext& ctx) {
+    const auto rb = std::move(e.tiles);
+    constexpr u32 tile = 64;
+    const int w = e.rect.Width(), h = e.rect.Height();
+    if (rb->format != gpu::Format::R32F || rb->width != ((u32)w+63)/64 || rb->height != ((u32)h+63)/64 ||
+        rb->data.size() != (size_t)rb->width * rb->height * sizeof(float)) return;
+    std::vector<Rect> regions;
+    for (u32 y = 0; y < rb->height; ++y)
+        for (u32 x = 0; x < rb->width; ++x) {
+            float touched;
+            memcpy(&touched, rb->data.data() + ((size_t)y*rb->width+x)*sizeof(float), sizeof(float));
+            if (touched > 0) regions.push_back({(int)x*64, (int)y*64, std::min((int)(x+1)*64, w), std::min((int)(y+1)*64, h)});
+        }
+    if (regions.empty()) {
+        Account(e, -1);
+        e.pixelsBefore.reset();
+        e.pixelsAfter.reset();
+        e.bytes = 0;
+        return;
+    }
+    const u32 cols = std::clamp((u32)std::ceil(std::sqrt((double)regions.size())), ((u32)regions.size()+rb->height-1)/rb->height, rb->width);
+    const u32 rows = ((u32)regions.size()+cols-1)/cols;
+    if ((u64)cols*rows*tile*tile >= (u64)w*h || rows > rb->height) return;
+    auto pack = [&](const gpu::TexturePtr& src) {
+        auto dest = gpu::Dev().CreateTexture(cols*tile, rows*tile, src->GetFormat(), "UndoTiles");
+        if (dest) for (size_t i = 0; i < regions.size(); ++i)
+            ctx.CopyRegion(dest.get(), (u32)(i%cols)*tile, (u32)(i/cols)*tile, src.get(), regions[i]);
+        return dest;
+    };
+    auto before = pack(e.pixelsBefore), after = pack(e.pixelsAfter);
+    if (!before || !after) return;
+    Account(e, -1);
+    e.tileRects = std::move(regions);
+    e.packCols = cols;
+    e.pixelsBefore = std::move(before);
+    e.pixelsAfter = std::move(after);
+    e.bytes = TextureBytes(e.pixelsBefore) + TextureBytes(e.pixelsAfter);
+    Account(e, 1);
+}
+
 void History::Maintain(gpu::CommandContext& ctx) {
+    for (Entry& e : entries)
+        if (e.tiles && e.tiles->ready) CompactTiles(e, ctx);
     // Older paint steps beyond the GPU budget: read back, compressed in the background, then their GPU copies freed.
     int started = 0;
     // GPU bytes that stay once the transfers in flight are done.
@@ -162,7 +205,7 @@ void History::Maintain(gpu::CommandContext& ctx) {
         if (e.offload == Offload::Reading || e.offload == Offload::Packing) staying -= std::min(staying, e.bytes);
     for (size_t i = 0; i < entries.size(); ++i) {
         Entry& e = entries[i];
-        if (!e.paint) continue;
+        if (!e.paint || e.tiles || (!e.bytes && e.offload == Offload::Gpu)) continue;
         if (e.offload == Offload::Reading && (!e.rbBefore || e.rbBefore->ready) && (!e.rbAfter || e.rbAfter->ready)) {
             auto rbB = e.rbBefore, rbA = e.rbAfter;
             e.packing = std::async(std::launch::async, [rbB, rbA] {
@@ -194,11 +237,19 @@ void History::Maintain(gpu::CommandContext& ctx) {
     }
 }
 
-static void ApplyPaint(Document& doc, gpu::CommandContext& ctx, Id surface, const Rect& r, gpu::Texture* pixels) {
-    Surface* s = doc.GetSurface(surface);
+void History::ApplyPaint(Document& doc, gpu::CommandContext& ctx, const Entry& e, gpu::Texture* pixels) {
+    Surface* s = doc.GetSurface(e.surface);
     if (!s || !pixels) return;
-    ctx.CopyRegion(s->tex.get(), r.x0, r.y0, pixels, {0, 0, r.Width(), r.Height()});
-    doc.TouchSurface(surface, &r);
+    if (e.packCols) {
+        for (size_t i = 0; i < e.tileRects.size(); ++i) {
+            const Rect& dst = e.tileRects[i];
+            const int x = (int)(i % e.packCols)*64, y = (int)(i / e.packCols)*64;
+            ctx.CopyRegion(s->tex.get(), e.rect.x0 + dst.x0, e.rect.y0 + dst.y0, pixels, {x, y, x + dst.Width(), y + dst.Height()});
+        }
+    } else {
+        ctx.CopyRegion(s->tex.get(), e.rect.x0, e.rect.y0, pixels, {0, 0, e.rect.Width(), e.rect.Height()});
+    }
+    doc.TouchSurface(e.surface, &e.rect);
 }
 
 // The pixels of a step: on the GPU, or uploaded back from system memory.
@@ -218,7 +269,7 @@ void History::UndoOne(Document& doc, gpu::CommandContext& ctx) {
         doc.colorMode = e.colorBefore.mode;
     } else if (e.paint) {
         gpu::TexturePtr t = StepPixels(e.pixelsBefore, e.cpuBefore, ctx);
-        ApplyPaint(doc, ctx, e.surface, e.rect, t.get());
+        ApplyPaint(doc, ctx, e, t.get());
     } else {
         doc.S() = e.before;
         doc.InvalidateSurfaces();
@@ -236,7 +287,7 @@ void History::RedoOne(Document& doc, gpu::CommandContext& ctx) {
         doc.colorMode = e.colorAfter.mode;
     } else if (e.paint) {
         gpu::TexturePtr t = StepPixels(e.pixelsAfter, e.cpuAfter, ctx);
-        ApplyPaint(doc, ctx, e.surface, e.rect, t.get());
+        ApplyPaint(doc, ctx, e, t.get());
     } else {
         doc.S() = e.after;
         doc.InvalidateSurfaces();

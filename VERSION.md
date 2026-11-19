@@ -2,6 +2,15 @@
 
 [English](VERSION.md) · [Français](VERSION.fr.md) · [README](README.md)
 
+## 0.1.0-alpha.20261119 · Alpha
+
+Portable preview for Windows x64 with D3D12 and Vulkan executables.
+
+- Paint 3D adds surface painting and retouching tools, with updates to UDIM handling and texture export.
+- The new particle brushes include rust, mud, rain and dust. The Simulation tab can edit scripts for emission, evolution and impact and replay the last stroke.
+- Scripts can define controls, conditional groups and defaults. Wandering Drops demonstrates the impact modes, bounce strength and group resets.
+- The Windows minimize, maximize and close controls are integrated into the Shaderixel menu bar.
+
 ## 0.1.0-alpha.20261106 · Alpha
 
 Published on **2026-11-06** for **Windows x64**. This experimental release is

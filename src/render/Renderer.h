@@ -9,6 +9,7 @@
 #include "doc/Document.h"
 #include "doc/History.h"
 #include "gpu/ShaderSystem.h"
+#include "mesh/Mesh.h"
 
 #include <functional>
 
@@ -195,6 +196,7 @@ public:
     // Destructive filter on a pixel surface (selection-limited), recorded in the history.
     bool ApplyEffectToSurface(Document& doc, gpu::CommandContext& ctx, History& hist, Id surface, const EffectInstance& fx, const std::string& label);
     void FillTexture(gpu::CommandContext& ctx, gpu::Texture* dst, float4 value);
+    void FillTexture(gpu::CommandContext& ctx, gpu::Texture* dst, float4 value, Rect rect);
 
     void Import(Document& doc, gpu::CommandContext& ctx, Id surface, const void* pixels, u32 w, u32 h, bool isFloat, int2 offset);
     // Selection masks (SelectRefine.cpp).
@@ -291,8 +293,15 @@ public:
     // Normal channel with the Height channel baked in (either may be null), for export.
     gpu::TexturePtr BakeNormal(gpu::CommandContext& ctx, gpu::Texture* normal, gpu::Texture* height, u32 w, u32 h);
     gpu::Texture* MeshRender(gpu::CommandContext& ctx, MeshScene& s, const MeshMaterial& material, u32 w, u32 h);
+    struct ParticleDeposit { float4 trail, impact; float2 strength; };
     void MeshStrokeDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<Dab>& dabs, const BrushSettings& b,
-                        float4 colorLinear, bool erase, u32 extraFlags = 0, gpu::Texture* decal = nullptr, const std::vector<float4>* dabEx = nullptr);
+                        float4 colorLinear, bool erase, u32 extraFlags = 0, gpu::Texture* decal = nullptr,
+                        const std::vector<float4>* dabEx = nullptr, const ParticleDeposit* particles = nullptr,
+                        std::vector<Rect>* dispatchedRegions = nullptr);
+    bool BeginParticlePaint(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces);
+    void ParticleDabs(Document& doc, gpu::CommandContext& ctx, MeshScene& s, const std::vector<float4>& dabs,
+                      const std::vector<float4>& extra, const BrushSettings& brush, const std::vector<ParticleDeposit>& values);
+    void CancelParticlePaint(Document& doc, gpu::CommandContext& ctx, bool restorePixels = true);
     // Multi-channel strokes (3D projects): one coverage, several layers each with its own value.
     bool BeginStrokeMulti(Document& doc, gpu::CommandContext& ctx, const std::vector<Id>& surfaces);
     // Paint 3D, projection along the average normal (MeshPaint.cpp): each dab's point, normal and axes on the model,
@@ -322,6 +331,8 @@ public:
     int meshSymmetry = 0;        // 3D strokes mirrored across the model's axis: 0 none, 1 X, 2 Y, 3 Z
     float meshFacingMin = 0.05f; // texels seen more edge-on than this are not painted (dot(n, view))
     Rect meshClip;               // 3D strokes only paint inside this rectangle (empty: anywhere)
+    std::map<Id,std::vector<Rect>> disabledPaintRegions; // per active Paint 3D channel surface
+    void PreserveDisabledPaint(gpu::CommandContext& ctx, Id surface, gpu::Texture* dst, gpu::Texture* before, const Rect& changed);
     // Brush tip in 3D: a few variants of the programmable tip rendered side by side (BuildMeshTip).
     gpu::TexturePtr meshTipAtlas, meshTipLayer, meshTipColor;
     u64 meshTipHash = 0;
@@ -341,7 +352,7 @@ public:
         float4 dir = {0, 1, 0, 0};
         // Type 8 (follows a layer): its coverage (alpha of a paint layer, red of a mask), mode, blur radius (texels).
         gpu::Texture* source = nullptr;
-        bool sourceAlpha = false;
+        bool sourceAlpha = false, sourceValue = false;
         int anchorMode = 0;
         float anchorRadius = 8;
         gpu::Texture* edits = nullptr;  // painted corrections laid over the result
@@ -363,6 +374,7 @@ public:
     // Decal projected from the view: center / half size in view pixels, rotation (radians); the first layer can take the image colors.
     void MeshDecalMulti(Document& doc, gpu::CommandContext& ctx, MeshScene& s, gpu::Texture* image, float2 center, float2 halfSize, float rotation,
                         float opacity, const std::vector<float4>& colorsLinear, bool firstUsesImageColor);
+    void TrackMeshStrokeCoverage() { meshCoverage = true; }
     void EndStrokeMulti(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label);
     // Liquid paint (FluidPaint.cpp): a film of paint simulated in texture space that carries a whole material
     // (color, roughness, metal, emissive; its thickness is the relief) and runs with gravity, composited live
@@ -434,14 +446,29 @@ public:
 
     void Reset();  // drop all caches (document switch)
 
+    gpu::Texture* SurfaceUvView(gpu::CommandContext& ctx, MeshScene& s, u32 w, u32 h);
+    bool RetouchSurface(Document& doc, gpu::CommandContext& ctx, MeshScene& scene, gpu::Texture* uvView, float2 from, float2 to,
+                        float2 offset, const BrushSettings& settings, float strength, bool smudge, const std::vector<gpu::TexturePtr>& merged);
+    void BrushSurfaceMask(Document& doc, gpu::CommandContext& ctx, MeshScene& scene, gpu::Texture* uvView, gpu::Texture* coverage,
+                          float2 from, float2 to, const BrushSettings& settings, bool uncover);
+    gpu::Texture* SurfaceMaskOverlay(gpu::CommandContext& ctx, gpu::Texture* image, gpu::Texture* uvView, gpu::Texture* selection);
+
 private:
+    gpu::TexturePtr surfaceUv, surfaceDepth, surfaceOverlay, surfaceSmudge;
+    gpu::GraphicsPipelinePtr surfacePipeline;
+    Mat4 surfaceMatrix{};
+    const gpu::Buffer* surfaceVertices = nullptr;
+    u64 surfacePipelineVersion = 0;
+    u32 surfaceRevision = 0;
     gpu::TexturePtr warpTarget;  // WarpPreview render target (bounding box of the warped patch)
     struct StrokeSlot {
         Id surface = 0;
         gpu::TexturePtr pre;
     };
     std::vector<StrokeSlot> strokeSlots;  // multi-channel strokes: layers after the first
+    gpu::TexturePtr particleImpacts;
     struct FluidState {
+        std::map<Id,std::vector<Rect>> disabledRegions;
         bool active = false;
         u32 w = 0, h = 0, docW = 0, docH = 0;
         gpu::TexturePtr f0[2], f1[2], d0[2], d1[2], flux[2], grav, selection, bed;
@@ -564,6 +591,10 @@ private:
     gpu::TexturePtr boundsTex;
     Id strokeSurface = 0;
     gpu::TexturePtr strokePre, strokeMask;
+    bool meshCoverage = false;
+    gpu::ReadbackPtr meshTileReadback;
+    void ReadStrokeTiles(gpu::CommandContext& ctx);
+    void SaveStrokePixels(Document& doc, gpu::CommandContext& ctx, History& hist, const std::string& label);
     gpu::TexturePtr strokeColor, previewLayer, previewMask, previewColor;  // programmable brushes
     gpu::TexturePtr padLayer, padPre, padMask, padColor;                   // brush test pad
     gpu::TexturePtr rangeMask, refineT[3], refineMask, refineMask2, refinePreview;  // selection masks

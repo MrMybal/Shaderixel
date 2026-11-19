@@ -271,6 +271,12 @@ endif()
 option(SX_BUILD_UI_TESTS "Build Shaderixel's CyUI integration tests" OFF)
 if(SX_BUILD_UI_TESTS)
     enable_testing()
+    add_executable(ShaderixelTextureExportTests tests/TextureExport.cpp src/io/TextureExportPlan.cpp
+        src/core/Common.cpp src/mesh/Mesh.cpp src/mesh/MeshTileSize.cpp src/mesh/UvUnwrap.cpp)
+    target_include_directories(ShaderixelTextureExportTests PRIVATE ${CMAKE_SOURCE_DIR}/src ${IMGUI_DIR})
+    target_compile_definitions(ShaderixelTextureExportTests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_link_libraries(ShaderixelTextureExportTests PRIVATE xatlas)
+    add_test(NAME shaderixel_texture_export COMMAND ShaderixelTextureExportTests)
     add_executable(ShaderixelUiTests tests/CyUiIntegration.cpp
         src/ui/CodeEdit.cpp src/ui/Theme.cpp src/ui/ToneCurve.cpp src/ui/Dimensions.cpp src/ui/BlendIf.cpp
         tests/NumericEntry.cpp tests/Documentation.cpp src/ui/Documentation.cpp)
@@ -281,6 +287,25 @@ if(SX_BUILD_UI_TESTS)
         target_compile_options(ShaderixelUiTests PRIVATE /utf-8 /EHsc)
     endif()
     add_test(NAME shaderixel_cyui_interactions COMMAND ShaderixelUiTests)
+endif()
+
+option(SX_BUILD_PROJECT_TESTS "Build project persistence and mesh import tests" OFF)
+if(SX_BUILD_PROJECT_TESTS)
+    enable_testing()
+    add_executable(ShaderixelProjectTests tests/ProjectPersistence.cpp
+        src/doc/ProjectContainer.cpp src/doc/MeshFile.cpp src/core/Json.cpp src/core/Common.cpp
+        src/core/Deflate.cpp src/core/StbImpl.cpp src/ai/Net.cpp
+        src/mesh/Mesh.cpp src/mesh/Gltf.cpp src/mesh/Fbx.cpp src/mesh/UvUnwrap.cpp)
+    target_include_directories(ShaderixelProjectTests PRIVATE ${CMAKE_SOURCE_DIR}/src ${EXT}/stb)
+    target_compile_definitions(ShaderixelProjectTests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_compile_options(ShaderixelProjectTests PRIVATE /utf-8)
+    target_link_libraries(ShaderixelProjectTests PRIVATE xatlas ufbx)
+    add_test(NAME shaderixel_project_persistence COMMAND ShaderixelProjectTests)
+    add_executable(ShaderixelBakeTests tests/MeshBake.cpp src/mesh/MeshBake.cpp)
+    target_include_directories(ShaderixelBakeTests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+    target_compile_definitions(ShaderixelBakeTests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_compile_options(ShaderixelBakeTests PRIVATE /utf-8)
+    add_test(NAME shaderixel_bake_picking COMMAND ShaderixelBakeTests)
 endif()
 
 option(SX_BUILD_UPDATE_TESTS "Build GitHub update selection and integrity tests" OFF)

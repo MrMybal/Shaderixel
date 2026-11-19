@@ -328,6 +328,7 @@ void App::SendToUnreal(DocView& v, bool save) {
                 job.ao = rb(PbrChannel::Occlusion);
                 job.rough = rb(PbrChannel::Roughness);
                 job.metal = rb(PbrChannel::Metallic);
+                job.crop = {0, 0, (int)d.Width(), (int)d.Height()};
                 packJobs.push_back(job);
                 L->pending.push_back(o.file);
                 continue;

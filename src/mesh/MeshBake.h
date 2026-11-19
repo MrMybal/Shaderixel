@@ -43,6 +43,7 @@ struct BakeOptions {
     float front = 0.05f, back = 0.05f;
     bool normal = true, ao = true, curvature = true, thickness = true, height = true, position = false, worldNormal = false;
     int id = -1;  // color ID map: -1 none, 0 mesh parts, 1 materials of the model, 2 UV islands (of the detail model)
+    bool matchByName = false;
     int padding = 16;  // texels painted past the UV islands (dilation)
 };
 
@@ -65,14 +66,15 @@ struct BakeResult {
 
 // `high` (optional) must be in the low poly's space (see TransformToMeshSpace).
 BakeResult BakeMeshes(const MeshData& low, const MeshData* high, const BakeOptions& o, std::atomic<float>* progress = nullptr,
-                      std::atomic<bool>* cancel = nullptr);
+                      std::atomic<bool>* cancel = nullptr, const MeshData* cage = nullptr);
 
 // Rays against a mesh (particle simulation, picking): nearest hit, interpolated normal (outward).
 class MeshRaycaster {
 public:
     void Build(const MeshData& m);
     bool Empty() const { return !impl; }
-    bool Ray(float3 origin, float3 dir, float tmax, float3* pos, float3* normal, float* t = nullptr) const;
+    bool Ray(float3 origin, float3 dir, float tmax, float3* pos, float3* normal, float* t = nullptr,
+             u32* triangle = nullptr, float3* weights = nullptr) const;
 
 private:
     struct Impl;

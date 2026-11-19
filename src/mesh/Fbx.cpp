@@ -2,6 +2,7 @@
 // engine's left-handed Y-up space, triangulated, with one material per face group
 // (base color / roughness / metallic / emission, base color texture: file or embedded).
 #include "mesh/Mesh.h"
+#include "mesh/UvUnwrap.h"
 
 #include <ufbx.h>
 
@@ -49,7 +50,7 @@ bool LoadFbx(const std::string& path, MeshData& out, std::string* error) {
         matIndex[i] = (int)out.materials.size();
         out.materials.push_back(info);
     }
-    bool hasUv = false;
+    std::vector<u8> missingUvs;
     std::vector<uint32_t> tri;
     // The root carries the axis conversion (and its winding is already handled by ufbx): only
     // a node whose own transform mirrors relative to it needs its triangles reversed.
@@ -58,10 +59,11 @@ bool LoadFbx(const std::string& path, MeshData& out, std::string* error) {
         const ufbx_node* node = scene->nodes.data[ni];
         const ufbx_mesh* mesh = node->mesh;
         if (!mesh) continue;
+        const u32 part = (u32)out.partNames.size();
+        out.partNames.push_back(node->name.length ? Str(node->name) : out.name);
         const bool mirrored = ufbx_matrix_determinant(&node->geometry_to_world) * rootDet < 0;
         const ufbx_matrix normalMatrix = ufbx_matrix_for_normals(&node->geometry_to_world);  // inverse-transpose
         tri.resize(mesh->max_face_triangles * 3);
-        hasUv |= mesh->vertex_uv.exists;
         for (size_t fi = 0; fi < mesh->faces.count; ++fi) {
             const ufbx_face face = mesh->faces.data[fi];
             uint32_t n = ufbx_triangulate_face(tri.data(), tri.size(), mesh, face);
@@ -89,6 +91,8 @@ bool LoadFbx(const std::string& path, MeshData& out, std::string* error) {
                 }
                 if (mirrored) out.indices.insert(out.indices.end(), {base, base + 2, base + 1});
                 else out.indices.insert(out.indices.end(), {base, base + 1, base + 2});
+                out.triPart.push_back(part);
+                missingUvs.push_back(!mesh->vertex_uv.exists);
                 out.triMaterial.push_back((u16)std::max(mat, 0));
             }
         }
@@ -99,7 +103,7 @@ bool LoadFbx(const std::string& path, MeshData& out, std::string* error) {
         return false;
     }
     if (out.materials.empty()) out.triMaterial.clear();
-    out.hasUvs = hasUv;
+    out.hasUvs = RepairPartialUvs(out, missingUvs);
     NormalizeMesh(out);
     return true;
 }
