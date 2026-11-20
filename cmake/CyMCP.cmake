@@ -1,5 +1,5 @@
 set(SX_CYMCP_SOURCE_DIR "${CMAKE_SOURCE_DIR}/../CyMCPSDK" CACHE PATH "Local CyMCPSDK source checkout")
-set(SX_CYMCP_PIN "791d4d7d7680213b282ec8529d248a10f8494d77")
+set(SX_CYMCP_PIN "e562c731a146d599e3404718ea8414bb5b96b66d")
 
 # Add only the modules used by the editor. Local models use existing model servers.
 set(CYMCP_BUILD_HTTP ON)

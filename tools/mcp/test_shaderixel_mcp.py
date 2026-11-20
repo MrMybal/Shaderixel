@@ -119,8 +119,9 @@ def provider():
 class Mcp:
     def __init__(self, connection):
         self.url = connection['url'] + '/mcp'
-        self.headers = {'Authorization': 'Bearer ' + connection['token'],
-                        'Accept': 'application/json, text/event-stream', 'Content-Type': 'application/json'}
+        self.headers = {'Accept': 'application/json, text/event-stream', 'Content-Type': 'application/json'}
+        if 'token' in connection:
+            self.headers['Authorization'] = 'Bearer ' + connection['token']
         self.sequence = 0
         reply, headers = self.call('initialize', {'protocolVersion': '2025-06-18',
                                                  'capabilities': {},
@@ -129,15 +130,12 @@ class Mcp:
         self.headers['MCP-Protocol-Version'] = reply['result']['protocolVersion']
         self.call('notifications/initialized', {}, notification=True)
 
-    def call(self, method, params=None, notification=False, authorized=True):
+    def call(self, method, params=None, notification=False):
         self.sequence += 1
         payload = {'jsonrpc': '2.0', 'method': method, 'params': params or {}}
         if not notification:
             payload['id'] = self.sequence
-        headers = dict(self.headers)
-        if not authorized:
-            headers.pop('Authorization')
-        req = urllib.request.Request(self.url, data=json.dumps(payload).encode(), headers=headers)
+        req = urllib.request.Request(self.url, data=json.dumps(payload).encode(), headers=self.headers)
         with urllib.request.urlopen(req, timeout=35) as response:
             body = response.read()
             return (json.loads(body) if body else None), response.headers
@@ -147,8 +145,8 @@ class Mcp:
         return value['result']
 
 
-def phase_fixture(build, test_root, fixture, mock, writable, backend):
-    profile = test_root / ('write' if writable else 'read')
+def phase_fixture(build, test_root, fixture, mock, backend, *, access_profile=None, chat=False):
+    profile = test_root / (access_profile or 'legacy-free')
     profile.mkdir()
     source_name = 'ShaderixelVk.exe' if backend == 'vulkan' else 'Shaderixel.exe'
     # The executable keeps its actual filename, settings and resources in this isolated copy.
@@ -166,7 +164,7 @@ def phase_fixture(build, test_root, fixture, mock, writable, backend):
         'updates': {'checkAtStartup': False},
         'ai': {
             'allowWrites': False,
-            'allowFiles': writable,
+            'allowFiles': False,
             'assistantConnector': 'openai-compatible',
             'assistantModel': MODEL,
             'assistantEndpoint': f'http://127.0.0.1:{mock.server_port}/v1',
@@ -177,17 +175,23 @@ def phase_fixture(build, test_root, fixture, mock, writable, backend):
             'spoolResults': True,
         },
     }
+    if access_profile is not None:
+        settings['ai']['mcpProfile'] = access_profile
     (profile / 'shaderixel_settings.json').write_text(json.dumps(settings), encoding='utf-8')
     env = dict(os.environ, SHADERIXEL_MCP_STATE_DIR=str(state))
     arguments = [str(exe), '--mcp', str(fixture)]
-    if writable:
+    if chat:
         env['SX_MCP_CHAT_RESULT'] = str(report)
         arguments += ['--ai-test', '--focus', 'Assistant IA']
     return profile, state, report, env, arguments
 
 
-def check_instance(build, test_root, fixture, mock, writable, backend):
-    profile, state, report, env, argv = phase_fixture(build, test_root, fixture, mock, writable, backend)
+def check_instance(build, test_root, fixture, mock, backend, access_profile):
+    chat_enabled = access_profile is None
+    require_token = access_profile in ('protected', 'token_only')
+    controlled = access_profile in ('protected', 'local_controlled')
+    profile, state, report, env, argv = phase_fixture(
+        build, test_root, fixture, mock, backend, access_profile=access_profile, chat=chat_enabled)
     cli = build / 'ShaderixelCli.exe'
     with (profile / 'process.log').open('wb') as log:
         proc = subprocess.Popen(argv, cwd=profile, env=env, stdout=log, stderr=subprocess.STDOUT)
@@ -214,7 +218,10 @@ def check_instance(build, test_root, fixture, mock, writable, backend):
                     return None
 
             connection = wait_for(connection_ready)
+            assert connection['url'].startswith('http://127.0.0.1:')
+            assert ('token' in connection) == require_token
             client = Mcp(connection)
+            assert ('Authorization' in client.headers) == require_token
             catalog = client.call('tools/list')[0]['result']['tools']
             assert 'shaderixel.document_info' in {t['name'] for t in catalog}, catalog
             listed = command('list')['operations']
@@ -222,11 +229,19 @@ def check_instance(build, test_root, fixture, mock, writable, backend):
             schema = command('describe', 'shaderixel.document_info')
             assert schema['outputSchema']['properties']['layers']['type'] == 'array'
             assert command('instances')[0]['pid'] == proc.pid
-            try:
-                client.call('tools/list', authorized=False)
-                raise AssertionError('MCP accepted an unauthenticated call')
-            except urllib.error.HTTPError as e:
-                assert e.code == 401
+            if require_token:
+                try:
+                    Mcp({'url': connection['url']})
+                    raise AssertionError('MCP initialized without a token')
+                except urllib.error.HTTPError as e:
+                    assert e.code == 401
+                request = urllib.request.Request(connection['url'] + '/v1', data=b'{"method":"list"}',
+                                                 headers={'Content-Type': 'application/json'})
+                try:
+                    with urllib.request.urlopen(request, timeout=15):
+                        raise AssertionError('The CLI endpoint accepted a request without a token')
+                except urllib.error.HTTPError as e:
+                    assert e.code == 401
 
             def opened():
                 reply = client.tool('shaderixel.document_info')
@@ -236,13 +251,23 @@ def check_instance(build, test_root, fixture, mock, writable, backend):
             doc = wait_for(opened)
             info = command('--instance', str(proc.pid), 'invoke', 'shaderixel.document_info', '-', input='{}')
             assert doc['name'] == info['name'] and info['width'] == 768
-            if not writable:
+            if controlled:
                 forbidden = client.tool('shaderixel.layer_add', kind='pixel', name='forbidden')
                 assert forbidden.get('isError') and 'AccessDenied' in json.dumps(forbidden), forbidden
                 command('invoke', 'shaderixel.layer_add', '-', input='{"kind":"pixel"}', error='AccessDenied')
                 if 'shaderixel.ui_input' in {t['name'] for t in catalog}:
                     command('invoke', 'shaderixel.ui_input', '-', input='{"actions":[{"action":"key","key":"z"}]}',
                             error='AccessDenied')
+            else:
+                invalid = client.tool('shaderixel.layer_add', kind=42)
+                assert invalid.get('isError') and 'InvalidParameters' in json.dumps(invalid), invalid
+                response = client.tool('shaderixel.layer_add', kind='pixel', name='external-layer')
+                assert 'id' in response.get('structuredContent', {}), response
+                command('invoke', 'shaderixel.layer_update', '-', input=json.dumps(
+                    {'id': response['structuredContent']['id'], 'name': 'cli-layer'}))
+                edited = client.tool('shaderixel.document_info')['structuredContent']
+                assert 'cli-layer' in {layer['name'] for layer in edited['layers']}
+            if access_profile == 'protected':
                 effects = command('invoke', 'shaderixel.effects_list', '-', input='{"limit":3}')
                 assert len(effects['effects']) == 3 and effects['nextOffset'] == 3
                 assert command('grep', 'calques')['matches'] == []  # the guide uses English
@@ -260,11 +285,7 @@ def check_instance(build, test_root, fixture, mock, writable, backend):
                 other = client.call('resources/read', {'uri': uri})[0]['result']
                 assert json.loads(other['contents'][0]['text'])['size'] == stats['bytes']
                 assert any(state.glob('results-*/cymcp-results-*/*')), 'Large result did not spool to disk'
-            else:
-                response = client.tool('shaderixel.layer_add', kind='pixel', name='external-layer')
-                assert 'id' in response.get('structuredContent', {}), response
-                command('invoke', 'shaderixel.layer_update', '-', input=json.dumps(
-                    {'id': response['structuredContent']['id'], 'name': 'cli-layer'}))
+            if chat_enabled:
                 chat = wait_for(lambda: json.loads(report.read_text(encoding='utf-8')) if report.is_file() else None, 140)
                 assert chat['ok'] and chat['streamed'], chat
                 assert getattr(mock, 'tool_answer', None), 'The local provider did not receive a tool result'
@@ -284,12 +305,12 @@ def check_instance(build, test_root, fixture, mock, writable, backend):
                                                   if p.stat().st_size > 0), None))
                 contents = metrics.read_text(encoding='utf-8')
                 assert 'shaderixel.layer_add' in contents and 'fixture-tool-turn' not in contents
-                assert LAYER not in contents and connection['token'] not in contents
+                assert LAYER not in contents
                 (test_root / 'cli-example.json').write_text(json.dumps(info, ensure_ascii=False), encoding='utf-8')
         finally:
             if proc.poll() is None:
                 proc.terminate()  # Only the isolated test copy is affected.
-                proc.wait(timeout=15)
+                proc.wait(timeout=45)
 
 
 def main():
@@ -308,10 +329,14 @@ def main():
     fixture = test_root / 'mcp-fixture.png'
     make_png(fixture, 768)
     with provider() as mock:
-        check_instance(build, test_root, fixture, mock, False, args.backend)
-        print(f'{args.backend}: read-only CLI and MCP, denial, pagination, resource search and chunked PNG', flush=True)
-        check_instance(build, test_root, fixture, mock, True, args.backend)
-        print(f'{args.backend}: chat streaming, cancellation, restored history, real tool mutation, CLI and MCP writes, private metrics', flush=True)
+        for access_profile, checks in (
+            ('protected', 'HTTP 401 without token, authenticated read, permissions and chunked PNG'),
+            ('local_controlled', 'tokenless read and permission checks'),
+            ('token_only', 'HTTP 401 without token, authenticated read and write'),
+            (None, 'legacy settings use Free, tokenless read and write, validation, CLI and chat'),
+        ):
+            check_instance(build, test_root, fixture, mock, args.backend, access_profile)
+            print(f'{args.backend} / {access_profile or "Free"}: {checks}', flush=True)
 
 
 if __name__ == '__main__':

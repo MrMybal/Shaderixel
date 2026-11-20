@@ -858,7 +858,7 @@ private:
     void SurfaceToolTestTick();
     void RasterizeLayerDemoTick();
     bool testEffects = false;
-    bool aiTest = false;  // --ai-test: enable the MCP server and writes for automation
+    bool aiTest = false;  // --ai-test: enable the MCP server and the integration fixture
     bool launchMcp = false;
     void RunDemo16k();
     int demoMode = 0;              // 0 none, 1 layers, 2 nodes, 3 selection, 4 transform

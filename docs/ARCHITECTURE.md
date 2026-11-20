@@ -79,7 +79,10 @@ Pour tester toute la bibliothèque : `Shaderixel.exe --test-effects`.
 
 Le chat intégré, `ShaderixelCli` et les clients MCP utilisent le registre CyMCPSDK.
 Les opérations sur le document et le GPU passent par la file du thread principal.
-Le serveur écoute en boucle locale avec un jeton propre à l’instance. Les plugins
+Le serveur écoute sur `127.0.0.1`. Free est le profil par défaut, avec la politique
+`Policy::allow_all()` et le transport sans jeton. Local contrôlé et Protégé appliquent
+les permissions de Shaderixel. Jeton seul et Protégé authentifient les requêtes par
+un jeton propre à l’instance. Les plugins
 Python lancés par Shaderixel conservent leur protocole et leur jeton distincts.
 [Guide de démarrage et des permissions](ASSISTANT_MCP.fr.md)
 
@@ -89,7 +92,7 @@ Python lancés par Shaderixel conservent leur protocole et leur jeton distincts.
 Shaderixel.exe --test-effects               compile tous les effets, résultat dans shaderixel.log
 Shaderixel.exe --demo [nodes|select|transform|retouch|groups|save|image|curves|effectgraph|text|shapes|mesh] --capture out.png [--frames N]
 Shaderixel.exe --mcp                        démarre le serveur local avec les droits configurés
-Shaderixel.exe --ai-test                    démarre le serveur local et autorise l'écriture (tests)
+Shaderixel.exe --ai-test                    démarre le serveur local avec le profil configuré (tests)
 Shaderixel.exe image.png                    ouvre une image
 ```
 

@@ -8,9 +8,10 @@
 #include <deque>
 #include <future>
 #include <mutex>
+#include <span>
 #include <unordered_map>
 
-namespace cymcp { class Registry; class PerformanceMonitor; }
+namespace cymcp { class Registry; class PerformanceMonitor; enum class LocalAccessProfile; }
 
 namespace sx {
 
@@ -34,9 +35,18 @@ struct AiOperation {
     bool fileAccess = false;  // commands with indirect file access, including arbitrary UI input
 };
 
+struct McpAccessOption {
+    cymcp::LocalAccessProfile profile;
+    const char* id;
+    const char* label;
+};
+std::span<const McpAccessOption> McpAccessOptions();
+
 struct AiSettings {
+    AiSettings();
     std::string python = "python";
     bool autoStart = false;
+    cymcp::LocalAccessProfile mcpProfile;
     bool allowWrites = false;
     bool allowFiles = false;
     bool compactTools = true;
@@ -85,6 +95,7 @@ public:
 
     bool StartMcp(std::string& error);
     void StopMcp();
+    bool SetMcpProfile(cymcp::LocalAccessProfile profile, std::string& error);
     std::string McpUrl() const;
     std::string McpConfiguration() const;
     std::shared_ptr<const cymcp::Registry> ChatTools(bool compact) const;
@@ -94,6 +105,9 @@ public:
     int Port() const { return server.Port(); }
     std::atomic<bool> allowWrites{false};
     std::atomic<bool> allowFiles{false};
+    bool ControlsOperations() const;
+    bool CanWrite() const { return !ControlsOperations() || allowWrites; }
+    bool CanAccessFiles() const { return !ControlsOperations() || allowFiles; }
 
 private:
     struct Call {

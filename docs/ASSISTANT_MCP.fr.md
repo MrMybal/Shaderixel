@@ -14,7 +14,7 @@ Avec **Conserver l’historique local**, Shaderixel conserve les conversations a
 
 ## Terminal et client MCP
 
-Démarre le **Serveur MCP** dans **Assistant IA** ou lance `Shaderixel.exe --mcp` (ou `ShaderixelVk.exe --mcp`). L’option historique `--ai-test` démarre également le serveur avec l’écriture activée pour une instance de test. Les traitements et options de lancement existants restent utilisables sur les exécutables graphiques.
+Démarre le **Serveur MCP** dans **Assistant IA** ou lance `Shaderixel.exe --mcp` (ou `ShaderixelVk.exe --mcp`). L’option de test `--ai-test` démarre également le serveur en appliquant le profil configuré.
 
 ```powershell
 .\ShaderixelCli.exe --help
@@ -28,13 +28,22 @@ Démarre le **Serveur MCP** dans **Assistant IA** ou lance `Shaderixel.exe --mcp
 
 Le CLI est un exécutable console. L’aide, la version et la recherche d’instances sont utilisables sans démarrer l’interface. Les opérations métier pilotent une instance équipée du moteur de rendu et n’ouvrent pas une nouvelle fenêtre. S’il existe plusieurs instances, ajoute `--instance PID` avant la commande. `--connection CHEMIN` permet de choisir un descripteur local précis. `invoke` accepte du JSON en argument, un fichier `@CHEMIN`, ou `-` pour lire stdin. Le résultat JSON va sur stdout et les erreurs JSON sur stderr. Le code `0` indique le succès, `2` une syntaxe ou un JSON invalide et `1` une autre erreur, par exemple un refus de droit ou une instance indisponible.
 
-Le serveur écoute sur `127.0.0.1` et attribue un port et un jeton Bearer à chaque démarrage. Il expose MCP Streamable HTTP sur `/mcp` et l’API JSON du CLI sur `/v1`. Dans **Serveur MCP**, **Copier la configuration MCP** fournit l’URL et l’en-tête `Authorization` pour les clients compatibles HTTP. Le jeton est un secret local. Le descripteur privé `%LOCALAPPDATA%\Shaderixel\Mcp\instance-PID.json` permet au CLI de choisir l’instance. `SHADERIXEL_MCP_STATE_DIR` permet aux intégrateurs et aux tests de choisir un autre dossier d’état absolu. Les requêtes comportant un en-tête `Origin` sont refusées.
+Le serveur écoute sur `127.0.0.1`. Il expose MCP Streamable HTTP sur `/mcp` et l’API JSON du CLI sur `/v1`. **Copier la configuration MCP** fournit l’URL et ajoute un en-tête `Authorization` quand le profil exige un jeton. Le descripteur privé `%LOCALAPPDATA%\Shaderixel\Mcp\instance-PID.json` permet au CLI de choisir l’instance et de lire son jeton quand il existe. `SHADERIXEL_MCP_STATE_DIR` permet aux intégrateurs et aux tests de choisir un autre dossier d’état absolu. Les requêtes comportant un en-tête `Origin` sont refusées.
+
+| Profil MCP | Connexion | Opérations |
+| --- | --- | --- |
+| Free (par défaut) | Adresse seule | Toutes les opérations exposées |
+| Local contrôlé | Adresse seule | Selon les autorisations du panneau |
+| Jeton seul | Jeton Bearer | Toutes les opérations exposées |
+| Protégé | Jeton Bearer | Selon les autorisations du panneau |
+
+Les configurations sans profil explicite utilisent Free. Le serveur est activé depuis le panneau, au démarrage automatique si l’option est cochée, ou avec `--mcp`. En Free, tout client local qui connaît l’adresse peut appeler les opérations. Changer de profil redémarre le serveur s’il tourne. Recopie alors sa configuration dans les clients connectés.
 
 ### Opérations et autorisations
 
 `list` et `tools/list` découvrent le catalogue complet. `describe NOM` montre les schémas et les annotations de lecture ou d’écriture. Les opérations couvrent les documents et leurs onglets, les calques, filtres et graphes, la sélection, le pinceau, les tracés, le rendu, les actions d’image et le Paint 3D. `shaderixel.actions_list` énumère les commandes de traitement d’image et les actions enregistrées utilisables par `shaderixel.action_run`. Les étapes d’export et les appels imbriqués s’appellent par leurs outils dédiés. Les plugins natifs chargés peuvent ajouter des commandes. Le client Python des plugins lancés par Shaderixel conserve son protocole et son jeton propre. La liaison Unreal Link reste le point d’entrée Unreal dédié.
 
-Les trois points d’entrée appliquent **Autoriser l’IA à modifier le document** aux opérations qui modifient le document, le projet ou l’interface. L’import de fichiers, la sauvegarde, l’écriture dans les bibliothèques ainsi que le contrôle générique des menus et des entrées clavier ou souris passent aussi par **Autoriser l’accès aux fichiers**. Pour `shaderixel.document_save`, utilise un chemin absolu et réserve `overwrite: true` à un remplacement confirmé. L’appel attend la fin du travail et renvoie une erreur si l’écriture échoue. La sauvegarde native et les exports persistent sur le disque. Un appel interrompu ne relance jamais automatiquement l’écriture.
+Dans les profils Local contrôlé et Protégé, le chat, le CLI et MCP appliquent **Autoriser l’IA à modifier le document** aux opérations qui modifient un document, un projet ou l’interface. L’import, la sauvegarde, l’écriture dans les bibliothèques et le pilotage générique des menus ou des entrées appliquent aussi **Autoriser l’accès aux fichiers**. Les quatre profils valident les arguments. Pour `shaderixel.document_save`, utilise un chemin absolu et passe `overwrite: true` dans l’appel pour remplacer un fichier existant. L’appel attend la fin de l’écriture et en signale l’échec si nécessaire.
 
 ### Piloter l’interface
 
@@ -64,7 +73,7 @@ Le cache de découverte a un TTL de 30 secondes. Le journal de changements du SD
 
 ## Build et vérification locale
 
-`build.bat Release` compile à partir du dépôt frère `CyMCPSDK`. Pour choisir un autre dossier, configure CMake avec `-DSX_CYMCP_SOURCE_DIR=CHEMIN`. Si les sources locales sont absentes, CMake récupère la révision de référence du dépôt GitHub. `ShaderixelCli.exe version` indique la révision réellement compilée. L’intégration a été écrite contre CyMCPSDK `0.7.0` et `791d4d7d7680213b282ec8529d248a10f8494d77`, avec Core, Platform, HTTP, MCP, AI et le contrôleur de conversation indépendant du panneau CyUI.
+`build.bat Release` compile à partir du dépôt frère `CyMCPSDK`. Pour choisir un autre dossier, configure CMake avec `-DSX_CYMCP_SOURCE_DIR=CHEMIN`. Cette version embarque CyMCPSDK `0.7.2` au commit `e562c731a146d599e3404718ea8414bb5b96b66d`. CMake récupère la même révision sur GitHub si les sources locales sont absentes. `ShaderixelCli.exe version` indique la révision réellement compilée.
 
 ```powershell
 python tools/mcp/test_shaderixel_mcp.py build/Release

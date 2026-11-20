@@ -327,6 +327,22 @@ void App::DrawAiPanel() {
     }
     if (ImGui::CollapsingHeader("Serveur MCP")) {
         ImGui::TextDisabled("CyMCPSDK %s (%.*s)", cymcp::version, 12, SX_CYMCP_REVISION);
+        const auto profiles = McpAccessOptions();
+        const auto current = std::ranges::find(profiles, aiSettings.mcpProfile, &McpAccessOption::profile);
+        if (ImGui::BeginCombo("Profil MCP", current->label)) {
+            for (const auto& option : profiles) {
+                if (!ImGui::Selectable(option.label, option.profile == aiSettings.mcpProfile) ||
+                    option.profile == aiSettings.mcpProfile) continue;
+                const auto& state = chat.controller.state();
+                if (state.provider_id == "claude-code" && (state.connected || state.busy))
+                    chat.controller.disconnect();
+                aiSettings.mcpProfile = option.profile;
+                chat.error.clear();
+                bridge.SetMcpProfile(option.profile, chat.error);
+                SaveAiSettings();
+            }
+            ImGui::EndCombo();
+        }
         const auto url = bridge.McpUrl();
         if (url.empty()) {
             if (ImGui::Button("Démarrer le serveur MCP")) {
@@ -339,10 +355,12 @@ void App::DrawAiPanel() {
             ImGui::SameLine();
             if (ImGui::Button("Copier la configuration MCP")) ImGui::SetClipboardText(bridge.McpConfiguration().c_str());
         }
-        bool writes = bridge.allowWrites;
-        if (ImGui::Checkbox("Autoriser l'IA à modifier le document", &writes)) { bridge.allowWrites = writes; SaveAiSettings(); }
-        bool files = bridge.allowFiles;
-        if (ImGui::Checkbox("Autoriser l'accès aux fichiers", &files)) { bridge.allowFiles = files; SaveAiSettings(); }
+        if (bridge.ControlsOperations()) {
+            bool writes = bridge.allowWrites;
+            if (ImGui::Checkbox("Autoriser l'IA à modifier le document", &writes)) { bridge.allowWrites = writes; SaveAiSettings(); }
+            bool files = bridge.allowFiles;
+            if (ImGui::Checkbox("Autoriser l'accès aux fichiers", &files)) { bridge.allowFiles = files; SaveAiSettings(); }
+        }
         if (ImGui::Checkbox("Démarrage auto du serveur", &aiSettings.autoStart)) SaveAiSettings();
         if (ImGui::TreeNode("Optimisations MCP")) {
             if (ImGui::Checkbox("Découverte à la demande dans le chat", &aiSettings.compactTools)) SaveAiSettings();

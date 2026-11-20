@@ -2,6 +2,17 @@
 
 [English](VERSION.md) · [Français](VERSION.fr.md) · [README](README.fr.md)
 
+## 0.1.0-alpha.20261120 · Alpha
+
+Installeur et ZIP portable Windows x64 avec D3D12, Vulkan et `ShaderixelCli.exe`.
+
+- Mise à jour vers CyMCPSDK 0.7.2, commit `e562c73`.
+- Free devient le profil par défaut pour les configurations sans choix enregistré. Quand le serveur MCP est activé, l’adresse locale suffit pour appeler toutes les opérations exposées. La validation des arguments reste active.
+- Local contrôlé applique les autorisations de Shaderixel. Jeton seul exige un jeton Bearer. Protégé combine les deux contrôles. Les profils déjà choisis sont conservés.
+- Le README, le guide de l’assistant et le manuel hors ligne décrivent les profils et la connexion des clients MCP et du CLI.
+
+[Publication et fichiers SHA-256](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261120)
+
 ## 0.1.0-alpha.20261119.1 · Alpha
 
 Installeur et ZIP portable Windows x64 avec D3D12, Vulkan et `ShaderixelCli.exe`.

@@ -63,10 +63,11 @@ Connection ReadConnection(const fs::path& path) {
     if (!stream) throw Error("InstanceUnavailable", "Could not open the Shaderixel instance descriptor");
     const auto data = ReadJson(stream, 16384);
     Connection connection{data.at("pid").get<unsigned long>(), data.at("url").get<std::string>(),
-                          data.at("token").get<std::string>()};
+                          data.value("token", std::string())};
     const auto url = cymcp::parse_url(connection.url);
     if (data.at("host") != "Shaderixel" || !connection.url.starts_with("http://127.0.0.1:") ||
-        !url.loopback || url.target != "/" || connection.token.size() < 32 || !Running(connection.pid))
+        !url.loopback || url.target != "/" || (data.contains("token") && connection.token.size() < 32) ||
+        !Running(connection.pid))
         throw Error("InstanceUnavailable", "The Shaderixel instance descriptor is invalid or stale");
     return connection;
 }
@@ -98,7 +99,8 @@ Json Call(const Connection& connection, const Json& message) {
     cymcp::HttpRequest request;
     request.url = connection.url + "/v1";
     request.method = "POST";
-    request.headers = {{"Authorization", "Bearer " + connection.token}, {"Content-Type", "application/json"}};
+    request.headers["Content-Type"] = "application/json";
+    if (!connection.token.empty()) request.headers["Authorization"] = "Bearer " + connection.token;
     request.body = message.dump();
     const auto response = cymcp::HttpClient().perform(request);
     if (response.status == 401) throw Error("AuthenticationRequired", "The Shaderixel instance token is no longer valid");

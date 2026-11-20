@@ -72,7 +72,7 @@ Json ActionCommands() {
 void App::PumpAiInterface() {
     if (!aiUiSequence) return;
     auto& io = ImGui::GetIO();
-    if (!bridge.allowWrites || !bridge.allowFiles) {
+    if (!bridge.CanWrite() || !bridge.CanAccessFiles()) {
         std::unordered_map<ImGuiKey, bool> keys;
         bool buttons[ImGuiMouseButton_COUNT]{};
         for (size_t i = 0; i < aiUiSequence->next; ++i) {
@@ -183,7 +183,7 @@ void App::RegisterAiInterface() {
                 target = item;
             }
             if (!target) return AiResult::Fail("UnknownControl", "Aucune commande ou propriété indexée ne correspond");
-            if (target->kind == 1 && !bridge.allowFiles)
+            if (target->kind == 1 && !bridge.CanAccessFiles())
                 return AiResult::Fail("AccessDenied", "L’activation générique des menus nécessite l’accès aux fichiers");
             Json result = DescribeSearchEntry(*target);
             result["dispatched"] = true;

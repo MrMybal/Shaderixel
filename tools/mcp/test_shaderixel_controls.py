@@ -17,9 +17,7 @@ def check(build, backend):
     image = root / 'input.png'
     make_png(image, 128)
     with provider() as mock:
-        profile, state, _, env, argv = phase_fixture(build, root, image, mock, True, backend)
-        env.pop('SX_MCP_CHAT_RESULT', None)
-        argv = argv[:-2]  # This fixture drives the UI directly.
+        profile, state, _, env, argv = phase_fixture(build, root, image, mock, backend)
         with (profile / 'process.log').open('wb') as log:
             process = subprocess.Popen(argv, cwd=profile, env=env, stdout=log, stderr=subprocess.STDOUT)
             try:

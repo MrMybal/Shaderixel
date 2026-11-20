@@ -472,7 +472,6 @@ bool App::Init() {
     InitPlugins();
     step(0.72f, "Recherche");
     InitSearch();
-    if (aiTest) bridge.allowWrites = true;
     step(0.76f, "Liaisons et pont IA");
     InitLink();
     if (aiSettings.autoStart || launchMcp || aiTest) {

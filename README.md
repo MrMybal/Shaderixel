@@ -12,8 +12,8 @@
     </td>
     <td width="300" align="right" valign="top">
       <p><sub>Application license</sub><br><a href="LICENSE"><strong>GPL-3.0-or-later</strong></a></p>
-      <p><sub>Version</sub><br><a href="VERSION.md"><strong>0.1.0-alpha.20261119.1</strong></a><br><strong>ALPHA</strong></p>
-      <p><a href="https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261119.1/Shaderixel-0.1.0-alpha.20261119.1-windows-x64-setup.exe"><strong>Download the alpha</strong></a><br><sub>Windows x64 · installer</sub></p>
+      <p><sub>Version</sub><br><a href="VERSION.md"><strong>0.1.0-alpha.20261120</strong></a><br><strong>ALPHA</strong></p>
+      <p><a href="https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261120/Shaderixel-0.1.0-alpha.20261120-windows-x64-setup.exe"><strong>Windows x64 installer</strong></a><br><a href="https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261120/Shaderixel-0.1.0-alpha.20261120-windows-x64.zip">Portable ZIP</a></p>
     </td>
   </tr>
 </table>
@@ -25,7 +25,7 @@ creators. Paint and composite with editable layers, assemble image operations
 in a node graph, or create your own HLSL/Slang effects. Paint 3D and PBR tools
 extend the workflow from an image to a material on a mesh.
 
-> **ALPHA · 0.1.0-alpha.20261119.1**
+> **ALPHA · 0.1.0-alpha.20261120**
 >
 > An experimental release for testing and feedback. Features and project formats
 > may change. Keep editable copies of important work and read the
@@ -120,7 +120,7 @@ Windows 10 version 2004 or later is required. Use a GPU and driver compatible
 with Direct3D 12 for `Shaderixel.exe`, or Vulkan for `ShaderixelVk.exe`.
 No macOS or Linux package is currently published.
 
-1. [Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261119.1/Shaderixel-0.1.0-alpha.20261119.1-windows-x64-setup.exe).
+1. [Download the alpha installer](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261120/Shaderixel-0.1.0-alpha.20261120-windows-x64-setup.exe).
 2. Run the setup wizard. It installs for your Windows account, without
    administrator rights, and adds D3D12/Vulkan Start menu shortcuts.
 3. Start Shaderixel and open an image or one of the supplied examples.
@@ -130,10 +130,10 @@ optional desktop shortcut. Runtime libraries, effects, graph functions, examples
 offline documentation and license notices are included. Its interface starts in
 English, with French also available.
 
-Alternatively, [download the portable ZIP](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261119.1/Shaderixel-0.1.0-alpha.20261119.1-windows-x64.zip),
+Alternatively, [download the portable ZIP](https://github.com/MrMybal/Shaderixel/releases/download/v0.1.0-alpha.20261120/Shaderixel-0.1.0-alpha.20261120-windows-x64.zip),
 extract the complete archive into a writable folder and run either executable.
 Keep the supplied directories together.
-[Release notes and SHA-256 files](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261119.1)
+[Release notes and SHA-256 files](https://github.com/MrMybal/Shaderixel/releases/tag/v0.1.0-alpha.20261120)
 accompany both downloads. Uninstall through **Windows Settings > Apps**;
 user-created files and settings are retained.
 
@@ -154,12 +154,13 @@ Open **AI Assistant**, select a provider and connect. The assistant uses the
 same operation registry as `ShaderixelCli.exe` and external MCP clients.
 It can edit layers, run actions, control Paint 3D, edit and replay particle
 scripts, and export textures. It can also inspect the main window, navigate its
-menus and send clicks or keystrokes. Enable editing and file access separately
-in the assistant panel. The installer and portable ZIP both include the CLI.
+menus and send clicks or keystrokes. The installer and portable ZIP both include the CLI.
 
 To connect an external client, start **MCP server** in the panel and copy its
-configuration. With a document open, the following PowerShell commands list
-operations and read the active document:
+configuration. The default **Free** profile uses the local address alone and
+allows every exposed operation. Choose **Protected** to require a Bearer token
+and apply the editing and file access permissions. With a document open, the
+following PowerShell commands list operations and read the active document:
 
 ```powershell
 .\ShaderixelCli.exe list
@@ -228,8 +229,8 @@ To create an installer, install [Inno Setup 7](https://jrsoftware.org/isdl.php)
 and use a fresh package/version name:
 
 ```bat
-python tools/package.py --source-only-unreal --name Shaderixel-0.1.0-alpha.20261119.1-windows-x64
-python tools/build_installer.py --package dist/Shaderixel-0.1.0-alpha.20261119.1-windows-x64 --version 0.1.0-alpha.20261119.1
+python tools/package.py --source-only-unreal --name Shaderixel-0.1.0-alpha.20261120-windows-x64
+python tools/build_installer.py --package dist/Shaderixel-0.1.0-alpha.20261120-windows-x64 --version 0.1.0-alpha.20261120
 ```
 
 Pass `--iscc <path-to-ISCC.exe>` if Inno Setup is not found automatically.

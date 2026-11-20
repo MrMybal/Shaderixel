@@ -5,7 +5,7 @@ description: Shaderixel keeps document settings, application preferences and lib
 section: Handbook
 order: 38
 parent: workspace
-revision: 33dfbbd4b61db74a
+revision: 238818a8c222359e
 ---
 
 Shaderixel keeps document settings, application preferences and library resources in different places. Saving a project does not copy every application preference or external asset.
@@ -30,9 +30,9 @@ Tablet controls select Windows Ink or Wintab and the pressure response curve. If
 
 In AI Assistant, select a chat provider and model. The local MCP server, its permissions and saved conversations have their own controls. The image provider and ComfyUI each keep their own connection and generation settings.
 
-Editing permission applies to tool calls that change a document, project or interface. File access permission also covers generic menu and input automation, because either can open a file command. The CLI and external MCP clients use these same permissions.
+In MCP server, select the access profile. Free is the default and uses the local address alone. Local controlled uses the address and checks editing and file access permissions. Token only requires a Bearer token and allows all exposed operations. Protected requires a token and checks both permissions. The controlled profiles apply file access permission to generic menu and input automation, because either can open a file command.
 
-An API-key field that asks for an environment variable stores its name; configure the actual variable in the environment used to launch the app. Do not put a secret in an exported workflow, filename or screenshot. The bridge's write permission controls client edits; a connection alone does not start an image-generation model.
+When an API-key field asks for an environment variable, enter its name and set its value in the environment used to launch Shaderixel. Keep the value out of exported workflows, filenames and screenshots.
 
 ## Saved files and user libraries {#saved-files-and-user-libraries}
 

@@ -5,7 +5,7 @@ description: Shaderixel distingue réglages du document, préférences de l’ap
 section: Manuel
 order: 38
 parent: workspace
-sourceRevision: 33dfbbd4b61db74a
+sourceRevision: 238818a8c222359e
 ---
 
 Shaderixel distingue réglages du document, préférences de l’application et ressources de bibliothèque. Enregistrer un projet ne copie pas toutes les préférences ni ses ressources externes.
@@ -30,9 +30,9 @@ Les réglages tablette choisissent Windows Ink ou Wintab et la courbe de pressio
 
 Dans Assistant IA, choisissez le fournisseur et le modèle du chat. Le serveur MCP local, ses permissions et la conservation de l’historique ont leurs propres réglages. Le fournisseur d’images et ComfyUI gardent chacun leurs options de connexion et de génération.
 
-L’autorisation de modification s’applique aux opérations qui changent un document, un projet ou l’interface. L’autorisation de fichiers couvre aussi le pilotage générique des menus et des entrées, car il peut ouvrir une commande de fichier. Le CLI et les clients MCP externes appliquent les mêmes droits.
+Dans Serveur MCP, choisissez le profil. Free utilise l’adresse locale seule et s’applique par défaut. Local contrôlé utilise l’adresse et vérifie les autorisations de modification et d’accès aux fichiers. Jeton seul exige un jeton Bearer et autorise toutes les opérations exposées. Protégé exige un jeton et vérifie les deux autorisations. Dans les profils contrôlés, l’accès aux fichiers couvre aussi le pilotage des menus et des entrées qui peuvent lancer une commande de fichier.
 
-Un champ de clé demandant une variable d’environnement conserve son nom ; configurez la vraie variable dans l’environnement de lancement. Ne placez pas de secret dans un workflow exporté, un nom de fichier ou une capture. L’autorisation d’écriture du pont contrôle les modifications des clients ; une connexion seule ne démarre pas un modèle de génération.
+Si le champ de clé demande une variable d’environnement, saisissez son nom et définissez sa valeur dans l’environnement de lancement de Shaderixel. Gardez cette valeur hors des workflows exportés, des noms de fichier et des captures.
 
 ## Fichiers conservés et bibliothèques utilisateur {#saved-files-and-user-libraries}
 

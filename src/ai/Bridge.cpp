@@ -2,6 +2,7 @@
 #include "ai/McpPaths.h"
 
 #include <cymcp/changes.hpp>
+#include <cymcp/http.hpp>
 #include <cymcp/mcp.hpp>
 #include <cymcp/performance.hpp>
 
@@ -15,6 +16,14 @@ using namespace std::chrono_literals;
 
 namespace sx {
 namespace {
+
+using cymcp::LocalAccessProfile;
+constexpr McpAccessOption accessOptions[] = {
+    {LocalAccessProfile::free, "free", "Free"},
+    {LocalAccessProfile::local_controlled, "local_controlled", "Local contrôlé"},
+    {LocalAccessProfile::token_only, "token_only", "Jeton seul"},
+    {LocalAccessProfile::protected_access, "protected", "Protégé"},
+};
 
 Json ErrorJson(const std::string& code, const std::string& message) {
     Json j = Json::Object();
@@ -108,6 +117,7 @@ struct AiBridge::Sdk {
     fs::path state, connection;
     std::string token, url;
     bool cacheDiscovery = true;
+    cymcp::LocalAccessSettings access = cymcp::local_access_settings(LocalAccessProfile::free);
 
     cymcp::Json Invoke(const std::string& name, const cymcp::Json& arguments, const cymcp::CallContext& ctx) {
         auto cancellation = ctx.cancellation.child();
@@ -158,10 +168,16 @@ struct AiBridge::Sdk {
     }
 };
 
+std::span<const McpAccessOption> McpAccessOptions() { return accessOptions; }
+
+AiSettings::AiSettings() : mcpProfile(LocalAccessProfile::free) {}
+
 Json AiSettings::ToJson() const {
     Json j = Json::Object();
     j["python"] = python;
     j["autoStart"] = autoStart;
+    for (const auto& option : McpAccessOptions())
+        if (option.profile == mcpProfile) j["mcpProfile"] = option.id;
     j["allowWrites"] = allowWrites;
     j["allowFiles"] = allowFiles;
     j["compactTools"] = compactTools;
@@ -195,6 +211,13 @@ void AiSettings::FromJson(const Json& j) {
     const AiSettings d;
     python = j["python"].S(d.python);
     autoStart = j["autoStart"].B(d.autoStart);
+    mcpProfile = d.mcpProfile;
+    if (j.Has("mcpProfile")) {
+        mcpProfile = LocalAccessProfile::protected_access;
+        const auto id = j["mcpProfile"].S();
+        for (const auto& option : McpAccessOptions())
+            if (id == option.id) mcpProfile = option.profile;
+    }
     allowWrites = j["allowWrites"].B(d.allowWrites);
     allowFiles = j["allowFiles"].B(d.allowFiles);
     compactTools = j["compactTools"].B(d.compactTools);
@@ -227,6 +250,7 @@ AiBridge::AiBridge() : sdk(std::make_unique<Sdk>(*this)) {}
 AiBridge::~AiBridge() { Shutdown(); }
 
 void AiBridge::Configure(const AiSettings& settings) {
+    sdk->access = cymcp::local_access_settings(settings.mcpProfile);
     allowWrites = settings.allowWrites;
     allowFiles = settings.allowFiles;
     sdk->cacheDiscovery = settings.cacheDiscovery;
@@ -256,7 +280,8 @@ void AiBridge::Configure(const AiSettings& settings) {
     }
     auto help = std::make_shared<const std::string>(
         "Shaderixel: use document_info to inspect the active document. List effects before adding a filter. "
-        "Mutations require the write permission in the Assistant panel. Save explicitly; editing tools never save automatically. "
+        "Controlled access profiles apply the write and file permissions from the Assistant panel. "
+        "Save explicitly. Editing tools never save automatically. "
         "The render tool returns a private PNG resource; use its manifest to read all chunks.");
     cymcp::Resource guide;
     guide.uri = "shaderixel://assistant/guide";
@@ -286,9 +311,8 @@ void AiBridge::Register(AiOperation op) {
     if (!op.inputSchema.Has("type")) op.inputSchema["type"] = "object";
     if (!op.inputSchema.Has("properties")) op.inputSchema["properties"] = Json::Object();
     const std::string id = op.id;
-    const std::string access = op.write ? " (modifie le document ; autorisation d’écriture requise)" : "";
     try {
-        sdk->registry->add({id, op.description + access, ToSdk(op.inputSchema),
+        sdk->registry->add({id, op.description, ToSdk(op.inputSchema),
             op.outputSchema.IsObject() ? ToSdk(op.outputSchema) : OutputSchema(id),
             !op.write, [this, id](const cymcp::Json& args, const cymcp::CallContext& c) { return sdk->Invoke(id, args, c); }});
     } catch (const std::exception& e) {
@@ -323,6 +347,17 @@ bool AiBridge::Start(const std::string&) {
            server.Start(base, 41000, [this](const net::Request& r, std::string& out) { return Handle(r, out); });
 }
 
+bool AiBridge::ControlsOperations() const { return sdk->access.control_operations; }
+
+bool AiBridge::SetMcpProfile(LocalAccessProfile profile, std::string& error) {
+    const auto access = cymcp::local_access_settings(profile);
+    if (sdk->access == access) return true;
+    const bool restart = sdk->http != nullptr;
+    if (restart) StopMcp();
+    sdk->access = access;
+    return !restart || StartMcp(error);
+}
+
 bool AiBridge::StartMcp(std::string& error) {
     if (sdk->http) return true;
     try {
@@ -333,28 +368,35 @@ bool AiBridge::StartMcp(std::string& error) {
         options.performance = sdk->performance;
         options.cache_ttl = sdk->cacheDiscovery ? 30s : 0s;
         sdk->mcp = std::make_unique<cymcp::McpServer>(*sdk->registry, "Shaderixel", options);
-        sdk->token = cymcp::random_token();
-        sdk->http = std::make_unique<cymcp::LocalHttpServer>(sdk->token,
-            [this](const cymcp::Json& request, const cymcp::CallContext& context) -> cymcp::Json {
-                if (request.contains("jsonrpc")) return sdk->mcp->handle(request, context);
-                const auto method = request.value("method", std::string());
-                if (method == "describe" && request.contains("name"))
-                    return sdk->registry->describe(request.at("name").get<std::string>());
-                if (method == "read") return sdk->resources->read(request.at("uri").get<std::string>(), context);
-                if (method == "resources") return sdk->resources->list();
-                if (method == "grep")
-                    return sdk->resources->grep(request.at("text").get<std::string>(), request.value("ignoreCase", false),
-                                                request.value("cursor", std::string()), context);
-                return cymcp::dispatch_app(*sdk->registry, request, context);
-            });
+        const auto endpoint = [this](const cymcp::Json& request, const cymcp::CallContext& context) -> cymcp::Json {
+            if (request.contains("jsonrpc")) return sdk->mcp->handle(request, context);
+            const auto method = request.value("method", std::string());
+            if (method == "describe" && request.contains("name"))
+                return sdk->registry->describe(request.at("name").get<std::string>());
+            if (method == "read") return sdk->resources->read(request.at("uri").get<std::string>(), context);
+            if (method == "resources") return sdk->resources->list();
+            if (method == "grep")
+                return sdk->resources->grep(request.at("text").get<std::string>(), request.value("ignoreCase", false),
+                                            request.value("cursor", std::string()), context);
+            return cymcp::dispatch_app(*sdk->registry, request, context);
+        };
+        if (sdk->access.require_token) {
+            sdk->token = cymcp::random_token();
+            sdk->http = std::make_unique<cymcp::LocalHttpServer>(sdk->token, endpoint);
+        } else {
+            sdk->http = std::make_unique<cymcp::LocalHttpServer>(
+                cymcp::LocalHttpServer::UnauthenticatedLoopback{}, endpoint);
+        }
         const int port = sdk->http->start();
         sdk->url = "http://127.0.0.1:" + std::to_string(port);
         const DWORD pid = GetCurrentProcessId();
         sdk->connection = mcplocal::ConnectionPath(pid);
-        const auto data = cymcp::Json{
-            {"pid", pid}, {"url", sdk->url}, {"token", sdk->token}, {"host", "Shaderixel"},
+        cymcp::Json descriptor{
+            {"pid", pid}, {"url", sdk->url}, {"host", "Shaderixel"},
             {"sdkVersion", cymcp::version}
-        }.dump();
+        };
+        if (!sdk->token.empty()) descriptor["token"] = sdk->token;
+        const auto data = descriptor.dump();
         auto connection = cymcp::open_private_output_file(sdk->connection);
         if (std::fwrite(data.data(), 1, data.size(), connection.get()) != data.size() ||
             std::fflush(connection.get()) != 0)
@@ -385,9 +427,9 @@ std::string AiBridge::McpUrl() const { return sdk->url.empty() ? "" : sdk->url +
 
 std::string AiBridge::McpConfiguration() const {
     if (sdk->url.empty()) return {};
-    return cymcp::Json{{"mcpServers", {{"shaderixel", {
-        {"type", "http"}, {"url", McpUrl()}, {"headers", {{"Authorization", "Bearer " + sdk->token}}}
-    }}}}}.dump(2);
+    cymcp::Json configuration{{"type", "http"}, {"url", McpUrl()}};
+    if (!sdk->token.empty()) configuration["headers"]["Authorization"] = "Bearer " + sdk->token;
+    return cymcp::Json{{"mcpServers", {{"shaderixel", std::move(configuration)}}}}.dump(2);
 }
 
 void AiBridge::Shutdown() {
@@ -512,9 +554,9 @@ void AiBridge::Pump() {
         AiResult result;
         try {
             if (!op) result = AiResult::Fail("UnknownOperation", "Opération inconnue");
-            else if (!call.trusted && op->write && !allowWrites)
+            else if (!call.trusted && op->write && !CanWrite())
                 result = AiResult::Fail("AccessDenied", "Autorisez les modifications dans le panneau Assistant IA");
-            else if (!call.trusted && !allowFiles && (op->fileAccess || op->id == "shaderixel.document_save" ||
+            else if (!call.trusted && !CanAccessFiles() && (op->fileAccess || op->id == "shaderixel.document_save" ||
                      std::ranges::any_of(op->inputFiles, [&](const auto& name) { return !call.params[name].S().empty(); }) ||
                      (op->id == "shaderixel.effect_from_hlsl" && call.params["target"].S() == "library")))
                 result = AiResult::Fail("AccessDenied", "Autorisez l’accès aux fichiers dans le panneau Assistant IA");
